@@ -1,5 +1,6 @@
 import { repeatedIn } from '@shared-kernel/domain/services/distinct';
 import type { StationKind } from '@work/domain/entities/station.entity';
+import type { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 
 interface LaidStation {
   readonly key: string;
@@ -22,7 +23,12 @@ export type LinePart =
   | {
       readonly of: 'station';
       readonly station: string;
-      readonly field: 'passesTo' | 'tools' | 'skills' | 'harnessVersion';
+      readonly field: 'passesTo' | 'tools' | 'skills';
+    }
+  | {
+      readonly of: 'repository';
+      readonly place: number;
+      readonly field: 'setup';
     }
   | {
       readonly of: 'reaction';
@@ -125,6 +131,27 @@ export const stationsRefused = (
   }
 
   return null;
+};
+
+interface CheckingStation {
+  readonly key: { readonly value: string };
+  readonly check: unknown;
+  readonly diffs: boolean;
+}
+
+export const setupRefused = (
+  stations: readonly CheckingStation[],
+  repositories: LineRepositories,
+): LayoutRefusal | null => {
+  const checking = stations.find((each) => each.check !== null && each.diffs);
+  const unready = repositories.entries.findIndex((each) => !each.setup);
+
+  return checking && unready >= 0
+    ? {
+        reason: `has ${checking.key.value}, which checks its layers, so ${repositories.entries[unready]?.repository.value} has to say how its checkout is made ready`,
+        part: { of: 'repository', place: unready, field: 'setup' },
+      }
+    : null;
 };
 
 export const reactionsRefused = (

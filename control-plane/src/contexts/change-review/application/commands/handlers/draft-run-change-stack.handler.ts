@@ -2,6 +2,7 @@ import type { DraftRunChangeStackCommand } from '@change-review/application/comm
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -39,7 +40,13 @@ export class DraftRunChangeStackHandler
           diff: command.diff,
           repository: command.repository,
           base: command.base,
-          request: run.request,
+          request: run.checking
+            ? CheckRequest.of(
+                run.checking.command,
+                run.checking.setups.get(command.repository ?? '') ?? null,
+                run.checking.placement,
+              )
+            : null,
         },
       );
     } catch (error) {

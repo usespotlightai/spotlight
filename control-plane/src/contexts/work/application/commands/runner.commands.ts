@@ -10,6 +10,14 @@ export class RenewLeaseCommand {
   ) {}
 }
 
+export class RecordRunImageCommand {
+  constructor(
+    readonly runId: string,
+    readonly runnerId: string,
+    readonly image: string,
+  ) {}
+}
+
 export interface AppendedJournalEntry {
   readonly seq: number;
   readonly type: string;
@@ -48,16 +56,10 @@ export class EnqueueRunCommand {
   ) {}
 }
 
-export interface HostHarnessReport {
-  readonly id: string;
-  readonly models: readonly string[];
-  readonly version?: string;
-}
-
 export class ClaimHostWorkCommand {
   constructor(
     readonly credential: HostCredential,
     readonly host: string,
-    readonly harnesses: readonly HostHarnessReport[],
+    readonly image: string,
   ) {}
 }

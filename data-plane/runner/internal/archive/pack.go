@@ -38,7 +38,7 @@ func (p *Packed) Remove() error {
 	return os.Remove(p.Path)
 }
 
-func Pack(dir, scratch string) (*Packed, error) {
+func Pack(dir, scratch string, leaveOut []string) (*Packed, error) {
 	file, err := os.CreateTemp(scratch, "workspace-*.tar.gz")
 	if err != nil {
 		return nil, fmt.Errorf("make room to pack the workspace: %w", err)
@@ -47,7 +47,7 @@ func Pack(dir, scratch string) (*Packed, error) {
 	packed := &Packed{Path: file.Name()}
 	counted := &counter{into: file, sum: sha256.New()}
 
-	err = write(dir, counted)
+	err = write(dir, counted, leftOut(leaveOut))
 	if closeErr := file.Close(); err == nil {
 		err = closeErr
 	}
@@ -62,7 +62,15 @@ func Pack(dir, scratch string) (*Packed, error) {
 	return packed, nil
 }
 
-func write(dir string, into io.Writer) error {
+func leftOut(names []string) map[string]bool {
+	left := make(map[string]bool, len(names))
+	for _, each := range names {
+		left[filepath.ToSlash(filepath.Clean(each))] = true
+	}
+	return left
+}
+
+func write(dir string, into io.Writer, leaveOut map[string]bool) error {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return fmt.Errorf("open the workspace to pack: %w", err)
@@ -83,17 +91,23 @@ func write(dir string, into io.Writer) error {
 			return nil
 		}
 
+		name, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		if leaveOut[filepath.ToSlash(name)] {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		info, err := entry.Info()
 		if err != nil {
 			return err
 		}
 		if info.Mode()&skipped != 0 {
 			return nil
-		}
-
-		name, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
 		}
 
 		return archive.add(filepath.ToSlash(name), info)

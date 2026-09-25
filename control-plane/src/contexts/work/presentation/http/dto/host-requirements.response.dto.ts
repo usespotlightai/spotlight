@@ -1,0 +1,45 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
+
+export class RunnerReleaseResponseDto {
+  @ApiProperty({
+    example: '20260925-01',
+    description:
+      'The oldest runner release this control plane works with; a host refuses an image whose runner is older',
+  })
+  readonly atLeast: string;
+
+  constructor(atLeast: string) {
+    this.atLeast = atLeast;
+  }
+}
+
+export class HostRequirementsResponseDto {
+  @ApiProperty({ type: RunnerReleaseResponseDto })
+  readonly runner: RunnerReleaseResponseDto;
+
+  @ApiProperty({
+    type: [InstallableHarnessResponseDto],
+    description: 'What a host looks for in each runner image',
+  })
+  readonly harnesses: readonly InstallableHarnessResponseDto[];
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['ghcr.io/acme/api-runner:main'],
+    description:
+      'The images this workspace’s lines name; a host serves those its allow-list admits, beside its default',
+  })
+  readonly images: readonly string[];
+
+  constructor(
+    runner: RunnerReleaseResponseDto,
+    harnesses: readonly InstallableHarnessResponseDto[],
+    images: readonly string[],
+  ) {
+    this.runner = runner;
+    this.harnesses = harnesses;
+    this.images = images;
+  }
+}

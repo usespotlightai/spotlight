@@ -27,6 +27,7 @@ export interface TaskRunSummary {
   readonly startedAt: Date;
   readonly updatedAt: Date;
   readonly harness: string;
+  readonly image: string | null;
   readonly station: RunStationSummary | null;
   readonly review: RunReview | null;
 }

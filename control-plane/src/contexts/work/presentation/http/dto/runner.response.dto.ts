@@ -129,12 +129,20 @@ export class ClaimedRunResponseDto {
   readonly id: string;
 
   @ApiProperty({
-    description: 'Opaque to the control plane, meaningful to the hook',
+    example: 'claude-code',
+    description:
+      'The harness the run needs, so a host can tell whether the image it pulled still holds it',
+  })
+  readonly harness: string;
+
+  @ApiProperty({
+    description: 'What the runner lays out and starts, as the runner reads it',
   })
   readonly spec: unknown;
 
-  constructor(id: string, spec: unknown) {
+  constructor(id: string, harness: string, spec: unknown) {
     this.id = id;
+    this.harness = harness;
     this.spec = spec;
   }
 }

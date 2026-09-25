@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -21,8 +20,8 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/acp"
 	"usespotlight.ai/data-plane/runner/internal/declare"
 	"usespotlight.ai/data-plane/runner/internal/gitproxy"
-	"usespotlight.ai/data-plane/runner/internal/hook"
 	"usespotlight.ai/data-plane/runner/internal/otel"
+	"usespotlight.ai/data-plane/runner/internal/prepare"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
 	"usespotlight.ai/data-plane/runner/internal/workspace"
 )
@@ -45,22 +44,26 @@ type Journal interface {
 }
 
 const (
+	prepareStep = "prepare"
+	setupStep   = "setup"
+)
+
+const (
 	flushEvery = 200 * time.Millisecond
 	renewEvery = 2 * time.Second
 	steerEvery = 2 * time.Second
 )
 
 type Options struct {
-	WorkspaceRoot string
-	Journal       Journal
-	Log           *slog.Logger
-	// Hooks run as the runner, never the agent, so their credentials never meet model-directed code.
-	PrepareHook  string
-	PublishHook  string
-	HookTimeout  time.Duration
+	Workspace    string
+	Journal      Journal
+	Log          *slog.Logger
 	AgentUser    *account.User
+	Author       prepare.Author
+	Mirrors      string
 	ControlPlane string
 	Token        string
+	SetupTimeout time.Duration
 }
 
 func Execute(ctx context.Context, run protocol.Run, opts Options) error {
@@ -69,20 +72,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	lifecycle := &progress{state: Preparing}
 
-	key := run.Spec.Continuity.Key
-	if key == "" {
-		key = run.ID
-	}
-
-	space, err := workspace.Create(opts.WorkspaceRoot, key)
+	space, err := workspace.Open(opts.Workspace)
 	if err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("create workspace: %w", err))
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
-	defer func() {
-		if err := space.Remove(); err != nil {
-			log.Warn("could not remove workspace", "error", err)
-		}
-	}()
 
 	keeper := newKeeper(run, space, journal, opts.Journal, log)
 	keeper.restore(ctx)
@@ -101,8 +94,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		run.Spec.Checkouts = reached(run.Spec.Checkouts, serving.Remote)
 	}
 
-	// Before the handover, so the hook's credentials are gone before the agent can look.
-	if err := opts.runHook(ctx, opts.PrepareHook, space.Dir, run, journal, log, "prepare"); err != nil {
+	// As the runner, before the handover, so nothing prepare holds is left for the agent to find.
+	if err := opts.prepare(ctx, space.Dir, run, journal); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
@@ -144,6 +137,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
 		}
 	}
+
+	opts.setUp(ctx, space.Dir, run.Spec.Checkouts, journal, log)
 
 	if err := lifecycle.reach(WorkspaceReady); err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -236,23 +231,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		declared = space.Outcome()
 	}
 
-	// Before the publish hook, so nothing its credentials leave behind is carried to the next agent.
 	leave()
-
-	// After the agent has exited, so push credentials never overlap with it.
-	if err := opts.runHook(ctx, opts.PublishHook, space.Dir, run, journal, log, "publish"); err != nil {
-		journal.flush(ctx)
-		if completeErr := opts.Journal.Complete(ctx, run.ID, protocol.Completion{
-			ExitCode:  exitCode,
-			Failed:    true,
-			Message:   err.Error(),
-			Outcome:   declared,
-			SessionID: sessionID,
-		}); completeErr != nil {
-			log.Warn("could not report the failure", "error", completeErr)
-		}
-		return err
-	}
 
 	journal.flush(ctx)
 	if err := lifecycle.reach(Drained); err != nil {
@@ -706,43 +685,43 @@ func (p *progress) reach(trigger Trigger) error {
 	return nil
 }
 
-func (o Options) runHook(
-	ctx context.Context,
-	path, dir string,
-	run protocol.Run,
-	journal *journalWriter,
-	log *slog.Logger,
-	name string,
-) error {
-	output, err := hook.Run(ctx, hook.Spec{
-		Path:    path,
-		Dir:     dir,
-		Payload: run.Spec,
-		Env: map[string]string{
-			"SPOTLIGHT_RUN_ID":        run.ID,
-			"SPOTLIGHT_WORKSPACE_DIR": dir,
-		},
-		Timeout: o.HookTimeout,
-	})
-
-	if errors.Is(err, hook.ErrNoHook) {
+func (o Options) prepare(ctx context.Context, dir string, run protocol.Run, journal *journalWriter) error {
+	if len(run.Spec.Checkouts) == 0 {
 		return nil
 	}
 
+	output, err := prepare.Checkouts(ctx, run.Spec.Checkouts, prepare.Options{
+		Dir:     dir,
+		Mirrors: o.Mirrors,
+		Author:  o.Author,
+	})
 	if output != "" {
-		journal.append(protocol.Event{
-			Type:    protocol.EventOutput,
-			Message: name,
-			Data:    []byte(output),
-		})
+		journal.append(protocol.Event{Type: protocol.EventOutput, Message: prepareStep, Data: []byte(output)})
 	}
-
 	if err != nil {
-		return fmt.Errorf("%s hook: %w", name, err)
+		return fmt.Errorf("prepare: %w", err)
 	}
 
-	log.Info("hook finished", "hook", name)
 	return nil
+}
+
+func (o Options) setUp(
+	ctx context.Context, dir string, checkouts []protocol.Checkout, journal *journalWriter, log *slog.Logger,
+) {
+	for _, checkout := range checkouts {
+		if checkout.Setup == "" {
+			continue
+		}
+
+		output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout)
+		if err != nil {
+			log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
+			output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetting up %s failed: %v", output, checkout.Path, err))
+		}
+		if output != "" {
+			journal.append(protocol.Event{Type: protocol.EventOutput, Message: setupStep, Data: []byte(output)})
+		}
+	}
 }
 
 type journalWriter struct {

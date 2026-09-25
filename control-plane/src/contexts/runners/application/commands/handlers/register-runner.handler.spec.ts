@@ -44,7 +44,8 @@ describe('RegisterRunnerHandler', () => {
     const saved = save.mock.calls[0]?.[0] as Runner;
 
     expect(saved.harnesses.map((each) => each.value)).toEqual(['claude-code']);
-    expect(saved.terms.values).toEqual(['linux', 'claude-code@2.1.0']);
+    expect(saved.terms.values).toEqual(['linux']);
+    expect(saved.installed[0]?.version?.value).toBe('2.1.0');
   });
 
   it('marks the runner as having reached us', async () => {

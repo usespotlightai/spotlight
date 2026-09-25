@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { runnerKeys } from '@/hooks/api/useRunners';
-import type { HarnessResponseDto } from '@/lib/api';
+import type { HarnessResponseDto, HostImageResponseDto } from '@/lib/api';
 import type { Fleet } from '@/lib/runner';
 import { failQuery } from '@/stories/failQuery';
 
@@ -27,6 +27,23 @@ const HARNESSES: HarnessResponseDto[] = [
   harness('gemini', 'Gemini CLI'),
 ];
 
+const DIGEST =
+  'a3f9c2e17b4d58f6e0c1a2b3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b';
+
+const image = (
+  name: string,
+  harnesses: readonly [string, string][],
+  over: Partial<HostImageResponseDto> = {},
+): HostImageResponseDto => ({
+  image: name,
+  digest: `${name.replace(/:[^/:]+$/, '')}@sha256:${DIGEST}`,
+  usual: false,
+  release: '20260925-01',
+  harnesses: harnesses.map(([id, version]) => ({ id, version })),
+  refused: null,
+  ...over,
+});
+
 const FLEET: Fleet = {
   hosts: [
     {
@@ -37,7 +54,17 @@ const FLEET: Fleet = {
       executor: 'Docker Engine - Community 27.3.1 (linux/amd64)',
       capacity: 4,
       running: ['runner_1', 'runner_2'],
-      harnesses: ['claude-code', 'cursor'],
+      images: [
+        image(
+          'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
+          [
+            ['claude-code', '2.1.270'],
+            ['cursor', '2026.09.18'],
+          ],
+          { usual: true },
+        ),
+        image('ghcr.io/acme/api-runner:main', [['claude-code', '2.1.270']]),
+      ],
       firstSeenAt: minutesAgo(3 * 24 * 60),
       lastSeenAt: minutesAgo(0),
       answering: true,
@@ -54,7 +81,23 @@ const FLEET: Fleet = {
       executor: 'OrbStack 1.9.2 (linux/arm64)',
       capacity: 2,
       running: [],
-      harnesses: ['claude-code', 'cursor', 'codex', 'gemini'],
+      images: [
+        image(
+          'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
+          [
+            ['claude-code', '2.1.270'],
+            ['cursor', '2026.09.18'],
+            ['codex', '0.41.0'],
+            ['gemini', '0.9.1'],
+          ],
+          { usual: true },
+        ),
+        image('ghcr.io/acme/legacy-runner:2025', [], {
+          release: null,
+          refused:
+            'its runner reports no release, so it is older than the 20260925-01 this control plane needs',
+        }),
+      ],
       firstSeenAt: minutesAgo(40),
       lastSeenAt: minutesAgo(0),
       answering: true,
@@ -68,7 +111,13 @@ const FLEET: Fleet = {
       executor: 'Podman Engine 5.2.1 (linux/amd64)',
       capacity: 8,
       running: [],
-      harnesses: ['claude-code'],
+      images: [
+        image(
+          'ghcr.io/usespotlightai/spotlight-runner:20260801-02',
+          [['claude-code', '2.1.180']],
+          { usual: true, release: '20260801-02' },
+        ),
+      ],
       firstSeenAt: minutesAgo(9 * 60),
       lastSeenAt: minutesAgo(3 * 60),
       answering: false,
@@ -80,6 +129,7 @@ const FLEET: Fleet = {
       id: 'runner_cloud_1',
       through: { kind: 'pool', key: 'ephemeral' },
       hostId: null,
+      image: null,
       harnesses: ['claude-code'],
       startedAt: minutesAgo(4),
       lastSeenAt: minutesAgo(0),

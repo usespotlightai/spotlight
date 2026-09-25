@@ -1,10 +1,12 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,10 +24,12 @@ import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error'
 import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
 import { UnknownHappeningError } from '@work/domain/exceptions/unknown-happening.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
+import { UnreadyRepositoryError } from '@work/domain/exceptions/unready-repository.error';
 import type { LineOpening } from '@work/domain/services/built-in-lines';
 import { entryOf } from '@work/domain/services/line-entry';
 import {
   reactionsRefused,
+  setupRefused,
   stationsRefused,
 } from '@work/domain/services/line-layout';
 import type { TasksStanding } from '@work/domain/services/reconcile-line';
@@ -51,11 +55,7 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
-
-const sameOrBothNone = <T extends { equals(other: T): boolean }>(
-  a: T | null,
-  b: T | null,
-): boolean => (a === null || b === null ? a === b : a.equals(b));
+import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 
 export type PassRefusal = 'standing-there' | 'nothing-runs' | 'no-way';
 
@@ -65,7 +65,7 @@ export interface LineLayout {
   readonly stations: readonly Station[];
   readonly reactions?: readonly Reaction[];
   readonly role?: LineRole | null;
-  readonly repositories?: readonly Repository[];
+  readonly repositories?: readonly WorkedRepository[];
   readonly reviews?: ReviewPolicy | null;
   readonly placement?: RunnerPlacement;
 }
@@ -215,6 +215,13 @@ export class Line extends EventRecorder {
       throw new InvalidStationLayoutError(reacting.reason);
     }
 
+    const repositories = LineRepositories.of(layout.repositories ?? []);
+    const unready = setupRefused(stations, repositories);
+
+    if (unready) {
+      throw new UnreadyRepositoryError(unready.reason);
+    }
+
     if (layout.reviews && !reviewsOn(layout.role ?? null)) {
       throw new InvalidReviewPolicyError(
         `belongs only on a line whose role is ${LineRole.REVIEW.value}`,
@@ -230,7 +237,7 @@ export class Line extends EventRecorder {
       stations,
       reactions,
       layout.role ?? null,
-      LineRepositories.of(layout.repositories ?? []),
+      repositories,
       layout.reviews ?? null,
       layout.placement ?? RunnerPlacement.anywhere(),
       version,
@@ -322,7 +329,7 @@ export class Line extends EventRecorder {
         stations: part.stations ?? this.stations,
         reactions: part.reactions ?? this.reactions,
         role: part.role !== undefined ? part.role : this.role,
-        repositories: part.repositories ?? this.repositories.all,
+        repositories: part.repositories ?? this.repositories.entries,
         reviews: part.reviews !== undefined ? part.reviews : this.reviews,
         placement: part.placement ?? this.placement,
       },
@@ -380,7 +387,15 @@ export class Line extends EventRecorder {
   placementOf(stationId: StationId): RunnerPlacement {
     return (
       this.stationAt(stationId)?.placement.or(this.placement) ?? this.placement
-    );
+    ).in(this.image);
+  }
+
+  get runsIn(): RunnerPlacement {
+    return this.placement.in(this.image);
+  }
+
+  get image(): RunnerImage | null {
+    return this.repositories.image;
   }
 
   get harness(): HarnessId | null {
@@ -406,7 +421,7 @@ export class Line extends EventRecorder {
     return this.repositories.named(name);
   }
 
-  worksIn(repositories: readonly Repository[]): Line {
+  worksIn(repositories: readonly WorkedRepository[]): Line {
     return this.changed({ repositories });
   }
 

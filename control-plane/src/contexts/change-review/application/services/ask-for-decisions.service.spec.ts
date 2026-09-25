@@ -33,7 +33,7 @@ const asking = (
       id: RUN,
       workspaceId: WORKSPACE,
       taskId: TASK,
-      request: null,
+      checking: null,
       ended: true,
       completed: true,
       decisions: true,

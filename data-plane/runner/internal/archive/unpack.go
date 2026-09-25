@@ -86,6 +86,10 @@ func (r *restoring) place(archive *tar.Reader, header *tar.Header, name string) 
 		}
 	}
 
+	if err := r.makeRoom(name, header.Typeflag == tar.TypeDir); err != nil {
+		return err
+	}
+
 	switch header.Typeflag {
 	case tar.TypeDir:
 		if err := r.root.MkdirAll(name, 0o700); err != nil {
@@ -131,6 +135,17 @@ func (r *restoring) write(archive *tar.Reader, header *tar.Header, name string, 
 		return err
 	}
 	return r.root.Chtimes(name, header.ModTime, header.ModTime)
+}
+
+func (r *restoring) makeRoom(name string, dir bool) error {
+	there, err := r.root.Lstat(name)
+	if err != nil {
+		return nil
+	}
+	if dir && there.IsDir() {
+		return nil
+	}
+	return r.root.RemoveAll(name)
 }
 
 // Deepest first, so a folder that allows no writing is closed only once everything in it is written.

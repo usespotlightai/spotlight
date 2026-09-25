@@ -45,6 +45,7 @@ const RUN: TeamRunResponseDto = {
   startedAt: minutesAgo(40),
   updatedAt: minutesAgo(22),
   harness: 'claude-code',
+  image: null,
   station: IMPLEMENTATION,
   review: null,
   taskId: TASK_ID,

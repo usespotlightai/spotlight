@@ -20,6 +20,9 @@ export const standing = (run: Run): string | null => {
   return null;
 };
 
+export const imageShown = (image: string): string =>
+  image.replace(/@sha256:([0-9a-f]{12})[0-9a-f]{52}$/, '@sha256:$1');
+
 export const runPath = (slug: string, teamId: string, runId: string): string =>
   `/w/${slug}/team/${teamId}/runs/${encodeURIComponent(runId)}`;
 

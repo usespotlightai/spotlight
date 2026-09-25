@@ -14,6 +14,7 @@ const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
   startedAt: new Date('2026-08-28T16:32:47.877Z'),
   updatedAt: new Date('2026-08-28T16:33:25.712Z'),
   harness: 'claude-code',
+  image: null,
   station: {
     name: 'Implementation',
     color: '#edc12b',
@@ -50,6 +51,18 @@ describe('ListTaskRunsHandler', () => {
       count: 5,
     });
     expect(only?.harness).toBe('claude-code');
+  });
+
+  it('carries the image a run ran in, or none where its runner never said', async () => {
+    const pinned = `ghcr.io/acme/widgets@sha256:${'a'.repeat(64)}`;
+    const { runs } = reading([summary({ image: pinned }), summary()]);
+
+    const [ran, unsaid] = await new ListTaskRunsHandler(runs).execute(
+      new ListTaskRunsQuery('task_1', 'user_1'),
+    );
+
+    expect(ran?.image).toBe(pinned);
+    expect(unsaid?.image).toBeNull();
   });
 
   it('leaves a run dispatched to no station without one', async () => {

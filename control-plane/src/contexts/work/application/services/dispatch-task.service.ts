@@ -59,6 +59,7 @@ const written = (
       ...(checkout.branch ? { branch: checkout.branch.value } : {}),
       ...(checkout.ref ? { ref: checkout.ref } : {}),
       ...(checkout.diffOf === 'commits' ? { diffOf: checkout.diffOf } : {}),
+      ...(checkout.setup ? { setup: checkout.setup.value } : {}),
     })),
     command: command.started({ [TRACE_PARENT_VAR]: naming }),
     briefing,

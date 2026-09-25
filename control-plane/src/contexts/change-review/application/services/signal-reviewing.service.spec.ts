@@ -50,7 +50,7 @@ const signalling = (
         id: runId,
         workspaceId: WorkspaceId.of('ws_1'),
         taskId: TASK,
-        request: null,
+        checking: null,
         ended: ended.some((each) => each.equals(runId)),
         completed: false,
         decisions: false,

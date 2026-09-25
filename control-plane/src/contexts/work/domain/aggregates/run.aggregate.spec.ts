@@ -3,6 +3,8 @@ import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
@@ -636,6 +638,62 @@ describe('Run', () => {
 
       expect(again.provisioning.failures).toBe(0);
       expect(again.provisionableAt(later(5_000))).toBe(true);
+    });
+  });
+
+  describe('recording the image it runs in', () => {
+    const pinned = RunnerImage.of(
+      `ghcr.io/acme/widgets@sha256:${'e'.repeat(64)}`,
+    );
+
+    it('runs in no image it knows of until its runner says', () => {
+      expect(claimed().ranIn).toBeNull();
+    });
+
+    it('keeps the image its holder says it started in', () => {
+      expect(claimed().startedIn(runner(), pinned).ranIn).toBe(pinned);
+    });
+
+    it('refuses the image from a runner that does not hold it, or while nobody does', () => {
+      expect(() => claimed().startedIn(runner('runner_2'), pinned)).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(() => queued().startedIn(runner(), pinned)).toThrow(
+        InvalidRunTransitionError,
+      );
+    });
+
+    it('refuses an image not named by its digest', () => {
+      expect(() =>
+        claimed().startedIn(runner(), RunnerImage.of('ghcr.io/acme/widgets:1')),
+      ).toThrow(/by digest/);
+    });
+
+    it('refuses a digest of another image than its line names', () => {
+      const inWidgets = Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        spec: aSpec('sh'),
+        placement: RunnerPlacement.anywhere().in(
+          RunnerImage.of('ghcr.io/acme/widgets:main'),
+        ),
+      }).claim(runner(), noon);
+
+      expect(inWidgets.startedIn(runner(), pinned).ranIn).toBe(pinned);
+      expect(() =>
+        inWidgets.startedIn(
+          runner(),
+          RunnerImage.of(`ghcr.io/acme/other@sha256:${'e'.repeat(64)}`),
+        ),
+      ).toThrow(/runs in ghcr.io\/acme\/widgets:main/);
+    });
+
+    it('forgets the image once it goes back on the queue', () => {
+      const started = claimed().startedIn(runner(), pinned);
+
+      expect(started.requeue(started.leaseExpiresAt as Date).ranIn).toBeNull();
+      expect(started.release().ranIn).toBeNull();
     });
   });
 });

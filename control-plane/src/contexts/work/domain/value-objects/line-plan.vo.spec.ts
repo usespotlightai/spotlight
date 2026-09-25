@@ -1,5 +1,5 @@
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import { Happening } from '@work/domain/value-objects/happening.vo';
@@ -9,9 +9,12 @@ import {
   LinePlan,
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
+import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const MERGED = Happening.of('github.pull_request.merged');
@@ -29,10 +32,8 @@ const station = (
   model: null,
   effort: null,
   profile: null,
-  harnessVersion: null,
   agentPrompt: null,
   check: null,
-  setup: null,
   placement: RunnerPlacement.anywhere(),
   diffs: false,
   decisions: false,
@@ -61,6 +62,25 @@ const plan = (over: Partial<Parameters<typeof LinePlan.of>[0]> = {}) =>
     ...over,
   });
 
+const worked = (name: string, setup?: string) =>
+  WorkedRepository.of(Repository.of(name), {
+    setup: setup ? RepositorySetup.of(setup) : null,
+  });
+
+const checking = (over: Partial<StationPlan> = {}) =>
+  station('code-review', {
+    ends: true,
+    check: StationCheck.of('npm test'),
+    diffs: true,
+    ...over,
+  });
+
+const withStations = (middle: StationPlan) => [
+  backlog({ passesTo: [StationKey.of('code-review')] }),
+  middle,
+  completed(),
+];
+
 const refusal = (make: () => unknown): InvalidLinePlanError => {
   try {
     make();
@@ -83,7 +103,11 @@ describe('LinePlan', () => {
           to: StationKey.of('completed'),
         },
       ],
-      repositories: [Repository.of('acme/api')],
+      repositories: [
+        WorkedRepository.of(Repository.of('acme/api'), {
+          image: RunnerImage.of('ghcr.io/acme/api:1'),
+        }),
+      ],
     });
 
     expect(held.key.value).toBe('default');
@@ -94,7 +118,10 @@ describe('LinePlan', () => {
     ]);
     expect(held.reactions).toHaveLength(1);
     expect(held.role).toBeNull();
-    expect(held.repositories.map((each) => each.value)).toEqual(['acme/api']);
+    expect(held.repositories.all.map((each) => each.value)).toEqual([
+      'acme/api',
+    ]);
+    expect(held.repositories.image?.value).toBe('ghcr.io/acme/api:1');
   });
 
   it('refuses one describing no stations at all', () => {
@@ -255,7 +282,7 @@ describe('LinePlan', () => {
   });
 
   it('refuses repositories it could not work in', () => {
-    const repository = Repository.of('acme/api');
+    const repository = WorkedRepository.of(Repository.of('acme/api'));
     const refused = refusal(() =>
       plan({ repositories: [repository, repository] }),
     );
@@ -263,26 +290,64 @@ describe('LinePlan', () => {
     expect(refused.part).toEqual({ of: 'line', field: 'repositories' });
   });
 
-  it('refuses a station pinning a release of no harness', () => {
+  it('refuses repositories that would run in different images', () => {
     const refused = refusal(() =>
       plan({
-        stations: [
-          backlog({ passesTo: [StationKey.of('code-review')] }),
-          station('code-review', {
-            ends: true,
-            harnessVersion: HarnessVersion.of('2.1.270'),
+        repositories: [
+          WorkedRepository.of(Repository.of('acme/api'), {
+            image: RunnerImage.of('ghcr.io/acme/api:1'),
           }),
-          completed(),
+          WorkedRepository.of(Repository.of('acme/web'), {
+            image: RunnerImage.of('ghcr.io/acme/web:1'),
+          }),
         ],
       }),
     );
 
-    expect(refused.message).toMatch(/pins a release of its harness/);
+    expect(refused.part).toEqual({ of: 'line', field: 'repositories' });
+  });
+
+  it('refuses a station checking its layers while a repository says nothing of how its checkout is made ready', () => {
+    const refused = refusal(() =>
+      plan({
+        stations: withStations(checking()),
+        repositories: [worked('acme/api', 'npm ci'), worked('acme/web')],
+      }),
+    );
+
+    expect(refused.message).toMatch(/code-review, which checks its layers/);
+    expect(refused.message).toMatch(/acme\/web/);
     expect(refused.part).toEqual({
-      of: 'station',
-      station: 'code-review',
-      field: 'harnessVersion',
+      of: 'repository',
+      place: 1,
+      field: 'setup',
     });
+  });
+
+  it('holds a station checking its layers once every repository says how its checkout is made ready', () => {
+    const held = plan({
+      stations: withStations(checking()),
+      repositories: [worked('acme/api', 'npm ci'), worked('acme/web', 'make')],
+    });
+
+    expect(held.repositories.setupOf(Repository.of('acme/web'))?.value).toBe(
+      'make',
+    );
+  });
+
+  it('asks no setup of repositories when no station checks its layers', () => {
+    expect(() =>
+      plan({
+        stations: withStations(checking({ diffs: false })),
+        repositories: [worked('acme/api')],
+      }),
+    ).not.toThrow();
+    expect(() =>
+      plan({
+        stations: withStations(checking({ check: null })),
+        repositories: [worked('acme/api')],
+      }),
+    ).not.toThrow();
   });
 
   it('says whether it names a station at all', () => {

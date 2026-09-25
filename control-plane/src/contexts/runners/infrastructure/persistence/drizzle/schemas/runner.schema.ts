@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -9,6 +10,19 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+
+export interface HeldImage {
+  readonly image: string;
+  readonly digest?: string;
+  readonly usual: boolean;
+  readonly release?: string;
+  readonly harnesses: readonly {
+    readonly id: string;
+    readonly models: readonly string[];
+    readonly version?: string;
+  }[];
+  readonly refused?: string;
+}
 
 export const runnerTrust = pgTable(
   'runner_trust',
@@ -99,6 +113,8 @@ export const runner = pgTable(
       .$type<Record<string, string>>()
       .notNull()
       .default({}),
+    image: text('image'),
+    usual: boolean('usual').notNull().default(false),
     workKind: text('work_kind'),
     workId: text('work_id'),
     claimBy: timestamp('claim_by').notNull(),
@@ -141,10 +157,7 @@ export const runnerHost = pgTable(
     executor: text('executor').notNull(),
     capacity: integer('capacity').notNull(),
     running: jsonb('running').$type<string[]>().notNull().default([]),
-    harnesses: jsonb('harnesses')
-      .$type<{ id: string; models: string[]; version?: string }[]>()
-      .notNull()
-      .default([]),
+    images: jsonb('images').$type<HeldImage[]>().notNull().default([]),
     firstSeenAt: timestamp('first_seen_at').notNull(),
     lastSeenAt: timestamp('last_seen_at').notNull(),
     version: integer('version').notNull().default(0),

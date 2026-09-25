@@ -21,7 +21,7 @@ func write(t *testing.T, dir, body string) {
 }
 
 func TestOutcomeReadsWhatTheAgentLeft(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create the workspace: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestOutcomeReadsWhatTheAgentLeft(t *testing.T) {
 }
 
 func TestOutcomeIsNothingWhenTheAgentSaidNothing(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_2")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create the workspace: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestOutcomeIsNothingWhenTheAgentSaidNothing(t *testing.T) {
 }
 
 func TestOutcomeIsNothingWhenItCannotBeRead(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_3")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create the workspace: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestOutcomeIsNothingWhenItCannotBeRead(t *testing.T) {
 }
 
 func TestOutcomeIsNothingWhenItNamesNowhere(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_4")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create the workspace: %v", err)
 	}

@@ -24,7 +24,7 @@ const reportOf = (running: string[] = []) =>
     executor: 'docker',
     capacity: 4,
     running,
-    harnesses: [],
+    images: [],
   });
 
 const present = () =>

@@ -6,7 +6,8 @@ COPY data-plane/go.mod data-plane/go.sum ./
 RUN go mod download
 COPY data-plane/ ./
 ENV CGO_ENABLED=0
-RUN go build -o /out/runner ./runner/cmd/runner \
+ARG SPOTLIGHT_VERSION=dev
+RUN go build -ldflags "-X main.version=${SPOTLIGHT_VERSION}" -o /out/runner ./runner/cmd/runner \
     && go build -o /out/spotlight ./cli/cmd/spotlight
 
 # Not Alpine: cursor-agent ships only a glibc binary.
@@ -20,7 +21,8 @@ RUN apt-get update \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd -m -u 2000 -s /bin/bash agent
+    && useradd -m -u 2000 -s /bin/bash agent \
+    && install -d -o agent -g agent -m 0700 /workspace
 RUN npm install -g \
         "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
         "@agentclientprotocol/claude-agent-acp@${CLAUDE_AGENT_ACP_VERSION}" \
@@ -30,11 +32,9 @@ RUN mkdir -p /opt/cursor \
     && HOME=/opt/cursor bash -c 'curl https://cursor.com/install -fsS | bash' \
     && ln -sf /opt/cursor/.local/bin/cursor-agent /usr/local/bin/cursor-agent \
     && chmod -R a+rX /opt/cursor
-COPY .docker/runner/hooks/ /etc/spotlight/hooks/
 COPY --from=build /out/runner /out/spotlight /usr/local/bin/
 ENV SPOTLIGHT_AGENT_USER=agent \
-    SPOTLIGHT_WORKSPACE=/workspaces \
-    SPOTLIGHT_PREPARE_HOOK=/etc/spotlight/hooks/prepare
+    SPOTLIGHT_WORKSPACE=/workspace
 USER root
 ENTRYPOINT ["runner"]
 

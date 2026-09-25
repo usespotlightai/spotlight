@@ -1,14 +1,11 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
-import type { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import {
   skillsRefused,
   toolsRefused,
 } from '@work/domain/services/station-gives';
-import { releaseRefused } from '@work/domain/services/station-release';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
@@ -19,7 +16,6 @@ import type { StationDescription } from '@work/domain/value-objects/station-desc
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
-import type { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 
@@ -34,10 +30,8 @@ type Part = {
   model?: HarnessModel | null;
   effort?: Effort | null;
   profile?: ProfileKey | null;
-  harnessVersion?: HarnessVersion | null;
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
-  setup?: StationSetup | null;
   placement?: RunnerPlacement;
   diffs?: boolean;
   decisions?: boolean;
@@ -57,10 +51,8 @@ export type StationInput = {
   model?: HarnessModel | null;
   effort?: Effort | null;
   profile?: ProfileKey | null;
-  harnessVersion?: HarnessVersion | null;
   agentPrompt?: AgentPrompt | null;
   check?: StationCheck | null;
-  setup?: StationSetup | null;
   placement?: RunnerPlacement;
   diffs?: boolean;
   decisions?: boolean;
@@ -88,25 +80,14 @@ export abstract class Station {
   abstract readonly model: HarnessModel | null;
   abstract readonly effort: Effort | null;
   abstract readonly profile: ProfileKey | null;
-  abstract readonly harnessVersion: HarnessVersion | null;
   abstract readonly agentPrompt: AgentPrompt | null;
   abstract readonly check: StationCheck | null;
-  abstract readonly setup: StationSetup | null;
   abstract readonly placement: RunnerPlacement;
   abstract readonly diffs: boolean;
   abstract readonly decisions: boolean;
 
   static of(input: StationInput): Station {
     Station.guardWhatItGives(input.tools ?? [], input.skills ?? []);
-
-    const release = releaseRefused(
-      input.harness ?? null,
-      input.harnessVersion ?? null,
-    );
-
-    if (release) {
-      throw new InvalidStationChangeError(release);
-    }
 
     const ends = [
       input.id,
@@ -132,10 +113,8 @@ export abstract class Station {
           input.model ?? null,
           input.effort ?? null,
           input.profile ?? null,
-          input.harnessVersion ?? null,
           input.agentPrompt ?? null,
           input.check ?? null,
-          input.setup ?? null,
           input.placement ?? RunnerPlacement.anywhere(),
           input.diffs ?? false,
           input.decisions ?? false,
@@ -153,14 +132,6 @@ export abstract class Station {
 
   get isWorked(): boolean {
     return this.kind === 'work';
-  }
-
-  get releasePlacement(): RunnerPlacement {
-    return this.harness && this.harnessVersion
-      ? RunnerPlacement.of([
-          HarnessRelease.of(this.harness, this.harnessVersion).term,
-        ])
-      : RunnerPlacement.anywhere();
   }
 
   rename(name: StationName): Station {
@@ -225,10 +196,8 @@ class WorkStation extends Station {
     readonly model: HarnessModel | null,
     readonly effort: Effort | null,
     readonly profile: ProfileKey | null,
-    readonly harnessVersion: HarnessVersion | null,
     readonly agentPrompt: AgentPrompt | null,
     readonly check: StationCheck | null,
-    readonly setup: StationSetup | null,
     readonly placement: RunnerPlacement,
     readonly diffs: boolean,
     readonly decisions: boolean,
@@ -241,8 +210,6 @@ class WorkStation extends Station {
       harness,
       model: harness ? model : null,
       effort: harness ? this.effort : null,
-      harnessVersion:
-        harness && this.harness?.equals(harness) ? this.harnessVersion : null,
     });
   }
 
@@ -269,12 +236,8 @@ class WorkStation extends Station {
       part.model !== undefined ? part.model : this.model,
       part.effort !== undefined ? part.effort : this.effort,
       part.profile !== undefined ? part.profile : this.profile,
-      part.harnessVersion !== undefined
-        ? part.harnessVersion
-        : this.harnessVersion,
       part.agentPrompt !== undefined ? part.agentPrompt : this.agentPrompt,
       part.check !== undefined ? part.check : this.check,
-      part.setup !== undefined ? part.setup : this.setup,
       part.placement ?? this.placement,
       part.diffs !== undefined ? part.diffs : this.diffs,
       part.decisions !== undefined ? part.decisions : this.decisions,
@@ -288,10 +251,8 @@ class Backlog extends Station {
   readonly model = null;
   readonly effort = null;
   readonly profile = null;
-  readonly harnessVersion = null;
   readonly agentPrompt = null;
   readonly check = null;
-  readonly setup = null;
   readonly placement = RunnerPlacement.anywhere();
   readonly diffs = false;
   readonly decisions = false;
@@ -335,10 +296,8 @@ class Completed extends Station {
   readonly model = null;
   readonly effort = null;
   readonly profile = null;
-  readonly harnessVersion = null;
   readonly agentPrompt = null;
   readonly check = null;
-  readonly setup = null;
   readonly placement = RunnerPlacement.anywhere();
   readonly diffs = false;
   readonly decisions = false;

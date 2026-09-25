@@ -24,11 +24,15 @@ import {
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
-import type { HarnessDto } from '@work/application/dto/harness.dto';
 import type { HostClaimDto } from '@work/application/dto/host.dto';
-import { HostHarnessesQuery } from '@work/application/queries/host.queries';
+import type { HostRequirementsDto } from '@work/application/dto/host-requirements.dto';
+import { HostRequirementsQuery } from '@work/application/queries/host.queries';
 import { HostClaimResponseDto } from '@work/presentation/http/dto/host.response.dto';
 import { ClaimHostWorkRequestDto } from '@work/presentation/http/dto/host-claim.request.dto';
+import {
+  HostRequirementsResponseDto,
+  RunnerReleaseResponseDto,
+} from '@work/presentation/http/dto/host-requirements.response.dto';
 import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
 import { ClaimedWorkHttpMapper } from '@work/presentation/http/mappers/claimed-work.http.mapper';
 
@@ -56,34 +60,38 @@ export class HostWorkController {
     private readonly queryBus: QueryBus,
   ) {}
 
-  @Get('harnesses')
+  @Get('requirements')
   @ApiOperation({
-    operationId: 'hostHarnesses',
+    operationId: 'hostRequirements',
     summary:
-      'What a host looks for in its runner images, so its claims can say what they hold',
+      'Which runner images a host should serve, what to look for in them, and how new their runner must be',
   })
-  @ApiOkResponse({ type: InstallableHarnessResponseDto, isArray: true })
-  async harnesses(
+  @ApiOkResponse({ type: HostRequirementsResponseDto })
+  async requirements(
     @Headers('authorization') authorization: string | undefined,
     @Headers(TRUST_HEADER) trust: string | undefined,
-  ): Promise<InstallableHarnessResponseDto[]> {
-    const harnesses = await this.queryBus.execute<
-      HostHarnessesQuery,
-      HarnessDto[] | null
-    >(new HostHarnessesQuery({ bearer: bearerIn(authorization), trust }));
+  ): Promise<HostRequirementsResponseDto> {
+    const required = await this.queryBus.execute<
+      HostRequirementsQuery,
+      HostRequirementsDto | null
+    >(new HostRequirementsQuery({ bearer: bearerIn(authorization), trust }));
 
-    if (!harnesses) {
+    if (!required) {
       throw new UnauthorizedException(REFUSED);
     }
 
-    return harnesses.map(
-      (harness) =>
-        new InstallableHarnessResponseDto(
-          harness.id,
-          harness.executable,
-          harness.discovery,
-          harness.versionProbe,
-        ),
+    return new HostRequirementsResponseDto(
+      new RunnerReleaseResponseDto(required.runnerAtLeast),
+      required.harnesses.map(
+        (harness) =>
+          new InstallableHarnessResponseDto(
+            harness.id,
+            harness.executable,
+            harness.discovery,
+            harness.versionProbe,
+          ),
+      ),
+      required.images,
     );
   }
 
@@ -98,7 +106,8 @@ export class HostWorkController {
   })
   @ApiOkResponse({ type: HostClaimResponseDto })
   @ApiConflictResponse({
-    description: 'The host has not reported through this pool or trust',
+    description:
+      'The host has not reported through this pool or trust (`host-unreported`), or has not reported serving the image it claims for (`image-unreported`)',
   })
   @ApiNoContentResponse({
     description:
@@ -117,11 +126,7 @@ export class HostWorkController {
       new ClaimHostWorkCommand(
         { bearer: bearerIn(authorization), trust },
         body?.host ?? '',
-        (body?.harnesses ?? []).map((each) => ({
-          id: each.id,
-          models: each.models ?? [],
-          ...(each.version ? { version: each.version } : {}),
-        })),
+        body?.image ?? '',
       ),
     );
 
@@ -134,6 +139,14 @@ export class HostWorkController {
         reason: 'host-unreported',
         message:
           'This host has not reported through this pool or trust; report presence first',
+      });
+    }
+
+    if (claimed.outcome === 'unoffered') {
+      throw new ConflictException({
+        reason: 'image-unreported',
+        message:
+          'This host has not reported serving that image; report presence with it first',
       });
     }
 

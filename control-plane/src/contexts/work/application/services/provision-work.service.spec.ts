@@ -12,6 +12,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -32,7 +33,12 @@ import { describe, expect, it, vi } from 'vitest';
 const NOON = new Date('2026-09-24T12:00:00.000Z');
 const LATER = new Date('2026-09-24T12:05:00.000Z');
 
-const waiting = (id: string, placement: string[] = [], workspace = 'ws_1') =>
+const waiting = (
+  id: string,
+  placement: string[] = [],
+  workspace = 'ws_1',
+  image: RunnerImage | null = null,
+) =>
   Run.enqueue({
     id: RunId.of(id),
     workspaceId: WorkspaceId.of(workspace),
@@ -44,14 +50,20 @@ const waiting = (id: string, placement: string[] = [], workspace = 'ws_1') =>
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task:station' },
     }),
-    placement: RunnerPlacement.of(placement),
+    placement: RunnerPlacement.of(placement).in(image),
   });
 
-const aWaitingCheck = (stackId: string, placement: string[] = []) => ({
+const aWaitingCheck = (
+  stackId: string,
+  placement: string[] = [],
+  image: RunnerImage | null = null,
+) => ({
   stackId,
   runId: `run_of_${stackId}`,
-  placement: RunnerPlacement.of(placement),
+  placement: RunnerPlacement.of(placement).in(image),
 });
+
+const WIDGETS = RunnerImage.of('ghcr.io/acme/widgets:1');
 
 const aPool = (key: string, labels: string[] = []): PoolAtWork => ({
   poolId: `pool_${key}`,
@@ -295,12 +307,27 @@ describe('ProvisionWork', () => {
         runId: 'run_1',
         taskId: 'task_1',
         labels: ['gpu'],
+        image: null,
         claimBy: LATER,
       },
       NOON,
     );
     expect(run('run_1').reservation?.runner.value).toBe('pooled_1');
     expect(run('run_1').reservation?.pool).toBe('pool_burst');
+  });
+
+  it('asks the pool to start its runner in the image the run is placed in', async () => {
+    const { provisioner, provision } = provisioning(
+      [waiting('run_1', ['gpu'], 'ws_1', WIDGETS)],
+      [aPool('burst', ['gpu'])],
+    );
+
+    await provisioner.due();
+
+    expect(provision).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: 'run_1', image: WIDGETS.value }),
+      NOON,
+    );
   });
 
   it('records a failed provision on the run and backs off', async () => {
@@ -555,12 +582,34 @@ describe('ProvisionWork', () => {
           runId: 'run_of_stack_1',
           taskId: null,
           labels: ['gpu'],
+          image: null,
           claimBy: LATER,
         },
         NOON,
       );
       expect(checks.failed).not.toHaveBeenCalled();
       expect(checks.unreserve).not.toHaveBeenCalled();
+    });
+
+    it('asks the pool to start its runner in the image the check is placed in', async () => {
+      const { provisioner, provision } = provisioning(
+        [],
+        [aPool('burst', ['gpu'])],
+        {},
+        NOON,
+        0,
+        { awaiting: [aWaitingCheck('stack_1', ['gpu'], WIDGETS)] },
+      );
+
+      await provisioner.due();
+
+      expect(provision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          work: { kind: 'check', id: 'stack_1' },
+          image: WIDGETS.value,
+        }),
+        NOON,
+      );
     });
 
     it('asks only for checks in a workspace whose pools provision', async () => {

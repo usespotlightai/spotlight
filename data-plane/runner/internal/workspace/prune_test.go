@@ -33,7 +33,7 @@ func there(t *testing.T, space *workspace.Workspace, path string) bool {
 }
 
 func TestPruneRemovesWhatThisRunWasNotGiven(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "task_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestPruneRemovesWhatThisRunWasNotGiven(t *testing.T) {
 }
 
 func TestPruneLeavesAWorkspaceWithoutTheDirectoryAlone(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "task_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestPruneRemovesALinkWithoutFollowingIt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	space, err := workspace.Create(t.TempDir(), "task_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestPruneRefusesADirectoryThroughALink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	space, err := workspace.Create(t.TempDir(), "task_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestPruneRefusesADirectoryThroughALink(t *testing.T) {
 }
 
 func TestPruneRefusesAPathOutOfTheWorkspace(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "task_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

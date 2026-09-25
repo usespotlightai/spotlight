@@ -1,8 +1,6 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { Station } from '@work/domain/entities/station.entity';
-import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
@@ -42,54 +40,6 @@ describe('Station', () => {
     expect(furnishedStation.harness?.value).toBe('dev');
     expect(furnishedStation.model?.value).toBe('dev-large');
     expect(furnishedStation.agentPrompt?.value).toBe('## Role');
-  });
-
-  it('places its runs on a runner holding the release of the harness it pins', () => {
-    const pinned = Station.of({
-      id: StationId.of('station_1'),
-      key: StationKey.of('triage'),
-      name: StationName.of('Triage'),
-      position: 0,
-      color: StationColor.of('#a3a8b0'),
-      harness: HarnessId.of('claude-code'),
-      harnessVersion: HarnessVersion.of('2.1.270'),
-    });
-
-    expect(pinned.releasePlacement.clauses).toEqual([['claude-code@2.1.270']]);
-    expect(furnished().releasePlacement.isAnywhere).toBe(true);
-    expect(pinned.runsOn(null, null).releasePlacement.isAnywhere).toBe(true);
-  });
-
-  it('drops the pinned release once it runs on another harness, and keeps it on the same one', () => {
-    const pinned = Station.of({
-      id: StationId.of('station_1'),
-      key: StationKey.of('triage'),
-      name: StationName.of('Triage'),
-      position: 0,
-      color: StationColor.of('#a3a8b0'),
-      harness: HarnessId.of('claude-code'),
-      harnessVersion: HarnessVersion.of('2.1.270'),
-    });
-
-    expect(
-      pinned.runsOn(HarnessId.of('cursor'), null).harnessVersion,
-    ).toBeNull();
-    expect(
-      pinned.runsOn(HarnessId.of('claude-code'), null).harnessVersion?.value,
-    ).toBe('2.1.270');
-  });
-
-  it('refuses a pinned release without the harness it is a release of', () => {
-    expect(() =>
-      Station.of({
-        id: StationId.of('station_1'),
-        key: StationKey.of('triage'),
-        name: StationName.of('Triage'),
-        position: 0,
-        color: StationColor.of('#a3a8b0'),
-        harnessVersion: HarnessVersion.of('2.1.270'),
-      }),
-    ).toThrow(InvalidStationChangeError);
   });
 
   it('leaves everything else alone when it is renamed', () => {

@@ -1,46 +1,69 @@
+import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { DuplicateRepositoryError } from '@work/domain/exceptions/duplicate-repository.error';
+import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
+import type { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 
 export class LineRepositories {
-  private constructor(private readonly repositories: readonly Repository[]) {}
+  private constructor(
+    readonly entries: readonly WorkedRepository[],
+    readonly image: RunnerImage | null,
+  ) {}
 
-  static of(repositories: readonly Repository[]): LineRepositories {
+  static of(entries: readonly WorkedRepository[]): LineRepositories {
     const names = new Set<string>();
 
-    for (const repository of repositories) {
+    for (const { repository } of entries) {
       if (names.has(repository.name)) {
         throw new DuplicateRepositoryError(repository.name);
       }
       names.add(repository.name);
     }
 
-    return new LineRepositories(repositories);
+    const images = distinct(
+      entries.flatMap((each) => (each.image ? [each.image] : [])),
+    );
+
+    if (images.length > 1) {
+      throw new MixedRunnerImagesError(images.map((each) => each.value));
+    }
+
+    return new LineRepositories(entries, images[0] ?? null);
   }
 
   static none(): LineRepositories {
-    return new LineRepositories([]);
+    return new LineRepositories([], null);
   }
 
   get all(): readonly Repository[] {
-    return this.repositories;
+    return this.entries.map((each) => each.repository);
   }
 
   get isEmpty(): boolean {
-    return this.repositories.length === 0;
+    return this.entries.length === 0;
+  }
+
+  setupOf(repository: Repository): RepositorySetup | null {
+    return (
+      this.entries.find((each) => each.repository.equals(repository))?.setup ??
+      null
+    );
   }
 
   equals(other: LineRepositories): boolean {
-    const theirs = new Set(other.repositories.map((each) => each.value));
-
     return (
-      this.repositories.length === other.repositories.length &&
-      this.repositories.every((each) => theirs.has(each.value))
+      this.entries.length === other.entries.length &&
+      this.entries.every((each) =>
+        other.entries.some((theirs) => theirs.equals(each)),
+      )
     );
   }
 
   named(name: string): Repository | null {
-    return this.repositories.find((each) => each.name === name) ?? null;
+    return this.all.find((each) => each.name === name) ?? null;
   }
 
   opening(name: string | null): Repository {
@@ -56,9 +79,9 @@ export class LineRepositories {
       return named;
     }
 
-    const [only] = this.repositories;
+    const [only] = this.all;
 
-    if (only && this.repositories.length === 1) {
+    if (only && this.entries.length === 1) {
       return only;
     }
 

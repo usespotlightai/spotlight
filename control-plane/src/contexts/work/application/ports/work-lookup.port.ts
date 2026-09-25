@@ -13,7 +13,7 @@ export interface RunLookup {
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
   readonly check: string | null;
-  readonly setup: string | null;
+  readonly setups: ReadonlyMap<string, string>;
   readonly placement: RunnerPlacement;
   readonly decisions: boolean;
   readonly ended: boolean;

@@ -8,8 +8,6 @@ import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definiti
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import {
   PersonPrincipal,
@@ -21,9 +19,11 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
@@ -46,16 +46,16 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   FieldPath,
   HarnessId,
   HarnessModel,
-  HarnessRelease,
-  HarnessVersion,
   IdempotencyKey,
   PersonPrincipal,
   PullRequestUrl,
   Repository,
   RunId,
   RunnerId,
+  RunnerImage,
   RunnerPlacement,
   RunnerTerms,
+  RunningImage,
   SecretName,
   TaskId,
   TeamAddress,

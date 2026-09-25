@@ -103,22 +103,38 @@ func (e *Engine) Describe(ctx context.Context) (string, error) {
 	return fmt.Sprintf("%s %s (%s/%s)", name, version.Version, version.Os, version.Arch), nil
 }
 
-func (e *Engine) Ensure(ctx context.Context, image string) error {
-	status, err := e.call(ctx, http.MethodGet, "/images/"+image+"/json", nil, nil)
-	if err == nil {
-		return nil
+func (e *Engine) Inspect(ctx context.Context, image string) (executor.Image, error) {
+	var inspected struct {
+		ID          string `json:"Id"`
+		RepoDigests []string
 	}
-	if status != http.StatusNotFound {
-		return fmt.Errorf("look for image %s: %w", image, err)
+	status, err := e.call(ctx, http.MethodGet, "/images/"+image+"/json", nil, &inspected)
+	if status == http.StatusNotFound {
+		return executor.Image{}, executor.ErrNoImage
+	}
+	if err != nil {
+		return executor.Image{}, fmt.Errorf("look for image %s: %w", image, err)
 	}
 
+	return executor.Image{ID: inspected.ID, Digests: inspected.RepoDigests}, nil
+}
+
+func (e *Engine) Pull(ctx context.Context, image, auth string) error {
 	name, tag := reference(image)
 	query := url.Values{"fromImage": {name}}
 	if tag != "" {
 		query.Set("tag", tag)
 	}
 
-	response, err := e.send(ctx, http.MethodPost, "/images/create?"+query.Encode(), nil, "")
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, e.base+"/images/create?"+query.Encode(), nil)
+	if err != nil {
+		return fmt.Errorf("pull image %s: %w", image, err)
+	}
+	if auth != "" {
+		request.Header.Set("X-Registry-Auth", auth)
+	}
+
+	response, err := e.http.Do(request)
 	if err != nil {
 		return fmt.Errorf("pull image %s: %w", image, err)
 	}

@@ -21,6 +21,10 @@ import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo'
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@work/domain/services/built-in-lines';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -35,11 +39,16 @@ import {
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
+import { definitionOf } from './support/line-definition';
 import { forgetRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { listSetUp, seatTeam } from './support/team';
 
 const HARNESSES = [{ id: 'dev', models: [] }];
+
+const USUAL = 'ghcr.io/acme/runner:main';
+
+const WIDGETS = 'ghcr.io/acme/widgets:1';
 
 const HOST = 'host-ephemeral-1';
 
@@ -106,7 +115,10 @@ describe('runner pools (e2e)', () => {
       .set('If-Match', `"${version}"`)
       .send(body);
 
-  const queue = async (placement: string[][] = []) => {
+  const queue = async (
+    placement: string[][] = [],
+    image: string | null = null,
+  ) => {
     const id = randomUUID();
 
     await db.insert(schema.run).values({
@@ -115,6 +127,7 @@ describe('runner pools (e2e)', () => {
       harness: 'dev',
       state: 'queued',
       placement,
+      placementImage: image,
       spec: {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
@@ -134,11 +147,11 @@ describe('runner pools (e2e)', () => {
     return stack?.check ?? null;
   };
 
-  const claimWith = (token: string, host = HOST) =>
+  const claimWith = (token: string, host = HOST, image = USUAL) =>
     http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${token}`)
-      .send({ host, harnesses: HARNESSES });
+      .send({ host, image });
 
   const report = (token: string, host = HOST, running: string[] = []) =>
     http()
@@ -150,7 +163,10 @@ describe('runner pools (e2e)', () => {
         executor: 'docker',
         capacity: 2,
         running,
-        harnesses: HARNESSES,
+        images: [
+          { image: USUAL, usual: true, harnesses: HARNESSES },
+          { image: WIDGETS, usual: false, harnesses: HARNESSES },
+        ],
       });
 
   const hostRow = async (host = HOST) => {
@@ -234,25 +250,69 @@ describe('runner pools (e2e)', () => {
       expect(started?.poolId).toEqual(expect.any(String));
     });
 
-    it('tells a host what harnesses to look for, and refuses a token it does not know', async () => {
+    it('tells a host how new its runner must be, what harnesses to look for and which images to serve, and refuses a token it does not know', async () => {
       const token = tokenOf('i');
       await define({ key: 'ephemeral', token }).expect(201);
+      await http()
+        .post(`/api/resources/teams/${held}/lines`)
+        .set(TEST_USER_HEADER, owner)
+        .set('Idempotency-Key', randomUUID())
+        .send({
+          ...definitionOf(BUILT_IN_LINES[0] as LineOpening),
+          repositories: [{ name: 'acme/widgets', image: WIDGETS }],
+        })
+        .expect(201);
 
-      const harnesses = await http()
-        .get('/api/hosts/harnesses')
+      const required = await http()
+        .get('/api/hosts/requirements')
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(harnesses.body).toEqual(
-        expect.arrayContaining([
+      expect(required.body).toEqual({
+        runner: { atLeast: expect.any(String) },
+        harnesses: expect.arrayContaining([
           expect.objectContaining({ id: 'claude-code' }),
         ]),
-      );
+        images: [WIDGETS],
+      });
       await http()
-        .get('/api/hosts/harnesses')
+        .get('/api/hosts/requirements')
         .set('Authorization', `Bearer ${tokenOf('y')}`)
         .expect(401);
     });
+
+    it('hands work naming an image only to a claim offering that image, and work naming none only to a claim in the host’s usual image', async () => {
+      const token = tokenOf('w');
+      await define({ key: 'ephemeral', token }).expect(201);
+      await report(token).expect(200);
+      const inWidgets = await queue([], WIDGETS);
+
+      await claimWith(token, HOST, USUAL).expect(204);
+      const unreported = await claimWith(
+        token,
+        HOST,
+        'ghcr.io/acme/elsewhere:1',
+      ).expect(409);
+      expect(unreported.body.reason).toBe('image-unreported');
+
+      const offered = await claimWith(token, HOST, WIDGETS).expect(200);
+
+      expect(offered.body.work).toMatchObject({
+        kind: 'run',
+        run: { id: inWidgets },
+      });
+
+      const anywhere = await queue();
+
+      await claimWith(token, HOST, WIDGETS).expect(204);
+
+      const usual = await claimWith(token).expect(200);
+
+      expect(usual.body.work).toMatchObject({
+        kind: 'run',
+        run: { id: anywhere },
+      });
+    }, 60_000);
 
     it('issues a token Terraform does not keep when none is given', async () => {
       const made = await define({ key: 'ephemeral' }).expect(201);
@@ -795,7 +855,24 @@ describe('runner pools (e2e)', () => {
             executor: 'docker',
             capacity: 2,
             running: [],
-            harnesses: ['dev'],
+            images: [
+              {
+                image: USUAL,
+                digest: null,
+                usual: true,
+                release: null,
+                harnesses: [{ id: 'dev', version: null }],
+                refused: null,
+              },
+              {
+                image: WIDGETS,
+                digest: null,
+                usual: false,
+                release: null,
+                harnesses: [{ id: 'dev', version: null }],
+                refused: null,
+              },
+            ],
             firstSeenAt: expect.any(String),
             lastSeenAt: expect.any(String),
             answering: true,
@@ -806,6 +883,7 @@ describe('runner pools (e2e)', () => {
             id: claimed.body.runnerId,
             through: { kind: 'pool', key: 'ephemeral' },
             hostId: HOST,
+            image: USUAL,
             harnesses: ['dev'],
             startedAt: expect.any(String),
             lastSeenAt: expect.any(String),
@@ -841,6 +919,7 @@ describe('runner pools (e2e)', () => {
           runId,
           pool: 'sandboxes',
           labels: ['sandbox'],
+          image: null,
         });
 
         const oneRun = sent.data.runner.token as string;

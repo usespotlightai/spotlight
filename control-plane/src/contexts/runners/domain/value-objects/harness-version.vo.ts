@@ -1,4 +1,4 @@
-import { InvalidHarnessVersionError } from '@shared-kernel/domain/exceptions/invalid-harness-version.error';
+import { InvalidHarnessVersionError } from '@runners/domain/exceptions/invalid-harness-version.error';
 
 const SHAPE = /^v?([0-9]+(\.[0-9A-Za-z-]+)*)$/;
 

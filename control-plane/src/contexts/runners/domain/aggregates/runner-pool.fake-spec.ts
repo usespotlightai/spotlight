@@ -19,6 +19,7 @@ import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
@@ -96,6 +97,7 @@ export const aRunner = (
     host?: string | null;
     id?: string;
     installed?: readonly InstalledHarness[];
+    running?: RunningImage | null;
     claimWithinMs?: number;
   } = {},
 ): Runner =>
@@ -105,6 +107,7 @@ export const aRunner = (
     host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),
     tokenHash: hashOf('b'),
     installed: input.installed ?? [],
+    running: input.running ?? null,
     at: STARTED_AT,
     claimBy: new Date(STARTED_AT.getTime() + (input.claimWithinMs ?? 60_000)),
   });
@@ -116,7 +119,20 @@ export const aHostReport = (running: string[] = []): HostReport =>
     executor: 'docker',
     capacity: 4,
     running,
-    harnesses: [],
+    images: [
+      {
+        image: 'ghcr.io/acme/runner:main',
+        usual: true,
+        harnesses: [{ id: 'claude-code', models: [], version: '2.1.0' }],
+      },
+      { image: 'ghcr.io/acme/widgets:1', usual: false, harnesses: [] },
+      {
+        image: 'ghcr.io/acme/old:1',
+        usual: false,
+        harnesses: [],
+        refused: 'its runner reports no release',
+      },
+    ],
   });
 
 export const aHost = (

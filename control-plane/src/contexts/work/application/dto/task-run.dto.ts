@@ -24,6 +24,7 @@ export interface TaskRunDto {
   readonly startedAt: string;
   readonly updatedAt: string;
   readonly harness: string;
+  readonly image: string | null;
   readonly station: RunStationDto | null;
   readonly review: RunReviewDto | null;
 }

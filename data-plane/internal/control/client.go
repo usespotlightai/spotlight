@@ -225,6 +225,14 @@ func (c *Client) AppendEvents(ctx context.Context, runID string, events []protoc
 	return nil
 }
 
+func (c *Client) RecordImage(ctx context.Context, runID, image string) error {
+	path := fmt.Sprintf("/api/runs/%s/image", url.PathEscape(runID))
+	if err := c.do(ctx, http.MethodPost, path, protocol.RunImage{Image: image}, nil); err != nil {
+		return fmt.Errorf("record the image: %w", err)
+	}
+	return nil
+}
+
 func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) error {
 	path := fmt.Sprintf("/api/runs/%s/completion", url.PathEscape(runID))
 	if err := c.do(ctx, http.MethodPost, path, done, nil); err != nil {

@@ -114,6 +114,15 @@ describe('WorkLookup, looking up a run', () => {
           hasEnded: true,
           hasCompleted: state === 'completed',
           placement,
+          spec: RunSpec.of({
+            checkouts: [
+              { remote: 'spotlight:repository', path: 'api', setup: 'npm ci' },
+            ],
+            command: { executable: 'claude', args: [] },
+            briefing: 'Retry uploads',
+            handover: { options: [], noteLimit: 0 },
+            continuity: { key: 'task_1' },
+          }),
         }),
       } as unknown as RunRepository,
       {} as TaskRepository,
@@ -121,6 +130,10 @@ describe('WorkLookup, looking up a run', () => {
       {} as RunJournalReaderPort,
     ).run(RunId.of('run_1'));
   };
+
+  it('hands a check the setup each checkout carried into its run', async () => {
+    expect((await runAt('spec'))?.setups.get('api')).toBe('npm ci');
+  });
 
   it('says the run records its decisions where its station does', async () => {
     expect((await runAt('implementation'))?.decisions).toBe(true);

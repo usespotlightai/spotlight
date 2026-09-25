@@ -17,8 +17,7 @@ export class RegisteredHarnessRequestDto {
   @ApiPropertyOptional({
     example: '2.1.270',
     description:
-      'The release of this harness the runner found installed, so a station ' +
-      'pinned to a release only runs where that release is.',
+      'The release of this harness the runner found installed, as the Runners page shows it',
   })
   readonly version?: string;
 }

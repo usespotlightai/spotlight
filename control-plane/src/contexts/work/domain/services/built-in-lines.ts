@@ -1,4 +1,3 @@
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
 import {
   PULL_REQUEST,
@@ -16,6 +15,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
+import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 
 interface StationOpening {
   readonly key: StationKey;
@@ -42,7 +42,7 @@ export interface LineOpening {
   readonly role: LineRole | null;
   readonly stations: readonly StationOpening[];
   readonly reactions: readonly ReactionOpening[];
-  readonly repositories: readonly Repository[];
+  readonly repositories: readonly WorkedRepository[];
   readonly reviews?: ReviewPolicy | null;
 }
 

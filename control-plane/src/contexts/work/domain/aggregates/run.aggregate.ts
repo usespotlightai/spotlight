@@ -5,6 +5,7 @@ import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provi
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -46,6 +47,7 @@ export class Run extends EventRecorder {
     readonly stopRequestedAt: Date | null,
     readonly reservation: RunnerReservation | null,
     readonly provisioning: Provisioning,
+    readonly ranIn: RunnerImage | null,
     readonly version: number = 0,
   ) {
     super();
@@ -76,6 +78,7 @@ export class Run extends EventRecorder {
       null,
       null,
       Provisioning.none(),
+      null,
     );
   }
 
@@ -95,6 +98,7 @@ export class Run extends EventRecorder {
     stopRequestedAt?: Date | null;
     reservation: RunnerReservation | null;
     provisioning: Provisioning;
+    ranIn?: RunnerImage | null;
     version?: number;
   }): Run {
     Run.guardReconstituted(input);
@@ -115,6 +119,7 @@ export class Run extends EventRecorder {
       input.stopRequestedAt ?? null,
       input.reservation,
       input.provisioning,
+      input.ranIn ?? null,
       input.version ?? 0,
     );
   }
@@ -285,6 +290,7 @@ export class Run extends EventRecorder {
       attempt: this.attempt + 1,
       reservation: null,
       provisioning: Provisioning.none(),
+      ranIn: null,
     });
   }
 
@@ -296,6 +302,26 @@ export class Run extends EventRecorder {
     }
 
     return this.backOnTheQueue();
+  }
+
+  startedIn(by: RunnerId, image: RunnerImage): Run {
+    this.requireHeldBy(by, 'start');
+
+    if (!image.isPinned) {
+      throw new InvalidRunTransitionError(
+        `records the image it runs in by digest, not by ${image.value}`,
+      );
+    }
+
+    const wanted = this.placement.image;
+
+    if (wanted && wanted.repository !== image.repository) {
+      throw new InvalidRunTransitionError(
+        `runs in ${wanted.value}, not ${image.value}`,
+      );
+    }
+
+    return this.with({ ranIn: image });
   }
 
   renewLease(by: RunnerId, now: Date): Run {
@@ -442,6 +468,7 @@ export class Run extends EventRecorder {
     stopRequestedAt?: Date | null;
     reservation?: RunnerReservation | null;
     provisioning?: Provisioning;
+    ranIn?: RunnerImage | null;
   }): Run {
     const next = new Run(
       this.id,
@@ -463,6 +490,7 @@ export class Run extends EventRecorder {
         : this.stopRequestedAt,
       part.reservation !== undefined ? part.reservation : this.reservation,
       part.provisioning ?? this.provisioning,
+      part.ranIn !== undefined ? part.ranIn : this.ranIn,
       this.version,
     );
 

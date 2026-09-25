@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/host/internal/executor"
+	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/mirror"
 	"usespotlight.ai/data-plane/internal/control"
 	"usespotlight.ai/data-plane/internal/protocol"
@@ -27,6 +28,8 @@ const (
 	MirrorRoot = "/spotlight/mirrors"
 
 	presenceEvery = 20 * time.Second
+	refreshEvery  = time.Minute
+	leaseEvery    = 20 * time.Second
 	stopGrace     = 30 * time.Second
 	mirrorWait    = 15 * time.Second
 	quickAnswer   = 2 * time.Second
@@ -39,24 +42,39 @@ const (
 )
 
 type Pool interface {
-	Harnesses(ctx context.Context) ([]protocol.Installable, error)
-	Claim(ctx context.Context, harnesses []protocol.HarnessReport) (*protocol.Handed, error)
+	Requirements(ctx context.Context) (protocol.HostRequirements, error)
+	Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Handed, error)
 	Present(ctx context.Context, presence protocol.HostPresence) (protocol.HostStanding, error)
 	Leave(ctx context.Context) error
+	Seat(handed protocol.Handed) (Worker, error)
+}
+
+type Worker interface {
+	RenewLease(ctx context.Context, runID string) (bool, error)
+	RecordImage(ctx context.Context, runID, image string) error
+	Complete(ctx context.Context, runID string, done protocol.Completion) error
+	RecordChangeStackCheck(ctx context.Context, runID, stackID string, checked protocol.StackChecked) error
+}
+
+type Registry interface {
+	For(image string) (string, error)
 }
 
 type Options struct {
-	HostID     string
-	Name       string
-	Version    string
-	Images     []string
-	Capacity   int
-	RunTimeout time.Duration
-	ControlURL string
-	SandboxURL string
-	SandboxEnv []string
-	Network    string
-	ExtraHosts []string
+	HostID       string
+	Name         string
+	Version      string
+	Images       images.Allowed
+	Registry     Registry
+	RefreshEvery time.Duration
+	LeaseEvery   time.Duration
+	Capacity     int
+	RunTimeout   time.Duration
+	ControlURL   string
+	SandboxURL   string
+	SandboxEnv   []string
+	Network      string
+	ExtraHosts   []string
 }
 
 type Host struct {
@@ -67,16 +85,19 @@ type Host struct {
 	log     *slog.Logger
 
 	slots     chan struct{}
+	loops     sync.WaitGroup
 	sandboxes sync.WaitGroup
 	refreshes sync.WaitGroup
 	workspace string
 	engineIs  string
-	offered   []protocol.HarnessReport
 
-	mu       sync.Mutex
-	running  map[string]string
-	held     map[string]time.Time
-	failures map[string]int
+	mu         sync.Mutex
+	served     map[string]*served
+	unadmitted []string
+	required   protocol.HostRequirements
+	running    map[string]string
+	held       map[string]time.Time
+	failures   map[string]int
 }
 
 func New(opts Options, pool Pool, engine executor.Executor, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
@@ -87,6 +108,7 @@ func New(opts Options, pool Pool, engine executor.Executor, mirrors *mirror.Mirr
 		mirrors:  mirrors,
 		log:      log,
 		slots:    make(chan struct{}, max(opts.Capacity, 1)),
+		served:   map[string]*served{},
 		running:  map[string]string{},
 		held:     map[string]time.Time{},
 		failures: map[string]int{},
@@ -134,31 +156,25 @@ func (h *Host) Serve(ctx context.Context) error {
 	}()
 	reporting.Go(func() { h.report(claiming, stop) })
 
-	offers, err := h.probe(ctx)
-	if err != nil {
-		return quiet(ctx, err)
-	}
-	h.offer(offers)
-	if _, err := h.pool.Present(ctx, h.presence()); err != nil {
-		h.log.Warn("could not report what it offers", "error", err)
-	}
-
-	h.log.Info("serving", "name", h.opts.Name, "capacity", cap(h.slots), "images", h.opts.Images)
-
-	var claims sync.WaitGroup
-	for _, image := range h.opts.Images {
-		claims.Go(func() {
-			if err := h.claim(claiming, ctx, image, offers[image]); err != nil {
-				stop(err)
-			}
-		})
+	if err := retried(claiming, h.log, "could not ask what to serve, still trying", func() error {
+		return h.refresh(claiming, claiming, ctx, stop)
+	}); err != nil {
+		if final(err) {
+			stop(err)
+		} else {
+			return quiet(ctx, err)
+		}
 	}
 
-	claims.Wait()
+	h.log.Info("serving", "name", h.opts.Name, "capacity", cap(h.slots), "default", h.opts.Images.Default)
+
+	reporting.Go(func() { h.watch(claiming, ctx, stop) })
+
+	<-claiming.Done()
+	reporting.Wait()
+	h.loops.Wait()
 	h.sandboxes.Wait()
 	h.refreshes.Wait()
-	stopClaiming()
-	reporting.Wait()
 
 	leaving, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
@@ -192,72 +208,31 @@ func (h *Host) reap(ctx context.Context) {
 	}
 }
 
-func (h *Host) probe(ctx context.Context) (map[string][]protocol.HarnessReport, error) {
-	var candidates []protocol.Installable
-	if err := retried(ctx, h.log, "could not ask what harnesses to look for, still trying", func() (err error) {
-		candidates, err = h.pool.Harnesses(ctx)
-		return err
-	}); err != nil {
-		return nil, err
+func (h *Host) watch(claiming, serving context.Context, stop func(error)) {
+	every := h.opts.RefreshEvery
+	if every <= 0 {
+		every = refreshEvery
 	}
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
 
-	offers := map[string][]protocol.HarnessReport{}
-	for _, image := range h.opts.Images {
-		if err := h.engine.Ensure(ctx, image); err != nil {
-			return nil, err
+	for {
+		select {
+		case <-claiming.Done():
+			return
+		case <-ticker.C:
 		}
 
-		found, err := h.found(ctx, image, candidates)
-		if err != nil {
-			return nil, fmt.Errorf("look for harnesses in %s: %w", image, err)
+		if err := h.refresh(claiming, claiming, serving, stop); err != nil {
+			if final(err) {
+				stop(err)
+				return
+			}
+			if claiming.Err() == nil {
+				h.log.Warn("could not ask what to serve", "error", err)
+			}
 		}
-
-		offers[image] = found
-		h.log.Info("found harnesses in the runner image", "image", image, "harnesses", found)
 	}
-
-	return offers, nil
-}
-
-func (h *Host) found(ctx context.Context, image string, candidates []protocol.Installable) ([]protocol.HarnessReport, error) {
-	asked, err := json.Marshal(candidates)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, probeLongest)
-	defer cancel()
-
-	id, err := h.engine.Start(ctx, executor.Sandbox{
-		Image:  image,
-		Args:   []string{"harnesses", string(asked)},
-		Env:    h.opts.SandboxEnv,
-		Labels: map[string]string{LabelHost: h.opts.HostID},
-	})
-	defer h.destroy(id)
-	if err != nil {
-		return nil, err
-	}
-
-	code, err := h.engine.Wait(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if code != 0 {
-		return nil, fmt.Errorf("the runner image answered with exit %d", code)
-	}
-
-	var said lines
-	if err := h.engine.Follow(ctx, id, &said); err != nil {
-		return nil, err
-	}
-
-	var reported protocol.Registration
-	if err := json.Unmarshal([]byte(said.last()), &reported); err != nil {
-		return nil, fmt.Errorf("read what the runner image has: %w", err)
-	}
-
-	return reported.Harnesses, nil
 }
 
 func (h *Host) report(ctx context.Context, stop func(error)) {
@@ -289,40 +264,34 @@ func (h *Host) presence() protocol.HostPresence {
 	for runner := range h.running {
 		running = append(running, runner)
 	}
-	offered := h.offered
 	h.mu.Unlock()
 	slices.Sort(running)
 
 	return protocol.HostPresence{
-		Name:      h.opts.Name,
-		Release:   h.opts.Version,
-		Executor:  h.engineIs,
-		Capacity:  cap(h.slots),
-		Running:   running,
-		Harnesses: offered,
+		Name:     h.opts.Name,
+		Release:  h.opts.Version,
+		Executor: h.engineIs,
+		Capacity: cap(h.slots),
+		Running:  running,
+		Images:   h.reportedImages(),
 	}
 }
 
-func (h *Host) offer(offers map[string][]protocol.HarnessReport) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	h.offered = nil
-	for _, image := range h.opts.Images {
-		for _, report := range offers[image] {
-			if !slices.ContainsFunc(h.offered, func(held protocol.HarnessReport) bool {
-				return held.ID == report.ID && held.Version == report.Version
-			}) {
-				h.offered = append(h.offered, report)
-			}
-		}
-	}
-}
-
-func (h *Host) claim(ctx, serving context.Context, image string, offer []protocol.HarnessReport) error {
+func (h *Host) claim(ctx, serving context.Context, image string) error {
 	backoff := retryFloor
 
 	for {
+		current, ok := h.servedAs(image)
+		if !ok {
+			return nil
+		}
+		if current.refused != "" {
+			if !sleep(ctx, jitter(retryCeiling)) {
+				return nil
+			}
+			continue
+		}
+
 		if wait := h.heldFor(image); wait > 0 {
 			if !sleep(ctx, wait) {
 				return nil
@@ -342,7 +311,7 @@ func (h *Host) claim(ctx, serving context.Context, image string, offer []protoco
 		}
 
 		asked := time.Now()
-		handed, err := h.pool.Claim(ctx, offer)
+		handed, err := h.pool.Claim(ctx, protocol.HostClaim{Image: image})
 		if err != nil || handed == nil {
 			<-h.slots
 
@@ -424,6 +393,20 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		return
 	}
 
+	worker, err := h.pool.Seat(handed)
+	if err != nil {
+		log.Error("could not act for the runner it was handed", "error", err)
+		return
+	}
+
+	held := h.holding(ctx, handed, worker, log)
+	defer held()
+
+	ready, ok := h.readied(ctx, image, handed, worker, log)
+	if !ok {
+		return
+	}
+
 	mounts := h.borrow(ctx, handed, log)
 	if ctx.Err() != nil {
 		log.Info("the host is stopping, so the work is left to be claimed again")
@@ -443,7 +426,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 
 	id, err := h.engine.Start(starting, executor.Sandbox{
 		Name:       "spotlight-" + handed.RunnerID,
-		Image:      image,
+		Image:      ready.id,
 		Env:        env,
 		Labels:     map[string]string{LabelHost: h.opts.HostID, LabelRunner: handed.RunnerID},
 		Mounts:     mounts,
@@ -454,13 +437,11 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	defer h.destroy(id)
 	h.started(image, err == nil)
 	if err != nil {
-		log.Error("could not start a sandbox; claiming from this image pauses", "error", err)
-		if err := h.engine.Ensure(starting, image); err != nil {
-			log.Error("the runner image is not there to start", "image", image, "error", err)
-		}
+		log.Error("could not start a sandbox; claiming from this image pauses", "image", ready.digest, "error", err)
 		return
 	}
 
+	held()
 	h.track(handed.RunnerID, id)
 	defer h.untrack(handed.RunnerID)
 	log.Info("started a sandbox", "sandbox", id)
@@ -508,6 +489,109 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		log.Warn("could not stop the sandbox", "error", err)
 	}
 	drain()
+}
+
+func (h *Host) readied(
+	ctx context.Context, image string, handed protocol.Handed, worker Worker, log *slog.Logger,
+) (examined, bool) {
+	h.mu.Lock()
+	each, ok := h.served[image]
+	h.mu.Unlock()
+	if !ok {
+		each = &served{image: image}
+	}
+
+	before, _ := h.servedAs(image)
+	ready, err := h.examine(ctx, each)
+	if ctx.Err() != nil {
+		log.Info("the host is stopping, so the work is left to be claimed again")
+		return examined{}, false
+	}
+
+	reason := ""
+	switch {
+	case err != nil:
+		reason = fmt.Sprintf("The runner image %s could not be pulled: %v", image, err)
+	case ready.refused != "":
+		reason = fmt.Sprintf("The runner image %s is refused: %s", image, ready.refused)
+	case handed.Work.Run != nil && handed.Work.Run.Harness != "" && !ready.holds(handed.Work.Run.Harness):
+		reason = fmt.Sprintf("The runner image %s no longer holds %s, which this run needs", ready.digest, handed.Work.Run.Harness)
+	}
+
+	if ok && (ready.id != before.id || ready.refused != before.refused) {
+		if _, err := h.pool.Present(ctx, h.presence()); err != nil {
+			log.Warn("could not report what it serves", "error", err)
+		}
+	}
+
+	if reason != "" {
+		log.Warn("gave up the work it could not start", "reason", reason)
+		h.giveUp(ctx, handed, worker, reason, log)
+		return examined{}, false
+	}
+
+	if run := handed.Work.Run; run != nil {
+		if err := worker.RecordImage(ctx, run.ID, ready.digest); err != nil {
+			log.Warn("could not record the image the run starts from", "image", ready.digest, "error", err)
+		}
+	}
+
+	return ready, true
+}
+
+func (h *Host) holding(ctx context.Context, handed protocol.Handed, worker Worker, log *slog.Logger) func() {
+	run := handed.Work.Run
+	if run == nil {
+		return func() {}
+	}
+
+	every := h.opts.LeaseEvery
+	if every <= 0 {
+		every = leaseEvery
+	}
+
+	renewing, stop := context.WithCancel(context.WithoutCancel(ctx))
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(every)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-renewing.Done():
+				return
+			case <-ticker.C:
+				if _, err := worker.RenewLease(renewing, run.ID); err != nil && renewing.Err() == nil {
+					log.Warn("could not renew the lease while the sandbox starts", "error", err)
+				}
+			}
+		}
+	}()
+
+	return func() {
+		stop()
+		<-done
+	}
+}
+
+func (h *Host) giveUp(ctx context.Context, handed protocol.Handed, worker Worker, reason string, log *slog.Logger) {
+	telling, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
+
+	var err error
+	switch work := handed.Work; {
+	case work.Run != nil:
+		err = worker.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, Message: reason})
+	case work.Check != nil:
+		err = worker.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, protocol.StackChecked{
+			Skipped: &protocol.SkippedCheck{Code: protocol.SkipNoImage, Detail: reason},
+		})
+	}
+	if err != nil {
+		log.Error("could not say why the work did not start", "error", err)
+	}
 }
 
 func (h *Host) waited(ctx context.Context, id string, log *slog.Logger) int {

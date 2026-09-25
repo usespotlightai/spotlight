@@ -44,6 +44,7 @@ export const REPORTED_SKIPS = [
   'setup-failed',
   'no-room',
   'out-of-time',
+  'no-image',
 ] as const;
 
 type ReportedSkip = (typeof REPORTED_SKIPS)[number];

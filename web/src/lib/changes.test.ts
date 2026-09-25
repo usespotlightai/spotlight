@@ -87,7 +87,7 @@ describe('changesOf', () => {
 
 describe('fileName', () => {
   it('keeps only the last segment', () => {
-    expect(fileName('/workspaces/abc/example/README.md')).toBe('README.md');
+    expect(fileName('/workspace/example/README.md')).toBe('README.md');
   });
 
   it('leaves a bare name alone', () => {
@@ -97,7 +97,7 @@ describe('fileName', () => {
 
 describe('repoRelative', () => {
   it('drops the runner workspace prefix', () => {
-    expect(repoRelative('/workspaces/6d52-abcd/example/README.md')).toBe(
+    expect(repoRelative('/workspace/example/README.md')).toBe(
       'example/README.md',
     );
   });

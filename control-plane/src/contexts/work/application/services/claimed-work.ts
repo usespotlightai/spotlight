@@ -4,5 +4,9 @@ import type { Run } from '@work/domain/aggregates/run.aggregate';
 
 export const claimedRun = (run: Run): ClaimedWorkDto => ({
   kind: 'run',
-  run: { id: run.id.value, spec: RunSpecContract.toWire(run.spec) },
+  run: {
+    id: run.id.value,
+    harness: run.harness.value,
+    spec: RunSpecContract.toWire(run.spec),
+  },
 });

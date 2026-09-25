@@ -4,7 +4,6 @@ import type {
   HeldWork,
   ProvisionedRunner,
   ProvisionRequest,
-  ReportedHarness,
   RunnersPort,
   StartedRunner,
 } from '@runners/application/ports/runners.port';
@@ -19,7 +18,6 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
-import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
@@ -28,6 +26,7 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 type Began =
@@ -51,7 +50,7 @@ export class Runners implements RunnersPort {
   async start(
     way: AdmittedWay,
     host: string,
-    installed: readonly ReportedHarness[],
+    image: string,
     at: Date,
     claimBy: Date,
   ): Promise<StartedRunner> {
@@ -62,6 +61,12 @@ export class Runners implements RunnersPort {
       return { outcome: 'stranger' };
     }
 
+    const offered = serving.offering(RunnerImage.of(image));
+
+    if (!offered) {
+      return { outcome: 'unoffered' };
+    }
+
     const runnerId = RunnerId.of(this.ids.generate());
     const minted = this.tokens.mint();
     const began = await this.began(way, 'pull', at, (through) =>
@@ -70,9 +75,8 @@ export class Runners implements RunnersPort {
         through,
         host: hostId,
         tokenHash: TokenHash.of(minted.hash),
-        installed: installed.map((each) =>
-          InstalledHarness.reported(each.id, each.models, each.version),
-        ),
+        installed: offered.harnesses,
+        running: offered.running,
         at,
         claimBy,
       }),
@@ -102,6 +106,7 @@ export class Runners implements RunnersPort {
             host: null,
             tokenHash: TokenHash.of(minted.hash),
             installed: [],
+            running: null,
             at,
             claimBy: request.claimBy,
           }),
@@ -142,6 +147,7 @@ export class Runners implements RunnersPort {
       runId: request.runId,
       taskId: request.taskId,
       labels: request.labels,
+      image: request.image,
       runnerId: request.runnerId.value,
       token: minted.token,
       claimBy: request.claimBy,

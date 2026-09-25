@@ -1,6 +1,7 @@
 import type {
   AdmittedThroughResponseDto,
   HeldRunResponseDto,
+  HostHarnessResponseDto,
   HostResponseDto,
   LiveRunnerResponseDto,
   RunnerActivityResponseDto,
@@ -92,13 +93,33 @@ export const seenAt = (host: Host): string =>
 export type NamedHarness = {
   readonly id: string;
   readonly name: string;
+  readonly version?: string | null;
 };
+
+const nameOf = (
+  id: string,
+  harnesses: readonly NamedHarness[] | undefined,
+): string => harnesses?.find((harness) => harness.id === id)?.name ?? id;
 
 export const harnessesOf = (
   ids: readonly string[],
   harnesses: readonly NamedHarness[] | undefined,
+): NamedHarness[] => ids.map((id) => ({ id, name: nameOf(id, harnesses) }));
+
+export const namedHarnesses = (
+  reported: readonly HostHarnessResponseDto[],
+  harnesses: readonly NamedHarness[] | undefined,
 ): NamedHarness[] =>
-  ids.map((id) => ({
-    id,
-    name: harnesses?.find((harness) => harness.id === id)?.name ?? id,
+  reported.map((each) => ({
+    id: each.id,
+    name: nameOf(each.id, harnesses),
+    version: each.version,
   }));
+
+export const shortDigest = (digest: string | null): string | null => {
+  const hex = digest?.match(/@sha256:([0-9a-f]{12})/)?.[1];
+  return hex ? `sha256:${hex}` : null;
+};
+
+export const refusal = (reason: string): string =>
+  `Refused: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`;

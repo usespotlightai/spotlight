@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"usespotlight.ai/data-plane/host/internal/images"
+	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/trust"
 	"usespotlight.ai/data-plane/internal/control"
 )
@@ -24,7 +26,8 @@ type Config struct {
 	PoolToken  string
 	Workload   trust.Workload
 	Capacity   int
-	Images     []string
+	Images     images.Allowed
+	Registry   string
 	RunTimeout time.Duration
 	SandboxEnv []string
 	Network    string
@@ -43,6 +46,7 @@ const (
 	envTokenFile  = "SPOTLIGHT_OIDC_TOKEN_FILE"
 	envCapacity   = "SPOTLIGHT_CAPACITY"
 	envImage      = "SPOTLIGHT_RUNNER_IMAGE"
+	envRegistry   = "SPOTLIGHT_REGISTRY_CONFIG"
 	envRunTimeout = "SPOTLIGHT_RUN_TIMEOUT"
 	envSandboxURL = "SPOTLIGHT_SANDBOX_URL"
 	envSandboxEnv = "SPOTLIGHT_SANDBOX_ENV"
@@ -131,9 +135,14 @@ func Load(version string) (Config, error) {
 		}
 	}
 
-	cfg.Images = list(get(envImage))
-	if len(cfg.Images) == 0 {
-		cfg.Images = []string{DefaultImage(version)}
+	cfg.Images, err = images.Parse(list(get(envImage)), DefaultImage(version))
+	if err != nil {
+		note(fmt.Errorf("%s: %w", envImage, err))
+	}
+
+	cfg.Registry = get(envRegistry)
+	if cfg.Registry == "" {
+		cfg.Registry = registry.DefaultPath()
 	}
 
 	cfg.RunTimeout = defaultRunTimeout

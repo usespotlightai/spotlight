@@ -1,5 +1,5 @@
 {
-  "id": "9b7569b9-ae1d-4e78-bad0-d5faded9e8ee",
+  "id": "27aefeee-b0b6-4908-9745-9a56aac9d84c",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -405,6 +405,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "check_placement_image": {
+          "name": "check_placement_image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "reordering": {
           "name": "reordering",
@@ -1318,6 +1324,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "placement_image": {
+          "name": "placement_image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "phase": {
           "name": "phase",
@@ -3310,6 +3322,19 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "usual": {
+          "name": "usual",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "work_kind": {
           "name": "work_kind",
           "type": "text",
@@ -3500,8 +3525,8 @@
           "notNull": true,
           "default": "'[]'::jsonb"
         },
-        "harnesses": {
-          "name": "harnesses",
+        "images": {
+          "name": "images",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
@@ -4820,6 +4845,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "setup": {
+          "name": "setup",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -4953,12 +4990,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "harness_version": {
-          "name": "harness_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "agent_prompt": {
           "name": "agent_prompt",
           "type": "text",
@@ -4967,12 +4998,6 @@
         },
         "check": {
           "name": "check",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "setup": {
-          "name": "setup",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -5359,6 +5384,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "placement_image": {
+          "name": "placement_image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ran_in": {
+          "name": "ran_in",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "claimed_by": {
           "name": "claimed_by",

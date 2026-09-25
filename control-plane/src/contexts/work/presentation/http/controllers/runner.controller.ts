@@ -34,6 +34,7 @@ import {
   AppendRunJournalCommand,
   ClaimRunCommand,
   CompleteRunCommand,
+  RecordRunImageCommand,
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
@@ -57,6 +58,7 @@ import {
   CompleteRunRequestDto,
   DeliverSaidRequestDto,
   PendingMessageResponseDto,
+  RecordRunImageRequestDto,
   RunAttachmentResponseDto,
 } from '@work/presentation/http/dto/runner.request.dto';
 import {
@@ -256,6 +258,26 @@ export class RunnerController {
     );
 
     return new RenewLeaseResponseDto(stop);
+  }
+
+  @Post('runs/:runId/image')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'recordRunImage',
+    summary: 'Say which image, by digest, the run’s sandbox started from',
+    description:
+      'The host pulls the image named for the run just after it claims it, and records the digest it pulled here, so the run shows the environment it had.',
+  })
+  @ApiNoContentResponse()
+  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  async recordImage(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: RecordRunImageRequestDto,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new RecordRunImageCommand(runId, runnerId, body?.image ?? ''),
+    );
   }
 
   @Post('runs/:runId/events')

@@ -183,7 +183,11 @@ export type InstallableHarnessResponseDto = {
 export type ClaimedRunResponseDto = {
   id: string;
   /**
-   * Opaque to the control plane, meaningful to the hook
+   * The harness the run needs, so a host can tell whether the image it pulled still holds it
+   */
+  harness: string;
+  /**
+   * What the runner lays out and starts, as the runner reads it
    */
   spec: {
     [key: string]: unknown;
@@ -369,6 +373,13 @@ export type RenewLeaseResponseDto = {
   stop: boolean;
 };
 
+export type RecordRunImageRequestDto = {
+  /**
+   * The image the sandbox started from, named by its digest
+   */
+  image: string;
+};
+
 export type RunEventRequestDto = {
   /**
    * Assigned by the runner, gapless
@@ -515,15 +526,34 @@ export type PoolQueueResponseDto = {
   };
 };
 
+export type RunnerReleaseResponseDto = {
+  /**
+   * The oldest runner release this control plane works with; a host refuses an image whose runner is older
+   */
+  atLeast: string;
+};
+
+export type HostRequirementsResponseDto = {
+  runner: RunnerReleaseResponseDto;
+  /**
+   * What a host looks for in each runner image
+   */
+  harnesses: Array<InstallableHarnessResponseDto>;
+  /**
+   * The images this workspace’s lines name; a host serves those its allow-list admits, beside its default
+   */
+  images: Array<string>;
+};
+
 export type ClaimHostWorkRequestDto = {
   /**
    * The host claiming, as it names itself in its presence
    */
   host: string;
   /**
-   * The harnesses in the runner image this claim will run in, as the host found them
+   * The runner image this claim will run in, one the host reported serving; what it holds and whether it is the default come from that report
    */
-  harnesses?: Array<Array<unknown>>;
+  image: string;
 };
 
 export type HostClaimResponseDto = {
@@ -879,6 +909,10 @@ export type TeamRunResponseDto = {
   updatedAt: string;
   harness: string;
   /**
+   * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
+   */
+  image: string | null;
+  /**
    * Where it ran, which the task may since have left
    */
   station: RunStationResponseDto | null;
@@ -975,6 +1009,10 @@ export type TaskRunResponseDto = {
   startedAt: string;
   updatedAt: string;
   harness: string;
+  /**
+   * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
+   */
+  image: string | null;
   /**
    * Where it ran, which the task may since have left
    */
@@ -1573,9 +1611,9 @@ export type HostPresenceRequestDto = {
    */
   running?: Array<string>;
   /**
-   * The harnesses its runner images hold, each with the models it discovered
+   * The runner images it serves or refused, each with what it found inside
    */
-  harnesses?: Array<Array<unknown>>;
+  images?: Array<Array<unknown>>;
 };
 
 export type HostStandingResponseDto = {
@@ -1591,6 +1629,32 @@ export type AdmittedThroughResponseDto = {
    * The pool’s or trust’s key; null once it is gone
    */
   key: string | null;
+};
+
+export type HostHarnessResponseDto = {
+  id: string;
+  version: string | null;
+};
+
+export type HostImageResponseDto = {
+  image: string;
+  /**
+   * The digest its sandboxes start from now
+   */
+  digest: string | null;
+  /**
+   * Runs every line that names no image
+   */
+  usual: boolean;
+  /**
+   * The release of the runner inside
+   */
+  release: string | null;
+  harnesses: Array<HostHarnessResponseDto>;
+  /**
+   * Why the host will not run it, when it will not
+   */
+  refused: string | null;
 };
 
 export type HostResponseDto = {
@@ -1611,9 +1675,9 @@ export type HostResponseDto = {
    */
   running: Array<string>;
   /**
-   * The harnesses its runner images hold
+   * The runner images it serves or refused, and what each holds
    */
-  harnesses: Array<string>;
+  images: Array<HostImageResponseDto>;
   firstSeenAt: string;
   lastSeenAt: string;
   /**
@@ -1629,6 +1693,10 @@ export type LiveRunnerResponseDto = {
    * The host whose sandbox it runs in; null where a push pool provisioned it
    */
   hostId: string | null;
+  /**
+   * The image its sandbox runs; null where a push pool provisioned it
+   */
+  image: string | null;
   harnesses: Array<string>;
   startedAt: string;
   lastSeenAt: string | null;
@@ -2223,7 +2291,7 @@ export type SkippedCheckRequestDto = {
   /**
    * Why the runner could not check the stack at all
    */
-  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time';
+  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time' | 'no-image';
   /**
    * What it printed while trying, where that helps
    */
@@ -3102,6 +3170,32 @@ export type RenewLeaseResponses = {
 
 export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
 
+export type RecordRunImageData = {
+  body: RecordRunImageRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/image';
+};
+
+export type RecordRunImageErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The run is not held by this runner
+   */
+  409: unknown;
+};
+
+export type RecordRunImageResponses = {
+  204: void;
+};
+
+export type RecordRunImageResponse = RecordRunImageResponses[keyof RecordRunImageResponses];
+
 export type AppendRunEventsData = {
   body: AppendRunEventsRequestDto;
   path: {
@@ -3356,7 +3450,7 @@ export type PoolQueueResponses = {
 
 export type PoolQueueResponse = PoolQueueResponses[keyof PoolQueueResponses];
 
-export type HostHarnessesData = {
+export type HostRequirementsData = {
   body?: never;
   headers?: {
     /**
@@ -3366,21 +3460,21 @@ export type HostHarnessesData = {
   };
   path?: never;
   query?: never;
-  url: '/hosts/harnesses';
+  url: '/hosts/requirements';
 };
 
-export type HostHarnessesErrors = {
+export type HostRequirementsErrors = {
   /**
    * Missing, rotated or unknown pool token, or a workload the trust does not admit
    */
   401: unknown;
 };
 
-export type HostHarnessesResponses = {
-  200: Array<InstallableHarnessResponseDto>;
+export type HostRequirementsResponses = {
+  200: HostRequirementsResponseDto;
 };
 
-export type HostHarnessesResponse = HostHarnessesResponses[keyof HostHarnessesResponses];
+export type HostRequirementsResponse = HostRequirementsResponses[keyof HostRequirementsResponses];
 
 export type ClaimHostWorkData = {
   body: ClaimHostWorkRequestDto;
@@ -3401,7 +3495,7 @@ export type ClaimHostWorkErrors = {
    */
   401: unknown;
   /**
-   * The host has not reported through this pool or trust
+   * The host has not reported through this pool or trust (`host-unreported`), or has not reported serving the image it claims for (`image-unreported`)
    */
   409: unknown;
 };

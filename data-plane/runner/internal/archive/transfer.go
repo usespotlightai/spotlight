@@ -45,18 +45,23 @@ func Upload(ctx context.Context, grant protocol.ArchiveGrant, packed *Packed) er
 	return nil
 }
 
-func Restore(ctx context.Context, held protocol.HeldArchive, dir, scratch string) error {
-	fetched, err := fetch(ctx, held, scratch)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(fetched.Name())
-	defer fetched.Close()
-
-	return Unpack(fetched, dir)
+type Fetched struct {
+	file *os.File
 }
 
-func fetch(ctx context.Context, held protocol.HeldArchive, scratch string) (*os.File, error) {
+func (f *Fetched) UnpackInto(dir string) error {
+	return Unpack(f.file, dir)
+}
+
+func (f *Fetched) Remove() error {
+	if f == nil {
+		return nil
+	}
+	f.file.Close()
+	return os.Remove(f.file.Name())
+}
+
+func Fetch(ctx context.Context, held protocol.HeldArchive, scratch string) (*Fetched, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, held.URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetch the workspace: %w", err)
@@ -91,7 +96,7 @@ func fetch(ctx context.Context, held protocol.HeldArchive, scratch string) (*os.
 		return nil, fmt.Errorf("fetch the workspace: %w", err)
 	}
 
-	return file, nil
+	return &Fetched{file: file}, nil
 }
 
 func detail(response *http.Response) string {

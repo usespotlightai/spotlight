@@ -120,6 +120,7 @@ const run = (
   exitCode: 0,
   updatedAt: over.startedAt,
   harness: 'claude-code',
+  image: null,
   station: STATIONS.implementation,
   review: null,
   taskId: `task_${over.id}`,

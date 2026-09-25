@@ -8,7 +8,9 @@ import { WorkspaceRunnersDeclared } from '@runners/domain/events/workspace-runne
 import { WorkspaceRunnersDropped } from '@runners/domain/events/workspace-runners-dropped.event';
 import { WorkspaceRunnersRedeclared } from '@runners/domain/events/workspace-runners-redeclared.event';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
@@ -31,7 +33,9 @@ import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runn
 
 export const RUNNERS_EVENT_TYPES = [
   Admission,
+  HarnessVersion,
   HostId,
+  HostImage,
   HostReport,
   InstalledHarness,
   MaxRuns,

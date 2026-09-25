@@ -3,12 +3,6 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 
 export const RUNNERS = Symbol('RUNNERS');
 
-export interface ReportedHarness {
-  readonly id: string;
-  readonly models: readonly string[];
-  readonly version?: string;
-}
-
 export interface HeldWork {
   readonly kind: 'run' | 'check';
   readonly id: string;
@@ -22,7 +16,8 @@ export type StartedRunner =
     }
   | { readonly outcome: 'full' }
   | { readonly outcome: 'gone' }
-  | { readonly outcome: 'stranger' };
+  | { readonly outcome: 'stranger' }
+  | { readonly outcome: 'unoffered' };
 
 export interface ProvisionRequest {
   readonly poolId: string;
@@ -31,6 +26,7 @@ export interface ProvisionRequest {
   readonly runId: string;
   readonly taskId: string | null;
   readonly labels: readonly string[];
+  readonly image: string | null;
   readonly claimBy: Date;
 }
 
@@ -54,7 +50,7 @@ export interface RunnersPort {
   start(
     way: AdmittedWay,
     host: string,
-    installed: readonly ReportedHarness[],
+    image: string,
     at: Date,
     claimBy: Date,
   ): Promise<StartedRunner>;

@@ -82,10 +82,17 @@ export class HostController {
           executor: body?.executor ?? '',
           capacity: body?.capacity ?? 0,
           running: body?.running ?? [],
-          harnesses: (body?.harnesses ?? []).map((each) => ({
-            id: each.id,
-            models: each.models ?? [],
-            ...(each.version ? { version: each.version } : {}),
+          images: (body?.images ?? []).map((each) => ({
+            image: each.image ?? '',
+            usual: each.usual === true,
+            harnesses: (each.harnesses ?? []).map((harness) => ({
+              id: harness.id,
+              models: harness.models ?? [],
+              ...(harness.version ? { version: harness.version } : {}),
+            })),
+            ...(each.digest ? { digest: each.digest } : {}),
+            ...(each.release ? { release: each.release } : {}),
+            ...(each.refused ? { refused: each.refused } : {}),
           })),
         },
       ),

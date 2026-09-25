@@ -6,25 +6,27 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
+
+	"usespotlight.ai/data-plane/runner/internal/prepare"
 )
 
 type Config struct {
-	URL           string
-	Token         string
-	Handed        string
-	WorkspaceRoot string
-	PrepareHook   string
-	PublishHook   string
-	HookTimeout   time.Duration
-	AgentUser     string
+	URL       string
+	Token     string
+	Handed    string
+	Workspace string
+	AgentUser string
+	Author    prepare.Author
 }
 
 func (c Config) WasHanded() bool { return c.Handed != "" }
 
-const defaultHookTimeout = 10 * time.Minute
+const (
+	DefaultWorkspace   = "/workspace"
+	defaultAuthorName  = "Spotlight"
+	defaultAuthorEmail = "noreply@usespotlight.ai"
+)
 
 const usage = "usage: runner [harnesses]"
 
@@ -34,9 +36,8 @@ const (
 	envHanded      = "SPOTLIGHT_HANDED"
 	envWorkspace   = "SPOTLIGHT_WORKSPACE"
 	envAgentUser   = "SPOTLIGHT_AGENT_USER"
-	envPrepareHook = "SPOTLIGHT_PREPARE_HOOK"
-	envPublishHook = "SPOTLIGHT_PUBLISH_HOOK"
-	envHookTimeout = "SPOTLIGHT_HOOK_TIMEOUT"
+	envAuthorName  = "SPOTLIGHT_GIT_AUTHOR_NAME"
+	envAuthorEmail = "SPOTLIGHT_GIT_AUTHOR_EMAIL"
 )
 
 func Load(args []string) (Config, error) {
@@ -56,13 +57,15 @@ func Load(args []string) (Config, error) {
 	get := func(key string) string { return strings.TrimSpace(os.Getenv(key)) }
 
 	cfg := Config{
-		URL:           get(envURL),
-		Token:         get(envToken),
-		Handed:        get(envHanded),
-		WorkspaceRoot: get(envWorkspace),
-		AgentUser:     get(envAgentUser),
-		PrepareHook:   get(envPrepareHook),
-		PublishHook:   get(envPublishHook),
+		URL:       get(envURL),
+		Token:     get(envToken),
+		Handed:    get(envHanded),
+		Workspace: get(envWorkspace),
+		AgentUser: get(envAgentUser),
+		Author: prepare.Author{
+			Name:  or(get(envAuthorName), defaultAuthorName),
+			Email: or(get(envAuthorEmail), defaultAuthorEmail),
+		},
 	}
 
 	if cfg.URL == "" {
@@ -79,45 +82,14 @@ func Load(args []string) (Config, error) {
 		))
 	}
 
-	if cfg.WorkspaceRoot == "" {
-		cfg.WorkspaceRoot = defaultWorkspaceRoot()
-	}
-
-	var err error
-	cfg.HookTimeout, err = parseDuration(get(envHookTimeout))
-	note(err)
-	if cfg.HookTimeout == 0 {
-		cfg.HookTimeout = defaultHookTimeout
-	}
-
-	for _, hook := range []struct{ name, path string }{
-		{envPrepareHook, cfg.PrepareHook},
-		{envPublishHook, cfg.PublishHook},
-	} {
-		if hook.path == "" {
-			continue
-		}
-		if info, statErr := os.Stat(hook.path); statErr != nil || info.IsDir() {
-			note(fmt.Errorf("%s: %q is not an executable file", hook.name, hook.path))
-		}
-	}
+	cfg.Workspace = or(cfg.Workspace, DefaultWorkspace)
 
 	return cfg, errors.Join(problems...)
 }
 
-func defaultWorkspaceRoot() string {
-	return filepath.Join(os.TempDir(), "spotlight")
-}
-
-func parseDuration(raw string) (time.Duration, error) {
-	if raw == "" {
-		return 0, nil
+func or(value, fallback string) string {
+	if value == "" {
+		return fallback
 	}
-
-	parsed, err := time.ParseDuration(raw)
-	if err != nil || parsed < 0 {
-		return 0, fmt.Errorf("%s: %q is not a duration such as 30m", envHookTimeout, raw)
-	}
-
-	return parsed, nil
+	return value
 }

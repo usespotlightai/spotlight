@@ -31,6 +31,19 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
   }),
 }));
 
+const DIGEST =
+  'a3f9c2e17b4d58f6e0c1a2b3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b';
+
+const image = (over: Record<string, unknown> = {}) => ({
+  image: 'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
+  digest: `ghcr.io/usespotlightai/spotlight-runner@sha256:${DIGEST}`,
+  usual: true,
+  release: '20260925-01',
+  harnesses: [{ id: 'claude-code', version: '2.1.270' }],
+  refused: null,
+  ...over,
+});
+
 const host = (over: Record<string, unknown> = {}) => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'build-box-1',
@@ -39,7 +52,7 @@ const host = (over: Record<string, unknown> = {}) => ({
   executor: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
   running: [],
-  harnesses: ['claude-code'],
+  images: [image()],
   firstSeenAt: '2026-08-20T09:00:00.000Z',
   lastSeenAt: '2026-08-29T12:00:00.000Z',
   answering: true,
@@ -51,6 +64,7 @@ const provisioned = (over: Record<string, unknown> = {}) => ({
   id: 'runner_cloud_1',
   through: { kind: 'pool', key: 'ephemeral' },
   hostId: null,
+  image: null,
   harnesses: ['claude-code'],
   startedAt: '2026-08-29T12:00:00.000Z',
   lastSeenAt: '2026-08-29T12:00:00.000Z',
@@ -114,6 +128,59 @@ describe('Runners', () => {
     expect(screen.getByText('build-box-1')).toBeInTheDocument();
     expect(screen.getByText('Pool build-farm')).toBeInTheDocument();
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
+    expect(screen.getByText('2.1.270')).toBeInTheDocument();
+  });
+
+  it('names each image a host serves, its default, and the runner and digest in it', () => {
+    holding([
+      host({
+        images: [
+          image(),
+          image({
+            image: 'ghcr.io/acme/api-runner:main',
+            digest: `ghcr.io/acme/api-runner@sha256:${DIGEST}`,
+            usual: false,
+          }),
+        ],
+      }),
+    ]);
+
+    renderPage();
+
+    const images = screen.getByRole('list', { name: 'Runner images' });
+    expect(images).toHaveTextContent(
+      'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
+    );
+    expect(images).toHaveTextContent('ghcr.io/acme/api-runner:main');
+    expect(screen.getAllByText('Default')).toHaveLength(1);
+    expect(screen.getAllByText('Runner 20260925-01')).toHaveLength(2);
+    expect(screen.getAllByText('sha256:a3f9c2e17b4d')).toHaveLength(2);
+  });
+
+  it('says why a host refuses an image', () => {
+    holding([
+      host({
+        images: [
+          image({
+            image: 'ghcr.io/acme/legacy-runner:2025',
+            usual: false,
+            release: null,
+            harnesses: [],
+            refused:
+              'Its runner reports no release, so it is older than the 20260925-01 this control plane needs',
+          }),
+        ],
+      }),
+    ]);
+
+    renderPage();
+
+    expect(
+      screen.getByText(
+        'Refused: its runner reports no release, so it is older than the 20260925-01 this control plane needs',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Claude Code')).not.toBeInTheDocument();
   });
 
   it('names a host serving a trust by the trust', () => {
@@ -125,7 +192,20 @@ describe('Runners', () => {
   });
 
   it('names the first few harnesses and counts the rest', () => {
-    holding([host({ harnesses: ['claude-code', 'other', 'third', 'fourth'] })]);
+    holding([
+      host({
+        images: [
+          image({
+            harnesses: [
+              { id: 'claude-code', version: null },
+              { id: 'other', version: null },
+              { id: 'third', version: null },
+              { id: 'fourth', version: null },
+            ],
+          }),
+        ],
+      }),
+    ]);
 
     renderPage();
 

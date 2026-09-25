@@ -4,6 +4,7 @@ export type HostClaimDto =
   | { readonly outcome: 'refused' }
   | { readonly outcome: 'nothing' }
   | { readonly outcome: 'stranger' }
+  | { readonly outcome: 'unoffered' }
   | {
       readonly outcome: 'claimed';
       readonly runnerId: string;

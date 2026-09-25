@@ -16,7 +16,7 @@ export const fileName = (path: string): string =>
   path.slice(path.lastIndexOf('/') + 1);
 
 export const repoRelative = (path: string): string =>
-  path.replace(/^\/workspaces\/[^/]+\//, '');
+  path.replace(/^\/workspace\//, '');
 
 export const changesOf = (journals: readonly RunJournal[]): FileChange[] => {
   const order: string[] = [];

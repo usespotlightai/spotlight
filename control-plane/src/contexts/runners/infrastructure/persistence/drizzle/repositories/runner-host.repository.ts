@@ -10,7 +10,10 @@ import type { RunnerHostRepository } from '@runners/domain/repositories/runner-h
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { runnerHost } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import {
+  type HeldImage,
+  runnerHost,
+} from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, lt } from 'drizzle-orm';
@@ -42,7 +45,7 @@ const toHost = (row: Row): RunnerHost =>
       executor: row.executor,
       capacity: row.capacity,
       running: row.running,
-      harnesses: row.harnesses,
+      images: row.images,
     }),
     firstSeenAt: row.firstSeenAt,
     lastSeenAt: row.lastSeenAt,
@@ -58,11 +61,20 @@ const heldOf = (host: RunnerHost) => ({
   executor: host.report.executor,
   capacity: host.report.capacity,
   running: host.report.running.map((each) => each.value),
-  harnesses: host.report.harnesses.map((each) => ({
-    id: each.id.value,
-    models: each.models.map((model) => model.value),
-    ...(each.version ? { version: each.version.value } : {}),
-  })),
+  images: host.report.images.map(
+    (each): HeldImage => ({
+      image: each.image.value,
+      usual: each.usual,
+      harnesses: each.harnesses.map((harness) => ({
+        id: harness.id.value,
+        models: harness.models.map((model) => model.value),
+        ...(harness.version ? { version: harness.version.value } : {}),
+      })),
+      ...(each.digest ? { digest: each.digest.value } : {}),
+      ...(each.release ? { release: each.release } : {}),
+      ...(each.refused ? { refused: each.refused } : {}),
+    }),
+  ),
   firstSeenAt: host.firstSeenAt,
   lastSeenAt: host.lastSeenAt,
 });

@@ -19,6 +19,7 @@ export const TaskRunHttpMapper = {
       dto.startedAt,
       dto.updatedAt,
       dto.harness,
+      dto.image,
       dto.station
         ? new RunStationResponseDto(
             dto.station.name,

@@ -1,31 +1,26 @@
 package stackcheck
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"usespotlight.ai/data-plane/internal/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
+	"usespotlight.ai/data-plane/runner/internal/prepare"
+	"usespotlight.ai/data-plane/runner/internal/shell"
 	"usespotlight.ai/data-plane/runner/internal/workspace"
 )
 
 const (
 	BaseRef = "refs/spotlight/base"
 
-	mostOutput   = 16 * 1024
-	waitDelay    = 5 * time.Second
-	shell        = "/bin/sh"
+	sh           = "/bin/sh"
 	defaultStep  = 5 * time.Minute
-	defaultSetup = 15 * time.Minute
 	defaultTotal = 60 * time.Minute
 )
 
@@ -34,15 +29,14 @@ type Reporter interface {
 }
 
 type Options struct {
-	Dir      string
-	Remote   string
-	Mirrors  string
-	RunAs    *account.User
-	Log      *slog.Logger
-	Step     time.Duration
-	Setup    time.Duration
-	Total    time.Duration
-	KeepDirs bool
+	Dir     string
+	Remote  string
+	Mirrors string
+	RunAs   *account.User
+	Log     *slog.Logger
+	Step    time.Duration
+	Setup   time.Duration
+	Total   time.Duration
 }
 
 func (o Options) or(value, fallback time.Duration) time.Duration {
@@ -75,17 +69,10 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 		return skipped(protocol.SkipNoCheckout, "")
 	}
 
-	space, err := workspace.Create(o.Dir, "check-"+check.StackID)
+	space, err := workspace.Open(o.Dir)
 	if err != nil {
 		o.Log.Warn("could not make room to check a stack", "stack", check.StackID, "error", err)
 		return skipped(protocol.SkipNoRoom, err.Error())
-	}
-	if !o.KeepDirs {
-		defer func() {
-			if err := space.Remove(); err != nil {
-				o.Log.Warn("could not remove the copy a check ran in", "error", err)
-			}
-		}()
 	}
 
 	tree := filepath.Join(space.Dir, check.Repository)
@@ -137,26 +124,33 @@ func (o Options) fetch(ctx context.Context, tree string, check protocol.StackChe
 	if output, err := o.git(ctx, tree, "", "init", "--quiet"); err != nil {
 		o.Log.Warn("could not lay out a checkout to check",
 			"stack", check.StackID, "step", "init", "error", err, "output", output)
-		return fmt.Sprintf("git init: %s", tail(output))
+		return fmt.Sprintf("git init: %s", shell.Tail(output))
 	}
 
 	o.borrow(tree, check.Repository)
 
+	if _, err := o.git(ctx, tree, "", "remote", "set-url", "origin", remote); err != nil {
+		if output, err := o.git(ctx, tree, "", "remote", "add", "origin", remote); err != nil {
+			o.Log.Warn("could not lay out a checkout to check",
+				"stack", check.StackID, "step", "remote", "error", err, "output", output)
+			return fmt.Sprintf("git remote: %s", shell.Tail(output))
+		}
+	}
+
 	for _, args := range [][]string{
-		{"remote", "add", "origin", remote},
 		{"fetch", "--quiet", "--no-tags", "origin", check.Base},
-		{"checkout", "--quiet", "--detach", "FETCH_HEAD"},
+		{"checkout", "--quiet", "--force", "--detach", "FETCH_HEAD"},
 	} {
 		if output, err := o.git(ctx, tree, "", args...); err != nil {
 			o.Log.Warn("could not lay out a checkout to check",
 				"stack", check.StackID, "step", args[0], "error", err, "output", output)
-			return fmt.Sprintf("git %s: %s", args[0], tail(output))
+			return fmt.Sprintf("git %s: %s", args[0], shell.Tail(output))
 		}
 	}
 
 	if output, err := o.git(ctx, tree, "", "update-ref", BaseRef, "HEAD"); err != nil {
 		o.Log.Warn("could not mark where a check began", "error", err, "output", output)
-		return tail(output)
+		return shell.Tail(output)
 	}
 
 	return ""
@@ -189,7 +183,7 @@ func (o Options) step(
 		return protocol.CheckedStep{
 			Step:   step.ID,
 			Passed: false,
-			Output: tail(output),
+			Output: shell.Tail(output),
 			TookMs: time.Since(started).Milliseconds(),
 		}
 	}
@@ -209,10 +203,7 @@ func (o Options) step(
 
 	// After the patch, so what the step installs is what the step asks for.
 	if check.Setup != "" && step.RunsSetup {
-		ready, stop := context.WithTimeout(ctx, o.or(o.Setup, defaultSetup))
-		defer stop()
-
-		if output, err := o.run(ready, tree, "", nil, shell, "-c", check.Setup); err != nil {
+		if output, err := prepare.Setup(ctx, tree, check.Setup, o.RunAs, o.Setup); err != nil {
 			o.Log.Warn("could not make the checkout ready", "step", step.ID, "error", err)
 			return failed("The checkout could not be made ready to check:\n" + output), false
 		}
@@ -221,7 +212,7 @@ func (o Options) step(
 	running, stop := context.WithTimeout(ctx, o.or(o.Step, defaultStep))
 	defer stop()
 
-	output, err := o.run(running, tree, "", nil, shell, "-c", check.Command)
+	output, err := o.run(running, tree, "", nil, sh, "-c", check.Command)
 	if running.Err() != nil {
 		return failed(output + fmt.Sprintf("\n\nThe check did not finish within %s.", o.or(o.Step, defaultStep))), true
 	}
@@ -229,7 +220,7 @@ func (o Options) step(
 	return protocol.CheckedStep{
 		Step:   step.ID,
 		Passed: err == nil,
-		Output: tail(output),
+		Output: shell.Tail(output),
 		TookMs: time.Since(started).Milliseconds(),
 	}, true
 }
@@ -242,40 +233,7 @@ func (o Options) git(ctx context.Context, dir, stdin string, args ...string) (st
 func (o Options) run(
 	ctx context.Context, dir, stdin string, extra map[string]string, name string, args ...string,
 ) (string, error) {
-	command := exec.CommandContext(ctx, name, args...)
-	command.Dir = dir
-	command.Env = account.Environment(extra, o.RunAs)
-	command.Stdin = strings.NewReader(stdin)
-	command.SysProcAttr = o.RunAs.SysProcAttr()
-	if command.SysProcAttr == nil {
-		command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	}
-	command.Cancel = func() error {
-		if command.Process == nil {
-			return nil
-		}
-		return syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
-	}
-	command.WaitDelay = waitDelay
-
-	var output bytes.Buffer
-	command.Stdout = &output
-	command.Stderr = &output
-
-	err := command.Run()
-	var exited *exec.ExitError
-	if err != nil && !errors.As(err, &exited) && ctx.Err() == nil {
-		return output.String(), fmt.Errorf("run %s: %w", name, err)
-	}
-
-	return strings.TrimSpace(output.String()), err
-}
-
-func tail(output string) string {
-	if len(output) <= mostOutput {
-		return output
-	}
-	return output[len(output)-mostOutput:]
+	return shell.Run(ctx, shell.Command{Dir: dir, Stdin: stdin, Env: extra, RunAs: o.RunAs, Name: name, Args: args})
 }
 
 func (o Options) own(path string) error {

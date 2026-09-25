@@ -23,12 +23,17 @@ const mainOf = (configuration: HeldConfigurationDto): string =>
   fileOf(configuration, 'main.tf');
 
 const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
-  team_id      = spotlight_team.core.id
-  key          = "delivery"
-  name         = "Delivery"
-  role         = "delivery"
-  repositories = ["acme/api"]
-  runners      = ["build-1", "vpc-internal"]
+  team_id = spotlight_team.core.id
+  key     = "delivery"
+  name    = "Delivery"
+  role    = "delivery"
+  runners = ["build-1", "vpc-internal"]
+
+  repository {
+    name  = "acme/api"
+    image = "ghcr.io/acme/api:main"
+    setup = "npm ci"
+  }
 
   station {
     key       = "backlog"
@@ -52,7 +57,6 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     profile   = spotlight_harness_profile.core_careful.key
     prompt    = file("\${path.module}/prompts/core/delivery/implementation.md")
     check     = "npm test"
-    setup     = "npm ci"
     runners   = ["gpu"]
     diffs     = true
     decisions = true
@@ -265,7 +269,7 @@ describe('workspaceTerraform', () => {
   it('writes the runners a line and a station ask for as the labels they are, never as references', () => {
     const line = resourceHcl(HELD, heldAs('line', 'core/delivery')).hcl;
 
-    expect(line).toContain('  runners      = ["build-1", "vpc-internal"]\n');
+    expect(line).toContain('  runners = ["build-1", "vpc-internal"]\n');
     expect(line).toContain('    runners   = ["gpu"]\n');
     expect(mainOf(HELD)).not.toContain('spotlight_runner.');
     expect(fileOf(HELD, 'variables.tf')).not.toMatch(/variable "runner_[^p]/);

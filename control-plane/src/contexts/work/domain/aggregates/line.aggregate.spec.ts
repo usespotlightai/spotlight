@@ -24,6 +24,7 @@ import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fa
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -33,11 +34,14 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const at = (
@@ -134,6 +138,64 @@ describe('Line', () => {
     expect(line.placementOf(StationId.of('station_2')).selectors).toEqual([
       'gpu',
     ]);
+  });
+
+  it('places every station’s work, and the line’s own, in the image its repositories name', () => {
+    const image = RunnerImage.of('ghcr.io/acme/api:1');
+    const placed = Station.of({
+      id: StationId.of('station_2'),
+      key: StationKey.of('station-2'),
+      name: StationName.of('Station 2'),
+      position: 2,
+      color: StationColor.of('#a3a8b0'),
+      placement: RunnerPlacement.of(['gpu']),
+    });
+    const line = Line.rehydrate({
+      id: LineId.of('line_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      key: LineKey.of('default'),
+      name: LineName.of('Default'),
+      repositories: [
+        WorkedRepository.of(Repository.of('acme/api'), { image }),
+        WorkedRepository.of(Repository.of('acme/web')),
+      ],
+      stations: [backlog(), at(1), placed, completed(3)],
+      placement: RunnerPlacement.of(['vpc-internal']),
+    });
+
+    expect(line.image?.equals(image)).toBe(true);
+    expect(line.placementOf(StationId.of('station_1')).image).toBe(image);
+    expect(line.placementOf(StationId.of('station_2')).image).toBe(image);
+    expect(line.placementOf(StationId.of('station_2')).selectors).toEqual([
+      'gpu',
+    ]);
+    expect(line.runsIn.image).toBe(image);
+    expect(line.runsIn.selectors).toEqual(['vpc-internal']);
+  });
+
+  it('places its work in no image when its repositories name none', () => {
+    const line = lineOf([at(1)]).worksIn([
+      WorkedRepository.of(Repository.of('acme/api')),
+    ]);
+
+    expect(line.placementOf(StationId.of('station_1')).image).toBeNull();
+    expect(line.placementOf(StationId.of('station_1')).isAnywhere).toBe(true);
+  });
+
+  it('records the image its repositories name changing', () => {
+    const image = RunnerImage.of('ghcr.io/acme/api:1');
+    const line = lineOf([at(1)]).worksIn([
+      WorkedRepository.of(Repository.of('acme/api')),
+    ]);
+    line.pullEvents();
+
+    const moved = line.worksIn([
+      WorkedRepository.of(Repository.of('acme/api'), { image }),
+    ]);
+
+    expect(moved.pullEvents()[0]).toBeInstanceOf(LineRepositoriesChanged);
+    expect(moved.image?.equals(image)).toBe(true);
   });
 
   it('takes the name of the line it opens', () => {
@@ -694,7 +756,9 @@ describe('Line, what it records of its changes', () => {
   });
 
   it('records the repositories it works in changing', () => {
-    const moved = standing().worksIn([Repository.of('acme/api')]);
+    const moved = standing().worksIn([
+      WorkedRepository.of(Repository.of('acme/api')),
+    ]);
 
     const [event] = moved.pullEvents();
 
@@ -704,7 +768,38 @@ describe('Line, what it records of its changes', () => {
         (each) => each.value,
       ),
     ).toEqual(['acme/api']);
-    expect(moved.worksIn([Repository.of('acme/api')]).pullEvents()).toEqual([]);
+    expect(
+      moved
+        .worksIn([WorkedRepository.of(Repository.of('acme/api'))])
+        .pullEvents(),
+    ).toEqual([]);
+  });
+
+  it('refuses a repository with no setup on a line whose station checks its layers', () => {
+    const checking = of([
+      backlog(),
+      Station.of({
+        id: StationId.of('station_1'),
+        key: StationKey.of('build'),
+        name: StationName.of('Build'),
+        position: 1,
+        color: StationColor.of('#a3a8b0'),
+        check: StationCheck.of('npm test'),
+        diffs: true,
+      }),
+      completed(2),
+    ]);
+
+    expect(() =>
+      checking.worksIn([WorkedRepository.of(Repository.of('acme/api'))]),
+    ).toThrow(/acme\/api has to say how its checkout is made ready/);
+    expect(
+      checking.worksIn([
+        WorkedRepository.of(Repository.of('acme/api'), {
+          setup: RepositorySetup.of('npm ci'),
+        }),
+      ]).repositories.all,
+    ).toHaveLength(1);
   });
 
   it('records the harness a station runs on changing', () => {
@@ -746,7 +841,9 @@ describe('Line, what it records of its changes', () => {
       version: 4,
     });
 
-    expect(read.worksIn([Repository.of('acme/api')]).version).toBe(4);
+    expect(
+      read.worksIn([WorkedRepository.of(Repository.of('acme/api'))]).version,
+    ).toBe(4);
   });
 
   it('says the harness it runs on is its first work station’s', () => {

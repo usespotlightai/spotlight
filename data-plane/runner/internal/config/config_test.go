@@ -1,10 +1,8 @@
 package config_test
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"usespotlight.ai/data-plane/runner/internal/config"
 )
@@ -14,8 +12,7 @@ func setRequired(t *testing.T) {
 
 	for _, name := range []string{
 		"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_HANDED", "SPOTLIGHT_WORKSPACE",
-		"SPOTLIGHT_AGENT_USER", "SPOTLIGHT_PREPARE_HOOK", "SPOTLIGHT_PUBLISH_HOOK",
-		"SPOTLIGHT_HOOK_TIMEOUT",
+		"SPOTLIGHT_AGENT_USER", "SPOTLIGHT_GIT_AUTHOR_NAME", "SPOTLIGHT_GIT_AUTHOR_EMAIL",
 	} {
 		t.Setenv(name, "")
 	}
@@ -28,7 +25,8 @@ func TestLoadReadsTheWholeSurface(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_WORKSPACE", "/work")
 	t.Setenv("SPOTLIGHT_AGENT_USER", "agent")
-	t.Setenv("SPOTLIGHT_HOOK_TIMEOUT", "30m")
+	t.Setenv("SPOTLIGHT_GIT_AUTHOR_NAME", "Robin")
+	t.Setenv("SPOTLIGHT_GIT_AUTHOR_EMAIL", "robin@example.com")
 
 	cfg, err := config.Load(nil)
 	if err != nil {
@@ -38,11 +36,11 @@ func TestLoadReadsTheWholeSurface(t *testing.T) {
 	if !cfg.WasHanded() || cfg.Handed != "/run/spotlight/handed.json" {
 		t.Errorf("handed %q", cfg.Handed)
 	}
-	if cfg.WorkspaceRoot != "/work" || cfg.AgentUser != "agent" {
-		t.Errorf("workspace %q, agent %q", cfg.WorkspaceRoot, cfg.AgentUser)
+	if cfg.Workspace != "/work" || cfg.AgentUser != "agent" {
+		t.Errorf("workspace %q, agent %q", cfg.Workspace, cfg.AgentUser)
 	}
-	if cfg.HookTimeout != 30*time.Minute {
-		t.Errorf("hook timeout %v", cfg.HookTimeout)
+	if cfg.Author.Name != "Robin" || cfg.Author.Email != "robin@example.com" {
+		t.Errorf("author %+v", cfg.Author)
 	}
 }
 
@@ -88,25 +86,7 @@ func TestLoadReportsEveryProblemAtOnce(t *testing.T) {
 	}
 }
 
-func TestLoadRefusesAMalformedHookTimeout(t *testing.T) {
-	setRequired(t)
-	t.Setenv("SPOTLIGHT_HOOK_TIMEOUT", "soon")
-
-	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_HOOK_TIMEOUT") {
-		t.Fatalf("expected SPOTLIGHT_HOOK_TIMEOUT named, got %v", err)
-	}
-}
-
-func TestLoadRefusesAHookThatIsNotAFile(t *testing.T) {
-	setRequired(t)
-	t.Setenv("SPOTLIGHT_PREPARE_HOOK", t.TempDir())
-
-	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_PREPARE_HOOK") {
-		t.Fatalf("expected SPOTLIGHT_PREPARE_HOOK named, got %v", err)
-	}
-}
-
-func TestLoadDefaultWorkspaceRootIsACleanPath(t *testing.T) {
+func TestLoadWorksInTheSamePlaceEveryTime(t *testing.T) {
 	setRequired(t)
 
 	cfg, err := config.Load(nil)
@@ -114,17 +94,10 @@ func TestLoadDefaultWorkspaceRootIsACleanPath(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if cfg.WorkspaceRoot == "" || cfg.WorkspaceRoot != filepath.Clean(cfg.WorkspaceRoot) {
-		t.Errorf("workspace root is not clean: %q", cfg.WorkspaceRoot)
+	if cfg.Workspace != "/workspace" {
+		t.Errorf("workspace %q", cfg.Workspace)
 	}
-}
-
-func TestLoadRefusesArguments(t *testing.T) {
-	setRequired(t)
-
-	for _, args := range [][]string{{"--once"}, {"serve"}} {
-		if _, err := config.Load(args); err == nil || !strings.Contains(err.Error(), "usage") {
-			t.Errorf("%v: expected usage, got %v", args, err)
-		}
+	if cfg.Author.Name != "Spotlight" || cfg.Author.Email != "noreply@usespotlight.ai" {
+		t.Errorf("author %+v", cfg.Author)
 	}
 }
