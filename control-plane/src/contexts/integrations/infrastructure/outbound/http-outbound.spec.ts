@@ -1,5 +1,5 @@
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
-import { EgressRefusedError } from '@integrations/domain/exceptions/egress-refused.error';
+import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
 import {
   compileIntegration,
   type RequestIR,
@@ -180,7 +180,7 @@ actions:
         against,
         new SpotlightCredentials(injection, async () => 'ws_1'),
       ),
-    ).rejects.toBeInstanceOf(EgressRefusedError);
+    ).rejects.toBeInstanceOf(OutboundRefusedError);
     expect(forSpotlight).not.toHaveBeenCalled();
   });
 
@@ -216,7 +216,7 @@ actions:
     const out = new HttpOutbound(['example.com'], fetch);
 
     await expect(out.run(action(), against, SLACK)).rejects.toBeInstanceOf(
-      EgressRefusedError,
+      OutboundRefusedError,
     );
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -335,7 +335,7 @@ actions:
           named,
           FILES,
         ),
-      ).rejects.toThrow(EgressRefusedError);
+      ).rejects.toThrow(OutboundRefusedError);
     });
   });
 });

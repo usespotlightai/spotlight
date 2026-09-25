@@ -1,7 +1,7 @@
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import type { ConnectionIR } from '@integrations/infrastructure/integrations/integration.compile';
 import type { OAuth2Client } from '@integrations/infrastructure/integrations/oauth2-clients';
-import type { Egress } from '@integrations/infrastructure/outbound/egress';
+import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { bound } from '@platform/expressions/bindings';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 import { value } from '@platform/expressions/readings';
@@ -18,7 +18,7 @@ interface TokenResponse {
 
 export class OAuth2Exchange {
   constructor(
-    private readonly egress: Egress,
+    private readonly policy: OutboundPolicy,
     private readonly clock: ClockPort,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
@@ -53,7 +53,7 @@ export class OAuth2Exchange {
     identity: Expression | null,
     grant: Record<string, string>,
   ): Promise<HostGrant | null> {
-    this.egress.allow(oauth2.token);
+    this.policy.allow(oauth2.token);
 
     const form = new URLSearchParams({
       ...grant,

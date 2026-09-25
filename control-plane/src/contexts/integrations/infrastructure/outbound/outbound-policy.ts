@@ -1,7 +1,7 @@
-import { EgressRefusedError } from '@integrations/domain/exceptions/egress-refused.error';
+import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
 import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 
-export class Egress {
+export class OutboundPolicy {
   private readonly hosts: OutboundHosts;
 
   constructor(allowed: readonly string[]) {
@@ -14,11 +14,11 @@ export class Egress {
     try {
       host = new URL(url).host;
     } catch {
-      throw new EgressRefusedError(url, 'is not a URL that can be called');
+      throw new OutboundRefusedError(url, 'is not a URL that can be called');
     }
 
     if (!this.hosts.allow(host)) {
-      throw new EgressRefusedError(
+      throw new OutboundRefusedError(
         host.toLowerCase(),
         'is not among the hosts this deployment allows outbound calls to',
       );
