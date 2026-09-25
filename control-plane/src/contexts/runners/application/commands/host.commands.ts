@@ -1,6 +1,6 @@
 import type { HostCredential } from '@runners/application/ports/runner-admissions.port';
 
-export interface ReportedHostHarness {
+interface ReportedHostHarness {
   readonly id: string;
   readonly models: readonly string[];
   readonly version?: string;
