@@ -4,8 +4,7 @@
 |---|---|
 | `control-plane/` | NestJS API on Postgres |
 | `web/` | React SPA (Vite) |
-| `data-plane/` | Go: one binary, `cmd/spotlight`, whose roles are `host/` (`spotlight host`), `runner/` (`spotlight runner`, one run in a sandbox) and `agent/` (the commands agents talk back with); they share only `protocol/` and `control/` |
-| `installer/` | `install.sh` for `spotlight host`, served by the control plane |
+| `data-plane/` | Go: one binary, `cmd/spotlight`, whose roles are `host/` (`spotlight host`), `runner/` (`spotlight runner`, one run in a sandbox) and `agent/` (the commands agents talk back with); they share only `protocol/` and `control/`. `install.sh` installs it as a host and is served by the control plane |
 
 Locally everything runs in Docker behind Traefik, which terminates HTTPS and
 routes by host and path. Source is bind-mounted, so edits hot-reload.

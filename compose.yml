@@ -113,7 +113,7 @@ services:
       - traefik.http.services.control-plane.loadbalancer.server.port=3000
     volumes:
       - ./control-plane:/app
-      - ./installer:/opt/spotlight/installer:ro
+      - ./data-plane:/opt/spotlight/installer:ro
       - node-modules-control-plane:/app/node_modules
 
   web:
