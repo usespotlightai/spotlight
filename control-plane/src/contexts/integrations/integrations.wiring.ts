@@ -126,8 +126,8 @@ import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
-import { Egress } from '@integrations/infrastructure/outbound/egress';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
 import { DrizzleIntegrationsHeld } from '@integrations/infrastructure/persistence/drizzle/readers/integrations-held.reader';
 import { DrizzleDeliveryInbox } from '@integrations/infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
@@ -448,7 +448,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [ENV, CLOCK],
     useFactory: (env: Env, clock: ClockPort) =>
       new OAuth2Exchange(
-        new Egress(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+        new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
         clock,
       ),
   },

@@ -6,7 +6,7 @@ import {
   requiredValueOf,
   type Templated,
 } from '@integrations/infrastructure/integrations/templating';
-import { Egress } from '@integrations/infrastructure/outbound/egress';
+import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import type { Bindings } from '@platform/expressions/bindings';
 import { holds, value } from '@platform/expressions/readings';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
@@ -21,13 +21,13 @@ export interface OutboundResult {
 type Fetch = typeof globalThis.fetch;
 
 export class HttpOutbound {
-  private readonly egress: Egress;
+  private readonly policy: OutboundPolicy;
 
   constructor(
     allowed: readonly string[],
     private readonly fetch: Fetch = globalThis.fetch,
   ) {
-    this.egress = new Egress(allowed);
+    this.policy = new OutboundPolicy(allowed);
   }
 
   async run(
@@ -96,7 +96,7 @@ export class HttpOutbound {
       return null;
     }
 
-    this.egress.allow(url);
+    this.policy.allow(url);
 
     const headers: Record<string, string> = {};
     for (const header of request.headers) {
