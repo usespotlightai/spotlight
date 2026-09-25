@@ -27,6 +27,7 @@ export const stackCheck = pgTable(
       .$type<readonly (readonly string[])[]>()
       .notNull()
       .default([]),
+    placementImage: text('placement_image'),
     phase: checkPhase('phase').notNull(),
     entries: jsonb('entries').$type<StoredCheckEntry[]>().notNull().default([]),
     rounds: integer('rounds').notNull().default(0),

@@ -6,6 +6,7 @@ import (
 )
 
 type Registration struct {
+	Release   string          `json:"release,omitempty"`
 	Harnesses []HarnessReport `json:"harnesses"`
 }
 
@@ -34,6 +35,7 @@ type Checkout struct {
 	Branch string `json:"branch"`
 	Ref    string `json:"ref,omitempty"`
 	DiffOf string `json:"diffOf,omitempty"`
+	Setup  string `json:"setup,omitempty"`
 }
 
 const DiffOfCommits = "commits"
@@ -134,8 +136,9 @@ type Continuity struct {
 }
 
 type Run struct {
-	ID   string `json:"id"`
-	Spec Spec   `json:"spec"`
+	ID      string `json:"id"`
+	Harness string `json:"harness,omitempty"`
+	Spec    Spec   `json:"spec"`
 }
 
 type EventType string
@@ -247,6 +250,7 @@ const (
 	SkipSetupFailed    = "setup-failed"
 	SkipNoRoom         = "no-room"
 	SkipOutOfTime      = "out-of-time"
+	SkipNoImage        = "no-image"
 )
 
 type SkippedCheck struct {

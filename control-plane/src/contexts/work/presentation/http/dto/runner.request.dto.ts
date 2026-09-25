@@ -97,6 +97,15 @@ export class DeliverSaidRequestDto {
   readonly upTo!: number;
 }
 
+export class RecordRunImageRequestDto {
+  @ApiProperty({
+    example:
+      'ghcr.io/acme/api-runner@sha256:9b2f5c1e0d7a4b3c8e6f1a2d5c7b9e0f3a4d6c8b1e2f5a7c9d0b3e6f8a1c4d7e',
+    description: 'The image the sandbox started from, named by its digest',
+  })
+  readonly image!: string;
+}
+
 export class RunAttachmentResponseDto {
   @ApiProperty({ example: '5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47' })
   readonly id: string;

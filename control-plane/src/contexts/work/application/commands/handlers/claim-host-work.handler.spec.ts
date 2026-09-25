@@ -24,7 +24,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-24T09:00:00.000Z');
 const POOLED = RunnerId.of('pooled_1');
-const HARNESSES = [{ id: 'claude-code', models: ['sonnet'] }];
+const IMAGE = 'ghcr.io/acme/runner:main';
 
 const taken = () =>
   Run.enqueue({
@@ -120,7 +120,7 @@ const pulling = (
 const HOST = '01J8ZQ4Y7N3K5V2W9X6RTBHCDE';
 
 const pull = (bearer = 'pool-token', trust?: string) =>
-  new ClaimHostWorkCommand({ bearer, trust }, HOST, HARNESSES);
+  new ClaimHostWorkCommand({ bearer, trust }, HOST, IMAGE);
 
 describe('ClaimHostWorkHandler', () => {
   it('refuses a host no pool or trust admits', async () => {
@@ -152,7 +152,7 @@ describe('ClaimHostWorkHandler', () => {
     expect(runners.start).toHaveBeenLastCalledWith(
       { kind: 'pool', id: 'pool_1' },
       HOST,
-      HARNESSES,
+      IMAGE,
       new Date(NOW.getTime() + 10_000),
       new Date(NOW.getTime() + 70_000),
     );
@@ -177,7 +177,7 @@ describe('ClaimHostWorkHandler', () => {
     expect(runners.start).toHaveBeenLastCalledWith(
       { kind: 'pool', id: 'pool_1' },
       HOST,
-      HARNESSES,
+      IMAGE,
       new Date(NOW.getTime() + 1_000),
       new Date(NOW.getTime() + 61_000),
     );
@@ -193,7 +193,16 @@ describe('ClaimHostWorkHandler', () => {
     expect(claimNext).not.toHaveBeenCalled();
   });
 
-  it('starts a runner, on the host that asked, through the way it was admitted, with what it reported installed, claimable for a minute', async () => {
+  it('answers a claim for an image the host did not report serving as unoffered', async () => {
+    const { handler, claimNext } = pulling({
+      started: { outcome: 'unoffered' },
+    });
+
+    expect(await handler.execute(pull())).toEqual({ outcome: 'unoffered' });
+    expect(claimNext).not.toHaveBeenCalled();
+  });
+
+  it('starts a runner, on the host that asked, through the way it was admitted, naming the image it claims for, claimable for a minute', async () => {
     const { handler, runners } = pulling({ run: taken() });
 
     await handler.execute(pull());
@@ -201,7 +210,7 @@ describe('ClaimHostWorkHandler', () => {
     expect(runners.start).toHaveBeenCalledWith(
       { kind: 'pool', id: 'pool_1' },
       HOST,
-      HARNESSES,
+      IMAGE,
       NOW,
       new Date(NOW.getTime() + 60_000),
     );
@@ -216,7 +225,7 @@ describe('ClaimHostWorkHandler', () => {
       outcome: 'claimed',
       runnerId: 'pooled_1',
       token: 'one-run-token',
-      work: { kind: 'run', run: { id: 'run_1' } },
+      work: { kind: 'run', run: { id: 'run_1', harness: 'claude-code' } },
     });
     expect(claimNext).toHaveBeenCalledWith(
       expect.objectContaining({ runner: POOLED, claims: 'any' }),

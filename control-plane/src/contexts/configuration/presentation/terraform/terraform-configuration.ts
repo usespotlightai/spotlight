@@ -60,6 +60,7 @@ const MAIN = 'main.tf';
 const VARIABLES = 'variables.tf';
 
 const LINE_BLOCKS: Readonly<Record<string, string>> = {
+  repositories: 'repository',
   stations: 'station',
   reactions: 'reaction',
   reviews: 'reviews',

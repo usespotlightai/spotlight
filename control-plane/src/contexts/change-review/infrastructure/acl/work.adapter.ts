@@ -4,7 +4,6 @@ import type {
   RunReasoning,
   WorkPort,
 } from '@change-review/application/ports/work.port';
-import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -35,8 +34,12 @@ export class Work implements WorkPort {
         id: run.id,
         workspaceId: run.workspaceId,
         taskId: run.taskId,
-        request: run.check?.trim()
-          ? CheckRequest.of(run.check, run.setup, run.placement)
+        checking: run.check?.trim()
+          ? {
+              command: run.check,
+              setups: run.setups,
+              placement: run.placement,
+            }
           : null,
         ended: run.ended,
         completed: run.completed,

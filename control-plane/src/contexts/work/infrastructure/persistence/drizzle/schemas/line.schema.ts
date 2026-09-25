@@ -71,10 +71,8 @@ export const station = pgTable(
     model: text('model'),
     effort: text('effort'),
     profile: text('profile'),
-    harnessVersion: text('harness_version'),
     agentPrompt: text('agent_prompt'),
     check: text('check'),
-    setup: text('setup'),
     runners: jsonb('runners').$type<string[]>().notNull().default([]),
     diffs: boolean('diffs').notNull().default(false),
     decisions: boolean('decisions').notNull().default(false),
@@ -143,6 +141,8 @@ export const lineRepository = pgTable(
       .notNull()
       .references(() => line.id, { onDelete: 'cascade' }),
     repository: text('repository').notNull(),
+    image: text('image'),
+    setup: text('setup'),
   },
   (table) => [
     primaryKey({ columns: [table.lineId, table.repository] }),

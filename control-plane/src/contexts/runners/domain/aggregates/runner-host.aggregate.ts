@@ -1,8 +1,10 @@
 import { HostTakenError } from '@runners/domain/exceptions/host-taken.error';
 import type { Admission } from '@runners/domain/value-objects/admission.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
+import type { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const ANSWERS_WITHIN_MS = 90_000;
@@ -79,6 +81,10 @@ export class RunnerHost {
 
   get lastSeenAt(): Date {
     return this.state.lastSeenAt;
+  }
+
+  offering(image: RunnerImage): HostImage | null {
+    return this.state.report.offering(image);
   }
 
   servesThrough(admission: Admission): boolean {

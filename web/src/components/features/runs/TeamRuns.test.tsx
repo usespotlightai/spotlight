@@ -37,6 +37,7 @@ const run = (
   startedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   harness: 'claude-code',
+  image: null,
   station: null,
   review,
   taskId: `task_${id}`,

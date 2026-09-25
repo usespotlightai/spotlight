@@ -9,20 +9,27 @@ import (
 	"path/filepath"
 )
 
-func Fingerprint(dir string) (string, error) {
+func Fingerprint(dir string, leaveOut []string) (string, error) {
 	sum := sha256.New()
+	left := leftOut(leaveOut)
 
 	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		info, err := entry.Info()
+		name, err := filepath.Rel(dir, path)
 		if err != nil {
 			return err
 		}
+		if left[filepath.ToSlash(name)] {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 
-		name, err := filepath.Rel(dir, path)
+		info, err := entry.Info()
 		if err != nil {
 			return err
 		}

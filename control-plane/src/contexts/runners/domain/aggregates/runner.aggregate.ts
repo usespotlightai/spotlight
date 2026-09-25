@@ -14,6 +14,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -34,6 +35,7 @@ interface State {
   readonly labels: RunnerLabels;
   readonly tokenHash: TokenHash;
   readonly installed: readonly InstalledHarness[];
+  readonly running: RunningImage | null;
   readonly work: RunnerWork | null;
   readonly claimBy: Date;
   readonly startedAt: Date;
@@ -56,6 +58,7 @@ export class Runner extends EventRecorder {
     host: HostId | null;
     tokenHash: TokenHash;
     installed: readonly InstalledHarness[];
+    running: RunningImage | null;
     at: Date;
     claimBy: Date;
   }): Runner {
@@ -86,6 +89,7 @@ export class Runner extends EventRecorder {
         labels: through.labels,
         tokenHash: input.tokenHash,
         installed: [...input.installed],
+        running: input.running,
         work: null,
         claimBy: input.claimBy,
         startedAt: input.at,
@@ -140,6 +144,10 @@ export class Runner extends EventRecorder {
     return this.state.installed;
   }
 
+  get running(): RunningImage | null {
+    return this.state.running;
+  }
+
   get work(): RunnerWork | null {
     return this.state.work;
   }
@@ -173,12 +181,9 @@ export class Runner extends EventRecorder {
   }
 
   get terms(): RunnerTerms {
-    return RunnerTerms.of([
-      ...this.state.labels.values,
-      ...this.state.installed.flatMap((each) =>
-        each.release ? [each.release.term] : [],
-      ),
-    ]);
+    return RunnerTerms.of(this.state.labels.values).runningIn(
+      this.state.running,
+    );
   }
 
   standsAt(now: Date): boolean {

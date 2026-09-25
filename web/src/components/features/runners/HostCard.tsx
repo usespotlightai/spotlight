@@ -1,10 +1,10 @@
-import { HarnessPills } from '@/components/features/runners/HarnessPills';
+import { HostImages } from '@/components/features/runners/HostImages';
 import { HostStanding } from '@/components/features/runners/HostStanding';
 import { type Host, type NamedHarness, seenAt, through } from '@/lib/runner';
 
 type HostCardProps = {
   host: Host;
-  harnesses: readonly NamedHarness[];
+  harnesses: readonly NamedHarness[] | undefined;
 };
 
 export function HostCard({ host, harnesses }: HostCardProps) {
@@ -25,7 +25,7 @@ export function HostCard({ host, harnesses }: HostCardProps) {
           {through(host.through)}
         </p>
 
-        <HarnessPills harnesses={harnesses} />
+        <HostImages images={host.images} harnesses={harnesses} />
       </div>
 
       <p className="flex min-w-0 gap-1 text-muted-foreground text-xs tabular-nums">

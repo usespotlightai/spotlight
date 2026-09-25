@@ -21,7 +21,7 @@ import {
 import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { everyClauseMet } from '@platform/persistence/drizzle/every-clause-met';
+import { placementMet } from '@platform/persistence/drizzle/placement-met';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -29,6 +29,7 @@ import {
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -44,7 +45,10 @@ const toStackCheck = (row: Row): StackCheck =>
     request: CheckRequest.of(
       row.command,
       row.setup,
-      RunnerPlacement.ofClauses(row.placement),
+      RunnerPlacement.ofClauses(
+        row.placement,
+        row.placementImage ? RunnerImage.of(row.placementImage) : null,
+      ),
     ),
     phase: row.phase,
     entries: row.entries.map(entryOf),
@@ -123,6 +127,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           command: added.request.command,
           setup: added.request.setup,
           placement: added.request.placement.clauses,
+          placementImage: added.request.placement.image?.value ?? null,
           version: added.version,
           ...valuesOf(added),
         })
@@ -188,7 +193,11 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
             eq(stackCheck.reservedFor, by.runner.value),
             lte(stackCheck.reservedUntil, now),
           ),
-          everyClauseMet(stackCheck.placement, by.terms.values),
+          placementMet(
+            stackCheck.placement,
+            stackCheck.placementImage,
+            by.terms,
+          ),
         ),
       )
       .orderBy(asc(stackCheck.waitingSince))

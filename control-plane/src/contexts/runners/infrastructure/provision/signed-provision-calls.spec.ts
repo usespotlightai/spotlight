@@ -29,6 +29,7 @@ const calling = (
   runId: 'run_1',
   taskId: 'task_1',
   labels: ['sandbox'],
+  image: 'ghcr.io/acme/widgets:1',
   runnerId: 'runner_1',
   token: 'one-run-token',
   claimBy: new Date('2026-09-24T10:05:00.000Z'),
@@ -67,7 +68,7 @@ describe('signatureOf', () => {
 });
 
 describe('SignedProvisionCalls', () => {
-  it('posts the run, its labels and a one-run token, signed with the pool secret', async () => {
+  it('posts the run, its labels, its image and a one-run token, signed with the pool secret', async () => {
     const { fetch, provision } = calls(
       async () => new Response(null, { status: 202 }),
     );
@@ -97,6 +98,7 @@ describe('SignedProvisionCalls', () => {
         workspaceId: 'ws_1',
         pool: 'sandboxes',
         labels: ['sandbox'],
+        image: 'ghcr.io/acme/widgets:1',
         runner: { id: 'runner_1', token: 'one-run-token' },
         spotlightUrl: 'https://app.usespotlight.ai',
         claimBy: '2026-09-24T10:05:00.000Z',
@@ -127,6 +129,21 @@ describe('SignedProvisionCalls', () => {
       runId: 'run_1',
       taskId: null,
     });
+  });
+
+  it('names no image when the work asks for the usual one', async () => {
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
+    );
+
+    await provision.call({ ...calling(), image: null });
+
+    const [, sent] = fetch.mock.calls[0] as unknown as [
+      string,
+      RequestInit & { body: string },
+    ];
+
+    expect(JSON.parse(sent.body).data.image).toBeNull();
   });
 
   it('says what the endpoint answered when it refuses', async () => {

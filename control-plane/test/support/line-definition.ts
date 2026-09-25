@@ -4,7 +4,11 @@ export const definitionOf = (line: LineOpening) => ({
   key: line.key.value,
   name: line.name.value,
   ...(line.role ? { role: line.role.value } : {}),
-  repositories: line.repositories.map((each) => each.value),
+  repositories: line.repositories.map((each) => ({
+    name: each.repository.value,
+    ...(each.image ? { image: each.image.value } : {}),
+    ...(each.setup ? { setup: each.setup.value } : {}),
+  })),
   stations: line.stations.map((station) => ({
     key: station.key.value,
     name: station.name.value,

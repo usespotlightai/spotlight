@@ -38,6 +38,7 @@ const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
       workspaceId: call.workspaceId,
       pool: call.pool,
       labels: call.labels,
+      image: call.image,
       runner: { id: call.runnerId, token: call.token },
       spotlightUrl,
       claimBy: call.claimBy.toISOString(),

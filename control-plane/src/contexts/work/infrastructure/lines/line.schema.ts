@@ -1,6 +1,4 @@
-import { InvalidHarnessVersionError } from '@shared-kernel/domain/exceptions/invalid-harness-version.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { EFFORTS } from '@work/domain/value-objects/effort.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
@@ -21,8 +19,7 @@ const identifier = (make: (raw: string) => unknown) =>
       context.addIssue({
         code: 'custom',
         message:
-          error instanceof InvalidIdentifierError ||
-          error instanceof InvalidHarnessVersionError
+          error instanceof InvalidIdentifierError
             ? error.because
             : String(error),
       });
@@ -42,10 +39,8 @@ const stationSchema = z.object({
   model: z.string().min(1).optional(),
   effort: z.enum(EFFORTS).optional(),
   profile: identifier(ProfileKey.of).optional(),
-  harnessVersion: identifier(HarnessVersion.of).optional(),
   prompt: z.string().optional(),
   check: z.string().optional(),
-  setup: z.string().optional(),
   runners: z.array(z.string()).optional(),
   diffs: z.boolean().optional(),
   decisions: z.boolean().optional(),
@@ -53,6 +48,12 @@ const stationSchema = z.object({
   skills: z.array(identifier(SkillKey.of)).default([]),
   passesTo: z.array(identifier(StationKey.of)).default([]),
   ends: z.boolean().default(false),
+});
+
+const repositorySchema = z.object({
+  name: z.string().min(1, 'is a repository named owner/name'),
+  image: z.string().optional(),
+  setup: z.string().optional(),
 });
 
 const reactionSchema = z.object({
@@ -86,9 +87,7 @@ export const lineSchema = z.object({
   key: identifier(LineKey.of),
   name: z.string().min(1, 'is what this line is called'),
   role: identifier(LineRole.of).optional(),
-  repositories: z
-    .array(z.string().min(1, 'is a repository named owner/name'))
-    .default([]),
+  repositories: z.array(repositorySchema).default([]),
   stations: z
     .array(stationSchema)
     .min(

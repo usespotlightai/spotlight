@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { everyClauseMet } from '@platform/persistence/drizzle/every-clause-met';
+import { placementMet } from '@platform/persistence/drizzle/placement-met';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -10,6 +10,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -63,6 +64,7 @@ export class DrizzleRunRepository implements RunRepository {
       message: added.outcome?.message ?? null,
       stopped: added.outcome?.stopped ?? false,
       placement: added.placement.clauses,
+      placementImage: added.placement.image?.value ?? null,
       ...reservationOf(added),
     });
   }
@@ -87,6 +89,8 @@ export class DrizzleRunRepository implements RunRepository {
           state,
           spec,
           placement,
+          placement_image   AS "placementImage",
+          ran_in            AS "ranIn",
           claimed_by        AS "claimedBy",
           lease_expires_at  AS "leaseExpiresAt",
           stop_requested_at AS "stopRequestedAt",
@@ -109,7 +113,7 @@ export class DrizzleRunRepository implements RunRepository {
               ? sql`reserved_for = ${by.runner.value} AND reserved_until > ${now.toISOString()}::timestamp`
               : sql`(reserved_for IS NULL OR reserved_for = ${by.runner.value} OR reserved_until <= ${now.toISOString()}::timestamp)`
           }
-          AND ${everyClauseMet(run.placement, by.terms.values)}
+          AND ${placementMet(run.placement, run.placementImage, by.terms)}
         -- ClaimOrder.next, said in SQL because the claim must be one statement.
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
@@ -160,6 +164,7 @@ export class DrizzleRunRepository implements RunRepository {
         exitCode: saved.outcome?.exitCode ?? null,
         message: saved.outcome?.message ?? null,
         stopped: saved.outcome?.stopped ?? false,
+        ranIn: saved.ranIn?.value ?? null,
         ...reservationOf(saved),
       })
       .where(and(eq(run.id, saved.id.value), eq(run.version, saved.version)))
@@ -290,7 +295,10 @@ const toRun = (row: Row): Run =>
       chatId: row.chatId ? ChatId.of(row.chatId) : null,
     }),
     spec: specOf(row),
-    placement: RunnerPlacement.ofClauses(row.placement),
+    placement: RunnerPlacement.ofClauses(
+      row.placement,
+      row.placementImage ? RunnerImage.of(row.placementImage) : null,
+    ),
     state: row.state,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: asDate(row.leaseExpiresAt),
@@ -310,5 +318,6 @@ const toRun = (row: Row): Run =>
             stopped: row.stopped,
           }),
     attempt: row.attempt ?? 1,
+    ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
     version: row.version,
   });

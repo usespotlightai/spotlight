@@ -61,7 +61,10 @@ describe('a host claiming through a runner trust, as a platform workload with no
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${token}`)
       .set('Spotlight-Trust', trust)
-      .send({ host: HOST, harnesses: [{ id: 'dev' }] });
+      .send({
+        host: HOST,
+        image: 'ghcr.io/acme/runner:main',
+      });
 
   const present = (trust: string, token: string, running: string[] = []) =>
     http()
@@ -74,7 +77,13 @@ describe('a host claiming through a runner trust, as a platform workload with no
         executor: 'docker',
         capacity: 2,
         running,
-        harnesses: [{ id: 'dev', models: [] }],
+        images: [
+          {
+            image: 'ghcr.io/acme/runner:main',
+            usual: true,
+            harnesses: [{ id: 'dev', models: [] }],
+          },
+        ],
       });
 
   const hostRow = async () => {
@@ -219,7 +228,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     expect(
       (
         await http()
-          .get('/api/hosts/harnesses')
+          .get('/api/hosts/requirements')
           .set('Authorization', `Bearer ${await workload()}`)
           .set('Spotlight-Trust', randomUUID())
       ).status,
@@ -250,7 +259,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     expect((await claim(trust.id, await workload())).status).toBe(401);
   });
 
-  it('lets a host through a trust say it is here, what it holds and what it runs', async () => {
+  it('lets a host through a trust say it is here, what it holds and what it runs, and ask what it should serve', async () => {
     const trust = await trusted();
 
     const answered = await present(trust.id, await workload(), ['run-1']);
@@ -270,7 +279,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     });
 
     await http()
-      .get('/api/hosts/harnesses')
+      .get('/api/hosts/requirements')
       .set('Authorization', `Bearer ${await workload()}`)
       .set('Spotlight-Trust', trust.id)
       .expect(200);

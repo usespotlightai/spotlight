@@ -15,6 +15,7 @@ export interface ProvisionCall {
   readonly runId: string;
   readonly taskId: string | null;
   readonly labels: readonly string[];
+  readonly image: string | null;
   readonly runnerId: string;
   readonly token: string;
   readonly claimBy: Date;

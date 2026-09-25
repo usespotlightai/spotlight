@@ -4,6 +4,7 @@ import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerMovedOnError } from '@runners/domain/exceptions/runner-moved-on.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -20,8 +21,9 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
@@ -78,6 +80,10 @@ const toRunner = (row: Row): Runner =>
           : null,
       ),
     ),
+    running:
+      row.image === null
+        ? null
+        : RunningImage.of(RunnerImage.of(row.image), row.usual),
     work: workOf(row),
     claimBy: row.claimBy,
     startedAt: row.startedAt,
@@ -123,6 +129,8 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         hostId: added.hostId?.value ?? null,
         labels: [...added.labels.values],
         tokenHash: added.tokenHash.value,
+        image: added.running?.image.value ?? null,
+        usual: added.running?.usual ?? false,
         claimBy: added.claimBy,
         startedAt: added.startedAt,
         ...heldOf(added),

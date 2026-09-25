@@ -23,6 +23,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,7 +51,12 @@ const toChangeStack = (row: Row): ChangeStack =>
       ? CheckRequest.of(
           row.checkCommand,
           row.checkSetup,
-          RunnerPlacement.ofClauses(row.checkPlacement),
+          RunnerPlacement.ofClauses(
+            row.checkPlacement,
+            row.checkPlacementImage
+              ? RunnerImage.of(row.checkPlacementImage)
+              : null,
+          ),
         )
       : null,
     reordering: row.reordering,
@@ -92,6 +98,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       checkCommand: added.request?.command ?? null,
       checkSetup: added.request?.setup ?? null,
       checkPlacement: added.request?.placement.clauses ?? [],
+      checkPlacementImage: added.request?.placement.image?.value ?? null,
       reordering: added.reordering,
       version: added.version,
     });

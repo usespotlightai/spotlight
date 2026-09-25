@@ -119,6 +119,7 @@ import { GrantAttachmentUploadHandler } from '@work/application/commands/handler
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
+import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
 import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
@@ -136,6 +137,7 @@ import {
   ClaimRunCommand,
   CompleteRunCommand,
   EnqueueRunCommand,
+  RecordRunImageCommand,
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
 import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
@@ -199,6 +201,7 @@ import {
   type IntegrationToolsPort,
 } from '@work/application/ports/integration-tools.port';
 import { LINE_COMPILER } from '@work/application/ports/line-compiler.port';
+import { LINE_IMAGES } from '@work/application/ports/line-images.port';
 import { LINE_READER } from '@work/application/ports/line-reader.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
 import {
@@ -272,11 +275,11 @@ import {
   ReadChatQuery,
 } from '@work/application/queries/chat.queries';
 import { HeldWorkspaceArchiveHandler } from '@work/application/queries/handlers/held-workspace-archive.handler';
+import { HostRequirementsHandler } from '@work/application/queries/handlers/host-requirements.handler';
 import { ImportLineHandler } from '@work/application/queries/handlers/import-line.handler';
 import { ListChatsHandler } from '@work/application/queries/handlers/list-chats.handler';
 import {
   HarnessCatalogueHandler,
-  HostHarnessesHandler,
   ListHarnessesHandler,
 } from '@work/application/queries/handlers/list-harnesses.handler';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
@@ -303,7 +306,7 @@ import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-ta
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
 import { WatchRunHandler } from '@work/application/queries/handlers/watch-run.handler';
 import { HeldWorkspaceArchiveQuery } from '@work/application/queries/held-workspace-archive.query';
-import { HostHarnessesQuery } from '@work/application/queries/host.queries';
+import { HostRequirementsQuery } from '@work/application/queries/host.queries';
 import { ImportLineQuery } from '@work/application/queries/import-line.query';
 import {
   HarnessCatalogueQuery,
@@ -387,6 +390,7 @@ import { DrizzleGivenAtStations } from '@work/infrastructure/persistence/drizzle
 import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleLineReader } from '@work/infrastructure/persistence/drizzle/readers/line.reader';
+import { DrizzleLineImages } from '@work/infrastructure/persistence/drizzle/readers/line-images.reader';
 import { DrizzleLineResources } from '@work/infrastructure/persistence/drizzle/readers/line-resources.reader';
 import { DrizzleLinesHeld } from '@work/infrastructure/persistence/drizzle/readers/lines-held.reader';
 import { DrizzleQueuedPlacements } from '@work/infrastructure/persistence/drizzle/readers/queued-placements.reader';
@@ -496,6 +500,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: CHAT_READER, useClass: DrizzleChatReader },
 
   { provide: LINE_READER, useClass: DrizzleLineReader },
+  { provide: LINE_IMAGES, useClass: DrizzleLineImages },
 
   { provide: TASK_READER, useClass: DrizzleTaskReader },
 
@@ -1035,9 +1040,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     HARNESS_LAUNCH,
   ]),
 
-  ...bindQueryHandler(HostHarnessesQuery, HostHarnessesHandler, [
+  ...bindQueryHandler(HostRequirementsQuery, HostRequirementsHandler, [
     HARNESS_LAUNCH,
     RUNNER_ADMISSIONS,
+    LINE_IMAGES,
   ]),
 
   ...bindQueryHandler(PoolQueueQuery, PoolQueueHandler, [
@@ -1396,6 +1402,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
+    DrizzleRunRepository,
+    RUNNER_PRESENCE,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(RecordRunImageCommand, RecordRunImageHandler, [
     DrizzleRunRepository,
     RUNNER_PRESENCE,
     CLOCK,

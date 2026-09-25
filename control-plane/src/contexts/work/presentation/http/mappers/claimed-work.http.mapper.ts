@@ -11,7 +11,11 @@ export const ClaimedWorkHttpMapper = {
     if (claimed.kind === 'run') {
       return new ClaimedWorkResponseDto(
         'run',
-        new ClaimedRunResponseDto(claimed.run.id, claimed.run.spec),
+        new ClaimedRunResponseDto(
+          claimed.run.id,
+          claimed.run.harness,
+          claimed.run.spec,
+        ),
         null,
       );
     }

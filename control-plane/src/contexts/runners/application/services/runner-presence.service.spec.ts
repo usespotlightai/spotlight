@@ -10,6 +10,8 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const ID = RunnerId.of('pooled_1');
@@ -40,9 +42,21 @@ describe('RunnerPresence', () => {
 
     expect(seen?.workspaceId.value).toBe('ws_1');
     expect(seen?.harnesses.map((each) => each.value)).toEqual(['claude-code']);
-    expect(seen?.terms.values).toEqual(['linux', 'claude-code@2.1.0']);
+    expect(seen?.terms.values).toEqual(['linux']);
     expect(seen?.claims).toBe('reserved');
     expect(save).toHaveBeenCalledOnce();
+  });
+
+  it('answers serving only the image the runner was started in', async () => {
+    const widgets = RunnerImage.of('ghcr.io/acme/widgets:1');
+    const { presence } = holding(
+      aRunner({ running: RunningImage.of(widgets, false) }),
+    );
+
+    const terms = (await presence.seen(ID, later(1)))?.terms;
+
+    expect(terms?.serves(widgets)).toBe(true);
+    expect(terms?.serves(null)).toBe(false);
   });
 
   it('answers to the labels of the trust that admitted it', async () => {

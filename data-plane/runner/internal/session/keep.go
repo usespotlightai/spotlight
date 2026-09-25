@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -48,7 +47,7 @@ func (k *keeper) carriesOn() bool {
 }
 
 func (k *keeper) restore(ctx context.Context) {
-	if !k.carriesOn() || !k.space.Fresh || k.run.Spec.Continuity.SessionID == "" {
+	if !k.carriesOn() || k.run.Spec.Continuity.SessionID == "" {
 		return
 	}
 
@@ -65,7 +64,24 @@ func (k *keeper) restored(ctx context.Context) {
 		return
 	}
 
-	if err := archive.Restore(ctx, *held, k.space.Dir, k.scratch); err != nil {
+	fetched, err := archive.Fetch(ctx, *held, k.scratch)
+	if err != nil {
+		k.say(restoreStep, "Started afresh: %v", err)
+		return
+	}
+	defer func() {
+		if err := fetched.Remove(); err != nil {
+			k.log.Warn("could not remove the fetched workspace", "error", err)
+		}
+	}()
+
+	if err := k.space.Clear(k.rebuilt(ctx)); err != nil {
+		k.say(restoreStep, "Started afresh: %v", err)
+		k.emptied()
+		return
+	}
+
+	if err := fetched.UnpackInto(k.space.Dir); err != nil {
 		k.say(restoreStep, "Started afresh: %v", err)
 		k.emptied()
 		return
@@ -80,7 +96,7 @@ func (k *keeper) settled() {
 		return
 	}
 
-	fingerprint, err := archive.Fingerprint(k.space.Dir)
+	fingerprint, err := archive.Fingerprint(k.space.Dir, k.rebuilt(context.Background()))
 	if err != nil {
 		k.log.Warn("could not take the workspace's fingerprint", "error", err)
 		return
@@ -100,13 +116,15 @@ func (k *keeper) keep(ctx context.Context) {
 }
 
 func (k *keeper) kept(ctx context.Context) string {
+	leaveOut := k.rebuilt(ctx)
+
 	if k.baseline != "" {
-		if now, err := archive.Fingerprint(k.space.Dir); err == nil && now == k.baseline {
+		if now, err := archive.Fingerprint(k.space.Dir, leaveOut); err == nil && now == k.baseline {
 			return "Coalesced: nothing changed since the workspace was restored"
 		}
 	}
 
-	packed, err := archive.Pack(k.space.Dir, k.scratch)
+	packed, err := archive.Pack(k.space.Dir, k.scratch, leaveOut)
 	if err != nil {
 		return "Skipped: " + err.Error()
 	}
@@ -157,17 +175,27 @@ func (k *keeper) leased(ctx context.Context, do func(context.Context)) {
 }
 
 func (k *keeper) emptied() {
-	entries, err := os.ReadDir(k.space.Dir)
-	if err != nil {
+	if err := k.space.Clear(nil); err != nil {
 		k.log.Warn("could not clear a workspace half restored", "error", err)
-		return
 	}
+}
 
-	for _, entry := range entries {
-		if err := os.RemoveAll(filepath.Join(k.space.Dir, entry.Name())); err != nil {
-			k.log.Warn("could not clear a workspace half restored", "error", err)
+func (k *keeper) rebuilt(ctx context.Context) []string {
+	var setUp []string
+	for _, checkout := range k.run.Spec.Checkouts {
+		if checkout.Setup != "" {
+			setUp = append(setUp, checkout.Path)
 		}
 	}
+	if len(setUp) == 0 {
+		return nil
+	}
+
+	ignored, err := k.space.Ignored(ctx, setUp)
+	if err != nil {
+		k.log.Warn("could not tell what the checkouts ignore", "error", err)
+	}
+	return ignored
 }
 
 func (k *keeper) say(step, format string, args ...any) {

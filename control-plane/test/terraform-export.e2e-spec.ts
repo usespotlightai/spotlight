@@ -44,6 +44,9 @@ const PROMPTED = BUILT_IN.stations.find(
 
 const DELIVERY = {
   ...BUILT_IN,
+  repositories: [
+    { name: 'acme/api', image: 'ghcr.io/acme/api:main', setup: 'npm ci' },
+  ],
   runners: ['build-1', 'vpc-internal'],
   stations: BUILT_IN.stations.map((station) =>
     station.key === PROMPTED?.key
@@ -282,7 +285,8 @@ describe('a workspace exported as Terraform (e2e)', () => {
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
       'tools     = ["${spotlight_integration.team_linear.source}.comment"]',
       'profile   = spotlight_harness_profile.team_careful.key',
-      'runners      = ["build-1", "vpc-internal"]',
+      'runners = ["build-1", "vpc-internal"]',
+      '  repository {\n    name  = "acme/api"\n    image = "ghcr.io/acme/api:main"\n    setup = "npm ci"\n  }\n',
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
       'secrets = ["secret.${spotlight_secret.linear_api_key.name}"]',
       'trusts       = [spotlight_runner_trust.production.key]',

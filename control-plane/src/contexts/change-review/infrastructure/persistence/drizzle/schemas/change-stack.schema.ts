@@ -45,6 +45,7 @@ export const changeStack = pgTable(
       .$type<readonly (readonly string[])[]>()
       .notNull()
       .default([]),
+    checkPlacementImage: text('check_placement_image'),
     reordering: boolean('reordering').notNull().default(false),
     workAttempts: integer('work_attempts').notNull().default(0),
     workDueAt: timestamp('work_due_at'),

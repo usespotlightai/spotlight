@@ -4,10 +4,10 @@ import type {
 } from '@catalog/application/contracts/catalog.contract';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -45,6 +45,7 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
+import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -54,6 +55,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -175,14 +177,19 @@ const runs = {
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
-const held = (changed?: Station, repositories: string[] = []) =>
+type Worked = string | WorkedRepository;
+
+const worked = (each: Worked): WorkedRepository =>
+  typeof each === 'string' ? WorkedRepository.of(Repository.of(each)) : each;
+
+const held = (changed?: Station, repositories: readonly Worked[] = []) =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('default'),
     name: LineName.of('Default'),
-    repositories: repositories.map((each) => Repository.of(each)),
+    repositories: repositories.map(worked),
     stations: changed
       ? stations.map((each) => (each.equals(changed) ? changed : each))
       : stations,
@@ -278,7 +285,7 @@ const WEB_SEARCH = {
 const dispatch = async (
   station: Station,
   standing?: Task,
-  repositories?: string[],
+  repositories?: readonly Worked[],
 ) => {
   const service = new DispatchTask(
     runs,
@@ -494,6 +501,40 @@ describe('DispatchTask', () => {
       ]);
     });
 
+    it('makes each checkout ready as its repository says', async () => {
+      await dispatch(stations[1] as Station, undefined, [
+        WorkedRepository.of(Repository.of('acme/api'), {
+          setup: RepositorySetup.of('npm ci'),
+        }),
+        'acme/web',
+      ]);
+
+      expect(written(queued[0]).checkouts).toEqual([
+        {
+          remote: 'spotlight:repository',
+          path: 'api',
+          branch: 'spotlight/task_1',
+          setup: 'npm ci',
+        },
+        {
+          remote: 'spotlight:repository',
+          path: 'web',
+          branch: 'spotlight/task_1',
+        },
+      ]);
+    });
+
+    it('places the run in the image the line’s repositories name', async () => {
+      await dispatch(stations[1] as Station, undefined, [
+        WorkedRepository.of(Repository.of('acme/api'), {
+          image: RunnerImage.of('ghcr.io/acme/api:1'),
+        }),
+      ]);
+
+      expect(queued[0]?.placement.image?.value).toBe('ghcr.io/acme/api:1');
+      expect(queued[0]?.placement.clauses).toEqual([]);
+    });
+
     it('asks for no checkout where the line works no repository', async () => {
       await dispatch(stations[1] as Station);
 
@@ -518,7 +559,6 @@ describe('DispatchTask', () => {
         color: StationColor.of('#a3a8b0'),
         harness: DEV.id,
         profile: ProfileKey.of(profile),
-        harnessVersion: HarnessVersion.of('2.1.270'),
         wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
       });
 
@@ -534,12 +574,6 @@ describe('DispatchTask', () => {
         mcpServers: [],
         asks: ['execute'],
       });
-    });
-
-    it('places the run on a runner holding the release of the harness the station names', async () => {
-      await dispatch(naming('careful'));
-
-      expect(queued[0]?.placement.clauses).toEqual([['dev@2.1.270']]);
     });
 
     it('fails the run, saying why, where the team holds no such profile', async () => {

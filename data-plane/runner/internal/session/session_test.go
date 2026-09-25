@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"usespotlight.ai/data-plane/internal/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
@@ -168,16 +167,6 @@ func (j *journal) typed(kind protocol.EventType) []protocol.Event {
 	return found
 }
 
-func prepareHook(t *testing.T, body string) string {
-	t.Helper()
-
-	path := filepath.Join(t.TempDir(), "prepare")
-	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
 func harness(t *testing.T, doing string, stopReason string) string {
 	t.Helper()
 
@@ -306,12 +295,10 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			HarnessSetup: settings.setup,
 		},
 	}, session.Options{
-		WorkspaceRoot: settings.root,
-		Journal:       written,
-		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
-		AgentUser:     settings.agentUser,
-		PrepareHook:   prepareHook(t, "true"),
-		HookTimeout:   30 * time.Second,
+		Workspace: settings.root,
+		Journal:   written,
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		AgentUser: settings.agentUser,
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -429,11 +416,9 @@ func TestARunThatCannotStartIsStillReported(t *testing.T) {
 		ID:   "run_1",
 		Spec: protocol.Spec{Command: protocol.Command{Executable: "nothing-of-that-name"}},
 	}, session.Options{
-		WorkspaceRoot: t.TempDir(),
-		Journal:       written,
-		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
-		PrepareHook:   prepareHook(t, "true"),
-		HookTimeout:   30 * time.Second,
+		Workspace: t.TempDir(),
+		Journal:   written,
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	if err == nil {
@@ -565,7 +550,7 @@ func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsTold(t *testing.T) {
 		o.env = map[string]string{"HARNESS_STATE_DIR": "${" + session.StateVar + "}/somewhere"}
 	})
 
-	want := filepath.Join(root, "task_1", workspace.StatePath, "somewhere")
+	want := filepath.Join(root, workspace.StatePath, "somewhere")
 	if got := said(t, written); got != want {
 		t.Errorf("the harness was told %q, wanted %q", got, want)
 	}
@@ -616,10 +601,9 @@ func TestARunWhoseAttachmentCannotBeFetchedFails(t *testing.T) {
 			},
 		},
 	}, session.Options{
-		WorkspaceRoot: t.TempDir(),
-		Journal:       written,
-		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
-		HookTimeout:   30 * time.Second,
+		Workspace: t.TempDir(),
+		Journal:   written,
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	if err == nil || !strings.Contains(err.Error(), "fetch attachment att_gone") {
@@ -822,10 +806,9 @@ func TestAHarnessFileOutsideTheStateDirectoryFailsTheRun(t *testing.T) {
 			}},
 		},
 	}, session.Options{
-		WorkspaceRoot: t.TempDir(),
-		Journal:       written,
-		Log:           slog.New(slog.NewTextHandler(io.Discard, nil)),
-		HookTimeout:   30 * time.Second,
+		Workspace: t.TempDir(),
+		Journal:   written,
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	if err == nil || !strings.Contains(err.Error(), "escapes the state directory") {

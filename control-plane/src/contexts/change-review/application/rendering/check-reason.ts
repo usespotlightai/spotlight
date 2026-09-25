@@ -9,6 +9,7 @@ const SAID: Readonly<Record<SkipCode, string>> = {
   'setup-failed': 'The checkout could not be made ready before the check ran.',
   'no-room': 'The runner had no room to check the layers.',
   'out-of-time': 'There was no time left to check the layers.',
+  'no-image': 'The runner image the line names could not be pulled.',
   'nobody-checked': 'No runner checked the layers in time.',
   unprovisioned: 'No runner could be provisioned to check the layers.',
 };

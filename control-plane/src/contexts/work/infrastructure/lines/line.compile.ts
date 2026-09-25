@@ -2,8 +2,8 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type {
   CompiledLine,
@@ -23,6 +23,7 @@ import {
 } from '@work/domain/value-objects/line-plan.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
+import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -30,14 +31,16 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import {
   type LineFields,
   lineSchema,
 } from '@work/infrastructure/lines/line.schema';
 
 type StationDefinition = LineFields['stations'][number];
+
+type RepositoryDefinition = LineFields['repositories'][number];
 
 type Read<T> =
   | { readonly ok: true; readonly value: T }
@@ -91,27 +94,12 @@ const compileStation = (
     return refused('check', error);
   }
 
-  let setup: StationSetup | null = null;
-
-  try {
-    setup = station.setup ? StationSetup.of(station.setup) : null;
-  } catch (error) {
-    return refused('setup', error);
-  }
-
   let placement = RunnerPlacement.anywhere();
 
   try {
     placement = RunnerPlacement.of(station.runners ?? []);
   } catch (error) {
     return refused('runners', error);
-  }
-
-  if (check && station.diffs && !setup) {
-    return refused(
-      'setup',
-      'says how to make the checkout ready before the check runs, and a station that checks its layers needs one',
-    );
   }
 
   return {
@@ -130,12 +118,8 @@ const compileStation = (
       model: station.model ? HarnessModel.of(station.model) : null,
       effort: station.effort ? Effort.of(station.effort) : null,
       profile: station.profile ? ProfileKey.of(station.profile) : null,
-      harnessVersion: station.harnessVersion
-        ? HarnessVersion.of(station.harnessVersion)
-        : null,
       agentPrompt,
       check,
-      setup,
       placement,
       diffs: station.diffs ?? false,
       decisions: station.decisions ?? false,
@@ -147,6 +131,49 @@ const compileStation = (
   };
 };
 
+const compileRepository = (
+  path: string,
+  at: number,
+  repository: RepositoryDefinition,
+): Read<WorkedRepository> => {
+  const refused = (field: string, error: unknown): Read<WorkedRepository> => ({
+    ok: false,
+    problems: [
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(['repositories', at, field]),
+        reason: reasoned(error),
+      }),
+    ],
+  });
+
+  let named: Repository;
+
+  try {
+    named = Repository.of(repository.name);
+  } catch (error) {
+    return refused('name', error);
+  }
+
+  let image: RunnerImage | null = null;
+
+  try {
+    image = repository.image ? RunnerImage.of(repository.image) : null;
+  } catch (error) {
+    return refused('image', error);
+  }
+
+  let setup: RepositorySetup | null = null;
+
+  try {
+    setup = repository.setup ? RepositorySetup.of(repository.setup) : null;
+  } catch (error) {
+    return refused('setup', error);
+  }
+
+  return { ok: true, value: WorkedRepository.of(named, { image, setup }) };
+};
+
 const placed = (definition: LineFields, part: LinePart): FieldPath => {
   switch (part.of) {
     case 'station': {
@@ -156,6 +183,8 @@ const placed = (definition: LineFields, part: LinePart): FieldPath => {
 
       return FieldPath.of(at < 0 ? ['stations'] : ['stations', at, part.field]);
     }
+    case 'repository':
+      return FieldPath.of(['repositories', part.place, part.field]);
     case 'reaction':
       return FieldPath.of([
         'reactions',
@@ -189,19 +218,15 @@ export const compileLine = (held: unknown): CompiledLine => {
   const key = LineKey.of(definition.key);
   const path = lineAt(key.value);
   const problems: ConfigurationProblem[] = [];
-  const repositories: Repository[] = [];
+  const repositories: WorkedRepository[] = [];
 
-  for (const [at, named] of definition.repositories.entries()) {
-    try {
-      repositories.push(Repository.of(named));
-    } catch (error) {
-      problems.push(
-        ConfigurationProblem.of({
-          path,
-          at: FieldPath.of(['repositories', at]),
-          reason: reasoned(error),
-        }),
-      );
+  for (const [at, repository] of definition.repositories.entries()) {
+    const compiled = compileRepository(path, at, repository);
+
+    if (compiled.ok) {
+      repositories.push(compiled.value);
+    } else {
+      problems.push(...compiled.problems);
     }
   }
 

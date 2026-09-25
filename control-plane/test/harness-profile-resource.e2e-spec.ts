@@ -140,12 +140,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         station.key === first
           ? { ...station, harness: 'claude-code', profile: 'careful' }
           : station.key === second
-            ? {
-                ...station,
-                harness: 'cursor',
-                profile: 'careful',
-                harnessVersion: '2026.09.01',
-              }
+            ? { ...station, harness: 'cursor', profile: 'careful' }
             : station,
       ),
       first,
@@ -231,11 +226,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     expect(laid.body.definition.stations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: first, profile: 'careful' }),
-        expect.objectContaining({
-          key: second,
-          profile: 'careful',
-          harnessVersion: '2026.09.01',
-        }),
+        expect.objectContaining({ key: second, profile: 'careful' }),
       ]),
     );
 

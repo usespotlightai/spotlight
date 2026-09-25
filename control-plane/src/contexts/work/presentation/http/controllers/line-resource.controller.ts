@@ -47,6 +47,13 @@ const DEFINITION = ApiBody({
     example: {
       key: 'delivery',
       name: 'Delivery',
+      repositories: [
+        {
+          name: 'acme/api',
+          image: 'ghcr.io/acme/api-runner:main',
+          setup: 'go mod download',
+        },
+      ],
       stations: [
         {
           key: 'backlog',
@@ -58,7 +65,6 @@ const DEFINITION = ApiBody({
           key: 'implementation',
           name: 'Implementation',
           harness: 'claude-code',
-          harnessVersion: '0.23.1',
           profile: 'careful',
           prompt: 'Implement the task.',
           passesTo: ['completed'],

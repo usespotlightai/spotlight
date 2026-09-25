@@ -41,7 +41,7 @@ func TestClaimOffersTheImagesHarnessesAndTakesTheHandedWork(t *testing.T) {
 		})
 	})
 
-	handed, err := client.Claim(context.Background(), []protocol.HarnessReport{{ID: "claude-code", Version: "2.1.0"}})
+	handed, err := client.Claim(context.Background(), protocol.HostClaim{Image: "ghcr.io/acme/api-runner:main"})
 	if err != nil {
 		t.Fatalf("claim: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestClaimOffersTheImagesHarnessesAndTakesTheHandedWork(t *testing.T) {
 	if path != "/api/hosts/claim" || auth != "Bearer pool-token" {
 		t.Errorf("asked %s with %q", path, auth)
 	}
-	if asked.Host != "host_1" || len(asked.Harnesses) != 1 || asked.Harnesses[0].Version != "2.1.0" {
+	if asked.Host != "host_1" || asked.Image != "ghcr.io/acme/api-runner:main" {
 		t.Errorf("offered %+v", asked)
 	}
 	if handed.RunnerID != "runner_1" || handed.Token != "one-run" || handed.Work.Run.ID != "run_1" {
@@ -62,7 +62,7 @@ func TestClaimTreatsAnEmptyQueueAsOrdinary(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	handed, err := client.Claim(context.Background(), nil)
+	handed, err := client.Claim(context.Background(), protocol.HostClaim{})
 	if err != nil || handed != nil {
 		t.Fatalf("got %+v, %v", handed, err)
 	}
@@ -73,7 +73,7 @@ func TestClaimRefusesWorkWithNoCredential(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(protocol.Handed{Work: protocol.Claimed{Kind: protocol.ClaimedRun}})
 	})
 
-	if _, err := client.Claim(context.Background(), nil); err == nil {
+	if _, err := client.Claim(context.Background(), protocol.HostClaim{}); err == nil {
 		t.Fatal("expected work with no credential to be refused")
 	}
 }
@@ -83,7 +83,7 @@ func TestARefusedCredentialSaysSo(t *testing.T) {
 		http.Error(w, "unknown pool token", http.StatusUnauthorized)
 	})
 
-	if _, err := client.Claim(context.Background(), nil); !errors.Is(err, control.ErrRefused) {
+	if _, err := client.Claim(context.Background(), protocol.HostClaim{}); !errors.Is(err, control.ErrRefused) {
 		t.Fatalf("expected a refusal, got %v", err)
 	}
 }

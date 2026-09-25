@@ -1,28 +1,26 @@
 package workspace
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
+	"syscall"
 )
 
 type Workspace struct {
-	Dir   string
-	Fresh bool
+	Dir string
 }
 
-func Create(root, key string) (*Workspace, error) {
-	if err := os.MkdirAll(root, 0o711); err != nil {
-		return nil, fmt.Errorf("create workspace root: %w", err)
+func Open(dir string) (*Workspace, error) {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("open workspace: %w", err)
 	}
 
-	dir := filepath.Join(root, key)
-	err := os.Mkdir(dir, 0o700)
-	if err != nil && !os.IsExist(err) {
-		return nil, fmt.Errorf("create workspace: %w", err)
-	}
-
-	return &Workspace{Dir: dir, Fresh: err == nil}, nil
+	return &Workspace{Dir: dir}, nil
 }
 
 const StatePath = ".spotlight/state"
@@ -37,21 +35,54 @@ func (w *Workspace) State() (string, error) {
 }
 
 func (w *Workspace) GiveTo(uid, gid uint32) error {
-	if err := os.Chmod(filepath.Dir(w.Dir), 0o711); err != nil {
-		return fmt.Errorf("make workspace root traversable: %w", err)
-	}
-
-	return filepath.WalkDir(w.Dir, func(path string, _ os.DirEntry, err error) error {
+	return filepath.WalkDir(w.Dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
+
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if owned, ok := info.Sys().(*syscall.Stat_t); ok && owned.Uid == uid && owned.Gid == gid {
+			return nil
+		}
+
 		return os.Lchown(path, int(uid), int(gid))
 	})
 }
 
-func (w *Workspace) Remove() error {
-	if w == nil || w.Dir == "" {
-		return nil
+func (w *Workspace) Clear(keep []string) error {
+	return clearAt(w.Dir, "", keep)
+}
+
+func clearAt(dir, at string, keep []string) error {
+	entries, err := os.ReadDir(filepath.Join(dir, at))
+	if err != nil {
+		return err
 	}
-	return os.RemoveAll(w.Dir)
+
+	var problems []error
+	for _, entry := range entries {
+		name := filepath.ToSlash(filepath.Join(at, entry.Name()))
+
+		switch {
+		case slices.Contains(keep, name):
+		case entry.IsDir() && holds(keep, name):
+			problems = append(problems, clearAt(dir, name, keep))
+		default:
+			problems = append(problems, os.RemoveAll(filepath.Join(dir, name)))
+		}
+	}
+
+	return errors.Join(problems...)
+}
+
+func holds(keep []string, name string) bool {
+	for _, each := range keep {
+		if strings.HasPrefix(each, name+"/") {
+			return true
+		}
+	}
+	return false
 }

@@ -10,9 +10,24 @@ export interface LiveRunnerSummary {
   readonly id: string;
   readonly through: AdmittedThrough;
   readonly hostId: string | null;
+  readonly image: string | null;
   readonly harnesses: readonly string[];
   readonly startedAt: Date;
   readonly lastSeenAt: Date | null;
+}
+
+export interface HostHarnessSummary {
+  readonly id: string;
+  readonly version: string | null;
+}
+
+export interface HostImageSummary {
+  readonly image: string;
+  readonly digest: string | null;
+  readonly usual: boolean;
+  readonly release: string | null;
+  readonly harnesses: readonly HostHarnessSummary[];
+  readonly refused: string | null;
 }
 
 export interface HostSummary {
@@ -23,7 +38,7 @@ export interface HostSummary {
   readonly executor: string;
   readonly capacity: number;
   readonly running: readonly string[];
-  readonly harnesses: readonly string[];
+  readonly images: readonly HostImageSummary[];
   readonly firstSeenAt: Date;
   readonly lastSeenAt: Date;
 }

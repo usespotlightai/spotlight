@@ -1,19 +1,11 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type {
-  HarnessDto,
-  HarnessModelDto,
-} from '@work/application/dto/harness.dto';
-import type {
-  HarnessCatalogueEntry,
-  HarnessLaunchPort,
-} from '@work/application/ports/harness-launch.port';
-import type { HostHarnessesQuery } from '@work/application/queries/host.queries';
+import type { HarnessDto } from '@work/application/dto/harness.dto';
+import { HarnessMapper } from '@work/application/mappers/harness.mapper';
+import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type {
   HarnessCatalogueQuery,
   ListHarnessesQuery,
@@ -45,7 +37,9 @@ export class ListHarnessesHandler
 
       return this.launch
         .catalogue()
-        .map((entry) => dtoFor(entry, advertised.get(entry.id) ?? []));
+        .map((entry) =>
+          HarnessMapper.toDto(entry, advertised.get(entry.id) ?? []),
+        );
     } catch (error) {
       rethrowAsFault(error);
     }
@@ -58,54 +52,8 @@ export class HarnessCatalogueHandler
   constructor(private readonly launch: HarnessLaunchPort) {}
 
   async execute(): Promise<HarnessDto[]> {
-    return this.launch.catalogue().map((entry) => dtoFor(entry, []));
+    return this.launch
+      .catalogue()
+      .map((entry) => HarnessMapper.toDto(entry, []));
   }
 }
-
-export class HostHarnessesHandler
-  implements QueryHandlerPort<HostHarnessesQuery, HarnessDto[] | null>
-{
-  constructor(
-    private readonly launch: HarnessLaunchPort,
-    private readonly admissions: RunnerAdmissionsPort,
-  ) {}
-
-  async execute(query: HostHarnessesQuery): Promise<HarnessDto[] | null> {
-    try {
-      return (await this.admissions.admit(query.credential))
-        ? this.launch.catalogue().map((entry) => dtoFor(entry, []))
-        : null;
-    } catch (error) {
-      rethrowAsFault(error);
-    }
-  }
-}
-
-const dtoFor = (
-  entry: HarnessCatalogueEntry,
-  discovered: readonly string[],
-): HarnessDto => {
-  const models = discovered
-    .map((id) => parsed(id))
-    .filter((each): each is HarnessModel => each !== null)
-    .map((model): HarnessModelDto => ({ id: model.value, name: model.value }));
-
-  return {
-    id: entry.id,
-    name: entry.name,
-    executable: entry.executable,
-    models,
-    defaultModel: models[0]?.id ?? '',
-    efforts: [...entry.efforts],
-    discovery: [...entry.discovery],
-    versionProbe: [...entry.versionProbe],
-  };
-};
-
-const parsed = (id: string): HarnessModel | null => {
-  try {
-    return HarnessModel.of(id);
-  } catch {
-    return null;
-  }
-};

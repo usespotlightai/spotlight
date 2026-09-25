@@ -13,6 +13,8 @@ import { InstalledHarness } from '@runners/domain/value-objects/installed-harnes
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { describe, expect, it } from 'vitest';
 
 const later = (ms: number): Date => new Date(STARTED_AT.getTime() + ms);
@@ -20,12 +22,32 @@ const later = (ms: number): Date => new Date(STARTED_AT.getTime() + ms);
 const RUN = RunnerWork.run('run_1');
 
 describe('Runner', () => {
-  it('answers to its pool’s labels and the releases it reports', () => {
+  it('answers to its pool’s labels, not to the releases it reports', () => {
     const runner = aRunner({
       installed: [InstalledHarness.reported('claude-code', [], '2.1.0')],
     });
 
-    expect(runner.terms.values).toEqual(['linux', 'claude-code@2.1.0']);
+    expect(runner.terms.values).toEqual(['linux']);
+  });
+
+  it('serves only work asking for the image it runs, or for none when that image is the usual one', () => {
+    const widgets = RunnerImage.of('ghcr.io/acme/widgets:1');
+    const gadgets = RunnerImage.of('ghcr.io/acme/gadgets:1');
+    const runner = aRunner({ running: RunningImage.of(widgets, false) });
+    const usual = aRunner({ running: RunningImage.of(widgets, true) });
+
+    expect(runner.terms.serves(widgets)).toBe(true);
+    expect(runner.terms.serves(gadgets)).toBe(false);
+    expect(runner.terms.serves(null)).toBe(false);
+    expect(usual.terms.serves(null)).toBe(true);
+  });
+
+  it('serves any image while provisioned without one it names', () => {
+    expect(
+      aRunner({ host: null }).terms.serves(
+        RunnerImage.of('ghcr.io/acme/widgets:1'),
+      ),
+    ).toBe(true);
   });
 
   it('stands only until it must claim, unless it has taken its work', () => {

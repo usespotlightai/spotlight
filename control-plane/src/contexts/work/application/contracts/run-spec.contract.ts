@@ -76,6 +76,7 @@ const checkoutOf = (raw: unknown): RunCheckout => {
   const branch = optionalStringAt(given.branch, 'which branch to check out');
   const ref = optionalStringAt(given.ref, 'which ref to check out');
   const diffOf = optionalStringAt(given.diffOf, 'what its change stack diffs');
+  const setup = optionalStringAt(given.setup, 'how its checkout is made ready');
 
   if (diffOf !== undefined && diffOf !== 'commits') {
     throw new InvalidRunSpecError(
@@ -89,6 +90,7 @@ const checkoutOf = (raw: unknown): RunCheckout => {
     ...(branch !== undefined ? { branch } : {}),
     ...(ref !== undefined ? { ref } : {}),
     ...(diffOf !== undefined ? { diffOf } : {}),
+    ...(setup !== undefined ? { setup } : {}),
   };
 };
 

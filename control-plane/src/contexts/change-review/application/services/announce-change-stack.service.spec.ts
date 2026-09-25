@@ -112,7 +112,7 @@ const announcing = (
           id: RunId.of('run-1'),
           workspaceId: WorkspaceId.of('workspace-1'),
           taskId: TaskId.of('task-1'),
-          request: null,
+          checking: null,
           ended: false,
           completed: false,
           decisions: false,

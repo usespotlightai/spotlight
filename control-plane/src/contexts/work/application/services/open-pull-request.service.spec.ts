@@ -27,6 +27,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
@@ -86,7 +87,7 @@ const task = () => {
 
 const lineWorking = (repositories: readonly string[]): Line => {
   const held = LineRepositories.of(
-    repositories.map((each) => Repository.of(each)),
+    repositories.map((each) => WorkedRepository.of(Repository.of(each))),
   );
 
   return {

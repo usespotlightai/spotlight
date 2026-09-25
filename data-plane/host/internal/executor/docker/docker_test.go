@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -57,8 +58,15 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 	}
 
 	const image = "busybox:1.36"
-	if err := engine.Ensure(ctx, image); err != nil {
+	if err := engine.Pull(ctx, image, ""); err != nil {
 		t.Skip("cannot pull a test image: ", err)
+	}
+	pulled, err := engine.Inspect(ctx, image)
+	if err != nil || pulled.ID == "" || len(pulled.Digests) == 0 {
+		t.Fatalf("inspect %+v: %v", pulled, err)
+	}
+	if _, err := engine.Inspect(ctx, "spotlight-no-such-image:never"); !errors.Is(err, executor.ErrNoImage) {
+		t.Errorf("a missing image answered %v", err)
 	}
 
 	id, err := engine.Start(ctx, executor.Sandbox{
@@ -117,7 +125,7 @@ func TestLayingAFileLeavesItsParentsAsTheImageHasThem(t *testing.T) {
 	defer cancel()
 
 	const image = "busybox:1.36"
-	if _, err := engine.Describe(ctx); err != nil || engine.Ensure(ctx, image) != nil {
+	if _, err := engine.Describe(ctx); err != nil || engine.Pull(ctx, image, "") != nil {
 		t.Skip("no usable container runtime")
 	}
 

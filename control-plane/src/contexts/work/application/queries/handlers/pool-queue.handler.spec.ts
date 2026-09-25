@@ -3,6 +3,7 @@ import type {
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -53,7 +54,7 @@ const WAITING = [
   RunnerPlacement.of(['gpu']),
   RunnerPlacement.of(['gpu', 'linux']),
   RunnerPlacement.of(['vpc-internal']),
-  RunnerPlacement.of(['claude-code@2.1.0']),
+  RunnerPlacement.anywhere().in(RunnerImage.of('ghcr.io/acme/widgets:1')),
 ];
 
 describe('PoolQueueHandler', () => {

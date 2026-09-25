@@ -55,8 +55,11 @@ func TestLoadsWhatTheInstallerWrote(t *testing.T) {
 	if cfg.Capacity != 1 || cfg.RunTimeout != 6*time.Hour {
 		t.Errorf("capacity %d, timeout %v", cfg.Capacity, cfg.RunTimeout)
 	}
-	if !slices.Equal(cfg.Images, []string{config.Image + ":v1.4.0"}) {
-		t.Errorf("images %v: the runner image is pinned to the host's version", cfg.Images)
+	if cfg.Images.Default != config.Image+":v1.4.0" || !cfg.Images.Admits(config.Image+":v1.4.0") {
+		t.Errorf("images %+v: the runner image is pinned to the host's version", cfg.Images)
+	}
+	if cfg.Images.Admits("ghcr.io/acme/runner:main") {
+		t.Error("a host with no allow-list serves only its default")
 	}
 	if cfg.State == "" || cfg.Name == "" {
 		t.Errorf("state %q, name %q", cfg.State, cfg.Name)
@@ -68,7 +71,7 @@ func TestTheEnvironmentWinsOverTheFile(t *testing.T) {
 	write(t, filepath.Join(dir, "host.env"), "SPOTLIGHT_URL=https://file.test\nSPOTLIGHT_TOKEN=pool-token\n")
 	t.Setenv("SPOTLIGHT_URL", "https://env.test")
 	t.Setenv("SPOTLIGHT_CAPACITY", "4")
-	t.Setenv("SPOTLIGHT_RUNNER_IMAGE", "runner:claude-2, runner:codex-1")
+	t.Setenv("SPOTLIGHT_RUNNER_IMAGE", "ghcr.io/acme/*, runner:claude-2, runner:codex-1")
 
 	cfg, err := config.Load("dev")
 	if err != nil {
@@ -78,8 +81,16 @@ func TestTheEnvironmentWinsOverTheFile(t *testing.T) {
 	if cfg.URL != "https://env.test" || cfg.Capacity != 4 {
 		t.Errorf("url %q, capacity %d", cfg.URL, cfg.Capacity)
 	}
-	if !slices.Equal(cfg.Images, []string{"runner:claude-2", "runner:codex-1"}) {
-		t.Errorf("images %v", cfg.Images)
+	if cfg.Images.Default != "runner:claude-2" {
+		t.Errorf("default %q: the first exact image is the default", cfg.Images.Default)
+	}
+	for _, admitted := range []string{"runner:claude-2", "runner:codex-1", "ghcr.io/acme/api-runner:main"} {
+		if !cfg.Images.Admits(admitted) {
+			t.Errorf("%s is not admitted", admitted)
+		}
+	}
+	if cfg.Images.Admits("ghcr.io/other/runner:main") {
+		t.Error("an image no entry names is admitted")
 	}
 }
 

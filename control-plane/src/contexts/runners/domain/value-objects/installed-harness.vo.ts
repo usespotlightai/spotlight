@@ -1,7 +1,6 @@
+import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 
 const nameable = (raw: string): HarnessModel | null => {
   try {
@@ -46,10 +45,6 @@ export class InstalledHarness {
         .filter((each): each is HarnessModel => each !== null),
       HarnessVersion.reported(version),
     );
-  }
-
-  get release(): HarnessRelease | null {
-    return this.version ? HarnessRelease.of(this.id, this.version) : null;
   }
 
   equals(other: InstalledHarness): boolean {

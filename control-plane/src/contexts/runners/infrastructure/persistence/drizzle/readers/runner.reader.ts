@@ -52,7 +52,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
   ): Promise<ReadonlyMap<string, readonly string[]>> {
     const [hosts, runners] = await Promise.all([
       this.db
-        .select({ harnesses: runnerHost.harnesses })
+        .select({ images: runnerHost.images })
         .from(runnerHost)
         .where(
           and(
@@ -84,8 +84,10 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     };
 
     for (const row of hosts) {
-      for (const each of row.harnesses) {
-        hold(each.id, each.models);
+      for (const image of row.images.filter((each) => !each.refused)) {
+        for (const each of image.harnesses) {
+          hold(each.id, each.models);
+        }
       }
     }
     for (const row of runners) {
@@ -105,6 +107,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         poolKey: runnerPool.key,
         trustKey: runnerTrust.key,
         hostId: runner.hostId,
+        image: runner.image,
         harnesses: runner.harnesses,
         startedAt: runner.startedAt,
         lastSeenAt: runner.lastSeenAt,
@@ -125,6 +128,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       id: row.id,
       through: through(row),
       hostId: row.hostId,
+      image: row.image,
       harnesses: row.harnesses,
       startedAt: row.startedAt,
       lastSeenAt: row.lastSeenAt,
@@ -158,7 +162,17 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       executor: host.executor,
       capacity: host.capacity,
       running: host.running,
-      harnesses: [...new Set(host.harnesses.map((each) => each.id))],
+      images: host.images.map((each) => ({
+        image: each.image,
+        digest: each.digest ?? null,
+        usual: each.usual,
+        release: each.release ?? null,
+        harnesses: each.harnesses.map((harness) => ({
+          id: harness.id,
+          version: harness.version ?? null,
+        })),
+        refused: each.refused ?? null,
+      })),
       firstSeenAt: host.firstSeenAt,
       lastSeenAt: host.lastSeenAt,
     }));

@@ -66,6 +66,7 @@ import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { Remark } from '@work/domain/value-objects/remark.vo';
+import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -81,7 +82,6 @@ import { StationDescription } from '@work/domain/value-objects/station-descripti
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -92,6 +92,7 @@ import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 export const WORK_EVENT_TYPES = [
@@ -130,8 +131,10 @@ export const WORK_EVENT_TYPES = [
   LineName,
   LinePlan,
   LineRepositories,
+  WorkedRepository,
   LineRole,
   PullRequestLink,
+  RepositorySetup,
   ReviewPolicy,
   Mark,
   MessagePosition,
@@ -155,7 +158,6 @@ export const WORK_EVENT_TYPES = [
   StationId,
   StationKey,
   StationName,
-  StationSetup,
   TaskDescription,
   TaskNoteBody,
   TaskRank,

@@ -27,6 +27,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
@@ -49,7 +50,7 @@ const line = (key: string, repositories: Repository[], runners: string[]) =>
     teamId: TeamId.of('team_1'),
     key: LineKey.of(key),
     name: LineName.of(key),
-    repositories,
+    repositories: repositories.map((each) => WorkedRepository.of(each)),
     placement: RunnerPlacement.of(runners),
     stations: [ends(key, 'backlog', 0), ends(key, 'completed', 1)],
   });

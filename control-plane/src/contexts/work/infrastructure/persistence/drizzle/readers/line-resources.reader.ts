@@ -133,6 +133,8 @@ export class DrizzleLineResources implements LineResourcesPort {
         .select({
           lineId: lineRepository.lineId,
           repository: lineRepository.repository,
+          image: lineRepository.image,
+          setup: lineRepository.setup,
         })
         .from(lineRepository)
         .where(inArray(lineRepository.lineId, lineIds)),
@@ -157,9 +159,7 @@ export class DrizzleLineResources implements LineResourcesPort {
         tools: toolsOf.get(found.id) ?? [],
         skills: skillsOf.get(found.id) ?? [],
         reactions: reactionsOf.get(found.id) ?? [],
-        repositories: (repositoriesOf.get(found.id) ?? []).map(
-          (each) => each.repository,
-        ),
+        repositories: repositoriesOf.get(found.id) ?? [],
       }),
     }));
   }

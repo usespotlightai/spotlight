@@ -72,7 +72,8 @@ runner trust instead: `SPOTLIGHT_TRUST=<trust id>` and
 | Host variable | Default | What |
 |---|---|---|
 | `SPOTLIGHT_CAPACITY` | `1` | sandboxes at once |
-| `SPOTLIGHT_RUNNER_IMAGE` | `ghcr.io/usespotlightai/spotlight-runner:<release>` | comma-separated; each image is probed for its harnesses and claims for what it holds, so an image per harness version is a version pin |
+| `SPOTLIGHT_RUNNER_IMAGE` | `ghcr.io/usespotlightai/spotlight-runner:<release>` | the host's default and allow-list, comma-separated: exact images, or prefixes ending in `*` such as `ghcr.io/acme/*`. The first exact image runs every line that names none. The host also serves each image a line names that an entry admits, and reports the rest as refused |
+| `SPOTLIGHT_REGISTRY_CONFIG` | `$DOCKER_CONFIG/config.json` or `~/.docker/config.json` | Docker `auths` the host pulls with; read on every pull, and without it the host pulls anonymously |
 | `SPOTLIGHT_SANDBOX_ENV` | `sandbox.env` beside `host.env` | variables every sandbox gets, such as harness API keys |
 | `SPOTLIGHT_SANDBOX_PASS` | unset | names of the host's own variables to pass into sandboxes |
 | `SPOTLIGHT_RUN_TIMEOUT` | `6h` | a sandbox running longer is stopped and destroyed |
@@ -87,6 +88,14 @@ and on start-up those a crashed host left behind. It reports its capacity,
 what it runs and the harnesses its images hold, which is what the Runners page
 shows.
 
+Before each run it pulls the run's image again, which costs one manifest request
+when nothing moved, starts the sandbox from the image it just pulled, and records
+that digest on the run. A tag pushed again reaches the next run with no restart.
+When the digest changes, it looks inside the image again and fails a run whose
+harness the new image dropped. A pull that fails falls back to the copy it has;
+only with no copy at all does the run fail. An image named by digest, or built on
+the host and never pushed, is not pulled.
+
 Harnesses live only in the runner image (`.docker/runner/Dockerfile`, built
 from this repository, with `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION`
 and `CODEX_ACP_VERSION` as build arguments).
@@ -94,6 +103,98 @@ and `CODEX_ACP_VERSION` as build arguments).
 Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
 service images and the runner image, plus the `spotlight-host` binaries
 published to `usespotlightai/cli`, since this repository is private.
+
+## Runner environments
+
+A line's repository may name the image its runs happen in and how its checkout
+is made ready:
+
+```hcl
+resource "spotlight_line" "delivery" {
+  repository {
+    name  = "acme/api"
+    image = "ghcr.io/acme/api-runner:main"
+    setup = "go mod download"
+  }
+  # stations …
+}
+```
+
+- **`image`** is where every station of the line runs, and its change stack
+  checks too. Name none and runs use the host's default image. A line's
+  repositories name one image or none, and a host serves an image only when its
+  `SPOTLIGHT_RUNNER_IMAGE` admits it. The image digest is the only harness pin:
+  build the release you want into the image.
+- **`setup`** runs in the checkout, as the agent, after the checkout is on the
+  run's branch and before the agent starts. A change stack check runs it again
+  wherever a layer changes a lockfile. It should be quick on an image that
+  already holds the dependencies, e.g. `npm install` against a nearly matching
+  `node_modules`. A line whose station checks its layers needs a `setup` on
+  every repository. When a repository has one, a workspace archive leaves out
+  what the repository ignores, since the image and `setup` lay it down again.
+
+An image is built `FROM` the runner image, in the user's own CI:
+
+- The runner runs as root and is the entrypoint; the agent runs as `agent`
+  (uid 2000).
+- The workspace is `/workspace`, the same for every run and check. Each
+  repository is checked out at `/workspace/<name>` (the repository's name
+  without its owner), so an image can bake a checkout with its dependencies
+  there; the run then only fetches and switches branches.
+- `runner` and the harnesses are on `PATH`; `runner harnesses '[]'` prints the
+  runner's release and what the image holds. A host refuses an image whose
+  runner is older than the control plane needs, and the Runners page says so.
+- Build as `agent`, or hand what you bake to `agent`: the runner gives the
+  workspace to `agent` before the agent starts, touching only what isn't
+  already its.
+
+```dockerfile
+FROM ghcr.io/usespotlightai/spotlight-runner:20260925-01
+USER agent
+RUN git clone https://github.com/acme/web /workspace/web
+WORKDIR /workspace/web
+RUN npm ci
+USER root
+```
+
+```dockerfile
+FROM ghcr.io/usespotlightai/spotlight-runner:20260925-01
+RUN apt-get update && apt-get install -y --no-install-recommends python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+USER agent
+RUN git clone https://github.com/acme/models /workspace/models \
+    && python3 -m venv /workspace/models/.venv \
+    && /workspace/models/.venv/bin/pip install -r /workspace/models/requirements.txt
+USER root
+```
+
+```dockerfile
+FROM golang:1.26-bookworm AS go
+FROM ghcr.io/usespotlightai/spotlight-runner:20260925-01
+COPY --from=go /usr/local/go /usr/local/go
+ENV PATH=/usr/local/go/bin:$PATH GOPATH=/home/agent/go
+USER agent
+RUN git clone https://github.com/acme/api /workspace/api \
+    && cd /workspace/api && go mod download && go build ./...
+USER root
+```
+
+```dockerfile
+FROM ghcr.io/usespotlightai/spotlight-runner:20260925-01
+USER agent
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+ENV PATH=/home/agent/.cargo/bin:$PATH CARGO_TARGET_DIR=/home/agent/target
+RUN git clone https://github.com/acme/engine /workspace/engine \
+    && cd /workspace/engine && cargo fetch && cargo build
+USER root
+```
+
+`CARGO_TARGET_DIR` keeps build output outside the checkout, so it survives the
+checkout being replaced by a restored workspace. A private repository is cloned
+in the image with the build's own credentials, never Spotlight's. Images can
+also pre-install the MCP servers a harness profile names, so `npx` stops fetching
+them on every run. A push pool's provision call carries the `image` to start
+(`null` for its default).
 
 ## Harness profiles
 
@@ -148,12 +249,6 @@ Claude Code, Codex and Cursor each get it in their own terms.
   approval policy and a workspace-write sandbox on every turn; its model and
   effort go in `CODEX_CONFIG`, which codex-acp merges into Codex's `-c`
   override layer. Cursor has no such layer.
-- **Harness version.** A station's `harnessVersion` pins the run to runner
-  images that hold that exact release of the CLI the harness runs: the Claude
-  Code binary `claude-agent-acp` resolves, `codex` behind `codex-acp`, and
-  `cursor-agent`. A runner answers to `<harness>@<version>` beside its pool's or
-  trust's labels, and the pin is one more placement clause, so it composes with
-  `runners`.
 
 **Harness permissions are guardrails, not the security boundary.** An agent can
 still find a way around its own harness's rules, and a repository can loosen

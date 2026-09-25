@@ -48,7 +48,7 @@ export class ClaimHostWorkHandler
           const attempt = await this.runners.start(
             admitted.way,
             command.host,
-            command.harnesses,
+            command.image,
             now,
             new Date(now.getTime() + CLAIM_WINDOW_MS),
           );
@@ -63,8 +63,8 @@ export class ClaimHostWorkHandler
       }
 
       if (started.outcome !== 'started') {
-        return started.outcome === 'stranger'
-          ? { outcome: 'stranger' }
+        return started.outcome === 'stranger' || started.outcome === 'unoffered'
+          ? { outcome: started.outcome }
           : { outcome: 'refused' };
       }
 

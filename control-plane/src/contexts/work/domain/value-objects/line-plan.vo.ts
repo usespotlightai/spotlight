@@ -1,19 +1,17 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import type { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import {
   reactionsRefused,
+  setupRefused,
   stationsRefused,
 } from '@work/domain/services/line-layout';
 import {
   skillsRefused,
   toolsRefused,
 } from '@work/domain/services/station-gives';
-import { releaseRefused } from '@work/domain/services/station-release';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { Happening } from '@work/domain/value-objects/happening.vo';
@@ -30,8 +28,8 @@ import type { StationColor } from '@work/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
-import type { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
+import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 
 export interface StationPlan {
   readonly key: StationKey;
@@ -43,10 +41,8 @@ export interface StationPlan {
   readonly model: HarnessModel | null;
   readonly effort: Effort | null;
   readonly profile: ProfileKey | null;
-  readonly harnessVersion: HarnessVersion | null;
   readonly agentPrompt: AgentPrompt | null;
   readonly check: StationCheck | null;
-  readonly setup: StationSetup | null;
   readonly placement: RunnerPlacement;
   readonly diffs: boolean;
   readonly decisions: boolean;
@@ -57,7 +53,7 @@ export interface StationPlan {
 }
 
 type RefusedStation = {
-  readonly field: 'skills' | 'tools' | 'harnessVersion';
+  readonly field: 'skills' | 'tools';
   readonly reason: string;
 } | null;
 
@@ -70,13 +66,7 @@ const stationRefused = (station: StationPlan): RefusedStation => {
 
   const tools = toolsRefused(station.tools);
 
-  if (tools) {
-    return { field: 'tools', reason: tools };
-  }
-
-  const release = releaseRefused(station.harness, station.harnessVersion);
-
-  return release ? { field: 'harnessVersion', reason: release } : null;
+  return tools ? { field: 'tools', reason: tools } : null;
 };
 
 export interface ReactionPlan {
@@ -92,7 +82,7 @@ export class LinePlan {
     readonly stations: readonly StationPlan[],
     readonly reactions: readonly ReactionPlan[],
     readonly role: LineRole | null,
-    readonly repositories: readonly Repository[],
+    readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
   ) {}
@@ -103,7 +93,7 @@ export class LinePlan {
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
     role?: LineRole | null;
-    repositories?: readonly Repository[];
+    repositories?: readonly WorkedRepository[];
     reviews?: ReviewPolicy | null;
     placement?: RunnerPlacement;
   }): LinePlan {
@@ -158,13 +148,25 @@ export class LinePlan {
       );
     }
 
+    let repositories = LineRepositories.none();
+
     try {
-      LineRepositories.of(input.repositories ?? []);
+      repositories = LineRepositories.of(input.repositories ?? []);
     } catch (error) {
       throw new InvalidLinePlanError(
         input.key.value,
-        `works in repositories that ${error instanceof Error ? error.message : String(error)}`,
+        `has repositories it cannot work: ${error instanceof Error ? error.message : String(error)}`,
         { of: 'line', field: 'repositories' },
+      );
+    }
+
+    const unready = setupRefused(input.stations, repositories);
+
+    if (unready) {
+      throw new InvalidLinePlanError(
+        input.key.value,
+        unready.reason,
+        unready.part,
       );
     }
 
@@ -182,7 +184,7 @@ export class LinePlan {
       input.stations,
       reactions,
       input.role ?? null,
-      input.repositories ?? [],
+      repositories,
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
     );

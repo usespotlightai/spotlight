@@ -1,5 +1,7 @@
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { poolCouldTake } from '@work/domain/services/pool-fit';
 import { describe, expect, it } from 'vitest';
 
@@ -20,9 +22,28 @@ describe('poolCouldTake', () => {
     );
   });
 
-  it('takes a run pinned to a harness release, which the runner it starts brings along', () => {
+  it('takes a run asking for an image, which the runner it provisions is started in', () => {
+    const image = RunnerImage.of('ghcr.io/acme/widgets:1');
+
+    expect(poolCouldTake(RunnerPlacement.anywhere().in(image), labels)).toBe(
+      true,
+    );
+    expect(poolCouldTake(RunnerPlacement.of(['gpu']).in(image), labels)).toBe(
+      true,
+    );
     expect(
-      poolCouldTake(RunnerPlacement.of(['claude-code@2.1.0']), labels),
+      poolCouldTake(RunnerPlacement.of(['vpc-internal']).in(image), labels),
+    ).toBe(false);
+  });
+
+  it('takes a run asking for an image however the pool’s labels say they run', () => {
+    expect(
+      poolCouldTake(
+        RunnerPlacement.anywhere().in(RunnerImage.of('ghcr.io/acme/widgets:1')),
+        labels.runningIn(
+          RunningImage.of(RunnerImage.of('ghcr.io/acme/gadgets:1'), false),
+        ),
+      ),
     ).toBe(true);
   });
 

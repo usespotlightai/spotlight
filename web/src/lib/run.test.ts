@@ -3,6 +3,7 @@ import {
   aged,
   asRunFilter,
   byAge,
+  imageShown,
   inRunFilter,
   type Run,
   standing,
@@ -157,5 +158,21 @@ describe('run filters', () => {
 
   it('falls back to All for a filter it does not know', () => {
     expect(asRunFilter('archived')).toBe('all');
+  });
+});
+
+describe('imageShown', () => {
+  it('shortens a digest to what a person compares', () => {
+    expect(
+      imageShown(
+        'ghcr.io/acme/api-runner@sha256:9b2f5c1e0d7a4b3c8e6f1a2d5c7b9e0f3a4d6c8b1e2f5a7c9d0b3e6f8a1c4d7e',
+      ),
+    ).toBe('ghcr.io/acme/api-runner@sha256:9b2f5c1e0d7a');
+  });
+
+  it('leaves a reference with no digest alone', () => {
+    expect(imageShown('ghcr.io/acme/api-runner:main')).toBe(
+      'ghcr.io/acme/api-runner:main',
+    );
   });
 });

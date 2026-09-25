@@ -26,7 +26,7 @@ func write(t *testing.T, path, content string, mode os.FileMode) {
 func packed(t *testing.T, dir string) *archive.Packed {
 	t.Helper()
 
-	kept, err := archive.Pack(dir, t.TempDir())
+	kept, err := archive.Pack(dir, t.TempDir(), nil)
 	if err != nil {
 		t.Fatalf("pack: %v", err)
 	}
@@ -172,17 +172,17 @@ func TestFingerprintChangesOnlyWithTheWorkspace(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "notes.md"), "halfway\n", 0o644)
 
-	before, err := archive.Fingerprint(dir)
+	before, err := archive.Fingerprint(dir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, _ := archive.Fingerprint(dir)
+	again, _ := archive.Fingerprint(dir, nil)
 	if before != again {
 		t.Error("the same workspace took two fingerprints")
 	}
 
 	write(t, filepath.Join(dir, "notes.md"), "finished\n", 0o644)
-	after, _ := archive.Fingerprint(dir)
+	after, _ := archive.Fingerprint(dir, nil)
 
 	if before == after {
 		t.Error("a changed workspace kept its fingerprint")
@@ -247,5 +247,58 @@ func TestKeepsALinkOutOfTheWorkspaceAsALinkAndNeverWhatItPointsAt(t *testing.T) 
 	into := unpacked(t, kept)
 	if link, err := os.Readlink(filepath.Join(into, "token")); err != nil || link != secret {
 		t.Errorf("the link points at %q, %v", link, err)
+	}
+}
+
+func TestLeavesOutWhatIsRebuiltElsewhere(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "acme", "api", "main.go"), "package main\n", 0o644)
+	write(t, filepath.Join(dir, "acme", "api", "node_modules", "x", "index.js"), "installed\n", 0o644)
+	write(t, filepath.Join(dir, "acme", "api", "debug.log"), "noise\n", 0o644)
+
+	kept, err := archive.Pack(dir, t.TempDir(), []string{"acme/api/node_modules", "acme/api/debug.log"})
+	if err != nil {
+		t.Fatalf("pack: %v", err)
+	}
+	into := unpacked(t, kept)
+
+	if _, err := os.Stat(filepath.Join(into, "acme", "api", "main.go")); err != nil {
+		t.Errorf("the checkout was left out: %v", err)
+	}
+	for _, left := range []string{"acme/api/node_modules", "acme/api/debug.log"} {
+		if _, err := os.Stat(filepath.Join(into, left)); !os.IsNotExist(err) {
+			t.Errorf("%s was packed", left)
+		}
+	}
+}
+
+func TestUnpacksOverWhatIsAlreadyThere(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "notes.md"), "kept\n", 0o644)
+	if err := os.Symlink("notes.md", filepath.Join(dir, "entry")); err != nil {
+		t.Fatal(err)
+	}
+	kept := packed(t, dir)
+
+	into := t.TempDir()
+	write(t, filepath.Join(into, "entry"), "a file the image laid down\n", 0o644)
+	if err := os.Symlink("elsewhere", filepath.Join(into, "notes.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	file, err := os.Open(kept.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if err := archive.Unpack(file, into); err != nil {
+		t.Fatalf("unpack: %v", err)
+	}
+
+	if got, err := os.ReadFile(filepath.Join(into, "notes.md")); err != nil || string(got) != "kept\n" {
+		t.Errorf("notes.md holds %q: %v", got, err)
+	}
+	if link, err := os.Readlink(filepath.Join(into, "entry")); err != nil || link != "notes.md" {
+		t.Errorf("entry links to %q: %v", link, err)
 	}
 }

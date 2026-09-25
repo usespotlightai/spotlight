@@ -46,16 +46,14 @@ export class WorkLookup implements WorkLookupPort {
 
     const line = run.stationId ? await this.lines.holding(run.stationId) : null;
     const station = run.stationId ? line?.stationAt(run.stationId) : null;
-    const placement =
-      line && run.stationId ? line.placementOf(run.stationId) : run.placement;
 
     return {
       id: run.id,
       workspaceId: run.workspaceId,
       taskId: run.taskId,
       check: station?.check?.value ?? null,
-      setup: station?.setup?.value ?? null,
-      placement,
+      setups: run.spec.checkoutSetups,
+      placement: run.placement,
       decisions: station?.decisions ?? false,
       ended: run.hasEnded,
       completed: run.hasCompleted,

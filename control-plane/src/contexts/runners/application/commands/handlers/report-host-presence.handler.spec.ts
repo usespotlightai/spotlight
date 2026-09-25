@@ -35,7 +35,13 @@ const REPORT: ReportedHost = {
   executor: 'docker',
   capacity: 4,
   running: [],
-  harnesses: [{ id: 'claude-code', models: [], version: '2.1.0' }],
+  images: [
+    {
+      image: 'ghcr.io/acme/runner:main',
+      usual: true,
+      harnesses: [{ id: 'claude-code', models: [], version: '2.1.0' }],
+    },
+  ],
 };
 
 const CREDENTIAL: HostCredential = { bearer: 'pool-token', trust: undefined };
@@ -114,7 +120,10 @@ describe('ReportHostPresenceHandler', () => {
     expect(host?.workspaceId.value).toBe('ws_1');
     expect(host?.admission.equals(Admission.through(POOL_ID))).toBe(true);
     expect(host?.firstSeenAt).toEqual(STARTED_AT);
-    expect(host?.report.harnesses[0]?.release?.term).toBe('claude-code@2.1.0');
+    expect(host?.report.images[0]?.image.value).toBe(
+      'ghcr.io/acme/runner:main',
+    );
+    expect(host?.report.images[0]?.harnesses[0]?.version?.value).toBe('2.1.0');
   });
 
   it('takes a later report as what the host is now, seen then', async () => {

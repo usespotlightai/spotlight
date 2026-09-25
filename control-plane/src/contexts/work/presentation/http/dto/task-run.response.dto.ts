@@ -146,6 +146,16 @@ export class TaskRunResponseDto {
   readonly harness: string;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
+    example:
+      'ghcr.io/acme/api-runner@sha256:9b2f5c1e0d7a4b3c8e6f1a2d5c7b9e0f3a4d6c8b1e2f5a7c9d0b3e6f8a1c4d7e',
+    description:
+      'The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it',
+  })
+  readonly image: string | null;
+
+  @ApiProperty({
     type: RunStationResponseDto,
     nullable: true,
     description: 'Where it ran, which the task may since have left',
@@ -167,6 +177,7 @@ export class TaskRunResponseDto {
     startedAt: string,
     updatedAt: string,
     harness: string,
+    image: string | null,
     station: RunStationResponseDto | null,
     review: RunReviewResponseDto | null,
   ) {
@@ -177,6 +188,7 @@ export class TaskRunResponseDto {
     this.startedAt = startedAt;
     this.updatedAt = updatedAt;
     this.harness = harness;
+    this.image = image;
     this.station = station;
     this.review = review;
   }
@@ -210,6 +222,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
       run.startedAt,
       run.updatedAt,
       run.harness,
+      run.image,
       run.station,
       run.review,
     );

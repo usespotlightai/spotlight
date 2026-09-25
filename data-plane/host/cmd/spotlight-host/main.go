@@ -13,6 +13,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/executor/docker"
 	"usespotlight.ai/data-plane/host/internal/mirror"
 	"usespotlight.ai/data-plane/host/internal/pool"
+	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/serve"
 	"usespotlight.ai/data-plane/host/internal/service"
 )
@@ -90,6 +91,7 @@ func run() error {
 		Name:       cfg.Name,
 		Version:    version,
 		Images:     cfg.Images,
+		Registry:   registry.From(cfg.Registry),
 		Capacity:   cfg.Capacity,
 		RunTimeout: cfg.RunTimeout,
 		ControlURL: cfg.URL,

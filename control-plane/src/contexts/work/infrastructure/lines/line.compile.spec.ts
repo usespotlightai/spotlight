@@ -191,22 +191,6 @@ describe('compileLine', () => {
     });
   });
 
-  it('places a release pinned without a harness at that station', () => {
-    expect(
-      refused(
-        withStation(1, {
-          key: 'code-review',
-          name: 'Code Review',
-          ends: true,
-          harnessVersion: '2.1.270',
-        }),
-      )[0],
-    ).toMatchObject({
-      path: 'lines/delivery',
-      field: FieldPath.dotted('stations.1.harnessVersion'),
-    });
-  });
-
   it('places a problem with a reaction at that reaction', () => {
     expect(
       refused({
@@ -222,18 +206,37 @@ describe('compileLine', () => {
     });
   });
 
-  it('refuses a station that checks its layers with no setup', () => {
+  it('refuses a station that checks its layers while a repository has no setup, pointing at that repository', () => {
     expect(
-      refused(
-        withStation(1, {
+      refused({
+        ...withStation(1, {
           key: 'code-review',
           name: 'Code Review',
           ends: true,
           check: 'npm test',
           diffs: true,
         }),
-      )[0],
-    ).toMatchObject({ field: FieldPath.dotted('stations.1.setup') });
+        repositories: [
+          { name: 'acme/api', setup: 'npm ci' },
+          { name: 'acme/web' },
+        ],
+      })[0],
+    ).toMatchObject({
+      path: 'lines/delivery',
+      field: FieldPath.dotted('repositories.1.setup'),
+    });
+  });
+
+  it('places a problem with a repository’s image at that repository', () => {
+    expect(
+      refused({
+        ...DELIVERY,
+        repositories: [{ name: 'acme/api', image: 'ghcr.io/acme/api:' }],
+      })[0],
+    ).toMatchObject({
+      path: 'lines/delivery',
+      field: FieldPath.dotted('repositories.0.image'),
+    });
   });
 
   it('refuses what is not a line at all', () => {

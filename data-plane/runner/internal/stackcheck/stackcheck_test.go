@@ -111,7 +111,7 @@ func setUp(t *testing.T) remote {
 
 func (r remote) options() stackcheck.Options {
 	return stackcheck.Options{
-		Dir:    filepath.Join(r.dir, "workspaces"),
+		Dir:    filepath.Join(r.dir, "workspace"),
 		Remote: r.origin,
 		Log:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -302,19 +302,25 @@ func TestPerformStopsAStepThatRunsTooLong(t *testing.T) {
 	}
 }
 
-func TestPerformLeavesNothingBehind(t *testing.T) {
+func TestPerformChecksOnTopOfACheckoutTheImageBaked(t *testing.T) {
 	r := setUp(t)
 	told := &reporter{}
 	options := r.options()
 
-	stackcheck.Perform(context.Background(), told, r.check(whole(r.whole)), options)
+	baked := filepath.Join(options.Dir, "widgets")
+	git(t, r.dir, "clone", "--quiet", filepath.Join(r.origin, "widgets"), baked)
+	write(t, filepath.Join(baked, "deps", "installed.txt"), "from the image\n")
 
-	entries, err := os.ReadDir(options.Dir)
-	if err != nil {
-		t.Fatalf("read the workspace root: %v", err)
+	check := r.check(whole(r.whole))
+	check.Setup = "test -f deps/installed.txt"
+
+	stackcheck.Perform(context.Background(), told, check, options)
+
+	if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
+		t.Fatalf("checked %+v", told.only())
 	}
-	if len(entries) != 0 {
-		t.Fatalf("left %d directories behind", len(entries))
+	if _, err := os.Stat(filepath.Join(baked, "deps", "installed.txt")); err != nil {
+		t.Errorf("what the image installed is gone: %v", err)
 	}
 }
 
@@ -390,7 +396,6 @@ func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
 	check.Command = "true"
 
 	options := r.options()
-	options.KeepDirs = true
 
 	stackcheck.Perform(context.Background(), told, check, options)
 
@@ -402,7 +407,7 @@ func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
 	// an installed node_modules, and it carries a mark for each time the
 	// checkout was made ready.
 	ready, err := os.ReadFile(
-		filepath.Join(r.dir, "workspaces", "check-stack-1", "widgets", "deps", "marks.txt"),
+		filepath.Join(r.dir, "workspace", "widgets", "deps", "marks.txt"),
 	)
 	if err != nil {
 		t.Fatalf("read what setup left: %v", err)
@@ -446,7 +451,6 @@ func TestPerformBorrowsTheHostsMirrorWhereThereIsOne(t *testing.T) {
 
 	options := r.options()
 	options.Mirrors = mirrors
-	options.KeepDirs = true
 
 	stackcheck.Perform(context.Background(), told, r.check(whole(r.whole)), options)
 
@@ -455,7 +459,7 @@ func TestPerformBorrowsTheHostsMirrorWhereThereIsOne(t *testing.T) {
 	}
 
 	borrowed, err := os.ReadFile(filepath.Join(
-		r.dir, "workspaces", "check-stack-1", "widgets", ".git", "objects", "info", "alternates"))
+		r.dir, "workspace", "widgets", ".git", "objects", "info", "alternates"))
 	if err != nil {
 		t.Fatalf("the checkout did not borrow: %v", err)
 	}

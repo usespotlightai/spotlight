@@ -1,5 +1,5 @@
-import { InvalidHarnessVersionError } from '@shared-kernel/domain/exceptions/invalid-harness-version.error';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
+import { InvalidHarnessVersionError } from '@runners/domain/exceptions/invalid-harness-version.error';
+import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('HarnessVersion', () => {

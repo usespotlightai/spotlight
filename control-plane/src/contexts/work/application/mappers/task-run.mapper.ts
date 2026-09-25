@@ -17,6 +17,7 @@ export const TaskRunMapper = {
       startedAt: summary.startedAt.toISOString(),
       updatedAt: summary.updatedAt.toISOString(),
       harness: summary.harness,
+      image: summary.image,
       station: summary.station,
       review: summary.review && {
         state: summary.review.state,

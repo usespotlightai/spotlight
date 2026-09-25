@@ -1,24 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export class HostHarnessRequestDto {
-  @ApiProperty({ example: 'claude-code' })
-  readonly id!: string;
-
-  @ApiPropertyOptional({
-    type: String,
-    isArray: true,
-    example: ['claude-sonnet-5'],
-    description:
-      'The models this harness reported it can answer with, discovered from the CLI',
-  })
-  readonly models?: string[];
-
-  @ApiPropertyOptional({
-    example: '2.1.270',
-    description: 'The release of this harness in the runner image',
-  })
-  readonly version?: string;
-}
+import { ApiProperty } from '@nestjs/swagger';
 
 export class ClaimHostWorkRequestDto {
   @ApiProperty({
@@ -27,11 +7,10 @@ export class ClaimHostWorkRequestDto {
   })
   readonly host!: string;
 
-  @ApiPropertyOptional({
-    type: [HostHarnessRequestDto],
-    isArray: true,
+  @ApiProperty({
+    example: 'ghcr.io/acme/api-runner:main',
     description:
-      'The harnesses in the runner image this claim will run in, as the host found them',
+      'The runner image this claim will run in, one the host reported serving; what it holds and whether it is the default come from that report',
   })
-  readonly harnesses?: HostHarnessRequestDto[];
+  readonly image!: string;
 }

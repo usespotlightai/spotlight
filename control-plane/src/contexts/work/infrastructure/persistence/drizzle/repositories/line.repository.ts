@@ -11,8 +11,8 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -32,6 +32,7 @@ import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -40,9 +41,9 @@ import { StationDescription } from '@work/domain/value-objects/station-descripti
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationSetup } from '@work/domain/value-objects/station-setup.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import {
   line,
   lineReaction,
@@ -91,12 +92,8 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     model: row.model ? HarnessModel.of(row.model) : null,
     effort: row.effort ? Effort.of(row.effort) : null,
     profile: row.profile ? ProfileKey.of(row.profile) : null,
-    harnessVersion: row.harnessVersion
-      ? HarnessVersion.of(row.harnessVersion)
-      : null,
     agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
     check: row.check ? StationCheck.of(row.check) : null,
-    setup: row.setup ? StationSetup.of(row.setup) : null,
     placement: RunnerPlacement.of(row.runners),
     diffs: row.diffs,
     decisions: row.decisions,
@@ -114,7 +111,7 @@ const toLine = (
   stations: StationRow[],
   ways: Ways,
   reactions: readonly Reaction[],
-  repositories: readonly Repository[],
+  repositories: readonly WorkedRepository[],
 ): Line =>
   Line.rehydrate({
     id: LineId.of(line.id),
@@ -166,9 +163,11 @@ const reactionRowsOf = (line: Line) =>
   }));
 
 const repositoryRowsOf = (line: Line) =>
-  line.repositories.all.map((each) => ({
+  line.repositories.entries.map((each) => ({
     lineId: line.id.value,
-    repository: each.value,
+    repository: each.repository.value,
+    image: each.image?.value ?? null,
+    setup: each.setup?.value ?? null,
   }));
 
 const columnsOf = (each: Station) => ({
@@ -181,10 +180,8 @@ const columnsOf = (each: Station) => ({
   model: each.model?.value ?? null,
   effort: each.effort?.value ?? null,
   profile: each.profile?.value ?? null,
-  harnessVersion: each.harnessVersion?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
   check: each.check?.value ?? null,
-  setup: each.setup?.value ?? null,
   runners: [...each.placement.selectors],
   diffs: each.diffs,
   decisions: each.decisions,
@@ -457,13 +454,18 @@ export class DrizzleLineRepository implements LineRepository {
     );
   }
 
-  private async repositoriesOf(lineId: string): Promise<Repository[]> {
+  private async repositoriesOf(lineId: string): Promise<WorkedRepository[]> {
     const held = await this.context.db
       .select()
       .from(lineRepository)
       .where(eq(lineRepository.lineId, lineId));
 
-    return held.map((row) => Repository.of(row.repository));
+    return held.map((row) =>
+      WorkedRepository.of(Repository.of(row.repository), {
+        image: row.image ? RunnerImage.of(row.image) : null,
+        setup: row.setup ? RepositorySetup.of(row.setup) : null,
+      }),
+    );
   }
 
   async holding(stationId: StationId): Promise<Line | null> {

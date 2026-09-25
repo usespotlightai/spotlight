@@ -9,6 +9,7 @@ export interface RunCheckout {
   readonly branch?: string;
   readonly ref?: string;
   readonly diffOf?: 'commits';
+  readonly setup?: string;
 }
 
 export interface RunCommand {
@@ -108,6 +109,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
           ...(each.branch !== undefined ? { branch: each.branch } : {}),
           ...(each.ref !== undefined ? { ref: each.ref } : {}),
           ...(each.diffOf !== undefined ? { diffOf: each.diffOf } : {}),
+          ...(each.setup !== undefined ? { setup: each.setup } : {}),
         })),
       }
     : {}),
@@ -251,6 +253,16 @@ export class RunSpec {
       (this.parts.catalog ?? [])
         .map((each) => Tool.of(each))
         .find((each) => each.called === tool.called) ?? null
+    );
+  }
+
+  get checkoutSetups(): ReadonlyMap<string, string> {
+    return new Map(
+      (this.parts.checkouts ?? []).flatMap((each) =>
+        each.path !== undefined && each.setup !== undefined
+          ? [[each.path, each.setup]]
+          : [],
+      ),
     );
   }
 

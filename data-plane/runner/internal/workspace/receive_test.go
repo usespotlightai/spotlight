@@ -20,7 +20,7 @@ func writing(content string) func(io.Writer) error {
 }
 
 func TestReceivePlacesTheFileWhereItWasAsked(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestReceivePlacesTheFileWhereItWasAsked(t *testing.T) {
 }
 
 func TestReceiveRefusesAPathOutOfTheWorkspace(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestReceiveWillNotFollowALinkOutOfTheWorkspace(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()
 
-	space, err := workspace.Create(root, "run_1")
+	space, err := workspace.Open(root)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestReceiveWillNotFollowALinkOutOfTheWorkspace(t *testing.T) {
 }
 
 func TestReceiveLeavesAFileAlreadyThereAlone(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "task_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestReceiveLeavesAFileAlreadyThereAlone(t *testing.T) {
 }
 
 func TestReceiveNeverShowsHalfAFile(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestReceiveGivesWhatItMakesToTheAgent(t *testing.T) {
 		t.Skip("giving files to another account needs root")
 	}
 
-	space, err := workspace.Create(t.TempDir(), "run_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -183,7 +183,7 @@ func ownerOf(t *testing.T, path string) uint32 {
 }
 
 func TestReplaceWritesOverAFileAlreadyThere(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestReplaceWritesOverAFileAlreadyThere(t *testing.T) {
 }
 
 func TestReplaceRefusesWhatIsNotAFile(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -222,7 +222,7 @@ func TestReplaceRefusesWhatIsNotAFile(t *testing.T) {
 }
 
 func TestReplaceRefusesAPathOutOfTheWorkspace(t *testing.T) {
-	space, err := workspace.Create(t.TempDir(), "run_1")
+	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

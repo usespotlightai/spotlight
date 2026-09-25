@@ -35,7 +35,7 @@ export function Runners() {
 
       <SettingsPage
         title="Runners"
-        description="Every run gets a fresh runner. Hosts start them, one sandbox per run, from runner images whose harnesses they report; a run only goes where its harness is."
+        description="Every run gets a fresh runner. Hosts start them, one sandbox per run, from the runner images a line names or their default; a run only goes where its image and harness are."
       >
         <section className="flex flex-col gap-2">
           <h2 className={HEADING}>Hosts</h2>
@@ -60,11 +60,7 @@ export function Runners() {
           {hosts.length > 0 && (
             <ul className={FLEET}>
               {hosts.map((host) => (
-                <HostCard
-                  key={host.id}
-                  host={host}
-                  harnesses={harnessesOf(host.harnesses, harnesses)}
-                />
+                <HostCard key={host.id} host={host} harnesses={harnesses} />
               ))}
             </ul>
           )}

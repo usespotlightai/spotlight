@@ -33,6 +33,7 @@ import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-18T12:00:00.000Z');
@@ -89,10 +90,11 @@ const opened = (
   })
     .runsOn(HarnessId.of('dev'), null)
     .worksIn(
-      repositories.map(
-        (each) =>
+      repositories.map((each) =>
+        WorkedRepository.of(
           // biome-ignore lint/style/noNonNullAssertion: a pull request’s address always names its repository
           PullRequestUrl.of(`https://github.com/${each}/pull/1`).repository!,
+        ),
       ),
     );
 

@@ -348,6 +348,7 @@ export class ProvisionWork {
         runId: reserved.runId,
         taskId: reserved.taskId,
         labels: reserved.placement.selectors,
+        image: reserved.placement.image?.value ?? null,
         claimBy: reserved.claimBy,
       },
       this.clock.now(),

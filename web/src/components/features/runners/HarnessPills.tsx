@@ -22,6 +22,9 @@ export function HarnessPills({ harnesses, named = 3 }: HarnessPillsProps) {
         <span key={harness.id} className={PILL}>
           <HarnessLogo harness={harness.id} className="size-3" />
           {harness.name}
+          {harness.version && (
+            <span className="font-normal tabular-nums">{harness.version}</span>
+          )}
         </span>
       ))}
 

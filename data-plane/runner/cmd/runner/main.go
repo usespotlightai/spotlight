@@ -20,6 +20,8 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
 )
 
+var version = "dev"
+
 func main() {
 	if args := os.Args[1:]; len(args) == 2 && args[0] == "harnesses" {
 		if err := report(args[1], os.Stdout); err != nil {
@@ -42,6 +44,7 @@ func report(asked string, out io.Writer) error {
 	}
 
 	return json.NewEncoder(out).Encode(protocol.Registration{
+		Release:   version,
 		Harnesses: harness.Installed(context.Background(), candidates),
 	})
 }
@@ -99,15 +102,14 @@ func (r runner) serve(ctx context.Context, client *control.Client, work protocol
 	case work.Kind == protocol.ClaimedRun && work.Run != nil:
 		r.log.Info("running", "run", work.Run.ID)
 		if err := session.Execute(ctx, *work.Run, session.Options{
-			WorkspaceRoot: r.cfg.WorkspaceRoot,
-			Journal:       client,
-			Log:           r.log,
-			AgentUser:     r.agentUser,
-			PrepareHook:   r.cfg.PrepareHook,
-			PublishHook:   r.cfg.PublishHook,
-			HookTimeout:   r.cfg.HookTimeout,
-			ControlPlane:  r.cfg.URL,
-			Token:         client.Token(),
+			Workspace:    r.cfg.Workspace,
+			Journal:      client,
+			Log:          r.log,
+			AgentUser:    r.agentUser,
+			Author:       r.cfg.Author,
+			Mirrors:      os.Getenv("SPOTLIGHT_MIRRORS"),
+			ControlPlane: r.cfg.URL,
+			Token:        client.Token(),
 		}); err != nil {
 			r.log.Error("run failed", "run", work.Run.ID, "error", err)
 		}
@@ -134,7 +136,7 @@ func (r runner) check(ctx context.Context, client *control.Client, claimed proto
 	}()
 
 	stackcheck.Perform(ctx, client, claimed, stackcheck.Options{
-		Dir:     r.cfg.WorkspaceRoot,
+		Dir:     r.cfg.Workspace,
 		Remote:  serving.Remote,
 		Mirrors: os.Getenv("SPOTLIGHT_MIRRORS"),
 		RunAs:   r.agentUser,

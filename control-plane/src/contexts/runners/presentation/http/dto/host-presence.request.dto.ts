@@ -1,6 +1,48 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RegisteredHarnessRequestDto } from '@runners/presentation/http/dto/register-runner.request.dto';
 
+export class HostImageRequestDto {
+  @ApiProperty({
+    example: 'ghcr.io/acme/api-runner:main',
+    description: 'The image as the host was asked to run it',
+  })
+  readonly image!: string;
+
+  @ApiPropertyOptional({
+    example:
+      'ghcr.io/acme/api-runner@sha256:9b2f5c1e0d7a4b3c8e6f1a2d5c7b9e0f3a4d6c8b1e2f5a7c9d0b3e6f8a1c4d7e',
+    description: 'The digest it pulled last, which its sandboxes start from',
+  })
+  readonly digest?: string;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether this is the host’s default, which runs lines that name no image',
+  })
+  readonly usual!: boolean;
+
+  @ApiPropertyOptional({
+    example: '20260925-01',
+    description: 'The release of the runner inside the image',
+  })
+  readonly release?: string;
+
+  @ApiPropertyOptional({
+    type: [RegisteredHarnessRequestDto],
+    isArray: true,
+    description: 'The harnesses the image holds, each with the models found',
+  })
+  readonly harnesses?: RegisteredHarnessRequestDto[];
+
+  @ApiPropertyOptional({
+    example:
+      'Its runner reports release 20260801-01, older than the 20260925-01 this control plane needs',
+    description: 'Why the host will not run it, when it will not',
+  })
+  readonly refused?: string;
+}
+
 export class HostPresenceRequestDto {
   @ApiProperty({
     example: 'build-box-1',
@@ -35,10 +77,10 @@ export class HostPresenceRequestDto {
   readonly running?: string[];
 
   @ApiPropertyOptional({
-    type: [RegisteredHarnessRequestDto],
+    type: [HostImageRequestDto],
     isArray: true,
     description:
-      'The harnesses its runner images hold, each with the models it discovered',
+      'The runner images it serves or refused, each with what it found inside',
   })
-  readonly harnesses?: RegisteredHarnessRequestDto[];
+  readonly images?: HostImageRequestDto[];
 }

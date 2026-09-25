@@ -213,23 +213,35 @@ func TestSkipsKeepingAWorkspaceWithNowhereToKeepIt(t *testing.T) {
 	}
 }
 
-func TestLeavesAWorkspaceStillOnDiskAsItIs(t *testing.T) {
+func TestRestoresOverWhatTheImageLaidDown(t *testing.T) {
 	kept := newKeptArchives(t)
-	root := t.TempDir()
-	here := func(o *runOptions) {
-		o.root = root
-		o.archives = kept
-		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_held"}
-	}
 
-	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"), here)
-	if err := os.MkdirAll(filepath.Join(root, carriedOn), 0o700); err != nil {
+	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"),
+		func(o *runOptions) {
+			o.archives = kept
+			o.continuity = protocol.Continuity{Key: carriedOn}
+		})
+
+	baked := t.TempDir()
+	if err := os.WriteFile(filepath.Join(baked, "notes.md"), []byte("from the image"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	second := run(t, harness(t, `said = "looked";`, "end_turn"), here)
+	if err := os.WriteFile(filepath.Join(baked, "stale.md"), []byte("from the image"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
-	if got := step(t, second, "restore"); got != "" {
-		t.Errorf("restored over a workspace it already had: %q", got)
+	second := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
+		func(o *runOptions) {
+			o.root = baked
+			o.archives = kept
+			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_held"}
+		})
+
+	if got := said(t, second); got != "halfway" {
+		t.Errorf("the next run found %q in the workspace", got)
+	}
+	if _, err := os.Stat(filepath.Join(baked, "stale.md")); !os.IsNotExist(err) {
+		t.Errorf("what the image laid down outlived the restore: %v", err)
 	}
 }
 
@@ -257,7 +269,7 @@ func TestStartsAfreshFromAnArchiveThatIsNotTheOneKept(t *testing.T) {
 	if got := step(t, second, "restore"); !strings.HasPrefix(got, "Started afresh") {
 		t.Errorf("said %q about restoring", got)
 	}
-	if _, err := os.Stat(filepath.Join(root, carriedOn, "notes.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(root, "notes.md")); !os.IsNotExist(err) {
 		t.Errorf("a spoiled archive left files behind: %v", err)
 	}
 }

@@ -7,13 +7,15 @@ import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineImagesPort } from '@work/application/ports/line-images.port';
+import { HostRequirementsHandler } from '@work/application/queries/handlers/host-requirements.handler';
 import {
   HarnessCatalogueHandler,
-  HostHarnessesHandler,
   ListHarnessesHandler,
 } from '@work/application/queries/handlers/list-harnesses.handler';
-import { HostHarnessesQuery } from '@work/application/queries/host.queries';
+import { HostRequirementsQuery } from '@work/application/queries/host.queries';
 import { ListHarnessesQuery } from '@work/application/queries/list-harnesses.query';
+import { LEAST_RUNNER_RELEASE } from '@work/application/services/least-runner-release';
 import { describe, expect, it, vi } from 'vitest';
 
 const launch = {
@@ -91,20 +93,41 @@ describe('listing harnesses for a workspace', () => {
           : null,
     };
 
-    it('tells an admitted host what to look for without any workspace’s models', async () => {
+    const requirements = () => {
+      const namedIn = vi.fn(async () => ['ghcr.io/acme/widgets:1']);
+
+      return {
+        namedIn,
+        subject: new HostRequirementsHandler(launch, admissions, {
+          namedIn,
+        } satisfies LineImagesPort),
+      };
+    };
+
+    it('tells an admitted host the least runner release, the harnesses to look for and the images its workspace’s lines name', async () => {
+      const { subject, namedIn } = requirements();
+
       expect(
-        await new HostHarnessesHandler(launch, admissions).execute(
-          new HostHarnessesQuery({ bearer: 'pool-token', trust: undefined }),
+        await subject.execute(
+          new HostRequirementsQuery({ bearer: 'pool-token', trust: undefined }),
         ),
-      ).toEqual([expect.objectContaining({ id: 'claude-code', models: [] })]);
+      ).toEqual({
+        runnerAtLeast: LEAST_RUNNER_RELEASE,
+        harnesses: [expect.objectContaining({ id: 'claude-code', models: [] })],
+        images: ['ghcr.io/acme/widgets:1'],
+      });
+      expect(namedIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
     });
 
     it('answers nothing to a host no pool or trust admits', async () => {
+      const { subject, namedIn } = requirements();
+
       expect(
-        await new HostHarnessesHandler(launch, admissions).execute(
-          new HostHarnessesQuery({ bearer: 'stolen', trust: undefined }),
+        await subject.execute(
+          new HostRequirementsQuery({ bearer: 'stolen', trust: undefined }),
         ),
       ).toBeNull();
+      expect(namedIn).not.toHaveBeenCalled();
     });
   });
 });

@@ -3,6 +3,7 @@ import type { LineFields } from '@work/infrastructure/lines/line.schema';
 import type {
   line,
   lineReaction,
+  lineRepository,
   station,
   stationRoute,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
@@ -10,6 +11,11 @@ import type {
 type Rendered<T> = { -readonly [K in keyof T]: T[K] };
 
 type StationFields = LineFields['stations'][number];
+
+type RepositoryRow = Pick<
+  typeof lineRepository.$inferSelect,
+  'repository' | 'image' | 'setup'
+>;
 
 type StationRow = Pick<
   typeof station.$inferSelect,
@@ -23,10 +29,8 @@ type StationRow = Pick<
   | 'model'
   | 'effort'
   | 'profile'
-  | 'harnessVersion'
   | 'agentPrompt'
   | 'check'
-  | 'setup'
   | 'runners'
   | 'diffs'
   | 'decisions'
@@ -54,7 +58,7 @@ export interface LineRows {
     typeof lineReaction.$inferSelect,
     'happening' | 'fromStationId' | 'toStationId'
   >[];
-  readonly repositories: readonly string[];
+  readonly repositories: readonly RepositoryRow[];
 }
 
 const present = <K extends string, V>(
@@ -97,10 +101,8 @@ export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
       Pick<StationFields, 'effort'>
     >),
     ...present('profile', row.profile),
-    ...present('harnessVersion', row.harnessVersion),
     ...present('prompt', row.agentPrompt),
     ...present('check', row.check),
-    ...present('setup', row.setup),
     ...present('runners', placed(row.runners)),
     diffs: row.diffs,
     decisions: row.decisions,
@@ -117,7 +119,13 @@ export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
     key: rows.line.key,
     name: rows.line.name,
     ...present('role', rows.line.role),
-    repositories: [...rows.repositories].sort(inCodePointOrder),
+    repositories: [...rows.repositories]
+      .sort((one, other) => inCodePointOrder(one.repository, other.repository))
+      .map((each) => ({
+        name: each.repository,
+        ...present('image', each.image),
+        ...present('setup', each.setup),
+      })),
     ...present('runners', placed(rows.line.runners)),
     stations: rows.stations.map(renderStation),
     reactions: [...rows.reactions].sort(inReactionOrder(place)).map((each) => ({

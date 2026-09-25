@@ -18,7 +18,10 @@ import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { builtInToolsFor } from '@work/domain/services/built-in-tools';
-import { chatPlacement } from '@work/domain/services/chat-placement';
+import {
+  chatPlacement,
+  chatSetupOf,
+} from '@work/domain/services/chat-placement';
 import { CHAT_PRIORITY } from '@work/domain/services/chat-priority';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -61,6 +64,10 @@ export class DispatchChat implements ChatDispatching {
       chat.repositories.length > 0 ? await this.lines.ofTeam(chat.teamId) : [];
     const placement = chatPlacement(chat.repositories, lines);
 
+    if (!placement) {
+      return false;
+    }
+
     const briefing = continuity.sessionId
       ? ChatBriefing.followUp(chat)
       : await this.briefed(chat);
@@ -73,10 +80,15 @@ export class DispatchChat implements ChatDispatching {
       subject: RunSubject.chat(chat.id),
       placement,
       spec: RunSpec.of({
-        checkouts: chat.repositories.map((repository) => ({
-          remote: THROUGH_SPOTLIGHT,
-          path: repository.name,
-        })),
+        checkouts: chat.repositories.map((repository) => {
+          const setup = chatSetupOf(repository, lines);
+
+          return {
+            remote: THROUGH_SPOTLIGHT,
+            path: repository.name,
+            ...(setup ? { setup: setup.value } : {}),
+          };
+        }),
         command: command.started({
           [TRACE_PARENT_VAR]: this.tracing.forChat(chat.id, id),
         }),

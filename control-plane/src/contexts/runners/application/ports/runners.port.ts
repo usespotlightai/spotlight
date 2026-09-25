@@ -22,7 +22,8 @@ export type StartedRunner =
     }
   | { readonly outcome: 'full' }
   | { readonly outcome: 'gone' }
-  | { readonly outcome: 'stranger' };
+  | { readonly outcome: 'stranger' }
+  | { readonly outcome: 'unoffered' };
 
 export interface ProvisionRequest {
   readonly poolId: string;
@@ -31,6 +32,7 @@ export interface ProvisionRequest {
   readonly runId: string;
   readonly taskId: string | null;
   readonly labels: readonly string[];
+  readonly image: string | null;
   readonly claimBy: Date;
 }
 
@@ -54,7 +56,7 @@ export interface RunnersPort {
   start(
     way: AdmittedWay,
     host: string,
-    installed: readonly ReportedHarness[],
+    image: string,
     at: Date,
     claimBy: Date,
   ): Promise<StartedRunner>;

@@ -32,6 +32,7 @@ import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const CLAIM_BY = new Date(STARTED_AT.getTime() + 60_000);
@@ -41,6 +42,8 @@ const THROUGH_POOL = { kind: 'pool' as const, id: POOL_ID.value };
 const THROUGH_TRUST = { kind: 'trust' as const, id: TRUST_ID.value };
 
 const HOST = HOST_ID.value;
+
+const IMAGE = 'ghcr.io/acme/runner:main';
 
 const running = (
   pool: RunnerPool | Error | null,
@@ -114,21 +117,49 @@ describe('Runners', () => {
       const { service, added } = running(aPullPool());
 
       await expect(
-        service.start(
-          THROUGH_POOL,
-          HOST,
-          [{ id: 'claude-code', models: [], version: '2.1.0' }],
-          STARTED_AT,
-          CLAIM_BY,
-        ),
+        service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({
         outcome: 'started',
         runnerId: RunnerId.of('pooled_9'),
         token: 'one-run-token',
       });
-      expect(added[0]?.terms.values).toEqual(['linux', 'claude-code@2.1.0']);
+      expect(added[0]?.terms.values).toEqual(['linux']);
+      expect(added[0]?.running?.image.value).toBe(IMAGE);
+      expect(added[0]?.running?.usual).toBe(true);
+      expect(added[0]?.installed[0]?.version?.value).toBe('2.1.0');
       expect(added[0]?.admission.equals(Admission.through(POOL_ID))).toBe(true);
       expect(added[0]?.hostId?.value).toBe(HOST);
+    });
+
+    it('starts one that takes only work asking for the image it runs', async () => {
+      const { service, added } = running(aPullPool());
+
+      await service.start(
+        THROUGH_POOL,
+        HOST,
+        'ghcr.io/acme/widgets:1',
+        STARTED_AT,
+        CLAIM_BY,
+      );
+
+      const terms = added[0]?.terms;
+
+      expect(terms?.serves(RunnerImage.of('ghcr.io/acme/widgets:1'))).toBe(
+        true,
+      );
+      expect(terms?.serves(RunnerImage.of(IMAGE))).toBe(false);
+      expect(terms?.serves(null)).toBe(false);
+    });
+
+    it('starts none for an image the host did not report serving', async () => {
+      for (const image of ['ghcr.io/acme/elsewhere:1', 'ghcr.io/acme/old:1']) {
+        const { service, added } = running(aPullPool());
+
+        await expect(
+          service.start(THROUGH_POOL, HOST, image, STARTED_AT, CLAIM_BY),
+        ).resolves.toEqual({ outcome: 'unoffered' });
+        expect(added).toEqual([]);
+      }
     });
 
     it('starts none past maxRuns', async () => {
@@ -137,7 +168,7 @@ describe('Runners', () => {
       });
 
       await expect(
-        service.start(THROUGH_POOL, HOST, [], STARTED_AT, CLAIM_BY),
+        service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'full' });
       expect(added).toEqual([]);
     });
@@ -147,7 +178,7 @@ describe('Runners', () => {
         running(null).service.start(
           THROUGH_POOL,
           HOST,
-          [],
+          IMAGE,
           STARTED_AT,
           CLAIM_BY,
         ),
@@ -156,7 +187,7 @@ describe('Runners', () => {
         running(aPushPool()).service.start(
           THROUGH_POOL,
           HOST,
-          [],
+          IMAGE,
           STARTED_AT,
           CLAIM_BY,
         ),
@@ -169,7 +200,7 @@ describe('Runners', () => {
       const { service, added } = running(aPullPool(), { host: null });
 
       await expect(
-        service.start(THROUGH_POOL, HOST, [], STARTED_AT, CLAIM_BY),
+        service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'stranger' });
       expect(added).toEqual([]);
     });
@@ -181,13 +212,13 @@ describe('Runners', () => {
       });
 
       await expect(
-        service.start(THROUGH_POOL, HOST, [], STARTED_AT, CLAIM_BY),
+        service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'stranger' });
       await expect(
         running(aPullPool()).service.start(
           THROUGH_TRUST,
           HOST,
-          [],
+          IMAGE,
           STARTED_AT,
           CLAIM_BY,
         ),
@@ -204,22 +235,14 @@ describe('Runners', () => {
       });
 
       await expect(
-        service.start(
-          THROUGH_TRUST,
-          HOST,
-          [{ id: 'claude-code', models: [], version: '2.1.0' }],
-          STARTED_AT,
-          CLAIM_BY,
-        ),
+        service.start(THROUGH_TRUST, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({
         outcome: 'started',
         runnerId: RunnerId.of('pooled_9'),
         token: 'one-run-token',
       });
-      expect(added[0]?.terms.values).toEqual([
-        'vpc-internal',
-        'claude-code@2.1.0',
-      ]);
+      expect(added[0]?.terms.values).toEqual(['vpc-internal']);
+      expect(added[0]?.terms.running?.image.value).toBe(IMAGE);
       expect(added[0]?.admission.equals(Admission.through(TRUST_ID))).toBe(
         true,
       );
@@ -233,7 +256,7 @@ describe('Runners', () => {
       });
 
       await expect(
-        service.start(THROUGH_TRUST, HOST, [], STARTED_AT, CLAIM_BY),
+        service.start(THROUGH_TRUST, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toMatchObject({ outcome: 'started' });
       expect(added).toHaveLength(1);
     });
@@ -243,13 +266,13 @@ describe('Runners', () => {
         running(null, {
           trust: null,
           host: aHost({ through: aTrust() }),
-        }).service.start(THROUGH_TRUST, HOST, [], STARTED_AT, CLAIM_BY),
+        }).service.start(THROUGH_TRUST, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'gone' });
       await expect(
         running(null, {
           trust: aTrust().withdrawn(attributedIn()),
           host: aHost({ through: aTrust() }),
-        }).service.start(THROUGH_TRUST, HOST, [], STARTED_AT, CLAIM_BY),
+        }).service.start(THROUGH_TRUST, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'gone' });
     });
   });
@@ -262,6 +285,7 @@ describe('Runners', () => {
       runId: 'run_1',
       taskId: 'task_1',
       labels: ['sandbox'],
+      image: 'ghcr.io/acme/widgets:1',
       claimBy: CLAIM_BY,
     };
 
@@ -277,9 +301,11 @@ describe('Runners', () => {
         attempt: 'pooled_1',
         pool: 'sandboxes',
         runId: 'run_1',
+        image: 'ghcr.io/acme/widgets:1',
         token: 'one-run-token',
         claimBy: CLAIM_BY,
       });
+      expect(added[0]?.running).toBeNull();
     });
 
     it('names the change stack when the runner is provisioned for a check', async () => {

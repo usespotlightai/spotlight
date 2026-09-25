@@ -62,7 +62,7 @@ func reserved(ctx context.Context, cfg config.Config, log *slog.Logger) (*protoc
 		if err != nil {
 			return err
 		}
-		return client.Register(ctx, protocol.Registration{Harnesses: harness.Installed(ctx, candidates)})
+		return client.Register(ctx, protocol.Registration{Release: version, Harnesses: harness.Installed(ctx, candidates)})
 	}); err != nil {
 		return nil, err
 	}

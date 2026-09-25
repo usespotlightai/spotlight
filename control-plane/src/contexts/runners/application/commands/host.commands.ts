@@ -1,10 +1,5 @@
 import type { HostCredential } from '@runners/application/ports/runner-admissions.port';
-
-interface ReportedHostHarness {
-  readonly id: string;
-  readonly models: readonly string[];
-  readonly version?: string;
-}
+import type { ReportedImage } from '@runners/domain/value-objects/host-image.vo';
 
 export interface ReportedHost {
   readonly name: string;
@@ -12,7 +7,7 @@ export interface ReportedHost {
   readonly executor: string;
   readonly capacity: number;
   readonly running: readonly string[];
-  readonly harnesses: readonly ReportedHostHarness[];
+  readonly images: readonly ReportedImage[];
 }
 
 export class ReportHostPresenceCommand {

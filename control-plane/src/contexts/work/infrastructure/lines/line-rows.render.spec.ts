@@ -19,10 +19,8 @@ const station = (
   model: null,
   effort: null,
   profile: null,
-  harnessVersion: null,
   agentPrompt: null,
   check: null,
-  setup: null,
   runners: [],
   diffs: false,
   decisions: false,
@@ -57,7 +55,7 @@ const ROWS: LineRows = {
       toStationId: 'completed',
     },
   ],
-  repositories: ['acme/api'],
+  repositories: [{ repository: 'acme/api', image: null, setup: null }],
 };
 
 describe('renderLineRows', () => {
@@ -146,10 +144,57 @@ describe('renderLineRows', () => {
   it('renders repositories in code point order, whatever order they were read in', () => {
     const rendered = renderLineRows({
       ...ROWS,
-      repositories: ['acme/web', 'acme/api'],
+      repositories: [
+        { repository: 'acme/web', image: null, setup: null },
+        { repository: 'acme/api', image: null, setup: null },
+      ],
     });
 
-    expect(rendered.repositories).toEqual(['acme/api', 'acme/web']);
+    expect(rendered.repositories).toEqual([
+      { name: 'acme/api' },
+      { name: 'acme/web' },
+    ]);
+  });
+
+  it('renders the image and setup a repository names, and compiles back to the same', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      repositories: [
+        {
+          repository: 'acme/web',
+          image: 'ghcr.io/acme/app:1',
+          setup: 'pnpm install\n',
+        },
+        { repository: 'acme/api', image: 'ghcr.io/acme/app:1', setup: null },
+      ],
+    });
+
+    expect(rendered.repositories).toEqual([
+      { name: 'acme/api', image: 'ghcr.io/acme/app:1' },
+      {
+        name: 'acme/web',
+        image: 'ghcr.io/acme/app:1',
+        setup: 'pnpm install\n',
+      },
+    ]);
+
+    const compiled = compileLine(rendered);
+
+    expect(compiled.ok).toBe(true);
+    if (compiled.ok) {
+      expect(compiled.line.repositories.image?.value).toBe(
+        'ghcr.io/acme/app:1',
+      );
+      expect(
+        compiled.line.repositories.entries.map((each) => ({
+          name: each.repository.value,
+          setup: each.setup?.value ?? null,
+        })),
+      ).toEqual([
+        { name: 'acme/api', setup: null },
+        { name: 'acme/web', setup: 'pnpm install\n' },
+      ]);
+    }
   });
 
   it('renders a definition that compiles', () => {
@@ -161,7 +206,6 @@ describe('renderLineRows', () => {
       description: 'Builds the change.\n',
       prompt: 'Implement the task.\n',
       check: 'npm test\n',
-      setup: ' npm ci\n',
     };
     const compiled = compileLine({
       key: 'delivery',
@@ -185,7 +229,6 @@ describe('renderLineRows', () => {
           description: build?.description?.value ?? null,
           agentPrompt: build?.agentPrompt?.value ?? null,
           check: build?.check?.value ?? null,
-          setup: build?.setup?.value ?? null,
           finishes: true,
         }),
       ],

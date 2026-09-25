@@ -7,7 +7,15 @@ import (
 	"time"
 )
 
-var ErrGone = errors.New("no such sandbox")
+var (
+	ErrGone    = errors.New("no such sandbox")
+	ErrNoImage = errors.New("no such image")
+)
+
+type Image struct {
+	ID      string
+	Digests []string
+}
 
 type Sandbox struct {
 	Name       string
@@ -35,7 +43,8 @@ type File struct {
 
 type Executor interface {
 	Describe(ctx context.Context) (string, error)
-	Ensure(ctx context.Context, image string) error
+	Inspect(ctx context.Context, image string) (Image, error)
+	Pull(ctx context.Context, image, auth string) error
 	Start(ctx context.Context, sandbox Sandbox) (string, error)
 	Follow(ctx context.Context, id string, out io.Writer) error
 	Wait(ctx context.Context, id string) (int, error)

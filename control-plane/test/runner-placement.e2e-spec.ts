@@ -1,10 +1,9 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { everyClauseMet } from '@platform/persistence/drizzle/every-clause-met';
-import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
-import { HarnessRelease } from '@shared-kernel/domain/value-objects/harness-release.vo';
-import { HarnessVersion } from '@shared-kernel/domain/value-objects/harness-version.vo';
+import { placementMet } from '@platform/persistence/drizzle/placement-met';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -21,24 +20,20 @@ afterAll(async () => {
   await held?.close();
 });
 
-const release = (harness: string, version: string): string =>
-  HarnessRelease.of(HarnessId.of(harness), HarnessVersion.of(version)).term;
+const WIDGETS = 'ghcr.io/acme/widgets:1';
+const GADGETS = `ghcr.io/acme/gadgets@sha256:${'d'.repeat(64)}`;
 
-const PINNED = release('claude-code', '2.1.270');
-const EARLIER = release('claude-code', '2.1.269');
-const CURSOR = release('cursor', '2026.09.01');
-
-const PLACEMENTS: readonly (readonly (readonly string[])[])[] = [
+const CLAUSES: readonly (readonly (readonly string[])[])[] = [
   [],
   [['gpu']],
   [['vpc-internal', 'build-1']],
   [['vpc-a', 'build-1'], ['gpu']],
   [['vpc-a'], ['vpc-b'], ['gpu', 'pod-a']],
-  [[PINNED]],
-  [['gpu'], [PINNED]],
 ];
 
-const TERMS: readonly (readonly string[])[] = [
+const IMAGES: readonly (string | null)[] = [null, WIDGETS, GADGETS];
+
+const LABELS: readonly (readonly string[])[] = [
   [],
   ['pod-a'],
   ['gpu'],
@@ -46,18 +41,24 @@ const TERMS: readonly (readonly string[])[] = [
   ['vpc-a', 'gpu'],
   ['vpc-a', 'vpc-b', 'pod-a'],
   ['laptop', 'vpc-internal'],
-  ['runner-1', PINNED, CURSOR],
-  ['runner-1', 'gpu', EARLIER],
-  ['runner-1', 'gpu', PINNED],
+];
+
+const RUNNING: readonly (RunningImage | null)[] = [
+  null,
+  RunningImage.of(RunnerImage.of(WIDGETS), true),
+  RunningImage.of(RunnerImage.of(WIDGETS), false),
+  RunningImage.of(RunnerImage.of(GADGETS), false),
 ];
 
 const admittedInSql = async (
   clauses: readonly (readonly string[])[],
-  terms: readonly string[],
+  image: string | null,
+  terms: RunnerTerms,
 ): Promise<boolean> => {
   const answered = await db.execute<{ admitted: boolean }>(
-    sql`SELECT ${everyClauseMet(
+    sql`SELECT ${placementMet(
       sql`${JSON.stringify(clauses)}::jsonb`,
+      sql`${image}::text`,
       terms,
     )} AS admitted`,
   );
@@ -65,24 +66,59 @@ const admittedInSql = async (
   return answered.rows[0]?.admitted === true;
 };
 
+const described = (
+  clauses: readonly (readonly string[])[],
+  image: string | null,
+  terms: RunnerTerms,
+): string =>
+  `${JSON.stringify(clauses)} in ${image ?? 'the usual image'} / ${JSON.stringify(
+    terms.values,
+  )} running ${
+    terms.running
+      ? `${terms.running.image.value}${terms.running.usual ? ' (usual)' : ''}`
+      : 'nothing named'
+  }`;
+
 describe('placement said in SQL', () => {
   it('admits exactly the runners RunnerPlacement admits', async () => {
     const disagreements: string[] = [];
 
-    for (const clauses of PLACEMENTS) {
-      for (const terms of TERMS) {
-        const domain = RunnerPlacement.ofClauses(clauses).admits(
-          RunnerTerms.of(terms),
+    for (const clauses of CLAUSES) {
+      for (const image of IMAGES) {
+        const placement = RunnerPlacement.ofClauses(
+          clauses,
+          image ? RunnerImage.of(image) : null,
         );
 
-        if ((await admittedInSql(clauses, terms)) !== domain) {
-          disagreements.push(
-            `${JSON.stringify(clauses)} / ${JSON.stringify(terms)}`,
-          );
+        for (const labels of LABELS) {
+          for (const running of RUNNING) {
+            const terms = RunnerTerms.of(labels).runningIn(running);
+
+            if (
+              (await admittedInSql(clauses, image, terms)) !==
+              placement.admits(terms)
+            ) {
+              disagreements.push(described(clauses, image, terms));
+            }
+          }
         }
       }
     }
 
     expect(disagreements).toEqual([]);
+  });
+
+  it('claims work naming an image only for a runner running that image, and work naming none only for one running the usual image', async () => {
+    const widgets = RunnerImage.of(WIDGETS);
+    const usual = RunnerTerms.none().runningIn(RunningImage.of(widgets, true));
+    const offered = RunnerTerms.none().runningIn(
+      RunningImage.of(RunnerImage.of(GADGETS), false),
+    );
+
+    expect(await admittedInSql([], WIDGETS, usual)).toBe(true);
+    expect(await admittedInSql([], WIDGETS, offered)).toBe(false);
+    expect(await admittedInSql([], GADGETS, offered)).toBe(true);
+    expect(await admittedInSql([], null, usual)).toBe(true);
+    expect(await admittedInSql([], null, offered)).toBe(false);
   });
 });

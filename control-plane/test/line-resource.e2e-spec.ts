@@ -175,6 +175,57 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(again.body.definition).toEqual(read.body.definition);
   });
 
+  it('keeps the image and setup each repository names, and reads them back as written', async () => {
+    const written = {
+      ...DELIVERY,
+      repositories: [
+        { name: 'acme/web', setup: 'pnpm install\n' },
+        { name: 'acme/api', image: 'ghcr.io/acme/app:1', setup: 'npm ci' },
+      ],
+    };
+    const made = await create(written);
+
+    expect(made.status).toBe(201);
+    expect(made.body.definition.repositories).toEqual([
+      { name: 'acme/api', image: 'ghcr.io/acme/app:1', setup: 'npm ci' },
+      { name: 'acme/web', setup: 'pnpm install\n' },
+    ]);
+
+    const again = await change(made.body.id, made.body.version, written);
+
+    expect(again.status).toBe(200);
+    expect(again.body.definition).toEqual(made.body.definition);
+  });
+
+  it('refuses repositories naming different images, and a station checking its layers while a repository says no setup', async () => {
+    const mixed = await create({
+      ...DELIVERY,
+      repositories: [
+        { name: 'acme/api', image: 'ghcr.io/acme/api:1' },
+        { name: 'acme/web', image: 'ghcr.io/acme/web:1' },
+      ],
+    });
+    const unready = await create({
+      ...DELIVERY,
+      repositories: [
+        { name: 'acme/api', setup: 'npm ci' },
+        { name: 'acme/web' },
+      ],
+      stations: DELIVERY.stations.map((each, at) =>
+        at === 1 ? { ...each, check: 'npm test', diffs: true } : each,
+      ),
+    });
+
+    expect(mixed.status).toBe(422);
+    expect(mixed.body.errors).toEqual([
+      expect.objectContaining({ path: 'repositories' }),
+    ]);
+    expect(unready.status).toBe(422);
+    expect(unready.body.errors).toEqual([
+      expect.objectContaining({ path: 'repositories[1].setup' }),
+    ]);
+  });
+
   it('keeps the key it was created with', async () => {
     const made = await create(DELIVERY);
     const moved = await change(made.body.id, made.body.version, {
@@ -290,7 +341,7 @@ describe('a line, created through the resource API (e2e)', () => {
             .set('Idempotency-Key', randomUUID())
             .send({
               ...each,
-              repositories: ['acme/api', 'acme/web'],
+              repositories: [{ name: 'acme/api' }, { name: 'acme/web' }],
               stations: each.stations.map((station, at) =>
                 at === 0
                   ? { ...station, skills: ['grafana', 'runbooks'] }
@@ -333,10 +384,12 @@ describe('a line, created through the resource API (e2e)', () => {
             each.address.startsWith('alpha/'),
           )
           .map(
-            (each: { definition: { repositories: string[] } }) =>
+            (each: { definition: { repositories: { name: string }[] } }) =>
               each.definition.repositories,
           ),
-      ).toEqual(definitions.map(() => ['acme/api', 'acme/web']));
+      ).toEqual(
+        definitions.map(() => [{ name: 'acme/api' }, { name: 'acme/web' }]),
+      );
     } finally {
       await db.delete(schema.line).where(eq(schema.line.teamId, alpha.body.id));
     }

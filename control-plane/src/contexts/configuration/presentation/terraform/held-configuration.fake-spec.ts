@@ -10,7 +10,9 @@ const DELIVERY = {
   key: 'delivery',
   name: 'Delivery',
   role: 'delivery',
-  repositories: ['acme/api'],
+  repositories: [
+    { name: 'acme/api', image: 'ghcr.io/acme/api:main', setup: 'npm ci' },
+  ],
   runners: ['build-1', 'vpc-internal'],
   stations: [
     {
@@ -34,7 +36,6 @@ const DELIVERY = {
       profile: 'careful',
       prompt: 'Implement the task.\n\n',
       check: 'npm test',
-      setup: 'npm ci',
       runners: ['gpu'],
       diffs: true,
       decisions: true,
@@ -69,7 +70,7 @@ const REVIEW = {
   key: 'review',
   name: 'Review',
   role: 'review',
-  repositories: ['acme/api'],
+  repositories: [{ name: 'acme/api' }],
   stations: [
     {
       key: 'backlog',
