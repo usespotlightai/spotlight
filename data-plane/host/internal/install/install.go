@@ -1,4 +1,4 @@
-package service
+package install
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ func (s Service) Install(out io.Writer) error {
 	case "darwin":
 		return s.launchd(out)
 	default:
-		return fmt.Errorf("installing a service on %s is not supported; run spotlight-host under your own supervisor", runtime.GOOS)
+		return fmt.Errorf("installing a service on %s is not supported; run `spotlight host` under your own supervisor", runtime.GOOS)
 	}
 }
 
@@ -63,9 +63,9 @@ func (s Service) systemd(out io.Writer) error {
 		}
 	}
 
-	fmt.Fprintf(out, "spotlight-host: running as the systemd service %s (%s)\n", unitName, path)
+	fmt.Fprintf(out, "spotlight host: running as the systemd service %s (%s)\n", unitName, path)
 	if !system {
-		fmt.Fprintf(out, "spotlight-host: to keep it running after you log out: loginctl enable-linger %s\n", os.Getenv("USER"))
+		fmt.Fprintf(out, "spotlight host: to keep it running after you log out: loginctl enable-linger %s\n", os.Getenv("USER"))
 	}
 
 	return nil
@@ -90,7 +90,7 @@ func (s Service) launchd(out io.Writer) error {
 		return err
 	}
 
-	fmt.Fprintf(out, "spotlight-host: running as the launchd agent %s, logging to %s\n", label, logs)
+	fmt.Fprintf(out, "spotlight host: running as the launchd agent %s, logging to %s\n", label, logs)
 	return nil
 }
 
@@ -107,7 +107,7 @@ func SystemdUnit(s Service, system bool) string {
 		"Wants=network-online.target",
 		"",
 		"[Service]",
-		"ExecStart=" + commandQuoted(s.Binary),
+		"ExecStart=" + commandQuoted(s.Binary) + " host",
 		"Environment=" + settingQuoted("SPOTLIGHT_HOST_CONFIG="+s.Config),
 		"Restart=always",
 		"RestartSec=5",
@@ -135,7 +135,7 @@ func LaunchdPlist(s Service, logs string) string {
 <plist version="1.0">
 <dict>
   <key>Label</key><string>` + label + `</string>
-  <key>ProgramArguments</key><array><string>` + escaped(s.Binary) + `</string></array>
+  <key>ProgramArguments</key><array><string>` + escaped(s.Binary) + `</string><string>host</string></array>
   <key>EnvironmentVariables</key>
   <dict>
     <key>SPOTLIGHT_HOST_CONFIG</key><string>` + escaped(s.Config) + `</string>

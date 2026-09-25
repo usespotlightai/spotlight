@@ -4,8 +4,8 @@
 |---|---|
 | `control-plane/` | NestJS API on Postgres |
 | `web/` | React SPA (Vite) |
-| `data-plane/` | Go: `host/` (`spotlight-host`), `runner/` (one run in a sandbox), `cli/` (`spotlight`, for agents); only `internal/{protocol,control}` is shared |
-| `installer/` | `install.sh` for `spotlight-host`, served by the control plane |
+| `data-plane/` | Go: one binary, `cmd/spotlight`, whose roles are `host/` (`spotlight host`), `runner/` (`spotlight runner`, one run in a sandbox) and `agent/` (the commands agents talk back with); they share only `protocol/` and `control/` |
+| `installer/` | `install.sh` for `spotlight host`, served by the control plane |
 
 Locally everything runs in Docker behind Traefik, which terminates HTTPS and
 routes by host and path. Source is bind-mounted, so edits hot-reload.
@@ -42,10 +42,10 @@ docker compose up -d
 | http://localhost:8025 | mail (Mailpit; catches all outgoing mail) |
 
 Compose also runs `db`, `migrate` (applies migrations before the control plane
-starts), `storage-bucket`, `tunnel`, and `host`: a `spotlight-host` serving the
+starts), `storage-bucket`, `tunnel`, and `host`: a `spotlight host` serving the
 dev pool, which starts sandboxes from the `spotlight-runner:dev` image on the
 compose network. It reloads on edits to `data-plane/`; the image does not, so
-rebuild it with `docker compose build runner` after changing the runner or CLI.
+rebuild it with `docker compose build runner` after changing the runner or agent commands.
 
 ## Hosts and runners
 
@@ -59,12 +59,12 @@ its own.
 curl -fsSL https://app.dev.usespotlight.ai/api/install.sh | SPOTLIGHT_TOKEN=<pool token> sh
 ```
 
-The script installs only `spotlight-host`, pinned to the control plane's
+The script installs only `spotlight`, pinned to the control plane's
 release (`SPOTLIGHT_VERSION` overrides it), from the public
 [`usespotlightai/cli`](https://github.com/usespotlightai/cli) releases. It
 checks for Docker or Podman (on macOS: Docker Desktop, OrbStack or Colima),
 pulls the runner image, writes `/etc/spotlight/host.env` (as root) or
-`~/.spotlight/host.env`, and runs it as a systemd service or a launchd agent. It
+`~/.spotlight/host.env`, and runs `spotlight host` as a systemd service or a launchd agent. It
 asks nothing, so cloud-init can run it. A platform workload claims through a
 runner trust instead: `SPOTLIGHT_TRUST=<trust id>` and
 `SPOTLIGHT_OIDC_TOKEN_FILE=<projected token>`.
@@ -101,7 +101,7 @@ from this repository, with `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION`
 and `CODEX_ACP_VERSION` as build arguments).
 
 Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
-service images and the runner image, plus the `spotlight-host` binaries
+service images and the runner image, plus the `spotlight` binaries
 published to `usespotlightai/cli`, since this repository is private.
 
 ## Runner environments
@@ -141,7 +141,8 @@ An image is built `FROM` the runner image, in the user's own CI:
   repository is checked out at `/workspace/<name>` (the repository's name
   without its owner), so an image can bake a checkout with its dependencies
   there; the run then only fetches and switches branches.
-- `runner` and the harnesses are on `PATH`; `runner harnesses '[]'` prints the
+- `spotlight` and the harnesses are on `PATH`, and the entrypoint is
+  `spotlight runner`; `spotlight runner harnesses '[]'` prints the
   runner's release and what the image holds. A host refuses an image whose
   runner is older than the control plane needs, and the Runners page says so.
 - Build as `agent`, or hand what you bake to `agent`: the runner gives the

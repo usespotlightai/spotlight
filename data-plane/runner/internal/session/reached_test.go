@@ -3,7 +3,7 @@ package session
 import (
 	"testing"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 func TestReachedServesEachRepositoryUnderItsOwnPath(t *testing.T) {

@@ -52,7 +52,7 @@ export class HostPresenceRequestDto {
 
   @ApiProperty({
     example: 'v1.4.0',
-    description: 'The spotlight-host release it runs',
+    description: 'The spotlight release it runs',
   })
   readonly release!: string;
 

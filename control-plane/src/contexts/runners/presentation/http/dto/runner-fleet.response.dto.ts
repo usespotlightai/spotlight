@@ -91,7 +91,7 @@ export class HostResponseDto {
   @ApiProperty({ type: AdmittedThroughResponseDto })
   readonly through: AdmittedThroughResponseDto;
 
-  @ApiProperty({ example: 'v1.4.0', description: 'The spotlight-host release' })
+  @ApiProperty({ example: 'v1.4.0', description: 'The spotlight release' })
   readonly release: string;
 
   @ApiProperty({ example: 'Docker Engine - Community 27.3.1 (linux/amd64)' })

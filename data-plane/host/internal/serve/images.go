@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"usespotlight.ai/data-plane/host/internal/executor"
 	"usespotlight.ai/data-plane/host/internal/images"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/host/internal/sandbox"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 const notAdmitted = "this host's SPOTLIGHT_RUNNER_IMAGE does not admit it"
@@ -211,11 +211,11 @@ func (h *Host) servedAs(image string) (examined, bool) {
 	return examinedOf(each), true
 }
 
-func (h *Host) pulled(ctx context.Context, image string) (executor.Image, error) {
+func (h *Host) pulled(ctx context.Context, image string) (sandbox.Image, error) {
 	cached, err := h.engine.Inspect(ctx, image)
 	have := err == nil
-	if err != nil && !errors.Is(err, executor.ErrNoImage) {
-		return executor.Image{}, err
+	if err != nil && !errors.Is(err, sandbox.ErrNoImage) {
+		return sandbox.Image{}, err
 	}
 	if have && (strings.Contains(image, "@") || len(cached.Digests) == 0) {
 		return cached, nil
@@ -231,7 +231,7 @@ func (h *Host) pulled(ctx context.Context, image string) (executor.Image, error)
 			h.log.Warn("could not pull the runner image, so it runs the copy it has", "image", image, "error", err)
 			return cached, nil
 		}
-		return executor.Image{}, err
+		return sandbox.Image{}, err
 	}
 
 	return h.engine.Inspect(ctx, image)
@@ -246,7 +246,7 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 	ctx, cancel := context.WithTimeout(ctx, probeLongest)
 	defer cancel()
 
-	id, err := h.engine.Start(ctx, executor.Sandbox{
+	id, err := h.engine.Start(ctx, sandbox.Spec{
 		Image:  image,
 		Args:   []string{"harnesses", string(asked)},
 		Env:    h.opts.SandboxEnv,
@@ -313,7 +313,7 @@ func (h *Host) reportedImages() []protocol.HostImage {
 	return reported
 }
 
-func pinned(image string, pulled executor.Image) string {
+func pinned(image string, pulled sandbox.Image) string {
 	name := repository(image)
 	for _, digest := range pulled.Digests {
 		if repository(digest) == name {

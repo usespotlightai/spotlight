@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 type Workload struct {

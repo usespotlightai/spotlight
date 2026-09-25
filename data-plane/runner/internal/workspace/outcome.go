@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 const OutcomePath = ".spotlight/outcome.json"

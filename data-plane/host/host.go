@@ -1,4 +1,4 @@
-package main
+package host
 
 import (
 	"context"
@@ -10,45 +10,41 @@ import (
 	"syscall"
 
 	"usespotlight.ai/data-plane/host/internal/config"
-	"usespotlight.ai/data-plane/host/internal/executor/docker"
+	"usespotlight.ai/data-plane/host/internal/install"
 	"usespotlight.ai/data-plane/host/internal/mirror"
 	"usespotlight.ai/data-plane/host/internal/pool"
 	"usespotlight.ai/data-plane/host/internal/registry"
+	"usespotlight.ai/data-plane/host/internal/sandbox/docker"
 	"usespotlight.ai/data-plane/host/internal/serve"
-	"usespotlight.ai/data-plane/host/internal/service"
 )
 
-var version = "dev"
+const Usage = `  spotlight host              serve a pull pool or runner trust, a fresh sandbox for every run
+  spotlight host install      run it as a service (systemd or launchd)`
 
-const usage = `usage:
-  spotlight-host            serve a pull pool or runner trust, a fresh sandbox for every run
-  spotlight-host install    run it as a service (systemd or launchd)
-  spotlight-host version`
-
-func main() {
+func Main(args []string, version string) int {
 	var err error
 
-	switch args := os.Args[1:]; {
+	switch {
 	case len(args) == 0:
-		err = run()
+		err = run(version)
 	case len(args) == 1 && args[0] == "install":
-		err = install()
-	case len(args) == 1 && args[0] == "version":
-		fmt.Println(version)
+		err = installService(version)
 	default:
-		err = fmt.Errorf("%s", usage)
+		err = fmt.Errorf("usage:\n%s", Usage)
 	}
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "spotlight-host:", err)
+		fmt.Fprintln(os.Stderr, "spotlight host:", err)
 		if serve.Final(err) {
-			os.Exit(service.RefusedExit)
+			return install.RefusedExit
 		}
-		os.Exit(1)
+		return 1
 	}
+
+	return 0
 }
 
-func run() error {
+func run(version string) error {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(log)
 
@@ -109,7 +105,7 @@ func run() error {
 	return nil
 }
 
-func install() error {
+func installService(version string) error {
 	binary, err := os.Executable()
 	if err != nil {
 		return err
@@ -122,5 +118,5 @@ func install() error {
 		return fmt.Errorf("%s is not ready to serve: %w", config.Path(), err)
 	}
 
-	return service.Service{Binary: binary, Config: config.Path()}.Install(os.Stdout)
+	return install.Service{Binary: binary, Config: config.Path()}.Install(os.Stdout)
 }

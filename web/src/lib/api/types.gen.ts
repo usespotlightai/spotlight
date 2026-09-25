@@ -1595,7 +1595,7 @@ export type HostPresenceRequestDto = {
    */
   name: string;
   /**
-   * The spotlight-host release it runs
+   * The spotlight release it runs
    */
   release: string;
   /**
@@ -1662,7 +1662,7 @@ export type HostResponseDto = {
   name: string;
   through: AdmittedThroughResponseDto;
   /**
-   * The spotlight-host release
+   * The spotlight release
    */
   release: string;
   executor: string;

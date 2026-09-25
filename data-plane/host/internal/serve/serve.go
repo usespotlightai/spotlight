@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"usespotlight.ai/data-plane/host/internal/executor"
+	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/mirror"
-	"usespotlight.ai/data-plane/internal/control"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/host/internal/sandbox"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 const (
@@ -80,7 +80,7 @@ type Options struct {
 type Host struct {
 	opts    Options
 	pool    Pool
-	engine  executor.Executor
+	engine  sandbox.Engine
 	mirrors *mirror.Mirrors
 	log     *slog.Logger
 
@@ -100,7 +100,7 @@ type Host struct {
 	failures   map[string]int
 }
 
-func New(opts Options, pool Pool, engine executor.Executor, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
+func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
 	return &Host{
 		opts:     opts,
 		pool:     pool,
@@ -424,13 +424,13 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	starting, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
 
-	id, err := h.engine.Start(starting, executor.Sandbox{
+	id, err := h.engine.Start(starting, sandbox.Spec{
 		Name:       "spotlight-" + handed.RunnerID,
 		Image:      ready.id,
 		Env:        env,
 		Labels:     map[string]string{LabelHost: h.opts.HostID, LabelRunner: handed.RunnerID},
 		Mounts:     mounts,
-		Files:      []executor.File{{Path: HandedPath, Mode: 0o400, Body: body}},
+		Files:      []sandbox.File{{Path: HandedPath, Mode: 0o400, Body: body}},
 		Network:    h.opts.Network,
 		ExtraHosts: h.opts.ExtraHosts,
 	})
@@ -600,7 +600,7 @@ func (h *Host) waited(ctx context.Context, id string, log *slog.Logger) int {
 		if err == nil || ctx.Err() != nil {
 			return code
 		}
-		if errors.Is(err, executor.ErrGone) {
+		if errors.Is(err, sandbox.ErrGone) {
 			log.Warn("the sandbox is gone from the engine", "error", err)
 			return code
 		}
@@ -612,7 +612,7 @@ func (h *Host) waited(ctx context.Context, id string, log *slog.Logger) int {
 	}
 }
 
-func (h *Host) borrow(ctx context.Context, handed protocol.Handed, log *slog.Logger) []executor.Mount {
+func (h *Host) borrow(ctx context.Context, handed protocol.Handed, log *slog.Logger) []sandbox.Mount {
 	if h.mirrors == nil || h.workspace == "" {
 		return nil
 	}
@@ -631,15 +631,15 @@ func (h *Host) borrow(ctx context.Context, handed protocol.Handed, log *slog.Log
 		}()
 	}
 
-	var mounts []executor.Mount
+	var mounts []sandbox.Mount
 	for range repositories {
 		if each := <-found; each.dir != "" {
-			mounts = append(mounts, executor.Mount{
+			mounts = append(mounts, sandbox.Mount{
 				Source: each.dir, Target: MirrorRoot + "/" + each.repository + ".git", ReadOnly: true,
 			})
 		}
 	}
-	slices.SortFunc(mounts, func(a, b executor.Mount) int { return strings.Compare(a.Target, b.Target) })
+	slices.SortFunc(mounts, func(a, b sandbox.Mount) int { return strings.Compare(a.Target, b.Target) })
 
 	return mounts
 }

@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 const traceUsage = `usage:

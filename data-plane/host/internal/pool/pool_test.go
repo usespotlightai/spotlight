@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/pool"
-	"usespotlight.ai/data-plane/internal/control"
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 func serve(t *testing.T, handle http.HandlerFunc) *pool.Client {

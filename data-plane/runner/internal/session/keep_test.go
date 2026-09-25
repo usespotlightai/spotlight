@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 type keptArchives struct {

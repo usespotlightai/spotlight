@@ -28,7 +28,7 @@ const (
 	defaultAuthorEmail = "noreply@usespotlight.ai"
 )
 
-const usage = "usage: runner [harnesses]"
+const usage = "usage: spotlight runner [harnesses <json>]"
 
 const (
 	envURL         = "SPOTLIGHT_URL"

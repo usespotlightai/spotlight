@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"bytes"
@@ -11,24 +11,27 @@ import (
 	"strings"
 	"time"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 var client = &http.Client{Timeout: 2 * time.Minute}
 
-func main() {
-	if err := run(os.Args[1:], os.Stdin, os.Stdout); err != nil {
+func Main(args []string) int {
+	if err := run(args, os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
+
+	return 0
 }
 
-const usage = `usage:
-  spotlight handover --next <where> [--note <text>]
+const Usage = `  spotlight handover --next <where> [--note <text>]
   spotlight reply --to <handle> [--body <text>] [--resolve]
   spotlight trace --task <id> [--out <path>]
   spotlight tools
   spotlight <tool> [--<input> <value>...]   as spotlight linear comment --body "..."`
+
+const usage = "usage:\n" + Usage
 
 func run(args []string, in io.Reader, out io.Writer) error {
 	if len(args) == 0 {

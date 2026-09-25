@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"usespotlight.ai/data-plane/internal/protocol"
+	"usespotlight.ai/data-plane/protocol"
 )
 
 func files(paths ...string) []protocol.SkillFile {
