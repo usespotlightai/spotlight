@@ -32,7 +32,7 @@ import { seatTeam } from './support/team';
 
 const VALUE = 'lin_api_exported_never_7c1f';
 
-const POOL_TOKEN = 'p'.repeat(40);
+const POOL_TOKEN = `pool${randomUUID().replaceAll('-', '')}`;
 
 const PROVISION_SECRET = `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`;
 

@@ -15,6 +15,7 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { describe, expect, it } from 'vitest';
 
 const BY = attributedIn();
@@ -107,6 +108,26 @@ describe('RunnerPool', () => {
 
     expect(relabelled.tokenHash?.equals(hashOf('a'))).toBe(true);
     expect(relabelled.labels.values).toEqual(['linux', 'gpu']);
+  });
+
+  it('gives the token it is defined with, and none when it provisions', () => {
+    expect(aPullPool().tokenGiven?.equals(hashOf('a'))).toBe(true);
+    expect(aPushPool().tokenGiven).toBeNull();
+  });
+
+  it('gives a token only when it is rotated to a new one', () => {
+    const pool = aPullPool({ tokenVersion: 1 });
+    const pulled = (tokenHash: TokenHash | null, tokenVersion: number) =>
+      pool.redefinedAs(
+        keeping('ephemeral', ['gpu']),
+        { mode: 'pull', tokenHash, tokenVersion },
+        BY,
+      ).tokenGiven;
+
+    expect(pulled(hashOf('c'), 2)?.equals(hashOf('c'))).toBe(true);
+    expect(pulled(null, 1)).toBeNull();
+    expect(pulled(hashOf('a'), 2)).toBeNull();
+    expect(pool.retired(BY).tokenGiven).toBeNull();
   });
 
   it('keeps its key and its mode for its whole life', () => {
