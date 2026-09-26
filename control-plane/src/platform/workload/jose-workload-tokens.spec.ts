@@ -1,8 +1,8 @@
-import { JoseWorkloadTokens } from '@runners/infrastructure/workload/jose-workload-tokens';
+import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
 import {
   openWorkloadIssuer,
   type WorkloadIssuer,
-} from '@runners/infrastructure/workload/workload-issuer.fake-spec';
+} from '@platform/workload/workload-issuer.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -31,12 +31,19 @@ describe('JoseWorkloadTokens', () => {
   });
 
   it('answers the claims of a token its issuer signed, finding the keys by discovery', async () => {
-    const token = await platform.issue({ sub: SUBJECT, aud: 'spotlight' });
+    const token = await platform.issue({
+      sub: SUBJECT,
+      aud: 'spotlight',
+      repository: 'acme/platform',
+      run_attempt: 2,
+      jti: 'once',
+    });
 
     await expect(tokens.verify(token, expected())).resolves.toEqual({
       issuer: platform.issuer,
       subject: SUBJECT,
       audiences: ['spotlight'],
+      named: { repository: 'acme/platform' },
     });
   });
 

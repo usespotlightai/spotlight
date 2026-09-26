@@ -22,7 +22,13 @@ type Row = typeof configurationChange.$inferSelect;
 
 const actorColumns = (actor: Actor | null) => {
   if (!actor) {
-    return { actor: 'spotlight', userId: null, tokenId: null, client: null };
+    return {
+      actor: 'spotlight',
+      userId: null,
+      tokenId: null,
+      trustId: null,
+      client: null,
+    };
   }
 
   const { principal } = actor;
@@ -31,13 +37,20 @@ const actorColumns = (actor: Actor | null) => {
     actor: principal.kind,
     userId: principal.userId.value,
     tokenId: principal.kind === 'token' ? principal.tokenId.value : null,
+    trustId:
+      principal.kind === 'token' ? (principal.trustId?.value ?? null) : null,
     client: actor.client.toString(),
   };
 };
 
 const changedBy = (row: Row): ChangedBy => {
   if (row.actor === 'token' && row.tokenId && row.userId) {
-    return { kind: 'token', tokenId: row.tokenId, userId: row.userId };
+    return {
+      kind: 'token',
+      tokenId: row.tokenId,
+      userId: row.userId,
+      trustId: row.trustId,
+    };
   }
 
   if (row.actor === 'person' && row.userId) {

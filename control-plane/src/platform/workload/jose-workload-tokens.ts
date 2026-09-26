@@ -1,14 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type {
-  ExpectedWorkload,
-  WorkloadTokensPort,
-} from '@runners/application/ports/workload-tokens.port';
-import type { WorkloadClaims } from '@runners/domain/value-objects/trusted-workload.vo';
 import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import { createRemoteJWKSet, type JWTVerifyGetKey, jwtVerify } from 'jose';
+import type {
+  ExpectedWorkload,
+  WorkloadTokensPort,
+} from '@shared-kernel/application/ports/workload-tokens.port';
+import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
+import {
+  createRemoteJWKSet,
+  type JWTPayload,
+  type JWTVerifyGetKey,
+  jwtVerify,
+} from 'jose';
 
 const DISCOVERY_PATH = '/.well-known/openid-configuration';
 
@@ -19,6 +24,16 @@ const TIMEOUT_MS = 5_000;
 const CLOCK_TOLERANCE_S = 30;
 
 const ALGORITHMS = ['RS256', 'RS384', 'RS512', 'ES256', 'ES384', 'PS256'];
+
+const REGISTERED = new Set(['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
+
+const namedIn = (payload: JWTPayload): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(payload).filter(
+      (entry): entry is [string, string] =>
+        !REGISTERED.has(entry[0]) && typeof entry[1] === 'string',
+    ),
+  );
 
 interface Discovered {
   readonly keys: JWTVerifyGetKey;
@@ -52,6 +67,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
         issuer: String(payload.iss),
         subject: String(payload.sub),
         audiences: [payload.aud ?? []].flat(),
+        named: namedIn(payload),
       };
     } catch (error) {
       this.logger.warn(

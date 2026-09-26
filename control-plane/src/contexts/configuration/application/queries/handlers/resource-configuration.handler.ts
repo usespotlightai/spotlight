@@ -8,6 +8,7 @@ import type { SkillResourcesPort } from '@configuration/application/ports/skill-
 import type { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
 import type { HeldConfigurations } from '@configuration/application/services/held-configurations.service';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type { TokenTrustConfigurationPort } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
@@ -43,6 +44,7 @@ export class ResourceConfigurationHandler
     private readonly profiles: HarnessProfileResourcesPort,
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
+    private readonly tokenTrusts: TokenTrustConfigurationPort,
     private readonly held: HeldConfigurations,
   ) {}
 
@@ -91,6 +93,8 @@ export class ResourceConfigurationHandler
         return this.teamWorkspaceOf(await this.profiles.withId(id));
       case 'secret':
         return workspaceOfHeld(await this.secrets.withId(id));
+      case 'workspace-token-trust':
+        return workspaceOfHeld(await this.tokenTrusts.withId(id));
       case 'runner-trust':
         return workspaceOfHeld(await this.runners.trustWithId(id));
       case 'runner-pool':

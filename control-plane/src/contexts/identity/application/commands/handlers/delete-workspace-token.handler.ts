@@ -28,7 +28,8 @@ export class DeleteWorkspaceTokenHandler
     const id = WorkspaceTokenId.of(command.tokenId);
 
     try {
-      const standing = await this.tokens.find(id);
+      const found = await this.tokens.find(id);
+      const standing = found?.isMinted ? null : found;
       const cleared = standing
         ? await this.access.clearanceIn(
             standing.workspaceId,

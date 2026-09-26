@@ -1,8 +1,4 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import type {
-  ExpectedWorkload,
-  WorkloadTokensPort,
-} from '@runners/application/ports/workload-tokens.port';
 import { RunnerAdmissions } from '@runners/application/services/runner-admissions.service';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
@@ -16,10 +12,14 @@ import {
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
-import type { WorkloadClaims } from '@runners/domain/value-objects/trusted-workload.vo';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type {
+  ExpectedWorkload,
+  WorkloadTokensPort,
+} from '@shared-kernel/application/ports/workload-tokens.port';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -31,6 +31,7 @@ const CLAIMS: WorkloadClaims = {
   issuer: 'https://oidc.example.com/cluster',
   subject: 'system:serviceaccount:spotlight:runner',
   audiences: ['spotlight'],
+  named: {},
 };
 
 const admitting = (

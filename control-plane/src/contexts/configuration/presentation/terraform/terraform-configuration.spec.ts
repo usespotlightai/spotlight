@@ -132,6 +132,7 @@ describe('workspaceTerraform', () => {
 
     for (const [type, name, address] of [
       ['spotlight_secret', 'linear_api_key', 'LINEAR_API_KEY'],
+      ['spotlight_workspace_token_trust', 'github-main', 'github-main'],
       ['spotlight_runner_trust', 'production-cluster', 'production-cluster'],
       ['spotlight_runner_pool', 'burst', 'burst'],
       ['spotlight_runner_pool', 'k8s-jobs', 'k8s-jobs'],
@@ -273,6 +274,35 @@ describe('workspaceTerraform', () => {
     expect(line).toContain('    runners   = ["gpu"]\n');
     expect(mainOf(HELD)).not.toContain('spotlight_runner.');
     expect(fileOf(HELD, 'variables.tf')).not.toMatch(/variable "runner_[^p]/);
+  });
+
+  it('writes a token trust with its claims only when it names any', () => {
+    const main = mainOf(HELD);
+
+    expect(main).toContain(
+      [
+        'resource "spotlight_workspace_token_trust" "github-main" {',
+        '  workspace_id = spotlight_workspace.acme.id',
+        '  key          = "github-main"',
+        '  issuer       = "https://token.actions.githubusercontent.com"',
+        '  audience     = "spotlight"',
+        '  subject      = "repo:acme/platform:ref:refs/heads/main"',
+        '  claims = {',
+        '    repository = "acme/platform"',
+        '  }',
+        '  scopes           = ["configure", "secrets"]',
+        '  lifetime_minutes = 15',
+        '}',
+      ].join('\n'),
+    );
+    expect(main).toContain(
+      [
+        '  subject          = "repo:acme/platform:pull_request"',
+        '  scopes           = ["plan"]',
+        '  lifetime_minutes = 10',
+        '}',
+      ].join('\n'),
+    );
   });
 
   it('writes a runner trust and refers to what the workspace declares', () => {
@@ -431,6 +461,8 @@ describe('workspaceTerraform', () => {
       '"spotlight_secret" "linear_api_key"',
       '"spotlight_secret" "linear_signing"',
       '"spotlight_secret" "sentry_token"',
+      '"spotlight_workspace_token_trust" "github-main"',
+      '"spotlight_workspace_token_trust" "github-pull-requests"',
       '"spotlight_runner_trust" "production-cluster"',
       '"spotlight_runner_pool" "burst"',
       '"spotlight_runner_pool" "k8s-jobs"',

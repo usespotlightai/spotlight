@@ -3,12 +3,14 @@ import type {
   KeptTeam,
   KeptWorkspace,
   KeptWorkspaceToken,
+  KeptWorkspaceTokenTrust,
 } from '@identity/application/ports/identity-resources.port';
 import {
   team,
   workspace,
   workspaceMember,
   workspaceToken,
+  workspaceTokenTrust,
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -16,7 +18,8 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { and, asc, eq, type SQL } from 'drizzle-orm';
+import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
+import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
 
 const KEPT_WORKSPACE = {
   id: workspace.id,
@@ -45,6 +48,22 @@ const KEPT_TOKEN = {
   expiresAt: workspaceToken.expiresAt,
 };
 
+const KEPT_TRUST = {
+  id: workspaceTokenTrust.id,
+  version: workspaceTokenTrust.version,
+  workspaceId: workspaceTokenTrust.workspaceId,
+  key: workspaceTokenTrust.key,
+  issuer: workspaceTokenTrust.issuer,
+  audience: workspaceTokenTrust.audience,
+  subject: workspaceTokenTrust.subject,
+  claims: workspaceTokenTrust.claims,
+  scopes: workspaceTokenTrust.scopes,
+  lifetimeMinutes: workspaceTokenTrust.lifetimeMinutes,
+  definedBy: workspaceTokenTrust.definedBy,
+};
+
+const issuedByHand = isNull(workspaceToken.mintedThrough);
+
 type Row<Kept> = Omit<Kept, 'id' | 'workspaceId'> & {
   readonly id: string;
   readonly workspaceId: string;
@@ -63,6 +82,14 @@ const keptTeam = (row: Row<KeptTeam>): KeptTeam => ({
 const keptToken = (row: Row<KeptWorkspaceToken>): KeptWorkspaceToken => ({
   ...row,
   id: WorkspaceTokenId.of(row.id),
+  workspaceId: WorkspaceId.of(row.workspaceId),
+});
+
+const keptTrust = (
+  row: Row<KeptWorkspaceTokenTrust>,
+): KeptWorkspaceTokenTrust => ({
+  ...row,
+  id: WorkspaceTokenTrustId.of(row.id),
   workspaceId: WorkspaceId.of(row.workspaceId),
 });
 
@@ -125,7 +152,9 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
       await this.context.db
         .select({ name: workspaceToken.name })
         .from(workspaceToken)
-        .where(eq(workspaceToken.workspaceId, workspaceId.value))
+        .where(
+          and(eq(workspaceToken.workspaceId, workspaceId.value), issuedByHand),
+        )
         .orderBy(asc(workspaceToken.name))
     ).map((each) => each.name);
   }
@@ -137,7 +166,9 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
       await this.context.db
         .select(KEPT_TOKEN)
         .from(workspaceToken)
-        .where(eq(workspaceToken.workspaceId, workspaceId.value))
+        .where(
+          and(eq(workspaceToken.workspaceId, workspaceId.value), issuedByHand),
+        )
     ).map(keptToken);
   }
 
@@ -163,10 +194,61 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     const [found] = await this.context.db
       .select(KEPT_TOKEN)
       .from(workspaceToken)
-      .where(where)
+      .where(and(where, issuedByHand))
       .limit(1);
 
     return found ? keptToken(found) : null;
+  }
+
+  tokenTrustWithId(
+    id: WorkspaceTokenTrustId,
+  ): Promise<KeptWorkspaceTokenTrust | null> {
+    return this.tokenTrust(eq(workspaceTokenTrust.id, id.value));
+  }
+
+  tokenTrustAt(
+    workspaceId: WorkspaceId,
+    key: string,
+  ): Promise<KeptWorkspaceTokenTrust | null> {
+    return this.tokenTrust(
+      and(
+        eq(workspaceTokenTrust.workspaceId, workspaceId.value),
+        eq(workspaceTokenTrust.key, key),
+      ),
+    );
+  }
+
+  async tokenTrustsIn(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly KeptWorkspaceTokenTrust[]> {
+    return (
+      await this.context.db
+        .select(KEPT_TRUST)
+        .from(workspaceTokenTrust)
+        .where(eq(workspaceTokenTrust.workspaceId, workspaceId.value))
+    ).map(keptTrust);
+  }
+
+  async tokenTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
+    return (
+      await this.context.db
+        .select({ key: workspaceTokenTrust.key })
+        .from(workspaceTokenTrust)
+        .where(eq(workspaceTokenTrust.workspaceId, workspaceId.value))
+        .orderBy(asc(workspaceTokenTrust.key))
+    ).map((each) => each.key);
+  }
+
+  private async tokenTrust(
+    where: SQL | undefined,
+  ): Promise<KeptWorkspaceTokenTrust | null> {
+    const [found] = await this.context.db
+      .select(KEPT_TRUST)
+      .from(workspaceTokenTrust)
+      .where(where)
+      .limit(1);
+
+    return found ? keptTrust(found) : null;
   }
 
   private async workspace(where: SQL): Promise<KeptWorkspace | null> {

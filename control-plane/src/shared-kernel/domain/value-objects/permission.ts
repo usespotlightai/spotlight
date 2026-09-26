@@ -4,5 +4,6 @@ export type Permission =
   | 'configure'
   | 'manage-secrets'
   | 'manage-runners'
+  | 'manage-token-trusts'
   | 'administer'
   | 'open-workspaces';

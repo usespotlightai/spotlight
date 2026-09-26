@@ -108,6 +108,7 @@ describe('resource answers', () => {
     ['configure', 'Not allowed to change the secret'],
     ['manage-secrets', 'Not allowed to change the secret'],
     ['manage-runners', 'Not allowed to change the secret'],
+    ['manage-token-trusts', 'Not allowed to change the secret'],
     ['administer', 'Not allowed to administer the secret'],
   ] as const)(
     'names the permission %s a refusal lacked, whatever its title says',

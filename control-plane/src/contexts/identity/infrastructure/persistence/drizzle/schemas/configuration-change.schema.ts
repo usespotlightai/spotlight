@@ -20,6 +20,7 @@ export const configurationChange = pgTable(
     actor: text('actor').notNull(),
     userId: text('user_id'),
     tokenId: text('token_id'),
+    trustId: text('trust_id'),
     client: text('client'),
     details: jsonb('details').$type<RecordedDetail>().notNull().default({}),
     recordedAt: timestamp('recorded_at').defaultNow().notNull(),

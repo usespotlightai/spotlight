@@ -52,6 +52,16 @@ export type HeldResourceDto =
       readonly valueVersion: number | null;
     })
   | (HeldByWorkspace & {
+      readonly kind: 'workspace-token-trust';
+      readonly key: string;
+      readonly issuer: string;
+      readonly audience: string;
+      readonly subject: string;
+      readonly claims: Readonly<Record<string, string>>;
+      readonly scopes: readonly string[];
+      readonly lifetimeMinutes: number;
+    })
+  | (HeldByWorkspace & {
       readonly kind: 'runner-trust';
       readonly key: string;
       readonly issuer: string;

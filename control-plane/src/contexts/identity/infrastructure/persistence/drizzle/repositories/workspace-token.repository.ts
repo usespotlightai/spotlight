@@ -22,7 +22,8 @@ import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { and, eq, type SQL } from 'drizzle-orm';
+import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
+import { and, eq, isNotNull, lte, type SQL } from 'drizzle-orm';
 
 type Row = typeof workspaceToken.$inferSelect;
 
@@ -37,6 +38,11 @@ const rehydrated = (row: Row): WorkspaceToken =>
     issuedBy: UserId.of(row.issuedBy),
     issuedAt: row.issuedAt,
     expiresAt: row.expiresAt,
+    mintedThrough:
+      row.mintedThrough === null
+        ? null
+        : WorkspaceTokenTrustId.of(row.mintedThrough),
+    mintedUnder: row.mintedUnder,
     version: row.version,
   });
 
@@ -63,6 +69,8 @@ export class DrizzleWorkspaceTokenRepository
           issuedBy: added.issuedBy.value,
           issuedAt: added.issuedAt,
           expiresAt: added.expiresAt,
+          mintedThrough: added.mintedThrough?.value ?? null,
+          mintedUnder: added.mintedUnder,
         });
       } catch (error) {
         if (codeOf(error) === UNIQUE_VIOLATION) {
@@ -114,6 +122,35 @@ export class DrizzleWorkspaceTokenRepository
 
   bearing(hash: TokenHash): Promise<WorkspaceToken | null> {
     return this.one(eq(workspaceToken.tokenHash, hash.value));
+  }
+
+  async mintedThrough(
+    trustId: WorkspaceTokenTrustId,
+  ): Promise<readonly WorkspaceToken[]> {
+    const rows = await this.context.db
+      .select()
+      .from(workspaceToken)
+      .where(eq(workspaceToken.mintedThrough, trustId.value));
+
+    return rows.map(rehydrated);
+  }
+
+  async mintedAndExpiredBy(
+    now: Date,
+    limit: number,
+  ): Promise<readonly WorkspaceToken[]> {
+    const rows = await this.context.db
+      .select()
+      .from(workspaceToken)
+      .where(
+        and(
+          isNotNull(workspaceToken.mintedThrough),
+          lte(workspaceToken.expiresAt, now),
+        ),
+      )
+      .limit(limit);
+
+    return rows.map(rehydrated);
   }
 
   private async one(where: SQL): Promise<WorkspaceToken | null> {

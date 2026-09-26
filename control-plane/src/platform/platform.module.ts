@@ -22,6 +22,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { SystemClock } from '@platform/time/system-clock';
 import { TokenMint } from '@platform/tokens/token-mint.service';
+import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
 import { BACKGROUND } from '@shared-kernel/application/ports/background.port';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -33,6 +34,7 @@ import {
 } from '@shared-kernel/application/ports/logger.port';
 import { TOKEN_MINT } from '@shared-kernel/application/ports/token-mint.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
+import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
 
 @Global()
@@ -72,6 +74,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     TokenMint,
     { provide: TOKEN_MINT, useClass: TokenMint },
     { provide: IDEMPOTENT_CREATES, useClass: DrizzleIdempotentCreates },
+    { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
   ],
   exports: [
     ConfigModule,
@@ -94,6 +97,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     TokenMint,
     TOKEN_MINT,
     IDEMPOTENT_CREATES,
+    WORKLOAD_TOKENS,
   ],
 })
 export class PlatformModule {}

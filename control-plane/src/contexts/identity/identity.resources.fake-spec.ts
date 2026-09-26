@@ -110,10 +110,12 @@ export const access = (administers = true): WorkspaceAccessPort =>
 export const teamKeys = (
   keys: readonly string[],
   tokens: readonly string[] = [],
+  trusts: readonly string[] = [],
 ): IdentityResourcesPort =>
   ({
     teamKeysIn: vi.fn(async () => keys),
     tokenNamesIn: vi.fn(async () => tokens),
+    tokenTrustKeysIn: vi.fn(async () => trusts),
   }) as unknown as IdentityResourcesPort;
 
 export const holdings = (held: readonly string[] = []) =>

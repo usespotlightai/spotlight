@@ -22,6 +22,7 @@ export interface WorkspaceClearance {
   readonly configures: boolean;
   readonly managesSecrets: boolean;
   readonly managesRunners: boolean;
+  readonly managesTokenTrusts: boolean;
   readonly administers: boolean;
 }
 

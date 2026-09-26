@@ -72,14 +72,15 @@ const byPath = inCodePointOrderOf((file: TerraformFile) => file.path);
 const PLACE: Readonly<Record<HeldResourceDto['kind'], number>> = {
   workspace: 0,
   secret: 1,
-  'runner-trust': 2,
-  'runner-pool': 3,
-  'workspace-runners': 4,
-  team: 5,
-  line: 6,
-  skill: 7,
-  integration: 8,
-  'harness-profile': 9,
+  'workspace-token-trust': 2,
+  'runner-trust': 3,
+  'runner-pool': 4,
+  'workspace-runners': 5,
+  team: 6,
+  line: 7,
+  skill: 8,
+  integration: 9,
+  'harness-profile': 10,
 };
 
 const teamOf = (held: HeldResourceDto): string => {
@@ -587,6 +588,19 @@ const rendered = (
       ]);
     case 'secret':
       return secret(held, importedAs, refer);
+    case 'workspace-token-trust':
+      return adopted(held, nameOf(held.key), importedAs, [
+        ...refer.owner(held),
+        attribute('key', held.key),
+        attribute('issuer', held.issuer),
+        attribute('audience', held.audience),
+        attribute('subject', held.subject),
+        ...(Object.keys(held.claims).length === 0
+          ? []
+          : [attribute('claims', { ...held.claims })]),
+        attribute('scopes', [...held.scopes]),
+        attribute('lifetime_minutes', held.lifetimeMinutes),
+      ]);
     case 'runner-trust':
       return adopted(held, nameOf(held.key), importedAs, [
         ...refer.owner(held),

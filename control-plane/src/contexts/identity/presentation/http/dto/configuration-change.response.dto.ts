@@ -26,10 +26,19 @@ export class ChangedByResponseDto {
   @ApiProperty({ type: String, nullable: true })
   readonly tokenId: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust',
+  })
+  readonly trustId: string | null;
+
   constructor(by: ChangedBy) {
     this.kind = by.kind;
     this.userId = by.kind === 'spotlight' ? null : by.userId;
     this.tokenId = by.kind === 'token' ? by.tokenId : null;
+    this.trustId = by.kind === 'token' ? by.trustId : null;
   }
 }
 

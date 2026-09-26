@@ -11,6 +11,7 @@ import type {
   TeamDirectoryPort,
   TeamProfile,
 } from '@identity/application/ports/team-directory.port';
+import type { TokenTrustConfigurationPort } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
@@ -27,14 +28,16 @@ export class HeldConfigurations {
     private readonly profileViews: HarnessProfileViews,
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
+    private readonly tokenTrusts: TokenTrustConfigurationPort,
   ) {}
 
   async of(workspace: WorkspaceProfile): Promise<HeldConfigurationDto> {
     const workspaceId = WorkspaceId.of(workspace.id);
-    const [teams, secrets, runners] = await Promise.all([
+    const [teams, secrets, runners, tokenTrusts] = await Promise.all([
       this.teams.inWorkspace(workspaceId),
       this.secrets.in(workspaceId),
       this.runners.in(workspaceId),
+      this.tokenTrusts.in(workspaceId),
     ]);
     const heldByTeams = await Promise.all(
       teams.map((team) => this.heldBy(team)),
@@ -46,6 +49,7 @@ export class HeldConfigurations {
       resources: [
         HeldResourceMapper.workspace(workspace),
         ...secrets.map(HeldResourceMapper.secret),
+        ...tokenTrusts.map(HeldResourceMapper.tokenTrust),
         ...runners.trusts.map(HeldResourceMapper.trust),
         ...runners.pools.map(HeldResourceMapper.pool),
         ...(runners.declared

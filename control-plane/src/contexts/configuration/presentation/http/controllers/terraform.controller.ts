@@ -35,6 +35,7 @@ const COLLECTION_OF: Readonly<Record<HeldKind, string>> = {
   integration: 'integrations',
   'harness-profile': 'harness-profiles',
   secret: 'secrets',
+  'workspace-token-trust': 'token-trusts',
   'runner-trust': 'runner-trusts',
   'runner-pool': 'runner-pools',
   'workspace-runners': 'workspace-runners',

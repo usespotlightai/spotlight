@@ -124,6 +124,10 @@ import {
   type TeamHoldingsPort,
 } from '@identity/application/ports/team-holdings.port';
 import {
+  TOKEN_TRUST_CONFIGURATION,
+  type TokenTrustConfigurationPort,
+} from '@identity/application/ports/token-trust-configuration.port';
+import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
@@ -259,6 +263,7 @@ const adapters: Provider[] = [
       HarnessProfileViews,
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
+      TOKEN_TRUST_CONFIGURATION,
     ],
     useFactory: (
       teams: TeamDirectoryPort,
@@ -269,6 +274,7 @@ const adapters: Provider[] = [
       profileViews: HarnessProfileViews,
       secrets: SecretConfigurationPort,
       runners: RunnerConfigurationPort,
+      tokenTrusts: TokenTrustConfigurationPort,
     ) =>
       new HeldConfigurations(
         teams,
@@ -279,6 +285,7 @@ const adapters: Provider[] = [
         profileViews,
         secrets,
         runners,
+        tokenTrusts,
       ),
   },
   {
@@ -395,6 +402,7 @@ const handlers: Provider[] = [
       HARNESS_PROFILE_RESOURCES,
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
+      TOKEN_TRUST_CONFIGURATION,
       HeldConfigurations,
     ],
   ),

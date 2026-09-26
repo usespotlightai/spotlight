@@ -1,5 +1,5 @@
 {
-  "id": "d6f15dee-14c7-4471-bfa3-c9a00615939e",
+  "id": "fe49590c-74c5-4e36-8f9a-8f2299166e66",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -2141,6 +2141,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "trust_id": {
+          "name": "trust_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "client": {
           "name": "client",
           "type": "text",
@@ -2801,6 +2807,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "minted_through": {
+          "name": "minted_through",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "minted_under": {
+          "name": "minted_under",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -2827,6 +2845,38 @@
             }
           ],
           "isUnique": true,
+          "where": "\"workspace_token\".\"minted_through\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "workspace_token_minted_through_idx": {
+          "name": "workspace_token_minted_through_idx",
+          "columns": [
+            {
+              "expression": "minted_through",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "workspace_token_minted_expiry_idx": {
+          "name": "workspace_token_minted_expiry_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"workspace_token\".\"minted_through\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2857,6 +2907,129 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {
+        "workspace_token_minted_under": {
+          "name": "workspace_token_minted_under",
+          "value": "(\"workspace_token\".\"minted_through\" is null) = (\"workspace_token\".\"minted_under\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.workspace_token_trust": {
+      "name": "workspace_token_trust",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "audience": {
+          "name": "audience",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "claims": {
+          "name": "claims",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "workspace_token_scope[]",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lifetime_minutes": {
+          "name": "lifetime_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "defined_by": {
+          "name": "defined_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "workspace_token_trust_workspace_key_idx": {
+          "name": "workspace_token_trust_workspace_key_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "workspace_token_trust_workspace_id_workspace_id_fk": {
+          "name": "workspace_token_trust_workspace_id_workspace_id_fk",
+          "tableFrom": "workspace_token_trust",
+          "tableTo": "workspace",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -6572,7 +6745,8 @@
         "plan",
         "configure",
         "secrets",
-        "runners"
+        "runners",
+        "trusts"
       ]
     },
     "public.run_state": {

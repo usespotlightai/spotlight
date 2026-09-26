@@ -30,16 +30,22 @@ describe('TokenScopes', () => {
       ['configure', 'secrets', 'runners'],
       ['read', 'plan', 'configure', 'secrets', 'runners'],
     ],
+    [
+      ['configure', 'trusts'],
+      ['read', 'plan', 'configure', 'trusts'],
+    ],
   ])('lets %j do everything below it on the ladder: %j', (scopes, allows) => {
     expect(allowed(scopes)).toEqual(allows);
   });
 
-  it.each([[['secrets']], [['runners']], [['secrets', 'runners']]])(
-    'refuses %j granted without a rung of the ladder',
-    (scopes) => {
-      expect(() => TokenScopes.named(scopes)).toThrow(InvalidTokenScopeError);
-    },
-  );
+  it.each([
+    [['secrets']],
+    [['runners']],
+    [['trusts']],
+    [['secrets', 'runners']],
+  ])('refuses %j granted without a rung of the ladder', (scopes) => {
+    expect(() => TokenScopes.named(scopes)).toThrow(InvalidTokenScopeError);
+  });
 
   it('refuses a scope named twice', () => {
     expect(() => TokenScopes.named(['read', 'read'])).toThrow(

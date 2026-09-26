@@ -1,14 +1,18 @@
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
+import { WorkspaceTokenLapsed } from '@identity/domain/events/workspace-token-lapsed.event';
 import { WorkspaceTokenRedescribed } from '@identity/domain/events/workspace-token-redescribed.event';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
 import { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
 import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
 import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
-import type { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
+import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
+import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import type { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -16,6 +20,7 @@ import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scop
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
+import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
 export interface TokenTerms {
   readonly name: TokenName;
@@ -30,6 +35,8 @@ interface Kept extends TokenTerms {
   readonly hash: TokenHash;
   readonly issuedBy: UserId;
   readonly issuedAt: Date;
+  readonly mintedThrough: WorkspaceTokenTrustId | null;
+  readonly mintedUnder: number | null;
   readonly version: number;
 }
 
@@ -49,7 +56,13 @@ export class WorkspaceToken extends EventRecorder {
   }
 
   static issue(
-    input: Omit<Kept, 'version' | 'issuedAt'> & { now: Date; by: Attribution },
+    input: Omit<
+      Kept,
+      'version' | 'issuedAt' | 'mintedThrough' | 'mintedUnder'
+    > & {
+      now: Date;
+      by: Attribution;
+    },
   ): WorkspaceToken {
     if (input.expiresAt && input.expiresAt.getTime() <= input.now.getTime()) {
       throw new InvalidWorkspaceTokenError(
@@ -68,6 +81,8 @@ export class WorkspaceToken extends EventRecorder {
       hash: input.hash,
       issuedBy: input.issuedBy,
       issuedAt: input.now,
+      mintedThrough: null,
+      mintedUnder: null,
       version: 0,
       revoked: false,
     });
@@ -84,6 +99,56 @@ export class WorkspaceToken extends EventRecorder {
     return issued;
   }
 
+  static minted(
+    input: Omit<Kept, 'version' | 'issuedAt' | 'description' | 'expiresAt'> & {
+      mintedThrough: WorkspaceTokenTrustId;
+      mintedUnder: number;
+      expiresAt: Date;
+      subject: string;
+      now: Date;
+      client: Client;
+    },
+  ): WorkspaceToken {
+    const minted = new WorkspaceToken({
+      id: input.id,
+      workspaceId: input.workspaceId,
+      name: input.name,
+      description: TokenDescription.of(''),
+      scopes: input.scopes,
+      expiresAt: input.expiresAt,
+      hash: input.hash,
+      issuedBy: input.issuedBy,
+      issuedAt: input.now,
+      mintedThrough: input.mintedThrough,
+      mintedUnder: input.mintedUnder,
+      version: 0,
+      revoked: false,
+    });
+
+    minted.record(
+      new WorkspaceTokenIssued(
+        minted.id,
+        minted.workspaceId,
+        minted.name,
+        ConfigurationChange.created(
+          minted.whatChanged,
+          Attribution.of(
+            Actor.of(minted.principal, input.client),
+            minted.workspaceId,
+          ),
+          MintedTokenDetail.of({
+            trustId: input.mintedThrough,
+            subject: input.subject,
+            scopes: input.scopes.all.map((each) => each.value),
+            expiresAt: input.expiresAt,
+          }),
+        ),
+      ),
+    );
+
+    return minted;
+  }
+
   static rehydrate(input: Kept): WorkspaceToken {
     return new WorkspaceToken({ ...input, revoked: false });
   }
@@ -96,6 +161,13 @@ export class WorkspaceToken extends EventRecorder {
 
   redescribed(terms: TokenTerms, by: Attribution): WorkspaceToken {
     this.guardStanding();
+
+    if (this.isMinted) {
+      throw new InconsistentStateError(
+        'workspace token',
+        'minted through a trust was described anew',
+      );
+    }
 
     if (!terms.name.equals(this.name)) {
       throw new WorkspaceTokenTermsFixedError('name', FIXED);
@@ -140,6 +212,25 @@ export class WorkspaceToken extends EventRecorder {
     return revoked;
   }
 
+  lapsed(now: Date): WorkspaceToken {
+    this.guardStanding();
+
+    if (this.admitsAt(now)) {
+      throw new InconsistentStateError(
+        'workspace token',
+        'was let lapse before it expired',
+      );
+    }
+
+    const lapsed = this.with({ revoked: true });
+
+    lapsed.record(
+      new WorkspaceTokenLapsed(this.id, this.workspaceId, this.name),
+    );
+
+    return lapsed;
+  }
+
   admitsAt(now: Date): boolean {
     return (
       !this.isRevoked &&
@@ -153,6 +244,7 @@ export class WorkspaceToken extends EventRecorder {
       workspaceId: this.workspaceId,
       scopes: this.scopes,
       issuedBy: this.issuedBy,
+      mintedThrough: this.mintedThrough,
     });
   }
 
@@ -190,6 +282,18 @@ export class WorkspaceToken extends EventRecorder {
 
   get issuedAt(): Date {
     return this.state.issuedAt;
+  }
+
+  get mintedThrough(): WorkspaceTokenTrustId | null {
+    return this.state.mintedThrough;
+  }
+
+  get mintedUnder(): number | null {
+    return this.state.mintedUnder;
+  }
+
+  get isMinted(): boolean {
+    return this.state.mintedThrough !== null;
   }
 
   get version(): number {

@@ -7,6 +7,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import {
   forbiddenTo,
   type ResourceDeleted,
@@ -52,11 +53,13 @@ export class DeleteWorkspaceHandler
       await this.transaction.run(async () => {
         const teams = await this.resources.teamKeysIn(id);
         const tokens = await this.resources.tokenNamesIn(id);
+        const trusts = await this.resources.tokenTrustKeysIn(id);
 
         await this.workspaces.save(
           standing.closed(
             teams.map((each) => TeamKey.of(each)),
             tokens.map((each) => TokenName.of(each)),
+            trusts.map((each) => TokenTrustKey.of(each)),
             held,
             Attribution.of(command.actor, id),
           ),

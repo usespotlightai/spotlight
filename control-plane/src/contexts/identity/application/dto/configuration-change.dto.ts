@@ -10,6 +10,7 @@ export type ChangedBy =
       readonly kind: 'token';
       readonly tokenId: string;
       readonly userId: string;
+      readonly trustId: string | null;
     }
   | { readonly kind: 'spotlight' };
 

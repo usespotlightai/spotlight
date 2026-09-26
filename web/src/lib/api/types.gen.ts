@@ -102,7 +102,7 @@ export type ProblemResponseDto = {
   /**
    * The permission the caller lacks, when it was refused as forbidden: one its role in the workspace, or its token’s scopes, do not grant
    */
-  permission?: 'configure' | 'manage-secrets' | 'manage-runners' | 'administer' | 'open-workspaces' | 'plan';
+  permission?: 'configure' | 'manage-secrets' | 'manage-runners' | 'manage-token-trusts' | 'administer' | 'open-workspaces' | 'plan';
 };
 
 export type LineResourceResponseDto = {
@@ -1337,9 +1337,9 @@ export type WorkspaceTokenResourceResponseDto = {
    */
   description: string;
   /**
-   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets and runners; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners. Fixed for its life
+   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Fixed for its life
    */
-  scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners'>;
+  scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
   /**
    * The person who issued it
    */
@@ -1356,6 +1356,95 @@ export type WorkspaceTokenResourceListResponseDto = {
    * Every one there is, each as a read would answer it, in address order
    */
   items: Array<WorkspaceTokenResourceResponseDto>;
+};
+
+export type WorkspaceTokenTrustResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace the tokens it mints act in
+   */
+  workspaceId: string;
+  /**
+   * Names the trust within its workspace, and every token it mints; fixed for its life
+   */
+  key: string;
+  /**
+   * The OIDC issuer whose signed tokens the trust accepts
+   */
+  issuer: string;
+  /**
+   * The audience the workload must ask its issuer for
+   */
+  audience: string;
+  /**
+   * The subject the workload’s token must carry; * stands for any run of characters
+   */
+  subject: string;
+  /**
+   * Further claims the workload’s token must carry, each matching its pattern the way subject does
+   */
+  claims: {
+    [key: string]: string;
+  };
+  /**
+   * The scopes every token it mints is given
+   */
+  scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
+  /**
+   * How many minutes a token it mints admits its bearer
+   */
+  lifetimeMinutes: number;
+  /**
+   * The person who defined the trust, or who issued the token that did; the tokens it mints act on their behalf
+   */
+  definedBy: string;
+};
+
+export type WorkspaceTokenTrustResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<WorkspaceTokenTrustResourceResponseDto>;
+};
+
+export type ExchangeWorkloadTokenRequestDto = {
+  /**
+   * The id of the workspace token trust to exchange through
+   */
+  trust: string;
+  /**
+   * The OIDC token the CI platform issued the workload, for the trust’s audience
+   */
+  token: string;
+};
+
+export type MintedTokenResponseDto = {
+  /**
+   * The token to send as Authorization: Bearer until it expires; answered this once, and kept only as a hash
+   */
+  token: string;
+  tokenId: string;
+  workspaceId: string;
+  scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
+  /**
+   * After this it admits nobody
+   */
+  expiresAt: string;
 };
 
 export type CreateWorkspaceRequestDto = {
@@ -1417,6 +1506,10 @@ export type ChangedByResponseDto = {
    */
   userId: string | null;
   tokenId: string | null;
+  /**
+   * For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust
+   */
+  trustId: string | null;
 };
 
 export type ConfigurationChangeResponseDto = {
@@ -1424,7 +1517,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'secret' | 'workspace-token' | 'runner-trust' | 'runner-pool' | 'workspace-runners';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'workspace-runners';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -5148,7 +5241,7 @@ export type ListWorkspaceTokensResponse = ListWorkspaceTokensResponses[keyof Lis
 export type CreateWorkspaceTokenData = {
   body: {
     name: string;
-    scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners'>;
+    scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
     description?: string;
     expiresAt?: string | null;
   };
@@ -5322,7 +5415,7 @@ export type ReadWorkspaceTokenResponse = ReadWorkspaceTokenResponses[keyof ReadW
 export type UpdateWorkspaceTokenData = {
   body: {
     name: string;
-    scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners'>;
+    scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
     description?: string;
     expiresAt?: string | null;
   };
@@ -5438,6 +5531,373 @@ export type ImportWorkspaceTokenResponses = {
 };
 
 export type ImportWorkspaceTokenResponse = ImportWorkspaceTokenResponses[keyof ImportWorkspaceTokenResponses];
+
+export type ListWorkspaceTokenTrustsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/token-trusts';
+};
+
+export type ListWorkspaceTokenTrustsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListWorkspaceTokenTrustsError = ListWorkspaceTokenTrustsErrors[keyof ListWorkspaceTokenTrustsErrors];
+
+export type ListWorkspaceTokenTrustsResponses = {
+  /**
+   * Every workspace-token-trust there, each as a read would answer it, in address order
+   */
+  200: WorkspaceTokenTrustResourceListResponseDto;
+};
+
+export type ListWorkspaceTokenTrustsResponse = ListWorkspaceTokenTrustsResponses[keyof ListWorkspaceTokenTrustsResponses];
+
+export type CreateWorkspaceTokenTrustData = {
+  body: {
+    key: string;
+    issuer: string;
+    audience?: string;
+    subject: string;
+    claims?: {
+      [key: string]: string;
+    };
+    scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
+    lifetimeMinutes?: number;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/token-trusts';
+};
+
+export type CreateWorkspaceTokenTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the workspace-token-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-token-trust that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a workspace-token-trust at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateWorkspaceTokenTrustError = CreateWorkspaceTokenTrustErrors[keyof CreateWorkspaceTokenTrustErrors];
+
+export type CreateWorkspaceTokenTrustResponses = {
+  /**
+   * The workspace-token-trust, as a read would answer it
+   */
+  201: WorkspaceTokenTrustResourceResponseDto;
+};
+
+export type CreateWorkspaceTokenTrustResponse = CreateWorkspaceTokenTrustResponses[keyof CreateWorkspaceTokenTrustResponses];
+
+export type DeleteWorkspaceTokenTrustData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/token-trusts/{id}';
+};
+
+export type DeleteWorkspaceTokenTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the workspace-token-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-token-trust that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteWorkspaceTokenTrustError = DeleteWorkspaceTokenTrustErrors[keyof DeleteWorkspaceTokenTrustErrors];
+
+export type DeleteWorkspaceTokenTrustResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteWorkspaceTokenTrustResponse = DeleteWorkspaceTokenTrustResponses[keyof DeleteWorkspaceTokenTrustResponses];
+
+export type ReadWorkspaceTokenTrustData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/token-trusts/{id}';
+};
+
+export type ReadWorkspaceTokenTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace-token-trust that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadWorkspaceTokenTrustError = ReadWorkspaceTokenTrustErrors[keyof ReadWorkspaceTokenTrustErrors];
+
+export type ReadWorkspaceTokenTrustResponses = {
+  /**
+   * The workspace-token-trust, every field of it
+   */
+  200: WorkspaceTokenTrustResourceResponseDto;
+};
+
+export type ReadWorkspaceTokenTrustResponse = ReadWorkspaceTokenTrustResponses[keyof ReadWorkspaceTokenTrustResponses];
+
+export type UpdateWorkspaceTokenTrustData = {
+  body: {
+    key: string;
+    issuer: string;
+    audience?: string;
+    subject: string;
+    claims?: {
+      [key: string]: string;
+    };
+    scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
+    lifetimeMinutes?: number;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/token-trusts/{id}';
+};
+
+export type UpdateWorkspaceTokenTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the workspace-token-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such workspace-token-trust that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateWorkspaceTokenTrustError = UpdateWorkspaceTokenTrustErrors[keyof UpdateWorkspaceTokenTrustErrors];
+
+export type UpdateWorkspaceTokenTrustResponses = {
+  /**
+   * The workspace-token-trust, as a read would answer it
+   */
+  200: WorkspaceTokenTrustResourceResponseDto;
+};
+
+export type UpdateWorkspaceTokenTrustResponse = UpdateWorkspaceTokenTrustResponses[keyof UpdateWorkspaceTokenTrustResponses];
+
+export type ImportWorkspaceTokenTrustData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The workspace-token-trust's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/token-trusts/import';
+};
+
+export type ImportWorkspaceTokenTrustErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace-token-trust that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportWorkspaceTokenTrustError = ImportWorkspaceTokenTrustErrors[keyof ImportWorkspaceTokenTrustErrors];
+
+export type ImportWorkspaceTokenTrustResponses = {
+  /**
+   * The workspace-token-trust, as a read would answer it
+   */
+  200: WorkspaceTokenTrustResourceResponseDto;
+};
+
+export type ImportWorkspaceTokenTrustResponse = ImportWorkspaceTokenTrustResponses[keyof ImportWorkspaceTokenTrustResponses];
+
+export type ExchangeWorkloadTokenData = {
+  body: ExchangeWorkloadTokenRequestDto;
+  path?: never;
+  query?: never;
+  url: '/workspace-tokens/exchange';
+};
+
+export type ExchangeWorkloadTokenErrors = {
+  /**
+   * No such trust, a token its issuer did not sign for its audience, a workload it does not admit, or a closed workspace
+   */
+  401: unknown;
+};
+
+export type ExchangeWorkloadTokenResponses = {
+  200: MintedTokenResponseDto;
+};
+
+export type ExchangeWorkloadTokenResponse = ExchangeWorkloadTokenResponses[keyof ExchangeWorkloadTokenResponses];
 
 export type ListMemberWorkspacesData = {
   body?: never;
@@ -8321,7 +8781,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'secrets' | 'runner-trusts' | 'runner-pools' | 'workspace-runners';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'secrets' | 'token-trusts' | 'runner-trusts' | 'runner-pools' | 'workspace-runners';
     id: string;
   };
   query?: never;

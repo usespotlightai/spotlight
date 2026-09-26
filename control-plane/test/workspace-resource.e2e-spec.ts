@@ -206,6 +206,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
         standing?.closed(
           [],
           [],
+          [],
           Holdings.none(),
           attributedIn(made.body.id),
         ) as Workspace,

@@ -18,6 +18,7 @@ import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import type { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -135,6 +136,7 @@ export class Workspace extends EventRecorder {
   closed(
     teams: readonly TeamKey[],
     tokens: readonly TokenName[],
+    trusts: readonly TokenTrustKey[],
     holdings: Holdings,
     by: Attribution,
   ): Workspace {
@@ -143,6 +145,7 @@ export class Workspace extends EventRecorder {
     const held = Holdings.of([
       ...teams.map((each) => `team ${each.value}`),
       ...tokens.map((each) => `token ${each.value}`),
+      ...trusts.map((each) => `token trust ${each.value}`),
     ]).and(holdings);
 
     if (!held.isEmpty) {
