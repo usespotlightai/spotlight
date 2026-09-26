@@ -15,6 +15,7 @@ import { HappeningName } from '@integrations/domain/value-objects/happening-name
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
@@ -28,6 +29,7 @@ import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 
 export const INTEGRATIONS_EVENT_TYPES = [
+  HookFailure,
   ApprovalNeeded,
   Binding,
   CronExpression,

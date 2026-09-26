@@ -1,5 +1,6 @@
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
@@ -17,6 +18,7 @@ import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -72,4 +74,6 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   ProvisionFailure,
   Provisioning,
   RunnerReservation,
+  Retry,
+  CausalChain,
 ] as const;

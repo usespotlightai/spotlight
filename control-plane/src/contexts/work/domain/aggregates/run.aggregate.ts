@@ -13,23 +13,31 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
+import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
+import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import type { RunState } from '@work/domain/value-objects/run-state';
+import {
+  type RunState,
+  TERMINAL_RUN_STATES,
+} from '@work/domain/value-objects/run-state';
 import type { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
 const LEASE_DURATION_MS = 60_000;
 
-const MAX_ATTEMPTS = 3;
+const LOST = RunFailure.of('runner-lost').retry;
+
+const endingIn = (outcome: RunOutcome): RunState =>
+  outcome.superseded ? 'superseded' : outcome.failed ? 'failed' : 'completed';
 
 export class Run extends EventRecorder {
   private constructor(
@@ -236,7 +244,7 @@ export class Run extends EventRecorder {
       return this;
     }
 
-    const provisioning = this.provisioning.failedAt(now);
+    const provisioning = this.provisioning.failedAt(failure, now);
 
     if (!provisioning.exhausted) {
       return this.with({ reservation: null, provisioning });
@@ -244,7 +252,7 @@ export class Run extends EventRecorder {
 
     const outcome = RunOutcome.unprovisioned(failure, provisioning.failures);
     const failed = this.with({
-      state: 'failed',
+      state: endingIn(outcome),
       reservation: null,
       provisioning,
       outcome,
@@ -272,19 +280,19 @@ export class Run extends EventRecorder {
       );
     }
 
-    if (this.attempt >= MAX_ATTEMPTS) {
-      return this.givenUp(`no runner finished it in ${MAX_ATTEMPTS} attempts`);
+    if (LOST.exhaustedAfter(this.attempt)) {
+      return this.givenUp(RunOutcome.lost(this.attempt));
     }
 
     return this.backOnTheQueue();
   }
 
-  private givenUp(reason: string): Run {
+  private givenUp(outcome: RunOutcome): Run {
     const abandoned = this.with({
-      state: 'failed',
+      state: endingIn(outcome),
       claimedBy: null,
       leaseExpiresAt: null,
-      outcome: RunOutcome.abandoned(reason),
+      outcome,
     });
 
     abandoned.record(
@@ -351,7 +359,7 @@ export class Run extends EventRecorder {
     this.requireHeldBy(by, 'complete');
 
     const ended = this.with({
-      state: outcome.failed ? 'failed' : 'completed',
+      state: endingIn(outcome),
       outcome,
       leaseExpiresAt: null,
     });
@@ -378,7 +386,7 @@ export class Run extends EventRecorder {
       );
     }
 
-    const refused = this.with({ state: 'failed', outcome });
+    const refused = this.with({ state: endingIn(outcome), outcome });
 
     refused.record(
       new RunCompleted(
@@ -410,11 +418,7 @@ export class Run extends EventRecorder {
 
     if (handBacks.exhausted) {
       return this.endedUnstarted(
-        RunOutcome.refused([
-          {
-            saying: `Its hooks could not be asked after ${handBacks.count} tries: ${because}`,
-          },
-        ]),
+        RunOutcome.unanswered(because, handBacks.count),
       );
     }
 
@@ -430,7 +434,7 @@ export class Run extends EventRecorder {
 
   private endedUnstarted(outcome: RunOutcome): Run {
     const ended = this.with({
-      state: outcome.failed ? 'failed' : 'completed',
+      state: endingIn(outcome),
       claimedBy: null,
       leaseExpiresAt: null,
       outcome,
@@ -464,14 +468,29 @@ export class Run extends EventRecorder {
       );
     }
 
-    const withdrawn = this.with({
-      state: 'failed',
-      outcome: RunOutcome.abandoned(reason),
-    });
+    const outcome = RunOutcome.superseded(reason);
+    const withdrawn = this.with({ state: endingIn(outcome), outcome });
 
     withdrawn.record(new RunWithdrawn(this.id, this.workspaceId, this.subject));
 
     return withdrawn;
+  }
+
+  supersededByItsTask(): Run {
+    if (!this.hasEnded || !this.outcome?.failed || this.outcome.superseded) {
+      return this;
+    }
+
+    const superseded = this.with({
+      state: 'superseded',
+      outcome: this.outcome.supersede(),
+    });
+
+    superseded.record(
+      new RunSuperseded(this.id, this.workspaceId, this.subject),
+    );
+
+    return superseded;
   }
 
   requestStop(now: Date): Run {
@@ -497,7 +516,7 @@ export class Run extends EventRecorder {
   }
 
   get hasEnded(): boolean {
-    return this.state === 'completed' || this.state === 'failed';
+    return (TERMINAL_RUN_STATES as readonly RunState[]).includes(this.state);
   }
 
   get stopRequested(): boolean {

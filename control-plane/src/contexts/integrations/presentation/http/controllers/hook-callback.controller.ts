@@ -19,6 +19,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -72,8 +73,15 @@ export class HookCallbackController {
   })
   @ApiBody({ type: CallbackNoteRequestDto })
   @ApiNoContentResponse({ description: 'The note is on the task' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description:
+      'The same on every retry of one note, so a retried note is said once',
+  })
   async note(
     @Headers('authorization') authorization: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() body: CallbackNoteRequestDto,
   ): Promise<void> {
     const noted = await this.commandBus.execute<
@@ -83,6 +91,7 @@ export class HookCallbackController {
       new NoteByCallbackCommand(
         bearerIn(authorization) ?? '',
         typeof body?.body === 'string' ? body.body : '',
+        idempotencyKey?.trim().slice(0, 255) || null,
       ),
     );
 

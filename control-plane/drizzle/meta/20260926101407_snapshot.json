@@ -1,5 +1,5 @@
 {
-  "id": "828acbec-e74f-4ea2-8150-0f13a97058d1",
+  "id": "cbcb7ee1-9a9e-4f7e-8e71-9750af29939e",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -120,6 +120,12 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "cause": {
+          "name": "cause",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "recorded_at": {
           "name": "recorded_at",
@@ -3197,6 +3203,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "firing_id": {
+          "name": "firing_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "expires_at": {
           "name": "expires_at",
           "type": "timestamp",
@@ -3380,6 +3392,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "station_key": {
+          "name": "station_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "on": {
           "name": "on",
           "type": "text",
@@ -3404,6 +3422,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "cause": {
+          "name": "cause",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "link": {
+          "name": "link",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
         },
         "steps": {
           "name": "steps",
@@ -3439,6 +3469,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "failure": {
+          "name": "failure",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "failed": {
           "name": "failed",
           "type": "text",
@@ -3471,6 +3507,33 @@
             },
             {
               "expression": "due_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hook_firing_repeats_idx": {
+          "name": "hook_firing_repeats_idx",
+          "columns": [
+            {
+              "expression": "hook_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "fired_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5117,6 +5180,61 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.heard_happening": {
+      "name": "heard_happening",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "heard_at": {
+          "name": "heard_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "heard_happening_heard_at_idx": {
+          "name": "heard_happening_heard_at_idx",
+          "columns": [
+            {
+              "expression": "heard_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "heard_happening_workspace_id_key_pk": {
+          "name": "heard_happening_workspace_id_key_pk",
+          "columns": [
+            "workspace_id",
+            "key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.line": {
       "name": "line",
       "schema": "",
@@ -6108,6 +6226,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "task_revision": {
+          "name": "task_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "chat_id": {
           "name": "chat_id",
           "type": "text",
@@ -6229,6 +6353,12 @@
         },
         "message": {
           "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "failure": {
+          "name": "failure",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -6650,6 +6780,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -6996,6 +7133,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "failure": {
+          "name": "failure",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "answered_at": {
           "name": "answered_at",
           "type": "timestamp",
@@ -7337,7 +7480,8 @@
         "queued",
         "claimed",
         "completed",
-        "failed"
+        "failed",
+        "superseded"
       ]
     }
   },

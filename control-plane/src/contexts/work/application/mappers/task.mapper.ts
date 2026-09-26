@@ -21,6 +21,7 @@ export const TaskMapper = {
     return {
       id: summary.id,
       stationId: summary.stationId,
+      revision: summary.revision,
       title: summary.title,
       description: summary.description,
       attachments: summary.attachments,
@@ -50,6 +51,7 @@ export const TaskMapper = {
     return {
       id: task.id.value,
       stationId: task.stationId.value,
+      revision: task.revision,
       title: task.title.value,
       description: task.description?.value ?? null,
       attachments: task.attachments.map((each) => ({

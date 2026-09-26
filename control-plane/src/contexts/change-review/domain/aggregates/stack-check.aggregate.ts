@@ -250,7 +250,7 @@ export class StackCheck extends EventRecorder {
       return this.unreservedFor(runner);
     }
 
-    const provisioning = this.provisioning.failedAt(now);
+    const provisioning = this.provisioning.failedAt(failure, now);
 
     if (!provisioning.exhausted) {
       return this.with({ reservation: null, provisioning });

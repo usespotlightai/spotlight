@@ -25,6 +25,7 @@ import type {
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
+import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -59,10 +60,12 @@ export class DrizzleRunRepository implements RunRepository {
       taskId: added.taskId?.value ?? null,
       stationId: added.stationId?.value ?? null,
       chatId: added.chatId?.value ?? null,
+      taskRevision: added.subject?.revision ?? null,
       state: added.state,
       spec: RunSpecContract.toWire(added.spec),
       exitCode: added.outcome?.exitCode ?? null,
       message: added.outcome?.message ?? null,
+      failure: added.outcome?.failure?.code ?? null,
       stopped: added.outcome?.stopped ?? false,
       placement: added.placement.clauses,
       placementImage: added.placement.image?.value ?? null,
@@ -167,6 +170,7 @@ export class DrizzleRunRepository implements RunRepository {
         stopRequestedAt: saved.stopRequestedAt,
         exitCode: saved.outcome?.exitCode ?? null,
         message: saved.outcome?.message ?? null,
+        failure: saved.outcome?.failure?.code ?? null,
         stopped: saved.outcome?.stopped ?? false,
         ranIn: saved.ranIn?.value ?? null,
         ...reservationOf(saved),
@@ -301,6 +305,7 @@ const toRun = (row: Row): Run =>
       taskId: row.taskId ? TaskId.of(row.taskId) : null,
       stationId: row.stationId ? StationId.of(row.stationId) : null,
       chatId: row.chatId ? ChatId.of(row.chatId) : null,
+      revision: row.taskRevision,
     }),
     spec: specOf(row),
     placement: RunnerPlacement.ofClauses(
@@ -321,7 +326,7 @@ const toRun = (row: Row): Run =>
         ? null
         : RunOutcome.rehydrate({
             exitCode: row.exitCode,
-            failed: row.state === 'failed',
+            failure: row.failure ? RunFailure.of(row.failure) : null,
             message: row.message,
             stopped: row.stopped,
           }),

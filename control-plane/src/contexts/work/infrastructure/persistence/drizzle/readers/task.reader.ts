@@ -61,6 +61,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .select({
         id: task.id,
         stationId: task.stationId,
+        revision: task.revision,
         title: task.title,
         description: task.description,
         createdAt: task.createdAt,

@@ -157,6 +157,7 @@ export function Task() {
                       teamId,
                       lineId: line.id,
                       taskId: task.id,
+                      revision: task.revision,
                       stationId,
                       afterTaskId: null,
                     })

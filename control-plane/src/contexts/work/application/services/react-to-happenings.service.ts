@@ -15,6 +15,7 @@ import {
 } from '@work/application/mappers/happened.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
+import type { HeardHappeningsPort } from '@work/application/ports/heard-happenings.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { takeWornMarks } from '@work/application/services/worn-marks';
@@ -46,6 +47,17 @@ const spoken = (
     ? Said.of({ body: TaskNoteBody.given('', attachments).value })
     : null);
 
+const identityOf = (happened: Happened): string =>
+  JSON.stringify([
+    happened.happening,
+    happened.told,
+    happened.state,
+    happened.concerns,
+    happened.said,
+    happened.opens,
+    (happened.attachments ?? []).map((each) => each.name),
+  ]);
+
 export class ReactToHappenings implements HappeningReactionsPort {
   constructor(
     private readonly tasks: TaskRepository,
@@ -57,6 +69,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly ids: IdGeneratorPort,
     private readonly members: MemberReaderPort,
     private readonly files: AttachmentStorePort,
+    private readonly heardBefore: HeardHappeningsPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -64,20 +77,30 @@ export class ReactToHappenings implements HappeningReactionsPort {
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
     happenings: readonly Happened[],
+    heardAs: string | null,
   ): Promise<void> {
     for (const arrived of happenings) {
+      const key = heardAs ? `${heardAs}\n${identityOf(arrived)}` : null;
       const happened = this.heard(workspaceId, arrived);
 
-      if (!happened) {
+      if (
+        !happened ||
+        (key && (await this.heardBefore.heard(workspaceId, key)))
+      ) {
         continue;
       }
 
       // Fetched outside the transaction so a slow host never holds the task while it downloads.
       const attachments = await this.kept(workspaceId, happened.attachments);
 
-      await this.transaction.run(() =>
-        this.reactTo(workspaceId, teamId, happened, attachments),
-      );
+      await this.transaction.run(async () => {
+        if (
+          !key ||
+          (await this.heardBefore.hearing(workspaceId, key, this.clock.now()))
+        ) {
+          await this.reactTo(workspaceId, teamId, happened, attachments);
+        }
+      });
     }
   }
 

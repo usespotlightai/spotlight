@@ -33,6 +33,7 @@ import { Said } from '@work/domain/value-objects/said.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -111,6 +112,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     deliveredAt: row.deliveredAt,
     form: row.form,
     approval: row.approval ? toApproval(row.approval) : null,
+    failure: row.failure ? TaskFailure.rehydrate(row.failure) : null,
   });
 
 const toTask = (
@@ -138,6 +140,7 @@ const toTask = (
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
+    revision: row.revision,
     version: row.version,
     pullRequestLink: row.pullRequest
       ? row.reviewing
@@ -187,6 +190,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         pullRequest: added.pullRequest?.value ?? null,
         reviewing: added.reviewing,
         finishedAt: added.finishedAt,
+        revision: added.revision,
       }),
     );
 
@@ -234,6 +238,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           reviewing: saved.reviewing,
           finishedAt: saved.finishedAt,
           assigneeId: saved.assignee?.value ?? null,
+          revision: saved.revision,
         })
         .where(
           and(eq(task.id, saved.id.value), eq(task.version, saved.version)),
@@ -574,6 +579,13 @@ export class DrizzleTaskRepository implements TaskRepository {
           deliveredAt: note.deliveredAt,
           form: note.form,
           approval: note.approval ? toApprovalRow(note.approval) : null,
+          failure: note.failure
+            ? {
+                source: note.failure.source,
+                code: note.failure.code,
+                occurrences: note.failure.occurrences,
+              }
+            : null,
         })),
       )
       .onConflictDoUpdate({
@@ -583,6 +595,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           deliveredAt: sql`excluded.delivered_at`,
           answeredAt: sql`excluded.answered_at`,
           approval: sql`excluded.approval`,
+          failure: sql`excluded.failure`,
         },
       });
   }

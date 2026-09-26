@@ -1,10 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 
-const MOST_HAND_BACKS = 6;
-
-const FIRST_BACKOFF_MS = 5_000;
-
-const LONGEST_BACKOFF_MS = 120_000;
+const UNANSWERED = RunFailure.of('hooks-unanswered').retry;
 
 export class HandBacks {
   private constructor(
@@ -36,16 +33,12 @@ export class HandBacks {
 
   handedBackAt(now: Date): HandBacks {
     const count = this.count + 1;
-    const backoff = Math.min(
-      FIRST_BACKOFF_MS * 2 ** (count - 1),
-      LONGEST_BACKOFF_MS,
-    );
 
-    return new HandBacks(count, new Date(now.getTime() + backoff));
+    return new HandBacks(count, UNANSWERED.after(count, now) ?? now);
   }
 
   get exhausted(): boolean {
-    return this.count >= MOST_HAND_BACKS;
+    return UNANSWERED.exhaustedAfter(this.count);
   }
 
   equals(other: HandBacks): boolean {

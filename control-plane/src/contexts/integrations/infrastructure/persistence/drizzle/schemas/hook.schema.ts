@@ -1,3 +1,4 @@
+import type { CauseLink } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import {
   boolean,
   index,
@@ -38,6 +39,7 @@ export const HOOK_FIRING_STATES = [
   'working',
   'done',
   'failed',
+  'superseded',
 ] as const;
 
 export type HookFiringState = (typeof HOOK_FIRING_STATES)[number];
@@ -53,10 +55,13 @@ export const hookFiring = pgTable(
     teamId: text('team_id').notNull(),
     taskId: text('task_id').notNull(),
     runId: text('run_id'),
+    stationKey: text('station_key').notNull(),
     on: text('on').notNull(),
     occurrence: text('occurrence').notNull(),
     event: jsonb('event').$type<Record<string, unknown>>().notNull(),
     matched: boolean('matched').notNull().default(true),
+    cause: jsonb('cause').$type<Record<string, unknown>>().notNull(),
+    link: jsonb('link').$type<CauseLink>().notNull(),
     steps: jsonb('steps')
       .$type<Record<string, unknown>[]>()
       .notNull()
@@ -65,6 +70,7 @@ export const hookFiring = pgTable(
     attempts: integer('attempts').notNull().default(0),
     dueAt: timestamp('due_at').defaultNow().notNull(),
     claimedAt: timestamp('claimed_at'),
+    failure: text('failure'),
     failed: text('failed'),
     firedAt: timestamp('fired_at').defaultNow().notNull(),
     handledAt: timestamp('handled_at'),
@@ -72,6 +78,11 @@ export const hookFiring = pgTable(
   (table) => [
     unique().on(table.hookId, table.occurrence),
     index('hook_firing_state_idx').on(table.state, table.dueAt),
+    index('hook_firing_repeats_idx').on(
+      table.hookId,
+      table.taskId,
+      table.firedAt,
+    ),
   ],
 );
 
@@ -82,6 +93,7 @@ export const hookCallback = pgTable(
     workspaceId: text('workspace_id').notNull(),
     taskId: text('task_id').notNull(),
     hook: text('hook').notNull(),
+    firingId: text('firing_id'),
     expiresAt: timestamp('expires_at').notNull(),
   },
   (table) => [index('hook_callback_expires_idx').on(table.expiresAt)],

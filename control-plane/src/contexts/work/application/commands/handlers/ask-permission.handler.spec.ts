@@ -87,7 +87,7 @@ const PUSH = {
 
 const runOf = (
   id: string,
-  subject = RunSubject.task(TaskId.of('task_1'), IMPLEMENTING),
+  subject = RunSubject.task(TaskId.of('task_1'), IMPLEMENTING, 0),
 ) =>
   Run.enqueue({
     id: RunId.of(id),

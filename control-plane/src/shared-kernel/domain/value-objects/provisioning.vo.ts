@@ -1,15 +1,11 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-
-const MOST_FAILURES = 5;
-
-const FIRST_BACKOFF_MS = 5_000;
-
-const LONGEST_BACKOFF_MS = 120_000;
+import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 
 export class Provisioning {
   private constructor(
     readonly failures: number,
     readonly nextAt: Date | null,
+    readonly exhausted = false,
   ) {}
 
   static none(): Provisioning {
@@ -31,17 +27,10 @@ export class Provisioning {
     return this.nextAt === null || this.nextAt.getTime() <= now.getTime();
   }
 
-  failedAt(now: Date): Provisioning {
+  failedAt(failure: ProvisionFailure, now: Date): Provisioning {
     const failures = this.failures + 1;
-    const backoff = Math.min(
-      FIRST_BACKOFF_MS * 2 ** (failures - 1),
-      LONGEST_BACKOFF_MS,
-    );
+    const next = failure.retry.after(failures, now);
 
-    return new Provisioning(failures, new Date(now.getTime() + backoff));
-  }
-
-  get exhausted(): boolean {
-    return this.failures >= MOST_FAILURES;
+    return new Provisioning(failures, next, next === null);
   }
 }

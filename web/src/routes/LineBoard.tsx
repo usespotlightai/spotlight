@@ -300,11 +300,14 @@ export function LineBoard() {
               if (!teamId || !target) {
                 return;
               }
-              for (const taskId of selected) {
+              for (const task of standing.filter((each) =>
+                selected.includes(each.id),
+              )) {
                 moveTask.mutate({
                   teamId,
                   lineId: line.id,
-                  taskId,
+                  taskId: task.id,
+                  revision: task.revision,
                   stationId: target.id,
                   afterTaskId: null,
                 });

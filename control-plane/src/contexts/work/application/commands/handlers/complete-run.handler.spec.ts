@@ -29,7 +29,7 @@ const held = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(TaskId.of('task_1'), null),
+    subject: RunSubject.task(TaskId.of('task_1'), null, 0),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',

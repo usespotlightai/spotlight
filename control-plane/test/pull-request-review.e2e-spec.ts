@@ -118,7 +118,12 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
 
     await app
       .get<HappeningReactionsPort>(HAPPENING_REACTIONS)
-      .react(WorkspaceId.of(held), TeamId.of(held), [mentioned]);
+      .react(
+        WorkspaceId.of(held),
+        TeamId.of(held),
+        [mentioned],
+        `mentioned:${held}`,
+      );
 
     const task = await tasks.holding(
       WorkspaceId.of(held),

@@ -28,7 +28,7 @@ const queued = () =>
       handover: { options: ['Spec'], noteLimit: 4_000 },
       continuity: { key: 'task_1-station_1' },
     }),
-    subject: RunSubject.task(TaskId.of('task_1'), StationId.of('station_1')),
+    subject: RunSubject.task(TaskId.of('task_1'), StationId.of('station_1'), 0),
   });
 
 const claimed = () => queued().claim(RUNNER, NOW);
@@ -65,7 +65,7 @@ describe('StopLetGoRun', () => {
     await handler.on(letGo);
 
     expect(save).toHaveBeenCalledTimes(1);
-    expect(save.mock.calls[0]?.[0].state).toBe('failed');
+    expect(save.mock.calls[0]?.[0].state).toBe('superseded');
   });
 
   it('leaves a run that has already ended', async () => {

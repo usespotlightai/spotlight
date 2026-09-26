@@ -26,6 +26,8 @@ export const OPENED_ITEM_ID = 'task_retries:0';
 
 export const APPROVAL_ITEM_ID = 'task_release_note:0';
 
+export const FAILING_ITEM_ID = 'task_nightly_build:0';
+
 const STATIONS = {
   triage: { name: 'Triage', color: '#edc12b', position: 0 },
   spec: { name: 'Spec', color: '#b36ae2', position: 1 },
@@ -54,6 +56,7 @@ const said = (
     attachments: [],
     author: null,
     approval: null,
+    failure: null,
     ...rest,
   };
 };
@@ -87,6 +90,7 @@ const waiting = (
     runId: null,
     unread: false,
     briefing: null,
+    failure: null,
     ...rest,
   };
 };
@@ -163,6 +167,22 @@ const INBOX: InboxItemResponseDto[] = [
           ],
           standing: 'asked',
         },
+      }),
+    ],
+  }),
+  waiting({
+    taskId: 'task_nightly_build',
+    title: 'Fix the nightly build',
+    at: STATIONS.implementation,
+    failure: { source: 'run', code: 'exited', occurrences: 3 },
+    notes: [
+      said({
+        position: 0,
+        form: 'failure',
+        runId: 'run_nightly_build_3',
+        at: '2026-09-15T10:52:00.000Z',
+        body: 'The run exited before it finished. It has failed the same way three times now.',
+        failure: { source: 'run', code: 'exited', occurrences: 3 },
       }),
     ],
   }),
@@ -355,6 +375,7 @@ const TASKS: TaskResponseDto[] = [
     title: 'Drain the stuck retry queues',
     description: null,
     attachments: [],
+    revision: 0,
     createdAt: '2026-09-15T08:05:00.000Z',
     running: false,
     awaitingReview: null,
@@ -390,6 +411,7 @@ export const seedInbox = (client: QueryClient) => {
     journalKeys.forTask('task_release_note'),
     RELEASE_NOTE_JOURNAL,
   );
+  client.setQueryData(journalKeys.forTask('task_nightly_build'), []);
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(taskKeys.forTeam(TEAM_ID), TASKS);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);

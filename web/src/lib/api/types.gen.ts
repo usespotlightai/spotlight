@@ -737,6 +737,21 @@ export type InboxStationResponseDto = {
   position: number;
 };
 
+export type InboxFailureResponseDto = {
+  /**
+   * Where the failure came from: the run, or the hook that failed
+   */
+  source: string;
+  /**
+   * What kind of failure it was
+   */
+  code: string;
+  /**
+   * How many times it happened while this was open, rather than asking again each time
+   */
+  occurrences: number;
+};
+
 export type InboxAuthorResponseDto = {
   id: string;
   name: string;
@@ -774,7 +789,7 @@ export type InboxMessageResponseDto = {
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'settled' | 'approval';
+  form: 'words' | 'setup' | 'settled' | 'approval' | 'failure';
   /**
    * Who spoke: the station, a person, or the world outside it
    */
@@ -803,6 +818,10 @@ export type InboxMessageResponseDto = {
    * The tool call this asks a person to approve, where it is one
    */
   approval: InboxApprovalResponseDto | null;
+  /**
+   * The failure it reports, where it reports one
+   */
+  failure: InboxFailureResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
@@ -858,6 +877,10 @@ export type InboxItemResponseDto = {
    * What the station that opened this conversation was given
    */
   briefing: string | null;
+  /**
+   * The failure this conversation is about, where it is about one
+   */
+  failure: InboxFailureResponseDto | null;
   notes: Array<InboxMessageResponseDto>;
 };
 
@@ -967,6 +990,10 @@ export type TaskNoteResponseDto = {
 export type TaskResponseDto = {
   id: string;
   stationId: string;
+  /**
+   * How many times it has moved; a move names the revision it was based on
+   */
+  revision: number;
   title: string;
   /**
    * Markdown
@@ -1023,7 +1050,7 @@ export type RunReviewResponseDto = {
 
 export type TeamRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'completed' | 'failed';
+  state: 'queued' | 'claimed' | 'completed' | 'failed' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1068,7 +1095,7 @@ export type TeamTraceResponseDto = {
    */
   stations: Array<TraceStationResponseDto>;
   harness: string;
-  state: 'queued' | 'claimed' | 'completed' | 'failed';
+  state: 'queued' | 'claimed' | 'completed' | 'failed' | 'superseded';
   startedAt: string;
   /**
    * How many runs worked the task
@@ -1124,7 +1151,7 @@ export type SayToRunRequestDto = {
 
 export type TaskRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'completed' | 'failed';
+  state: 'queued' | 'claimed' | 'completed' | 'failed' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1168,6 +1195,10 @@ export type MoveTaskRequestDto = {
    * The station to move the task to, on the same line
    */
   stationId: string;
+  /**
+   * The revision the move was based on; a task that has moved since is not moved again
+   */
+  revision: number;
   /**
    * The task it was dropped after. Left out for the top of the station.
    */
@@ -10353,6 +10384,12 @@ export type ReadHookTaskResponse = ReadHookTaskResponses[keyof ReadHookTaskRespo
 
 export type NoteOnHookTaskData = {
   body: CallbackNoteRequestDto;
+  headers?: {
+    /**
+     * The same on every retry of one note, so a retried note is said once
+     */
+    'Idempotency-Key'?: string;
+  };
   path?: never;
   query?: never;
   url: '/hook-callbacks/notes';

@@ -27,6 +27,12 @@ export interface InboxApproval {
   readonly standing: ApprovalStanding;
 }
 
+export interface InboxFailure {
+  readonly source: string;
+  readonly code: string;
+  readonly occurrences: number;
+}
+
 export interface InboxNote {
   readonly position: number;
   readonly kind: TaskNoteKind;
@@ -42,6 +48,7 @@ export interface InboxNote {
   readonly author: InboxAuthor | null;
   readonly readAt: Date | null;
   readonly approval: InboxApproval | null;
+  readonly failure: InboxFailure | null;
 }
 
 interface InboxStation {
@@ -70,6 +77,7 @@ export interface InboxItemSummary {
   readonly runId: string | null;
   readonly unread: boolean;
   readonly briefing: string | null;
+  readonly failure: InboxFailure | null;
   readonly notes: readonly InboxNote[];
 }
 

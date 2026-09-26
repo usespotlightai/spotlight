@@ -40,6 +40,7 @@ const note = (
   author: null,
   attachments: [],
   approval: null,
+  failure: null,
 });
 
 const APPROVAL = {

@@ -1,4 +1,5 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
@@ -9,6 +10,7 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import { Placement } from '@work/domain/services/placement';
@@ -25,6 +27,7 @@ interface Standing {
 export class HandOver implements RunOutcomes {
   constructor(
     private readonly tasks: TaskRepository,
+    private readonly runs: RunRepository,
     private readonly placements: TaskPlacementsPort,
     private readonly lines: LineRepository,
     private readonly dispatch: TaskDispatching,
@@ -32,8 +35,9 @@ export class HandOver implements RunOutcomes {
   ) {}
 
   async onRunCompleted(event: RunCompleted): Promise<void> {
-    const standing = await this.waiting(event.runId, event.taskId);
+    const standing = await this.waiting(event);
     if (!standing) {
+      await this.superseded(event.runId, event.taskId);
       return;
     }
 
@@ -54,8 +58,9 @@ export class HandOver implements RunOutcomes {
   }
 
   async onRunAbandoned(event: RunAbandoned): Promise<void> {
-    const standing = await this.waiting(event.runId, event.taskId);
+    const standing = await this.waiting(event);
     if (!standing) {
+      await this.superseded(event.runId, event.taskId);
       return;
     }
 
@@ -74,17 +79,38 @@ export class HandOver implements RunOutcomes {
     await this.tasks.save(task);
   }
 
-  private async waiting(
-    runId: RunId,
-    taskId: TaskId | null,
-  ): Promise<Standing | null> {
+  private async superseded(runId: RunId, taskId: TaskId | null): Promise<void> {
     if (!taskId) {
+      return;
+    }
+
+    const run = await this.runs.findById(runId);
+    const superseded = run?.supersededByItsTask();
+
+    if (superseded && superseded !== run) {
+      await this.runs.save(superseded);
+    }
+  }
+
+  private async waiting(
+    ended: RunCompleted | RunAbandoned,
+  ): Promise<Standing | null> {
+    const revision = ended.subject?.revision ?? null;
+
+    if (!ended.taskId || revision === null) {
       return null;
     }
 
-    const task = await this.tasks.find(taskId);
-    if (!task?.heldBy(runId)) {
+    const task = await this.tasks.find(ended.taskId);
+    if (!task?.heldBy(ended.runId)) {
       return null;
+    }
+
+    if (!task.standsAt(revision)) {
+      throw new InconsistentStateError(
+        'task',
+        'is held by a run handed a revision it has since moved on from',
+      );
     }
 
     return { task, line: await this.lines.holding(task.stationId) };
@@ -112,7 +138,9 @@ export class HandOver implements RunOutcomes {
     }
 
     if (routing.kind === 'ask') {
-      return task.askedAbout(saying, run);
+      return routing.failure
+        ? task.failed(routing.failure, saying, run)
+        : task.askedAbout(saying, run);
     }
 
     const passed = task.passedOn(

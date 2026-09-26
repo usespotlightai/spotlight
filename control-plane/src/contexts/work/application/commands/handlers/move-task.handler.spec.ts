@@ -166,6 +166,7 @@ const move = (
   board: LineRepository = lines(),
   held: TaskRepository & TaskPlacementsPort = tasks(),
   teamId = 'team_1',
+  revision = 0,
 ) =>
   new MoveTaskHandler(
     held,
@@ -181,6 +182,7 @@ const move = (
       'line_1',
       'task_1',
       stationId,
+      revision,
       null,
       'user_mover',
     ),
@@ -192,6 +194,24 @@ beforeEach(() => {
 });
 
 describe('MoveTaskHandler', () => {
+  it('moves a task on from the revision it was seen at, and counts the move', async () => {
+    await expect(move('station_1')).resolves.toMatchObject({ revision: 1 });
+    expect(saved?.revision).toBe(1);
+  });
+
+  it('refuses a move based on a revision the task has moved on from', async () => {
+    await expect(
+      move('station_1', lines(), tasks(), 'team_1', 4),
+    ).rejects.toMatchObject({ kind: 'conflict' });
+    expect(saved).toBeUndefined();
+  });
+
+  it('refuses a revision that is no whole number of moves', async () => {
+    await expect(
+      move('station_1', lines(), tasks(), 'team_1', -1),
+    ).rejects.toMatchObject({ kind: 'invalid-input' });
+  });
+
   it('answers with the person who raised it, not with nobody', async () => {
     await expect(move('station_2')).resolves.toMatchObject({
       raisedBy: { id: 'user_1', name: 'Ada', image: null },

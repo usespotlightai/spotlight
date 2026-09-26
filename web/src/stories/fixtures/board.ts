@@ -92,6 +92,7 @@ const task = (
     stationId: string;
   },
 ): TaskResponseDto => ({
+  revision: 0,
   description: null,
   attachments: [],
   createdAt: hoursAgo(24),

@@ -1,4 +1,5 @@
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookFailureCode } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookCallTrace } from '@work/application/ports/hook-traces.port';
 import type { HookedTaskDto } from '@work/application/ports/hooked-tasks.port';
 
@@ -10,6 +11,7 @@ export interface HookMoment {
   readonly at: Date;
   readonly task: HookedTaskDto;
   readonly event: Readonly<Record<string, unknown>>;
+  readonly firing: string | null;
 }
 
 export interface ListeningHook {
@@ -31,6 +33,7 @@ export type StepOutcome =
   | {
       readonly name: string;
       readonly status: 'failed';
+      readonly code: HookFailureCode;
       readonly reason: string;
       readonly output: unknown;
     }

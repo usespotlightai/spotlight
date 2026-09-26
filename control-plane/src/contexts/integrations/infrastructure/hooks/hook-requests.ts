@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { HookCallbacksPort } from '@integrations/application/ports/hook-callbacks.port';
+import { CAUSE_HEADER } from '@integrations/application/ports/hook-firings.port';
 import type {
   HookMoment,
   ListeningHook,
@@ -9,6 +10,10 @@ import type {
 } from '@integrations/application/ports/hook-runtime.port';
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookTokensPort } from '@integrations/application/ports/hook-tokens.port';
+import {
+  HookFailure,
+  type HookFailureCode,
+} from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookSigningIR } from '@integrations/infrastructure/hooks/hook.compile';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { API_PREFIX, HOOK_CALLBACKS } from '@platform/http/routes';
@@ -164,6 +169,7 @@ export class HookRequests {
       return this.failedBefore(
         request,
         started,
+        'not-allowed',
         `sends to ${target.origin}, which is not https`,
       );
     }
@@ -177,7 +183,12 @@ export class HookRequests {
     try {
       headers = await this.headers(request, started);
     } catch (error) {
-      return this.failedBefore(request, started, described(error));
+      return this.failedBefore(
+        request,
+        started,
+        'not-allowed',
+        described(error),
+      );
     }
 
     if (request.fromNetwork) {
@@ -187,7 +198,12 @@ export class HookRequests {
     try {
       this.policy.allow(request.url);
     } catch (error) {
-      return this.failedBefore(request, started, described(error));
+      return this.failedBefore(
+        request,
+        started,
+        'not-allowed',
+        described(error),
+      );
     }
 
     let answered: Answered;
@@ -230,6 +246,7 @@ export class HookRequests {
         workspaceId: request.moment.task.workspaceId,
         taskId: request.moment.task.taskId,
         hook: request.hook.key,
+        firing: request.moment.firing,
       },
       new Date(at.getTime() + CALLBACK_LIFE_MS),
     );
@@ -242,6 +259,9 @@ export class HookRequests {
       'spotlight-hook': request.hook.key,
       'spotlight-callback-url': `${this.settings.publicUrl}/${API_PREFIX}/${HOOK_CALLBACKS}`,
       'spotlight-callback-token': callback,
+      ...(request.moment.firing
+        ? { [CAUSE_HEADER]: request.moment.firing }
+        : {}),
     };
 
     if (request.signing?.kind === 'hmac') {
@@ -390,6 +410,10 @@ export class HookRequests {
         : {
             name: request.step,
             status: 'failed',
+            code:
+              answered.status === 0
+                ? 'unreachable'
+                : HookFailure.answered(answered.status, reason).code,
             reason,
             output: answered.response,
           },
@@ -412,12 +436,14 @@ export class HookRequests {
   private failedBefore(
     request: HookRequest,
     started: Date,
+    code: HookFailureCode,
     reason: string,
   ): StepTaken {
     return {
       outcome: {
         name: request.step,
         status: 'failed',
+        code,
         reason,
         output: null,
       },

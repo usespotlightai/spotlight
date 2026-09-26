@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { type InboxItem, inboxItemPath, previewOf } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 import { raisedOn } from '@/lib/task';
@@ -41,6 +42,8 @@ export function InboxRow({ slug, item }: InboxRowProps) {
         >
           {item.title}
         </span>
+
+        <FailureCount failure={item.failure} />
 
         {item.unread && (
           <>

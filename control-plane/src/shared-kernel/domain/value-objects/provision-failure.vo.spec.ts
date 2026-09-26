@@ -1,8 +1,35 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import {
+  PROVISION_FAILURES,
+  ProvisionFailure,
+} from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('ProvisionFailure', () => {
+  it.each([
+    ['unreachable', true],
+    ['refused', true],
+    ['lapsed', true],
+    ['not-allowed', false],
+    ['unusable', false],
+    ['harness-missing', false],
+  ])('states whether a %s failure may be retried (%s)', (kind, retries) => {
+    expect(ProvisionFailure.of(kind, 'why').retry.retries).toBe(retries);
+  });
+
+  it('knows no kind it does not state a retry for', () => {
+    expect(Object.keys(PROVISION_FAILURES).sort()).toEqual(
+      [
+        'harness-missing',
+        'lapsed',
+        'not-allowed',
+        'refused',
+        'unreachable',
+        'unusable',
+      ].sort(),
+    );
+  });
+
   it('says what kind of failure it was and why', () => {
     expect(
       ProvisionFailure.of('unreachable', 'connection refused').saying,
