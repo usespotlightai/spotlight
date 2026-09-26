@@ -68,6 +68,7 @@ const pulling = (
       outcome: 'started',
       runnerId: POOLED,
       token: 'one-run-token',
+      egressToken: 'egress-token',
     },
   ].flat();
   const runners = {
@@ -164,7 +165,12 @@ describe('ClaimHostWorkHandler', () => {
       started: [
         { outcome: 'full' },
         { outcome: 'full' },
-        { outcome: 'started', runnerId: POOLED, token: 'one-run-token' },
+        {
+          outcome: 'started',
+          runnerId: POOLED,
+          token: 'one-run-token',
+          egressToken: 'egress-token',
+        },
       ],
       run: taken(),
     });
@@ -225,6 +231,7 @@ describe('ClaimHostWorkHandler', () => {
       outcome: 'claimed',
       runnerId: 'pooled_1',
       token: 'one-run-token',
+      egressToken: 'egress-token',
       work: { kind: 'run', run: { id: 'run_1', harness: 'claude-code' } },
     });
     expect(claimNext).toHaveBeenCalledWith(

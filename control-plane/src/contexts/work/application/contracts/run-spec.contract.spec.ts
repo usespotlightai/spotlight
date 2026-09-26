@@ -59,6 +59,7 @@ const representative = {
   attachments: [
     { id: 'att_1', path: '.spotlight/attachments/att_1/screen.png' },
   ],
+  wears: ['LINEAR_API_KEY'],
 };
 
 describe('RunSpecContract wire', () => {
@@ -70,6 +71,12 @@ describe('RunSpecContract wire', () => {
     expect(JSON.stringify(RunSpecContract.toWire(spec as never))).toBe(
       JSON.stringify(representative),
     );
+  });
+
+  it('keeps no empty list of secrets worn', () => {
+    expect(
+      RunSpecContract.from(parts({ wears: [] }))?.value.wears,
+    ).toBeUndefined();
   });
 
   it('reads the smallest spec a runner can be handed', () => {

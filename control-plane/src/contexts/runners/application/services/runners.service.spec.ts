@@ -62,6 +62,7 @@ const running = (
   const logged: unknown[] = [];
   const saved: Runner[] = [];
   const called: ProvisionCall[] = [];
+  let minted = 0;
   const service = new Runners(
     {
       findForStart: vi.fn(async () => {
@@ -96,7 +97,10 @@ const running = (
       }),
     } as ProvisionCallsPort,
     {
-      mint: () => ({ token: 'one-run-token', hash: 'c'.repeat(64) }),
+      mint: () =>
+        minted++ % 2 === 0
+          ? { token: 'one-run-token', hash: 'c'.repeat(64) }
+          : { token: 'egress-token', hash: 'e'.repeat(64) },
       hash: () => 'c'.repeat(64),
     } as TokenMintPort,
     { generate: () => 'pooled_9' } as IdGeneratorPort,
@@ -122,6 +126,7 @@ describe('Runners', () => {
         outcome: 'started',
         runnerId: RunnerId.of('pooled_9'),
         token: 'one-run-token',
+        egressToken: 'egress-token',
       });
       expect(added[0]?.terms.values).toEqual(['linux']);
       expect(added[0]?.running?.image.value).toBe(IMAGE);
@@ -129,6 +134,8 @@ describe('Runners', () => {
       expect(added[0]?.installed[0]?.version?.value).toBe('2.1.0');
       expect(added[0]?.admission.equals(Admission.through(POOL_ID))).toBe(true);
       expect(added[0]?.hostId?.value).toBe(HOST);
+      expect(added[0]?.tokenHash.value).toBe('c'.repeat(64));
+      expect(added[0]?.egressTokenHash?.value).toBe('e'.repeat(64));
     });
 
     it('starts one that takes only work asking for the image it runs', async () => {
@@ -240,6 +247,7 @@ describe('Runners', () => {
         outcome: 'started',
         runnerId: RunnerId.of('pooled_9'),
         token: 'one-run-token',
+        egressToken: 'egress-token',
       });
       expect(added[0]?.terms.values).toEqual(['vpc-internal']);
       expect(added[0]?.terms.running?.image.value).toBe(IMAGE);
@@ -306,6 +314,7 @@ describe('Runners', () => {
         claimBy: CLAIM_BY,
       });
       expect(added[0]?.running).toBeNull();
+      expect(added[0]?.egressTokenHash).toBeNull();
     });
 
     it('names the change stack when the runner is provisioned for a check', async () => {

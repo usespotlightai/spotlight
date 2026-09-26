@@ -73,10 +73,15 @@ runner trust instead: `SPOTLIGHT_TRUST=<trust id>` and
 | `SPOTLIGHT_CAPACITY` | `1` | sandboxes at once |
 | `SPOTLIGHT_RUNNER_IMAGE` | `ghcr.io/usespotlightai/spotlight-runner:<release>` | the host's default and allow-list, comma-separated: exact images, or prefixes ending in `*` such as `ghcr.io/acme/*`. The first exact image runs every line that names none. The host also serves each image a line names that an entry admits, and reports the rest as refused |
 | `SPOTLIGHT_REGISTRY_CONFIG` | `$DOCKER_CONFIG/config.json` or `~/.docker/config.json` | Docker `auths` the host pulls with; read on every pull, and without it the host pulls anonymously |
-| `SPOTLIGHT_SANDBOX_ENV` | `sandbox.env` beside `host.env` | variables every sandbox gets, such as harness API keys |
+| `SPOTLIGHT_SANDBOX_ENV` | `sandbox.env` beside `host.env` | variables every sandbox gets. Harness keys set here (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `OPENAI_API_KEY`, `CODEX_API_KEY`) go to egress instead, and the sandbox gets a stand-in |
 | `SPOTLIGHT_SANDBOX_PASS` | unset | names of the host's own variables to pass into sandboxes |
 | `SPOTLIGHT_RUN_TIMEOUT` | `6h` | a sandbox running longer is stopped and destroyed |
-| `SPOTLIGHT_SANDBOX_NETWORK`, `SPOTLIGHT_SANDBOX_HOSTS`, `SPOTLIGHT_SANDBOX_URL` | unset | the network sandboxes join, extra hosts entries, and the control plane's address as sandboxes reach it |
+| `SPOTLIGHT_SANDBOX_NETWORK`, `SPOTLIGHT_SANDBOX_HOSTS`, `SPOTLIGHT_SANDBOX_URL` | unset | the network egress joins beside each sandbox's own, egress's extra hosts entries, and the control plane's address as egress reaches it |
+| `SPOTLIGHT_EGRESS_ALLOW` | unset: any public host | the hosts sandboxes may reach, comma-separated: `api.anthropic.com`, or `*.acme.internal` for its subdomains. A host that resolves to a private address is reached only when an entry names it. Secrets are worn only toward hosts the list admits; the control plane and its storage are always reached |
+| `SPOTLIGHT_EGRESS_READS` | unset: none | the AWS Secrets Manager secrets egress may read as the host, comma-separated: names or ARNs, or prefixes ending in `*` |
+| `SPOTLIGHT_EGRESS_IMAGE` | `ghcr.io/usespotlightai/spotlight-runner:<release>` | the image egress runs from: Spotlight's own, never a repository's |
+| `SPOTLIGHT_EGRESS_ENV`, `SPOTLIGHT_EGRESS_PASS` | `egress.env` beside `host.env`, unset | variables only egress gets, such as `AWS_REGION` or credentials for reading AWS Secrets Manager as the host |
+| `SPOTLIGHT_EGRESS_TRUST` | unset | a PEM file of authorities egress trusts upstream, for private hosts behind an internal CA; sandboxes never trust them |
 | `SPOTLIGHT_STATE` | `/var/lib/spotlight-host` or `~/.spotlight/host` | the host's id and its git mirrors |
 
 The host keeps a bare mirror of each repository it has checked out and mounts
@@ -94,6 +99,60 @@ When the digest changes, it looks inside the image again and fails a run whose
 harness the new image dropped. A pull that fails falls back to the copy it has;
 only with no copy at all does the run fail. An image named by digest, or built on
 the host and never pushed, is not pulled.
+
+### Egress
+
+A sandbox's only way out is `spotlight egress`, a container the host starts
+beside it for that run alone and destroys with it. The sandbox sits on an
+internal network of its own, and egress on that network and the host's. Every
+client in the sandbox is pointed at it (`HTTPS_PROXY`, `HTTP_PROXY`), and one
+that ignores the proxy has no route out at all.
+
+- **One sandbox, one egress.** The proxy address sandboxes get carries a
+  credential for that run alone; an egress answers no other sandbox.
+- **Secrets never enter the sandbox.** A secret an MCP server's `env` names
+  (`secret.LINEAR_API_KEY`) reaches the server as the stand-in
+  `spotlight-egress:LINEAR_API_KEY`. The run records which secrets it wears;
+  egress redeems them with a credential the host was handed for egress alone,
+  and wears each one only on requests to the hosts it is bound to, in place of
+  whatever that header held. A request to any other host carries nothing
+  egress added. The host bounds this: egress wears nothing toward a host
+  `SPOTLIGHT_EGRESS_ALLOW` leaves out, reads only the Secrets Manager secrets
+  `SPOTLIGHT_EGRESS_READS` lists, and never wears two secrets in one header.
+- **Values Spotlight keeps** come sealed to a key egress made for the run
+  (X25519, HKDF-SHA256, AES-256-GCM, bound to the run and the secret). **Values
+  in AWS Secrets Manager** are read by egress itself, with the host's identity
+  (`SPOTLIGHT_EGRESS_ENV`), so the control plane never sees them. Both live in
+  egress's memory for the run, and the run's grants end with it.
+- **HTTPS.** Egress mints a certificate authority for each run, keeps its key
+  in memory, and constrains it to the hosts it wears secrets or the host's
+  keys toward. The runner adds it to the image's own system bundles (Debian,
+  RHEL and Alpine paths) and to `/etc/spotlight/egress/bundle.pem`, which
+  `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE` and `GIT_SSL_CAINFO`
+  name; `NODE_EXTRA_CA_CERTS` names the authority alone. Egress opens only
+  traffic to those hosts; the rest passes through untouched, by the host named
+  in the `CONNECT`. A client that pins its own certificates fails against such
+  a host.
+- **Refused:** hosts outside `SPOTLIGHT_EGRESS_ALLOW`; private addresses
+  (RFC 1918, unique-local IPv6, `100.64.0.0/10`) unless an entry names the
+  host; and, whatever the list says, loopback and link-local addresses, so a
+  sandbox never reaches instance metadata and the host's own identity.
+- **Push pools.** A runner a push pool provisions has no egress, so a run that
+  wears secrets is never offered to one; it waits for a host.
+- **Harness keys stay with the host.** A host keeps the harness keys it
+  knows out of the sandbox and hands them to egress: `ANTHROPIC_API_KEY`
+  (`x-api-key`) and `CLAUDE_CODE_OAUTH_TOKEN` (`authorization: Bearer`) toward
+  `api.anthropic.com`, `OPENAI_API_KEY` and `CODEX_API_KEY`
+  (`authorization: Bearer`) toward `api.openai.com`. Where each key may go is
+  the host's own table, never the control plane's to say. The sandbox gets
+  `spotlight-egress:NAME`, and egress wears a key only in place of that exact
+  stand-in, toward a host the allow-list admits; a run's own secrets are
+  never worn toward a host the host holds a key for. The image probe that
+  lists a harness's models runs behind an egress too. `CURSOR_API_KEY` still
+  enters the sandbox, and logins that refresh their tokens (Codex with
+  ChatGPT, Claude in a browser) are not worn; use an API key or
+  `claude setup-token`.
+- **Not yet covered.** Egress cannot itself sit behind a proxy.
 
 Harnesses live only in the runner image (`.docker/runner/Dockerfile`, built
 from this repository, with `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION`
@@ -149,7 +208,7 @@ An image is built `FROM` the runner image, in the user's own CI:
   already its.
 
 ```dockerfile
-FROM ghcr.io/usespotlightai/spotlight-runner:20260925-01
+FROM ghcr.io/usespotlightai/spotlight-runner:20260926-01
 USER agent
 RUN git clone https://github.com/acme/web /workspace/web
 WORKDIR /workspace/web
@@ -158,7 +217,7 @@ USER root
 ```
 
 ```dockerfile
-FROM ghcr.io/usespotlightai/spotlight-runner:20260925-01
+FROM ghcr.io/usespotlightai/spotlight-runner:20260926-01
 RUN apt-get update && apt-get install -y --no-install-recommends python3-venv \
     && rm -rf /var/lib/apt/lists/*
 USER agent
@@ -170,7 +229,7 @@ USER root
 
 ```dockerfile
 FROM golang:1.26-bookworm AS go
-FROM ghcr.io/usespotlightai/spotlight-runner:20260925-01
+FROM ghcr.io/usespotlightai/spotlight-runner:20260926-01
 COPY --from=go /usr/local/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH GOPATH=/home/agent/go
 USER agent
@@ -180,7 +239,7 @@ USER root
 ```
 
 ```dockerfile
-FROM ghcr.io/usespotlightai/spotlight-runner:20260925-01
+FROM ghcr.io/usespotlightai/spotlight-runner:20260926-01
 USER agent
 RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
 ENV PATH=/home/agent/.cargo/bin:$PATH CARGO_TARGET_DIR=/home/agent/target
@@ -210,7 +269,14 @@ Claude Code, Codex and Cursor each get it in their own terms.
     "ask": ["execute(git push *)"],
     "deny": ["read(.env)"]
   },
-  "mcpServers": [{ "name": "linear", "command": "npx", "args": ["-y", "linear-mcp"] }],
+  "mcpServers": [
+    {
+      "name": "linear",
+      "command": "npx",
+      "args": ["-y", "linear-mcp"],
+      "env": { "LINEAR_API_KEY": "secret.LINEAR_API_KEY" }
+    }
+  ],
   "native": {
     "claude-code": { "includeCoAuthoredBy": false },
     "codex": "model_verbosity = \"low\"\n",
@@ -233,11 +299,12 @@ Claude Code, Codex and Cursor each get it in their own terms.
   settings JSON, Codex `config.toml` text, Cursor CLI config JSON. Where they
   set a key the permissions also write, the native value wins, with a warning.
 - **MCP servers** run over stdio, written out in each harness's own format.
-  Their `env` values are never credentials: they're stored and shown in plain
-  text, in the resource (and so in Terraform state), in the run spec, and in
-  what the runner receives. A server that needs a key reads it from the
-  runner's own environment, as harness API keys do today. Secret references
-  come with SPO-97.
+  An `env` value is either plain text, stored and shown as written, or a
+  reference to a workspace secret (`secret.LINEAR_API_KEY`). A reference must
+  name a secret the workspace holds, keeps that secret from being deleted, and
+  reaches the server only as a stand-in: egress wears the value on the
+  server's requests to the hosts the secret is bound to (see
+  [Egress](#egress)).
 - **Where they're written.** The common layer lands at user level, under the
   run's state directory: `claude/settings.json` (`CLAUDE_CONFIG_DIR`),
   `codex/config.toml` and `codex/rules/spotlight.rules` (`CODEX_HOME`),

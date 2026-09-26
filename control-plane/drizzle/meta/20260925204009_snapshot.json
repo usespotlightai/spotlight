@@ -1,5 +1,5 @@
 {
-  "id": "27aefeee-b0b6-4908-9745-9a56aac9d84c",
+  "id": "d6f15dee-14c7-4471-bfa3-c9a00615939e",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3301,6 +3301,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "egress_token_hash": {
+          "name": "egress_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "harnesses": {
           "name": "harnesses",
           "type": "jsonb",
@@ -3385,6 +3391,21 @@
           "columns": [
             {
               "expression": "token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "runner_egress_token_hash_idx": {
+          "name": "runner_egress_token_hash_idx",
+          "columns": [
+            {
+              "expression": "egress_token_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

@@ -14,12 +14,24 @@ export class HostClaimResponseDto {
   })
   readonly token: string;
 
+  @ApiProperty({
+    description:
+      'The credential the egress beside the sandbox redeems the run’s secrets with; the host hands it to egress alone, never into the sandbox',
+  })
+  readonly egressToken: string;
+
   @ApiProperty({ type: ClaimedWorkResponseDto })
   readonly work: ClaimedWorkResponseDto;
 
-  constructor(runnerId: string, token: string, work: ClaimedWorkResponseDto) {
+  constructor(
+    runnerId: string,
+    token: string,
+    egressToken: string,
+    work: ClaimedWorkResponseDto,
+  ) {
     this.runnerId = runnerId;
     this.token = token;
+    this.egressToken = egressToken;
     this.work = work;
   }
 }

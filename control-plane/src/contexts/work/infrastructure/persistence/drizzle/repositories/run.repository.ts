@@ -207,6 +207,7 @@ export class DrizzleRunRepository implements RunRepository {
           eq(run.workspaceId, workspaceId.value),
           eq(run.state, 'queued'),
           isNull(run.reservedFor),
+          sql`coalesce(jsonb_array_length(${run.spec} -> 'wears'), 0) = 0`,
           or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
         ),
       )

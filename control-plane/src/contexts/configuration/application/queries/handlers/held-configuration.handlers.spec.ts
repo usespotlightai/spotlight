@@ -222,6 +222,7 @@ const handlers = (over: { cleared?: boolean } = {}) => {
       permissions: { allow: [], ask: [], deny: [] },
       mcpServers: [],
       native: {},
+      secretsWorn: [],
       warnings: [],
     })),
   } as unknown as HarnessProfileViews;

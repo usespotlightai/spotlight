@@ -71,6 +71,8 @@ const toRunner = (row: Row): Runner =>
     hostId: row.hostId === null ? null : HostId.of(row.hostId),
     labels: RunnerLabels.of(row.labels),
     tokenHash: TokenHash.of(row.tokenHash),
+    egressTokenHash:
+      row.egressTokenHash === null ? null : TokenHash.of(row.egressTokenHash),
     installed: row.harnesses.map((id) =>
       InstalledHarness.of(
         HarnessId.of(id),
@@ -129,6 +131,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         hostId: added.hostId?.value ?? null,
         labels: [...added.labels.values],
         tokenHash: added.tokenHash.value,
+        egressTokenHash: added.egressTokenHash?.value ?? null,
         image: added.running?.image.value ?? null,
         usual: added.running?.usual ?? false,
         claimBy: added.claimBy,
@@ -181,6 +184,16 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       .select()
       .from(runner)
       .where(eq(runner.tokenHash, hash.value))
+      .limit(1);
+
+    return found ? toRunner(found) : null;
+  }
+
+  async findByEgressTokenHash(hash: TokenHash): Promise<Runner | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(runner)
+      .where(eq(runner.egressTokenHash, hash.value))
       .limit(1);
 
     return found ? toRunner(found) : null;

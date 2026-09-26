@@ -565,7 +565,63 @@ export type HostClaimResponseDto = {
    * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential
    */
   token: string;
+  /**
+   * The credential the egress beside the sandbox redeems the run’s secrets with; the host hands it to egress alone, never into the sandbox
+   */
+  egressToken: string;
   work: ClaimedWorkResponseDto;
+};
+
+export type RedeemEgressRequestDto = {
+  /**
+   * The X25519 public key egress holds for this run alone, in base64; values Spotlight keeps are sealed to it
+   */
+  recipient: string;
+};
+
+export type ReadInNetworkResponseDto = {
+  kind: 'aws-secrets-manager';
+  secretId: string;
+  field: string | null;
+};
+
+export type RedeemedSecretResponseDto = {
+  secret: string;
+  /**
+   * The one host egress wears it toward
+   */
+  host: string;
+  header: string;
+  prefix: string;
+  /**
+   * The value, sealed to the recipient for this run; null when egress reads it in its own network
+   */
+  sealed: string | null;
+  /**
+   * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
+   */
+  readInNetwork: ReadInNetworkResponseDto | null;
+};
+
+export type WithheldSecretResponseDto = {
+  secret: string;
+  reason: string;
+};
+
+export type EgressRedemptionResponseDto = {
+  /**
+   * The run the sealed values are bound to; null when the sandbox checks a change stack and wears nothing
+   */
+  runId: string | null;
+  /**
+   * Hosts every sandbox must reach besides the control plane, whatever else the host allows
+   */
+  reaches: Array<string>;
+  secrets: Array<RedeemedSecretResponseDto>;
+  /**
+   * Secrets the run wears that egress will not get, and why
+   */
+  withheld: Array<WithheldSecretResponseDto>;
 };
 
 export type HeldRunResponseDto = {
@@ -1985,7 +2041,7 @@ export type McpServerResponseDto = {
   command: string;
   args: Array<string>;
   /**
-   * Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97.
+   * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
    */
   env: {
     [key: string]: string;
@@ -3509,6 +3565,30 @@ export type ClaimHostWorkResponses = {
 };
 
 export type ClaimHostWorkResponse = ClaimHostWorkResponses[keyof ClaimHostWorkResponses];
+
+export type RedeemEgressData = {
+  body: RedeemEgressRequestDto;
+  path?: never;
+  query?: never;
+  url: '/egress/redeem';
+};
+
+export type RedeemEgressErrors = {
+  /**
+   * Missing or unknown egress token, or its runner no longer holds work
+   */
+  401: unknown;
+  /**
+   * The recipient is not an X25519 public key
+   */
+  422: unknown;
+};
+
+export type RedeemEgressResponses = {
+  200: EgressRedemptionResponseDto;
+};
+
+export type RedeemEgressResponse = RedeemEgressResponses[keyof RedeemEgressResponses];
 
 export type ListRunnerActivityData = {
   body?: never;
@@ -7830,7 +7910,7 @@ export type CreateHarnessProfileData = {
       command: string;
       args?: Array<string>;
       /**
-       * Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97.
+       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
        */
       env?: {
         [key: string]: string;
@@ -8018,7 +8098,7 @@ export type UpdateHarnessProfileData = {
       command: string;
       args?: Array<string>;
       /**
-       * Environment for the server, never credentials: these values are stored and shown in plain text, in this resource (and so in Terraform state), in the run spec and in what the runner receives. A server that needs a key reads it from the runner’s own environment, as harness API keys do. Secret references come with SPO-97.
+       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
        */
       env?: {
         [key: string]: string;

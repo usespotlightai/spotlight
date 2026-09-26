@@ -20,13 +20,20 @@ type Image struct {
 type Spec struct {
 	Name       string
 	Image      string
+	Entrypoint []string
 	Args       []string
 	Env        []string
 	Labels     map[string]string
 	Mounts     []Mount
 	Files      []File
 	Network    string
+	Joins      []Join
 	ExtraHosts []string
+}
+
+type Join struct {
+	Network string
+	Aliases []string
 }
 
 type Mount struct {
@@ -36,9 +43,10 @@ type Mount struct {
 }
 
 type File struct {
-	Path string
-	Mode int64
-	Body []byte
+	Path    string
+	Mode    int64
+	DirMode int64
+	Body    []byte
 }
 
 type Engine interface {
@@ -51,4 +59,8 @@ type Engine interface {
 	Stop(ctx context.Context, id string, grace time.Duration) error
 	Destroy(ctx context.Context, id string) error
 	Labelled(ctx context.Context, key, value string) ([]string, error)
+	Read(ctx context.Context, id, path string) ([]byte, error)
+	Network(ctx context.Context, name string, labels map[string]string) (string, error)
+	Unnetwork(ctx context.Context, id string) error
+	Networks(ctx context.Context, key, value string) ([]string, error)
 }

@@ -1,6 +1,13 @@
 package config_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,6 +29,8 @@ func isolated(t *testing.T) string {
 		"SPOTLIGHT_CAPACITY", "SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_RUN_TIMEOUT", "SPOTLIGHT_SANDBOX_URL",
 		"SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_SANDBOX_NETWORK", "SPOTLIGHT_SANDBOX_HOSTS", "SPOTLIGHT_STATE",
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
+		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
+		"SPOTLIGHT_EGRESS_TRUST", "SPOTLIGHT_EGRESS_READS",
 	} {
 		t.Setenv(name, "")
 	}
@@ -205,4 +214,105 @@ func TestOnlyOneHostServesFromAStateDirectory(t *testing.T) {
 		t.Fatalf("hold after release: %v", err)
 	}
 	again()
+}
+
+func TestRunsEgressFromTheHostsOwnReleaseAndLetsSandboxesReachAnywhereByDefault(t *testing.T) {
+	isolated(t)
+	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
+	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+
+	cfg, err := config.Load("v1.4.0")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.Egress.Image != config.Image+":v1.4.0" || len(cfg.Egress.Allow) != 0 || len(cfg.Egress.Env) != 0 {
+		t.Errorf("egress %+v", cfg.Egress)
+	}
+}
+
+func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
+	dir := isolated(t)
+	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
+	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	t.Setenv("SPOTLIGHT_EGRESS_IMAGE", "spotlight-runner:dev")
+	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "api.anthropic.com, *.internal.acme.com")
+	t.Setenv("SPOTLIGHT_EGRESS_READS", "arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*")
+	t.Setenv("AWS_PROFILE", "egress")
+	t.Setenv("SPOTLIGHT_EGRESS_PASS", "AWS_PROFILE")
+	write(t, filepath.Join(dir, "egress.env"), "AWS_REGION=eu-west-1\n")
+
+	cfg, err := config.Load("dev")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.Egress.Image != "spotlight-runner:dev" ||
+		!slices.Equal(cfg.Egress.Allow, []string{"api.anthropic.com", "*.internal.acme.com"}) ||
+		!slices.Equal(cfg.Egress.Reads, []string{"arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*"}) ||
+		!slices.Equal(cfg.Egress.Env, []string{"AWS_PROFILE=egress", "AWS_REGION=eu-west-1"}) {
+		t.Errorf("egress %+v", cfg.Egress)
+	}
+	if slices.Contains(cfg.SandboxEnv, "AWS_REGION=eu-west-1") {
+		t.Error("gave the sandbox what only egress holds")
+	}
+}
+
+func TestRefusesAnAllowListThatNamesNoHostAndAnEgressHoldingTheHostsCredential(t *testing.T) {
+	dir := isolated(t)
+	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
+	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+
+	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "https://api.anthropic.com")
+	if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_EGRESS_ALLOW") {
+		t.Errorf("took an allow-list of URLs: %v", err)
+	}
+
+	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "")
+	write(t, filepath.Join(dir, "egress.env"), "SPOTLIGHT_TOKEN=pool-token\n")
+	if _, err := config.Load("dev"); err == nil {
+		t.Error("handed egress the host's own credential")
+	}
+}
+
+func TestReadsTheAuthoritiesEgressTrustsForPrivateHosts(t *testing.T) {
+	dir := isolated(t)
+	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
+	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	trust := filepath.Join(dir, "acme-ca.pem")
+	t.Setenv("SPOTLIGHT_EGRESS_TRUST", trust)
+
+	write(t, trust, "not a certificate")
+	if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "no PEM certificate") {
+		t.Errorf("took what holds no certificate: %v", err)
+	}
+
+	authority := authorityPEM(t)
+	write(t, trust, authority)
+	cfg, err := config.Load("dev")
+	if err != nil || string(cfg.Egress.Trust) != authority {
+		t.Errorf("trust %q: %v", cfg.Egress.Trust, err)
+	}
+}
+
+func authorityPEM(t *testing.T) string {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Acme Test"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }

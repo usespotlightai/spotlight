@@ -104,6 +104,7 @@ export const runner = pgTable(
     hostId: text('host_id'),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
     tokenHash: text('token_hash').notNull(),
+    egressTokenHash: text('egress_token_hash'),
     harnesses: jsonb('harnesses').$type<string[]>().notNull().default([]),
     advertisedModels: jsonb('advertised_models')
       .$type<Record<string, string[]>>()
@@ -125,6 +126,7 @@ export const runner = pgTable(
   },
   (table) => [
     uniqueIndex('runner_token_hash_idx').on(table.tokenHash),
+    uniqueIndex('runner_egress_token_hash_idx').on(table.egressTokenHash),
     index('runner_pool_standing_idx')
       .on(table.poolId)
       .where(sql`${table.endedAt} is null`),

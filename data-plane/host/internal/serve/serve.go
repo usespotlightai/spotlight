@@ -27,18 +27,26 @@ const (
 	HandedPath = "/run/spotlight/handed.json"
 	MirrorRoot = "/spotlight/mirrors"
 
-	presenceEvery = 20 * time.Second
-	refreshEvery  = time.Minute
-	leaseEvery    = 20 * time.Second
-	stopGrace     = 30 * time.Second
-	mirrorWait    = 15 * time.Second
-	quickAnswer   = 2 * time.Second
-	drainBudget   = 5 * time.Second
-	mirrorLongest = 30 * time.Minute
-	probeLongest  = 2 * time.Minute
-	cleanupBudget = time.Minute
-	retryFloor    = 2 * time.Second
-	retryCeiling  = 30 * time.Second
+	AuthorityPath = protocol.SandboxAuthority
+	BundlePath    = protocol.SandboxBundle
+	EgressTrusts  = "/etc/spotlight/trust"
+	EgressAlias   = "egress"
+
+	presenceEvery   = 20 * time.Second
+	refreshEvery    = time.Minute
+	leaseEvery      = 20 * time.Second
+	stopGrace       = 30 * time.Second
+	mirrorWait      = 15 * time.Second
+	quickAnswer     = 2 * time.Second
+	drainBudget     = 5 * time.Second
+	egressWait      = 90 * time.Second
+	probeEgressWait = 30 * time.Second
+	egressPoll      = 250 * time.Millisecond
+	mirrorLongest   = 30 * time.Minute
+	probeLongest    = 2 * time.Minute
+	cleanupBudget   = time.Minute
+	retryFloor      = 2 * time.Second
+	retryCeiling    = 30 * time.Second
 )
 
 type Pool interface {
@@ -68,13 +76,23 @@ type Options struct {
 	Registry     Registry
 	RefreshEvery time.Duration
 	LeaseEvery   time.Duration
+	EgressWait   time.Duration
 	Capacity     int
 	RunTimeout   time.Duration
 	ControlURL   string
 	SandboxURL   string
 	SandboxEnv   []string
+	Egress       Egress
 	Network      string
 	ExtraHosts   []string
+}
+
+type Egress struct {
+	Image string
+	Allow []string
+	Reads []string
+	Env   []string
+	Trust []byte
 }
 
 type Host struct {
@@ -98,6 +116,7 @@ type Host struct {
 	running    map[string]string
 	held       map[string]time.Time
 	failures   map[string]int
+	egressIs   string
 }
 
 func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
@@ -205,6 +224,18 @@ func (h *Host) reap(ctx context.Context) {
 			continue
 		}
 		h.log.Info("destroyed a sandbox left behind", "sandbox", id)
+	}
+
+	networks, err := h.engine.Networks(ctx, LabelHost, h.opts.HostID)
+	if err != nil {
+		h.log.Warn("could not look for sandbox networks left behind", "error", err)
+		return
+	}
+
+	for _, id := range networks {
+		if err := h.engine.Unnetwork(ctx, id); err != nil {
+			h.log.Warn("could not remove a sandbox network left behind", "network", id, "error", err)
+		}
 	}
 }
 
@@ -387,7 +418,9 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		return
 	}
 
-	body, err := json.Marshal(handed)
+	inSandbox := handed
+	inSandbox.EgressToken = ""
+	body, err := json.Marshal(inSandbox)
 	if err != nil {
 		log.Error("could not hand over the work", "error", err)
 		return
@@ -413,7 +446,21 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		return
 	}
 
-	env := append(slices.Clone(h.opts.SandboxEnv),
+	starting, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+	defer cancel()
+
+	sandboxEnv, keys := standInsFor(h.opts.SandboxEnv)
+
+	way, err := h.egress(starting, handed, keys, log)
+	defer way.close()
+	if err != nil {
+		log.Warn("gave up the work: its way out did not start", "error", err)
+		h.giveUp(ctx, handed, worker, fmt.Sprintf("The sandbox's egress did not start: %v", err), log)
+		return
+	}
+
+	env := append(sandboxEnv, way.env()...)
+	env = append(env,
 		"SPOTLIGHT_URL="+h.opts.SandboxURL,
 		"SPOTLIGHT_HANDED="+HandedPath,
 	)
@@ -421,18 +468,14 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		env = append(env, "SPOTLIGHT_MIRRORS="+MirrorRoot)
 	}
 
-	starting, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
-	defer cancel()
-
 	id, err := h.engine.Start(starting, sandbox.Spec{
-		Name:       "spotlight-" + handed.RunnerID,
-		Image:      ready.id,
-		Env:        env,
-		Labels:     map[string]string{LabelHost: h.opts.HostID, LabelRunner: handed.RunnerID},
-		Mounts:     mounts,
-		Files:      []sandbox.File{{Path: HandedPath, Mode: 0o400, Body: body}},
-		Network:    h.opts.Network,
-		ExtraHosts: h.opts.ExtraHosts,
+		Name:    "spotlight-" + handed.RunnerID,
+		Image:   ready.id,
+		Env:     env,
+		Labels:  map[string]string{LabelHost: h.opts.HostID, LabelRunner: handed.RunnerID},
+		Mounts:  mounts,
+		Files:   append([]sandbox.File{{Path: HandedPath, Mode: 0o400, Body: body}}, way.files()...),
+		Network: way.network,
 	})
 	defer h.destroy(id)
 	h.started(image, err == nil)

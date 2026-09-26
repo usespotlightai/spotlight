@@ -334,6 +334,16 @@ func (c *Client) RecordChangeStackCheck(
 	return nil
 }
 
+func (c *Client) RedeemEgress(ctx context.Context, recipient string) (protocol.EgressRedemption, error) {
+	var redeemed protocol.EgressRedemption
+	asked := protocol.EgressRedeem{Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/redeem", asked, &redeemed); err != nil {
+		return protocol.EgressRedemption{}, fmt.Errorf("redeem the run's secrets: %w", err)
+	}
+
+	return redeemed, nil
+}
+
 func (c *Client) do(ctx context.Context, method, path string, in, out any) error {
 	_, err := c.request(ctx, method, path, in, out)
 	return err

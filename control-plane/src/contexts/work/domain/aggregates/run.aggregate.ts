@@ -200,6 +200,12 @@ export class Run extends EventRecorder {
   }
 
   reservedFor(runner: RunnerId, pool: string, now: Date): Run {
+    if (this.wearsSecrets) {
+      throw new InvalidRunTransitionError(
+        'cannot be reserved for a runner a pool provisions while it wears secrets, which only the egress beside a host’s sandbox wears',
+      );
+    }
+
     if (!this.provisionableAt(now)) {
       throw new InvalidRunTransitionError(
         `cannot be reserved for a runner to be provisioned while it is ${this.state}${this.reservation ? ' and reserved' : ''}`,
@@ -441,6 +447,16 @@ export class Run extends EventRecorder {
     this.requireHeldBy(by, 'journal');
 
     return RunAttempt.of(this.id, this.attempt);
+  }
+
+  get wearsSecrets(): boolean {
+    return this.spec.wears.length > 0;
+  }
+
+  secretsWornFor(runner: RunnerId): readonly string[] {
+    return this.state === 'claimed' && this.wasWorkedBy(runner)
+      ? this.spec.wears
+      : [];
   }
 
   wasGiven(tool: Tool): boolean {

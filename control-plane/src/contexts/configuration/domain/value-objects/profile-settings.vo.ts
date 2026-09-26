@@ -5,6 +5,7 @@ import {
   type PermissionDecision,
   PermissionRule,
 } from '@configuration/domain/value-objects/permission-rule.vo';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type WrittenPermissions = Readonly<
   Record<PermissionDecision, readonly string[]>
@@ -19,6 +20,11 @@ export interface WrittenSettings {
     readonly env: Readonly<Record<string, string>>;
   }[];
   readonly native: Readonly<Record<string, unknown>>;
+}
+
+export interface WornSecret {
+  readonly at: readonly [string, number, string, string];
+  readonly secret: SecretName;
 }
 
 export class ProfileSettings {
@@ -88,6 +94,19 @@ export class ProfileSettings {
       ask: this.listed('ask'),
       deny: this.listed('deny'),
     };
+  }
+
+  get wornSecrets(): readonly WornSecret[] {
+    return this.mcpServers.flatMap((server, at) =>
+      server.wornSecrets.map(({ variable, secret }) => ({
+        at: ['mcpServers', at, 'env', variable] as const,
+        secret,
+      })),
+    );
+  }
+
+  wears(secret: SecretName): boolean {
+    return this.wornSecrets.some((each) => each.secret.equals(secret));
   }
 
   equals(other: ProfileSettings): boolean {

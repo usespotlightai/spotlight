@@ -13,6 +13,8 @@ export interface RunnerRepository {
 
   findByTokenHash(hash: TokenHash): Promise<Runner | null>;
 
+  findByEgressTokenHash(hash: TokenHash): Promise<Runner | null>;
+
   standingIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]>;
 
   holding(work: RunnerWork): Promise<readonly Runner[]>;

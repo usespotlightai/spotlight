@@ -60,7 +60,7 @@ const holding = (managesSecrets = true) => {
   const deleting = new DeleteSecretHandler(
     access,
     secrets,
-    { of: async () => uses },
+    { register: () => undefined, of: async () => uses },
     transaction,
   );
 

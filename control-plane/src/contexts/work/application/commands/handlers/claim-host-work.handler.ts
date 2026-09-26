@@ -85,6 +85,7 @@ export class ClaimHostWorkHandler
         outcome: 'claimed',
         runnerId: started.runnerId.value,
         token: started.token,
+        egressToken: started.egressToken,
         work,
       };
     } catch (error) {

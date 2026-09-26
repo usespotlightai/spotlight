@@ -2,6 +2,7 @@ package serve
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -246,11 +247,21 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 	ctx, cancel := context.WithTimeout(ctx, probeLongest)
 	defer cancel()
 
+	env, held := standInsFor(h.opts.SandboxEnv)
+	way, err := h.wayOut(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", held,
+		probeEgressWait)
+	defer way.close()
+	if err != nil {
+		return protocol.Registration{}, fmt.Errorf("start the probe's egress: %w", err)
+	}
+
 	id, err := h.engine.Start(ctx, sandbox.Spec{
-		Image:  image,
-		Args:   []string{"harnesses", string(asked)},
-		Env:    h.opts.SandboxEnv,
-		Labels: map[string]string{LabelHost: h.opts.HostID},
+		Image:   image,
+		Args:    []string{"harnesses", string(asked)},
+		Env:     append(env, way.env()...),
+		Labels:  map[string]string{LabelHost: h.opts.HostID},
+		Files:   way.files(),
+		Network: way.network,
 	})
 	defer h.destroy(id)
 	if err != nil {

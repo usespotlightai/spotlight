@@ -311,6 +311,84 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     ]);
   });
 
+  describe('wearing a secret in an MCP server’s env', () => {
+    const WEARING = {
+      ...CAREFUL,
+      mcpServers: [
+        {
+          name: 'linear',
+          command: 'npx',
+          args: ['-y', 'linear-mcp'],
+          env: { LINEAR_TEAM: 'core', LINEAR_API_KEY: 'secret.LINEAR_API_KEY' },
+        },
+      ],
+    };
+
+    const setSecret = () =>
+      as(fixture.admin).create(`/api/resources/workspaces/${teamId}/secrets`, {
+        name: 'LINEAR_API_KEY',
+        bindings: [{ host: 'mcp.linear.app', prefix: 'Bearer ' }],
+        valueWo: 'lin_api_profile_e2e',
+        valueWoVersion: 1,
+      });
+
+    afterEach(async () => {
+      const db = app.get<DrizzleDatabase>(DRIZZLE);
+      await db
+        .delete(schema.harnessProfile)
+        .where(eq(schema.harnessProfile.teamId, teamId));
+      await db
+        .delete(schema.secret)
+        .where(eq(schema.secret.workspaceId, teamId));
+      await db
+        .delete(schema.secretDataKey)
+        .where(eq(schema.secretDataKey.workspaceId, teamId));
+    });
+
+    it('refuses a secret the workspace does not hold, where it is named', async () => {
+      const refused = await create(WEARING);
+
+      expect(refused.status).toBe(422);
+      expect(refused.body.errors).toEqual([
+        expect.objectContaining({
+          path: 'mcpServers[0].env.LINEAR_API_KEY',
+          message: expect.stringContaining('LINEAR_API_KEY'),
+        }),
+      ]);
+    });
+
+    it('hands the run a stand-in for it, never its value, and keeps the secret from being deleted', async () => {
+      const secret = await setSecret();
+      expect(secret.status).toBe(201);
+
+      const made = await create(WEARING);
+      expect(made.status).toBe(201);
+      expect(made.body.mcpServers[0].env.LINEAR_API_KEY).toBe(
+        'secret.LINEAR_API_KEY',
+      );
+
+      const held = await app
+        .get<StationProfilesPort>(STATION_PROFILES)
+        .named(TeamId.of(teamId), 'careful');
+      const ready = held ? ReadyProfileMapper.toReady(held) : null;
+      expect(ready?.wears.map((each) => each.value)).toEqual([
+        'LINEAR_API_KEY',
+      ]);
+      expect(ready?.mcpServers[0]?.env).toEqual({
+        LINEAR_TEAM: 'core',
+        LINEAR_API_KEY: 'spotlight-egress:LINEAR_API_KEY',
+      });
+
+      const refused = await served(app)
+        .delete(`/api/resources/secrets/${secret.body.id}`)
+        .set(TEST_USER_HEADER, fixture.admin)
+        .set('If-Match', `"${secret.body.version}"`);
+
+      expect(refused.status).toBe(409);
+      expect(refused.body.detail).toContain('harness profile team/careful');
+    });
+  });
+
   it('will not be deleted while a station names it', async () => {
     const made = await create(CAREFUL);
     const { first, second: _second, ...line } = delivery();

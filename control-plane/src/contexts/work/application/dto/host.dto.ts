@@ -9,5 +9,6 @@ export type HostClaimDto =
       readonly outcome: 'claimed';
       readonly runnerId: string;
       readonly token: string;
+      readonly egressToken: string;
       readonly work: ClaimedWorkDto;
     };

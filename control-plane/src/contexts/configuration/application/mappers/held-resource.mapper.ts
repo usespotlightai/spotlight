@@ -135,6 +135,10 @@ export const HeldResourceMapper = {
         env: { ...each.env },
       })),
       native: profile.native,
+      secretsWorn: profile.secretsWorn.map((each) => ({
+        path: each.path,
+        name: each.name,
+      })),
     };
   },
 

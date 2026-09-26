@@ -1,8 +1,15 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export const SECRET_SOURCE_KINDS = ['built-in', 'aws-secrets-manager'] as const;
 
 export type SecretSourceKind = (typeof SECRET_SOURCE_KINDS)[number];
+
+export interface SourceInNetwork {
+  readonly kind: Exclude<SecretSourceKind, 'built-in'>;
+  readonly secretId: string;
+  readonly field: string | null;
+}
 
 const AWS_SECRET_ID = /^[A-Za-z0-9/_+=.@:-]{1,2048}$/;
 
@@ -45,6 +52,21 @@ export class SecretSource {
 
   get isBuiltIn(): boolean {
     return this.kind === 'built-in';
+  }
+
+  get readInNetwork(): SourceInNetwork | null {
+    if (this.kind === 'built-in') {
+      return null;
+    }
+
+    if (!this.secretId) {
+      throw new InconsistentStateError(
+        'secret source',
+        'reads from AWS Secrets Manager without naming the secret there',
+      );
+    }
+
+    return { kind: this.kind, secretId: this.secretId, field: this.field };
   }
 
   equals(other: SecretSource): boolean {

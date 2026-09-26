@@ -108,7 +108,15 @@ const launch: HarnessLaunchPort = {
                 files: [
                   { path: 'dev/settings.json', text: chosen.profile.key.value },
                 ],
-                mcpServers: [],
+                mcpServers: chosen.profile.mcpServers.map((server) => ({
+                  name: server.name,
+                  command: server.command,
+                  args: [...server.args],
+                  env: Object.entries(server.env).map(([name, value]) => ({
+                    name,
+                    value,
+                  })),
+                })),
                 asks: ['execute'],
               }
             : null,
@@ -576,6 +584,46 @@ describe('DispatchTask', () => {
       });
     });
 
+    it('hands an MCP server a stand-in for each secret it wears, and the run the secrets to redeem', async () => {
+      teamProfiles = {
+        careful,
+        linear: {
+          key: 'linear',
+          rules: [],
+          mcpServers: [
+            {
+              name: 'linear',
+              command: 'npx',
+              args: ['-y', 'linear-mcp'],
+              env: {
+                LINEAR_API_KEY: 'secret.LINEAR_API_KEY',
+                LINEAR_TEAM: 'core',
+              },
+            },
+            {
+              name: 'linear-again',
+              command: 'npx',
+              args: [],
+              env: { TOKEN: 'secret.LINEAR_API_KEY' },
+            },
+          ],
+          native: {},
+        },
+      };
+
+      await dispatch(naming('linear'));
+
+      const spec = written(queued[0]);
+      expect(spec.harnessSetup?.mcpServers.map((each) => each.env)).toEqual([
+        [
+          { name: 'LINEAR_API_KEY', value: 'spotlight-egress:LINEAR_API_KEY' },
+          { name: 'LINEAR_TEAM', value: 'core' },
+        ],
+        [{ name: 'TOKEN', value: 'spotlight-egress:LINEAR_API_KEY' }],
+      ]);
+      expect(spec.wears).toEqual(['LINEAR_API_KEY']);
+    });
+
     it('fails the run, saying why, where the team holds no such profile', async () => {
       const id = await dispatch(naming('reckless'));
 
@@ -591,6 +639,7 @@ describe('DispatchTask', () => {
       await dispatch(stations[1] as Station);
 
       expect(written(queued[0]).harnessSetup).toBeUndefined();
+      expect(written(queued[0]).wears).toBeUndefined();
       expect(queued[0]?.placement.isAnywhere).toBe(true);
     });
   });

@@ -3,6 +3,8 @@ import { SECRET_NAME_SHAPE } from '@shared-kernel/domain/value-objects/identifie
 
 const SHAPE = new RegExp(`^${SECRET_NAME_SHAPE}$`);
 
+const REFERENCE = new RegExp(`^secret\\.(${SECRET_NAME_SHAPE})$`);
+
 export class SecretName {
   private constructor(readonly value: string) {}
 
@@ -17,6 +19,12 @@ export class SecretName {
     }
 
     return new SecretName(named);
+  }
+
+  static referencedBy(written: string): SecretName | null {
+    const named = REFERENCE.exec(written.trim())?.[1];
+
+    return named ? new SecretName(named) : null;
   }
 
   equals(other: SecretName): boolean {

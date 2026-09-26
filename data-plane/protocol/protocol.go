@@ -221,9 +221,10 @@ type Claimed struct {
 }
 
 type Handed struct {
-	RunnerID string  `json:"runnerId"`
-	Token    string  `json:"token"`
-	Work     Claimed `json:"work"`
+	RunnerID    string  `json:"runnerId"`
+	Token       string  `json:"token"`
+	EgressToken string  `json:"egressToken,omitempty"`
+	Work        Claimed `json:"work"`
 }
 
 type StackCheck struct {

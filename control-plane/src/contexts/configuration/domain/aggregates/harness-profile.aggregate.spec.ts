@@ -5,6 +5,7 @@ import { HarnessProfileRetired } from '@configuration/domain/events/harness-prof
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
 import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
 import { HarnessProfileMovedOnError } from '@configuration/domain/exceptions/harness-profile-moved-on.error';
+import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
@@ -12,6 +13,7 @@ import { StationUses } from '@configuration/domain/value-objects/station-uses.vo
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -59,6 +61,7 @@ describe('HarnessProfile', () => {
       id: ID,
       teamId: TEAM,
       by: BY,
+      held: [],
     });
 
     expect(defined.isNew).toBe(true);
@@ -80,6 +83,7 @@ describe('HarnessProfile', () => {
     const redefined = kept().redefinedAs(
       read('careful', ['execute(git push *)']),
       BY,
+      [],
     );
 
     expect(redefined.settings.permissions.ask).toEqual(['execute(git push *)']);
@@ -94,7 +98,7 @@ describe('HarnessProfile', () => {
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => kept().redefinedAs(read('bold'), BY)).toThrow(
+    expect(() => kept().redefinedAs(read('bold'), BY, [])).toThrow(
       HarnessProfileKeyFixedError,
     );
   });
@@ -119,7 +123,7 @@ describe('HarnessProfile', () => {
         ConfigurationChange.deleted(CAREFUL, BY),
       ),
     ]);
-    expect(() => retired.redefinedAs(read(), BY)).toThrow(
+    expect(() => retired.redefinedAs(read(), BY, [])).toThrow(
       InconsistentStateError,
     );
   });
@@ -136,5 +140,42 @@ describe('HarnessProfile', () => {
         ConfigurationChange.deleted(CAREFUL, BY),
       ),
     ]);
+  });
+
+  it('names only secrets the workspace holds in its MCP servers’ env', () => {
+    const wearing = {
+      key: ProfileKey.of('careful'),
+      settings: ProfileSettings.written({
+        permissions: { allow: [], ask: [], deny: [] },
+        mcpServers: [
+          {
+            name: 'linear',
+            command: 'npx',
+            args: [],
+            env: { LINEAR_API_KEY: 'secret.LINEAR_API_KEY' },
+          },
+        ],
+        native: {},
+      }),
+    };
+    const held = [SecretName.of('LINEAR_API_KEY')];
+
+    expect(() =>
+      HarnessProfile.define({
+        ...wearing,
+        id: ID,
+        teamId: TEAM,
+        by: BY,
+        held: [],
+      }),
+    ).toThrow(SecretsUnheldError);
+    expect(() => kept().redefinedAs(wearing, BY, [])).toThrow(
+      SecretsUnheldError,
+    );
+    expect(
+      kept()
+        .redefinedAs(wearing, BY, held)
+        .settings.wears(held[0] as SecretName),
+    ).toBe(true);
   });
 });

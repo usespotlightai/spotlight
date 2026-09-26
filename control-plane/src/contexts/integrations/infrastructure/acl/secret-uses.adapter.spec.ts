@@ -54,13 +54,13 @@ describe('IntegrationSecretUses', () => {
 
   it('names each integration of the workspace that wears the secret', async () => {
     expect(
-      await uses.of({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
+      await uses.usesOf({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
     ).toEqual(['integration core/linear']);
   });
 
   it('names nothing for a secret no integration wears', async () => {
     expect(
-      await uses.of({
+      await uses.usesOf({
         workspaceId: WorkspaceId.of('ws_1').value,
         name: 'SENTRY_TOKEN',
       }),

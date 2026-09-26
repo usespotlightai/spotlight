@@ -51,8 +51,10 @@ const written = (
   skills: readonly SkillFileShape[],
   manifest: readonly ToolManifestShape[],
   catalog: readonly string[],
-): RunSpec =>
-  RunSpec.of({
+): RunSpec => {
+  const worn = (order.given.profile?.wears ?? []).map((each) => each.value);
+
+  return RunSpec.of({
     checkouts: order.checkouts.map((checkout) => ({
       remote: THROUGH_SPOTLIGHT,
       path: checkout.repository.name,
@@ -74,7 +76,9 @@ const written = (
     attachments: Attached.shapes(task.allAttachments),
     diffs: order.diffs,
     ...(setup ? { harnessSetup: setup } : {}),
+    ...(worn.length > 0 ? { wears: worn } : {}),
   });
+};
 
 export class DispatchTask implements TaskDispatching {
   constructor(

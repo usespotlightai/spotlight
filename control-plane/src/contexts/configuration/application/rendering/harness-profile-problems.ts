@@ -1,4 +1,5 @@
 import type { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
+import type { WornSecret } from '@configuration/domain/value-objects/profile-settings.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -13,5 +14,15 @@ export const HarnessProfileProblems = {
       at: FieldPath.of([error.field]),
       reason: error.because,
     });
+  },
+
+  unheld(key: string, unheld: readonly WornSecret[]): ConfigurationProblem[] {
+    return unheld.map((worn) =>
+      ConfigurationProblem.of({
+        path: profileAt(key),
+        at: FieldPath.of([...worn.at]),
+        reason: `names the secret ${worn.secret.value}, which the workspace does not hold; define it before an MCP server wears it`,
+      }),
+    );
   },
 };

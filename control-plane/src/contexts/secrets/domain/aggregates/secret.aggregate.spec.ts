@@ -308,5 +308,39 @@ describe('Secret', () => {
         SecretNotBoundError,
       );
     });
+
+    it('is worn the way it is bound toward the host a grant names', () => {
+      const secret = kept({
+        bindings: [
+          { host: 'api.linear.app', prefix: 'Bearer ' },
+          { host: 'uploads.linear.app', header: 'x-api-key' },
+        ],
+      });
+      const [, uploads] = secret.grantedTo(RunId.of('run_1'));
+
+      expect(uploads && secret.bindingFor(uploads)).toMatchObject({
+        host: 'uploads.linear.app',
+        header: 'x-api-key',
+        prefix: '',
+      });
+    });
+
+    it('honours no grant toward a host it is no longer bound to', () => {
+      const [grant] = kept({
+        bindings: [{ host: 'api.linear.app' }, { host: 'old.linear.app' }],
+      }).grantedTo(RunId.of('run_1'));
+      const rebound = kept({ bindings: [{ host: 'new.linear.app' }] });
+
+      expect(() => grant && rebound.bindingFor(grant)).toThrow(
+        SecretNotBoundError,
+      );
+    });
+
+    it('refuses a value it cannot wear in a header', () => {
+      expect(() => kept().wearable(SecretValue.of('one\ntwo'))).toThrow(
+        SecretUnwearableError,
+      );
+      expect(kept().wearable(SecretValue.of('one')).revealed()).toBe('one');
+    });
   });
 });

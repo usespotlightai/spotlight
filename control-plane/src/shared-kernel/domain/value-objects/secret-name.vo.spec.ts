@@ -21,6 +21,21 @@ describe('SecretName', () => {
     }
   });
 
+  it('is read from a reference to it, and from nothing else', () => {
+    expect(SecretName.referencedBy('secret.LINEAR_API_KEY')?.value).toBe(
+      'LINEAR_API_KEY',
+    );
+    for (const written of [
+      'LINEAR_API_KEY',
+      'secret.linear',
+      'secrets.LINEAR_API_KEY',
+      'secret.LINEAR_API_KEY trailing',
+      'Bearer secret.LINEAR_API_KEY',
+    ]) {
+      expect(SecretName.referencedBy(written)).toBeNull();
+    }
+  });
+
   it('refuses one longer than anybody would type', () => {
     expect(() => SecretName.of('A'.repeat(65))).toThrow(InvalidIdentifierError);
   });

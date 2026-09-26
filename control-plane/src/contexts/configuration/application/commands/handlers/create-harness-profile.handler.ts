@@ -1,7 +1,10 @@
 import type { CreateHarnessProfileCommand } from '@configuration/application/commands/create-harness-profile.command';
 import type { HarnessProfileCompilerPort } from '@configuration/application/ports/harness-profile-compiler.port';
+import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
+import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileAlreadyDefinedError } from '@configuration/domain/exceptions/harness-profile-already-defined.error';
+import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
@@ -31,6 +34,7 @@ export class CreateHarnessProfileHandler
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,
     private readonly compiler: HarnessProfileCompilerPort,
+    private readonly secrets: HeldSecretsPort,
     private readonly profiles: HarnessProfileRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
@@ -84,6 +88,7 @@ export class CreateHarnessProfileHandler
               id: HarnessProfileId.of(this.ids.generate()),
               teamId: team.id,
               by: Attribution.of(command.actor, team.workspaceId),
+              held: await this.secrets.held(team.id),
             });
 
             await this.profiles.save(defined);
@@ -92,6 +97,13 @@ export class CreateHarnessProfileHandler
           }),
         );
       } catch (error) {
+        if (error instanceof SecretsUnheldError) {
+          return {
+            outcome: 'invalid',
+            problems: HarnessProfileProblems.unheld(error.key, error.unheld),
+          };
+        }
+
         if (error instanceof HarnessProfileAlreadyDefinedError) {
           return {
             outcome: 'taken',

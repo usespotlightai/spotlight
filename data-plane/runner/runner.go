@@ -18,11 +18,16 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/harness"
 	"usespotlight.ai/data-plane/runner/internal/session"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
+	"usespotlight.ai/data-plane/runner/internal/trust"
 )
 
 const Usage = `  spotlight runner            do the one run or check this sandbox was started for`
 
 func Main(args []string, version string) int {
+	if err := trust.Install(protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
+		slog.Warn("could not trust the egress authority, so TLS through egress may fail", "error", err)
+	}
+
 	if len(args) == 2 && args[0] == "harnesses" {
 		if err := report(args[1], version, os.Stdout); err != nil {
 			fmt.Fprintln(os.Stderr, "spotlight runner:", err)

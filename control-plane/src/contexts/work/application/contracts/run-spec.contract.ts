@@ -248,6 +248,10 @@ const read = (raw: unknown): RunSpec => {
     attachmentOf,
   );
 
+  const wears = optionalListAt(given.wears, 'the secrets it wears', (each) =>
+    stringAt(each, 'the secrets it wears'),
+  );
+
   const diffs = given.diffs;
   const harnessSetup =
     given.harnessSetup === undefined
@@ -270,6 +274,7 @@ const read = (raw: unknown): RunSpec => {
           diffs: booleanAt(diffs, 'whether it reports the diff it leaves'),
         }),
     ...(harnessSetup ? { harnessSetup } : {}),
+    ...(wears ? { wears } : {}),
   });
 };
 

@@ -106,6 +106,7 @@ export type HeldResourceDto =
         readonly env: Readonly<Record<string, string>>;
       }[];
       readonly native: Readonly<Record<string, unknown>>;
+      readonly secretsWorn: readonly WornSecret[];
     });
 
 export interface HeldConfigurationDto {

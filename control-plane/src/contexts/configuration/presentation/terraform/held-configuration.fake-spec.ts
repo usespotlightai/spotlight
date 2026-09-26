@@ -365,10 +365,20 @@ export const HELD: HeldConfigurationDto = {
           name: 'linear',
           command: 'npx',
           args: ['-y', 'linear-mcp'],
-          env: { LINEAR_WORKSPACE: 'acme', LOG_LEVEL: 'debug' },
+          env: {
+            LINEAR_WORKSPACE: 'acme',
+            LINEAR_API_KEY: 'secret.LINEAR_SIGNING',
+            LOG_LEVEL: 'debug',
+          },
         },
       ],
       native: { 'claude-code': { includeCoAuthoredBy: false } },
+      secretsWorn: [
+        {
+          path: FieldPath.of([0, 'env', 'LINEAR_API_KEY']),
+          name: 'LINEAR_SIGNING',
+        },
+      ],
     },
     {
       kind: 'team',

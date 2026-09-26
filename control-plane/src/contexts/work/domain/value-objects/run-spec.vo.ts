@@ -79,6 +79,7 @@ export interface RunSpecParts {
   readonly attachments?: readonly RunAttachment[];
   readonly diffs?: boolean;
   readonly harnessSetup?: RunHarnessSetup;
+  readonly wears?: readonly string[];
 }
 
 const outside = (path: string): boolean =>
@@ -158,6 +159,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.harnessSetup
     ? { harnessSetup: setupCopied(parts.harnessSetup) }
     : {}),
+  ...(parts.wears?.length ? { wears: [...parts.wears] } : {}),
 });
 
 const samePart = (a: unknown, b: unknown): boolean => {
@@ -254,6 +256,10 @@ export class RunSpec {
         .map((each) => Tool.of(each))
         .find((each) => each.called === tool.called) ?? null
     );
+  }
+
+  get wears(): readonly string[] {
+    return this.parts.wears ?? [];
   }
 
   get checkoutSetups(): ReadonlyMap<string, string> {

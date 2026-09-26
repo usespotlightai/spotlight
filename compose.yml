@@ -166,6 +166,7 @@ services:
       SPOTLIGHT_TOKEN: ${DEV_POOL_TOKEN:-}
       SPOTLIGHT_CAPACITY: ${DEV_HOST_CAPACITY:-2}
       SPOTLIGHT_RUNNER_IMAGE: spotlight-runner:dev
+      SPOTLIGHT_EGRESS_IMAGE: spotlight-runner:dev
       SPOTLIGHT_SANDBOX_NETWORK: spotlight_default
       SPOTLIGHT_SANDBOX_PASS: ANTHROPIC_API_KEY,CLAUDE_CODE_OAUTH_TOKEN,OPENAI_API_KEY,CURSOR_API_KEY,SPOTLIGHT_GIT_AUTHOR_NAME,SPOTLIGHT_GIT_AUTHOR_EMAIL
       # Mirrors are bind-mounted into sandboxes by the engine, so they live at the same path on both sides.
