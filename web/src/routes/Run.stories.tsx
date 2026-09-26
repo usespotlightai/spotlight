@@ -19,7 +19,7 @@ const routes = (
 const at = runPath(SLUG, TEAM_ID, RUN_ID);
 
 const meta = {
-  title: 'Pages/Run',
+  title: 'Team/Runs/Run',
 } satisfies Meta;
 
 export default meta;

@@ -18,7 +18,7 @@ const routes = (
 );
 
 const meta = {
-  title: 'Pages/DefaultWorkspace',
+  title: 'Workspace/Default workspace',
 } satisfies Meta;
 
 export default meta;

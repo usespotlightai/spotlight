@@ -19,7 +19,7 @@ const routes = (
 const at = teamSectionPath(SLUG, TEAM_ID, 'observability');
 
 const meta = {
-  title: 'Pages/Team observability',
+  title: 'Team/Observability/Traces',
 } satisfies Meta;
 
 export default meta;

@@ -19,7 +19,7 @@ const routes = (
 const at = teamSectionPath(SLUG, TEAM_ID, 'agent');
 
 const meta = {
-  title: 'Pages/Team agent',
+  title: 'Team/Agent/Chats',
 } satisfies Meta;
 
 export default meta;

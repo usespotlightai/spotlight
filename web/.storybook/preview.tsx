@@ -8,6 +8,38 @@ sb.mock(import('../src/hooks/api/useSession.ts'));
 const preview: Preview = {
   parameters: {
     layout: 'fullscreen',
+    options: {
+      storySort: {
+        order: [
+          'Auth',
+          ['Log in', 'Accept invite'],
+          'Workspace',
+          [
+            'Shell',
+            'Default workspace',
+            'Create workspace',
+            'GitHub installed',
+            'Runners',
+          ],
+          'Inbox',
+          ['Items', 'Setup steps'],
+          'Team',
+          [
+            'Landing',
+            'Agent',
+            ['Chats', 'Chat'],
+            'Lines',
+            ['Board', 'Station', 'Task'],
+            'Runs',
+            ['All runs', 'Run', 'Change stack'],
+            'Observability',
+            ['Traces', 'Task trace'],
+            'Settings',
+            ['General', 'Integrations', 'Skills'],
+          ],
+        ],
+      },
+    },
   },
   beforeEach: () => {
     onlineManager.setOnline(false);

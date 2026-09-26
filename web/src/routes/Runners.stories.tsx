@@ -13,7 +13,7 @@ import { StoryPage } from '@/stories/StoryPage';
 const routes = <Route path="/w/:slug/runners" element={<Runners />} />;
 
 const meta = {
-  title: 'Pages/Runners',
+  title: 'Workspace/Runners',
 } satisfies Meta;
 
 export default meta;

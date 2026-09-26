@@ -18,7 +18,7 @@ const routes = (
 );
 
 const meta = {
-  title: 'Pages/Task',
+  title: 'Team/Lines/Task',
 } satisfies Meta;
 
 export default meta;

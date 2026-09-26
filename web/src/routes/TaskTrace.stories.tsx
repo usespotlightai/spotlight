@@ -21,7 +21,7 @@ const routes = (
 const at = taskTracePath(SLUG, TEAM_ID, TASK_ID);
 
 const meta = {
-  title: 'Pages/TaskTrace',
+  title: 'Team/Observability/Task trace',
 } satisfies Meta;
 
 export default meta;

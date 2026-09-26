@@ -28,7 +28,7 @@ const signedOut = () => {
 };
 
 const meta = {
-  title: 'Pages/AcceptInvite',
+  title: 'Auth/Accept invite',
 } satisfies Meta;
 
 export default meta;

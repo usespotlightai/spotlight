@@ -19,7 +19,7 @@ const routes = (
 const at = chatPath(SLUG, TEAM_ID, CHAT_ID);
 
 const meta = {
-  title: 'Pages/AgentChat',
+  title: 'Team/Agent/Chat',
 } satisfies Meta;
 
 export default meta;

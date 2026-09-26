@@ -16,7 +16,7 @@ const INSTALLED = `/github/installed?installation_id=${INSTALLATION_ID}&state=${
 const routes = <Route path="/github/installed" element={<GitHubInstalled />} />;
 
 const meta = {
-  title: 'Pages/GitHubInstalled',
+  title: 'Workspace/GitHub installed',
 } satisfies Meta;
 
 export default meta;
