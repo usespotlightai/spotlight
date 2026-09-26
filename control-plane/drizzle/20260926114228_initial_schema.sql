@@ -608,6 +608,7 @@ CREATE TABLE "chat_message" (
 	"at" timestamp NOT NULL,
 	"author_id" text,
 	"run_id" text,
+	"traces" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"proposal" jsonb,
 	"delivered_at" timestamp,
 	CONSTRAINT "chat_message_chat_id_position_pk" PRIMARY KEY("chat_id","position")

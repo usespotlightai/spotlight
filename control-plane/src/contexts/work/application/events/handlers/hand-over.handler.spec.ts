@@ -168,7 +168,6 @@ const lines = () =>
     holding: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-    withRole: vi.fn(async () => null),
   }) satisfies LineRepository;
 
 const dispatch: TaskDispatching = {

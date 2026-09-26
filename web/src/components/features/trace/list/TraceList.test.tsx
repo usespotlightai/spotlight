@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TraceList } from '@/components/features/trace/list/TraceList';
 import type { Traced } from '@/lib/trace-list';
@@ -17,10 +17,6 @@ vi.mock('@/hooks/api/useTeamTraces', () => ({
     isFetching: false,
     refetch,
   }),
-}));
-
-vi.mock('@/hooks/api/useAnalyseTraces', () => ({
-  useAnalyseTraces: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useLines', () => ({
@@ -51,10 +47,22 @@ const traced: Traced = {
   currency: 'USD',
 };
 
+function Handed() {
+  const { state } = useLocation();
+
+  return <pre>{JSON.stringify(state.traces)}</pre>;
+}
+
 const showing = () =>
   render(
-    <MemoryRouter>
-      <TraceList slug="acme" teamId="team_1" range="7d" />
+    <MemoryRouter initialEntries={['/w/acme/team/team_1/observability']}>
+      <Routes>
+        <Route
+          path="/w/acme/team/team_1/observability"
+          element={<TraceList slug="acme" teamId="team_1" range="7d" />}
+        />
+        <Route path="/w/acme/team/team_1/agent" element={<Handed />} />
+      </Routes>
     </MemoryRouter>,
   );
 
@@ -71,6 +79,23 @@ describe('TraceList', () => {
     expect(
       screen.getByRole('link', { name: 'Drain the stuck retry queues' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/observability/tasks/task_1');
+  });
+
+  it('takes the selected traces to a new chat with the agent', async () => {
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Select Drain the stuck retry queues',
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Discuss with the agent' }),
+    );
+
+    expect(JSON.parse(screen.getByText(/task_1/).textContent ?? '[]')).toEqual([
+      { taskId: 'task_1', title: 'Drain the stuck retry queues' },
+    ]);
   });
 
   it('holds the shape of a trace while they load, keeping the column names', () => {

@@ -17,22 +17,32 @@ import {
   reviewsBy,
   stationsPerLine,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
+import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import {
   line,
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async heldTaskOf(runId: RunId, runnerId: RunnerId): Promise<TaskId | null> {
+  async teamOfHeldRun(
+    runId: RunId,
+    runnerId: RunnerId,
+  ): Promise<TeamId | null> {
     const [row] = await this.db
-      .select({ taskId: run.taskId })
+      .select({
+        teamId: sql<string | null>`coalesce(${chat.teamId}, ${line.teamId})`,
+      })
       .from(run)
+      .leftJoin(chat, eq(chat.id, run.chatId))
+      .leftJoin(task, eq(task.id, run.taskId))
+      .leftJoin(station, eq(station.id, task.stationId))
+      .leftJoin(line, eq(line.id, station.lineId))
       .where(
         and(
           eq(run.id, runId.value),
@@ -42,7 +52,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       )
       .limit(1);
 
-    return row?.taskId ? TaskId.of(row.taskId) : null;
+    return row?.teamId ? TeamId.of(row.teamId) : null;
   }
 
   async teamOfTask(taskId: TaskId): Promise<TeamId | null> {

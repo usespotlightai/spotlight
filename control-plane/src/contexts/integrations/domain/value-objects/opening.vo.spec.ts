@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 describe('Opening', () => {
   it('keeps the role of the line a task opens onto, and the station it starts at', () => {
-    const opening = Opening.of({ onto: ' improvement ', at: 'triage' });
+    const opening = Opening.of({ onto: ' review ', at: 'triage' });
 
-    expect(opening.onto).toBe('improvement');
+    expect(opening.onto).toBe('review');
     expect(opening.at).toBe('triage');
   });
 

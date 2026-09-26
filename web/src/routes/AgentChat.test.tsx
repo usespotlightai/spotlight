@@ -84,6 +84,7 @@ const planning = (over: Record<string, unknown> = {}) => ({
       author: { id: 'user_1', name: 'Leon', image: null },
       runId: null,
       attachments: [],
+      traces: [{ taskId: 'task_9', title: 'Drain the stuck retry queues' }],
       proposal: null,
     },
   ],
@@ -184,6 +185,14 @@ describe('AgentChat', () => {
     expect(
       screen.getByRole('textbox', { name: 'Say something to the agent' }),
     ).toBeInTheDocument();
+  });
+
+  it('shows the traces shared with the agent, each leading to its trace', () => {
+    renderChat();
+
+    expect(
+      screen.getByRole('link', { name: /Drain the stuck retry queues/ }),
+    ).toHaveAttribute('href', '/w/acme/team/team_1/observability/tasks/task_9');
   });
 
   it('says nothing has been said yet in a chat without a word in it', () => {

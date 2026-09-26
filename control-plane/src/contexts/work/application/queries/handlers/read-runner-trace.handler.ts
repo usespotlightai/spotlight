@@ -22,19 +22,13 @@ export class ReadRunnerTraceHandler
 
   async execute(query: ReadRunnerTraceQuery): Promise<TaskTraceDto | null> {
     try {
-      const from = await this.traces.heldTaskOf(
-        RunId.of(query.runId),
-        RunnerId.of(query.runnerId),
-      );
-
-      if (!from) {
-        return null;
-      }
-
       const target = TaskId.of(query.taskId);
 
       const [mine, theirs] = await Promise.all([
-        this.traces.teamOfTask(from),
+        this.traces.teamOfHeldRun(
+          RunId.of(query.runId),
+          RunnerId.of(query.runnerId),
+        ),
         this.traces.teamOfTask(target),
       ]);
 

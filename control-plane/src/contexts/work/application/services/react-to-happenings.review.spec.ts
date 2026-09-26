@@ -172,7 +172,6 @@ const world = (input: {
     ),
     ofWorkspace: vi.fn(async () => input.lines),
     ofTeam: vi.fn(async () => input.lines),
-    withRole: vi.fn(async () => null),
   } satisfies LineRepository;
 
   const dispatch: TaskDispatching = {

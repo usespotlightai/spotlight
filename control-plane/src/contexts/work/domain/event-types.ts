@@ -98,6 +98,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
+import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
@@ -182,6 +183,7 @@ export const WORK_EVENT_TYPES = [
   ToolInputs,
   Tool,
   Trail,
+  TraceReference,
   Voice,
   WayOut,
   WorkspaceArchiveId,

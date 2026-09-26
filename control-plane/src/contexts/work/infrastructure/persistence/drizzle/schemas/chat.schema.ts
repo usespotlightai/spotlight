@@ -20,6 +20,12 @@ export interface ProposalRow {
   readonly settledAt: string | null;
 }
 
+export interface TraceRow {
+  readonly taskId: string;
+  readonly title: string;
+  readonly teamId: string;
+}
+
 export const chat = pgTable(
   'chat',
   {
@@ -63,6 +69,7 @@ export const chatMessage = pgTable(
     at: timestamp('at').notNull(),
     authorId: text('author_id'),
     runId: text('run_id'),
+    traces: jsonb('traces').$type<TraceRow[]>().notNull().default([]),
     proposal: jsonb('proposal').$type<ProposalRow>(),
     deliveredAt: timestamp('delivered_at'),
   },

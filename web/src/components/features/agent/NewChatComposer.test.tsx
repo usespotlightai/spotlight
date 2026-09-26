@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
+import type { SharedTrace } from '@/lib/chat';
 
 const started = vi.fn();
 const harnesses = vi.fn();
@@ -29,8 +30,17 @@ const CLAUDE = {
   discovery: [],
 };
 
-const showing = (onStarted = vi.fn()) => {
-  render(<NewChatComposer slug="acme" teamId="team_1" onStarted={onStarted} />);
+const RETRIES = { taskId: 'task_1', title: 'Drain the stuck retry queues' };
+
+const showing = (onStarted = vi.fn(), traces: readonly SharedTrace[] = []) => {
+  render(
+    <NewChatComposer
+      slug="acme"
+      teamId="team_1"
+      traces={traces}
+      onStarted={onStarted}
+    />,
+  );
 
   return { onStarted };
 };
@@ -58,6 +68,7 @@ describe('NewChatComposer', () => {
         repositories: [],
         body: 'Plan the retries',
         attachments: [],
+        traces: [],
       },
       expect.anything(),
     );
@@ -73,6 +84,36 @@ describe('NewChatComposer', () => {
 
     expect(onStarted).toHaveBeenCalledWith('chat_1');
     expect(box()).toHaveValue('');
+  });
+
+  it('shares the traces it was handed, and may start with nothing typed', async () => {
+    showing(vi.fn(), [RETRIES]);
+
+    expect(
+      screen.getByRole('list', { name: 'Traces to share' }),
+    ).toHaveTextContent('Drain the stuck retry queues');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(started).toHaveBeenCalledWith(
+      expect.objectContaining({ body: '', traces: ['task_1'] }),
+      expect.anything(),
+    );
+  });
+
+  it('lets a handed trace go before starting', async () => {
+    showing(vi.fn(), [RETRIES]);
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Remove the trace of Drain the stuck retry queues',
+      }),
+    );
+
+    expect(
+      screen.queryByRole('list', { name: 'Traces to share' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 
   it('shows which harness it will talk to', () => {

@@ -1,5 +1,5 @@
 import { MousePointer2 } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { ChatRow } from '@/components/features/agent/ChatRow';
 import { ChatRowSkeleton } from '@/components/features/agent/ChatRowSkeleton';
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
@@ -7,7 +7,7 @@ import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useChats } from '@/hooks/api/useChats';
-import { chatPath } from '@/lib/chat';
+import { chatPath, tracesHandedOver } from '@/lib/chat';
 import { failed, loading } from '@/lib/query';
 import { useForwardTrail } from '@/lib/trail';
 
@@ -21,6 +21,7 @@ type AgentChatsProps = {
 export function AgentChats({ slug, teamId }: AgentChatsProps) {
   const chats = useChats(teamId);
   const navigate = useNavigate();
+  const location = useLocation();
   const trail = useForwardTrail();
 
   const started = (chatId: string) =>
@@ -73,7 +74,13 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
       </div>
 
       <ComposerFooter>
-        <NewChatComposer slug={slug} teamId={teamId} onStarted={started} />
+        <NewChatComposer
+          key={location.key}
+          slug={slug}
+          teamId={teamId}
+          traces={tracesHandedOver(location.state)}
+          onStarted={started}
+        />
       </ComposerFooter>
     </div>
   );

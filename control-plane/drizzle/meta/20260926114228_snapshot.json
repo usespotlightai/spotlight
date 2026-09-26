@@ -1,5 +1,5 @@
 {
-  "id": "cbcb7ee1-9a9e-4f7e-8e71-9750af29939e",
+  "id": "f141283b-8118-4e2b-bd34-79490840b575",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -5136,6 +5136,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "traces": {
+          "name": "traces",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "proposal": {
           "name": "proposal",

@@ -1,7 +1,9 @@
 import { Attached } from '@work/application/rendering/attached';
+import { Traced } from '@work/application/rendering/traced';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { ChatMessage } from '@work/domain/entities/chat-message.entity';
+import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 
 const opening = (team: string | null): string =>
   [
@@ -77,7 +79,15 @@ const proposedSoFar = (chat: Chat, lines: readonly Line[]): string | null => {
 };
 
 const words = (message: ChatMessage): string =>
-  Attached.beside(message.body.value, message.attachments);
+  [
+    Attached.beside(message.body.value, message.attachments),
+    Traced.listed(message.traces),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+const tracing = (messages: readonly ChatMessage[]): boolean =>
+  messages.some((message) => message.traces.length > 0);
 
 export const ChatBriefing = {
   brief(input: {
@@ -95,13 +105,24 @@ export const ChatBriefing = {
       workspaceOf(input.chat),
       proposing,
       proposedSoFar(input.chat, input.lines),
+      tracing(said) ? Traced.reading : null,
       ['## What they said', ...said.map(words)].join('\n\n'),
     ]
       .filter(Boolean)
       .join('\n\n');
   },
 
-  followUp(chat: Chat): string {
-    return chat.undelivered.map(words).join('\n\n');
+  followUp(chat: Chat, handed: readonly MessagePosition[]): string {
+    const given = chat.messagesAt(handed);
+    const earlier = chat.messages.filter(
+      (message) =>
+        !given.includes(message) &&
+        given.some((each) => message.position.isAtOrBefore(each.position)),
+    );
+    const firstTraces = tracing(given) && !tracing(earlier);
+
+    return [firstTraces ? Traced.reading : null, ...given.map(words)]
+      .filter(Boolean)
+      .join('\n\n');
   },
 };

@@ -7,6 +7,7 @@ import type { SayInChatCommand } from '@work/application/commands/chat.commands'
 import type { ChatAtHand } from '@work/application/services/chat-at-hand.service';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 
@@ -17,6 +18,7 @@ export class SayInChatHandler
     private readonly held: ChatAtHand,
     private readonly chats: ChatRepository,
     private readonly files: FilesAtHand,
+    private readonly traces: TracesAtHand,
     private readonly dispatch: ChatDispatching,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -30,11 +32,13 @@ export class SayInChatHandler
           chat.workspaceId,
           command.attachments,
         );
+        const traces = await this.traces.shared(command.traces);
 
         const said = chat.said({
           by: UserId.of(command.saidBy),
-          body: ChatMessageBody.given(command.body, attachments),
+          body: ChatMessageBody.given(command.body, attachments, traces),
           attachments,
+          traces,
           at: this.clock.now(),
         });
 

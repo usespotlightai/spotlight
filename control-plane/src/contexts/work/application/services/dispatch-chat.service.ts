@@ -23,6 +23,7 @@ import {
   chatSetupOf,
 } from '@work/domain/services/chat-placement';
 import { CHAT_PRIORITY } from '@work/domain/services/chat-priority';
+import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 
@@ -48,7 +49,11 @@ export class DispatchChat implements ChatDispatching {
       : chat;
   }
 
-  async enqueue(chat: Chat, runId: RunId): Promise<boolean> {
+  async enqueue(
+    chat: Chat,
+    runId: RunId,
+    handed: readonly MessagePosition[],
+  ): Promise<boolean> {
     const command = this.launch.commandFor(chat.harness, {
       model: chat.model,
       effort: chat.effort,
@@ -69,7 +74,7 @@ export class DispatchChat implements ChatDispatching {
     }
 
     const briefing = continuity.sessionId
-      ? ChatBriefing.followUp(chat)
+      ? ChatBriefing.followUp(chat, handed)
       : await this.briefed(chat);
 
     const queued = Run.enqueue({

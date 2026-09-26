@@ -132,6 +132,8 @@ export function AgentChat() {
         <PageHeader title={<Breadcrumbs segments={trail} />} />
 
         <ChatThread
+          slug={slug}
+          teamId={teamId}
           chat={chat}
           journals={journals ?? []}
           openAt={openAt}

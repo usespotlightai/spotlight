@@ -112,6 +112,19 @@ export class ChatProposalResponseDto {
   }
 }
 
+export class ChatTraceResponseDto {
+  @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
+  readonly taskId: string;
+
+  @ApiProperty({ example: 'Retries back off exponentially' })
+  readonly title: string;
+
+  constructor(taskId: string, title: string) {
+    this.taskId = taskId;
+    this.title = title;
+  }
+}
+
 export class ChatMessageResponseDto {
   @ApiProperty({ example: 0 })
   readonly position: number;
@@ -138,6 +151,13 @@ export class ChatMessageResponseDto {
   @ApiProperty({ type: AttachmentResponseDto, isArray: true })
   readonly attachments: readonly AttachmentResponseDto[];
 
+  @ApiProperty({
+    type: ChatTraceResponseDto,
+    isArray: true,
+    description: 'Traces shared with the agent',
+  })
+  readonly traces: readonly ChatTraceResponseDto[];
+
   @ApiProperty({ type: ChatProposalResponseDto, nullable: true })
   readonly proposal: ChatProposalResponseDto | null;
 
@@ -149,6 +169,7 @@ export class ChatMessageResponseDto {
     author: InboxAuthorResponseDto | null,
     runId: string | null,
     attachments: readonly AttachmentResponseDto[],
+    traces: readonly ChatTraceResponseDto[],
     proposal: ChatProposalResponseDto | null,
   ) {
     this.position = position;
@@ -158,6 +179,7 @@ export class ChatMessageResponseDto {
     this.author = author;
     this.runId = runId;
     this.attachments = attachments;
+    this.traces = traces;
     this.proposal = proposal;
   }
 }

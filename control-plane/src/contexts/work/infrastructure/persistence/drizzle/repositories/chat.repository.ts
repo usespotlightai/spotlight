@@ -30,6 +30,7 @@ import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { claimAttachments } from '@work/infrastructure/persistence/drizzle/attachment-claims';
 import {
   chat,
@@ -94,6 +95,13 @@ const toMessage = (
       .filter((each) => each.messagePosition === row.position)
       .sort((a, b) => a.place - b.place)
       .map((each) => Attachment.rehydrate(each)),
+    traces: row.traces.map((each) =>
+      TraceReference.of({
+        taskId: TaskId.of(each.taskId),
+        title: TaskTitle.of(each.title),
+        teamId: TeamId.of(each.teamId),
+      }),
+    ),
     proposal: toProposal(row.proposal ?? null, position),
     deliveredAt: row.deliveredAt,
   });
@@ -231,6 +239,11 @@ export class DrizzleChatRepository implements ChatRepository {
           at: message.at,
           authorId: message.author?.value ?? null,
           runId: message.runId?.value ?? null,
+          traces: message.traces.map((each) => ({
+            taskId: each.taskId.value,
+            title: each.title.value,
+            teamId: each.teamId.value,
+          })),
           proposal,
           deliveredAt: message.deliveredAt,
         })

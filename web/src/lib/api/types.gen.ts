@@ -1183,13 +1183,6 @@ export type AddTaskRequestDto = {
   attachments?: Array<string>;
 };
 
-export type AnalyseTracesRequestDto = {
-  /**
-   * The tasks whose traces are to be analysed, one work item each
-   */
-  taskIds: Array<string>;
-};
-
 export type MoveTaskRequestDto = {
   /**
    * The station to move the task to, on the same line
@@ -1245,13 +1238,22 @@ export type StartChatRequestDto = {
    */
   repositories?: Array<string>;
   /**
-   * What opens the chat. May be empty where files are attached.
+   * What opens the chat. May be empty where files are attached or traces shared.
    */
   body: string;
   /**
    * Uploads to attach, by the id each was granted
    */
   attachments?: Array<string>;
+  /**
+   * Tasks whose traces to share with the agent, by task id
+   */
+  traces?: Array<string>;
+};
+
+export type ChatTraceResponseDto = {
+  taskId: string;
+  title: string;
 };
 
 export type ChatProposalResponseDto = {
@@ -1280,6 +1282,10 @@ export type ChatMessageResponseDto = {
    */
   runId: string | null;
   attachments: Array<AttachmentResponseDto>;
+  /**
+   * Traces shared with the agent
+   */
+  traces: Array<ChatTraceResponseDto>;
   proposal: ChatProposalResponseDto | null;
 };
 
@@ -1305,13 +1311,17 @@ export type ChatResponseDto = {
 
 export type SayInChatRequestDto = {
   /**
-   * May be empty where files are attached.
+   * May be empty where files are attached or traces shared.
    */
   body: string;
   /**
    * Uploads to attach, by the id each was granted
    */
   attachments?: Array<string>;
+  /**
+   * Tasks whose traces to share with the agent, by task id
+   */
+  traces?: Array<string>;
 };
 
 export type SetupStepResponseDto = {
@@ -4587,28 +4597,6 @@ export type AddTaskResponses = {
 };
 
 export type AddTaskResponse = AddTaskResponses[keyof AddTaskResponses];
-
-export type AnalyseTracesData = {
-  body: AnalyseTracesRequestDto;
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/traces/analysis';
-};
-
-export type AnalyseTracesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type AnalyseTracesResponses = {
-  201: Array<TaskResponseDto>;
-};
-
-export type AnalyseTracesResponse = AnalyseTracesResponses[keyof AnalyseTracesResponses];
 
 export type MoveTaskData = {
   body: MoveTaskRequestDto;

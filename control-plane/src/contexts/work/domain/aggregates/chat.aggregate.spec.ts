@@ -7,6 +7,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -14,6 +15,7 @@ import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
+import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -22,6 +24,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-14T09:00:00.000Z');
@@ -105,6 +108,69 @@ describe('Chat', () => {
     expect(chat.messages[0]?.body.value).toBe('Attached queue.png.');
   });
 
+  it('keeps each shared trace once, and names them where nothing was typed', () => {
+    const retries = TraceReference.of({
+      taskId: TaskId.of('task_1'),
+      title: TaskTitle.of('Retries back off'),
+      teamId: TeamId.of('team_1'),
+    });
+    const traces = [retries, retries];
+
+    const chat = Chat.start({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      startedBy: LEON,
+      harness: HarnessId.of('claude-code'),
+      body: ChatMessageBody.given('', [], [retries]),
+      traces,
+      now: NOW,
+      newId: () => 'chat_1',
+    });
+
+    expect(chat.messages[0]?.body.value).toBe(
+      'Shared the trace of Retries back off.',
+    );
+    expect(chat.messages[0]?.traces.map((each) => each.taskId.value)).toEqual([
+      'task_1',
+    ]);
+  });
+
+  it('shares no trace of another team, as if there were no such task', () => {
+    const elsewhere = TraceReference.of({
+      taskId: TaskId.of('task_9'),
+      title: TaskTitle.of('Their retries'),
+      teamId: TeamId.of('team_2'),
+    });
+
+    expect(() =>
+      started().said({
+        by: LEON,
+        body: ChatMessageBody.given('And this?'),
+        traces: [elsewhere],
+        at: LATER,
+      }),
+    ).toThrow(UnknownTaskError);
+  });
+
+  it('shares only so many traces at once', () => {
+    const many = Array.from({ length: 21 }, (_, at) =>
+      TraceReference.of({
+        taskId: TaskId.of(`task_${at}`),
+        title: TaskTitle.of('Retries'),
+        teamId: TeamId.of('team_1'),
+      }),
+    );
+
+    expect(() =>
+      started().said({
+        by: LEON,
+        body: ChatMessageBody.given('All of these'),
+        traces: many,
+        at: LATER,
+      }),
+    ).toThrow(InvalidChatMessageError);
+  });
+
   it('refuses to open with nothing at all', () => {
     expect(() => started('   ')).toThrow(InvalidChatMessageError);
   });
@@ -124,6 +190,25 @@ describe('Chat', () => {
 
     expect(chat.running).toBe(true);
     expect(chat.undelivered).toHaveLength(0);
+  });
+
+  it('says which of its messages it handed a run', () => {
+    const handed = working()
+      .endedRun(RunId.of('run_1'))
+      .said({ by: LEON, body: ChatMessageBody.of('And then?'), at: LATER })
+      .handedTo(RunId.of('run_2'), LATER);
+
+    const [event] = handed.pullEvents();
+
+    expect(event).toBeInstanceOf(ChatHandedToRun);
+    expect((event as ChatHandedToRun).handed.map((each) => each.value)).toEqual(
+      [1],
+    );
+    expect(
+      handed
+        .messagesAt((event as ChatHandedToRun).handed)
+        .map((each) => each.body.value),
+    ).toEqual(['And then?']);
   });
 
   it('will not be handed to a second run while one works it', () => {

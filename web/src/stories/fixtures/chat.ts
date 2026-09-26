@@ -41,6 +41,12 @@ const CHAT: ChatResponseDto = {
       author: { id: 'user_1', name: 'Sam Rivera', image: null },
       runId: null,
       attachments: [],
+      traces: [
+        {
+          taskId: 'task_retries',
+          title: 'Retry webhook deliveries that time out',
+        },
+      ],
       proposal: null,
     },
     {
@@ -51,6 +57,7 @@ const CHAT: ChatResponseDto = {
       author: null,
       runId: RUN_ID,
       attachments: [],
+      traces: [],
       proposal: {
         lineId: 'line_delivery',
         lineName: 'Delivery',

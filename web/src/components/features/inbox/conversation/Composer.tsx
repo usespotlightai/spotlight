@@ -21,6 +21,7 @@ type ComposerProps = {
   running?: boolean;
   onStop?: () => void;
   context?: ReactNode;
+  alongside?: { shown: ReactNode; count: number };
 };
 
 export function Composer({
@@ -32,17 +33,21 @@ export function Composer({
   running = false,
   onStop,
   context,
+  alongside,
 }: ComposerProps) {
   const [body, setBody] = useState('');
   const draft = useAttachments(slug);
 
   const said = body.trim();
-  const attaching = draft.attachments.length > 0;
+  const alongsideCount = alongside?.count ?? 0;
+  const attaching = draft.attachments.length > 0 || alongsideCount > 0;
 
   const showStop = running && Boolean(onStop) && said === '' && !attaching;
 
   const unsendable =
-    (!said && draft.ids.length === 0) || draft.uploading || pending;
+    (!said && draft.ids.length === 0 && alongsideCount === 0) ||
+    draft.uploading ||
+    pending;
 
   const action = showStop ? (
     <Button
@@ -117,6 +122,8 @@ export function Composer({
         onRemove={draft.remove}
         className="px-1 pt-1 pb-2"
       />
+
+      {alongside?.shown}
 
       <div className="flex items-end gap-2">
         {!context && attach}

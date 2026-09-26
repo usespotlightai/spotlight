@@ -6,26 +6,25 @@ import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trac
 import { describe, expect, it, vi } from 'vitest';
 
 const reading = (
-  over: { held?: null; teams?: Record<string, string | null> } = {},
+  over: { held?: string | null; teams?: Record<string, string | null> } = {},
 ) => {
   const runsForTask = vi.fn().mockResolvedValue([]);
   const journalsForTask = vi.fn().mockResolvedValue([]);
 
-  const teams = over.teams ?? { task_mine: 'team_1', task_theirs: 'team_1' };
+  const teams = over.teams ?? { task_theirs: 'team_1' };
   const teamOfTask = vi.fn(async (taskId: TaskId) => {
     const id = teams[taskId.value];
     return id ? TeamId.of(id) : null;
   });
 
-  const heldTaskOf = vi.fn(async () =>
-    over.held === null ? null : TaskId.of('task_mine'),
-  );
+  const held = over.held === undefined ? 'team_1' : over.held;
+  const teamOfHeldRun = vi.fn(async () => (held ? TeamId.of(held) : null));
 
   return {
     runsForTask,
     teamOfTask,
     handler: new ReadRunnerTraceHandler({
-      heldTaskOf,
+      teamOfHeldRun,
       teamOfTask,
       runsForTask,
       journalsForTask,
@@ -46,7 +45,7 @@ describe('ReadRunnerTraceHandler', () => {
 
   it('says nothing where the task is in another team', async () => {
     const { handler, runsForTask } = reading({
-      teams: { task_mine: 'team_1', task_theirs: 'team_2' },
+      teams: { task_theirs: 'team_2' },
     });
 
     expect(await handler.execute(query())).toBeNull();
@@ -54,9 +53,9 @@ describe('ReadRunnerTraceHandler', () => {
   });
 
   it('says nothing where the run is not the runner’s to read from', async () => {
-    const { handler, teamOfTask } = reading({ held: null });
+    const { handler, runsForTask } = reading({ held: null });
 
     expect(await handler.execute(query())).toBeNull();
-    expect(teamOfTask).not.toHaveBeenCalled();
+    expect(runsForTask).not.toHaveBeenCalled();
   });
 });

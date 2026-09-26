@@ -1,9 +1,7 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const TraceAccess = {
-  sameTeam(runsTeam: TeamId | null, tasksTeam: TeamId | null): boolean {
-    return (
-      runsTeam !== null && tasksTeam !== null && runsTeam.equals(tasksTeam)
-    );
+  sameTeam(reading: TeamId | null, traced: TeamId | null): boolean {
+    return reading !== null && traced !== null && reading.equals(traced);
   },
 };

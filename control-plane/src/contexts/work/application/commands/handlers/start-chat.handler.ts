@@ -14,6 +14,7 @@ import type { StartChatCommand } from '@work/application/commands/chat.commands'
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -27,6 +28,7 @@ export class StartChatHandler
     private readonly workspaces: WorkspaceReaderPort,
     private readonly chats: ChatRepository,
     private readonly files: FilesAtHand,
+    private readonly traces: TracesAtHand,
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
     private readonly ids: IdGeneratorPort,
@@ -53,23 +55,26 @@ export class StartChatHandler
       }
 
       const workspaceId = WorkspaceId.of(member.workspaceId);
+      const teamId = TeamId.of(member.teamId);
 
       const started = await this.transaction.run(async () => {
         const attachments = await this.files.handedOver(
           workspaceId,
           command.attachments,
         );
+        const traces = await this.traces.shared(command.traces);
 
         const chat = Chat.start({
           workspaceId,
-          teamId: TeamId.of(member.teamId),
+          teamId,
           startedBy,
           harness: HarnessId.of(command.harness),
           model: command.model ? HarnessModel.of(command.model) : null,
           effort: command.effort ? Effort.of(command.effort) : null,
           repositories: command.repositories.map((each) => Repository.of(each)),
-          body: ChatMessageBody.given(command.body, attachments),
+          body: ChatMessageBody.given(command.body, attachments, traces),
           attachments,
+          traces,
           now: this.clock.now(),
           newId: () => this.ids.generate(),
         });

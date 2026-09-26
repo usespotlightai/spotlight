@@ -158,7 +158,6 @@ const lines = () =>
     holding: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-    withRole: vi.fn(async () => null),
   }) satisfies LineRepository;
 
 const dispatch: TaskDispatching = {
@@ -649,7 +648,6 @@ describe('ReactToHappenings', () => {
       holding: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-      withRole: vi.fn(async () => null),
     } satisfies LineRepository;
 
     const filed: Happened = {
@@ -730,7 +728,6 @@ describe('ReactToHappenings', () => {
       holding: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-      withRole: vi.fn(async () => null),
     } satisfies LineRepository;
 
     const byEmail = vi.fn(async () => UserId.of('user_9'));
@@ -810,7 +807,6 @@ describe('ReactToHappenings', () => {
       holding: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-      withRole: vi.fn(async () => null),
     } satisfies LineRepository;
 
     const filed: Happened = {
@@ -897,7 +893,6 @@ describe('ReactToHappenings', () => {
       holding: vi.fn(async () => first),
       ofWorkspace: vi.fn(async () => [second, first]),
       ofTeam: vi.fn(async () => []),
-      withRole: vi.fn(async () => null),
     } satisfies LineRepository;
 
     const filed: Happened = {

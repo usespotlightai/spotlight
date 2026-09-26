@@ -244,8 +244,8 @@ describe('CreateLineHandler', () => {
     const refused = await creating({
       refusing: new LineRoleTakenError({
         line: LineKey.of('delivery'),
-        role: LineRole.IMPROVEMENT,
-        others: [LineKey.of('factory')],
+        role: LineRole.REVIEW,
+        others: [LineKey.of('review')],
       }),
     }).create(DELIVERY);
 
