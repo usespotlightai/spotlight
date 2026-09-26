@@ -24,7 +24,7 @@ const routes = (
 const at = changeStackPath(SLUG, TEAM_ID, RUN_ID);
 
 const meta = {
-  title: 'Pages/Run change stack',
+  title: 'Team/Runs/Change stack',
 } satisfies Meta;
 
 export default meta;

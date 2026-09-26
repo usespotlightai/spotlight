@@ -23,7 +23,7 @@ const routes = (
 );
 
 const meta = {
-  title: 'Pages/TeamIndex',
+  title: 'Team/Landing',
 } satisfies Meta;
 
 export default meta;

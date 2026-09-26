@@ -9,7 +9,7 @@ const AT = '/workspaces/new';
 const routes = <Route path={AT} element={<CreateWorkspace />} />;
 
 const meta = {
-  title: 'Pages/CreateWorkspace',
+  title: 'Workspace/Create workspace',
 } satisfies Meta;
 
 export default meta;

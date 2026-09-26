@@ -20,7 +20,7 @@ const routes = (
 );
 
 const meta = {
-  title: 'Pages/TeamIntegrations',
+  title: 'Team/Settings/Integrations',
 } satisfies Meta;
 
 export default meta;

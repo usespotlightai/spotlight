@@ -7,7 +7,7 @@ import { StoryShell } from '@/stories/StoryShell';
 const routes = <Route path="/login" element={<Login />} />;
 
 const meta = {
-  title: 'Pages/Login',
+  title: 'Auth/Log in',
 } satisfies Meta;
 
 export default meta;

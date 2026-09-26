@@ -21,7 +21,7 @@ const routes = (
 );
 
 const meta = {
-  title: 'Pages/TeamGeneral',
+  title: 'Team/Settings/General',
 } satisfies Meta;
 
 export default meta;

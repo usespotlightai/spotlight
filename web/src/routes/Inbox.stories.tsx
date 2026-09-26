@@ -25,7 +25,7 @@ const routes = (
 );
 
 const meta = {
-  title: 'Pages/Inbox',
+  title: 'Inbox/Items',
 } satisfies Meta;
 
 export default meta;

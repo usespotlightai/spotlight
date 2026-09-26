@@ -20,7 +20,7 @@ const routes = (
 const at = linePath(SLUG, TEAM_ID, LINE_ID);
 
 const meta = {
-  title: 'Pages/LineBoard',
+  title: 'Team/Lines/Board',
 } satisfies Meta;
 
 export default meta;

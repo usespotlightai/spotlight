@@ -21,7 +21,7 @@ const routes = (
 );
 
 const meta = {
-  title: 'Pages/Station',
+  title: 'Team/Lines/Station',
 } satisfies Meta;
 
 export default meta;

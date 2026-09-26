@@ -49,7 +49,7 @@ function Showing({
 }
 
 const meta = {
-  title: 'Onboarding/Setup steps',
+  title: 'Inbox/Setup steps',
 } satisfies Meta;
 
 export default meta;

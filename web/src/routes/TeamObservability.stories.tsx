@@ -3,11 +3,11 @@ import { Route } from 'react-router';
 import { teamSectionPath } from '@/lib/team';
 import { TeamSection } from '@/routes/TeamSection';
 import {
-  emptyChats,
-  failChats,
+  emptyTraces,
+  failTraces,
   SLUG,
-  seedChats,
   seedTeam,
+  seedTraces,
   TEAM_ID,
 } from '@/stories/fixtures/team-section';
 import { StoryPage } from '@/stories/StoryPage';
@@ -16,10 +16,10 @@ const routes = (
   <Route path="/w/:slug/team/:teamId/:section" element={<TeamSection />} />
 );
 
-const at = teamSectionPath(SLUG, TEAM_ID, 'agent');
+const at = teamSectionPath(SLUG, TEAM_ID, 'observability');
 
 const meta = {
-  title: 'Pages/Team agent',
+  title: 'Team/Observability/Traces',
 } satisfies Meta;
 
 export default meta;
@@ -36,7 +36,7 @@ export const Loading: Story = {
 
 export const Empty: Story = {
   render: () => (
-    <StoryPage at={at} seed={emptyChats}>
+    <StoryPage at={at} seed={emptyTraces}>
       {routes}
     </StoryPage>
   ),
@@ -45,29 +45,7 @@ export const Empty: Story = {
 export const Failed: Story = {
   name: 'Error',
   render: () => (
-    <StoryPage at={at} seed={failChats}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const SharingTraces: Story = {
-  render: () => (
-    <StoryPage
-      at={{
-        pathname: at,
-        state: {
-          traces: [
-            {
-              taskId: 'task_retries',
-              title: 'Retry webhook deliveries that time out',
-            },
-            { taskId: 'task_checks', title: 'Keep checks green on main' },
-          ],
-        },
-      }}
-      seed={seedChats}
-    >
+    <StoryPage at={at} seed={failTraces}>
       {routes}
     </StoryPage>
   ),
@@ -75,7 +53,7 @@ export const SharingTraces: Story = {
 
 export const WithData: Story = {
   render: () => (
-    <StoryPage at={at} seed={seedChats}>
+    <StoryPage at={at} seed={seedTraces}>
       {routes}
     </StoryPage>
   ),
