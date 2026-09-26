@@ -1,4 +1,5 @@
 import {
+  HOOK_CALLED,
   type JournalStep,
   PROVISION_FAILED,
   type RunMarks,
@@ -112,6 +113,34 @@ const written = (raw: unknown): string | null => {
   }
 };
 
+interface HookCalled {
+  readonly hook?: string;
+  readonly step?: string;
+  readonly target?: string;
+  readonly request?: unknown;
+  readonly response?: unknown;
+  readonly failed?: boolean;
+  readonly startedAt?: string;
+  readonly ms?: number;
+}
+
+const startedAt = (called: HookCalled, fallback: Date): Date => {
+  const at = called.startedAt ? new Date(called.startedAt) : fallback;
+
+  return Number.isNaN(at.getTime()) ? fallback : at;
+};
+
+const inPlace = (
+  steps: readonly JournalStep[],
+  step: JournalStep,
+): JournalStep[] => {
+  const at = steps.findIndex((each) => each.startedAt > step.startedAt);
+
+  return at === -1
+    ? [...steps, step]
+    : [...steps.slice(0, at), step, ...steps.slice(at)];
+};
+
 const planned = (entries: NonNullable<Spoken['update']>['entries']): string =>
   (entries ?? [])
     .map((each) => {
@@ -151,6 +180,7 @@ const bare = (kind: StepKind, text: string, at: Date): Building => ({
 
 export class Told {
   #steps: Building[] = [];
+  #hooks: JournalStep[] = [];
   #tools = new Map<string, number>();
   #saying: Building | null = null;
   #spent: RunSpent | null = null;
@@ -167,6 +197,11 @@ export class Told {
   }
 
   take(event: Journalled): void {
+    if (event.type === HOOK_CALLED) {
+      this.hookCalled(event);
+      return;
+    }
+
     this.#opened = this.#opened ?? event.at;
     this.#closed = event.at;
 
@@ -255,6 +290,33 @@ export class Told {
     this.#steps.push(step);
   }
 
+  private hookCalled(event: Journalled): void {
+    if (!this.#closed || event.at > this.#closed) {
+      this.#closed = event.at;
+    }
+
+    let called: HookCalled;
+    try {
+      called = JSON.parse(decoded(event.data ?? '')) as HookCalled;
+    } catch {
+      return;
+    }
+
+    this.#hooks.push({
+      kind: 'hook',
+      text: `Hook ${called.hook ?? 'a hook'} · ${called.step ?? 'a step'} → ${called.target ?? 'somewhere'}`,
+      status: called.failed ? 'failed' : 'ok',
+      tool: called.target ?? null,
+      detail: null,
+      ms: typeof called.ms === 'number' ? called.ms : 0,
+      startedAt: startedAt(called, event.at),
+      locations: [],
+      given: written(called.request),
+      returned: written(called.response),
+      change: null,
+    });
+  }
+
   private failedToProvision(event: Journalled): void {
     this.settle();
 
@@ -270,11 +332,14 @@ export class Told {
   steps(): JournalStep[] {
     this.settle();
 
-    return this.#steps.map(({ startedAt, endedAt, ...step }) => ({
-      ...step,
-      ms: endedAt.getTime() - startedAt.getTime(),
-      startedAt,
-    }));
+    return this.#hooks.reduce(
+      inPlace,
+      this.#steps.map(({ startedAt, endedAt, ...step }) => ({
+        ...step,
+        ms: endedAt.getTime() - startedAt.getTime(),
+        startedAt,
+      })),
+    );
   }
 
   ms(): number | null {

@@ -234,6 +234,32 @@ describe('Runners', () => {
     });
   });
 
+  describe('saying whether a host reports through a way in', () => {
+    it('says so for a host that reported through that pool', async () => {
+      await expect(
+        running(aPullPool()).service.reports(THROUGH_POOL, HOST),
+      ).resolves.toBe(true);
+    });
+
+    it('says not for a host that never reported, or through another way in', async () => {
+      await expect(
+        running(aPullPool(), { host: null }).service.reports(
+          THROUGH_POOL,
+          HOST,
+        ),
+      ).resolves.toBe(false);
+      await expect(
+        running(aPullPool()).service.reports(THROUGH_TRUST, HOST),
+      ).resolves.toBe(false);
+    });
+
+    it('says not for a name no host could have', async () => {
+      await expect(
+        running(aPullPool()).service.reports(THROUGH_POOL, 'x'),
+      ).resolves.toBe(false);
+    });
+  });
+
   describe('starting a runner through a trust', () => {
     it('starts one under the trust’s labels, answering its one-run token once', async () => {
       const { service, added } = running(null, {

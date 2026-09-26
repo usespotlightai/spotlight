@@ -3,6 +3,12 @@ import type { StepKind } from '@work/domain/value-objects/step-kind';
 
 export const PROVISION_FAILED = 'provision.failed';
 
+export const HOOK_CALLED = 'hook.called';
+
+export const ASIDE_SEQ = -1_000_000;
+
+export const isAside = (seq: number): boolean => seq <= ASIDE_SEQ;
+
 export interface StepLocation {
   readonly path: string;
   readonly line: number | null;

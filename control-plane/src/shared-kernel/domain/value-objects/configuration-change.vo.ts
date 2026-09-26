@@ -7,6 +7,7 @@ export const CONFIGURED_RESOURCES = [
   'skill',
   'harness-profile',
   'integration',
+  'hook',
   'secret',
   'workspace-token',
   'workspace-token-trust',

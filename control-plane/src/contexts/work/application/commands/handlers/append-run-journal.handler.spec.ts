@@ -38,6 +38,7 @@ const journalling = () => {
     {
       append: async (attempt, entries) =>
         void appended.push({ attempt, entries }),
+      appendAside: async () => -1_000_000,
     },
     { publish: (runId: string) => void published.push(runId) } as never,
   );

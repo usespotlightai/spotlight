@@ -16,6 +16,10 @@ import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { ClaimedCheck } from '@work/application/ports/check-work.port';
 import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
+import type {
+  RunStart,
+  RunStartHooks,
+} from '@work/application/services/run-start-hooks.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -72,8 +76,12 @@ const claiming = (
     seen?: SeenRunner | null;
     reservedFor?: Run | null;
     reservedCheck?: ClaimedCheck | null;
+    starts?: RunStart;
   } = {},
 ) => {
+  const mayStart = vi.fn(
+    async (): Promise<RunStart> => over.starts ?? 'starts',
+  );
   const claimReserved = vi.fn(
     async (): Promise<ClaimedCheck | null> => over.reservedCheck ?? null,
   );
@@ -107,9 +115,11 @@ const claiming = (
     },
     pooled as unknown as RunnersPort,
     { failed } as unknown as ProvisionFailures,
+    { mayStart } as unknown as RunStartHooks,
   );
 
   return {
+    mayStart,
     execute: (command: ClaimRunCommand) => handler.execute(command),
     pooled,
     failed,
@@ -284,5 +294,30 @@ describe('ClaimRunHandler', () => {
         NOW,
       );
     });
+  });
+
+  it('hands over no run a hook refused to start', async () => {
+    const handler = claiming(undefined, undefined, { starts: 'refused' });
+
+    expect(await handler.execute(new ClaimRunCommand('runner_1'))).toBeNull();
+    expect(handler.mayStart).toHaveBeenCalledWith(
+      expect.objectContaining({ id: RunId.of('run_1') }),
+      RunnerId.of('runner_1'),
+      new Date(NOW.getTime() + 10_000),
+    );
+    expect(handler.pooled.took).not.toHaveBeenCalled();
+  });
+
+  it('stops polling at once, taking up no check, when a run had to be handed back', async () => {
+    const claimNext = vi.fn(async (): Promise<Run | null> => queued());
+    const handler = claiming(claimNext, undefined, {
+      starts: 'handed-back',
+      reservedCheck: aCheck,
+    });
+
+    expect(await handler.execute(new ClaimRunCommand('runner_1'))).toBeNull();
+    expect(claimNext).toHaveBeenCalledTimes(1);
+    expect(handler.claimReserved).not.toHaveBeenCalled();
+    expect(handler.pooled.took).not.toHaveBeenCalled();
   });
 });

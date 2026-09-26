@@ -6,6 +6,7 @@ import type {
   CheckedExpression,
   ExpressionChecksPort,
 } from '@integrations/application/ports/expression-checks.port';
+import { HookExpressionChecks } from '@integrations/infrastructure/hooks/hook-expression-checks';
 import {
   definitionAt,
   EXPRESSION_POSITIONS,
@@ -63,17 +64,25 @@ type Found =
 export class ExpressionChecks implements ExpressionChecksPort {
   private readonly remembered = new Map<string, Compiled>();
 
-  constructor(private readonly expressions: ExpressionEnginePort) {}
+  private readonly hooks: HookExpressionChecks;
+
+  constructor(private readonly expressions: ExpressionEnginePort) {
+    this.hooks = new HookExpressionChecks(expressions);
+  }
 
   check(
     position: FieldPath,
     expression: string,
     definition: unknown,
   ): CheckedExpression {
+    if (this.hooks.concerns(position)) {
+      return this.hooks.check(position, expression, definition);
+    }
+
     const within = definitionAt(position);
 
     if (!within || within.isRoot) {
-      return { outcome: 'not-an-integration' };
+      return { outcome: 'no-such-resource' };
     }
 
     const found = this.placeOf(within, definition);
@@ -98,7 +107,7 @@ export class ExpressionChecks implements ExpressionChecksPort {
   }
 
   positions(): readonly ExpressionPositionDto[] {
-    return POSITIONS;
+    return [...POSITIONS, ...this.hooks.positions()];
   }
 
   private placeOf(target: FieldPath, definition: unknown): Found {

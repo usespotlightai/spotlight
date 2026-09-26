@@ -1,3 +1,4 @@
+import { isAside } from '@work/application/contracts/run-journal.contract';
 import type { RunEventView } from '@work/application/ports/run-stream.port';
 
 const counted = (raw: string | undefined): number | null => {
@@ -21,12 +22,13 @@ export const cursorOf = (
   return at === attempt ? { attempt, seq } : { attempt, seq: 0 };
 };
 
-export const eventIdOf = (event: RunEventView): string =>
-  `${event.attempt}:${event.seq}`;
+export const eventIdOf = (event: RunEventView): string | undefined =>
+  isAside(event.seq) ? undefined : `${event.attempt}:${event.seq}`;
 
 export class StreamMark {
   private attempt: number;
   private sent: number;
+  private readonly sentAside = new Set<number>();
 
   constructor(from: StreamCursor) {
     this.attempt = from.attempt;
@@ -41,6 +43,16 @@ export class StreamMark {
     if (event.attempt > this.attempt) {
       this.attempt = event.attempt;
       this.sent = 0;
+      this.sentAside.clear();
+    }
+
+    if (isAside(event.seq)) {
+      if (this.sentAside.has(event.seq)) {
+        return false;
+      }
+
+      this.sentAside.add(event.seq);
+      return true;
     }
 
     if (event.seq <= this.sent) {

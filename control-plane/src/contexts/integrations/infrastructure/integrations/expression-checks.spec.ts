@@ -293,8 +293,8 @@ describe('a position that names no expression', () => {
   });
 
   it('is refused where it is not an integration’s', () => {
-    expect(outcomeOf('line.stations[0].check')).toBe('not-an-integration');
-    expect(outcomeOf('integration')).toBe('not-an-integration');
+    expect(outcomeOf('line.stations[0].check')).toBe('no-such-resource');
+    expect(outcomeOf('integration')).toBe('no-such-resource');
   });
 });
 

@@ -13,6 +13,7 @@ import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -389,6 +390,129 @@ describe('Run', () => {
 
     it('cannot be refused once a runner holds it', () => {
       expect(() => claimed().refused(LAPSED)).toThrow(
+        InvalidRunTransitionError,
+      );
+    });
+  });
+
+  describe('being handed back before it starts', () => {
+    const DOWN = 'connect ECONNREFUSED';
+    const laterBy = (ms: number) => new Date(noon.getTime() + ms);
+
+    it('waits to be claimed again without spending an attempt', () => {
+      const back = claimed().handedBack(runner(), noon, DOWN);
+
+      expect(back.state).toBe('queued');
+      expect(back.claimedBy).toBeNull();
+      expect(back.leaseExpiresAt).toBeNull();
+      expect(back.attempt).toBe(1);
+      expect(back.pullEvents()).toEqual([]);
+    });
+
+    it('is not claimed again until its back-off has passed', () => {
+      const back = claimed().handedBack(runner(), noon, DOWN);
+
+      expect(back.claimableAt(laterBy(4_999))).toBe(false);
+      expect(back.provisionableAt(laterBy(4_999))).toBe(false);
+      expect(back.claimableAt(laterBy(5_000))).toBe(true);
+      expect(back.provisionableAt(laterBy(5_000))).toBe(true);
+      expect(back.claim(runner('runner_2'), laterBy(5_000)).state).toBe(
+        'claimed',
+      );
+    });
+
+    it('waits twice as long each time it is handed back, never more than two minutes', () => {
+      let run = claimed();
+      const waits: number[] = [];
+
+      for (let each = 0; each < 5; each++) {
+        run = run.handedBack(runner(), noon, DOWN);
+        waits.push(
+          (run.handBacks.claimableFrom?.getTime() ?? 0) - noon.getTime(),
+        );
+        run = run.claim(runner(), noon);
+      }
+
+      expect(waits).toEqual([5_000, 10_000, 20_000, 40_000, 80_000]);
+      expect(
+        HandBacks.rehydrate(9, null).handedBackAt(noon).claimableFrom,
+      ).toEqual(laterBy(120_000));
+    });
+
+    it('ends failed, saying its hooks could not be asked, the sixth time it is handed back', () => {
+      let run = claimed();
+
+      for (let each = 0; each < 5; each++) {
+        run = run.handedBack(runner(), noon, DOWN).claim(runner(), noon);
+      }
+      run.pullEvents();
+
+      const ended = run.handedBack(runner(), noon, DOWN);
+
+      expect(ended.state).toBe('failed');
+      expect(ended.outcome?.message).toBe(
+        `Its hooks could not be asked after 6 tries: ${DOWN}`,
+      );
+      expect(ended.pullEvents()[0]).toBeInstanceOf(RunCompleted);
+    });
+
+    it('ends stopped, not queued, when a stop was asked for while its hooks were asked', () => {
+      const stopping = claimed().requestStop(noon);
+      stopping.pullEvents();
+
+      const ended = stopping.handedBack(runner(), noon, DOWN);
+
+      expect(ended.state).toBe('completed');
+      expect(ended.outcome?.stopped).toBe(true);
+      expect(ended.claimedBy).toBeNull();
+      const [completed] = ended.pullEvents();
+      expect(completed).toBeInstanceOf(RunCompleted);
+      expect((completed as RunCompleted).outcome.stopped).toBe(true);
+    });
+
+    it('starts counting afresh on a later attempt', () => {
+      const back = claimed()
+        .handedBack(runner(), noon, DOWN)
+        .claim(runner(), laterBy(5_000));
+
+      expect(back.release().handBacks.count).toBe(0);
+    });
+
+    it('is handed back only by the runner that claimed it', () => {
+      expect(() =>
+        claimed().handedBack(runner('runner_2'), noon, DOWN),
+      ).toThrow(InvalidRunTransitionError);
+      expect(() => queued().handedBack(runner(), noon, DOWN)).toThrow(
+        InvalidRunTransitionError,
+      );
+    });
+  });
+
+  describe('being refused to start by a hook', () => {
+    const REASON = 'The hook core/freeze refused: deploys are frozen.';
+
+    it('ends failed with the hook’s reason, worked by nobody', () => {
+      const refused = claimed().refusedToStart(runner(), REASON);
+
+      expect(refused.state).toBe('failed');
+      expect(refused.outcome?.message).toBe(REASON);
+      expect(refused.claimedBy).toBeNull();
+      expect(refused.wasWorkedBy(runner())).toBe(false);
+
+      const [completed] = refused.pullEvents();
+      expect(completed).toBeInstanceOf(RunCompleted);
+      expect((completed as RunCompleted).outcome.failed).toBe(true);
+      expect((completed as RunCompleted).workedBy).toBeNull();
+    });
+
+    it('is refused only by the runner that claimed it', () => {
+      expect(() =>
+        claimed().refusedToStart(runner('runner_2'), REASON),
+      ).toThrow(InvalidRunTransitionError);
+    });
+
+    it('cannot be refused before a runner claims it', () => {
+      expect(() => queued().refusedToStart(runner(), REASON)).toThrow(
         InvalidRunTransitionError,
       );
     });

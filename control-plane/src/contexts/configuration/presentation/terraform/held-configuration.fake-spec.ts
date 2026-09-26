@@ -375,6 +375,75 @@ export const HELD: HeldConfigurationDto = {
       ],
     },
     {
+      kind: 'hook',
+      heldBy: 'team',
+      id: 'hook_linear_comments',
+      address: 'core/linear-comments',
+      teamKey: 'core',
+      key: 'linear-comments',
+      on: 'tool.using',
+      match: {
+        tools: ['linear.comment'],
+        lines: [],
+        stations: ['implementation'],
+        repositories: [],
+        paths: [],
+      },
+      when: "event.inputs.body != ''",
+      vars: { channel: 'C024BE91L' },
+      steps: [
+        {
+          name: 'notify',
+          call: 'linear.comment',
+          with: {
+            // biome-ignore lint/suspicious/noTemplateCurlyInString: a hook expression
+            body: 'Agent commented: ${{ event.inputs.body }}',
+          },
+        },
+        {
+          name: 'audit',
+          request: {
+            url: 'https://audit.acme.dev/events',
+            headers: { 'x-team': 'core' },
+            // biome-ignore lint/suspicious/noTemplateCurlyInString: a hook expression
+            body: { tool: '${{ event.tool }}' },
+            from: 'network',
+          },
+        },
+      ],
+      signing: { secretVersion: 2 },
+      failure: 'block',
+      timeoutSeconds: 20,
+    },
+    {
+      kind: 'hook',
+      heldBy: 'team',
+      id: 'hook_merged',
+      address: 'core/merged',
+      teamKey: 'core',
+      key: 'merged',
+      on: 'pull-request.merged',
+      match: {
+        tools: [],
+        lines: [],
+        stations: [],
+        repositories: [],
+        paths: [],
+      },
+      when: null,
+      vars: {},
+      steps: [
+        {
+          name: 'tell',
+          call: 'linear.comment',
+          with: { body: 'A pull request merged' },
+        },
+      ],
+      signing: null,
+      failure: 'continue',
+      timeoutSeconds: 10,
+    },
+    {
       kind: 'harness-profile',
       heldBy: 'team',
       id: 'profile_careful',

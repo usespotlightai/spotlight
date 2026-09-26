@@ -2,6 +2,10 @@ import type {
   HarnessProfileResourcesPort,
   KeptProfile,
 } from '@configuration/application/ports/harness-profile-resources.port';
+import type {
+  HeldHook,
+  HeldHooksPort,
+} from '@configuration/application/ports/held-hooks.port';
 import type { HeldIntegrationsPort } from '@configuration/application/ports/held-integrations.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import { ResourceConfigurationHandler } from '@configuration/application/queries/handlers/resource-configuration.handler';
@@ -207,6 +211,28 @@ const handlers = (over: { cleared?: boolean } = {}) => {
           : [],
     ),
   } satisfies HeldIntegrationsPort;
+  const hookOf = (id: string, team: TeamProfile, key: string): HeldHook => ({
+    id,
+    address: `${team.key}/${key}`,
+    teamId: team.id,
+    key,
+    on: 'tool.used',
+    match: { tools: [], lines: [], stations: [], repositories: [], paths: [] },
+    when: null,
+    vars: {},
+    steps: [],
+    signing: null,
+    failure: 'continue',
+    timeoutSeconds: 10,
+  });
+  const hooks = {
+    withId: vi.fn(async (id: string) =>
+      id === 'hook_audit' ? hookOf(id, CORE, 'audit') : null,
+    ),
+    ofTeam: vi.fn(async (teamId: TeamId) =>
+      teamId.equals(CORE.id) ? [hookOf('hook_audit', CORE, 'audit')] : [],
+    ),
+  } satisfies HeldHooksPort;
   const profileOf = (id: string, key: string): KeptProfile => ({
     id,
     version: 1,
@@ -273,6 +299,7 @@ const handlers = (over: { cleared?: boolean } = {}) => {
     lines,
     skills,
     integrations,
+    hooks,
     profiles,
     profileViews,
     secrets,
@@ -290,6 +317,7 @@ const handlers = (over: { cleared?: boolean } = {}) => {
       lines,
       skills,
       integrations,
+      hooks,
       profiles,
       secrets,
       runners,
@@ -326,6 +354,7 @@ describe('WorkspaceConfigurationHandler', () => {
         'line core/triage',
         'integration core/linear',
         'integration core/slack',
+        'hook core/audit',
         'harness-profile core/careful',
         'harness-profile core/quick',
         'team ops',
@@ -366,6 +395,7 @@ describe('ResourceConfigurationHandler', () => {
     ['team', 'team_ops', 'ops'],
     ['line', 'line_delivery', 'core/delivery'],
     ['integration', 'integration_linear', 'ops/linear'],
+    ['hook', 'hook_audit', 'core/audit'],
     ['harness-profile', 'profile_careful', 'core/careful'],
     ['secret', 'secret_1', 'LINEAR_API_KEY'],
     ['workspace-token-trust', 'token_trust_1', 'github-main'],

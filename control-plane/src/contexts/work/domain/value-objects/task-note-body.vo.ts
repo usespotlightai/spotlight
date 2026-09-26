@@ -31,6 +31,12 @@ export class TaskNoteBody {
     return TaskNoteBody.of(raw.trim() || (names ? `Attached ${names}.` : ''));
   }
 
+  static fromHook(hook: string, said: string): TaskNoteBody {
+    return TaskNoteBody.of(
+      `From the hook ${hook}:\n\n${TaskNoteBody.of(said).value}`,
+    );
+  }
+
   static movedTo(station: StationName): TaskNoteBody {
     return TaskNoteBody.of(`Moved to ${station.value}.`);
   }

@@ -24,10 +24,20 @@ export class IntegrationResourceResponseDto extends ResourceResponseDto {
   })
   readonly definition: Readonly<Record<string, unknown>>;
 
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    example: { search: 'grafana.search' },
+    description:
+      'Each tool the integration offers, by its name within the integration, to the name a station or hook gives it by; not settable',
+  })
+  readonly tools: Readonly<Record<string, string>>;
+
   constructor(integration: IntegrationResourceDto) {
     super(integration);
     this.teamId = integration.teamId;
     this.source = integration.source;
     this.definition = integration.definition;
+    this.tools = integration.tools;
   }
 }

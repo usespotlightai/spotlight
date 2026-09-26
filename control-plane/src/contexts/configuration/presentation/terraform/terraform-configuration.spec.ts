@@ -1,4 +1,7 @@
-import type { HeldConfigurationDto } from '@configuration/application/dto/held-configuration.dto';
+import type {
+  HeldConfigurationDto,
+  HeldResourceDto,
+} from '@configuration/application/dto/held-configuration.dto';
 import {
   HELD,
   heldAs,
@@ -14,6 +17,11 @@ import {
   TERRAFORM_INSTALLED,
 } from '@platform/hcl/terraform-cli.fake-spec';
 import { describe, expect, it } from 'vitest';
+
+type HeldBy<K extends HeldResourceDto['kind']> = Extract<
+  HeldResourceDto,
+  { kind: K }
+>;
 
 const fileOf = (configuration: HeldConfigurationDto, path: string): string =>
   workspaceTerraform(configuration).find((each) => each.path === path)
@@ -102,7 +110,10 @@ describe('workspaceTerraform', () => {
     const quiet: HeldConfigurationDto = {
       ...HELD,
       resources: HELD.resources.filter(
-        (each) => each.kind !== 'runner-pool' && each.kind !== 'secret',
+        (each) =>
+          each.kind !== 'runner-pool' &&
+          each.kind !== 'secret' &&
+          each.kind !== 'hook',
       ),
     };
 
@@ -142,6 +153,8 @@ describe('workspaceTerraform', () => {
       ['spotlight_line', 'core_review', 'core/review'],
       ['spotlight_skill', 'core_grafana', 'core/grafana'],
       ['spotlight_integration', 'core_linear', 'core/linear'],
+      ['spotlight_hook', 'core_linear-comments', 'core/linear-comments'],
+      ['spotlight_hook', 'core_merged', 'core/merged'],
       ['spotlight_harness_profile', 'core_careful', 'core/careful'],
     ]) {
       expect(main).toContain(
@@ -449,6 +462,151 @@ describe('workspaceTerraform', () => {
     expect(LINE_RESOURCE).not.toContain('reviews');
   });
 
+  it('writes a hook with its match, condition, vars, signing and steps, keeping its expressions from Terraform', () => {
+    expect(
+      blockOf(mainOf(HELD), 'resource "spotlight_hook" "core_linear-comments"'),
+    ).toBe(
+      [
+        'resource "spotlight_hook" "core_linear-comments" {',
+        '  team_id = spotlight_team.core.id',
+        '  key     = "linear-comments"',
+        '  on      = "tool.using"',
+        '  match = {',
+        '    tools    = [spotlight_integration.core_linear.tools["comment"]]',
+        '    stations = ["implementation"]',
+        '  }',
+        '  when = "event.inputs.body != \'\'"',
+        '  vars = {',
+        '    channel = "C024BE91L"',
+        '  }',
+        '  signing = {',
+        '    secret_wo         = var.hook_core_linear-comments_signing_secret',
+        '    secret_wo_version = 2',
+        '  }',
+        '  failure         = "block"',
+        '  timeout_seconds = 20',
+        '  steps = [',
+        '    {',
+
+        '      name = "notify"',
+        '      call = spotlight_integration.core_linear.tools["comment"]',
+        '      with = {',
+        '        body = "Agent commented: $${{ event.inputs.body }}"',
+        '      }',
+        '    },',
+        '    {',
+
+        '      name = "audit"',
+        '      request = {',
+        '        url = "https://audit.acme.dev/events"',
+        '        headers = {',
+        '          x-team = "core"',
+        '        }',
+        '        body = {',
+        '          tool = "$${{ event.tool }}"',
+        '        }',
+        '        from = "network"',
+        '      }',
+        '    },',
+        '  ]',
+        '}',
+      ].join('\n'),
+    );
+  });
+
+  it('writes no match, condition, vars, signing, failure or timeout a hook holds only by default', () => {
+    expect(
+      blockOf(mainOf(HELD), 'resource "spotlight_hook" "core_merged"'),
+    ).toBe(
+      [
+        'resource "spotlight_hook" "core_merged" {',
+        '  team_id = spotlight_team.core.id',
+        '  key     = "merged"',
+        '  on      = "pull-request.merged"',
+        '  steps = [',
+        '    {',
+
+        '      name = "tell"',
+        '      call = spotlight_integration.core_linear.tools["comment"]',
+        '      with = {',
+        '        body = "A pull request merged"',
+        '      }',
+        '    },',
+        '  ]',
+        '}',
+      ].join('\n'),
+    );
+  });
+
+  it('writes a hook signed with OIDC by its audience, and a request by its url alone when it holds only defaults', () => {
+    const hook: HeldBy<'hook'> = {
+      ...heldAs('hook', 'core/merged'),
+      steps: [
+        {
+          name: 'review',
+          request: {
+            url: 'https://dba.acme.dev/review',
+            headers: {},
+            body: undefined,
+            from: 'spotlight',
+          },
+        },
+        { name: 'tell', call: 'linear.comment', with: {} },
+      ],
+      signing: { oidc: { audience: 'https://dba.acme.dev' } },
+    };
+    const { hcl } = resourceHcl(HELD, hook);
+
+    expect(hcl).toContain(
+      [
+        '  signing = {',
+        '    oidc = {',
+        '      audience = "https://dba.acme.dev"',
+        '    }',
+        '  }',
+        '  steps = [',
+        '    {',
+
+        '      name = "review"',
+        '      request = {',
+        '        url = "https://dba.acme.dev/review"',
+        '      }',
+        '    },',
+        '    {',
+
+        '      name = "tell"',
+        '      call = spotlight_integration.core_linear.tools["comment"]',
+        '    },',
+        '  ]',
+        '}',
+      ].join('\n'),
+    );
+    expect(hcl).not.toContain('variable');
+  });
+
+  it('reads the secret a hook signs with from a sensitive variable, and asks none of a hook that does not sign', () => {
+    const variables = fileOf(HELD, 'variables.tf');
+
+    expect(variables).toContain(
+      'variable "hook_core_linear-comments_signing_secret" {\n  description = "The secret the hook core/linear-comments signs its requests with, as whsec_ and base64 bytes"\n  type        = string\n  sensitive   = true\n}\n',
+    );
+    expect(variables).not.toContain('hook_core_merged');
+  });
+
+  it('writes the tools a hook matches and calls as written when no integration exported beside it offers them', () => {
+    const configuration: HeldConfigurationDto = {
+      ...HELD,
+      resources: HELD.resources.filter((each) => each.kind !== 'integration'),
+    };
+    const { hcl } = resourceHcl(
+      configuration,
+      heldAs('hook', 'core/linear-comments'),
+    );
+
+    expect(hcl).toContain('    tools    = ["linear.comment"]\n');
+    expect(hcl).toContain('    call = "linear.comment"\n');
+  });
+
   it('names a resource whose key starts with a digit so Terraform accepts it', () => {
     expect(mainOf(HELD)).toContain('resource "spotlight_team" "_3d" {');
   });
@@ -473,6 +631,8 @@ describe('workspaceTerraform', () => {
       '"spotlight_line" "core_review"',
       '"spotlight_skill" "core_grafana"',
       '"spotlight_integration" "core_linear"',
+      '"spotlight_hook" "core_linear-comments"',
+      '"spotlight_hook" "core_merged"',
       '"spotlight_harness_profile" "core_careful"',
     ];
 
@@ -529,6 +689,14 @@ describe('resourceHcl', () => {
   it('writes a pool after the variable its token is read from', () => {
     expect(resourceHcl(HELD, heldAs('runner-pool', 'burst')).hcl).toMatch(
       /^variable "runner_pool_burst_token" {\n[\s\S]*\n}\n\nimport {\n {2}to = spotlight_runner_pool\.burst\n/,
+    );
+  });
+
+  it('writes a hook after the variable its signing secret is read from', () => {
+    expect(
+      resourceHcl(HELD, heldAs('hook', 'core/linear-comments')).hcl,
+    ).toMatch(
+      /^variable "hook_core_linear-comments_signing_secret" {\n[\s\S]*\n}\n\nimport {\n {2}to = spotlight_hook\.core_linear-comments\n/,
     );
   });
 

@@ -1,5 +1,6 @@
 import type { HarnessProfileResourceDto } from '@configuration/application/dto/harness-profile-resource.dto';
 import type { HeldResourceDto } from '@configuration/application/dto/held-configuration.dto';
+import type { HeldHook } from '@configuration/application/ports/held-hooks.port';
 import type { HeldIntegration } from '@configuration/application/ports/held-integrations.port';
 import type { KeptSkill } from '@configuration/application/ports/skill-resources.port';
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
@@ -172,6 +173,25 @@ export const HeldResourceMapper = {
         path: each.path,
         name: each.name,
       })),
+    };
+  },
+
+  hook(teamKey: string, hook: HeldHook): HeldResourceDto {
+    return {
+      kind: 'hook',
+      heldBy: 'team',
+      id: hook.id,
+      address: hook.address,
+      teamKey,
+      key: hook.key,
+      on: hook.on,
+      match: hook.match,
+      when: hook.when,
+      vars: hook.vars,
+      steps: hook.steps,
+      signing: hook.signing,
+      failure: hook.failure,
+      timeoutSeconds: hook.timeoutSeconds,
     };
   },
 };

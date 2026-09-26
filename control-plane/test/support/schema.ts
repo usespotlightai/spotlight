@@ -9,6 +9,7 @@ export * from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema'
 export * from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/delivery.schema';
+export * from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
@@ -17,6 +18,7 @@ export * from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema
 export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';

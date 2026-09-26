@@ -110,6 +110,44 @@ describe('claiming a run', () => {
   });
 });
 
+describe('claiming a run handed back', () => {
+  it('hands out another waiting run while one handed back waits out its back-off, and keeps what it was handed back for', async () => {
+    const workspaceId = randomUUID();
+    const first = await queue(workspaceId);
+    const runner = RunnerId.of(randomUUID());
+
+    const claimed = await runs.claimNext(
+      claimant(workspaceId, ['runner-1'], 'any', runner),
+      NOW,
+    );
+    expect(claimed?.id.value).toBe(first);
+    const held = await runs.findById(
+      (claimed as NonNullable<typeof claimed>).id,
+    );
+    await runs.save(
+      (held as NonNullable<typeof held>).handedBack(
+        runner,
+        NOW,
+        'connect ECONNREFUSED',
+      ),
+    );
+    const other = await queue(workspaceId);
+
+    expect((await runs.claimNext(claimant(workspaceId), NOW))?.id.value).toBe(
+      other,
+    );
+    expect(await runs.claimNext(claimant(workspaceId), NOW)).toBeNull();
+
+    const again = await runs.claimNext(
+      claimant(workspaceId),
+      new Date(NOW.getTime() + 5_000),
+    );
+    expect(again?.id.value).toBe(first);
+    expect(again?.attempt).toBe(1);
+    expect(again?.handBacks.count).toBe(1);
+  });
+});
+
 describe('claiming placed work', () => {
   it('hands a run placed by several lines only to a runner every one of them admits', async () => {
     const placed = await queue('ws_placed', [['vpc-a', 'build-1'], ['gpu']]);

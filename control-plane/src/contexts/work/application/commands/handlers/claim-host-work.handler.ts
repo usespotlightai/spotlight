@@ -12,6 +12,7 @@ import type { CheckWorkPort } from '@work/application/ports/check-work.port';
 import { claimedRun } from '@work/application/services/claimed-work';
 import { longPolled, pollDeadline } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
+import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import type {
   Claimant,
   RunRepository,
@@ -30,6 +31,7 @@ export class ClaimHostWorkHandler
     private readonly leases: RunLeases,
     private readonly checks: CheckWorkPort,
     private readonly clock: ClockPort,
+    private readonly starting: RunStartHooks,
   ) {}
 
   async execute(command: ClaimHostWorkCommand): Promise<HostClaimDto> {
@@ -113,12 +115,19 @@ export class ClaimHostWorkHandler
       claims: 'any',
     };
 
-    return longPolled(
+    const found = await longPolled<ClaimedWorkDto | 'handed-back'>(
       this.clock,
       async () => {
         const run = await this.runs.claimNext(claimant, this.clock.now());
+        const start = run
+          ? await this.starting.mayStart(run, runner, until)
+          : null;
 
-        if (run) {
+        if (start === 'handed-back') {
+          return start;
+        }
+
+        if (run && start === 'starts') {
           await this.runners.took(
             runner,
             { kind: 'run', id: run.id.value },
@@ -149,5 +158,7 @@ export class ClaimHostWorkHandler
       },
       until,
     );
+
+    return found === 'handed-back' ? null : found;
   }
 }

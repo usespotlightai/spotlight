@@ -7,5 +7,6 @@ export interface IntegrationResourceDto {
   readonly teamId: string;
   readonly source: string;
   readonly definition: Readonly<Record<string, unknown>>;
+  readonly tools: Readonly<Record<string, string>>;
   readonly warnings: readonly ConfigurationProblem[];
 }

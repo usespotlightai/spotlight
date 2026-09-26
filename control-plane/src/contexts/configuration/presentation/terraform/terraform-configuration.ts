@@ -2,6 +2,10 @@ import type {
   HeldConfigurationDto,
   HeldResourceDto,
 } from '@configuration/application/dto/held-configuration.dto';
+import type {
+  HeldHookMatch,
+  HeldHookStep,
+} from '@configuration/application/ports/held-hooks.port';
 import type { WornSecret } from '@configuration/application/ports/held-integrations.port';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import {
@@ -67,6 +71,18 @@ const LINE_BLOCKS: Readonly<Record<string, string>> = {
   skip: 'skip',
 };
 
+const HOOK_FAILURE = 'continue';
+
+const HOOK_TIMEOUT_SECONDS = 10;
+
+const HOOK_MATCHES: readonly (keyof HeldHookMatch)[] = [
+  'tools',
+  'lines',
+  'stations',
+  'repositories',
+  'paths',
+];
+
 const byPath = inCodePointOrderOf((file: TerraformFile) => file.path);
 
 const PLACE: Readonly<Record<HeldResourceDto['kind'], number>> = {
@@ -80,7 +96,8 @@ const PLACE: Readonly<Record<HeldResourceDto['kind'], number>> = {
   line: 7,
   skill: 8,
   integration: 9,
-  'harness-profile': 10,
+  hook: 10,
+  'harness-profile': 11,
 };
 
 const teamOf = (held: HeldResourceDto): string => {
@@ -212,6 +229,18 @@ const References = (neighbours: Neighbours) => ({
       ? HclExpression.template(
           referenceTo('integration', nameOf(teamKey, source), 'source'),
           `.${named.name}`,
+        )
+      : tool;
+  },
+
+  offered(teamKey: string, tool: string): HclValue {
+    const named = isToolName(tool) ? ToolName.of(tool) : null;
+    const source = named?.integration;
+
+    return named && source && neighbours.sources.has(inTeam(teamKey, source))
+      ? HclExpression.indexed(
+          referenceTo('integration', nameOf(teamKey, source), 'tools'),
+          named.name,
         )
       : tool;
   },
@@ -469,6 +498,118 @@ const profile = (
     attribute('native', hclOf(held.native)),
   ]);
 
+const hookMatch = (held: HeldBy<'hook'>, refer: Referring): HclItem[] => {
+  const matched = HOOK_MATCHES.filter((each) => held.match[each].length > 0);
+
+  return matched.length === 0
+    ? []
+    : [
+        attribute(
+          'match',
+          Object.fromEntries(
+            matched.map((each) => [
+              each,
+              each === 'tools'
+                ? held.match.tools.map((tool) =>
+                    refer.offered(held.teamKey, tool),
+                  )
+                : [...held.match[each]],
+            ]),
+          ),
+        ),
+      ];
+};
+
+const hookStep = (
+  teamKey: string,
+  step: HeldHookStep,
+  refer: Referring,
+): HclValue => {
+  if ('call' in step) {
+    return {
+      name: step.name,
+      call: refer.offered(teamKey, step.call),
+      ...(Object.keys(step.with).length === 0
+        ? {}
+        : { with: hclOf(step.with) }),
+    };
+  }
+
+  const { request } = step;
+
+  return {
+    name: step.name,
+    request: {
+      url: request.url,
+      ...(Object.keys(request.headers).length === 0
+        ? {}
+        : { headers: hclOf(request.headers) }),
+      ...(request.body === undefined ? {} : { body: hclOf(request.body) }),
+      ...(request.from === 'spotlight' ? {} : { from: request.from }),
+    },
+  };
+};
+
+const hook = (
+  held: HeldBy<'hook'>,
+  importedAs: string,
+  refer: Referring,
+): Rendered => {
+  const secret = `hook_${held.teamKey}_${held.key}_signing_secret`;
+  const { signing } = held;
+  const signed = signing !== null && 'secretVersion' in signing;
+
+  return adopted(
+    held,
+    nameOf(held.teamKey, held.key),
+    importedAs,
+    [
+      ...refer.owner(held),
+      attribute('key', held.key),
+      attribute('on', held.on),
+      ...hookMatch(held, refer),
+      ...(held.when === null ? [] : [attribute('when', held.when)]),
+      ...(Object.keys(held.vars).length === 0
+        ? []
+        : [attribute('vars', hclOf(held.vars))]),
+      ...(signing === null
+        ? []
+        : [
+            attribute(
+              'signing',
+              'secretVersion' in signing
+                ? {
+                    secret_wo: HclExpression.traversal('var', secret),
+                    secret_wo_version: signing.secretVersion,
+                  }
+                : { oidc: { audience: signing.oidc.audience } },
+            ),
+          ]),
+      ...(held.failure === HOOK_FAILURE
+        ? []
+        : [attribute('failure', held.failure)]),
+      ...(held.timeoutSeconds === HOOK_TIMEOUT_SECONDS
+        ? []
+        : [attribute('timeout_seconds', held.timeoutSeconds)]),
+      attribute(
+        'steps',
+        held.steps.map((each) => hookStep(held.teamKey, each, refer)),
+      ),
+    ],
+    {
+      variables: signed
+        ? [
+            variable(
+              secret,
+              `The secret the hook ${held.address} signs its requests with, as whsec_ and base64 bytes`,
+              false,
+            ),
+          ]
+        : [],
+    },
+  );
+};
+
 const secret = (
   held: HeldBy<'secret'>,
   importedAs: string,
@@ -630,6 +771,8 @@ const rendered = (
       return skill(held, importedAs, refer);
     case 'integration':
       return integration(held, importedAs, refer);
+    case 'hook':
+      return hook(held, importedAs, refer);
     case 'harness-profile':
       return profile(held, importedAs, refer);
   }

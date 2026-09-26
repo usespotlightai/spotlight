@@ -13,12 +13,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"net/netip"
-	"slices"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
+
+	"usespotlight.ai/data-plane/egress/internal/guard"
 )
 
 type Allowed interface {
@@ -46,7 +45,7 @@ type Proxy struct {
 }
 
 func New(allowed Allowed, wearing Wearing, certificates Certificates, credential string, log *slog.Logger) *Proxy {
-	dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, ControlContext: refuseUnreachable}
+	dialer := guard.Dialer()
 
 	return &Proxy{
 		allowed:      allowed,
@@ -65,47 +64,6 @@ func New(allowed Allowed, wearing Wearing, certificates Certificates, credential
 			ExpectContinueTimeout: time.Second,
 		},
 	}
-}
-
-type named struct{}
-
-func naming(ctx context.Context, listed bool) context.Context {
-	return context.WithValue(ctx, named{}, listed)
-}
-
-var (
-	nowhere = netip.MustParsePrefix("0.0.0.0/8")
-	inside  = []netip.Prefix{
-		netip.MustParsePrefix("100.64.0.0/10"),
-		netip.MustParsePrefix("64:ff9b::/96"),
-		netip.MustParsePrefix("2002::/16"),
-	}
-)
-
-func refuseUnreachable(ctx context.Context, _, address string, _ syscall.RawConn) error {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return err
-	}
-
-	ip, err := netip.ParseAddr(host)
-	if err != nil {
-		return fmt.Errorf("egress never opens a connection to %s", host)
-	}
-	ip = ip.Unmap()
-
-	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() ||
-		ip.IsMulticast() || ip.IsInterfaceLocalMulticast() || nowhere.Contains(ip) {
-		return fmt.Errorf("egress never opens a connection to %s", host)
-	}
-
-	if listed, _ := ctx.Value(named{}).(bool); !listed && (ip.IsPrivate() || slices.ContainsFunc(inside, func(prefix netip.Prefix) bool {
-		return prefix.Contains(ip)
-	})) {
-		return fmt.Errorf("egress opens a connection to the private address %s only for a host the allow-list names", host)
-	}
-
-	return nil
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +125,7 @@ func (p *Proxy) refuse(w http.ResponseWriter, r *http.Request, host string) {
 }
 
 func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request, host, target string) {
-	upstream, err := p.dial(naming(r.Context(), p.allowed.Names(host)), "tcp", target)
+	upstream, err := p.dial(guard.Naming(r.Context(), p.allowed.Names(host)), "tcp", target)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("egress could not reach %s: %v", target, err), http.StatusBadGateway)
 		return
@@ -235,7 +193,7 @@ func (p *Proxy) wearingTo(host, target string) http.Handler {
 
 	return &httputil.ReverseProxy{
 		Rewrite: func(out *httputil.ProxyRequest) {
-			out.Out = out.Out.WithContext(naming(out.Out.Context(), p.allowed.Names(host)))
+			out.Out = out.Out.WithContext(guard.Naming(out.Out.Context(), p.allowed.Names(host)))
 			out.Out.URL.Scheme = "https"
 			out.Out.URL.Host = target
 			out.Out.Host = authority
@@ -257,7 +215,7 @@ func (p *Proxy) forward(w http.ResponseWriter, r *http.Request) {
 
 	(&httputil.ReverseProxy{
 		Rewrite: func(out *httputil.ProxyRequest) {
-			out.Out = out.Out.WithContext(naming(out.Out.Context(), p.allowed.Names(host)))
+			out.Out = out.Out.WithContext(guard.Naming(out.Out.Context(), p.allowed.Names(host)))
 			out.Out.URL = out.In.URL
 			out.Out.Host = out.In.URL.Host
 			out.Out.Header.Del("Proxy-Authorization")

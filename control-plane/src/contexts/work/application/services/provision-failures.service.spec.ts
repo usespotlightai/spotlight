@@ -56,7 +56,7 @@ const failing = (stored: Run, conflicts = 0) => {
     held: () => held,
     failures: new ProvisionFailures(
       runs as unknown as RunRepository,
-      { append } as RunJournalPort,
+      { append } as unknown as RunJournalPort,
       { publish } as unknown as RunStreamPort,
     ),
   };

@@ -13,12 +13,18 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
+import type { HookedTaskDto } from '@work/application/ports/hooked-tasks.port';
 import type {
   IntegrationToolsPort,
   ReachableTool,
   TaskToolContext,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
+import type {
+  BeforeMoment,
+  HookVerdict,
+  ToolUsedMoment,
+} from '@work/application/ports/lifecycle-hooks.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
@@ -186,6 +192,27 @@ const claimed = (
 
 const LINE = { id: 'line_1', stationAt: () => null } as unknown as Line;
 
+const HOOKED: HookedTaskDto = {
+  taskId: 'task_1',
+  workspaceId: 'ws_1',
+  teamId: 'team_1',
+  title: 'Fix the queue',
+  url: 'https://spotlight.test/w/acme/team/team_1/tasks/task_1',
+  line: 'delivery',
+  station: 'Backlog',
+  stationKey: 'backlog',
+  marks: {},
+  repositories: ['acme/widgets'],
+  pullRequest: null,
+  runId: 'run_1',
+};
+
+interface Hooked {
+  readonly before: BeforeMoment[];
+  readonly after: { moment: ToolUsedMoment; occurrence: string }[];
+  readonly asked: { taskId: string; runId: string | null }[];
+}
+
 interface Called {
   readonly tool: string;
   readonly context: ToolContext;
@@ -199,6 +226,9 @@ const using = (
     task?: Task;
     approval?: ApprovalNeeded | null;
     failing?: boolean;
+    verdict?: HookVerdict;
+    hooksDown?: boolean;
+    afterFails?: boolean;
     withheld?: {
       readonly when: 'before' | 'during';
       readonly reason: CatalogRefusalReason;
@@ -308,6 +338,9 @@ const using = (
 
   const lineAt = over.lineAt === undefined ? 'station_1' : over.lineAt;
 
+  const hooked: Hooked = { before: [], after: [], asked: [] };
+  const warned: string[] = [];
+
   const handler = new UseToolHandler(
     new RunWorks(
       { findById: async () => run } as unknown as RunRepository,
@@ -321,12 +354,44 @@ const using = (
       { now: () => NOW, sleep: async () => {} },
     ),
     new ToolSources(builtIns, integrationTools, catalog),
+    {
+      of: async (taskId: string, runId: string | null) => {
+        hooked.asked.push({ taskId, runId });
+        return HOOKED;
+      },
+      ofPullRequest: async () => null,
+    },
+    {
+      listens: async () => true,
+      before: async (_task, moment) => {
+        if (over.hooksDown) {
+          throw new Error('the hooks are unreachable');
+        }
+        hooked.before.push(moment);
+        return over.verdict ?? { kind: 'allowed' };
+      },
+      after: async (_task, moment, occurrence) => {
+        if (over.afterFails) {
+          throw new Error('the hooks are down');
+        }
+        hooked.after.push({ moment, occurrence });
+      },
+    },
+    { generate: () => 'occurrence_1' },
+    {
+      debug: () => {},
+      info: () => {},
+      warn: (_fields: unknown, message: string) => {
+        warned.push(message);
+      },
+      error: () => {},
+    },
   );
 
   const reach = (tool: string, input: unknown = { title: 'Fix the queue' }) =>
     handler.execute(new UseToolCommand('run_1', 'runner_1', tool, input));
 
-  return { reach, called, standing: () => standing };
+  return { reach, called, standing: () => standing, hooked, warned };
 };
 
 describe('UseToolHandler', () => {
@@ -786,5 +851,206 @@ describe('UseToolHandler', () => {
         }),
       ).description,
     ).toContain('Needs a person’s approval');
+  });
+
+  describe('hooks', () => {
+    it('asks the hooks before a tool is used, with what it will be given', async () => {
+      const { reach, hooked } = using(claimed(['linear.comment']));
+
+      await reach('linear.comment', { body: 'Fixed.' });
+
+      expect(hooked.asked).toEqual([{ taskId: 'task_1', runId: 'run_1' }]);
+      expect(hooked.before).toEqual([
+        {
+          on: 'tool.using',
+          tool: 'linear.comment',
+          inputs: { issue: 'ENG-12', body: 'Fixed.' },
+        },
+      ]);
+    });
+
+    it('calls nothing and tells the agent why when a hook refuses', async () => {
+      const { reach, called, hooked } = using(claimed(['linear.comment']), {
+        verdict: {
+          kind: 'refused',
+          reason: 'The hook core/dba-review refused: not on a Friday.',
+        },
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({
+        kind: 'not-allowed',
+        message:
+          'linear.comment was held back by a hook, so nothing was sent. The hook core/dba-review refused: not on a Friday.',
+      });
+      expect(called).toEqual([]);
+      expect(hooked.after).toEqual([]);
+    });
+
+    it('asks the hooks nothing while the tool waits on a person’s approval', async () => {
+      const { reach, hooked } = using(claimed(['linear.comment']), {
+        approval: NEEDS_APPROVAL,
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({ kind: 'conflict' });
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({ kind: 'conflict' });
+      expect(hooked.before).toEqual([]);
+    });
+
+    it('hands a person’s approval back when a hook refuses the call it was spent on', async () => {
+      const asked = task().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(
+            Tool.of('linear.comment'),
+            ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+          ),
+        ),
+        NEEDS_APPROVAL,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+          voice: Voice.station(RunId.of('run_1')),
+        },
+        RunId.of('run_1'),
+      ).task;
+      const granted = asked.answered(
+        NotePosition.of(asked.notes.length - 1),
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approved.'),
+          at: NOW,
+          voice: Voice.person(UserId.of('user_1')),
+        },
+        'granted',
+      );
+
+      const { reach, called, hooked, standing } = using(
+        claimed(['linear.comment']),
+        {
+          approval: NEEDS_APPROVAL,
+          verdict: { kind: 'refused', reason: 'Not today.' },
+          task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
+        },
+      );
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({ kind: 'not-allowed' });
+      expect(hooked.before).toHaveLength(1);
+      expect(called).toEqual([]);
+      const approval = standing().notes.find((note) => note.approval)?.approval;
+      expect(approval?.grants).toBe(true);
+      expect(approval?.spent).toBe(false);
+    });
+
+    it('hands a person’s approval back when the hooks could not be asked', async () => {
+      const asked = task().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(
+            Tool.of('linear.comment'),
+            ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+          ),
+        ),
+        NEEDS_APPROVAL,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+          voice: Voice.station(RunId.of('run_1')),
+        },
+        RunId.of('run_1'),
+      ).task;
+      const granted = asked.answered(
+        NotePosition.of(asked.notes.length - 1),
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approved.'),
+          at: NOW,
+          voice: Voice.person(UserId.of('user_1')),
+        },
+        'granted',
+      );
+
+      const { reach, called, standing } = using(claimed(['linear.comment']), {
+        approval: NEEDS_APPROVAL,
+        hooksDown: true,
+        task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
+      });
+
+      await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow(
+        'the hooks are unreachable',
+      );
+      expect(called).toEqual([]);
+      const approval = standing().notes.find((note) => note.approval)?.approval;
+      expect(approval?.grants).toBe(true);
+      expect(approval?.spent).toBe(false);
+    });
+
+    it('tells the hooks a tool was used, with what it answered', async () => {
+      const { reach, hooked } = using(claimed(['linear.comment']));
+
+      await reach('linear.comment', { body: 'Fixed.' });
+
+      expect(hooked.after).toEqual([
+        {
+          moment: {
+            on: 'tool.used',
+            tool: 'linear.comment',
+            inputs: { issue: 'ENG-12', body: 'Fixed.' },
+            output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+            failed: false,
+          },
+          occurrence: 'occurrence_1',
+        },
+      ]);
+    });
+
+    it('tells the hooks a tool failed, and still answers with its failure', async () => {
+      const { reach, hooked } = using(claimed(['linear.comment']), {
+        failing: true,
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({ kind: 'refused-upstream' });
+      expect(hooked.after[0]?.moment.failed).toBe(true);
+      expect(hooked.after[0]?.moment.output).toMatch(/down/);
+    });
+
+    it('answers with the tool’s answer even when the hooks after it cannot be fired', async () => {
+      const { reach, warned } = using(claimed(['linear.comment']), {
+        afterFails: true,
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).resolves.toEqual({
+        output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+      });
+      expect(warned).toHaveLength(1);
+    });
+
+    it('asks no hooks about a chat’s tool', async () => {
+      const { reach, hooked } = using(
+        claimed(['propose-task'], {
+          subject: RunSubject.chat(ChatId.of('chat_1')),
+        }),
+      );
+
+      await reach('propose-task', {
+        line: 'delivery',
+        station: 'backlog',
+        title: 'Back off',
+      });
+
+      expect(hooked.before).toEqual([]);
+      expect(hooked.after).toEqual([]);
+    });
   });
 });

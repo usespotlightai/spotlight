@@ -483,3 +483,123 @@ func TestARejectionCarriesTheReasonTheControlPlaneGave(t *testing.T) {
 		t.Error("a conflict read as a refused credential")
 	}
 }
+
+type trusted struct{}
+
+func (trusted) Authorize(request *http.Request) error {
+	request.Header.Set("Authorization", "Bearer workload-token")
+	request.Header.Set(protocol.TrustHeader, "trust_1")
+	return nil
+}
+
+func TestClaimCallNamesTheHostAndTakesTheCall(t *testing.T) {
+	var path, auth string
+	var asked protocol.HostCallClaim
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		path, auth = r.URL.Path, r.Header.Get("Authorization")
+		_ = json.NewDecoder(r.Body).Decode(&asked)
+		_ = json.NewEncoder(w).Encode(protocol.HostCall{
+			ID: "call_1", Method: http.MethodPost, URL: "https://audit.acme.internal/", Body: "e30=", TimeoutMs: 10000,
+		})
+	})
+
+	call, err := client.ClaimCall(context.Background(), "host_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != "/api/hosts/calls/claim" || auth != "Bearer tok" || asked.Host != "host_1" {
+		t.Errorf("asked %s with %q for %+v", path, auth, asked)
+	}
+	if call.ID != "call_1" || call.URL != "https://audit.acme.internal/" || call.TimeoutMs != 10000 {
+		t.Errorf("took %+v", call)
+	}
+}
+
+func TestClaimCallTreatsNoCallAsOrdinary(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	call, err := client.ClaimCall(context.Background(), "host_1")
+	if err != nil || call != nil {
+		t.Fatalf("got %+v, %v", call, err)
+	}
+}
+
+func TestClaimCallGoesThroughATrustLikeAnyHostClaim(t *testing.T) {
+	var auth, trust string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth, trust = r.Header.Get("Authorization"), r.Header.Get(protocol.TrustHeader)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := control.Authorized(server.URL, trusted{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.ClaimCall(context.Background(), "host_1"); err != nil {
+		t.Fatal(err)
+	}
+	if auth != "Bearer workload-token" || trust != "trust_1" {
+		t.Errorf("claimed with %q through %q", auth, trust)
+	}
+}
+
+func TestClaimCallTellsARefusedCredentialAndAnUnreportedHost(t *testing.T) {
+	refused := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "no", http.StatusUnauthorized)
+	})
+	if _, err := refused.ClaimCall(context.Background(), "host_1"); !errors.Is(err, control.ErrRefused) {
+		t.Errorf("a refused credential came back as %v", err)
+	}
+
+	unreported := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"reason":"host-unreported"}`))
+	})
+	if _, err := unreported.ClaimCall(context.Background(), "host_1"); !control.Rejected(err, "host-unreported") {
+		t.Errorf("an unreported host came back as %v", err)
+	}
+}
+
+func TestClaimCallRefusesACallWithNoAddress(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(protocol.HostCall{ID: "call_1"})
+	})
+
+	if _, err := client.ClaimCall(context.Background(), "host_1"); err == nil {
+		t.Fatal("took a call with nowhere to send it")
+	}
+}
+
+func TestAnswerCallPostsTheAnswerToTheCall(t *testing.T) {
+	var path string
+	var answered protocol.HostCallAnswer
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&answered)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	answer := protocol.HostCallAnswer{Status: 200, Headers: map[string]string{"content-type": "application/json"}, Body: "e30=", Ms: 12}
+	if err := client.AnswerCall(context.Background(), "call_1", answer); err != nil {
+		t.Fatal(err)
+	}
+	if path != "/api/hosts/calls/call_1/answer" || answered.Status != 200 || answered.Body != "e30=" || answered.Ms != 12 {
+		t.Errorf("answered %s with %+v", path, answered)
+	}
+}
+
+func TestAnswerCallTellsACallAlreadyAnswered(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"reason":"call-answered"}`))
+	})
+
+	err := client.AnswerCall(context.Background(), "call_1", protocol.HostCallAnswer{Error: "timed out after 10s"})
+	var rejection *control.Rejection
+	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
+		t.Errorf("answered with %v", err)
+	}
+}

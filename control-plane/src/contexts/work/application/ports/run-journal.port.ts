@@ -10,6 +10,10 @@ export interface JournalEntry {
   readonly data?: string;
 }
 
+export type AsideEntry = Omit<JournalEntry, 'seq'>;
+
 export interface RunJournalPort {
   append(attempt: RunAttempt, entries: readonly JournalEntry[]): Promise<void>;
+
+  appendAside(attempt: RunAttempt, entry: AsideEntry): Promise<number>;
 }

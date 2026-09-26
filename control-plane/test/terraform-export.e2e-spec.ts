@@ -36,6 +36,8 @@ const POOL_TOKEN = `pool${randomUUID().replaceAll('-', '')}`;
 
 const PROVISION_SECRET = `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`;
 
+const HOOK_SECRET = `whsec_${Buffer.from('h'.repeat(32)).toString('base64')}`;
+
 const BUILT_IN = definitionOf(BUILT_IN_LINES[0] as LineOpening);
 
 const PROMPTED = BUILT_IN.stations.find(
@@ -102,6 +104,23 @@ const CAREFUL = {
       env: { LINEAR_TEAM: 'core' },
     },
   ],
+};
+
+const AUDIT = {
+  key: 'audit',
+  on: 'tool.used',
+  match: { tools: ['linear.comment'] },
+  steps: [
+    {
+      name: 'record',
+      request: {
+        url: 'https://127.0.0.1/events',
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: a hook expression
+        body: { tool: '${{ event.tool }}' },
+      },
+    },
+  ],
+  signing: { secret: HOOK_SECRET, secretVersion: 1 },
 };
 
 interface Written {
@@ -197,6 +216,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ],
       ['skill', `teams/${held}/skills`, GRAFANA],
       ['integration', `teams/${held}/integrations`, LINEAR],
+      ['hook', `teams/${held}/hooks`, AUDIT],
       ['harness-profile', `teams/${held}/harness-profiles`, CAREFUL],
       ['line', `teams/${held}/lines`, DELIVERY],
     ] as const) {
@@ -213,6 +233,9 @@ describe('a workspace exported as Terraform (e2e)', () => {
   });
 
   afterEach(async () => {
+    await db
+      .delete(schema.hookDefinition)
+      .where(eq(schema.hookDefinition.teamId, held));
     await db
       .delete(schema.integrationDefinition)
       .where(eq(schema.integrationDefinition.teamId, held));
@@ -267,6 +290,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ['spotlight_line', 'team_delivery', `${held}/team/delivery`],
       ['spotlight_skill', 'team_grafana', `${held}/team/grafana`],
       ['spotlight_integration', 'team_linear', `${held}/team/linear`],
+      ['spotlight_hook', 'team_audit', `${held}/team/audit`],
       ['spotlight_harness_profile', 'team_careful', `${held}/team/careful`],
     ]) {
       expect(main).toContain(
@@ -293,6 +317,50 @@ describe('a workspace exported as Terraform (e2e)', () => {
       'pools        = [spotlight_runner_pool.ephemeral.key]',
     ]) {
       expect(main).toContain(reference);
+    }
+  });
+
+  it('writes a hook referring to the integration whose tool it matches, its signing secret read from a variable', async () => {
+    const files = await exported();
+
+    expect(
+      blockOf(
+        fileOf(files, 'main.tf'),
+        'resource "spotlight_hook" "team_audit"',
+      ),
+    ).toBe(
+      [
+        'resource "spotlight_hook" "team_audit" {',
+        '  team_id = spotlight_team.team.id',
+        '  key     = "audit"',
+        '  on      = "tool.used"',
+        '  match = {',
+        '    tools = [spotlight_integration.team_linear.tools["comment"]]',
+        '  }',
+        '  signing = {',
+        '    secret_wo         = var.hook_team_audit_signing_secret',
+        '    secret_wo_version = 1',
+        '  }',
+        '  steps = [',
+        '    {',
+        '      name = "record"',
+        '      request = {',
+        '        url = "https://127.0.0.1/events"',
+        '        body = {',
+        '          tool = "$${{ event.tool }}"',
+        '        }',
+        '      }',
+        '    },',
+        '  ]',
+        '}',
+      ].join('\n'),
+    );
+    expect(fileOf(files, 'variables.tf')).toContain(
+      'variable "hook_team_audit_signing_secret" {',
+    );
+
+    for (const file of files) {
+      expect(file.content).not.toContain(HOOK_SECRET);
     }
   });
 
@@ -410,6 +478,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ['lines', made.line, 'spotlight_line'],
       ['skills', made.skill, 'spotlight_skill'],
       ['integrations', made.integration, 'spotlight_integration'],
+      ['hooks', made.hook, 'spotlight_hook'],
       [
         'harness-profiles',
         made['harness-profile'],
@@ -545,6 +614,21 @@ const bodyOf = (held: HeldResourceDto): object => {
       return held.definition;
     case 'skill':
       return { key: held.key, files: held.files };
+    case 'hook':
+      return {
+        key: held.key,
+        on: held.on,
+        match: held.match,
+        ...(held.when === null ? {} : { when: held.when }),
+        vars: held.vars,
+        steps: held.steps,
+        signing:
+          held.signing && 'secretVersion' in held.signing
+            ? { secret: HOOK_SECRET, secretVersion: held.signing.secretVersion }
+            : held.signing,
+        failure: held.failure,
+        timeoutSeconds: held.timeoutSeconds,
+      };
     case 'harness-profile':
       return {
         key: held.key,
@@ -566,6 +650,7 @@ const COLLECTIONS: Readonly<
   team: 'teams',
   skill: 'skills',
   integration: 'integrations',
+  hook: 'hooks',
   'harness-profile': 'harness-profiles',
   line: 'lines',
 };
@@ -600,6 +685,9 @@ describe('the configuration the export spec renders (e2e)', () => {
   afterEach(async () => {
     const teamIds = [held, ...teams.values()];
 
+    await db
+      .delete(schema.hookDefinition)
+      .where(inArray(schema.hookDefinition.teamId, teamIds));
     await db
       .delete(schema.integrationDefinition)
       .where(inArray(schema.integrationDefinition.teamId, teamIds));

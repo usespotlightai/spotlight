@@ -4,8 +4,11 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { OpenedPullRequest } from '@work/application/dto/pull-request.dto';
+import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
+import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import { takeWornMarks } from '@work/application/services/worn-marks';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { PullRequestHookRefusedError } from '@work/domain/exceptions/pull-request-hook-refused.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -30,6 +33,8 @@ export class OpenPullRequest {
     private readonly lines: LineRepository,
     private readonly pullRequests: PullRequestPort,
     private readonly transaction: TransactionPort,
+    private readonly hookedTasks: HookedTasksPort,
+    private readonly hooks: LifecycleHooksPort,
   ) {}
 
   async open(
@@ -48,9 +53,36 @@ export class OpenPullRequest {
       throw new UnknownStationError(target.stationId.value);
     }
 
+    const repository = line.opening(asked.repository);
+    const hooked = await this.hookedTasks.of(
+      target.taskId.value,
+      target.runId.value,
+    );
+
+    if (
+      hooked &&
+      (await this.hooks.listens(hooked.teamId, 'pull-request.opening'))
+    ) {
+      const verdict = await this.hooks.before(hooked, {
+        on: 'pull-request.opening',
+        repository: repository.value,
+        branch: task.branch.value,
+        title: asked.title,
+        changed: await this.pullRequests.changedOn(
+          task.workspaceId,
+          repository,
+          task.branch.value,
+        ),
+      });
+
+      if (verdict.kind === 'refused') {
+        throw new PullRequestHookRefusedError(verdict.reason);
+      }
+    }
+
     const opened = await this.pullRequests.open({
       workspaceId: task.workspaceId,
-      repository: line.opening(asked.repository),
+      repository,
       branch: task.branch.value,
       title: asked.title,
       body: asked.body,

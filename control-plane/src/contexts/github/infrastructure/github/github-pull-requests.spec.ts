@@ -1,6 +1,7 @@
 import type { PullRequestOpening } from '@github/application/ports/pull-request.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -117,6 +118,115 @@ describe('GitHubPullRequests', () => {
       await new GitHubPullRequests(access).open(opening);
 
       expect(asked('/git/')).toHaveLength(0);
+    });
+  });
+
+  describe('saying what changed', () => {
+    const files = (from: number, count: number) =>
+      Array.from({ length: count }, (_, at) => ({
+        filename: `src/file-${from + at}.ts`,
+      }));
+
+    const changing = (pages: Record<number, unknown>) =>
+      vi.stubGlobal('fetch', async (url: string) => {
+        sent.push({ url, method: 'GET', body: {} });
+
+        if (url.endsWith('/repos/acme/api')) {
+          return answering(200, { default_branch: 'trunk' });
+        }
+
+        const page = Number(new URL(url).searchParams.get('page'));
+
+        return page in pages
+          ? answering(200, pages[page])
+          : answering(404, { message: 'Not Found' });
+      });
+
+    it('compares a branch with the default branch, page after page', async () => {
+      changing({
+        1: { files: files(0, 100) },
+        2: { files: files(100, 20) },
+      });
+
+      const changed = await new GitHubPullRequests(access).changedOn(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/api'),
+        'spotlight/task_1',
+      );
+
+      expect(changed).toHaveLength(120);
+      expect(changed[0]).toBe('src/file-0.ts');
+      expect(asked('/compare/trunk...spotlight/task_1')).toHaveLength(2);
+    });
+
+    it('stops at 3000 files', async () => {
+      changing(
+        Object.fromEntries(
+          Array.from({ length: 40 }, (_, at) => [
+            at + 1,
+            { files: files(at * 100, 100) },
+          ]),
+        ),
+      );
+
+      const changed = await new GitHubPullRequests(access).changedOn(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/api'),
+        'spotlight/task_1',
+      );
+
+      expect(changed).toHaveLength(3_000);
+      expect(asked('/compare/')).toHaveLength(30);
+    });
+
+    it('stops when a page names nothing new', async () => {
+      changing({ 1: { files: files(0, 100) }, 2: { files: files(0, 100) } });
+
+      const changed = await new GitHubPullRequests(access).changedOn(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/api'),
+        'spotlight/task_1',
+      );
+
+      expect(changed).toHaveLength(100);
+      expect(asked('/compare/')).toHaveLength(2);
+    });
+
+    it('lists the files of a pull request', async () => {
+      changing({ 1: files(0, 100), 2: files(100, 1) });
+
+      const changed = await new GitHubPullRequests(access).changedIn(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/api'),
+        PullRequestUrl.of('https://github.com/acme/api/pull/9'),
+      );
+
+      expect(changed).toHaveLength(101);
+      expect(asked('/repos/acme/api/pulls/9/files')).toHaveLength(2);
+    });
+
+    it('refuses a link that names no pull request', async () => {
+      changing({});
+
+      await expect(
+        new GitHubPullRequests(access).changedIn(
+          WorkspaceId.of('ws_1'),
+          Repository.of('acme/api'),
+          PullRequestUrl.of('https://github.com/acme/api'),
+        ),
+      ).rejects.toThrow(/is not a GitHub pull request/);
+    });
+
+    it('carries GitHub’s refusal', async () => {
+      changing({});
+
+      await expect(
+        new GitHubPullRequests(access).changedOn(
+          WorkspaceId.of('ws_1'),
+          Repository.of('acme/api'),
+          'spotlight/task_1',
+        ),
+      ).rejects.toThrow(/Not Found/);
     });
   });
 });

@@ -83,6 +83,25 @@ describe('ClaimOrder', () => {
     ).toBe('older');
   });
 
+  it('hands out another waiting run while one handed back waits out its back-off', () => {
+    const handedBack = waiting('handed_back', {
+      priority: 3,
+      queuedAt: '2026-09-17T08:00:00.000Z',
+    });
+    const backingOff = {
+      ...handedBack,
+      run: handedBack.run
+        .claim(BY.runner, NOW)
+        .handedBack(BY.runner, NOW, 'connect ECONNREFUSED'),
+    };
+
+    expect(next(backingOff, waiting('other', { priority: 1 }))).toBe('other');
+    expect(
+      ClaimOrder.next([backingOff], BY, new Date(NOW.getTime() + 5_000))?.id
+        .value,
+    ).toBe('handed_back');
+  });
+
   it('never hands a runner a harness it does not have', () => {
     expect(next(waiting('elsewhere', { harness: 'cursor' }))).toBeNull();
   });

@@ -42,11 +42,11 @@ const refusalOf = (
       return checked.problems.map((problem) =>
         problemAt(DEFINITION.to(...problem.field.segments), problem.reason),
       );
-    case 'not-an-integration':
+    case 'no-such-resource':
       return [
         problemAt(
           POSITION,
-          'names an attribute of an integration, as in integration.webhook.events[0].when',
+          'names an attribute of an integration or a hook, as in integration.webhook.events[0].when or hook.when',
         ),
       ];
     case 'no-expression-there':

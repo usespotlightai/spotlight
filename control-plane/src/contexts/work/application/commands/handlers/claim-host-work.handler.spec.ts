@@ -17,6 +17,10 @@ import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
 import type { ClaimedCheck } from '@work/application/ports/check-work.port';
 import type { RunLeases } from '@work/application/services/run-leases.service';
+import type {
+  RunStart,
+  RunStartHooks,
+} from '@work/application/services/run-start-hooks.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -54,6 +58,7 @@ const pulling = (
     started?: StartedRunner | StartedRunner[];
     run?: Run | null;
     check?: ClaimedCheck | null;
+    starts?: RunStart;
   } = {},
 ) => {
   let now = NOW;
@@ -83,6 +88,9 @@ const pulling = (
     over.run === undefined ? null : over.run,
   );
   const claimCheck = vi.fn(async () => over.check ?? null);
+  const mayStart = vi.fn(
+    async (): Promise<RunStart> => over.starts ?? 'starts',
+  );
   const admissions = {
     admit: vi.fn(async (credential: HostCredential) =>
       credential.bearer !== 'pool-token'
@@ -113,9 +121,10 @@ const pulling = (
       waitingPlacements: vi.fn(async () => []),
     },
     clock,
+    { mayStart: mayStart } as unknown as RunStartHooks,
   );
 
-  return { handler, admissions, runners, claimNext, claimCheck };
+  return { handler, admissions, runners, claimNext, claimCheck, mayStart };
 };
 
 const HOST = '01J8ZQ4Y7N3K5V2W9X6RTBHCDE';
@@ -272,5 +281,50 @@ describe('ClaimHostWorkHandler', () => {
       POOLED,
       new Date(NOW.getTime() + 10_000),
     );
+  });
+
+  it('hands over no run a hook refused to start, and takes up a check instead', async () => {
+    const { handler, runners, mayStart } = pulling({
+      run: taken(),
+      check: aCheck,
+      starts: 'refused',
+    });
+
+    const claimed = await handler.execute(pull());
+
+    expect(mayStart).toHaveBeenCalledWith(
+      expect.objectContaining({ id: RunId.of('run_1') }),
+      POOLED,
+      new Date(NOW.getTime() + 10_000),
+    );
+    expect(claimed).toMatchObject({
+      outcome: 'claimed',
+      work: { kind: 'check', check: aCheck },
+    });
+    expect(runners.took).not.toHaveBeenCalledWith(
+      POOLED,
+      { kind: 'run', id: 'run_1' },
+      expect.anything(),
+    );
+  });
+
+  it('keeps polling after a hook refused to start a run', async () => {
+    const { handler, claimNext } = pulling({ run: taken(), starts: 'refused' });
+
+    expect(await handler.execute(pull())).toEqual({ outcome: 'nothing' });
+    expect(claimNext.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('stops polling at once, taking up no check, when a run had to be handed back', async () => {
+    const { handler, claimNext, claimCheck, runners } = pulling({
+      run: taken(),
+      check: aCheck,
+      starts: 'handed-back',
+    });
+
+    expect(await handler.execute(pull())).toEqual({ outcome: 'nothing' });
+    expect(claimNext).toHaveBeenCalledTimes(1);
+    expect(claimCheck).not.toHaveBeenCalled();
+    expect(runners.letGo).toHaveBeenCalledWith(POOLED, NOW);
   });
 });

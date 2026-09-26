@@ -44,6 +44,8 @@ export const run = pgTable(
     reservedUntil: timestamp('reserved_until'),
     provisionFailures: integer('provision_failures').notNull().default(0),
     nextProvisionAt: timestamp('next_provision_at'),
+    handBacks: integer('hand_backs').notNull().default(0),
+    claimableFrom: timestamp('claimable_from'),
     exitCode: integer('exit_code'),
     message: text('message'),
     stopped: boolean('stopped').notNull().default(false),

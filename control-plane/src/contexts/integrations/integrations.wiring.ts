@@ -95,6 +95,7 @@ import { ListHappeningsQuery } from '@integrations/application/queries/list-happ
 import { ListIntegrationResourcesQuery } from '@integrations/application/queries/list-integration-resources.query';
 import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
 import { AbandonTeamIntegrations } from '@integrations/application/services/abandon-team-integrations.service';
+import { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
@@ -105,6 +106,10 @@ import { WebhookSources } from '@integrations/application/services/webhook-sourc
 import { WorkOffDeliveries } from '@integrations/application/services/work-off-deliveries.service';
 import { WorkOffPolls } from '@integrations/application/services/work-off-polls.service';
 import { INTEGRATIONS_EVENT_TYPES } from '@integrations/domain/event-types';
+import {
+  HOOK_DEFINITIONS,
+  type HookDefinitionRepository,
+} from '@integrations/domain/repositories/hook-definition.repository';
 import {
   HOST_CONNECTIONS,
   HostConnectionRepository,
@@ -225,6 +230,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       EventPublications,
       EventSubscribers,
       INTEGRATION_DEFINITIONS,
+      HOOK_DEFINITIONS,
+      HookedHappenings,
       TRANSACTION,
     ],
     useFactory: (
@@ -232,13 +239,16 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       publications: EventPublications,
       subscribers: EventSubscribers,
       definitions: IntegrationDefinitionRepository,
+      hooks: HookDefinitionRepository,
+      hooked: HookedHappenings,
       transaction: TransactionPort,
     ) => {
       types.register('integrations', INTEGRATIONS_EVENT_TYPES);
       publications.register(INTEGRATIONS_PUBLICATIONS);
       subscribers.register(
         integrationsSubscribers(
-          new AbandonTeamIntegrations(definitions, transaction),
+          new AbandonTeamIntegrations(definitions, hooks, transaction),
+          hooked,
         ),
       );
       return true;
@@ -299,8 +309,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ToolsGiven,
-    inject: [GIVEN_AT_STATIONS],
-    useFactory: (given: GivenAtStationsPort) => new ToolsGiven(given),
+    inject: [GIVEN_AT_STATIONS, HOOK_DEFINITIONS],
+    useFactory: (given: GivenAtStationsPort, hooks: HookDefinitionRepository) =>
+      new ToolsGiven(given, hooks),
   },
 
   {

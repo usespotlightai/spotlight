@@ -351,6 +351,51 @@ CREATE TABLE "inbound_delivery" (
 	CONSTRAINT "inbound_delivery_source_team_id_id_pk" PRIMARY KEY("source","team_id","id")
 );
 --> statement-breakpoint
+CREATE TABLE "hook_callback" (
+	"token_hash" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"hook" text NOT NULL,
+	"expires_at" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "hook_definition" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"key" text NOT NULL,
+	"on" text NOT NULL,
+	"definition" jsonb NOT NULL,
+	"tools" jsonb NOT NULL,
+	"signing_secret" text,
+	"signing_secret_version" integer,
+	"version" integer DEFAULT 1 NOT NULL,
+	"defined_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "hook_definition_team_id_key_unique" UNIQUE("team_id","key")
+);
+--> statement-breakpoint
+CREATE TABLE "hook_firing" (
+	"id" text PRIMARY KEY NOT NULL,
+	"hook_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"run_id" text,
+	"on" text NOT NULL,
+	"occurrence" text NOT NULL,
+	"event" jsonb NOT NULL,
+	"matched" boolean DEFAULT true NOT NULL,
+	"steps" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"state" text DEFAULT 'pending' NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"due_at" timestamp DEFAULT now() NOT NULL,
+	"claimed_at" timestamp,
+	"failed" text,
+	"fired_at" timestamp DEFAULT now() NOT NULL,
+	"handled_at" timestamp,
+	CONSTRAINT "hook_firing_hook_id_occurrence_unique" UNIQUE("hook_id","occurrence")
+);
+--> statement-breakpoint
 CREATE TABLE "host_connection" (
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
@@ -634,6 +679,29 @@ CREATE TABLE "station_tool" (
 	CONSTRAINT "station_tool_station_id_tool_pk" PRIMARY KEY("station_id","tool")
 );
 --> statement-breakpoint
+CREATE TABLE "network_call" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"method" text NOT NULL,
+	"url" text NOT NULL,
+	"headers" jsonb NOT NULL,
+	"body" text NOT NULL,
+	"timeout_ms" integer NOT NULL,
+	"queued_at" timestamp NOT NULL,
+	"lapses_at" timestamp NOT NULL,
+	"state" text NOT NULL,
+	"claimed_by" text,
+	"claimed_at" timestamp,
+	"answered_at" timestamp,
+	"answer_status" integer,
+	"answer_headers" jsonb,
+	"answer_body" text,
+	"answer_ms" integer,
+	"answer_error" text,
+	"lapsed_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "run" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -656,6 +724,8 @@ CREATE TABLE "run" (
 	"reserved_until" timestamp,
 	"provision_failures" integer DEFAULT 0 NOT NULL,
 	"next_provision_at" timestamp,
+	"hand_backs" integer DEFAULT 0 NOT NULL,
+	"claimable_from" timestamp,
 	"exit_code" integer,
 	"message" text,
 	"stopped" boolean DEFAULT false NOT NULL,
@@ -778,6 +848,7 @@ ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_workspace_id_wor
 ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_token" ADD CONSTRAINT "workspace_token_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_token_trust" ADD CONSTRAINT "workspace_token_trust_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "hook_firing" ADD CONSTRAINT "hook_firing_hook_id_hook_definition_id_fk" FOREIGN KEY ("hook_id") REFERENCES "public"."hook_definition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_grant" ADD CONSTRAINT "secret_grant_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -833,6 +904,9 @@ CREATE INDEX "workspace_token_minted_through_idx" ON "workspace_token" USING btr
 CREATE INDEX "workspace_token_minted_expiry_idx" ON "workspace_token" USING btree ("expires_at") WHERE "workspace_token"."minted_through" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_token_trust_workspace_key_idx" ON "workspace_token_trust" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE INDEX "inbound_delivery_state_idx" ON "inbound_delivery" USING btree ("state","due_at");--> statement-breakpoint
+CREATE INDEX "hook_callback_expires_idx" ON "hook_callback" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX "hook_definition_on_idx" ON "hook_definition" USING btree ("team_id","on");--> statement-breakpoint
+CREATE INDEX "hook_firing_state_idx" ON "hook_firing" USING btree ("state","due_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
@@ -861,6 +935,10 @@ CREATE UNIQUE INDEX "station_line_key_idx" ON "station" USING btree ("line_id","
 CREATE INDEX "station_route_station_idx" ON "station_route" USING btree ("station_id");--> statement-breakpoint
 CREATE INDEX "station_skill_station_idx" ON "station_skill" USING btree ("station_id");--> statement-breakpoint
 CREATE INDEX "station_tool_station_idx" ON "station_tool" USING btree ("station_id");--> statement-breakpoint
+CREATE INDEX "network_call_waiting_idx" ON "network_call" USING btree ("workspace_id","state","queued_at");--> statement-breakpoint
+CREATE INDEX "network_call_lapsing_idx" ON "network_call" USING btree ("state","lapses_at");--> statement-breakpoint
+CREATE INDEX "network_call_answered_idx" ON "network_call" USING btree ("state","answered_at");--> statement-breakpoint
+CREATE INDEX "network_call_lapsed_idx" ON "network_call" USING btree ("state","lapsed_at");--> statement-breakpoint
 CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority","created_at");--> statement-breakpoint
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint

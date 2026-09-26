@@ -1,3 +1,8 @@
+import type {
+  HeldHookMatch,
+  HeldHookSigning,
+  HeldHookStep,
+} from '@configuration/application/ports/held-hooks.port';
 import type { WornSecret } from '@configuration/application/ports/held-integrations.port';
 import {
   CONFIGURED_RESOURCES,
@@ -100,6 +105,18 @@ export type HeldResourceDto =
       readonly source: string;
       readonly definition: Readonly<Record<string, unknown>>;
       readonly secretsWorn: readonly WornSecret[];
+    })
+  | (HeldByTeam & {
+      readonly kind: 'hook';
+      readonly key: string;
+      readonly on: string;
+      readonly match: HeldHookMatch;
+      readonly when: string | null;
+      readonly vars: Readonly<Record<string, string>>;
+      readonly steps: readonly HeldHookStep[];
+      readonly signing: HeldHookSigning | null;
+      readonly failure: string;
+      readonly timeoutSeconds: number;
     })
   | (HeldByTeam & {
       readonly kind: 'harness-profile';

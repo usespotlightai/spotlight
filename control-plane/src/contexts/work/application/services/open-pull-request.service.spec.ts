@@ -8,6 +8,14 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type {
+  HookedTaskDto,
+  HookedTasksPort,
+} from '@work/application/ports/hooked-tasks.port';
+import type {
+  BeforeMoment,
+  HookVerdict,
+} from '@work/application/ports/lifecycle-hooks.port';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -107,9 +115,15 @@ const opening = (
     repositories?: readonly string[];
     wearer?: Task;
     meanwhile?: (task: Task) => Task;
+    verdict?: HookVerdict;
+    hooked?: boolean;
+    listening?: boolean;
   } = {},
 ) => {
   const saved: Task[] = [];
+  const asked: BeforeMoment[] = [];
+  const compared: unknown[][] = [];
+  const listened: [string, string][] = [];
   let held: Task | null = null;
   const opened: Parameters<PullRequestPort['open']>[0][] = [];
 
@@ -123,6 +137,10 @@ const opening = (
         held = over.meanwhile(held);
       }
       return { url: 'https://github.com/acme/widgets/pull/7' };
+    },
+    changedOn: async (...on: unknown[]) => {
+      compared.push(on);
+      return ['db/migrations/0042_add_index.sql', 'src/queue.ts'];
     },
   } as unknown as PullRequestPort;
   const tasks = {
@@ -138,6 +156,23 @@ const opening = (
     { holding: async () => line } as unknown as LineRepository,
     pullRequests,
     { run: (work) => work() } satisfies TransactionPort,
+    {
+      of: async (taskId: string, runId: string | null) =>
+        over.hooked === false
+          ? null
+          : ({ taskId, runId, teamId: 'team_1' } as unknown as HookedTaskDto),
+    } as unknown as HookedTasksPort,
+    {
+      listens: async (teamId, on) => {
+        listened.push([teamId, on]);
+        return over.listening ?? true;
+      },
+      before: async (_task, moment) => {
+        asked.push(moment);
+        return over.verdict ?? { kind: 'allowed' };
+      },
+      after: async () => {},
+    },
   );
 
   return {
@@ -150,6 +185,9 @@ const opening = (
     },
     opened,
     saved,
+    asked,
+    compared,
+    listened,
   };
 };
 
@@ -314,5 +352,80 @@ describe('OpenPullRequest', () => {
       InvalidTaskTransitionError,
     );
     expect(saved).toEqual([]);
+  });
+
+  describe('hooks', () => {
+    it('asks the hooks before it opens one, with what the branch changes', async () => {
+      const { open, asked, compared } = opening();
+
+      await open(task());
+
+      expect(compared).toEqual([
+        [
+          WorkspaceId.of('ws_1'),
+          Repository.of('acme/widgets'),
+          'spotlight/task_1',
+        ],
+      ]);
+      expect(asked).toEqual([
+        {
+          on: 'pull-request.opening',
+          repository: 'acme/widgets',
+          branch: 'spotlight/task_1',
+          title: 'Fix the queue',
+          changed: ['db/migrations/0042_add_index.sql', 'src/queue.ts'],
+        },
+      ]);
+    });
+
+    it('opens nothing and tells the agent why when a hook refuses', async () => {
+      const { open, opened, saved } = opening({
+        verdict: {
+          kind: 'refused',
+          reason: 'The hook core/dba-review refused: migrations need a DBA.',
+        },
+      });
+
+      await expect(open(task())).rejects.toThrow(
+        'The pull request was held back by a hook, so none was opened. The hook core/dba-review refused: migrations need a DBA.',
+      );
+      expect(opened).toEqual([]);
+      expect(saved).toEqual([]);
+    });
+
+    it('asks no hooks for a task that already has one', async () => {
+      const { open, asked } = opening();
+
+      await open(
+        task().openedAt(
+          RUN,
+          PullRequestUrl.of('https://github.com/acme/widgets/pull/3'),
+        ),
+      );
+
+      expect(asked).toEqual([]);
+    });
+
+    it('compares nothing where no hook can hear of the task', async () => {
+      const { open, compared, opened } = opening({ hooked: false });
+
+      await open(task());
+
+      expect(compared).toEqual([]);
+      expect(opened).toHaveLength(1);
+    });
+
+    it('asks GitHub nothing and no hook when none listens for a pull request opening', async () => {
+      const { open, compared, asked, listened, opened } = opening({
+        listening: false,
+      });
+
+      await open(task());
+
+      expect(listened).toEqual([['team_1', 'pull-request.opening']]);
+      expect(compared).toEqual([]);
+      expect(asked).toEqual([]);
+      expect(opened).toHaveLength(1);
+    });
   });
 });

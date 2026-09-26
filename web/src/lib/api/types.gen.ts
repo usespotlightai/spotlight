@@ -572,6 +572,71 @@ export type HostClaimResponseDto = {
   work: ClaimedWorkResponseDto;
 };
 
+export type ClaimHostCallRequestDto = {
+  /**
+   * The host claiming, as it names itself in its presence
+   */
+  host: string;
+};
+
+export type HostCallResponseDto = {
+  /**
+   * The call, to answer by once it has been sent
+   */
+  id: string;
+  /**
+   * The method to send with
+   */
+  method: string;
+  /**
+   * Where to send it, from inside the host’s network
+   */
+  url: string;
+  /**
+   * Sent with the body, exactly as given
+   */
+  headers: {
+    [key: string]: string;
+  };
+  /**
+   * The body to send, base64
+   */
+  body: string;
+  /**
+   * How long to wait for an answer, in milliseconds
+   */
+  timeoutMs: number;
+};
+
+export type AnswerHostCallRequestDto = {
+  /**
+   * The host answering, the one that claimed the call
+   */
+  host: string;
+  /**
+   * The HTTP status the call was answered with, or 0 when nothing answered
+   */
+  status: number;
+  /**
+   * The headers the call was answered with
+   */
+  headers?: {
+    [key: string]: string;
+  };
+  /**
+   * The body the call was answered with, base64, at most 16 KiB
+   */
+  body?: string;
+  /**
+   * How long the call took to answer, in milliseconds
+   */
+  ms: number;
+  /**
+   * Why nothing answered, when the status is 0
+   */
+  error?: string;
+};
+
 export type RedeemEgressRequestDto = {
   /**
    * The X25519 public key egress holds for this run alone, in base64; values Spotlight keeps are sealed to it
@@ -1517,7 +1582,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'workspace-runners';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'workspace-runners';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -2611,6 +2676,12 @@ export type IntegrationResourceResponseDto = {
   definition: {
     [key: string]: unknown;
   };
+  /**
+   * Each tool the integration offers, by its name within the integration, to the name a station or hook gives it by; not settable
+   */
+  tools: {
+    [key: string]: string;
+  };
 };
 
 export type IntegrationResourceListResponseDto = {
@@ -2716,6 +2787,229 @@ export type HappeningResponseDto = {
   source: string;
   label: string;
   told: string;
+};
+
+export type HookMatchDto = {
+  /**
+   * Tools the hook fires for, as integration.tool; only on tool.using and tool.used
+   */
+  tools: Array<string>;
+  /**
+   * Line keys whose tasks the hook fires for
+   */
+  lines: Array<string>;
+  /**
+   * Station keys whose tasks the hook fires for
+   */
+  stations: Array<string>;
+  /**
+   * Repositories, as owner/name, the hook fires for
+   */
+  repositories: Array<string>;
+  /**
+   * Changed paths the hook fires for, as globs; only on pull-request.opening and pull-request.merged
+   */
+  paths: Array<string>;
+};
+
+export type HookRequestDto = {
+  /**
+   * Where the request goes; may hold ${{ }} expressions
+   */
+  url: string;
+  /**
+   * Headers to send besides the ones Spotlight signs with
+   */
+  headers: {
+    [key: string]: string;
+  };
+  /**
+   * The JSON body, any JSON value; strings may hold ${{ }} expressions. Left out, Spotlight sends the event, task and run
+   */
+  body?: {
+    [key: string]: unknown;
+  } | Array<unknown> | string | number | boolean;
+  /**
+   * spotlight sends it from Spotlight to an allowed host; network has a host of the workspace send it from inside its network, through egress
+   */
+  from: 'spotlight' | 'network';
+};
+
+export type HookStepDto = {
+  /**
+   * Names the step; later steps read its output as step.<name>
+   */
+  name: string;
+  /**
+   * The tool the step calls, as integration.tool
+   */
+  call?: string;
+  /**
+   * The inputs the step gives its tool
+   */
+  with?: {
+    [key: string]: unknown;
+  };
+  /**
+   * The request the step makes
+   */
+  request?: HookRequestDto;
+};
+
+export type HookOidcDto = {
+  /**
+   * The audience the token is for, as the endpoint checks it
+   */
+  audience: string;
+};
+
+export type HookSigningRequestDto = {
+  /**
+   * The version of secret; change it to rotate secret
+   */
+  secretVersion?: number;
+  /**
+   * Sign each request with a short-lived OIDC token instead
+   */
+  oidc?: HookOidcDto;
+};
+
+export type HookDefinitionRequestDto = {
+  key: string;
+  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.giving' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
+  match?: HookMatchDto;
+  when?: string;
+  vars?: {
+    [key: string]: string;
+  };
+  steps: Array<HookStepDto>;
+  signing?: HookSigningRequestDto | null;
+  failure?: 'continue' | 'block';
+  timeoutSeconds?: number;
+};
+
+export type HookSigningDto = {
+  /**
+   * The version of the HMAC secret; changed to rotate secret, which is write-only and never answered
+   */
+  secretVersion?: number;
+  /**
+   * Sign each request with a short-lived OIDC token instead
+   */
+  oidc?: HookOidcDto;
+};
+
+export type HookResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The team it belongs to
+   */
+  teamId: string;
+  /**
+   * Names the hook within its team; fixed for its life, so changing it means replacing the hook
+   */
+  key: string;
+  /**
+   * The event the hook fires on
+   */
+  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.giving' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
+  match: HookMatchDto;
+  /**
+   * A CEL condition the event must meet, besides match
+   */
+  when?: string;
+  /**
+   * Values the expressions read as vars.<name>
+   */
+  vars: {
+    [key: string]: string;
+  };
+  steps: Array<HookStepDto>;
+  signing?: HookSigningDto | null;
+  /**
+   * What a failed step does to the event: continue lets it go on; block stops it, before an event only
+   */
+  failure: 'continue' | 'block';
+  /**
+   * How long each request may take, and a before-hook as a whole
+   */
+  timeoutSeconds: number;
+};
+
+export type HookResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<HookResourceResponseDto>;
+};
+
+export type CallbackTaskResponseDto = {
+  id: string;
+  title: string;
+  url: string;
+  line: string;
+  station: string;
+  stationKey: string;
+  marks: {
+    [key: string]: string;
+  };
+  repositories: Array<string>;
+  pullRequest: string | null;
+  /**
+   * The hook the token was given to
+   */
+  hook: string;
+};
+
+export type CallbackNoteRequestDto = {
+  /**
+   * What to say on the task, as the hook
+   */
+  body: string;
+};
+
+export type HookSigningRequestDtoWritable = {
+  /**
+   * The HMAC secret, whsec_ and 24 to 64 base64 bytes; write-only, sent when secretVersion changes
+   */
+  secret?: string;
+  /**
+   * The version of secret; change it to rotate secret
+   */
+  secretVersion?: number;
+  /**
+   * Sign each request with a short-lived OIDC token instead
+   */
+  oidc?: HookOidcDto;
+};
+
+export type HookDefinitionRequestDtoWritable = {
+  key: string;
+  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.giving' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
+  match?: HookMatchDto;
+  when?: string;
+  vars?: {
+    [key: string]: string;
+  };
+  steps: Array<HookStepDto>;
+  signing?: HookSigningRequestDtoWritable | null;
+  failure?: 'continue' | 'block';
+  timeoutSeconds?: number;
 };
 
 export type GetHealthData = {
@@ -3658,6 +3952,79 @@ export type ClaimHostWorkResponses = {
 };
 
 export type ClaimHostWorkResponse = ClaimHostWorkResponses[keyof ClaimHostWorkResponses];
+
+export type ClaimHostCallData = {
+  body: ClaimHostCallRequestDto;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path?: never;
+  query?: never;
+  url: '/hosts/calls/claim';
+};
+
+export type ClaimHostCallErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   */
+  401: unknown;
+  /**
+   * The host has not reported through this pool or trust (`host-unreported`)
+   */
+  409: unknown;
+};
+
+export type ClaimHostCallResponses = {
+  200: HostCallResponseDto;
+  /**
+   * No call waits for this pool’s or trust’s workspace
+   */
+  204: void;
+};
+
+export type ClaimHostCallResponse = ClaimHostCallResponses[keyof ClaimHostCallResponses];
+
+export type AnswerHostCallData = {
+  body: AnswerHostCallRequestDto;
+  headers?: {
+    /**
+     * The runner trust to claim through; the bearer is then the workload’s token
+     */
+    'Spotlight-Trust'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/hosts/calls/{id}/answer';
+};
+
+export type AnswerHostCallErrors = {
+  /**
+   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   */
+  401: unknown;
+  /**
+   * No such call waits for this pool’s or trust’s workspace
+   */
+  404: unknown;
+  /**
+   * The call was already answered, lapsed before it was answered, or was never claimed (`call-settled`), or another host claimed it (`not-this-hosts-call`)
+   */
+  409: unknown;
+};
+
+export type AnswerHostCallResponses = {
+  /**
+   * The answer was taken
+   */
+  204: void;
+};
+
+export type AnswerHostCallResponse = AnswerHostCallResponses[keyof AnswerHostCallResponses];
 
 export type RedeemEgressData = {
   body: RedeemEgressRequestDto;
@@ -8781,7 +9148,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'secrets' | 'token-trusts' | 'runner-trusts' | 'runner-pools' | 'workspace-runners';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'token-trusts' | 'runner-trusts' | 'runner-pools' | 'workspace-runners';
     id: string;
   };
   query?: never;
@@ -9608,3 +9975,401 @@ export type ListHappeningsResponses = {
 };
 
 export type ListHappeningsResponse = ListHappeningsResponses[keyof ListHappeningsResponses];
+
+export type CreateHookData = {
+  body: HookDefinitionRequestDtoWritable;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/resources/teams/{teamId}/hooks';
+};
+
+export type CreateHookErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the hook: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such hook that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a hook at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateHookError = CreateHookErrors[keyof CreateHookErrors];
+
+export type CreateHookResponses = {
+  /**
+   * The hook, as a read would answer it
+   */
+  201: HookResourceResponseDto;
+};
+
+export type CreateHookResponse = CreateHookResponses[keyof CreateHookResponses];
+
+export type DeleteHookData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/hooks/{id}';
+};
+
+export type DeleteHookErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the hook: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such hook that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteHookError = DeleteHookErrors[keyof DeleteHookErrors];
+
+export type DeleteHookResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteHookResponse = DeleteHookResponses[keyof DeleteHookResponses];
+
+export type ReadHookData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/hooks/{id}';
+};
+
+export type ReadHookErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such hook that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadHookError = ReadHookErrors[keyof ReadHookErrors];
+
+export type ReadHookResponses = {
+  /**
+   * The hook, every field of it
+   */
+  200: HookResourceResponseDto;
+};
+
+export type ReadHookResponse = ReadHookResponses[keyof ReadHookResponses];
+
+export type UpdateHookData = {
+  body: HookDefinitionRequestDtoWritable;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/hooks/{id}';
+};
+
+export type UpdateHookErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the hook: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such hook that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateHookError = UpdateHookErrors[keyof UpdateHookErrors];
+
+export type UpdateHookResponses = {
+  /**
+   * The hook, as a read would answer it
+   */
+  200: HookResourceResponseDto;
+};
+
+export type UpdateHookResponse = UpdateHookResponses[keyof UpdateHookResponses];
+
+export type ImportHookData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The hook's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/hooks/import';
+};
+
+export type ImportHookErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such hook that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportHookError = ImportHookErrors[keyof ImportHookErrors];
+
+export type ImportHookResponses = {
+  /**
+   * The hook, as a read would answer it
+   */
+  200: HookResourceResponseDto;
+};
+
+export type ImportHookResponse = ImportHookResponses[keyof ImportHookResponses];
+
+export type ListHooksData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/hooks';
+};
+
+export type ListHooksErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListHooksError = ListHooksErrors[keyof ListHooksErrors];
+
+export type ListHooksResponses = {
+  /**
+   * Every hook there, each as a read would answer it, in address order
+   */
+  200: HookResourceListResponseDto;
+};
+
+export type ListHooksResponse = ListHooksResponses[keyof ListHooksResponses];
+
+export type HookIssuerData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/.well-known/openid-configuration';
+};
+
+export type HookIssuerResponses = {
+  /**
+   * OpenID provider metadata, for tokens only
+   */
+  200: unknown;
+};
+
+export type HookSigningKeysData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/.well-known/jwks.json';
+};
+
+export type HookSigningKeysResponses = {
+  /**
+   * A JSON Web Key Set
+   */
+  200: unknown;
+};
+
+export type ReadHookTaskData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/hook-callbacks/task';
+};
+
+export type ReadHookTaskErrors = {
+  /**
+   * Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token
+   */
+  401: unknown;
+};
+
+export type ReadHookTaskResponses = {
+  200: CallbackTaskResponseDto;
+};
+
+export type ReadHookTaskResponse = ReadHookTaskResponses[keyof ReadHookTaskResponses];
+
+export type NoteOnHookTaskData = {
+  body: CallbackNoteRequestDto;
+  path?: never;
+  query?: never;
+  url: '/hook-callbacks/notes';
+};
+
+export type NoteOnHookTaskErrors = {
+  /**
+   * Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token
+   */
+  401: unknown;
+};
+
+export type NoteOnHookTaskResponses = {
+  /**
+   * The note is on the task
+   */
+  204: void;
+};
+
+export type NoteOnHookTaskResponse = NoteOnHookTaskResponses[keyof NoteOnHookTaskResponses];

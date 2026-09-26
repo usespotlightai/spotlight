@@ -47,6 +47,20 @@ export class Runners implements RunnersPort {
     private readonly logger: LoggerPort,
   ) {}
 
+  async reports(way: AdmittedWay, host: string): Promise<boolean> {
+    let hostId: HostId;
+
+    try {
+      hostId = HostId.of(host);
+    } catch {
+      return false;
+    }
+
+    const serving = await this.hosts.find(hostId);
+
+    return serving?.servesThrough(Admission.of(way.kind, way.id)) ?? false;
+  }
+
   async start(
     way: AdmittedWay,
     host: string,

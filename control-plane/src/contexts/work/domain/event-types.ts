@@ -19,6 +19,7 @@ import { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
+import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
@@ -30,6 +31,7 @@ import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -41,6 +43,7 @@ import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
+import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { Happening } from '@work/domain/value-objects/happening.vo';
@@ -58,6 +61,9 @@ import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
+import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
+import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
+import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
@@ -105,6 +111,7 @@ export const WORK_EVENT_TYPES = [
   AttachmentId,
   Attachment,
   Branch,
+  CallingHost,
   CatalogWithheld,
   ChatId,
   ChatMessageBody,
@@ -119,6 +126,7 @@ export const WORK_EVENT_TYPES = [
   HarnessPermission,
   ProfileKey,
   ProfileMissing,
+  HandBacks,
   HandoverOption,
   HandoverReport,
   Happening,
@@ -139,6 +147,9 @@ export const WORK_EVENT_TYPES = [
   Mark,
   MessagePosition,
   Money,
+  NetworkAnswer,
+  NetworkCallId,
+  NetworkRequest,
   NotePosition,
   ProposalOrigin,
   ProposalPlacement,
@@ -190,6 +201,7 @@ export const WORK_EVENT_TYPES = [
   TaskHandedToRun,
   TaskLetGoOfRun,
   TaskMarkTaken,
+  TaskMoved,
   TaskOpened,
   TaskProposed,
 ] as const;

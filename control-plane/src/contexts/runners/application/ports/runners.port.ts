@@ -56,6 +56,8 @@ export interface RunnersPort {
     claimBy: Date,
   ): Promise<StartedRunner>;
 
+  reports(way: AdmittedWay, host: string): Promise<boolean>;
+
   provision(request: ProvisionRequest, at: Date): Promise<ProvisionedRunner>;
 
   took(runnerId: RunnerId, work: HeldWork, at: Date): Promise<void>;

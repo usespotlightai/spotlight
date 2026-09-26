@@ -60,6 +60,15 @@ func (c *Client) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol
 	return &handed, nil
 }
 
+func (c *Client) ClaimCall(ctx context.Context) (*protocol.HostCall, error) {
+	return c.control.ClaimCall(ctx, c.host)
+}
+
+func (c *Client) AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error {
+	answer.Host = c.host
+	return c.control.AnswerCall(ctx, id, answer)
+}
+
 func (c *Client) Present(ctx context.Context, presence protocol.HostPresence) (protocol.HostStanding, error) {
 	var standing protocol.HostStanding
 	if _, err := c.control.Request(ctx, http.MethodPut, c.path(), presence, &standing); err != nil {

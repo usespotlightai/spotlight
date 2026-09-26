@@ -10,7 +10,7 @@ export const EXPRESSION_CHECKS = Symbol('EXPRESSION_CHECKS');
 export type CheckedExpression =
   | { readonly outcome: 'checked'; readonly check: ExpressionCheckDto }
   | Invalid
-  | { readonly outcome: 'not-an-integration' }
+  | { readonly outcome: 'no-such-resource' }
   | { readonly outcome: 'no-expression-there' };
 
 export interface ExpressionChecksPort {

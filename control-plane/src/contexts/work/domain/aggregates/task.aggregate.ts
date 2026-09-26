@@ -21,6 +21,7 @@ import { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
+import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
@@ -254,6 +255,10 @@ export class Task extends EventRecorder {
       finishedAt: into.isCompleted ? saying.at : null,
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
     });
+
+    moved.record(
+      new TaskMoved(moved.id, moved.workspaceId, from.key, into.key, saying.at),
+    );
 
     if (into.isCompleted) {
       moved.record(

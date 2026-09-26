@@ -14,6 +14,15 @@ export class Declaration {
     );
   }
 
+  heldBack(reason: string): Declaration {
+    return new Declaration(
+      REVIEW,
+      [reason.trim(), this.note === '' ? '' : `The run said: ${this.note}`]
+        .filter(Boolean)
+        .join('\n\n'),
+    );
+  }
+
   saysItIsDone(): boolean {
     return this.next.toLowerCase() === DONE;
   }

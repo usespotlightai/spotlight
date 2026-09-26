@@ -1,5 +1,5 @@
-import { createHmac } from 'node:crypto';
 import { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type {
   ProvisionAnswer,
   ProvisionCall,
@@ -17,14 +17,6 @@ export interface ProvisionSettings {
   readonly hosts: OutboundHosts;
   readonly insecureAllowed: boolean;
 }
-
-export const signatureOf = (
-  key: Buffer,
-  id: string,
-  timestamp: number,
-  body: string,
-): string =>
-  `v1,${createHmac('sha256', key).update(`${id}.${timestamp}.${body}`).digest('base64')}`;
 
 const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
   JSON.stringify({
