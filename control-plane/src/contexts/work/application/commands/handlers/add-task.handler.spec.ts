@@ -143,7 +143,6 @@ const lines = (found: Line | null = line()) =>
     holding: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-    withRole: vi.fn(async () => null),
   }) satisfies LineRepository;
 
 const files = new FilesAtHand({

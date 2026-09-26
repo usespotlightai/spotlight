@@ -23,6 +23,7 @@ import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -85,7 +86,7 @@ const enqueued = async (chat: Chat): Promise<Run> => {
       ],
     } as unknown as LineRepository,
     { now: () => NOW } as ClockPort,
-  ).enqueue(chat, RunId.of('run_1'));
+  ).enqueue(chat, RunId.of('run_1'), [MessagePosition.of(0)]);
 
   return add.mock.calls[0]?.[0] as Run;
 };

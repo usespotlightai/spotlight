@@ -514,17 +514,6 @@ export class DrizzleLineRepository implements LineRepository {
     return this.allOf(found.map((each) => each.id));
   }
 
-  async withRole(teamId: TeamId, role: LineRole): Promise<Line | null> {
-    const [found] = await this.context.db
-      .select({ id: line.id })
-      .from(line)
-      .where(and(eq(line.teamId, teamId.value), eq(line.role, role.value)))
-      .orderBy(line.id)
-      .limit(1);
-
-    return found ? this.find(LineId.of(found.id)) : null;
-  }
-
   async ofWorkspace(workspaceId: WorkspaceId): Promise<readonly Line[]> {
     const found = await this.context.db
       .select({ id: line.id })

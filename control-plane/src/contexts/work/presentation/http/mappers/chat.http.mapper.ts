@@ -4,6 +4,7 @@ import {
   ChatProposalResponseDto,
   ChatResponseDto,
   ChatSummaryResponseDto,
+  ChatTraceResponseDto,
 } from '@work/presentation/http/dto/chat.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
@@ -43,6 +44,9 @@ export const ChatHttpMapper = {
               : null,
             message.runId,
             message.attachments.map(AttachmentHttpMapper.toResponse),
+            message.traces.map(
+              (each) => new ChatTraceResponseDto(each.taskId, each.title),
+            ),
             message.proposal
               ? new ChatProposalResponseDto(
                   message.proposal.lineId,

@@ -28,7 +28,7 @@ vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
     data: [
       { id: 'line_1', name: 'Delivery', stations: [] },
-      { id: 'line_2', name: 'Factory', stations: [] },
+      { id: 'line_2', name: 'Review', stations: [] },
     ],
   }),
 }));

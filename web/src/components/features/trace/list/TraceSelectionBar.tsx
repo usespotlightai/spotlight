@@ -1,17 +1,15 @@
-import { FlaskConical, X } from 'lucide-react';
+import { MousePointer2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type TraceSelectionBarProps = {
   count: number;
-  pending: boolean;
-  onAnalyse: () => void;
+  onDiscuss: () => void;
   onClear: () => void;
 };
 
 export function TraceSelectionBar({
   count,
-  pending,
-  onAnalyse,
+  onDiscuss,
   onClear,
 }: TraceSelectionBarProps) {
   if (count === 0) {
@@ -27,16 +25,11 @@ export function TraceSelectionBar({
       <Button
         variant="outline"
         size="sm"
-        onClick={onAnalyse}
-        disabled={pending}
+        onClick={onDiscuss}
         className="rounded-full bg-card shadow-none"
       >
-        <FlaskConical className="size-3.5 text-muted-foreground" aria-hidden />
-        {pending
-          ? 'Creating…'
-          : count === 1
-            ? 'Analyse with AI'
-            : `Analyse ${count} with AI`}
+        <MousePointer2 className="size-3.5 text-muted-foreground" aria-hidden />
+        Discuss with the agent
       </Button>
 
       <Button

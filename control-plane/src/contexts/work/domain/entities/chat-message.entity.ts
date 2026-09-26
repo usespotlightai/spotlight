@@ -8,6 +8,7 @@ import type { MessagePosition } from '@work/domain/value-objects/message-positio
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 
 export const CHAT_MESSAGE_KINDS = ['said', 'proposed'] as const;
 
@@ -22,6 +23,7 @@ export class ChatMessage {
     readonly author: UserId | null,
     readonly runId: RunId | null,
     readonly attachments: readonly Attachment[],
+    readonly traces: readonly TraceReference[],
     readonly proposal: TaskProposal | null,
     readonly deliveredAt: Date | null,
   ) {}
@@ -31,6 +33,7 @@ export class ChatMessage {
     by: UserId;
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
+    traces?: readonly TraceReference[];
     at: Date;
   }): ChatMessage {
     return new ChatMessage(
@@ -41,6 +44,7 @@ export class ChatMessage {
       input.by,
       null,
       input.attachments ?? [],
+      TraceReference.distinct(input.traces ?? []),
       null,
       null,
     );
@@ -62,6 +66,7 @@ export class ChatMessage {
       null,
       input.runId,
       [],
+      [],
       TaskProposal.open(input),
       input.at,
     );
@@ -75,6 +80,7 @@ export class ChatMessage {
     author: UserId | null;
     runId: RunId | null;
     attachments: readonly Attachment[];
+    traces: readonly TraceReference[];
     proposal: TaskProposal | null;
     deliveredAt: Date | null;
   }): ChatMessage {
@@ -93,6 +99,7 @@ export class ChatMessage {
       input.author,
       input.runId,
       input.attachments,
+      input.traces,
       input.proposal,
       input.deliveredAt,
     );
@@ -133,6 +140,7 @@ export class ChatMessage {
       this.author,
       this.runId,
       this.attachments,
+      this.traces,
       part.proposal !== undefined ? part.proposal : this.proposal,
       part.deliveredAt !== undefined ? part.deliveredAt : this.deliveredAt,
     );

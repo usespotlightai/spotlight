@@ -1,11 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { Route } from 'react-router';
+import { type Location, Route } from 'react-router';
 import { StoryFrame } from '@/stories/StoryFrame';
 import { StoryShell } from '@/stories/StoryShell';
 
 type StoryPageProps = {
-  at: string;
+  at: string | Partial<Location>;
   seed?: (client: QueryClient) => void;
   children: ReactNode;
 };

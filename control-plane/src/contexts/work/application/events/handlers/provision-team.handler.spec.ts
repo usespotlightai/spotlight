@@ -84,15 +84,15 @@ describe('ProvisionTeam', () => {
     }
   });
 
-  it('marks the improvement line by its role', async () => {
+  it('opens the delivery and review lines and nothing else', async () => {
     const { provision, seeded } = provisioning();
 
     await provision.openLines(created);
 
-    expect(
-      seeded.find((line) => line.role?.equals(LineRole.IMPROVEMENT))?.name
-        .value,
-    ).toBe('Factory');
+    expect(seeded.map((line) => line.key.value)).toEqual([
+      'delivery',
+      'review',
+    ]);
   });
 
   it('opens a review line that waits to be mentioned on a pull request', async () => {

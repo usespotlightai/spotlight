@@ -8,6 +8,7 @@ export class StartChatCommand {
     readonly repositories: readonly string[],
     readonly body: string,
     readonly attachments: readonly string[] = [],
+    readonly traces: readonly string[] = [],
   ) {}
 }
 
@@ -18,6 +19,7 @@ export class SayInChatCommand {
     readonly saidBy: string,
     readonly body: string,
     readonly attachments: readonly string[] = [],
+    readonly traces: readonly string[] = [],
   ) {}
 }
 

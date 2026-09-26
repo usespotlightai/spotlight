@@ -12,6 +12,8 @@ import { HELD_AT_TOP, type RunJournal } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
 type ChatThreadProps = {
+  slug: string;
+  teamId: string;
   chat: Chat;
   journals: readonly RunJournal[];
   openAt: number | null;
@@ -21,6 +23,8 @@ type ChatThreadProps = {
 };
 
 export function ChatThread({
+  slug,
+  teamId,
   chat,
   journals,
   openAt,
@@ -59,7 +63,7 @@ export function ChatThread({
               >
                 {turn.said && (
                   <div className={HELD_AT_TOP}>
-                    <ChatSaid message={turn.said} />
+                    <ChatSaid slug={slug} teamId={teamId} message={turn.said} />
                   </div>
                 )}
 

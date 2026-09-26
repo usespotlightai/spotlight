@@ -112,7 +112,6 @@ const applying = (
   const lines = {
     ofWorkspace: vi.fn(async () => over.standing ?? [held]),
     ofTeam: vi.fn(async () => over.standing ?? [held]),
-    withRole: vi.fn(async () => null),
     save,
     add,
     find: vi.fn(),
@@ -276,9 +275,9 @@ describe('ApplyLines', () => {
     const base = asStanding(held);
     const claiming = like(base, {
       key: LineKey.of('one'),
-      role: LineRole.IMPROVEMENT,
+      role: LineRole.REVIEW,
     });
-    const holding = applying(like(base, { role: LineRole.IMPROVEMENT }), {
+    const holding = applying(like(base, { role: LineRole.REVIEW }), {
       held,
     });
     const standing = await holding.applied();
@@ -288,19 +287,19 @@ describe('ApplyLines', () => {
     );
 
     await expect(applied()).rejects.toThrow(LineRoleTakenError);
-    await expect(applied()).rejects.toThrow(/role "improvement"/);
+    await expect(applied()).rejects.toThrow(/role "review"/);
     expect(add).not.toHaveBeenCalled();
   });
 
   it('lets a line keep the role it already claims', async () => {
     const held = line();
     const holding = applying(
-      like(asStanding(held), { role: LineRole.IMPROVEMENT }),
+      like(asStanding(held), { role: LineRole.REVIEW }),
       { held },
     );
     const standing = await holding.applied();
     const { applied, save } = applying(
-      like(asStanding(standing), { role: LineRole.IMPROVEMENT }),
+      like(asStanding(standing), { role: LineRole.REVIEW }),
       { held: standing, standing: [standing] },
     );
 

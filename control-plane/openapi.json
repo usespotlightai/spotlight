@@ -2777,54 +2777,6 @@
         ]
       }
     },
-    "/teams/{teamId}/traces/analysis": {
-      "post": {
-        "operationId": "analyseTraces",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnalyseTracesRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TaskResponseDto"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session"
-          }
-        },
-        "summary": "Open a triage task to analyse each selected trace",
-        "tags": [
-          "tasks"
-        ]
-      }
-    },
     "/teams/{teamId}/lines/{lineId}/tasks/{taskId}/move": {
       "post": {
         "operationId": "moveTask",
@@ -18566,24 +18518,6 @@
           "title"
         ]
       },
-      "AnalyseTracesRequestDto": {
-        "type": "object",
-        "properties": {
-          "taskIds": {
-            "example": [
-              "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
-            ],
-            "description": "The tasks whose traces are to be analysed, one work item each",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "taskIds"
-        ]
-      },
       "MoveTaskRequestDto": {
         "type": "object",
         "properties": {
@@ -18716,10 +18650,17 @@
           "body": {
             "type": "string",
             "example": "Let’s plan how retries should back off.",
-            "description": "What opens the chat. May be empty where files are attached."
+            "description": "What opens the chat. May be empty where files are attached or traces shared."
           },
           "attachments": {
             "description": "Uploads to attach, by the id each was granted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "traces": {
+            "description": "Tasks whose traces to share with the agent, by task id",
             "type": "array",
             "items": {
               "type": "string"
@@ -18729,6 +18670,23 @@
         "required": [
           "harness",
           "body"
+        ]
+      },
+      "ChatTraceResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "title": {
+            "type": "string",
+            "example": "Retries back off exponentially"
+          }
+        },
+        "required": [
+          "taskId",
+          "title"
         ]
       },
       "ChatProposalResponseDto": {
@@ -18836,6 +18794,13 @@
               "$ref": "#/components/schemas/AttachmentResponseDto"
             }
           },
+          "traces": {
+            "description": "Traces shared with the agent",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatTraceResponseDto"
+            }
+          },
           "proposal": {
             "nullable": true,
             "type": "object",
@@ -18854,6 +18819,7 @@
           "author",
           "runId",
           "attachments",
+          "traces",
           "proposal"
         ]
       },
@@ -18936,10 +18902,17 @@
           "body": {
             "type": "string",
             "example": "Split it into two tasks.",
-            "description": "May be empty where files are attached."
+            "description": "May be empty where files are attached or traces shared."
           },
           "attachments": {
             "description": "Uploads to attach, by the id each was granted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "traces": {
+            "description": "Tasks whose traces to share with the agent, by task id",
             "type": "array",
             "items": {
               "type": "string"

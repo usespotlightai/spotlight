@@ -33,7 +33,8 @@ export class StartChatRequestDto {
 
   @ApiProperty({
     example: 'Let’s plan how retries should back off.',
-    description: 'What opens the chat. May be empty where files are attached.',
+    description:
+      'What opens the chat. May be empty where files are attached or traces shared.',
   })
   readonly body!: string;
 
@@ -43,12 +44,19 @@ export class StartChatRequestDto {
     description: 'Uploads to attach, by the id each was granted',
   })
   readonly attachments?: string[];
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    description: 'Tasks whose traces to share with the agent, by task id',
+  })
+  readonly traces?: string[];
 }
 
 export class SayInChatRequestDto {
   @ApiProperty({
     example: 'Split it into two tasks.',
-    description: 'May be empty where files are attached.',
+    description: 'May be empty where files are attached or traces shared.',
   })
   readonly body!: string;
 
@@ -58,4 +66,11 @@ export class SayInChatRequestDto {
     description: 'Uploads to attach, by the id each was granted',
   })
   readonly attachments?: string[];
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    description: 'Tasks whose traces to share with the agent, by task id',
+  })
+  readonly traces?: string[];
 }

@@ -136,6 +136,10 @@ export class DrizzleChatReader implements ChatReaderPort {
               contentType: each.contentType,
               size: each.size,
             })),
+          traces: message.traces.map(({ taskId, title }) => ({
+            taskId,
+            title,
+          })),
           proposal: proposal && {
             lineId: proposal.lineId,
             lineName: placed?.lineName ?? null,
