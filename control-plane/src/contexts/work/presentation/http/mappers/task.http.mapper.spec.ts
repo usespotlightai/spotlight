@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const dto: TaskDto = {
   id: 'task_1',
+  revision: 2,
   stationId: 'station_1',
   title: 'Fix the queue',
   description: '## Steps',

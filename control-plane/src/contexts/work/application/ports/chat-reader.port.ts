@@ -29,6 +29,11 @@ interface ChatAttachmentView {
   readonly size: number;
 }
 
+interface ChatTraceView {
+  readonly taskId: string;
+  readonly title: string;
+}
+
 interface ChatProposalView {
   readonly lineId: string;
   readonly lineName: string | null;
@@ -49,6 +54,7 @@ interface ChatMessageView {
   readonly author: ChatAuthorView | null;
   readonly runId: string | null;
   readonly attachments: readonly ChatAttachmentView[];
+  readonly traces: readonly ChatTraceView[];
   readonly proposal: ChatProposalView | null;
 }
 

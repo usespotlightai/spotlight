@@ -10,7 +10,7 @@ CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-cha
 CREATE TYPE "public"."check_phase" AS ENUM('waiting', 'reordering', 'checked', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
-CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'completed', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'completed', 'failed', 'superseded');--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,
 	"subscriber" text NOT NULL,
@@ -26,6 +26,7 @@ CREATE TABLE "event_outbox" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"kind" text NOT NULL,
 	"payload" jsonb NOT NULL,
+	"cause" jsonb,
 	"recorded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -356,6 +357,7 @@ CREATE TABLE "hook_callback" (
 	"workspace_id" text NOT NULL,
 	"task_id" text NOT NULL,
 	"hook" text NOT NULL,
+	"firing_id" text,
 	"expires_at" timestamp NOT NULL
 );
 --> statement-breakpoint
@@ -381,15 +383,19 @@ CREATE TABLE "hook_firing" (
 	"team_id" text NOT NULL,
 	"task_id" text NOT NULL,
 	"run_id" text,
+	"station_key" text NOT NULL,
 	"on" text NOT NULL,
 	"occurrence" text NOT NULL,
 	"event" jsonb NOT NULL,
 	"matched" boolean DEFAULT true NOT NULL,
+	"cause" jsonb NOT NULL,
+	"link" jsonb NOT NULL,
 	"steps" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"state" text DEFAULT 'pending' NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"due_at" timestamp DEFAULT now() NOT NULL,
 	"claimed_at" timestamp,
+	"failure" text,
 	"failed" text,
 	"fired_at" timestamp DEFAULT now() NOT NULL,
 	"handled_at" timestamp,
@@ -602,9 +608,18 @@ CREATE TABLE "chat_message" (
 	"at" timestamp NOT NULL,
 	"author_id" text,
 	"run_id" text,
+	"traces" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"proposal" jsonb,
 	"delivered_at" timestamp,
+	"delivered_to" text,
 	CONSTRAINT "chat_message_chat_id_position_pk" PRIMARY KEY("chat_id","position")
+);
+--> statement-breakpoint
+CREATE TABLE "heard_happening" (
+	"workspace_id" text NOT NULL,
+	"key" text NOT NULL,
+	"heard_at" timestamp NOT NULL,
+	CONSTRAINT "heard_happening_workspace_id_key_pk" PRIMARY KEY("workspace_id","key")
 );
 --> statement-breakpoint
 CREATE TABLE "line" (
@@ -708,6 +723,7 @@ CREATE TABLE "run" (
 	"harness" text NOT NULL,
 	"priority" integer DEFAULT 0 NOT NULL,
 	"task_id" text,
+	"task_revision" integer,
 	"chat_id" text,
 	"station_id" text,
 	"state" "run_state" NOT NULL,
@@ -728,6 +744,7 @@ CREATE TABLE "run" (
 	"claimable_from" timestamp,
 	"exit_code" integer,
 	"message" text,
+	"failure" text,
 	"stopped" boolean DEFAULT false NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
@@ -775,6 +792,7 @@ CREATE TABLE "task" (
 	"pull_request" text,
 	"reviewing" boolean DEFAULT false NOT NULL,
 	"finished_at" timestamp,
+	"revision" integer DEFAULT 0 NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
@@ -812,6 +830,7 @@ CREATE TABLE "task_note" (
 	"form" text DEFAULT 'words' NOT NULL,
 	"said" jsonb,
 	"approval" jsonb,
+	"failure" jsonb,
 	"answered_at" timestamp,
 	"read_at" timestamp,
 	"delivered_at" timestamp,
@@ -907,6 +926,7 @@ CREATE INDEX "inbound_delivery_state_idx" ON "inbound_delivery" USING btree ("st
 CREATE INDEX "hook_callback_expires_idx" ON "hook_callback" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "hook_definition_on_idx" ON "hook_definition" USING btree ("team_id","on");--> statement-breakpoint
 CREATE INDEX "hook_firing_state_idx" ON "hook_firing" USING btree ("state","due_at");--> statement-breakpoint
+CREATE INDEX "hook_firing_repeats_idx" ON "hook_firing" USING btree ("hook_id","task_id","fired_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
@@ -924,6 +944,7 @@ CREATE INDEX "attachment_claim_task_idx" ON "attachment_claim" USING btree ("tas
 CREATE INDEX "attachment_claim_chat_idx" ON "attachment_claim" USING btree ("chat_id");--> statement-breakpoint
 CREATE INDEX "chat_team_starter_idx" ON "chat" USING btree ("team_id","started_by_id","updated_at");--> statement-breakpoint
 CREATE INDEX "chat_attachment_chat_idx" ON "chat_attachment" USING btree ("chat_id","message_position");--> statement-breakpoint
+CREATE INDEX "heard_happening_heard_at_idx" ON "heard_happening" USING btree ("heard_at");--> statement-breakpoint
 CREATE INDEX "line_team_idx" ON "line" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "line_workspace_idx" ON "line" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "line_team_key_idx" ON "line" USING btree ("team_id","key");--> statement-breakpoint

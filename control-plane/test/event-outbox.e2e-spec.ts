@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
+import { AmbientCausation } from '@platform/events/ambient-causation';
 import { EventDelivery, MOST_ATTEMPTS } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
@@ -9,7 +10,10 @@ import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { eventDelivery } from '@platform/persistence/drizzle/schemas/event.schema';
+import {
+  eventDelivery,
+  eventOutbox,
+} from '@platform/persistence/drizzle/schemas/event.schema';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
@@ -20,6 +24,7 @@ import {
   actorFor,
   attributedIn,
 } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -56,6 +61,8 @@ let context: DrizzleContext;
 let now = new Date();
 const heard: string[] = [];
 let failing = 0;
+const causation = new AmbientCausation();
+const causes: string[] = [];
 
 const logger = {
   debug: () => undefined,
@@ -79,6 +86,7 @@ const outboxWith = () => {
       ['bell.answered'],
       async (event) => {
         heard.push(`answered ${event.marker.value}`);
+        causes.push(causation.current().saying);
       },
     ),
     subscribing<{ kind: string; marker: string }>(
@@ -116,6 +124,7 @@ const outboxWith = () => {
     projections,
     { generate: () => randomUUID() },
     clock,
+    causation,
   );
   const delivery = new EventDelivery(
     context,
@@ -123,6 +132,7 @@ const outboxWith = () => {
     subscribers,
     clock,
     logger,
+    causation,
   );
 
   return { outbox, delivery };
@@ -195,6 +205,28 @@ describe('the event outbox', () => {
       expect.arrayContaining(['rang one', 'answered one', 'flaky one']),
     );
     expect(heard).toHaveLength(4);
+  });
+
+  it('carries the chain of causes an event was recorded in to what its subscribers raise', async () => {
+    causes.length = 0;
+    const { outbox, delivery } = outboxWith();
+    const chain = CausalChain.none().followedBy({
+      kind: 'hook',
+      key: 'hook:bell',
+      saying: 'the hook bell',
+    });
+
+    await causation.within(chain, () =>
+      outbox.record([new Rang(Marker.of('caused'))]),
+    );
+    await delivery.workOff();
+
+    expect(causes).toEqual(['the hook bell']);
+    expect(
+      (await held.db.select({ cause: eventOutbox.cause }).from(eventOutbox))
+        .map((each) => CausalChain.read(each.cause).saying)
+        .filter((each) => each !== ''),
+    ).toEqual(['the hook bell', 'the hook bell', 'the hook bell']);
   });
 
   it('publishes what other contexts may hear as plain data, beside the domain event', async () => {

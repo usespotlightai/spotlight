@@ -16,6 +16,9 @@ export const standing = (run: Run): string | null => {
   if (run.state === 'queued') {
     return 'Queued';
   }
+  if (run.state === 'superseded') {
+    return 'Superseded';
+  }
 
   return null;
 };

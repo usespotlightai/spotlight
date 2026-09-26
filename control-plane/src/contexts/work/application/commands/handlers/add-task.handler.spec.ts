@@ -143,7 +143,6 @@ const lines = (found: Line | null = line()) =>
     holding: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-    withRole: vi.fn(async () => null),
   }) satisfies LineRepository;
 
 const files = new FilesAtHand({
@@ -202,6 +201,7 @@ describe('AddTaskHandler', () => {
     ).resolves.toEqual({
       id: 'task_1',
       stationId: 'station_1',
+      revision: 0,
       title: 'Fix the queue',
       description: null,
       attachments: [],

@@ -116,6 +116,7 @@ const enqueued = (
   subject: RunSubject = RunSubject.task(
     TaskId.of('task_1'),
     StationId.of('station_1'),
+    0,
   ),
 ) =>
   Run.enqueue({

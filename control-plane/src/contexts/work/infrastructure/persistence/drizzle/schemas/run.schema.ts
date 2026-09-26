@@ -23,6 +23,7 @@ export const run = pgTable(
     harness: text('harness').notNull(),
     priority: integer('priority').default(0).notNull(),
     taskId: text('task_id'),
+    taskRevision: integer('task_revision'),
     chatId: text('chat_id'),
     stationId: text('station_id').references(() => station.id, {
       onDelete: 'set null',
@@ -48,6 +49,7 @@ export const run = pgTable(
     claimableFrom: timestamp('claimable_from'),
     exitCode: integer('exit_code'),
     message: text('message'),
+    failure: text('failure'),
     stopped: boolean('stopped').notNull().default(false),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),

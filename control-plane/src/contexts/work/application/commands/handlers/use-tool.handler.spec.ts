@@ -179,6 +179,7 @@ const claimed = (
         : RunSubject.task(
             TaskId.of('task_1'),
             over.dispatchedAt ? StationId.of(over.dispatchedAt) : null,
+            0,
           ),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },

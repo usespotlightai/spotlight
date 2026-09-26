@@ -16,6 +16,7 @@ import type { HookDefinition } from '@integrations/domain/aggregates/hook-defini
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookFailureCode } from '@integrations/domain/value-objects/hook-failure.vo';
 import {
   compileHook,
   type HookIR,
@@ -49,20 +50,34 @@ const isReadable = (hook: Compiled): hook is Readable => hook.ir !== null;
 
 const REMEMBERED = 256;
 
-const failedAt = (name: string, reason: string): StepTaken => ({
-  outcome: { name, status: 'failed', reason, output: null },
+const failedAt = (
+  name: string,
+  code: HookFailureCode,
+  reason: string,
+): StepTaken => ({
+  outcome: { name, status: 'failed', code, reason, output: null },
   refusal: null,
   trace: null,
 });
 
+class StepRefused extends Error {
+  constructor(
+    readonly code: HookFailureCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'StepRefused';
+  }
+}
+
 const within = <T>(
   working: Promise<T>,
   ms: number,
-  late: string,
+  late: Error,
 ): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const lapsed = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(late)), Math.max(ms, 0));
+    timer = setTimeout(() => reject(late), Math.max(ms, 0));
   });
 
   return Promise.race([working, lapsed]).finally(() => clearTimeout(timer));
@@ -219,6 +234,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     if (!isReadable(hook)) {
       return failedAt(
         asked.step,
+        'broken',
         'belongs to a hook that no longer reads as it was written',
       );
     }
@@ -226,12 +242,13 @@ export class CompiledHookRuntime implements HookRuntimePort {
     const now = this.clock.now();
 
     if (!step) {
-      return failedAt(asked.step, 'is no longer a step of the hook');
+      return failedAt(asked.step, 'broken', 'is no longer a step of the hook');
     }
 
     if (asked.resuming === null && now >= asked.deadline) {
       return failedAt(
         step.name,
+        'timeout',
         `was not reached within the hook's ${hook.timeoutSeconds} seconds`,
       );
     }
@@ -243,7 +260,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
         ? await this.called(hook, step, asked, bindings, now)
         : await this.requested(hook, step, asked, bindings, now);
     } catch (error) {
-      return failedAt(step.name, reasoned(error));
+      return failedAt(step.name, 'errored', reasoned(error));
     }
   }
 
@@ -273,7 +290,11 @@ export class CompiledHookRuntime implements HookRuntimePort {
           : defaultBody(hook, asked.moment),
       );
     } catch (error) {
-      return failedAt(step.name, `could not be written: ${reasoned(error)}`);
+      return failedAt(
+        step.name,
+        'unwritable',
+        `could not be written: ${reasoned(error)}`,
+      );
     }
 
     return this.requests.sent(
@@ -304,7 +325,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     const { moment } = asked;
     let inputs: ToolInputValues = {};
     let output: unknown = null;
-    let failure: string | null = null;
+    let failure: { code: HookFailureCode; reason: string } | null = null;
 
     try {
       const definitions = await this.defined.ofTeam(
@@ -317,28 +338,37 @@ export class CompiledHookRuntime implements HookRuntimePort {
       );
 
       if (!reachable) {
-        throw new Error(
+        throw new StepRefused(
+          'not-allowed',
           `names ${step.tool}, which no integration of the team offers now`,
         );
       }
 
       if (reachable.declared.approval) {
-        throw new Error(
+        throw new StepRefused(
+          'not-allowed',
           `calls ${step.tool}, which asks a person's approval before each call, and a hook cannot give it`,
         );
       }
 
-      inputs = inputsFor(
-        reachable.declared,
-        requiredValueOf(step.with, bindings),
-        (name) => {
-          const input = reachable.declared.inputs.find(
-            (each) => each.name === name,
-          );
+      try {
+        inputs = inputsFor(
+          reachable.declared,
+          requiredValueOf(step.with, bindings),
+          (name) => {
+            const input = reachable.declared.inputs.find(
+              (each) => each.name === name,
+            );
 
-          return input ? reachable.defaultFor(input) : undefined;
-        },
-      );
+            return input ? reachable.defaultFor(input) : undefined;
+          },
+        );
+      } catch (error) {
+        throw new StepRefused(
+          'unwritable',
+          `could not be written: ${reasoned(error)}`,
+        );
+      }
       const reach = await this.reach.of(
         TeamId.of(moment.task.teamId),
         reachable.integration,
@@ -347,10 +377,16 @@ export class CompiledHookRuntime implements HookRuntimePort {
       output = await within(
         reachable.call(inputs, reach),
         asked.deadline.getTime() - this.clock.now().getTime(),
-        `took longer than the hook's ${hook.timeoutSeconds} seconds`,
+        new StepRefused(
+          'timeout',
+          `took longer than the hook's ${hook.timeoutSeconds} seconds`,
+        ),
       );
     } catch (error) {
-      failure = reasoned(error);
+      failure = {
+        code: error instanceof StepRefused ? error.code : 'tool-failed',
+        reason: reasoned(error),
+      };
     }
 
     const ended = this.clock.now();
@@ -362,7 +398,8 @@ export class CompiledHookRuntime implements HookRuntimePort {
           : {
               name: step.name,
               status: 'failed',
-              reason: failure,
+              code: failure.code,
+              reason: failure.reason,
               output: null,
             },
       refusal: null,
@@ -372,7 +409,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
         kind: 'call',
         target: step.tool,
         request: inputs,
-        response: failure ?? output,
+        response: failure?.reason ?? output,
         status: null,
         failed: failure !== null,
         startedAt: started,

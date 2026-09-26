@@ -5,6 +5,7 @@ import {
   momentsOf,
   newlyProposed,
   type Proposal,
+  tracesHandedOver,
   turnsOf,
 } from '@/lib/chat';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
@@ -17,6 +18,7 @@ const message = (over: Partial<ChatMessage>): ChatMessage => ({
   author: null,
   runId: null,
   attachments: [],
+  traces: [],
   proposal: null,
   ...over,
 });
@@ -218,5 +220,22 @@ describe('chatPath', () => {
     expect(chatPath('acme', 'team_1', 'chat_1')).toBe(
       '/w/acme/team/team_1/agent/chat_1',
     );
+  });
+});
+
+describe('tracesHandedOver', () => {
+  it('takes the traces handed over with the page', () => {
+    expect(
+      tracesHandedOver({
+        trail: [],
+        traces: [{ taskId: 'task_1', title: 'Drain the stuck retry queues' }],
+      }),
+    ).toEqual([{ taskId: 'task_1', title: 'Drain the stuck retry queues' }]);
+  });
+
+  it('takes nothing where nothing, or nothing like a trace, was handed over', () => {
+    expect(tracesHandedOver(null)).toEqual([]);
+    expect(tracesHandedOver({ traces: 'task_1' })).toEqual([]);
+    expect(tracesHandedOver({ traces: [{ taskId: 'task_1' }] })).toEqual([]);
   });
 });

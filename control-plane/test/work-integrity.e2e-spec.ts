@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { takeWornMarks } from '@work/application/services/worn-marks';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -252,5 +253,40 @@ describe('a file handed over twice', () => {
     await expect(
       new DrizzleChatRepository(context, quiet).add(chat),
     ).rejects.toBeInstanceOf(InvalidAttachmentError);
+  });
+});
+
+describe('a chat handed to a run', () => {
+  it('remembers the run each message went to, until it is taken back', async () => {
+    const { workspaceId, teamId, owner } = await openTeam(
+      db,
+      tasks,
+      `h-${randomUUID()}`,
+    );
+    const chats = new DrizzleChatRepository(context, quiet);
+    const started = Chat.start({
+      workspaceId,
+      teamId,
+      startedBy: owner,
+      harness: HarnessId.of('dev'),
+      body: ChatMessageBody.of('Plan the queue.'),
+      now: NOW,
+      newId: () => randomUUID(),
+    });
+    started.pullEvents();
+    await chats.add(started);
+
+    const run = RunId.of(randomUUID());
+    await chats.save(started.handedTo(run, NOW));
+    const handed = (await chats.find(started.id)) as Chat;
+
+    expect(handed.messages[0]?.wasDeliveredTo(run)).toBe(true);
+
+    await chats.save(handed.runKeptNothing(run));
+    const back = (await chats.find(started.id)) as Chat;
+
+    expect(back.running).toBe(false);
+    expect(back.undelivered).toHaveLength(1);
+    expect(back.messages[0]?.wasDeliveredTo(run)).toBe(false);
   });
 });

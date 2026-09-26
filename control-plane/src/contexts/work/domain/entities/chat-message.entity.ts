@@ -8,6 +8,7 @@ import type { MessagePosition } from '@work/domain/value-objects/message-positio
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 
 export const CHAT_MESSAGE_KINDS = ['said', 'proposed'] as const;
 
@@ -22,8 +23,10 @@ export class ChatMessage {
     readonly author: UserId | null,
     readonly runId: RunId | null,
     readonly attachments: readonly Attachment[],
+    readonly traces: readonly TraceReference[],
     readonly proposal: TaskProposal | null,
     readonly deliveredAt: Date | null,
+    readonly deliveredTo: RunId | null,
   ) {}
 
   static said(input: {
@@ -31,6 +34,7 @@ export class ChatMessage {
     by: UserId;
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
+    traces?: readonly TraceReference[];
     at: Date;
   }): ChatMessage {
     return new ChatMessage(
@@ -41,6 +45,8 @@ export class ChatMessage {
       input.by,
       null,
       input.attachments ?? [],
+      TraceReference.distinct(input.traces ?? []),
+      null,
       null,
       null,
     );
@@ -62,8 +68,10 @@ export class ChatMessage {
       null,
       input.runId,
       [],
+      [],
       TaskProposal.open(input),
       input.at,
+      null,
     );
   }
 
@@ -75,13 +83,22 @@ export class ChatMessage {
     author: UserId | null;
     runId: RunId | null;
     attachments: readonly Attachment[];
+    traces: readonly TraceReference[];
     proposal: TaskProposal | null;
     deliveredAt: Date | null;
+    deliveredTo: RunId | null;
   }): ChatMessage {
     if (input.proposal && !input.proposal.position.equals(input.position)) {
       throw new InconsistentStateError(
         'chat message',
         'holds a proposal made somewhere else',
+      );
+    }
+
+    if (input.deliveredTo && !input.deliveredAt) {
+      throw new InconsistentStateError(
+        'chat message',
+        'names a run it was delivered to without saying when',
       );
     }
 
@@ -93,8 +110,10 @@ export class ChatMessage {
       input.author,
       input.runId,
       input.attachments,
+      input.traces,
       input.proposal,
       input.deliveredAt,
+      input.deliveredTo,
     );
   }
 
@@ -102,8 +121,25 @@ export class ChatMessage {
     return this.kind === 'said' && this.deliveredAt === null;
   }
 
-  delivered(at: Date): ChatMessage {
-    return this.undelivered ? this.with({ deliveredAt: at }) : this;
+  wasDeliveredTo(runId: RunId): boolean {
+    return this.deliveredTo?.equals(runId) ?? false;
+  }
+
+  delivered(runId: RunId, at: Date): ChatMessage {
+    return this.undelivered
+      ? this.with({ deliveredAt: at, deliveredTo: runId })
+      : this;
+  }
+
+  takenBack(): ChatMessage {
+    if (this.deliveredTo === null) {
+      throw new InconsistentStateError(
+        'chat message',
+        'was never delivered to a run, so it cannot be taken back',
+      );
+    }
+
+    return this.with({ deliveredAt: null, deliveredTo: null });
   }
 
   settled(proposal: TaskProposal): ChatMessage {
@@ -123,6 +159,7 @@ export class ChatMessage {
 
   private with(part: {
     deliveredAt?: Date | null;
+    deliveredTo?: RunId | null;
     proposal?: TaskProposal | null;
   }): ChatMessage {
     return new ChatMessage(
@@ -133,8 +170,10 @@ export class ChatMessage {
       this.author,
       this.runId,
       this.attachments,
+      this.traces,
       part.proposal !== undefined ? part.proposal : this.proposal,
       part.deliveredAt !== undefined ? part.deliveredAt : this.deliveredAt,
+      part.deliveredTo !== undefined ? part.deliveredTo : this.deliveredTo,
     );
   }
 }

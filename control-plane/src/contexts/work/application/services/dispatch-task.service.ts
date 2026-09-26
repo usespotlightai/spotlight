@@ -216,7 +216,7 @@ export class DispatchTask implements TaskDispatching {
       workspaceId: task.workspaceId,
       harness: order.harness.id,
       priority: order.priority,
-      subject: RunSubject.task(task.id, order.stationId),
+      subject: RunSubject.task(task.id, order.stationId, task.revision),
       placement: order.placement,
       spec: written(
         order,

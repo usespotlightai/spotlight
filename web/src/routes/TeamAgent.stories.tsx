@@ -51,6 +51,28 @@ export const Failed: Story = {
   ),
 };
 
+export const SharingTraces: Story = {
+  render: () => (
+    <StoryPage
+      at={{
+        pathname: at,
+        state: {
+          traces: [
+            {
+              taskId: 'task_retries',
+              title: 'Retry webhook deliveries that time out',
+            },
+            { taskId: 'task_checks', title: 'Keep checks green on main' },
+          ],
+        },
+      }}
+      seed={seedChats}
+    >
+      {routes}
+    </StoryPage>
+  ),
+};
+
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedChats}>

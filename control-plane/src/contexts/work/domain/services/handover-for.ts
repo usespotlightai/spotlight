@@ -3,7 +3,10 @@ import type { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+
+const RUN = 'run';
 
 const spoken = (declaration: Declaration, fallback: string) =>
   TaskNoteBody.of(declaration.note === '' ? fallback : declaration.note);
@@ -87,11 +90,12 @@ export const HandoverFor = {
       );
     }
 
-    if (outcome.failed) {
-      return Handover.review(
+    if (outcome.failure) {
+      return Handover.failed(
         TaskNoteBody.of(
           `The run failed: ${outcome.message ?? `exit ${outcome.exitCode}`}`,
         ),
+        TaskFailure.of({ source: RUN, code: outcome.failure.code }),
       );
     }
 
@@ -103,10 +107,11 @@ export const HandoverFor = {
   },
 
   exhausted(attempts: number): Handover {
-    return Handover.review(
+    return Handover.failed(
       TaskNoteBody.of(
         `The run was given up on after ${attempts} attempts without finishing.`,
       ),
+      TaskFailure.of({ source: RUN, code: 'runner-lost' }),
     );
   },
 

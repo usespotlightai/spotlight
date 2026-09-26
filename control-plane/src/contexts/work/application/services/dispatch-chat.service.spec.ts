@@ -16,13 +16,16 @@ import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
+import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -67,14 +70,18 @@ const chatIn = (repositories: Repository[]) =>
     newId: () => 'chat_1',
   });
 
-const enqueued = async (chat: Chat): Promise<Run> => {
+const dispatching = (
+  over: { launches?: boolean } = {},
+): { dispatch: DispatchChat; added: () => Run } => {
   const add = vi.fn(async (_run: Run) => {});
-
-  await new DispatchChat(
+  const dispatch = new DispatchChat(
     { add } as unknown as RunRepository,
     { generate: () => 'id' } as IdGeneratorPort,
     {
-      commandFor: () => HarnessCommand.of({ executable: 'claude-agent-acp' }),
+      commandFor: () =>
+        (over.launches ?? true)
+          ? HarnessCommand.of({ executable: 'claude-agent-acp' })
+          : null,
     } as unknown as HarnessLaunchPort,
     { forChat: () => '00-trace-span-01' } as unknown as TraceParentPort,
     { find: async () => null } as unknown as TeamDirectoryPort,
@@ -85,9 +92,24 @@ const enqueued = async (chat: Chat): Promise<Run> => {
       ],
     } as unknown as LineRepository,
     { now: () => NOW } as ClockPort,
-  ).enqueue(chat, RunId.of('run_1'));
+  );
 
-  return add.mock.calls[0]?.[0] as Run;
+  return { dispatch, added: () => add.mock.calls[0]?.[0] as Run };
+};
+
+const enqueued = async (chat: Chat): Promise<Run> => {
+  const { dispatch, added } = dispatching();
+
+  await dispatch.enqueue(chat, RunId.of('run_1'), [MessagePosition.of(0)]);
+
+  return added();
+};
+
+const handedTo = (chat: Chat, runId: RunId) => {
+  const handed = chat.handedTo(runId, NOW);
+  const [event] = handed.pullEvents();
+
+  return { chat: handed, handed: (event as ChatHandedToRun).handed };
 };
 
 describe('DispatchChat', () => {
@@ -100,5 +122,38 @@ describe('DispatchChat', () => {
 
   it('places a chat run working in no repository anywhere', async () => {
     expect((await enqueued(chatIn([]))).placement.isAnywhere).toBe(true);
+  });
+
+  it('briefs a resumed chat with what a run that kept nothing was handed', async () => {
+    const resumed = chatIn([API])
+      .handedTo(RunId.of('run_1'), NOW)
+      .workedIn(HarnessSession.of('session_1'), null)
+      .endedRun(RunId.of('run_1'))
+      .said({
+        by: UserId.of('user_1'),
+        body: ChatMessageBody.of('Split it.'),
+        at: NOW,
+      });
+
+    resumed.pullEvents();
+
+    const first = handedTo(resumed, RunId.of('run_2'));
+    const stuck = dispatching({ launches: false });
+    expect(
+      await stuck.dispatch.enqueue(first.chat, RunId.of('run_2'), first.handed),
+    ).toBe(false);
+
+    const again = handedTo(
+      first.chat.runKeptNothing(RunId.of('run_2')).said({
+        by: UserId.of('user_1'),
+        body: ChatMessageBody.of('Then the docs.'),
+        at: NOW,
+      }),
+      RunId.of('run_3'),
+    );
+    const { dispatch, added } = dispatching();
+    await dispatch.enqueue(again.chat, RunId.of('run_3'), again.handed);
+
+    expect(added().spec.briefing).toBe('Split it.\n\nThen the docs.');
   });
 });

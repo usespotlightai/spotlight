@@ -126,6 +126,10 @@ describe('standing', () => {
     expect(standing(run('queued'))).toBe('Queued');
   });
 
+  it('reads a superseded run as superseded', () => {
+    expect(standing(run('superseded'))).toBe('Superseded');
+  });
+
   it('says nothing of a run that has ended, however it ended', () => {
     expect(standing(run('completed', 0))).toBeNull();
     expect(standing(run('completed', 1))).toBeNull();

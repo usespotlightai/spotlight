@@ -28,7 +28,6 @@ import {
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
-import { AnalyseTraceCommand } from '@work/application/commands/analyse-trace.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
@@ -49,11 +48,11 @@ import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.
 import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
-import { AnalyseTracesRequestDto } from '@work/presentation/http/dto/analyse-traces.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
 import {
   InboxApprovalResponseDto,
   InboxAuthorResponseDto,
+  InboxFailureResponseDto,
   InboxMessageResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
@@ -68,6 +67,7 @@ import {
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 import { TeamTraceResponseDto } from '@work/presentation/http/dto/team-trace.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
+import { givenIds } from '@work/presentation/http/mappers/given-ids';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
@@ -221,6 +221,7 @@ export class TaskController {
                 )
               : null,
             note.approval ? new InboxApprovalResponseDto(note.approval) : null,
+            note.failure ? new InboxFailureResponseDto(note.failure) : null,
           ),
       ),
     );
@@ -248,7 +249,7 @@ export class TaskController {
         runId,
         user.id,
         body.body ?? '',
-        AttachmentHttpMapper.ids(body.attachments),
+        givenIds(body.attachments),
       ),
     );
   }
@@ -364,30 +365,11 @@ export class TaskController {
         body.title,
         body.description ?? null,
         user.id,
-        AttachmentHttpMapper.ids(body.attachments),
+        givenIds(body.attachments),
       ),
     );
 
     return TaskHttpMapper.toResponse(added);
-  }
-
-  @Post('traces/analysis')
-  @ApiOperation({
-    operationId: 'analyseTraces',
-    summary: 'Open a triage task to analyse each selected trace',
-  })
-  @ApiCreatedResponse({ type: TaskResponseDto, isArray: true })
-  async analyseTraces(
-    @Param('teamId') teamId: string,
-    @Body() body: AnalyseTracesRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TaskResponseDto[]> {
-    const created = await this.commandBus.execute<
-      AnalyseTraceCommand,
-      TaskDto[]
-    >(new AnalyseTraceCommand(teamId, body.taskIds, user.id));
-
-    return created.map((task) => TaskHttpMapper.toResponse(task));
   }
 
   @Post('lines/:lineId/tasks/:taskId/move')
@@ -418,6 +400,7 @@ export class TaskController {
         lineId,
         taskId,
         body.stationId,
+        body.revision,
         body.afterTaskId ?? null,
         user.id,
       ),

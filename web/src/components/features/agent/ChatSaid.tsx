@@ -1,8 +1,15 @@
+import { SharedTraces } from '@/components/features/agent/SharedTraces';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import type { ChatMessage } from '@/lib/chat';
 
-export function ChatSaid({ message }: { message: ChatMessage }) {
+type ChatSaidProps = {
+  slug: string;
+  teamId: string;
+  message: ChatMessage;
+};
+
+export function ChatSaid({ slug, teamId, message }: ChatSaidProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <SaidCard>
@@ -12,6 +19,8 @@ export function ChatSaid({ message }: { message: ChatMessage }) {
       </SaidCard>
 
       <AttachmentTiles attachments={message.attachments} />
+
+      <SharedTraces slug={slug} teamId={teamId} traces={message.traces} />
     </div>
   );
 }

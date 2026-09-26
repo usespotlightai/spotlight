@@ -20,10 +20,14 @@ export class ChatOutcomes implements RunOutcomes {
       return;
     }
 
-    const ended = chat.endedRun(event.runId);
-    const worked = event.session
-      ? ended.workedIn(event.session, event.workedBy)
-      : ended;
+    if (!event.session) {
+      await this.chats.save(chat.runKeptNothing(event.runId));
+      return;
+    }
+
+    const worked = chat
+      .endedRun(event.runId)
+      .workedIn(event.session, event.workedBy);
 
     await this.chats.save(
       event.outcome.stopped ? worked : await this.followedUp(worked),
@@ -34,7 +38,7 @@ export class ChatOutcomes implements RunOutcomes {
     const chat = await this.waiting(event.runId, event.chatId);
 
     if (chat) {
-      await this.chats.save(chat.endedRun(event.runId));
+      await this.chats.save(chat.runKeptNothing(event.runId));
     }
   }
 

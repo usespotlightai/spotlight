@@ -7,6 +7,7 @@ import { Task } from '@/routes/Task';
 const task = {
   id: 'task_1',
   stationId: 'station_1',
+  revision: 2,
   title: 'Fix the queue',
   description: '## Steps\n\nReproduce, then fix.',
   attachments: [],
@@ -271,6 +272,7 @@ describe('Task', () => {
       teamId: 'team_1',
       lineId: 'line_1',
       taskId: 'task_1',
+      revision: 2,
       stationId: 'station_0',
       afterTaskId: null,
     });

@@ -21,10 +21,10 @@ export class EnqueueChatRun {
       return;
     }
 
-    if (await this.dispatching.enqueue(chat, event.runId)) {
+    if (await this.dispatching.enqueue(chat, event.runId, event.handed)) {
       return;
     }
 
-    await this.chats.save(chat.runNeverStarted(event.runId));
+    await this.chats.save(chat.runKeptNothing(event.runId));
   }
 }

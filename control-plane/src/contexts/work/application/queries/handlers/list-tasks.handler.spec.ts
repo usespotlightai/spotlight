@@ -11,6 +11,7 @@ const raised = new Date('2026-08-27T09:15:00.000Z');
 const standing: TaskSummary[] = [
   {
     id: 'task_1',
+    revision: 0,
     stationId: 'station_1',
     title: 'Fix the queue',
     description: null,
@@ -25,6 +26,7 @@ const standing: TaskSummary[] = [
   },
   {
     id: 'task_2',
+    revision: 0,
     stationId: 'station_2',
     title: 'Write the spec',
     description: '## Steps',

@@ -85,7 +85,14 @@ export class WorkOffPolls {
         return;
       }
 
-      await this.reactions.react(team.workspaceId, teamId, polled.happenings);
+      await this.reactions.react(
+        team.workspaceId,
+        teamId,
+        polled.happenings,
+        polled.cursor === null
+          ? null
+          : `poll:${source}:${teamId.value}:${state.cursor ?? ''}`,
+      );
 
       if (!(await this.cursors.advance(teamId, source, polled.cursor, now))) {
         this.log.warn(

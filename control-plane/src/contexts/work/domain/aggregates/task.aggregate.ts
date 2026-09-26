@@ -24,10 +24,15 @@ import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
+import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-revision.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
+import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
-import type { Conversation } from '@work/domain/services/conversations';
+import {
+  type Conversation,
+  notesIn,
+} from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
 import {
   Approval,
@@ -50,6 +55,7 @@ import type { Said } from '@work/domain/value-objects/said.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -76,6 +82,7 @@ export interface Saying {
   readonly form?: TaskNoteForm;
   readonly attachments?: readonly Attachment[];
   readonly approval?: Approval | null;
+  readonly failure?: TaskFailure | null;
 }
 
 export interface StandingApproval {
@@ -108,6 +115,7 @@ export class Task extends EventRecorder {
     readonly finishedAt: Date | null,
     readonly assignee: UserId | null,
     readonly attachments: readonly Attachment[],
+    readonly revision: number = 0,
     readonly version: number = 0,
   ) {
     super();
@@ -182,8 +190,16 @@ export class Task extends EventRecorder {
     finishedAt: Date | null;
     assignee?: UserId | null;
     attachments?: readonly Attachment[];
+    revision: number;
     version?: number;
   }): Task {
+    if (!Number.isInteger(input.revision) || input.revision < 0) {
+      throw new InconsistentStateError(
+        'task',
+        `stands at an impossible revision (${input.revision})`,
+      );
+    }
+
     if (input.finishedAt !== null && input.currentRunId !== null) {
       throw new InconsistentStateError(
         'task',
@@ -214,8 +230,25 @@ export class Task extends EventRecorder {
       input.finishedAt,
       input.assignee ?? null,
       input.attachments ?? [],
+      input.revision,
       input.version ?? 0,
     );
+  }
+
+  expecting(revision: number): Task {
+    if (!Number.isInteger(revision) || revision < 0) {
+      throw new InvalidTaskRevisionError(revision);
+    }
+
+    if (this.revision !== revision) {
+      throw new StaleTaskRevisionError(this.id.value, revision, this.revision);
+    }
+
+    return this;
+  }
+
+  standsAt(revision: number): boolean {
+    return this.revision === revision;
   }
 
   moveTo(
@@ -254,6 +287,7 @@ export class Task extends EventRecorder {
       ...this.spoke(saying, 'passed'),
       finishedAt: into.isCompleted ? saying.at : null,
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
+      revision: this.revision + 1,
     });
 
     moved.record(
@@ -423,6 +457,7 @@ export class Task extends EventRecorder {
       currentRunId: null,
       ...this.spoke(saying, 'passed'),
       finishedAt: saying.at,
+      revision: this.revision + 1,
     });
 
     finished.record(
@@ -634,6 +669,56 @@ export class Task extends EventRecorder {
     return asked;
   }
 
+  movedOnFrom(station: StationId | null): boolean {
+    return (
+      this.finished || (station !== null && !this.stationId.equals(station))
+    );
+  }
+
+  failed(failure: TaskFailure, saying: Saying, by: RunId | null): Task {
+    if (this.finished) {
+      throw new InvalidTaskTransitionError(
+        'has finished, so no failure on it is put to anyone',
+      );
+    }
+
+    if (by) {
+      this.refuseAnotherRun(by, 'report a failure of it');
+    }
+
+    const free = by ? this : this.stopped();
+    const open = free.trail.open;
+    const earlier = open
+      ? notesIn(open, free.notes)
+          .reverse()
+          .find((note) => note.failure !== null)
+      : undefined;
+
+    if (free.awaitingReview && earlier?.failure?.sameAs(failure)) {
+      return free.with({
+        notes: free.notes.map((note) =>
+          note.equals(earlier) ? note.recurred() : note,
+        ),
+      });
+    }
+
+    const reported: Saying = {
+      ...saying,
+      form: 'failure',
+      failure: failure.following(earlier?.failure ?? null),
+    };
+
+    return free.awaitingReview
+      ? free.with(free.spoke(reported, 'said'))
+      : free.askedAbout(reported, by);
+  }
+
+  private stopped(): Task {
+    return this.running
+      ? this.with({ currentRunId: null }).lettingGoOf(this.currentRunId)
+      : this;
+  }
+
   clearFor(
     subject: ApprovalSubject,
     needed: ApprovalNeeded,
@@ -811,6 +896,7 @@ export class Task extends EventRecorder {
     marks?: readonly Mark[];
     finishedAt?: Date | null;
     assignee?: UserId | null;
+    revision?: number;
   }): Task {
     const next = new Task(
       this.id,
@@ -833,6 +919,7 @@ export class Task extends EventRecorder {
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
       part.assignee !== undefined ? part.assignee : this.assignee,
       this.attachments,
+      part.revision ?? this.revision,
       this.version,
     );
 

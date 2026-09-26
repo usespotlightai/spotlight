@@ -1,5 +1,6 @@
+import { useVirtualizer } from '@pierre/diffs/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LayerFileCard } from '@/components/features/changes/LayerFileCard';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,40 +18,29 @@ type LayerDetailProps = {
   onPick: (layerId: string) => void;
 };
 
-const LINE_BUDGET = 1_500;
-
-const shownWithin = (
-  files: readonly LayerFile[],
-  budget: number,
-): ReadonlySet<string> => {
-  const collapsed = new Set<string>();
-  let shown = 0;
-
-  for (const placed of files) {
-    if (shown > budget) {
-      collapsed.add(placed.file.path);
-    }
-    shown += linesOf(placed.hunks);
-  }
-
-  return collapsed;
-};
-
 interface Folded {
   readonly layerId: string;
   readonly paths: ReadonlySet<string>;
 }
 
+const TOO_LARGE = 800;
+
 const foldedFor = (located: LocatedLayer, files: readonly LayerFile[]) => ({
   layerId: located.layer.id,
-  paths:
-    located.cohort.kind === 'incidental'
-      ? new Set(files.map((placed) => placed.file.path))
-      : shownWithin(files, LINE_BUDGET),
+  paths: new Set(
+    files
+      .filter(
+        (placed) =>
+          located.cohort.kind === 'incidental' ||
+          linesOf(placed.hunks) > TOO_LARGE,
+      )
+      .map((placed) => placed.file.path),
+  ),
 });
 
 export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   const { layer } = located;
+  const virtualizer = useVirtualizer();
   const layers = layersOf(stack);
   const at = layers.findIndex((each) => each.layer.id === layer.id);
   const previous = layers[at - 1];
@@ -66,6 +56,11 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   if (folded.layerId !== layer.id) {
     setFolded(foldedFor(located, files));
   }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new layer reads from the top
+  useEffect(() => {
+    virtualizer?.scrollTo({ top: 0 });
+  }, [virtualizer, layer.id]);
 
   const allCollapsed =
     files.length > 0 &&

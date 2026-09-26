@@ -32,7 +32,7 @@ const claimedRun = () =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
     spec,
-    subject: RunSubject.task(TaskId.of('task_1'), StationId.of('station_1')),
+    subject: RunSubject.task(TaskId.of('task_1'), StationId.of('station_1'), 0),
   }).claim(RunnerId.of('runner_1'), NOW);
 
 const taskAssignedTo = (userId: string) =>

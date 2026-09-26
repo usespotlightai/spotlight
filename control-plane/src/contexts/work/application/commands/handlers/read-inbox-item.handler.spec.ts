@@ -101,7 +101,6 @@ const lines = () =>
     holding: vi.fn(async () => null),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-    withRole: vi.fn(async () => null),
   }) satisfies LineRepository;
 
 const read = (found: Task | null, by = 'user_1') => {

@@ -7,16 +7,18 @@ import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const RUN = RunId.of('run_1');
+const HANDED = [MessagePosition.of(1)];
 const CHAT = ChatId.of('chat_1');
 
 const chatHeldBy = (runId: RunId | null) => {
   const released = { currentRunId: null } as unknown as Chat;
   return {
     currentRunId: runId,
-    runNeverStarted: vi.fn(() => released),
+    runKeptNothing: vi.fn(() => released),
     released,
   };
 };
@@ -44,26 +46,27 @@ describe('EnqueueChatRun', () => {
   it('enqueues the run a chat was handed to', async () => {
     const { handler, chat, enqueue } = enqueuing();
 
-    await handler.on(new ChatHandedToRun(CHAT, RUN));
+    await handler.on(new ChatHandedToRun(CHAT, RUN, HANDED));
 
-    expect(enqueue).toHaveBeenCalledWith(chat, RUN);
+    expect(enqueue).toHaveBeenCalledWith(chat, RUN, HANDED);
   });
 
   it('enqueues nothing for a chat since handed elsewhere, or twice', async () => {
     const elsewhere = enqueuing({ runId: RunId.of('run_2') });
-    await elsewhere.handler.on(new ChatHandedToRun(CHAT, RUN));
+    await elsewhere.handler.on(new ChatHandedToRun(CHAT, RUN, HANDED));
     expect(elsewhere.enqueue).not.toHaveBeenCalled();
 
     const twice = enqueuing({ existing: {} as Run });
-    await twice.handler.on(new ChatHandedToRun(CHAT, RUN));
+    await twice.handler.on(new ChatHandedToRun(CHAT, RUN, HANDED));
     expect(twice.enqueue).not.toHaveBeenCalled();
   });
 
-  it('lets the chat go when its run can no longer start', async () => {
+  it('lets the chat go and takes back what it handed when its run can no longer start', async () => {
     const { handler, chat, save } = enqueuing({ enqueued: false });
 
-    await handler.on(new ChatHandedToRun(CHAT, RUN));
+    await handler.on(new ChatHandedToRun(CHAT, RUN, HANDED));
 
+    expect(chat.runKeptNothing).toHaveBeenCalledWith(RUN);
     expect(save).toHaveBeenCalledWith(chat.released);
   });
 });

@@ -49,6 +49,12 @@ export interface ApprovalRow {
   readonly spent: boolean;
 }
 
+export interface FailureRow {
+  readonly source: string;
+  readonly code: string;
+  readonly occurrences: number;
+}
+
 export const task = pgTable(
   'task',
   {
@@ -72,6 +78,7 @@ export const task = pgTable(
     pullRequest: text('pull_request'),
     reviewing: boolean('reviewing').notNull().default(false),
     finishedAt: timestamp('finished_at'),
+    revision: integer('revision').notNull().default(0),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
@@ -102,6 +109,7 @@ export const taskNote = pgTable(
     form: text('form').$type<TaskNoteForm>().notNull().default('words'),
     said: jsonb('said').$type<SaidRow>(),
     approval: jsonb('approval').$type<ApprovalRow>(),
+    failure: jsonb('failure').$type<FailureRow>(),
     answeredAt: timestamp('answered_at'),
     readAt: timestamp('read_at'),
     deliveredAt: timestamp('delivered_at'),

@@ -29,6 +29,7 @@ export class DrizzleHookCallbacks implements HookCallbacksPort {
       workspaceId: holder.workspaceId,
       taskId: holder.taskId,
       hook: holder.hook,
+      firingId: holder.firing,
       expiresAt: until,
     });
 
@@ -52,6 +53,7 @@ export class DrizzleHookCallbacks implements HookCallbacksPort {
           workspaceId: found.workspaceId,
           taskId: found.taskId,
           hook: found.hook,
+          firing: found.firingId,
         }
       : null;
   }

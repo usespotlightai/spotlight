@@ -3,6 +3,7 @@ import {
   APPROVAL_STANDING,
   APPROVAL_SUBJECTS,
   type InboxApprovalDto,
+  type InboxFailureDto,
   NOTE_FORMS,
   NOTE_KINDS,
   NOTE_VOICES,
@@ -82,6 +83,34 @@ export class InboxApprovalResponseDto {
   }
 }
 
+export class InboxFailureResponseDto {
+  @ApiProperty({
+    example: 'run',
+    description:
+      'Where the failure came from: the run, or the hook that failed',
+  })
+  readonly source: string;
+
+  @ApiProperty({
+    example: 'exited',
+    description: 'What kind of failure it was',
+  })
+  readonly code: string;
+
+  @ApiProperty({
+    example: 3,
+    description:
+      'How many times it happened while this was open, rather than asking again each time',
+  })
+  readonly occurrences: number;
+
+  constructor(failure: InboxFailureDto) {
+    this.source = failure.source;
+    this.code = failure.code;
+    this.occurrences = failure.occurrences;
+  }
+}
+
 export class InboxMessageResponseDto {
   @ApiProperty({ example: 0 })
   readonly position: number;
@@ -149,6 +178,13 @@ export class InboxMessageResponseDto {
   })
   readonly approval: InboxApprovalResponseDto | null;
 
+  @ApiProperty({
+    type: InboxFailureResponseDto,
+    nullable: true,
+    description: 'The failure it reports, where it reports one',
+  })
+  readonly failure: InboxFailureResponseDto | null;
+
   constructor(
     position: number,
     kind: string,
@@ -163,6 +199,7 @@ export class InboxMessageResponseDto {
     at: string,
     author: InboxAuthorResponseDto | null,
     approval: InboxApprovalResponseDto | null,
+    failure: InboxFailureResponseDto | null,
   ) {
     this.position = position;
     this.kind = kind;
@@ -177,6 +214,7 @@ export class InboxMessageResponseDto {
     this.at = at;
     this.author = author;
     this.approval = approval;
+    this.failure = failure;
   }
 }
 
@@ -286,6 +324,14 @@ export class InboxItemResponseDto {
   })
   readonly briefing: string | null;
 
+  @ApiProperty({
+    type: InboxFailureResponseDto,
+    nullable: true,
+    description:
+      'The failure this conversation is about, where it is about one',
+  })
+  readonly failure: InboxFailureResponseDto | null;
+
   @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
   readonly notes: readonly InboxMessageResponseDto[];
 
@@ -309,6 +355,7 @@ export class InboxItemResponseDto {
     runId: string | null,
     unread: boolean,
     briefing: string | null,
+    failure: InboxFailureResponseDto | null,
     notes: readonly InboxMessageResponseDto[],
   ) {
     this.id = id;
@@ -330,6 +377,7 @@ export class InboxItemResponseDto {
     this.runId = runId;
     this.unread = unread;
     this.briefing = briefing;
+    this.failure = failure;
     this.notes = notes;
   }
 }

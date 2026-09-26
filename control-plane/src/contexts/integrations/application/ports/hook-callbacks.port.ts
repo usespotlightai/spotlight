@@ -4,6 +4,7 @@ export interface CallbackHolder {
   readonly workspaceId: string;
   readonly taskId: string;
   readonly hook: string;
+  readonly firing: string | null;
 }
 
 export interface HookCallbacksPort {

@@ -10,6 +10,7 @@ type StartChatInput = {
   repositories: string[];
   body: string;
   attachments: string[];
+  traces: string[];
 };
 
 export function useStartChat() {

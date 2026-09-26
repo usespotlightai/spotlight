@@ -7,6 +7,7 @@ import { InboxItem } from '@/routes/InboxItem';
 import {
   APPROVAL_ITEM_ID,
   emptyInbox,
+  FAILING_ITEM_ID,
   failInbox,
   OPENED_ITEM_ID,
   SLUG,
@@ -81,6 +82,14 @@ export const Approved: Story = {
 export const Rejected: Story = {
   render: () => (
     <StoryPage at={inboxItemPath(SLUG, APPROVAL_ITEM_ID)} seed={seedRejected}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const RepeatedFailure: Story = {
+  render: () => (
+    <StoryPage at={inboxItemPath(SLUG, FAILING_ITEM_ID)} seed={seedInbox}>
       {routes}
     </StoryPage>
   ),

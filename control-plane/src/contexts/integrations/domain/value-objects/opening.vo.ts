@@ -17,7 +17,7 @@ export class Opening {
     if (!areWords(onto)) {
       throw new InvalidIdentifierError(
         'line role',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in improvement`,
+        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in delivery`,
       );
     }
 

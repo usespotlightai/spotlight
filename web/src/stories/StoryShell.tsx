@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
-import { MemoryRouter, Routes } from 'react-router';
+import { type Location, MemoryRouter, Routes } from 'react-router';
 
 type StoryShellProps = {
-  at: string;
+  at: string | Partial<Location>;
   seed?: (client: QueryClient) => void;
   children: ReactNode;
 };

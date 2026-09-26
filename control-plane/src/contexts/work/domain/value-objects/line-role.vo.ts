@@ -11,8 +11,6 @@ export class LineRole {
 
   static readonly DELIVERY = new LineRole('delivery');
 
-  static readonly IMPROVEMENT = new LineRole('improvement');
-
   static readonly REVIEW = new LineRole('review');
 
   static of(raw: string): LineRole {
@@ -21,7 +19,7 @@ export class LineRole {
     if (!areWords(named)) {
       throw new InvalidIdentifierError(
         'line role',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in improvement`,
+        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in delivery`,
       );
     }
 

@@ -15,6 +15,7 @@ import {
   REVIEW_MARK,
 } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import { heardInMemory } from '@work/application/ports/heard-happenings.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -171,7 +172,6 @@ const world = (input: {
     ),
     ofWorkspace: vi.fn(async () => input.lines),
     ofTeam: vi.fn(async () => input.lines),
-    withRole: vi.fn(async () => null),
   } satisfies LineRepository;
 
   const dispatch: TaskDispatching = {
@@ -191,12 +191,23 @@ const world = (input: {
     { generate: () => fresh('task') },
     members,
     files,
+    heardInMemory(),
     logger,
   );
 
+  let deliveries = 0;
+
   return {
-    react: (...happenings: Happened[]) =>
-      reactions.react(WorkspaceId.of('ws_1'), null, happenings),
+    react: (...happenings: Happened[]) => {
+      deliveries += 1;
+
+      return reactions.react(
+        WorkspaceId.of('ws_1'),
+        null,
+        happenings,
+        `delivery_${deliveries}`,
+      );
+    },
     added,
     saved,
     dispatched,
@@ -337,6 +348,7 @@ describe('ReactToHappenings, asked for a review', () => {
   it('opens a fresh review where the last one is finished', async () => {
     const line = reviewing();
     const finished = Task.rehydrate({
+      revision: 0,
       id: TaskId.of('task_done'),
       workspaceId: WorkspaceId.of('ws_1'),
       stationId: line.completed.id,

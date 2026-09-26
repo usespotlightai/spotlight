@@ -6,6 +6,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { heardInMemory } from '@work/application/ports/heard-happenings.fake-spec';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -117,6 +118,8 @@ const hooking = (
       {
         slugOf: async () => (over.slug === undefined ? 'acme' : over.slug),
       } as unknown as WorkspaceReaderPort,
+      heardInMemory(),
+      { run: (work) => work() },
       { now: () => NOW, sleep: async () => {} },
       'https://spotlight.acme.dev/',
     ),
@@ -174,9 +177,9 @@ describe('HookedTasks', () => {
     it('adds what a hook says to the task, in Spotlight’s voice', async () => {
       const { hooked, standing } = hooking();
 
-      expect(await hooked.noted('task_1', 'Audit logged.', 'core/audit')).toBe(
-        true,
-      );
+      expect(
+        await hooked.noted('task_1', 'Audit logged.', 'core/audit', null),
+      ).toBe(true);
 
       const notes = standing()?.notes ?? [];
       const noted = notes[notes.length - 1];
@@ -199,7 +202,12 @@ describe('HookedTasks', () => {
       );
       const { hooked, standing } = hooking({ task: asking });
 
-      await hooked.noted('task_1', 'Answer: the billing queue.', 'core/audit');
+      await hooked.noted(
+        'task_1',
+        'Answer: the billing queue.',
+        'core/audit',
+        null,
+      );
 
       const noted = standing();
       expect(noted?.awaitingReview).toBe(true);
@@ -213,26 +221,147 @@ describe('HookedTasks', () => {
     it('reads the task again when it moved on meanwhile', async () => {
       const { hooked, tasks } = hooking({ clashes: 1 });
 
-      expect(await hooked.noted('task_1', 'Audit logged.', 'core/audit')).toBe(
-        true,
-      );
+      expect(
+        await hooked.noted('task_1', 'Audit logged.', 'core/audit', null),
+      ).toBe(true);
       expect(tasks.find).toHaveBeenCalledTimes(2);
     });
 
     it('notes nothing on a task that is gone', async () => {
       const { hooked } = hooking({ task: null });
 
-      expect(await hooked.noted('task_1', 'Audit logged.', 'core/audit')).toBe(
-        false,
-      );
+      expect(
+        await hooked.noted('task_1', 'Audit logged.', 'core/audit', null),
+      ).toBe(false);
+    });
+
+    it('notes once however often a note is retried under one idempotency key', async () => {
+      const { hooked, standing } = hooking();
+
+      await hooked.noted('task_1', 'Audit logged.', 'core/audit', 'note-1');
+      await hooked.noted('task_1', 'Audit logged.', 'core/audit', 'note-1');
+
+      expect(standing()?.notes).toHaveLength(1);
     });
 
     it('refuses to note nothing', async () => {
       const { hooked } = hooking();
 
-      await expect(hooked.noted('task_1', '  ', 'core/audit')).rejects.toThrow(
-        InvalidTaskNoteError,
+      await expect(
+        hooked.noted('task_1', '  ', 'core/audit', null),
+      ).rejects.toThrow(InvalidTaskNoteError);
+    });
+  });
+
+  describe('hearing a hook fail', () => {
+    const LOOPED = {
+      taskId: 'task_1',
+      stationKey: 'implementation',
+      hook: 'core/notify',
+      code: 'loop',
+      saying:
+        'The hook core/notify was stopped: task.moved → the hook core/notify',
+      heardAs: 'loop:firing_1',
+    };
+
+    it('asks a person about the task, naming the hook and what it said', async () => {
+      const { hooked, standing } = hooking();
+
+      await expect(hooked.failed(LOOPED)).resolves.toBe('reported');
+
+      const asked = standing();
+      expect(asked?.awaitingReview).toBe(true);
+      expect(asked?.running).toBe(false);
+      expect(asked?.notes[0]?.failure).toMatchObject({
+        source: 'hook:core/notify',
+        code: 'loop',
+        occurrences: 1,
+      });
+      expect(asked?.notes[0]?.body.value).toContain('task.moved → the hook');
+    });
+
+    it('counts the same failure of another firing again rather than asking twice', async () => {
+      const { hooked, standing } = hooking();
+
+      await hooked.failed(LOOPED);
+      await hooked.failed({ ...LOOPED, heardAs: 'loop:firing_2' });
+
+      expect(standing()?.notes).toHaveLength(1);
+      expect(standing()?.notes[0]?.failure?.occurrences).toBe(2);
+    });
+
+    it('stays reported when told again for one firing after the task moved on', async () => {
+      const { hooked, standing, tasks } = hooking();
+
+      await hooked.failed(LOOPED);
+      const told = standing() as Task;
+      tasks.find.mockResolvedValue(
+        told.moveTo(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
+          station: StationName.of('Implementation'),
+          body: TaskNoteBody.of('Back to the backlog.'),
+          at: NOW,
+          voice: Voice.station(),
+        }),
       );
+
+      await expect(hooked.failed(LOOPED)).resolves.toBe('reported');
+    });
+
+    it('counts a failure reported twice for one firing once', async () => {
+      const { hooked, standing } = hooking();
+
+      await hooked.failed(LOOPED);
+      await expect(hooked.failed(LOOPED)).resolves.toBe('reported');
+
+      expect(standing()?.notes[0]?.failure?.occurrences).toBe(1);
+    });
+
+    it('knows whether a task has moved on from where a hook fired', async () => {
+      const { hooked } = hooking();
+      const gone = hooking({ task: null });
+
+      await expect(hooked.movedOn('task_1', 'implementation')).resolves.toBe(
+        false,
+      );
+      await expect(hooked.movedOn('task_1', 'completed')).resolves.toBe(true);
+      await expect(
+        gone.hooked.movedOn('task_1', 'implementation'),
+      ).resolves.toBe(true);
+    });
+
+    it('supersedes a failure on a task that has moved on from where the hook fired', async () => {
+      const { hooked, tasks } = hooking();
+
+      await expect(
+        hooked.failed({ ...LOOPED, stationKey: 'review' }),
+      ).resolves.toBe('superseded');
+      expect(tasks.save).not.toHaveBeenCalled();
+    });
+
+    it('keeps a failure on a finished task from the inbox', async () => {
+      const finished = working().moveTo(
+        DELIVERY,
+        StationId.of('station_2'),
+        TaskRank.of('i'),
+        {
+          station: StationName.of('Implementation'),
+          body: TaskNoteBody.of('Done.'),
+          at: NOW,
+          voice: Voice.station(),
+        },
+      );
+      const { hooked, tasks } = hooking({ task: finished });
+
+      await expect(
+        hooked.failed({ ...LOOPED, stationKey: 'completed' }),
+      ).resolves.toBe('superseded');
+      expect(tasks.save).not.toHaveBeenCalled();
+    });
+
+    it('tells of no failure on a task that is gone', async () => {
+      const { hooked } = hooking({ task: null });
+
+      await expect(hooked.failed(LOOPED)).resolves.toBe('gone');
     });
   });
 });

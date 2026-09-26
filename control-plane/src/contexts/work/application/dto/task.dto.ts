@@ -19,6 +19,7 @@ interface TaskReviewDto {
 export interface TaskDto {
   readonly id: string;
   readonly stationId: string;
+  readonly revision: number;
   readonly title: string;
   readonly description: string | null;
   readonly attachments: readonly AttachmentDto[];

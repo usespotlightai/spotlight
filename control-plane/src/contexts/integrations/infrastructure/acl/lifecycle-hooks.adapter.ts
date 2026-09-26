@@ -32,6 +32,7 @@ export class LifecycleHooks implements LifecycleHooksPort {
     await this.firings.happened({
       on: moment.on,
       occurrence,
+      change: `${moment.tool} ${occurrence}`,
       task,
       event: eventOf(moment),
     });

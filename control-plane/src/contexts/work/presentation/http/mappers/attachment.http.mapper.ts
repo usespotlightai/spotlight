@@ -10,10 +10,4 @@ export const AttachmentHttpMapper = {
       dto.size,
     );
   },
-
-  ids(given: unknown): string[] {
-    return Array.isArray(given)
-      ? given.filter((each): each is string => typeof each === 'string')
-      : [];
-  },
 };

@@ -2,6 +2,7 @@ import type {
   ChatMessageResponseDto,
   ChatResponseDto,
   ChatSummaryResponseDto,
+  ChatTraceResponseDto,
 } from '@/lib/api';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { teamSectionPath } from '@/lib/team';
@@ -13,6 +14,20 @@ export type ChatSummary = ChatSummaryResponseDto;
 export type ChatMessage = ChatMessageResponseDto;
 
 export type Proposal = NonNullable<ChatMessage['proposal']>;
+
+export type SharedTrace = ChatTraceResponseDto;
+
+const isSharedTrace = (given: unknown): given is SharedTrace =>
+  typeof given === 'object' &&
+  given !== null &&
+  typeof (given as SharedTrace).taskId === 'string' &&
+  typeof (given as SharedTrace).title === 'string';
+
+export const tracesHandedOver = (state: unknown): SharedTrace[] => {
+  const traces = (state as { traces?: unknown } | null)?.traces;
+
+  return Array.isArray(traces) ? traces.filter(isSharedTrace) : [];
+};
 
 export type ChatMoment =
   | {

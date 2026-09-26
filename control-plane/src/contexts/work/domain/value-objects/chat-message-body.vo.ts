@@ -1,5 +1,6 @@
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 
 const MAX_LENGTH = 20_000;
 
@@ -10,7 +11,9 @@ export class ChatMessageBody {
     const trimmed = raw.trim();
 
     if (trimmed.length === 0) {
-      throw new InvalidChatMessageError('must say something or attach a file');
+      throw new InvalidChatMessageError(
+        'must say something, attach a file or share a trace',
+      );
     }
     if (trimmed.length > MAX_LENGTH) {
       throw new InvalidChatMessageError(
@@ -24,11 +27,22 @@ export class ChatMessageBody {
   static given(
     raw: string,
     attachments: readonly Attachment[] = [],
+    traces: readonly TraceReference[] = [],
   ): ChatMessageBody {
     const names = attachments.map((each) => each.name).join(', ');
+    const shared = TraceReference.distinct(traces);
+    const traced = shared.map((each) => each.title.value).join(', ');
 
     return ChatMessageBody.of(
-      raw.trim() || (names ? `Attached ${names}.` : ''),
+      raw.trim() ||
+        [
+          names ? `Attached ${names}.` : '',
+          traced
+            ? `Shared the trace${shared.length > 1 ? 's' : ''} of ${traced}.`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
     );
   }
 

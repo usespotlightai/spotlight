@@ -31,12 +31,14 @@ import {
   AnswerInboxItemRequestDto,
   InboxApprovalResponseDto,
   InboxAuthorResponseDto,
+  InboxFailureResponseDto,
   InboxItemResponseDto,
   InboxMessageResponseDto,
   InboxStationResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
+import { givenIds } from '@work/presentation/http/mappers/given-ids';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
 @ApiTags('inbox')
@@ -99,6 +101,7 @@ export class InboxController {
           item.runId,
           item.unread,
           item.briefing,
+          item.failure ? new InboxFailureResponseDto(item.failure) : null,
           item.notes.map(
             (note) =>
               new InboxMessageResponseDto(
@@ -123,6 +126,7 @@ export class InboxController {
                 note.approval
                   ? new InboxApprovalResponseDto(note.approval)
                   : null,
+                note.failure ? new InboxFailureResponseDto(note.failure) : null,
               ),
           ),
         ),
@@ -153,7 +157,7 @@ export class InboxController {
         itemId,
         user.id,
         body.body ?? '',
-        AttachmentHttpMapper.ids(body.attachments),
+        givenIds(body.attachments),
         body.approve === undefined
           ? null
           : body.approve

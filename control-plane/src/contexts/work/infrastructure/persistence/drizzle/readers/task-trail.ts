@@ -6,6 +6,7 @@ import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   InboxApproval,
+  InboxFailure,
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
@@ -18,6 +19,7 @@ import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.s
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   type ApprovalRow,
+  type FailureRow,
   task,
   taskAttachment,
   taskNote,
@@ -100,6 +102,21 @@ const asked = (parts: ApprovalRow | null): InboxApproval | null => {
   };
 };
 
+const failed = (parts: FailureRow | null): InboxFailure | null =>
+  parts
+    ? {
+        source: parts.source,
+        code: parts.code,
+        occurrences: parts.occurrences,
+      }
+    : null;
+
+export const failureIn = (notes: readonly InboxNote[]): InboxFailure | null =>
+  notes.reduce<InboxFailure | null>(
+    (about, note) => note.failure ?? about,
+    null,
+  );
+
 export const trailsFor = async (
   db: DrizzleDatabase,
   people: PersonReaderPort,
@@ -131,6 +148,7 @@ export const trailsFor = async (
       at: taskNote.at,
       authorId: taskNote.authorId,
       approval: taskNote.approval,
+      failure: taskNote.failure,
     })
     .from(taskNote)
     .innerJoin(task, eq(task.id, taskNote.taskId))
@@ -172,6 +190,7 @@ export const trailsFor = async (
           }
         : null,
       approval: asked(row.approval),
+      failure: failed(row.failure),
     });
 
     trail.set(row.taskId, told);

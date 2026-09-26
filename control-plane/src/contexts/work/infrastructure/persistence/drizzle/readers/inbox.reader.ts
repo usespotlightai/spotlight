@@ -31,6 +31,7 @@ import {
   attachmentsFor,
   attachmentsOf,
   briefingsFor,
+  failureIn,
   stationsPerLine,
   trailsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
@@ -163,6 +164,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
           briefing: (note.runId && given.get(note.runId)) || null,
+          failure: failureIn(notes),
           notes,
         });
       }

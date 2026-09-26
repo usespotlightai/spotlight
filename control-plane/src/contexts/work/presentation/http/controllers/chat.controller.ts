@@ -47,8 +47,8 @@ import {
   ChatSummaryResponseDto,
 } from '@work/presentation/http/dto/chat.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
-import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { ChatHttpMapper } from '@work/presentation/http/mappers/chat.http.mapper';
+import { givenIds } from '@work/presentation/http/mappers/given-ids';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
 @ApiTags('chats')
@@ -116,7 +116,8 @@ export class ChatController {
         body.effort ?? null,
         Array.isArray(body.repositories) ? body.repositories : [],
         body.body ?? '',
-        AttachmentHttpMapper.ids(body.attachments),
+        givenIds(body.attachments),
+        givenIds(body.traces),
       ),
     );
 
@@ -197,7 +198,8 @@ export class ChatController {
         chatId,
         user.id,
         body.body ?? '',
-        AttachmentHttpMapper.ids(body.attachments),
+        givenIds(body.attachments),
+        givenIds(body.traces),
       ),
     );
   }

@@ -18,6 +18,8 @@ import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event'
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
+import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
+import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -30,6 +32,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import type { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 
 export class Chat extends EventRecorder {
   private constructor(
@@ -62,14 +65,18 @@ export class Chat extends EventRecorder {
     repositories?: readonly Repository[];
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
+    traces?: readonly TraceReference[];
     now: Date;
     newId: () => string;
   }): Chat {
+    Chat.refuseForeignTraces(input.teamId, input.traces ?? []);
+
     const opening = ChatMessage.said({
       position: MessagePosition.of(0),
       by: input.startedBy,
       body: input.body,
       attachments: input.attachments,
+      traces: input.traces,
       at: input.now,
     });
 
@@ -173,6 +180,12 @@ export class Chat extends EventRecorder {
     return this.messages.flatMap((message) => message.attachments);
   }
 
+  messagesAt(positions: readonly MessagePosition[]): readonly ChatMessage[] {
+    return this.messages.filter((message) =>
+      positions.some((position) => position.equals(message.position)),
+    );
+  }
+
   repositoryNamed(name: string): Repository | null {
     return (
       this.repositories.find(
@@ -185,9 +198,11 @@ export class Chat extends EventRecorder {
     by: UserId;
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
+    traces?: readonly TraceReference[];
     at: Date;
   }): Chat {
     this.refuseStranger(input.by);
+    Chat.refuseForeignTraces(this.teamId, input.traces ?? []);
 
     return this.with({
       messages: [
@@ -206,18 +221,31 @@ export class Chat extends EventRecorder {
 
     const handed = this.with({
       currentRunId: runId,
-      messages: this.messages.map((message) => message.delivered(at)),
+      messages: this.messages.map((message) => message.delivered(runId, at)),
     });
 
-    handed.record(new ChatHandedToRun(this.id, runId));
+    handed.record(
+      new ChatHandedToRun(
+        this.id,
+        runId,
+        this.undelivered.map((message) => message.position),
+      ),
+    );
 
     return handed;
   }
 
-  runNeverStarted(runId: RunId): Chat {
-    return this.currentRunId?.equals(runId)
-      ? this.with({ currentRunId: null })
-      : this;
+  runKeptNothing(runId: RunId): Chat {
+    if (!this.heldBy(runId)) {
+      return this;
+    }
+
+    return this.with({
+      currentRunId: null,
+      messages: this.messages.map((message) =>
+        message.wasDeliveredTo(runId) ? message.takenBack() : message,
+      ),
+    });
   }
 
   endedRun(runId: RunId): Chat {
@@ -230,11 +258,15 @@ export class Chat extends EventRecorder {
     return this.with({ sessionId, runnerId });
   }
 
-  deliveredUpTo(position: MessagePosition, at: Date): Chat {
+  deliveredUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
+    if (!this.heldBy(runId)) {
+      return this;
+    }
+
     return this.with({
       messages: this.messages.map((message) =>
         message.position.isAtOrBefore(position)
-          ? message.delivered(at)
+          ? message.delivered(runId, at)
           : message,
       ),
     });
@@ -336,6 +368,19 @@ export class Chat extends EventRecorder {
 
   private get nextPosition(): MessagePosition {
     return MessagePosition.of(this.messages.length);
+  }
+
+  private static refuseForeignTraces(
+    teamId: TeamId,
+    traces: readonly TraceReference[],
+  ): void {
+    const foreign = traces.find(
+      (each) => !TraceAccess.sameTeam(teamId, each.teamId),
+    );
+
+    if (foreign) {
+      throw new UnknownTaskError(foreign.taskId.value);
+    }
   }
 
   private refuseStranger(by: UserId): void {

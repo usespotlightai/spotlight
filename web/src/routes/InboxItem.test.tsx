@@ -521,6 +521,24 @@ describe('InboxItem', () => {
     expect(read).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:4' });
   });
 
+  it('puts a failure in words and counts how often it happened', () => {
+    const [failing] = item([
+      message({ form: 'failure', body: 'The run exited before it finished.' }),
+    ]);
+    waiting.mockReturnValue([
+      {
+        ...failing,
+        failure: { source: 'run', code: 'exited', occurrences: 3 },
+      },
+    ]);
+    renderItem();
+
+    expect(
+      screen.getByText('The run exited before it finished.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('banner')).toHaveTextContent('Failed 3 times');
+  });
+
   it('walks from the team to the task it is about', () => {
     renderItem();
 

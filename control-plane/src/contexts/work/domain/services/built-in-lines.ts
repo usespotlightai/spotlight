@@ -148,64 +148,6 @@ request and give its address in your note.
 With the pull request open, the task is finished: hand on to \`done\` rather
 than to a person, so nothing is left waiting on an answer nobody owes.`;
 
-const ANALYSIS = `## Analysis
-
-Analyse the run trace this task points to, and work out how to reduce its
-failure modes in future runs.
-
-The note names the trace and how to pull it: write it to a file with the
-\`spotlight trace --task\` command given there — it prints only the file's
-path, never the trace itself — and read and search that file with your own
-tools rather than loading it whole. The file is one JSON object: \`rows\`,
-\`faults\`, \`ms\`, and \`roots\`, a tree of nodes. Each node has an \`id\`, a
-\`kind\` (run, phase, step or span), a \`name\`, \`ms\` and \`tone\`; the heavy
-detail lives on step nodes (\`step.given\`, \`step.returned\`, \`step.change\`)
-and span nodes (\`span.attributes\`). Skim the ids, names and tones first, and
-read the detail only of the nodes worth it.
-
-Report concretely on:
-
-- **System prompt** — where a station's prompt misled the agent or left it
-  unsure, with specific wording to change.
-- **Missing tools or environment** — anything it lacked or could not reach
-  that cost it retries or dead ends.
-- **Token usage** — where context was spent needlessly, and a leaner way.
-- **Mistakes** — wrong turns worth skipping next time.
-
-Read only. The change is worked out here, not made. Hand the task on to
-Implementation with your recommendations.`;
-
-const IMPROVE = `## Implementation
-
-Make the change the analysis recommends to the factory's own configuration — a
-station's prompt, the tools it is given, the shape of a line — and no more than
-it. The repository this works in is the configuration repository, not a
-product's.
-
-Match what is already there: the shape of the files, the voice of the prompts.
-Commit your work and push it; the workspace is already on the branch this task
-belongs to:
-
-    git push -u origin HEAD
-
-Say in your note what you changed and why. If the recommendation turns out to
-be wrong or cannot be followed as written, stop and put that to a person
-rather than improvising a different change.`;
-
-const IMPROVE_REVIEW = `## Code review
-
-Review the change against what the analysis asked for, not against how you
-would have written it. Configuration is read by people and by agents alike: a
-prompt that reads two ways is a defect.
-
-Say in your note what you found, most serious first, and be specific. If
-anything needs changing, hand the task back to implementation.
-
-If it is sound, say so and say what you checked, then open a pull request
-against the configuration repository and give its address in your note.
-
-With the pull request open, the task is finished: hand on to \`done\`.`;
-
 const PULL_REQUEST_REVIEW = `## Review
 
 Review the pull request this task names. Somebody else wrote it, outside
@@ -305,45 +247,6 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
   }),
 ];
 
-const IMPROVEMENT_STATIONS: readonly StationOpening[] = [
-  opening({
-    key: 'backlog',
-    name: 'Backlog',
-    color: StationColor.plain().value,
-    kind: 'backlog',
-    passesTo: ['analysis'],
-  }),
-  opening({
-    key: 'analysis',
-    name: 'Analysis',
-    color: '#9b8cf0',
-    prompt: ANALYSIS,
-    passesTo: ['implementation'],
-  }),
-  opening({
-    key: 'implementation',
-    name: 'Implementation',
-    color: '#edc12b',
-    prompt: IMPROVE,
-    passesTo: ['code-review'],
-  }),
-  opening({
-    key: 'code-review',
-    name: 'Code Review',
-    color: '#56b98d',
-    prompt: IMPROVE_REVIEW,
-    passesTo: ['implementation'],
-    ends: true,
-    tools: [PULL_REQUEST],
-  }),
-  opening({
-    key: 'completed',
-    name: 'Completed',
-    color: StationColor.plain().value,
-    kind: 'completed',
-  }),
-];
-
 const GITHUB_REACTIONS: readonly ReactionOpening[] = [
   {
     happening: Happening.of('github.checks.failed'),
@@ -369,14 +272,6 @@ export const BUILT_IN_LINES: readonly LineOpening[] = [
     name: LineName.of('Delivery'),
     role: LineRole.DELIVERY,
     stations: DELIVERY_STATIONS,
-    reactions: GITHUB_REACTIONS,
-    repositories: [],
-  },
-  {
-    key: LineKey.of('factory'),
-    name: LineName.of('Factory'),
-    role: LineRole.IMPROVEMENT,
-    stations: IMPROVEMENT_STATIONS,
     reactions: GITHUB_REACTIONS,
     repositories: [],
   },

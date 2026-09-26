@@ -33,6 +33,7 @@ import { describe, expect, it } from 'vitest';
 
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
   Task.rehydrate({
+    revision: 0,
     id: task.id,
     workspaceId: task.workspaceId,
     stationId: task.stationId,

@@ -42,6 +42,7 @@ const DOCUMENT = {
 const MOMENT: HookMoment = {
   on: 'tool.used',
   occurrence: 'occurrence_1',
+  firing: null,
   at: NOW,
   event: {
     tool: 'grafana.search',
@@ -202,7 +203,22 @@ describe('CompiledHookRuntime', () => {
 
     expect(taken.outcome).toMatchObject({
       status: 'failed',
+      code: 'timeout',
       reason: "took longer than the hook's 2 seconds",
+    });
+  });
+
+  it('fails a call the tool itself failed, as one worth trying again', async () => {
+    const { hooked } = setUp(
+      tool(() => Promise.reject(new Error('channel_not_found'))),
+    );
+
+    const taken = await hooked.step(await asking(hooked, 'notify'));
+
+    expect(taken.outcome).toMatchObject({
+      status: 'failed',
+      code: 'tool-failed',
+      reason: 'channel_not_found',
     });
   });
 
@@ -215,6 +231,7 @@ describe('CompiledHookRuntime', () => {
     expect(call).not.toHaveBeenCalled();
     expect(taken.outcome).toMatchObject({
       status: 'failed',
+      code: 'not-allowed',
       reason: expect.stringMatching(/approval/),
     });
   });
@@ -227,6 +244,7 @@ describe('CompiledHookRuntime', () => {
     ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
+        code: 'not-allowed',
         reason:
           'names slack.post-message, which no integration of the team offers now',
       },
@@ -243,6 +261,7 @@ describe('CompiledHookRuntime', () => {
     expect(requests.sent).not.toHaveBeenCalled();
     expect(taken.outcome).toMatchObject({
       status: 'failed',
+      code: 'timeout',
       reason: "was not reached within the hook's 2 seconds",
     });
   });
@@ -263,6 +282,7 @@ describe('CompiledHookRuntime', () => {
     );
     expect(gone.outcome).toMatchObject({
       status: 'failed',
+      code: 'broken',
       reason: 'is no longer a step of the hook',
     });
   });

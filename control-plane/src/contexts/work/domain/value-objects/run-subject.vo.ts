@@ -4,7 +4,7 @@ import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
 export interface RunSubjectCases<T> {
-  task(taskId: TaskId, stationId: StationId | null): T;
+  task(taskId: TaskId, stationId: StationId | null, revision: number): T;
   chat(chatId: ChatId): T;
 }
 
@@ -13,20 +13,26 @@ export class RunSubject {
     readonly taskId: TaskId | null,
     readonly stationId: StationId | null,
     readonly chatId: ChatId | null,
+    readonly revision: number | null,
   ) {}
 
-  static task(taskId: TaskId, stationId: StationId | null): RunSubject {
-    return new RunSubject(taskId, stationId, null);
+  static task(
+    taskId: TaskId,
+    stationId: StationId | null,
+    revision: number,
+  ): RunSubject {
+    return new RunSubject(taskId, stationId, null, revision);
   }
 
   static chat(chatId: ChatId): RunSubject {
-    return new RunSubject(null, null, chatId);
+    return new RunSubject(null, null, chatId, null);
   }
 
   static rehydrate(input: {
     taskId: TaskId | null;
     stationId: StationId | null;
     chatId: ChatId | null;
+    revision: number | null;
   }): RunSubject | null {
     if (input.chatId && (input.taskId || input.stationId)) {
       throw new InconsistentStateError(
@@ -37,8 +43,18 @@ export class RunSubject {
     if (input.chatId) {
       return RunSubject.chat(input.chatId);
     }
+    if (input.taskId && input.revision === null) {
+      throw new InconsistentStateError(
+        'run',
+        'works a task without the revision it was handed',
+      );
+    }
     if (input.taskId) {
-      return RunSubject.task(input.taskId, input.stationId);
+      return RunSubject.task(
+        input.taskId,
+        input.stationId,
+        input.revision as number,
+      );
     }
     if (input.stationId) {
       throw new InconsistentStateError(
@@ -53,7 +69,11 @@ export class RunSubject {
   match<T>(cases: RunSubjectCases<T>): T {
     return this.chatId
       ? cases.chat(this.chatId)
-      : cases.task(this.taskId as TaskId, this.stationId);
+      : cases.task(
+          this.taskId as TaskId,
+          this.stationId,
+          this.revision as number,
+        );
   }
 
   equals(other: RunSubject): boolean {
@@ -65,7 +85,8 @@ export class RunSubject {
     return (
       same(this.taskId, other.taskId) &&
       same(this.stationId, other.stationId) &&
-      same(this.chatId, other.chatId)
+      same(this.chatId, other.chatId) &&
+      this.revision === other.revision
     );
   }
 }

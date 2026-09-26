@@ -7,6 +7,7 @@ type MoveTaskInput = {
   teamId: string;
   lineId: string;
   taskId: string;
+  revision: number;
   stationId: string;
   afterTaskId: string | null;
 };
@@ -19,12 +20,13 @@ export function useMoveTask() {
       teamId,
       lineId,
       taskId,
+      revision,
       stationId,
       afterTaskId,
     }: MoveTaskInput) => {
       const { data } = await moveTask({
         path: { teamId, lineId, taskId },
-        body: { stationId, afterTaskId },
+        body: { revision, stationId, afterTaskId },
         throwOnError: true,
       });
       return data;

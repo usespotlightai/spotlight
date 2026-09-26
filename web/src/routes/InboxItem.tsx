@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
+import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
@@ -114,7 +115,10 @@ export function InboxItem() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title={<Breadcrumbs segments={trail} />} />
+      <PageHeader
+        title={<Breadcrumbs segments={trail} />}
+        trailing={<FailureCount failure={item.failure} />}
+      />
 
       <ChangesPanel>
         <Conversation

@@ -87,7 +87,6 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
-import { AnalyseTraceCommand } from '@work/application/commands/analyse-trace.command';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { AnswerRemarkCommand } from '@work/application/commands/answer-remark.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
@@ -107,7 +106,6 @@ import { RedeemEgressCommand } from '@work/application/commands/egress.commands'
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
-import { AnalyseTraceHandler } from '@work/application/commands/handlers/analyse-trace.handler';
 import { AnswerHostCallHandler } from '@work/application/commands/handlers/answer-host-call.handler';
 import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@work/application/commands/handlers/answer-remark.handler';
@@ -204,6 +202,10 @@ import {
   type HarnessLaunchPort,
 } from '@work/application/ports/harness-launch.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
+import {
+  HEARD_HAPPENINGS,
+  type HeardHappeningsPort,
+} from '@work/application/ports/heard-happenings.port';
 import { HELD_RUN_READER } from '@work/application/ports/held-run-reader.port';
 import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
 import {
@@ -290,6 +292,10 @@ import {
   TRACE_PARENT,
   type TraceParentPort,
 } from '@work/application/ports/trace-parent.port';
+import {
+  TRACED_TASK_READER,
+  type TracedTaskReaderPort,
+} from '@work/application/ports/traced-task-reader.port';
 import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
 import {
   WORKSPACE_ARCHIVE_STORE,
@@ -373,6 +379,7 @@ import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { EndRunners } from '@work/application/services/end-runners.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
@@ -404,6 +411,7 @@ import {
 } from '@work/application/services/task-dispatch';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { ToolSources } from '@work/application/services/tool-sources.service';
+import { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
 import { WORK_EVENT_TYPES } from '@work/domain/event-types';
@@ -433,7 +441,9 @@ import { DrizzleStationTallies } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/readers/task-placements.reader';
 import { DrizzleTeamTraceReader } from '@work/infrastructure/persistence/drizzle/readers/team-trace.reader';
+import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
+import { DrizzleHeardHappenings } from '@work/infrastructure/persistence/drizzle/repositories/heard-happenings.repository';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -464,6 +474,7 @@ import { RunnerController } from '@work/presentation/http/controllers/runner.con
 import { RunnerActivityController } from '@work/presentation/http/controllers/runner-activity.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
 import { WorkspaceArchiveController } from '@work/presentation/http/controllers/workspace-archive.controller';
+import { HeardHappeningsWorker } from '@work/presentation/workers/heard-happenings.worker';
 import { NetworkCallsWorker } from '@work/presentation/workers/network-calls.worker';
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
@@ -522,6 +533,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   DrizzleRunRepository,
 
+  { provide: HEARD_HAPPENINGS, useClass: DrizzleHeardHappenings },
+
   DrizzleLineRepository,
 
   DrizzleTaskRepository,
@@ -538,6 +551,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleTaskRepository,
       DrizzleLineRepository,
       WORKSPACE_READER,
+      HEARD_HAPPENINGS,
+      TRANSACTION,
       CLOCK,
       ENV,
     ],
@@ -545,9 +560,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
       workspaces: WorkspaceReaderPort,
+      heard: HeardHappeningsPort,
+      transaction: TransactionPort,
       clock: ClockPort,
       env: Env,
-    ) => new HookedTasks(tasks, lines, workspaces, clock, publicUrlOf(env)),
+    ) =>
+      new HookedTasks(
+        tasks,
+        lines,
+        workspaces,
+        heard,
+        transaction,
+        clock,
+        publicUrlOf(env),
+      ),
   },
 
   { provide: HOOKED_TASKS, useExisting: HookedTasks },
@@ -581,6 +607,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [NetworkCalls, LOGGER],
     useFactory: (calls: NetworkCalls, logger: LoggerPort) =>
       new NetworkCallsWorker(calls, logger),
+  },
+
+  {
+    provide: ForgetHeardHappenings,
+    inject: [HEARD_HAPPENINGS, CLOCK],
+    useFactory: (heard: HeardHappeningsPort, clock: ClockPort) =>
+      new ForgetHeardHappenings(heard, clock),
+  },
+
+  {
+    provide: HeardHappeningsWorker,
+    inject: [ForgetHeardHappenings, LOGGER],
+    useFactory: (forgetting: ForgetHeardHappenings, logger: LoggerPort) =>
+      new HeardHappeningsWorker(forgetting, logger),
   },
 
   {
@@ -618,6 +658,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: RUNNER_TRACE_READER, useClass: DrizzleRunnerTraceReader },
 
+  { provide: TRACED_TASK_READER, useClass: DrizzleTracedTaskReader },
+
   { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
 
   { provide: HARNESS_PROFILE_REVIEW, useExisting: BuiltInHarnesses },
@@ -644,6 +686,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: FilesAtHand,
     inject: [ATTACHMENT_STORE],
     useFactory: (files: AttachmentStorePort) => new FilesAtHand(files),
+  },
+
+  {
+    provide: TracesAtHand,
+    inject: [TRACED_TASK_READER],
+    useFactory: (tasks: TracedTaskReaderPort) => new TracesAtHand(tasks),
   },
 
   DrizzleRunDigests,
@@ -748,6 +796,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       MEMBER_READER,
       ATTACHMENT_STORE,
+      HEARD_HAPPENINGS,
       LOGGER,
     ],
     useFactory: (
@@ -760,6 +809,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       members: MemberReaderPort,
       files: AttachmentStorePort,
+      heard: HeardHappeningsPort,
       logger: LoggerPort,
     ) =>
       new ReactToHappenings(
@@ -772,6 +822,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         ids,
         members,
         files,
+        heard,
         logger,
       ),
   },
@@ -1015,7 +1066,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       publications.register(WORK_PUBLICATIONS);
       subscribers.register([
         ...workSubscribers({
-          handOver: new HandOver(tasks, placements, lines, taskDispatch, clock),
+          handOver: new HandOver(
+            tasks,
+            runs,
+            placements,
+            lines,
+            taskDispatch,
+            clock,
+          ),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
           digests: new DigestRun(digests),
           provisioning: new ProvisionTeam(
@@ -1307,17 +1365,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     LineViews,
   ]),
 
-  ...bindCommandHandler(AnalyseTraceCommand, AnalyseTraceHandler, [
-    DrizzleTaskRepository,
-    TASK_PLACEMENTS,
-    DrizzleLineRepository,
-    TEAM_DIRECTORY,
-    ID_GENERATOR,
-    CLOCK,
-    RaiseTask,
-    PERSON_READER,
-  ]),
-
   ...bindCommandHandler(DeleteTaskCommand, DeleteTaskHandler, [
     DrizzleTaskRepository,
     LineAtHand,
@@ -1431,6 +1478,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     WORKSPACE_READER,
     DrizzleChatRepository,
     FilesAtHand,
+    TracesAtHand,
     CHAT_DISPATCH,
     HARNESS_LAUNCH,
     ID_GENERATOR,
@@ -1442,6 +1490,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ChatAtHand,
     DrizzleChatRepository,
     FilesAtHand,
+    TracesAtHand,
     CHAT_DISPATCH,
     CLOCK,
     TRANSACTION,
