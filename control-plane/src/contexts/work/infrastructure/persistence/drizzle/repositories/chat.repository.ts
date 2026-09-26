@@ -104,6 +104,7 @@ const toMessage = (
     ),
     proposal: toProposal(row.proposal ?? null, position),
     deliveredAt: row.deliveredAt,
+    deliveredTo: row.deliveredTo ? RunId.of(row.deliveredTo) : null,
   });
 };
 
@@ -246,10 +247,15 @@ export class DrizzleChatRepository implements ChatRepository {
           })),
           proposal,
           deliveredAt: message.deliveredAt,
+          deliveredTo: message.deliveredTo?.value ?? null,
         })
         .onConflictDoUpdate({
           target: [chatMessage.chatId, chatMessage.position],
-          set: { proposal, deliveredAt: message.deliveredAt },
+          set: {
+            proposal,
+            deliveredAt: message.deliveredAt,
+            deliveredTo: message.deliveredTo?.value ?? null,
+          },
         });
 
       if (message.attachments.length === 0) {

@@ -211,6 +211,49 @@ describe('Chat', () => {
     ).toEqual(['And then?']);
   });
 
+  it('takes back only what it handed to a run that kept nothing, and wants following up', () => {
+    const handed = working()
+      .endedRun(RunId.of('run_1'))
+      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
+      .handedTo(RunId.of('run_2'), LATER)
+      .said({ by: LEON, body: ChatMessageBody.of('And docs.'), at: LATER });
+
+    const released = handed.runKeptNothing(RunId.of('run_2'));
+
+    expect(released.running).toBe(false);
+    expect(released.undelivered.map((each) => each.position.value)).toEqual([
+      1, 2,
+    ]);
+    expect(released.messages[0]?.wasDeliveredTo(RunId.of('run_1'))).toBe(true);
+    expect(released.wantsFollowUp).toBe(true);
+  });
+
+  it('keeps what it handed when a run it is not held by kept nothing', () => {
+    const unchanged = working().runKeptNothing(RunId.of('run_2'));
+
+    expect(unchanged.running).toBe(true);
+    expect(unchanged.undelivered).toHaveLength(0);
+  });
+
+  it('counts nothing as heard by a run it is not held by', () => {
+    const said = working()
+      .endedRun(RunId.of('run_1'))
+      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER });
+
+    expect(
+      said.deliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
+    ).toHaveLength(1);
+  });
+
+  it('keeps what a run heard once it started', () => {
+    const heard = working()
+      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
+      .deliveredUpTo(RunId.of('run_1'), SECOND, LATER);
+
+    expect(heard.messages[1]?.wasDeliveredTo(RunId.of('run_1'))).toBe(true);
+    expect(heard.endedRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
+  });
+
   it('will not be handed to a second run while one works it', () => {
     expect(() => working().handedTo(RunId.of('run_2'), LATER)).toThrow(
       InvalidChatTransitionError,
@@ -225,7 +268,9 @@ describe('Chat', () => {
     });
 
     expect(said.undelivered.map((each) => each.position.value)).toEqual([1]);
-    expect(said.deliveredUpTo(SECOND, LATER).undelivered).toHaveLength(0);
+    expect(
+      said.deliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
+    ).toHaveLength(0);
   });
 
   it('wants following up only once its run is done and something is left unheard', () => {

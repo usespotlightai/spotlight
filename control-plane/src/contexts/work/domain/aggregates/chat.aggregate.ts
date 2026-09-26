@@ -221,7 +221,7 @@ export class Chat extends EventRecorder {
 
     const handed = this.with({
       currentRunId: runId,
-      messages: this.messages.map((message) => message.delivered(at)),
+      messages: this.messages.map((message) => message.delivered(runId, at)),
     });
 
     handed.record(
@@ -235,10 +235,17 @@ export class Chat extends EventRecorder {
     return handed;
   }
 
-  runNeverStarted(runId: RunId): Chat {
-    return this.currentRunId?.equals(runId)
-      ? this.with({ currentRunId: null })
-      : this;
+  runKeptNothing(runId: RunId): Chat {
+    if (!this.heldBy(runId)) {
+      return this;
+    }
+
+    return this.with({
+      currentRunId: null,
+      messages: this.messages.map((message) =>
+        message.wasDeliveredTo(runId) ? message.takenBack() : message,
+      ),
+    });
   }
 
   endedRun(runId: RunId): Chat {
@@ -251,11 +258,15 @@ export class Chat extends EventRecorder {
     return this.with({ sessionId, runnerId });
   }
 
-  deliveredUpTo(position: MessagePosition, at: Date): Chat {
+  deliveredUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
+    if (!this.heldBy(runId)) {
+      return this;
+    }
+
     return this.with({
       messages: this.messages.map((message) =>
         message.position.isAtOrBefore(position)
-          ? message.delivered(at)
+          ? message.delivered(runId, at)
           : message,
       ),
     });

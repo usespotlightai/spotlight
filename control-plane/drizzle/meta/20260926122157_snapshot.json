@@ -1,5 +1,5 @@
 {
-  "id": "f141283b-8118-4e2b-bd34-79490840b575",
+  "id": "61b94d7a-6fbe-4318-9665-b9d6eec25f0e",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -5153,6 +5153,12 @@
         "delivered_at": {
           "name": "delivered_at",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivered_to": {
+          "name": "delivered_to",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
