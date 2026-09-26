@@ -28,6 +28,10 @@ import {
   type HarnessReviewPort,
 } from '@configuration/application/ports/harness-review.port';
 import {
+  HELD_HOOKS,
+  type HeldHooksPort,
+} from '@configuration/application/ports/held-hooks.port';
+import {
   HELD_INTEGRATIONS,
   type HeldIntegrationsPort,
 } from '@configuration/application/ports/held-integrations.port';
@@ -259,6 +263,7 @@ const adapters: Provider[] = [
       LINE_RESOURCES,
       SKILL_RESOURCES,
       HELD_INTEGRATIONS,
+      HELD_HOOKS,
       HARNESS_PROFILE_RESOURCES,
       HarnessProfileViews,
       SECRET_CONFIGURATION,
@@ -270,6 +275,7 @@ const adapters: Provider[] = [
       lines: LineResourcesPort,
       skills: SkillResourcesPort,
       integrations: HeldIntegrationsPort,
+      hooks: HeldHooksPort,
       profiles: HarnessProfileResourcesPort,
       profileViews: HarnessProfileViews,
       secrets: SecretConfigurationPort,
@@ -281,6 +287,7 @@ const adapters: Provider[] = [
         lines,
         skills,
         integrations,
+        hooks,
         profiles,
         profileViews,
         secrets,
@@ -399,6 +406,7 @@ const handlers: Provider[] = [
       LINE_RESOURCES,
       SKILL_RESOURCES,
       HELD_INTEGRATIONS,
+      HELD_HOOKS,
       HARNESS_PROFILE_RESOURCES,
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,

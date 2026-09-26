@@ -16,6 +16,7 @@ import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -48,6 +49,7 @@ export class Run extends EventRecorder {
     readonly reservation: RunnerReservation | null,
     readonly provisioning: Provisioning,
     readonly ranIn: RunnerImage | null,
+    readonly handBacks: HandBacks,
     readonly version: number = 0,
   ) {
     super();
@@ -79,6 +81,7 @@ export class Run extends EventRecorder {
       null,
       Provisioning.none(),
       null,
+      HandBacks.none(),
     );
   }
 
@@ -99,6 +102,7 @@ export class Run extends EventRecorder {
     reservation: RunnerReservation | null;
     provisioning: Provisioning;
     ranIn?: RunnerImage | null;
+    handBacks?: HandBacks;
     version?: number;
   }): Run {
     Run.guardReconstituted(input);
@@ -120,6 +124,7 @@ export class Run extends EventRecorder {
       input.reservation,
       input.provisioning,
       input.ranIn ?? null,
+      input.handBacks ?? HandBacks.none(),
       input.version ?? 0,
     );
   }
@@ -195,7 +200,8 @@ export class Run extends EventRecorder {
     return (
       this.state === 'queued' &&
       this.reservation === null &&
-      this.provisioning.dueAt(now)
+      this.provisioning.dueAt(now) &&
+      this.handBacks.claimableAt(now)
     );
   }
 
@@ -297,6 +303,7 @@ export class Run extends EventRecorder {
       reservation: null,
       provisioning: Provisioning.none(),
       ranIn: null,
+      handBacks: HandBacks.none(),
     });
   }
 
@@ -386,6 +393,68 @@ export class Run extends EventRecorder {
     );
 
     return refused;
+  }
+
+  claimableAt(now: Date): boolean {
+    return this.handBacks.claimableAt(now);
+  }
+
+  handedBack(by: RunnerId, now: Date, because: string): Run {
+    this.requireHeldBy(by, 'hand back');
+
+    if (this.stopRequested) {
+      return this.endedUnstarted(RunOutcome.stopped(-1));
+    }
+
+    const handBacks = this.handBacks.handedBackAt(now);
+
+    if (handBacks.exhausted) {
+      return this.endedUnstarted(
+        RunOutcome.refused([
+          {
+            saying: `Its hooks could not be asked after ${handBacks.count} tries: ${because}`,
+          },
+        ]),
+      );
+    }
+
+    return this.with({
+      state: 'queued',
+      claimedBy: null,
+      leaseExpiresAt: null,
+      reservation: null,
+      ranIn: null,
+      handBacks,
+    });
+  }
+
+  private endedUnstarted(outcome: RunOutcome): Run {
+    const ended = this.with({
+      state: outcome.failed ? 'failed' : 'completed',
+      claimedBy: null,
+      leaseExpiresAt: null,
+      outcome,
+    });
+
+    ended.record(
+      new RunCompleted(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        outcome,
+        null,
+        null,
+        null,
+      ),
+    );
+
+    return ended;
+  }
+
+  refusedToStart(by: RunnerId, reason: string): Run {
+    this.requireHeldBy(by, 'refuse to start');
+
+    return this.endedUnstarted(RunOutcome.refused([{ saying: reason }]));
   }
 
   withdrawn(reason: string): Run {
@@ -485,6 +554,7 @@ export class Run extends EventRecorder {
     reservation?: RunnerReservation | null;
     provisioning?: Provisioning;
     ranIn?: RunnerImage | null;
+    handBacks?: HandBacks;
   }): Run {
     const next = new Run(
       this.id,
@@ -507,6 +577,7 @@ export class Run extends EventRecorder {
       part.reservation !== undefined ? part.reservation : this.reservation,
       part.provisioning ?? this.provisioning,
       part.ranIn !== undefined ? part.ranIn : this.ranIn,
+      part.handBacks ?? this.handBacks,
       this.version,
     );
 

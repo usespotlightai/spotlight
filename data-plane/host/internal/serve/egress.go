@@ -58,16 +58,37 @@ func (h *Host) wayOut(
 		return way, err
 	}
 
-	body, err := json.Marshal(protocol.EgressHanded{
+	way.container, err = h.startEgress(ctx, image, name, labels, protocol.EgressHanded{
 		URL:        h.opts.SandboxURL,
 		Token:      token,
 		Credential: way.credential,
 		Allow:      h.opts.Egress.Allow,
 		Reads:      h.opts.Egress.Reads,
 		Held:       held,
-	})
+	}, []sandbox.Join{{Network: way.network, Aliases: []string{EgressAlias}}})
 	if err != nil {
 		return way, err
+	}
+
+	if wait <= 0 {
+		wait = egressWait
+	}
+	way.authority, err = h.awaited(ctx, way.container, protocol.EgressAuthority, wait, func(found []byte) bool {
+		return x509.NewCertPool().AppendCertsFromPEM(found)
+	})
+	if errors.Is(err, errLate) {
+		return way, fmt.Errorf("egress was not ready within %s", wait)
+	}
+
+	return way, err
+}
+
+func (h *Host) startEgress(
+	ctx context.Context, image, name string, labels map[string]string, handed protocol.EgressHanded, joins []sandbox.Join,
+) (string, error) {
+	body, err := json.Marshal(handed)
+	if err != nil {
+		return "", err
 	}
 
 	env, files := h.opts.Egress.Env, []sandbox.File{{Path: protocol.EgressHandedPath, Mode: 0o400, Body: body}}
@@ -76,7 +97,7 @@ func (h *Host) wayOut(
 		files = append(files, sandbox.File{Path: EgressTrusts + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.opts.Egress.Trust})
 	}
 
-	way.container, err = h.engine.Start(ctx, sandbox.Spec{
+	return h.engine.Start(ctx, sandbox.Spec{
 		Name:       "spotlight-egress-" + name,
 		Image:      image,
 		Entrypoint: []string{"spotlight", "egress"},
@@ -84,18 +105,9 @@ func (h *Host) wayOut(
 		Labels:     labels,
 		Files:      files,
 		Network:    h.opts.Network,
-		Joins:      []sandbox.Join{{Network: way.network, Aliases: []string{EgressAlias}}},
+		Joins:      joins,
 		ExtraHosts: h.opts.ExtraHosts,
 	})
-	if err != nil {
-		return way, err
-	}
-
-	if way.authority, err = h.awaited(ctx, way.container, protocol.EgressAuthority, wait); err != nil {
-		return way, err
-	}
-
-	return way, nil
 }
 
 func (h *Host) egressImage(ctx context.Context) (string, error) {
@@ -120,11 +132,11 @@ func (h *Host) egressImage(ctx context.Context) (string, error) {
 	return image.ID, nil
 }
 
-func (h *Host) awaited(ctx context.Context, container, path string, wait time.Duration) ([]byte, error) {
-	if wait <= 0 {
-		wait = egressWait
-	}
+var errLate = errors.New("egress wrote nothing in time")
 
+func (h *Host) awaited(
+	ctx context.Context, container, path string, wait time.Duration, ready func([]byte) bool,
+) ([]byte, error) {
 	waiting, cancel := context.WithTimeout(ctx, wait)
 	defer cancel()
 
@@ -133,16 +145,19 @@ func (h *Host) awaited(ctx context.Context, container, path string, wait time.Du
 
 	for {
 		found, err := h.engine.Read(waiting, container, path)
-		if err == nil && x509.NewCertPool().AppendCertsFromPEM(found) {
+		if err == nil && ready(found) {
 			return found, nil
 		}
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err != nil && !errors.Is(err, os.ErrNotExist) && waiting.Err() == nil {
 			return nil, err
 		}
 
 		select {
 		case <-waiting.Done():
-			return nil, fmt.Errorf("egress was not ready within %s", wait)
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			return nil, errLate
 		case <-ticker.C:
 		}
 	}

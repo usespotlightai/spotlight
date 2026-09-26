@@ -129,7 +129,7 @@ const provisioning = (
   let generated = 0;
   const failures = new ProvisionFailures(
     runs,
-    { append: async () => {} },
+    { append: async () => {}, appendAside: async () => -1_000_000 },
     { publish: () => {}, subscribe: () => () => {} },
   );
 

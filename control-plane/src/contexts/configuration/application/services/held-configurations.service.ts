@@ -4,6 +4,7 @@ import type {
 } from '@configuration/application/dto/held-configuration.dto';
 import { HeldResourceMapper } from '@configuration/application/mappers/held-resource.mapper';
 import type { HarnessProfileResourcesPort } from '@configuration/application/ports/harness-profile-resources.port';
+import type { HeldHooksPort } from '@configuration/application/ports/held-hooks.port';
 import type { HeldIntegrationsPort } from '@configuration/application/ports/held-integrations.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
@@ -24,6 +25,7 @@ export class HeldConfigurations {
     private readonly lines: LineResourcesPort,
     private readonly skills: SkillResourcesPort,
     private readonly integrations: HeldIntegrationsPort,
+    private readonly hooks: HeldHooksPort,
     private readonly profiles: HarnessProfileResourcesPort,
     private readonly profileViews: HarnessProfileViews,
     private readonly secrets: SecretConfigurationPort,
@@ -61,10 +63,11 @@ export class HeldConfigurations {
   }
 
   private async heldBy(team: TeamProfile): Promise<readonly HeldResourceDto[]> {
-    const [lines, skills, integrations, profiles] = await Promise.all([
+    const [lines, skills, integrations, hooks, profiles] = await Promise.all([
       this.lines.ofTeam(team.id),
       this.skills.ofTeam(team.id),
       this.integrations.ofTeam(team.id),
+      this.hooks.ofTeam(team.id),
       this.profiles.ofTeam(team.id),
     ]);
 
@@ -75,6 +78,7 @@ export class HeldConfigurations {
       ...integrations.map((each) =>
         HeldResourceMapper.integration(team.key, each),
       ),
+      ...hooks.map((each) => HeldResourceMapper.hook(team.key, each)),
       ...profiles.map((each) =>
         HeldResourceMapper.profile(
           team.key,

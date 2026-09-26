@@ -240,6 +240,7 @@ describe('MoveTaskHandler', () => {
             : [each.kind],
         ),
     ).toEqual([
+      ['task.moved'],
       ['task.let-go-of-run', 'run_0'],
       ['task.handed-to-run', 'run_1'],
     ]);

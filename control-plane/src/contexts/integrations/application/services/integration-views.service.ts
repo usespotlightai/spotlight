@@ -30,6 +30,14 @@ export class IntegrationViews {
       teamId: kept.teamId.value,
       source: kept.source,
       definition: kept.definition,
+      tools: compiled.ok
+        ? Object.fromEntries(
+            compiled.integration.offers.map((offered) => [
+              offered.tool.slice(offered.tool.indexOf('.') + 1),
+              offered.tool,
+            ]),
+          )
+        : {},
       warnings: compiled.ok ? compiled.warnings : compiled.problems,
     };
   }

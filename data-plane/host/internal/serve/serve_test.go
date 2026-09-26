@@ -60,6 +60,7 @@ type fakeEngine struct {
 	leftNets    []string
 	egressMute  bool
 	egressFails bool
+	callMute    bool
 }
 
 func newEngine() *fakeEngine {
@@ -229,6 +230,12 @@ func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {
 	if !ok || (e.egressMute && spec.Labels[serve.LabelRunner] != "") {
 		return nil, os.ErrNotExist
 	}
+	if call := spec.Labels[serve.LabelCall]; call != "" {
+		if e.callMute || path != protocol.EgressSendPath {
+			return nil, os.ErrNotExist
+		}
+		return json.Marshal(protocol.HostCallAnswer{Status: 200, Body: "c2VudA==", Ms: 7})
+	}
 	return authorityFor(id), nil
 }
 
@@ -265,6 +272,18 @@ func (e *fakeEngine) egressOf(runner string) (string, sandbox.Spec, bool) {
 
 	for id, spec := range e.egresses {
 		if spec.Labels[serve.LabelRunner] == runner {
+			return id, spec, true
+		}
+	}
+	return "", sandbox.Spec{}, false
+}
+
+func (e *fakeEngine) egressFor(call string) (string, sandbox.Spec, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	for id, spec := range e.egresses {
+		if spec.Labels[serve.LabelCall] == call {
 			return id, spec, true
 		}
 	}
@@ -385,6 +404,10 @@ type pool struct {
 	mu       sync.Mutex
 	presence []protocol.HostPresence
 	left     bool
+
+	calls       chan protocol.HostCall
+	refuseCalls chan struct{}
+	answers     map[string]protocol.HostCallAnswer
 }
 
 func newPool() *pool {
@@ -392,6 +415,10 @@ func newPool() *pool {
 		work:    make(chan protocol.Handed, 8),
 		refuse:  make(chan struct{}),
 		offered: make(chan protocol.HostClaim, 256),
+
+		calls:       make(chan protocol.HostCall, 8),
+		refuseCalls: make(chan struct{}),
+		answers:     map[string]protocol.HostCallAnswer{},
 		worker: &worker{
 			images:    map[string]string{},
 			completed: map[string]protocol.Completion{},
@@ -466,6 +493,33 @@ func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.H
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+func (p *pool) ClaimCall(ctx context.Context) (*protocol.HostCall, error) {
+	select {
+	case call := <-p.calls:
+		return &call, nil
+	case <-p.refuseCalls:
+		return nil, fmt.Errorf("claim a call: %w", control.ErrRefused)
+	case <-time.After(20 * time.Millisecond):
+		return nil, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (p *pool) AnswerCall(_ context.Context, id string, answer protocol.HostCallAnswer) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.answers[id] = answer
+	return nil
+}
+
+func (p *pool) answered(id string) (protocol.HostCallAnswer, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	answer, ok := p.answers[id]
+	return answer, ok
 }
 
 func (p *pool) Present(_ context.Context, presence protocol.HostPresence) (protocol.HostStanding, error) {
@@ -1445,5 +1499,110 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	}
 	if !probed || !probeEgress {
 		t.Errorf("probed %v behind an egress %v", probed, probeEgress)
+	}
+}
+
+func handedTo(t *testing.T, spec sandbox.Spec) protocol.EgressHanded {
+	t.Helper()
+
+	for _, file := range spec.Files {
+		if file.Path == protocol.EgressHandedPath {
+			var handed protocol.EgressHanded
+			if err := json.Unmarshal(file.Body, &handed); err != nil {
+				t.Fatal(err)
+			}
+			return handed
+		}
+	}
+	t.Fatal("egress was handed nothing")
+	return protocol.EgressHanded{}
+}
+
+func hookCall(id string) protocol.HostCall {
+	return protocol.HostCall{
+		ID: id, Method: "POST", URL: "https://audit.acme.internal/hooks",
+		Headers: map[string]string{"content-type": "application/json"}, Body: "e30=", TimeoutMs: 50,
+	}
+}
+
+func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWhatItSaid(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.Network = "spotlight"
+	opts.ExtraHosts = []string{"audit.acme.internal:10.0.0.7"}
+	serving(t, opts, engine, pool)
+
+	pool.calls <- hookCall("call_1")
+	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+
+	answer, _ := pool.answered("call_1")
+	if answer.Status != 200 || answer.Body != "c2VudA==" || answer.Ms != 7 || answer.Error != "" {
+		t.Errorf("answered %+v", answer)
+	}
+
+	id, spec, ok := engine.egressFor("call_1")
+	if !ok {
+		t.Fatal("sent the call without an egress")
+	}
+	if spec.Labels[serve.LabelHost] != "host_1" || spec.Network != "spotlight" || len(spec.Joins) != 0 ||
+		!slices.Equal(spec.ExtraHosts, opts.ExtraHosts) || !slices.Contains(spec.Env, "AWS_REGION=eu-west-1") {
+		t.Errorf("started the call's egress as %+v", spec)
+	}
+	handed := handedTo(t, spec)
+	if handed.Send == nil || handed.Send.ID != "call_1" || handed.Send.URL != "https://audit.acme.internal/hooks" ||
+		handed.Token != "" || handed.Credential == "" || !slices.Equal(handed.Allow, opts.Egress.Allow) {
+		t.Errorf("handed the call's egress %+v", handed)
+	}
+	eventually(t, "the call's egress destroyed", func() bool { return engine.wasDestroyed(id) })
+
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	for name := range engine.networks {
+		if strings.Contains(name, "call") {
+			t.Errorf("made the network %s for a call", name)
+		}
+	}
+}
+
+func TestAnswersACallWhoseEgressWillNotStart(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.egressFails = true
+	serving(t, options(t), engine, pool)
+
+	pool.calls <- hookCall("call_1")
+	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+
+	answer, _ := pool.answered("call_1")
+	if answer.Status != 0 || answer.Error != "the host's egress did not start: the egress image will not run" {
+		t.Errorf("answered %+v", answer)
+	}
+}
+
+func TestAnswersACallWhoseEgressNeverAnswers(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.callMute = true
+	opts := options(t)
+	opts.EgressWait = 100 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.calls <- hookCall("call_1")
+	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+
+	answer, _ := pool.answered("call_1")
+	if answer.Status != 0 || answer.Error != "the host's egress did not answer within 150ms" {
+		t.Errorf("answered %+v", answer)
+	}
+	id, _, _ := engine.egressFor("call_1")
+	eventually(t, "the call's egress destroyed", func() bool { return engine.wasDestroyed(id) })
+}
+
+func TestAHostWhoseCallsAreRefusedStops(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	_, stopped := serving(t, options(t), engine, pool)
+
+	close(pool.refuseCalls)
+
+	if err := stopped(); !errors.Is(err, control.ErrRefused) {
+		t.Fatalf("stopped with %v", err)
 	}
 }

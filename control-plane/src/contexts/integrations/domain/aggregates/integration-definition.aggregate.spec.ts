@@ -64,7 +64,7 @@ const LINEAR = {
 };
 
 const GIVEN = ToolUses.of([
-  { tool: 'linear.comment', by: 'delivery/implementation' },
+  { tool: 'linear.comment', by: 'the station delivery/implementation' },
 ]);
 
 describe('IntegrationDefinition', () => {
@@ -146,7 +146,7 @@ describe('IntegrationDefinition', () => {
 
   it('is retired only once no station gives what it offers', () => {
     expect(() => standing(['linear.comment']).retired(GIVEN, BY)).toThrow(
-      /linear.comment, which delivery\/implementation gives/,
+      /linear.comment, which the station delivery\/implementation uses/,
     );
 
     const retired = standing(['linear.comment']).retired(ToolUses.none(), BY);

@@ -3,10 +3,7 @@ import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 import type { ProvisionCall } from '@runners/application/ports/provision-calls.port';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
-import {
-  SignedProvisionCalls,
-  signatureOf,
-} from '@runners/infrastructure/provision/signed-provision-calls';
+import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
 import { describe, expect, it, vi } from 'vitest';
 
 const SECRET = ProvisionSecret.of(
@@ -53,19 +50,6 @@ const calls = (
     ),
   };
 };
-
-describe('signatureOf', () => {
-  it('signs as the Standard Webhooks specification does', () => {
-    expect(
-      signatureOf(
-        Buffer.from('MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw', 'base64'),
-        'msg_p5jXN8AQM9LWM0D4loKWxJek',
-        1614265330,
-        '{"test": 2432232314}',
-      ),
-    ).toBe('v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=');
-  });
-});
 
 describe('SignedProvisionCalls', () => {
   it('posts the run, its labels, its image and a one-run token, signed with the pool secret', async () => {

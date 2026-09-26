@@ -79,7 +79,8 @@ export class RunStreamController {
 
       const emit = (event: RunEventView) => {
         if (mark.admits(event)) {
-          subscriber.next({ id: eventIdOf(event), data: event });
+          const id = eventIdOf(event);
+          subscriber.next(id ? { id, data: event } : { data: event });
         }
       };
 

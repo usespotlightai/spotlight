@@ -151,3 +151,76 @@ describe('journalling a run that was tried again', () => {
     expect((await digests.forRuns([runId])).get(runId.value)?.steps).toBe(1);
   });
 });
+
+describe('journalling aside what happened around a run', () => {
+  const aside = (message: string, second: number) => ({
+    type: 'hook.called',
+    at: new Date(Date.UTC(2026, 8, 17, 9, 0, second)),
+    message,
+  });
+
+  it('gives each entry its own place below the runner’s, however many arrive at once', async () => {
+    const { runId } = await chatRun();
+    const attempt = RunAttempt.of(runId, 1);
+
+    await journal.append(attempt, [
+      { seq: -1, type: 'provision.failed', at: new Date(), message: 'x' },
+    ]);
+    const placed = await Promise.all(
+      Array.from({ length: 4 }, (_, each) =>
+        journal.appendAside(attempt, aside(`hook-${each}`, each)),
+      ),
+    );
+
+    expect(new Set(placed).size).toBe(4);
+    expect(Math.max(...placed)).toBe(-1_000_000);
+    expect(Math.min(...placed)).toBe(-1_000_003);
+
+    const kept = await db
+      .select({ seq: schema.runJournalEntry.seq })
+      .from(schema.runJournalEntry)
+      .where(eq(schema.runJournalEntry.runId, runId.value));
+    expect(kept).toHaveLength(5);
+  });
+
+  it('replays what was kept aside whatever the cursor, in time among the runner’s entries', async () => {
+    const { runId } = await chatRun();
+    const attempt = RunAttempt.of(runId, 1);
+
+    await journal.append(attempt, hooks('one', 'two', 'three'));
+    await journal.appendAside(attempt, aside('between', 1));
+
+    const all = await events.eventsSince(runId, 1, 0, 50);
+    expect(all.map((each) => each.message)).toEqual([
+      'one',
+      'two',
+      'between',
+      'three',
+    ]);
+
+    const later = await events.eventsSince(runId, 1, 3, 50);
+    expect(later.map((each) => [each.seq, each.message])).toEqual([
+      [-1_000_000, 'between'],
+    ]);
+  });
+
+  it('replays the newest of what was kept aside on a long run', async () => {
+    const { runId } = await chatRun();
+    await db.insert(schema.runJournalEntry).values(
+      Array.from({ length: 205 }, (_, each) => ({
+        runId: runId.value,
+        attempt: 1,
+        seq: -1_000_000 - each,
+        type: 'hook.called',
+        at: new Date(Date.UTC(2026, 8, 17, 9, 0, 0, each)),
+        message: `hook-${each}`,
+      })),
+    );
+
+    const replayed = await events.eventsSince(runId, 1, 0, 50);
+
+    expect(replayed).toHaveLength(200);
+    expect(replayed[0]?.message).toBe('hook-5');
+    expect(replayed[199]?.message).toBe('hook-204');
+  });
+});

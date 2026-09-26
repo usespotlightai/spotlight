@@ -6,6 +6,8 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  NotFoundException,
+  Param,
   Post,
   Res,
   UnauthorizedException,
@@ -16,6 +18,7 @@ import {
   ApiConflictResponse,
   ApiHeader,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -23,11 +26,24 @@ import {
 } from '@nestjs/swagger';
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import {
+  AnswerHostCallCommand,
+  ClaimHostCallCommand,
+} from '@work/application/commands/host-call.commands';
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
 import type { HostClaimDto } from '@work/application/dto/host.dto';
+import type {
+  HostCallAnswerDto,
+  HostCallClaimDto,
+} from '@work/application/dto/host-call.dto';
 import type { HostRequirementsDto } from '@work/application/dto/host-requirements.dto';
 import { HostRequirementsQuery } from '@work/application/queries/host.queries';
 import { HostClaimResponseDto } from '@work/presentation/http/dto/host.response.dto';
+import {
+  AnswerHostCallRequestDto,
+  ClaimHostCallRequestDto,
+} from '@work/presentation/http/dto/host-call.request.dto';
+import { HostCallResponseDto } from '@work/presentation/http/dto/host-call.response.dto';
 import { ClaimHostWorkRequestDto } from '@work/presentation/http/dto/host-claim.request.dto';
 import {
   HostRequirementsResponseDto,
@@ -161,5 +177,128 @@ export class HostWorkController {
       claimed.egressToken,
       ClaimedWorkHttpMapper.toResponse(claimed.work),
     );
+  }
+
+  @Post('calls/claim')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'claimHostCall',
+    summary:
+      'Long-poll for one call a hook asked to be sent from inside the host’s network',
+    description:
+      'Hands over the oldest call waiting for this pool’s or trust’s workspace that has not lapsed. The host sends it once and answers with what came back.',
+  })
+  @ApiOkResponse({ type: HostCallResponseDto })
+  @ApiNoContentResponse({
+    description: 'No call waits for this pool’s or trust’s workspace',
+  })
+  @ApiConflictResponse({
+    description:
+      'The host has not reported through this pool or trust (`host-unreported`)',
+  })
+  async claimCall(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers(TRUST_HEADER) trust: string | undefined,
+    @Body() body: ClaimHostCallRequestDto,
+    @Res({ passthrough: true }) response: Answerable,
+  ): Promise<HostCallResponseDto | undefined> {
+    const claimed = await this.commandBus.execute<
+      ClaimHostCallCommand,
+      HostCallClaimDto
+    >(
+      new ClaimHostCallCommand(
+        { bearer: bearerIn(authorization), trust },
+        body?.host ?? '',
+      ),
+    );
+
+    if (claimed.outcome === 'refused') {
+      throw new UnauthorizedException(REFUSED);
+    }
+
+    if (claimed.outcome === 'stranger') {
+      throw new ConflictException({
+        reason: 'host-unreported',
+        message:
+          'This host has not reported through this pool or trust; report presence first',
+      });
+    }
+
+    if (claimed.outcome === 'nothing') {
+      response.status(HttpStatus.NO_CONTENT);
+      return undefined;
+    }
+
+    const { call } = claimed;
+
+    return new HostCallResponseDto(
+      call.id,
+      call.method,
+      call.url,
+      call.headers,
+      call.body,
+      call.timeoutMs,
+    );
+  }
+
+  @Post('calls/:id/answer')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'answerHostCall',
+    summary: 'Answer a claimed call with what came back when it was sent',
+  })
+  @ApiNoContentResponse({ description: 'The answer was taken' })
+  @ApiNotFoundResponse({
+    description: 'No such call waits for this pool’s or trust’s workspace',
+  })
+  @ApiConflictResponse({
+    description:
+      'The call was already answered, lapsed before it was answered, or was never claimed (`call-settled`), or another host claimed it (`not-this-hosts-call`)',
+  })
+  async answerCall(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers(TRUST_HEADER) trust: string | undefined,
+    @Param('id') id: string,
+    @Body() body: AnswerHostCallRequestDto,
+  ): Promise<void> {
+    const answered = await this.commandBus.execute<
+      AnswerHostCallCommand,
+      HostCallAnswerDto
+    >(
+      new AnswerHostCallCommand(
+        { bearer: bearerIn(authorization), trust },
+        id,
+        {
+          host: body?.host,
+          status: body?.status,
+          headers: body?.headers,
+          body: body?.body,
+          ms: body?.ms,
+          error: body?.error,
+        },
+      ),
+    );
+
+    if (answered.outcome === 'refused') {
+      throw new UnauthorizedException(REFUSED);
+    }
+
+    if (answered.outcome === 'unknown') {
+      throw new NotFoundException(`There is no call ${id} for this host`);
+    }
+
+    if (answered.outcome === 'not-theirs') {
+      throw new ConflictException({
+        reason: 'not-this-hosts-call',
+        message: `Another host claimed the call ${id}`,
+      });
+    }
+
+    if (answered.outcome === 'settled') {
+      throw new ConflictException({
+        reason: 'call-settled',
+        message: answered.reason,
+      });
+    }
   }
 }

@@ -8,6 +8,7 @@ export interface WaitingRun {
 
 const takeable = (run: Run, by: Claimant, now: Date): boolean =>
   run.state === 'queued' &&
+  run.claimableAt(now) &&
   run.workspaceId.equals(by.workspaceId) &&
   by.harnesses.some((each) => each.equals(run.harness)) &&
   (by.claims === 'reserved'

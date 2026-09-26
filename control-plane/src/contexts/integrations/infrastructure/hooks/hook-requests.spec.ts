@@ -1,0 +1,358 @@
+import { createHash } from 'node:crypto';
+import type {
+  HookMoment,
+  ListeningHook,
+} from '@integrations/application/ports/hook-runtime.port';
+import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
+import {
+  type HookRequest,
+  HookRequests,
+} from '@integrations/infrastructure/hooks/hook-requests';
+import { signatureOf } from '@platform/outbound/standard-webhooks';
+import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
+import { describe, expect, it, vi } from 'vitest';
+
+const NOW = new Date('2026-09-26T10:00:00.000Z');
+
+const SECRET = HookSigningSecret.of(
+  `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`,
+);
+
+const HOOK: ListeningHook = {
+  id: 'hook_1',
+  key: 'dba-review',
+  teamId: 'team_1',
+  blocks: true,
+  timeoutSeconds: 10,
+  steps: ['ask'],
+  broken: null,
+};
+
+const MOMENT: HookMoment = {
+  on: 'pull-request.opening',
+  occurrence: 'occurrence_1',
+  at: NOW,
+  event: { changed: ['db/migrations/1.sql'] },
+  task: {
+    taskId: 'task_1',
+    workspaceId: 'workspace_1',
+    teamId: 'team_1',
+    title: 'Add a column',
+    url: 'https://spotlight.example.com/t/1',
+    line: 'delivery',
+    station: 'Implementation',
+    stationKey: 'implementation',
+    marks: {},
+    repositories: ['acme/api'],
+    pullRequest: null,
+    runId: 'run_1',
+  },
+};
+
+const asked = (overrides: Partial<HookRequest> = {}): HookRequest => ({
+  hook: HOOK,
+  moment: MOMENT,
+  step: 'ask',
+  url: 'https://dba.example.com/review',
+  headers: { 'x-team': 'core' },
+  body: '{"files":["db/migrations/1.sql"]}',
+  fromNetwork: false,
+  signing: { kind: 'hmac' },
+  deadline: new Date(NOW.getTime() + 10_000),
+  waiting: 'until-answered',
+  resuming: null,
+  ...overrides,
+});
+
+const network = (): NetworkCallsPort => ({
+  queue: vi.fn(async () => 'call_1'),
+  stateOf: vi.fn(async () => ({ kind: 'waiting' as const })),
+  answered: vi.fn(async () => ({
+    kind: 'answered' as const,
+    answer: {
+      status: 200,
+      headers: {},
+      body: new TextEncoder().encode('{"ok":true}'),
+      ms: 40,
+      error: null,
+    },
+  })),
+});
+
+const requests = (
+  reply: () => Promise<Response>,
+  calls: NetworkCallsPort = network(),
+  allowed = ['example.com'],
+  secret: HookSigningSecret | null = SECRET,
+) => {
+  const fetch = vi.fn(reply);
+  const signed = vi.fn(async () => 'jwt');
+
+  return {
+    fetch,
+    calls,
+    signed,
+    requests: new HookRequests(
+      {
+        publicUrl: 'https://spotlight.example.com',
+        allowed,
+      },
+      { signingSecretOf: async () => secret },
+      {
+        signs: true,
+        issuer: 'https://spotlight.example.com/api',
+        signed,
+        keys: async () => ({ keys: [] }),
+      },
+      { minted: async () => 'callback_token', heldBy: async () => null },
+      calls,
+      fetch as unknown as typeof globalThis.fetch,
+    ),
+  };
+};
+
+const sentHeaders = (fetch: ReturnType<typeof vi.fn>) =>
+  (fetch.mock.calls[0] as [string, RequestInit])[1].headers as Record<
+    string,
+    string
+  >;
+
+describe('HookRequests', () => {
+  it('signs as Standard Webhooks do, with a callback token and a stable id', async () => {
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{"ok":true}', { status: 200 }),
+    );
+
+    const taken = await sending.sent(asked(), NOW);
+    const headers = sentHeaders(fetch);
+
+    expect(taken.outcome).toEqual({
+      name: 'ask',
+      status: 'done',
+      output: { ok: true },
+    });
+    expect(headers['webhook-signature']).toBe(
+      signatureOf(
+        SECRET.key,
+        headers['webhook-id'] as string,
+        Math.floor(NOW.getTime() / 1000),
+        asked().body,
+      ),
+    );
+    expect(headers['spotlight-callback-token']).toBe('callback_token');
+    expect(headers['spotlight-callback-url']).toBe(
+      'https://spotlight.example.com/api/hook-callbacks',
+    );
+    expect(headers['x-team']).toBe('core');
+
+    await sending.sent(asked(), NOW);
+    expect(sentHeaders(fetch)['webhook-id']).toBe(headers['webhook-id']);
+  });
+
+  it('keeps the signature and tokens out of the trace', async () => {
+    const { requests: sending } = requests(
+      async () => new Response('{}', { status: 200 }),
+    );
+
+    const taken = await sending.sent(asked(), NOW);
+
+    expect(JSON.stringify(taken.trace)).not.toMatch(
+      /callback_token|webhook-signature/,
+    );
+  });
+
+  it('sends nothing when a hook that signs with a secret has none', async () => {
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{}'),
+      network(),
+      ['example.com'],
+      null,
+    );
+
+    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+      outcome: { status: 'failed', reason: expect.stringMatching(/no secret/) },
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('keeps no more of an answer than it can show', async () => {
+    const { requests: sending } = requests(
+      async () => new Response('x'.repeat(100_000), { status: 200 }),
+    );
+
+    const taken = await sending.sent(asked(), NOW);
+
+    expect((taken.outcome as { output: string }).output).toHaveLength(
+      16 * 1024,
+    );
+  });
+
+  it('carries an OIDC token that binds the message and its body', async () => {
+    const {
+      fetch,
+      signed,
+      requests: sending,
+    } = requests(async () => new Response('{}', { status: 200 }));
+
+    await sending.sent(
+      asked({ signing: { kind: 'oidc', audience: 'https://dba' } }),
+      NOW,
+    );
+
+    expect(sentHeaders(fetch).authorization).toBe('Bearer jwt');
+    expect(signed).toHaveBeenCalledWith({
+      audience: 'https://dba',
+      subject: 'hook:workspace_1/team_1/dba-review',
+      occurrence: 'occurrence_1',
+      message: sentHeaders(fetch)['webhook-id'],
+      bodyDigest: createHash('sha256').update(asked().body).digest('base64url'),
+    });
+  });
+
+  it('reads a refusal from the answer', async () => {
+    const { requests: sending } = requests(
+      async () =>
+        new Response('{"refuse":"drops a column in use"}', { status: 200 }),
+    );
+
+    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+      refusal: 'drops a column in use',
+    });
+  });
+
+  it('fails a step answered outside 2xx, saying so', async () => {
+    const { requests: sending } = requests(
+      async () => new Response('down', { status: 503 }),
+    );
+
+    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        reason: 'was answered 503 by https://dba.example.com/review',
+      },
+      trace: { status: 503, failed: true },
+    });
+  });
+
+  it('fails a step it could not send, saying why', async () => {
+    const { requests: sending } = requests(async () => {
+      throw Object.assign(new TypeError('fetch failed'), {
+        cause: Object.assign(new Error(''), { code: 'ECONNREFUSED' }),
+      });
+    });
+
+    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        reason:
+          'could not reach https://dba.example.com/review: nothing answered there',
+      },
+    });
+  });
+
+  it('never sends to a host the deployment does not allow', async () => {
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{}'),
+      network(),
+      ['slack.com'],
+    );
+
+    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+      outcome: { status: 'failed' },
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('has a host of the workspace send a request from its network, and waits for it before an event', async () => {
+    const {
+      fetch,
+      calls,
+      requests: sending,
+    } = requests(async () => new Response('{}'));
+
+    const taken = await sending.sent(
+      asked({ url: 'http://dba.acme.internal/', fromNetwork: true }),
+      NOW,
+    );
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(calls.queue).toHaveBeenCalledWith(
+      'workspace_1',
+      expect.objectContaining({
+        url: 'http://dba.acme.internal/',
+        headers: expect.objectContaining({
+          'webhook-signature': expect.stringMatching(/^v1,/),
+        }),
+      }),
+      new Date(NOW.getTime() + 10_000),
+    );
+    expect(taken.outcome).toEqual({
+      name: 'ask',
+      status: 'done',
+      output: { ok: true },
+    });
+  });
+
+  it('hands back a request a host sends after an event, and picks it up again', async () => {
+    const calls = network();
+    const { requests: sending } = requests(
+      async () => new Response('{}'),
+      calls,
+    );
+
+    const first = await sending.sent(
+      asked({ fromNetwork: true, waiting: 'hand-back' }),
+      NOW,
+    );
+
+    expect(first.outcome).toEqual({
+      name: 'ask',
+      status: 'waiting',
+      call: 'call_1',
+      until: new Date(NOW.getTime() + 2 * 60 * 1000).toISOString(),
+    });
+
+    vi.mocked(calls.stateOf).mockResolvedValueOnce({
+      kind: 'answered',
+      answer: {
+        status: 204,
+        headers: {},
+        body: new Uint8Array(),
+        ms: 30,
+        error: null,
+      },
+    });
+
+    await expect(
+      sending.sent(
+        asked({
+          fromNetwork: true,
+          waiting: 'hand-back',
+          resuming: first.outcome,
+        }),
+        NOW,
+      ),
+    ).resolves.toMatchObject({
+      outcome: { status: 'done' },
+      trace: { status: 204, ms: 30 },
+    });
+  });
+
+  it('fails a request no host answered in time', async () => {
+    const calls = network();
+    vi.mocked(calls.answered).mockResolvedValueOnce({ kind: 'lapsed' });
+    const { requests: sending } = requests(
+      async () => new Response('{}'),
+      calls,
+    );
+
+    await expect(
+      sending.sent(asked({ fromNetwork: true }), NOW),
+    ).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        reason: expect.stringMatching(/no host of the workspace answered/),
+      },
+    });
+  });
+});

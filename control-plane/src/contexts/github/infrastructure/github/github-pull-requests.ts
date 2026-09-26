@@ -13,13 +13,28 @@ import {
   sending,
 } from '@github/infrastructure/github/github.rest';
 import { Inject, Injectable } from '@nestjs/common';
+import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const UNPROCESSABLE = 422;
 
+const FILES_PER_PAGE = 100;
+
+const MOST_CHANGED = 3_000;
+
 interface Opened {
   readonly html_url?: string;
+}
+
+interface ChangedFile {
+  readonly filename?: string;
+}
+
+interface Compared {
+  readonly files?: ChangedFile[];
 }
 
 @Injectable()
@@ -30,13 +45,87 @@ export class GitHubPullRequests implements PullRequestPort {
   ) {}
 
   async open(opening: PullRequestOpening): Promise<OpenedPullRequestDto> {
-    const token = await this.tokenFor(opening);
+    const token = await this.tokenFor(opening.workspaceId);
 
     return this.pullRequest(
       opening,
       token,
       await this.defaultBranch(opening.repository, token),
     );
+  }
+
+  async changedOn(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    branch: string,
+  ): Promise<readonly string[]> {
+    const token = await this.tokenFor(workspaceId);
+    const base = await this.defaultBranch(repository, token);
+
+    return this.paged(
+      (page) =>
+        `${this.at(repository)}/compare/${encodeURI(base)}...${encodeURI(branch)}?per_page=${FILES_PER_PAGE}&page=${page}`,
+      token,
+      async (response) =>
+        (
+          await answered<Compared>(
+            response,
+            `GitHub would not compare ${branch} with ${base}`,
+          )
+        ).files ?? [],
+    );
+  }
+
+  async changedIn(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    pullRequest: PullRequestUrl,
+  ): Promise<readonly string[]> {
+    const number = pullRequest.number;
+
+    if (number === null) {
+      throw new InvalidPullRequestError(
+        `at ${pullRequest.value} is not a GitHub pull request`,
+      );
+    }
+
+    const token = await this.tokenFor(workspaceId);
+
+    return this.paged(
+      (page) =>
+        `${this.at(repository)}/pulls/${number}/files?per_page=${FILES_PER_PAGE}&page=${page}`,
+      token,
+      (response) =>
+        answered<ChangedFile[]>(
+          response,
+          `GitHub would not say what ${pullRequest.value} changes`,
+        ),
+    );
+  }
+
+  private async paged(
+    pageAt: (page: number) => string,
+    token: string,
+    filesIn: (response: Response) => Promise<ChangedFile[]>,
+  ): Promise<readonly string[]> {
+    const changed = new Set<string>();
+
+    for (let page = 1; changed.size < MOST_CHANGED; page += 1) {
+      const files = await filesIn(await call(pageAt(page), token));
+      const before = changed.size;
+
+      for (const file of files) {
+        if (file.filename) {
+          changed.add(file.filename);
+        }
+      }
+
+      if (files.length < FILES_PER_PAGE || changed.size === before) {
+        break;
+      }
+    }
+
+    return [...changed].slice(0, MOST_CHANGED);
   }
 
   private async pullRequestFor(
@@ -111,8 +200,8 @@ export class GitHubPullRequests implements PullRequestPort {
     return `/repos/${repository.owner}/${repository.name}`;
   }
 
-  private async tokenFor(opening: PullRequestOpening): Promise<string> {
-    const { password } = await this.access.credential(opening.workspaceId);
+  private async tokenFor(workspaceId: WorkspaceId): Promise<string> {
+    const { password } = await this.access.credential(workspaceId);
 
     return password;
   }

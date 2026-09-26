@@ -370,6 +370,112 @@ describe('Told', () => {
       ]);
     });
 
+    const hookCalled = (over: Record<string, unknown> = {}) =>
+      Buffer.from(
+        JSON.stringify({
+          hook: 'core/grafana-reads',
+          step: 'notify',
+          kind: 'call',
+          target: 'slack.post-message',
+          request: { channel: 'C1', text: 'Searched Grafana' },
+          response: { ok: true },
+          status: null,
+          failed: false,
+          startedAt: clock(3).toISOString(),
+          ms: 250,
+          ...over,
+        }),
+      ).toString('base64');
+
+    it('shows a hook calling out as a hook step with what it sent and got back', () => {
+      const told = new Told(clock(0));
+      told.take({
+        type: 'hook.called',
+        at: clock(4),
+        message: 'Hook core/grafana-reads · notify → slack.post-message',
+        data: hookCalled(),
+      });
+
+      expect(told.steps()).toEqual([
+        {
+          kind: 'hook',
+          text: 'Hook core/grafana-reads · notify → slack.post-message',
+          status: 'ok',
+          tool: 'slack.post-message',
+          detail: null,
+          ms: 250,
+          startedAt: clock(3),
+          locations: [],
+          given: JSON.stringify(
+            { channel: 'C1', text: 'Searched Grafana' },
+            null,
+            2,
+          ),
+          returned: JSON.stringify({ ok: true }, null, 2),
+          change: null,
+        },
+      ]);
+    });
+
+    it('shows a hook call that failed as failed', () => {
+      const told = new Told(clock(0));
+      told.take({
+        type: 'hook.called',
+        at: clock(4),
+        message: null,
+        data: hookCalled({
+          failed: true,
+          status: 502,
+          response: 'Bad Gateway',
+        }),
+      });
+
+      const [called] = told.steps();
+      expect(called?.status).toBe('failed');
+      expect(called?.returned).toBe('Bad Gateway');
+    });
+
+    it('puts a hook call where it happened among what the agent did', () => {
+      const told = new Told(clock(0));
+      told.take({
+        type: 'hook.called',
+        at: clock(6),
+        message: null,
+        data: hookCalled({ startedAt: clock(5).toISOString() }),
+      });
+      told.take({
+        type: 'output',
+        at: clock(2),
+        message: null,
+        data: chunk('agent_thought_chunk', 'Looking.'),
+      });
+      told.take({
+        type: 'output',
+        at: clock(8),
+        message: null,
+        data: chunk('agent_message_chunk', 'Found it.'),
+      });
+
+      expect(told.steps().map((each) => each.kind)).toEqual([
+        'thought',
+        'hook',
+        'said',
+      ]);
+      expect(told.marks().endedAt).toEqual(clock(8));
+    });
+
+    it('passes over a hook call it cannot read', () => {
+      const told = new Told(clock(0));
+      told.take({
+        type: 'hook.called',
+        at: clock(4),
+        message: null,
+        data: Buffer.from('not json').toString('base64'),
+      });
+
+      expect(told.steps()).toEqual([]);
+    });
+
     it('says where the run turned from preparing to working', () => {
       const told = new Told(clock(0));
       told.take({

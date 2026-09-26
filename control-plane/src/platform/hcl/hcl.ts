@@ -8,6 +8,10 @@ export class HclExpression {
     return new HclExpression(names.join('.'));
   }
 
+  static indexed(of: HclExpression, key: string): HclExpression {
+    return new HclExpression(`${of.written}["${escapedLiteral(key)}"]`);
+  }
+
   static moduleFile(path: string): HclExpression {
     return new HclExpression(`file("${MODULE_PATH}/${escapedLiteral(path)}")`);
   }

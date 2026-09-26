@@ -1,8 +1,10 @@
+import { HELD_HOOKS } from '@configuration/application/ports/held-hooks.port';
 import { HELD_INTEGRATIONS } from '@configuration/application/ports/held-integrations.port';
 import { INTEGRATION_READER } from '@configuration/application/ports/integration-reader.port';
 import { ConfigurationModule } from '@configuration/configuration.module';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
+import { HOOKS_CONTROLLERS, HOOKS_PROVIDERS } from '@integrations/hooks.wiring';
 import {
   INTEGRATIONS_CONTROLLERS,
   INTEGRATIONS_PROVIDERS,
@@ -11,6 +13,7 @@ import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { SecretsModule } from '@secrets/secrets.module';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
+import { LIFECYCLE_HOOKS } from '@work/application/ports/lifecycle-hooks.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 import { WorkModule } from '@work/work.module';
@@ -24,14 +27,16 @@ import { WorkModule } from '@work/work.module';
     WorkModule,
     ConfigurationModule,
   ],
-  controllers: [...INTEGRATIONS_CONTROLLERS],
-  providers: [...INTEGRATIONS_PROVIDERS],
+  controllers: [...INTEGRATIONS_CONTROLLERS, ...HOOKS_CONTROLLERS],
+  providers: [...INTEGRATIONS_PROVIDERS, ...HOOKS_PROVIDERS],
   exports: [
     TEAM_INTEGRATIONS,
     INTEGRATION_READER,
     HELD_INTEGRATIONS,
+    HELD_HOOKS,
     TASK_NOTICES,
     INTEGRATION_TOOL_CALLS,
+    LIFECYCLE_HOOKS,
   ],
 })
 export class IntegrationsModule {}

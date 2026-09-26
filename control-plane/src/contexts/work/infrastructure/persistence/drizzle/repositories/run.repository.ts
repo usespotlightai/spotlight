@@ -24,6 +24,7 @@ import type {
 } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -99,6 +100,8 @@ export class DrizzleRunRepository implements RunRepository {
           reserved_until    AS "reservedUntil",
           provision_failures AS "provisionFailures",
           next_provision_at AS "nextProvisionAt",
+          hand_backs        AS "handBacks",
+          claimable_from    AS "claimableFrom",
           exit_code         AS "exitCode",
           message,
           stopped,
@@ -113,6 +116,7 @@ export class DrizzleRunRepository implements RunRepository {
               ? sql`reserved_for = ${by.runner.value} AND reserved_until > ${now.toISOString()}::timestamp`
               : sql`(reserved_for IS NULL OR reserved_for = ${by.runner.value} OR reserved_until <= ${now.toISOString()}::timestamp)`
           }
+          AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
           AND ${placementMet(run.placement, run.placementImage, by.terms)}
         -- ClaimOrder.next, said in SQL because the claim must be one statement.
         ORDER BY priority DESC, created_at
@@ -209,6 +213,7 @@ export class DrizzleRunRepository implements RunRepository {
           isNull(run.reservedFor),
           sql`coalesce(jsonb_array_length(${run.spec} -> 'wears'), 0) = 0`,
           or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
+          or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
         ),
       )
       .orderBy(desc(run.priority), run.createdAt, run.id)
@@ -270,6 +275,8 @@ const reservationOf = (held: Run) => ({
   reservedUntil: held.reservation?.until ?? null,
   provisionFailures: held.provisioning.failures,
   nextProvisionAt: held.provisioning.nextAt,
+  handBacks: held.handBacks.count,
+  claimableFrom: held.handBacks.claimableFrom,
 });
 
 const reservationFrom = (row: Row): RunnerReservation | null => {
@@ -319,6 +326,10 @@ const toRun = (row: Row): Run =>
             stopped: row.stopped,
           }),
     attempt: row.attempt ?? 1,
+    handBacks: HandBacks.rehydrate(
+      row.handBacks ?? 0,
+      asDate(row.claimableFrom),
+    ),
     ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
     version: row.version,
   });

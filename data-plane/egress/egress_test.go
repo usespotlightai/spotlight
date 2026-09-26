@@ -2,6 +2,7 @@ package egress
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/protocol"
@@ -115,5 +117,51 @@ func TestReachesTheControlPlaneAndItsStorageButNoHostASecretIsBoundTo(t *testing
 		if reached.Names(host) != want {
 			t.Errorf("%s named: %v", host, !want)
 		}
+	}
+}
+
+type sender protocol.HostCallAnswer
+
+func (s sender) Send(context.Context, protocol.HostCall) protocol.HostCallAnswer {
+	return protocol.HostCallAnswer(s)
+}
+
+func TestWritesTheCallsAnswerForTheHostAndWaitsToBeStopped(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "egress", "answer.json")
+	ctx, stop := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		done <- sent(ctx, protocol.HostCall{ID: "call_1"}, sender{Status: 0, Error: "connection refused", Ms: 3}, path, quiet)
+	}()
+
+	var answer protocol.HostCallAnswer
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		raw, err := os.ReadFile(path)
+		if err == nil && json.Unmarshal(raw, &answer) == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("never wrote the answer")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if answer.Error != "connection refused" || answer.Ms != 3 {
+		t.Errorf("wrote %+v", answer)
+	}
+	if info, _ := os.Stat(path); info.Mode().Perm() != 0o644 {
+		t.Errorf("wrote the answer as %v", info.Mode())
+	}
+
+	select {
+	case err := <-done:
+		t.Fatalf("stopped before it was told to: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	stop()
+	if err := <-done; err != nil {
+		t.Errorf("stopped with %v", err)
 	}
 }

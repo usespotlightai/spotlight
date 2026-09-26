@@ -9,8 +9,8 @@ export class IntegrationToolsInUseError extends Error {
   ) {
     super(
       `The ${source} integration would stop offering ${uses.uses
-        .map((each) => `${each.tool}, which ${each.by} gives`)
-        .join('; ')}; take the tool off those stations first`,
+        .map((each) => `${each.tool}, which ${each.by} uses`)
+        .join('; ')}; stop using it there first`,
     );
     this.name = 'IntegrationToolsInUseError';
   }

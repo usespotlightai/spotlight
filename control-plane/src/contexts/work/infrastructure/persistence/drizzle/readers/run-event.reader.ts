@@ -8,6 +8,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { ASIDE_SEQ } from '@work/application/contracts/run-journal.contract';
 import type {
   RunEventReaderPort,
   WatchableRun,
@@ -17,7 +18,36 @@ import {
   run,
   runJournalEntry,
 } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { and, desc, eq, gt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, lte } from 'drizzle-orm';
+
+const MOST_ASIDE = 200;
+
+const inPlace = (
+  events: readonly RunEventView[],
+  event: RunEventView,
+): RunEventView[] => {
+  const at = events.findIndex((each) => each.at > event.at);
+
+  return at === -1
+    ? [...events, event]
+    : [...events.slice(0, at), event, ...events.slice(at)];
+};
+
+const viewOf = (row: {
+  attempt: number;
+  seq: number;
+  type: string;
+  at: Date;
+  message: string | null;
+  data: string | null;
+}): RunEventView => ({
+  attempt: row.attempt,
+  seq: row.seq,
+  type: row.type,
+  at: row.at.toISOString(),
+  message: row.message ?? undefined,
+  data: row.data ?? undefined,
+});
 
 @Injectable()
 export class DrizzleRunEventReader implements RunEventReaderPort {
@@ -52,33 +82,36 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
     afterSeq: number,
     most: number,
   ): Promise<RunEventView[]> {
-    const rows = await this.db
-      .select({
-        attempt: runJournalEntry.attempt,
-        seq: runJournalEntry.seq,
-        type: runJournalEntry.type,
-        at: runJournalEntry.at,
-        message: runJournalEntry.message,
-        data: runJournalEntry.data,
-      })
+    const columns = {
+      attempt: runJournalEntry.attempt,
+      seq: runJournalEntry.seq,
+      type: runJournalEntry.type,
+      at: runJournalEntry.at,
+      message: runJournalEntry.message,
+      data: runJournalEntry.data,
+    };
+    const ofAttempt = and(
+      eq(runJournalEntry.runId, runId.value),
+      eq(runJournalEntry.attempt, attempt),
+    );
+
+    const told = await this.db
+      .select(columns)
       .from(runJournalEntry)
-      .where(
-        and(
-          eq(runJournalEntry.runId, runId.value),
-          eq(runJournalEntry.attempt, attempt),
-          gt(runJournalEntry.seq, afterSeq),
-        ),
-      )
+      .where(and(ofAttempt, gt(runJournalEntry.seq, afterSeq)))
       .orderBy(desc(runJournalEntry.seq))
       .limit(most);
 
-    return rows.reverse().map((row) => ({
-      attempt: row.attempt,
-      seq: row.seq,
-      type: row.type,
-      at: row.at.toISOString(),
-      message: row.message ?? undefined,
-      data: row.data ?? undefined,
-    }));
+    const aside = await this.db
+      .select(columns)
+      .from(runJournalEntry)
+      .where(and(ofAttempt, lte(runJournalEntry.seq, ASIDE_SEQ)))
+      .orderBy(desc(runJournalEntry.at), asc(runJournalEntry.seq))
+      .limit(MOST_ASIDE);
+
+    return aside
+      .reverse()
+      .map(viewOf)
+      .reduce(inPlace, told.reverse().map(viewOf));
   }
 }

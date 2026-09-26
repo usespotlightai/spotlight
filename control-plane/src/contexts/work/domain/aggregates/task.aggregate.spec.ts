@@ -11,6 +11,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
+import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -1092,6 +1093,54 @@ describe('Task, what it is doing', () => {
           ],
         }),
       ).toThrow(InconsistentStateError);
+    });
+  });
+
+  describe('telling where it moved', () => {
+    const movedEvents = (task: Task) =>
+      task.pullEvents().filter((each) => each instanceof TaskMoved);
+
+    it('says it moved from one station’s key to another’s, and when', () => {
+      const task = added();
+      task.pullEvents();
+
+      const [moved] = movedEvents(
+        task.moveTo(LINE, StationId.of('station_2'), TaskRank.of('m'), saying),
+      );
+
+      expect(moved).toEqual(
+        new TaskMoved(
+          task.id,
+          task.workspaceId,
+          StationKey.of('station-1'),
+          StationKey.of('station-2'),
+          NOW,
+        ),
+      );
+    });
+
+    it('says it moved when a run passes it on', () => {
+      const held = added().handedTo(RUN, LINE);
+      held.pullEvents();
+
+      const [moved] = movedEvents(
+        held.passedOn(
+          RUN,
+          LINE,
+          StationId.of('station_2'),
+          TaskRank.of('m'),
+          saying,
+        ),
+      );
+
+      expect(moved?.to).toEqual(StationKey.of('station-2'));
+    });
+
+    it('says nothing moved when it is only reordered', () => {
+      const task = added();
+      task.pullEvents();
+
+      expect(movedEvents(task.reorderTo(TaskRank.of('z')))).toEqual([]);
     });
   });
 });

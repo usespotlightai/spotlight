@@ -9,9 +9,10 @@ import type { ClaimRunCommand } from '@work/application/commands/runner.commands
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
 import { claimedRun } from '@work/application/services/claimed-work';
-import { longPolled } from '@work/application/services/long-poll';
+import { longPolled, pollDeadline } from '@work/application/services/long-poll';
 import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
+import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type {
   Claimant,
@@ -29,6 +30,7 @@ export class ClaimRunHandler
     private readonly checks: CheckWorkPort,
     private readonly runners: RunnersPort,
     private readonly failures: ProvisionFailures,
+    private readonly starting: RunStartHooks,
   ) {}
 
   async execute(command: ClaimRunCommand): Promise<ClaimedWorkDto | null> {
@@ -80,35 +82,50 @@ export class ClaimRunHandler
       return null;
     }
 
-    return longPolled(this.clock, async () => {
-      const claimed = await this.runs.claimNext(claimant, this.clock.now());
+    const until = pollDeadline(this.clock);
 
-      if (claimed) {
-        await this.runners.took(
+    const found = await longPolled<ClaimedWorkDto | 'handed-back'>(
+      this.clock,
+      async () => {
+        const claimed = await this.runs.claimNext(claimant, this.clock.now());
+        const start = claimed
+          ? await this.starting.mayStart(claimed, claimant.runner, until)
+          : null;
+
+        if (start === 'handed-back') {
+          return start;
+        }
+
+        if (claimed && start === 'starts') {
+          await this.runners.took(
+            claimant.runner,
+            { kind: 'run', id: claimed.id.value },
+            this.clock.now(),
+          );
+
+          return claimedRun(claimed);
+        }
+
+        const check = await this.checks.claimReserved(
           claimant.runner,
-          { kind: 'run', id: claimed.id.value },
           this.clock.now(),
         );
 
-        return claimedRun(claimed);
-      }
+        if (!check) {
+          return null;
+        }
 
-      const check = await this.checks.claimReserved(
-        claimant.runner,
-        this.clock.now(),
-      );
+        await this.runners.took(
+          claimant.runner,
+          { kind: 'check', id: check.stackId },
+          this.clock.now(),
+        );
 
-      if (!check) {
-        return null;
-      }
+        return { kind: 'check', check };
+      },
+      until,
+    );
 
-      await this.runners.took(
-        claimant.runner,
-        { kind: 'check', id: check.stackId },
-        this.clock.now(),
-      );
-
-      return { kind: 'check', check };
-    });
+    return found === 'handed-back' ? null : found;
   }
 }

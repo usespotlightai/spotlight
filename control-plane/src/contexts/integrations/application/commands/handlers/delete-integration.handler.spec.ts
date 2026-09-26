@@ -72,7 +72,7 @@ describe('DeleteIntegrationHandler', () => {
     const { remove, kept } = deleting({
       standing: standingAt(3, ['linear.comment']),
       given: ToolUses.of([
-        { tool: 'linear.comment', by: 'delivery/implementation' },
+        { tool: 'linear.comment', by: 'the station delivery/implementation' },
       ]),
     });
 

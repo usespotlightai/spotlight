@@ -22,6 +22,7 @@ import (
 	"usespotlight.ai/data-plane/egress/internal/awssm"
 	"usespotlight.ai/data-plane/egress/internal/proxy"
 	"usespotlight.ai/data-plane/egress/internal/seal"
+	"usespotlight.ai/data-plane/egress/internal/send"
 	"usespotlight.ai/data-plane/egress/internal/wear"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
@@ -69,6 +70,10 @@ func run() error {
 	allowed, err := reach.Parse(handed.Allow)
 	if err != nil {
 		return fmt.Errorf("the host's allow-list: %w", err)
+	}
+
+	if handed.Send != nil {
+		return sent(ctx, *handed.Send, send.New(allowed), protocol.EgressSendPath, log)
 	}
 
 	controlPlane, err := url.Parse(handed.URL)
@@ -212,15 +217,47 @@ func readerInNetwork(ctx context.Context) func() (wear.Reader, error) {
 	}
 }
 
+type Sender interface {
+	Send(ctx context.Context, call protocol.HostCall) protocol.HostCallAnswer
+}
+
+func sent(ctx context.Context, call protocol.HostCall, sender Sender, path string, log *slog.Logger) error {
+	answer := sender.Send(ctx, call)
+	if answer.Error != "" {
+		log.Warn("could not send the call", "call", call.ID, "error", answer.Error, "ms", answer.Ms)
+	} else {
+		log.Info("sent the call", "call", call.ID, "status", answer.Status, "ms", answer.Ms)
+	}
+
+	body, err := json.Marshal(answer)
+	if err != nil {
+		return err
+	}
+	if err := written(path, body); err != nil {
+		return fmt.Errorf("hand the host the call's answer: %w", err)
+	}
+
+	<-ctx.Done()
+	return nil
+}
+
 func publish(authorityPEM []byte) error {
-	if err := os.MkdirAll(filepath.Dir(protocol.EgressAuthority), 0o755); err != nil {
+	if err := written(protocol.EgressAuthority, authorityPEM); err != nil {
 		return fmt.Errorf("publish the run's authority: %w", err)
 	}
 
-	written := protocol.EgressAuthority + ".writing"
-	if err := os.WriteFile(written, authorityPEM, 0o644); err != nil {
-		return fmt.Errorf("publish the run's authority: %w", err)
+	return nil
+}
+
+func written(path string, body []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
 	}
 
-	return os.Rename(written, protocol.EgressAuthority)
+	writing := path + ".writing"
+	if err := os.WriteFile(writing, body, 0o644); err != nil {
+		return err
+	}
+
+	return os.Rename(writing, path)
 }

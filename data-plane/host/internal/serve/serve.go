@@ -23,6 +23,7 @@ import (
 const (
 	LabelHost   = "ai.usespotlight.host"
 	LabelRunner = "ai.usespotlight.runner"
+	LabelCall   = "ai.usespotlight.call"
 
 	HandedPath = "/run/spotlight/handed.json"
 	MirrorRoot = "/spotlight/mirrors"
@@ -52,6 +53,8 @@ const (
 type Pool interface {
 	Requirements(ctx context.Context) (protocol.HostRequirements, error)
 	Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Handed, error)
+	ClaimCall(ctx context.Context) (*protocol.HostCall, error)
+	AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error
 	Present(ctx context.Context, presence protocol.HostPresence) (protocol.HostStanding, error)
 	Leave(ctx context.Context) error
 	Seat(handed protocol.Handed) (Worker, error)
@@ -105,6 +108,7 @@ type Host struct {
 	slots     chan struct{}
 	loops     sync.WaitGroup
 	sandboxes sync.WaitGroup
+	answering sync.WaitGroup
 	refreshes sync.WaitGroup
 	workspace string
 	engineIs  string
@@ -188,11 +192,17 @@ func (h *Host) Serve(ctx context.Context) error {
 	h.log.Info("serving", "name", h.opts.Name, "capacity", cap(h.slots), "default", h.opts.Images.Default)
 
 	reporting.Go(func() { h.watch(claiming, ctx, stop) })
+	h.loops.Go(func() {
+		if err := h.calls(claiming, ctx, stop); err != nil {
+			stop(err)
+		}
+	})
 
 	<-claiming.Done()
 	reporting.Wait()
 	h.loops.Wait()
 	h.sandboxes.Wait()
+	h.answering.Wait()
 	h.refreshes.Wait()
 
 	leaving, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)

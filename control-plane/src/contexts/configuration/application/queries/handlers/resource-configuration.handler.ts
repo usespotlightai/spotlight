@@ -3,6 +3,7 @@ import type {
   HeldResourceConfigurationDto,
 } from '@configuration/application/dto/held-configuration.dto';
 import type { HarnessProfileResourcesPort } from '@configuration/application/ports/harness-profile-resources.port';
+import type { HeldHooksPort } from '@configuration/application/ports/held-hooks.port';
 import type { HeldIntegrationsPort } from '@configuration/application/ports/held-integrations.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
@@ -41,6 +42,7 @@ export class ResourceConfigurationHandler
     private readonly lines: LineResourcesPort,
     private readonly skills: SkillResourcesPort,
     private readonly integrations: HeldIntegrationsPort,
+    private readonly hooks: HeldHooksPort,
     private readonly profiles: HarnessProfileResourcesPort,
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
@@ -89,6 +91,8 @@ export class ResourceConfigurationHandler
         return this.teamWorkspaceOf(await this.skills.withId(id));
       case 'integration':
         return this.teamWorkspaceOf(await this.integrations.withId(id));
+      case 'hook':
+        return this.teamWorkspaceOf(await this.hooks.withId(id));
       case 'harness-profile':
         return this.teamWorkspaceOf(await this.profiles.withId(id));
       case 'secret':

@@ -50,4 +50,31 @@ describe('StreamMark', () => {
   it('names each event by its attempt and place', () => {
     expect(eventIdOf(told(2, 3))).toBe('2:3');
   });
+
+  it('names no event kept aside, so a viewer resumes from where the runner’s entries left off', () => {
+    expect(eventIdOf(told(2, -1_000_000))).toBeUndefined();
+  });
+
+  it('sends each entry kept aside once, without moving past the runner’s entries', () => {
+    const mark = new StreamMark({ attempt: 1, seq: 4 });
+
+    expect(mark.admits(told(1, -1_000_000))).toBe(true);
+    expect(mark.admits(told(1, -1_000_000))).toBe(false);
+    expect(mark.admits(told(1, -1_000_001))).toBe(true);
+    expect(mark.admits(told(1, 4))).toBe(false);
+    expect(mark.admits(told(1, 5))).toBe(true);
+  });
+
+  it('sends the entries kept aside again for a run’s next attempt', () => {
+    const mark = new StreamMark({ attempt: 1, seq: 0 });
+
+    expect(mark.admits(told(1, -1_000_000))).toBe(true);
+    expect(mark.admits(told(2, -1_000_000))).toBe(true);
+  });
+
+  it('keeps sending nothing a provisioning failure journalled before the cursor', () => {
+    const mark = new StreamMark({ attempt: 1, seq: 3 });
+
+    expect(mark.admits(told(1, -1))).toBe(false);
+  });
 });

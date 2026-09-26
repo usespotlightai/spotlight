@@ -16,6 +16,7 @@ type EgressHanded struct {
 	Allow      []string        `json:"allow,omitempty"`
 	Reads      []string        `json:"reads,omitempty"`
 	Held       []HeldByTheHost `json:"held,omitempty"`
+	Send       *HostCall       `json:"send,omitempty"`
 }
 
 type HeldByTheHost struct {

@@ -35,6 +35,7 @@ export const envSchema = databaseSchema
     SPOTLIGHT_PUBLIC_URL: z.url().optional(),
     // Empty allows none: where Spotlight may call is the deployment's to decide.
     OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
+    HOOK_SIGNING_KEY: z.string().min(1).optional(),
     OAUTH_CLIENTS: z.string().default('{}'),
     SPOTLIGHT_CATALOG_URL: z.url().default('https://catalog.usespotlight.ai'),
     SPOTLIGHT_CATALOG_TOKEN: z.string().min(1).optional(),

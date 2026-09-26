@@ -32,10 +32,14 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
-import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
+import {
+  WORKSPACE_READER,
+  type WorkspaceReaderPort,
+} from '@identity/application/ports/workspace-reader.port';
 import type { Provider, Type } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ENV } from '@platform/config/config.constants';
+import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
@@ -104,11 +108,13 @@ import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-a
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
 import { AnalyseTraceHandler } from '@work/application/commands/handlers/analyse-trace.handler';
+import { AnswerHostCallHandler } from '@work/application/commands/handlers/answer-host-call.handler';
 import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@work/application/commands/handlers/answer-remark.handler';
 import { AppendRunJournalHandler } from '@work/application/commands/handlers/append-run-journal.handler';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
+import { ClaimHostCallHandler } from '@work/application/commands/handlers/claim-host-call.handler';
 import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
@@ -133,6 +139,10 @@ import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.h
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
 import { UpdateLineHandler } from '@work/application/commands/handlers/update-line.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
+import {
+  AnswerHostCallCommand,
+  ClaimHostCallCommand,
+} from '@work/application/commands/host-call.commands';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
 import {
@@ -195,6 +205,11 @@ import {
 } from '@work/application/ports/harness-launch.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { HELD_RUN_READER } from '@work/application/ports/held-run-reader.port';
+import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
+import {
+  HOOKED_TASKS,
+  type HookedTasksPort,
+} from '@work/application/ports/hooked-tasks.port';
 import { INBOX_READER } from '@work/application/ports/inbox-reader.port';
 import {
   INTEGRATION_TOOL_CALLS,
@@ -204,10 +219,15 @@ import {
   INTEGRATION_TOOLS,
   type IntegrationToolsPort,
 } from '@work/application/ports/integration-tools.port';
+import {
+  LIFECYCLE_HOOKS,
+  type LifecycleHooksPort,
+} from '@work/application/ports/lifecycle-hooks.port';
 import { LINE_COMPILER } from '@work/application/ports/line-compiler.port';
 import { LINE_IMAGES } from '@work/application/ports/line-images.port';
 import { LINE_READER } from '@work/application/ports/line-reader.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
+import { NETWORK_CALLS } from '@work/application/ports/network-calls.port';
 import {
   OUTBOUND_TASK_NOTIFIER,
   type OutboundTaskNotifierPort,
@@ -247,6 +267,7 @@ import {
   TASK_DECISIONS,
   type TaskDecisionsPort,
 } from '@work/application/ports/task-decisions.port';
+import { TASK_NOTES_FROM_HOOKS } from '@work/application/ports/task-notes-from-hooks.port';
 import {
   TASK_NOTICES,
   type TaskNoticesPort,
@@ -352,9 +373,12 @@ import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { EndRunners } from '@work/application/services/end-runners.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import { HookTraces } from '@work/application/services/hook-traces.service';
+import { HookedTasks } from '@work/application/services/hooked-tasks.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import { LineAtHand } from '@work/application/services/line-at-hand.service';
 import { LineViews } from '@work/application/services/line-views.service';
+import { NetworkCalls } from '@work/application/services/network-calls.service';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
 import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
@@ -368,6 +392,7 @@ import { ReviewToolUse } from '@work/application/services/review.tool-use';
 import { ReviewCommentToolUse } from '@work/application/services/review-comment.tool-use';
 import { RunAtHand } from '@work/application/services/run-at-hand.service';
 import { RunLeases } from '@work/application/services/run-leases.service';
+import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
@@ -410,6 +435,7 @@ import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleTeamTraceReader } from '@work/infrastructure/persistence/drizzle/readers/team-trace.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
+import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/repositories/run-digest.repository';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/repositories/run-journal.repository';
@@ -438,6 +464,7 @@ import { RunnerController } from '@work/presentation/http/controllers/runner.con
 import { RunnerActivityController } from '@work/presentation/http/controllers/runner-activity.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
 import { WorkspaceArchiveController } from '@work/presentation/http/controllers/workspace-archive.controller';
+import { NetworkCallsWorker } from '@work/presentation/workers/network-calls.worker';
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
 
@@ -502,6 +529,77 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   DrizzleChatRepository,
 
   DrizzleWorkspaceArchiveRepository,
+
+  DrizzleNetworkCallRepository,
+
+  {
+    provide: HookedTasks,
+    inject: [
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+      WORKSPACE_READER,
+      CLOCK,
+      ENV,
+    ],
+    useFactory: (
+      tasks: DrizzleTaskRepository,
+      lines: DrizzleLineRepository,
+      workspaces: WorkspaceReaderPort,
+      clock: ClockPort,
+      env: Env,
+    ) => new HookedTasks(tasks, lines, workspaces, clock, publicUrlOf(env)),
+  },
+
+  { provide: HOOKED_TASKS, useExisting: HookedTasks },
+
+  { provide: TASK_NOTES_FROM_HOOKS, useExisting: HookedTasks },
+
+  {
+    provide: HOOK_TRACES,
+    inject: [DrizzleRunRepository, RUN_JOURNAL, RUN_STREAM],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      journal: RunJournalPort,
+      stream: RunStreamPort,
+    ) => new HookTraces(runs, journal, stream),
+  },
+
+  {
+    provide: NetworkCalls,
+    inject: [DrizzleNetworkCallRepository, ID_GENERATOR, CLOCK],
+    useFactory: (
+      calls: DrizzleNetworkCallRepository,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new NetworkCalls(calls, ids, clock),
+  },
+
+  { provide: NETWORK_CALLS, useExisting: NetworkCalls },
+
+  {
+    provide: NetworkCallsWorker,
+    inject: [NetworkCalls, LOGGER],
+    useFactory: (calls: NetworkCalls, logger: LoggerPort) =>
+      new NetworkCallsWorker(calls, logger),
+  },
+
+  {
+    provide: RunStartHooks,
+    inject: [
+      DrizzleRunRepository,
+      HOOKED_TASKS,
+      LIFECYCLE_HOOKS,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      hookedTasks: HookedTasksPort,
+      hooks: LifecycleHooksPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new RunStartHooks(runs, hookedTasks, hooks, clock, logger),
+  },
 
   { provide: ARCHIVE_STANDINGS, useClass: DrizzleArchiveStandings },
 
@@ -1252,13 +1350,25 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       PULL_REQUESTS,
       TRANSACTION,
+      HOOKED_TASKS,
+      LIFECYCLE_HOOKS,
     ],
     useFactory: (
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
       pullRequests: PullRequestPort,
       transaction: TransactionPort,
-    ) => new OpenPullRequest(tasks, lines, pullRequests, transaction),
+      hookedTasks: HookedTasksPort,
+      hooks: LifecycleHooksPort,
+    ) =>
+      new OpenPullRequest(
+        tasks,
+        lines,
+        pullRequests,
+        transaction,
+        hookedTasks,
+        hooks,
+      ),
   },
 
   {
@@ -1309,6 +1419,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(UseToolCommand, UseToolHandler, [
     RunWorks,
     ToolSources,
+    HOOKED_TASKS,
+    LIFECYCLE_HOOKS,
+    ID_GENERATOR,
+    LOGGER,
   ]),
 
   ...bindCommandHandler(AskPermissionCommand, AskPermissionHandler, [RunWorks]),
@@ -1403,6 +1517,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CHECK_WORK,
     RUNNERS,
     ProvisionFailures,
+    RunStartHooks,
   ]),
 
   ...bindCommandHandler(ClaimHostWorkCommand, ClaimHostWorkHandler, [
@@ -1412,6 +1527,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleRunRepository,
     RunLeases,
     CHECK_WORK,
+    CLOCK,
+    RunStartHooks,
+  ]),
+
+  ...bindCommandHandler(ClaimHostCallCommand, ClaimHostCallHandler, [
+    RUNNER_ADMISSIONS,
+    RUNNERS,
+    DrizzleNetworkCallRepository,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(AnswerHostCallCommand, AnswerHostCallHandler, [
+    RUNNER_ADMISSIONS,
+    DrizzleNetworkCallRepository,
     CLOCK,
   ]),
 
@@ -1445,6 +1574,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
     DrizzleRunRepository,
     TRANSACTION,
+    HOOKED_TASKS,
+    LIFECYCLE_HOOKS,
   ]),
 
   ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [

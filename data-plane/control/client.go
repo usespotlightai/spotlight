@@ -15,7 +15,10 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const PollTimeout = 10 * time.Second
+const (
+	PollTimeout     = 10 * time.Second
+	CallPollTimeout = 25 * time.Second
+)
 
 var ErrRefused = errors.New("the control plane refused the credential")
 
@@ -170,6 +173,35 @@ func (c *Client) Claim(ctx context.Context) (*protocol.Claimed, error) {
 	}
 
 	return &claimed, nil
+}
+
+func (c *Client) ClaimCall(ctx context.Context, host string) (*protocol.HostCall, error) {
+	ctx, cancel := context.WithTimeout(ctx, CallPollTimeout+15*time.Second)
+	defer cancel()
+
+	var call protocol.HostCall
+	asked := protocol.HostCallClaim{Host: host}
+	status, err := c.request(ctx, http.MethodPost, protocol.HostCallClaimPath, asked, &call)
+	if err != nil {
+		return nil, fmt.Errorf("claim a call: %w", err)
+	}
+	if status == http.StatusNoContent {
+		return nil, nil
+	}
+	if call.ID == "" || call.URL == "" {
+		return nil, fmt.Errorf("claim a call: the control plane handed a call with no id or url")
+	}
+
+	return &call, nil
+}
+
+func (c *Client) AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error {
+	path := strings.Replace(protocol.HostCallAnswerPath, "{id}", url.PathEscape(id), 1)
+	if err := c.do(ctx, http.MethodPost, path, answer, nil); err != nil {
+		return fmt.Errorf("answer a call: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) Said(ctx context.Context, runID string) ([]protocol.Said, error) {
