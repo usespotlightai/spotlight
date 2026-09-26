@@ -7,6 +7,13 @@ export class MoveTaskRequestDto {
   })
   readonly stationId!: string;
 
+  @ApiProperty({
+    example: 3,
+    description:
+      'The revision the move was based on; a task that has moved since is not moved again',
+  })
+  readonly revision!: number;
+
   @ApiPropertyOptional({
     example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
     nullable: true,

@@ -204,6 +204,10 @@ import {
   type HarnessLaunchPort,
 } from '@work/application/ports/harness-launch.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
+import {
+  HEARD_HAPPENINGS,
+  type HeardHappeningsPort,
+} from '@work/application/ports/heard-happenings.port';
 import { HELD_RUN_READER } from '@work/application/ports/held-run-reader.port';
 import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
 import {
@@ -373,6 +377,7 @@ import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { EndRunners } from '@work/application/services/end-runners.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
@@ -434,6 +439,7 @@ import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/read
 import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/readers/task-placements.reader';
 import { DrizzleTeamTraceReader } from '@work/infrastructure/persistence/drizzle/readers/team-trace.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
+import { DrizzleHeardHappenings } from '@work/infrastructure/persistence/drizzle/repositories/heard-happenings.repository';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -464,6 +470,7 @@ import { RunnerController } from '@work/presentation/http/controllers/runner.con
 import { RunnerActivityController } from '@work/presentation/http/controllers/runner-activity.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
 import { WorkspaceArchiveController } from '@work/presentation/http/controllers/workspace-archive.controller';
+import { HeardHappeningsWorker } from '@work/presentation/workers/heard-happenings.worker';
 import { NetworkCallsWorker } from '@work/presentation/workers/network-calls.worker';
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
@@ -522,6 +529,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   DrizzleRunRepository,
 
+  { provide: HEARD_HAPPENINGS, useClass: DrizzleHeardHappenings },
+
   DrizzleLineRepository,
 
   DrizzleTaskRepository,
@@ -538,6 +547,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleTaskRepository,
       DrizzleLineRepository,
       WORKSPACE_READER,
+      HEARD_HAPPENINGS,
+      TRANSACTION,
       CLOCK,
       ENV,
     ],
@@ -545,9 +556,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
       workspaces: WorkspaceReaderPort,
+      heard: HeardHappeningsPort,
+      transaction: TransactionPort,
       clock: ClockPort,
       env: Env,
-    ) => new HookedTasks(tasks, lines, workspaces, clock, publicUrlOf(env)),
+    ) =>
+      new HookedTasks(
+        tasks,
+        lines,
+        workspaces,
+        heard,
+        transaction,
+        clock,
+        publicUrlOf(env),
+      ),
   },
 
   { provide: HOOKED_TASKS, useExisting: HookedTasks },
@@ -581,6 +603,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [NetworkCalls, LOGGER],
     useFactory: (calls: NetworkCalls, logger: LoggerPort) =>
       new NetworkCallsWorker(calls, logger),
+  },
+
+  {
+    provide: ForgetHeardHappenings,
+    inject: [HEARD_HAPPENINGS, CLOCK],
+    useFactory: (heard: HeardHappeningsPort, clock: ClockPort) =>
+      new ForgetHeardHappenings(heard, clock),
+  },
+
+  {
+    provide: HeardHappeningsWorker,
+    inject: [ForgetHeardHappenings, LOGGER],
+    useFactory: (forgetting: ForgetHeardHappenings, logger: LoggerPort) =>
+      new HeardHappeningsWorker(forgetting, logger),
   },
 
   {
@@ -748,6 +784,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       MEMBER_READER,
       ATTACHMENT_STORE,
+      HEARD_HAPPENINGS,
       LOGGER,
     ],
     useFactory: (
@@ -760,6 +797,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       members: MemberReaderPort,
       files: AttachmentStorePort,
+      heard: HeardHappeningsPort,
       logger: LoggerPort,
     ) =>
       new ReactToHappenings(
@@ -772,6 +810,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         ids,
         members,
         files,
+        heard,
         logger,
       ),
   },
@@ -1015,7 +1054,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       publications.register(WORK_PUBLICATIONS);
       subscribers.register([
         ...workSubscribers({
-          handOver: new HandOver(tasks, placements, lines, taskDispatch, clock),
+          handOver: new HandOver(
+            tasks,
+            runs,
+            placements,
+            lines,
+            taskDispatch,
+            clock,
+          ),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
           digests: new DigestRun(digests),
           provisioning: new ProvisionTeam(

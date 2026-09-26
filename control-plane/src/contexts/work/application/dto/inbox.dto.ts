@@ -29,6 +29,12 @@ export interface InboxApprovalDto {
   readonly standing: string;
 }
 
+export interface InboxFailureDto {
+  readonly source: string;
+  readonly code: string;
+  readonly occurrences: number;
+}
+
 interface InboxAuthorDto {
   readonly id: string;
   readonly name: string;
@@ -49,6 +55,7 @@ export interface InboxMessageDto {
   readonly at: string;
   readonly author: InboxAuthorDto | null;
   readonly approval: InboxApprovalDto | null;
+  readonly failure: InboxFailureDto | null;
 }
 
 interface InboxStationDto {
@@ -77,5 +84,6 @@ export interface InboxItemDto {
   readonly runId: string | null;
   readonly unread: boolean;
   readonly briefing: string | null;
+  readonly failure: InboxFailureDto | null;
   readonly notes: readonly InboxMessageDto[];
 }

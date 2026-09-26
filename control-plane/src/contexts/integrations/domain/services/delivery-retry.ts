@@ -1,11 +1,12 @@
-export const MOST_DELIVERY_ATTEMPTS = 8;
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
-const LONGEST_WAIT_MS = 60 * 60 * 1000;
+export const DELIVERING = Retry.backoff({
+  most: 8,
+  firstMs: 2_000,
+  longestMs: 60 * 60 * 1000,
+});
 
-export const nextDeliveryAttempt = (
-  attempts: number,
-  now: Date,
-): Date | null =>
-  attempts >= MOST_DELIVERY_ATTEMPTS
-    ? null
-    : new Date(now.getTime() + Math.min(2 ** attempts * 1000, LONGEST_WAIT_MS));
+export const MOST_DELIVERY_ATTEMPTS = DELIVERING.most;
+
+export const nextDeliveryAttempt = (attempts: number, now: Date): Date | null =>
+  DELIVERING.after(attempts, now);

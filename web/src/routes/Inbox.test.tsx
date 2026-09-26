@@ -140,6 +140,24 @@ describe('Inbox', () => {
       );
     });
 
+    it('counts a failure that keeps happening', () => {
+      waiting.mockReturnValue([
+        item({ failure: { source: 'run', code: 'exited', occurrences: 3 } }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      expect(screen.getByText('Failed 3 times')).toBeInTheDocument();
+    });
+
+    it('does not count a failure that happened once', () => {
+      waiting.mockReturnValue([
+        item({ failure: { source: 'run', code: 'exited', occurrences: 1 } }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      expect(screen.queryByText(/Failed/)).not.toBeInTheDocument();
+    });
+
     it('says nothing about open when nothing is', () => {
       waiting.mockReturnValue([item({ resolved: true })]);
       renderAt('/w/acme/inbox');

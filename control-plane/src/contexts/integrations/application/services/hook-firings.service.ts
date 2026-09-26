@@ -12,7 +12,13 @@ import type {
   StepTaken,
 } from '@integrations/application/ports/hook-runtime.port';
 import { nextDeliveryAttempt } from '@integrations/domain/services/delivery-retry';
+import {
+  loopStopFor,
+  RECENT_MS,
+} from '@integrations/domain/services/loop-guard';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
+import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -25,6 +31,7 @@ import type {
   HookedTasksPort,
 } from '@work/application/ports/hooked-tasks.port';
 import type { HookVerdict } from '@work/application/ports/lifecycle-hooks.port';
+import type { TaskNotesFromHooksPort } from '@work/application/ports/task-notes-from-hooks.port';
 
 const WAIT_AGAIN_MS = 2_000;
 
@@ -39,6 +46,7 @@ const ALLOWED: HookVerdict = { kind: 'allowed' };
 export interface Happened {
   readonly on: HookEventName;
   readonly occurrence: string;
+  readonly change: string;
   readonly task: HookedTaskDto;
   readonly event: Readonly<Record<string, unknown>>;
   readonly matchedLater?: boolean;
@@ -48,7 +56,7 @@ const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 const failed = (name: string, reason: string): StepTaken => ({
-  outcome: { name, status: 'failed', reason, output: null },
+  outcome: { name, status: 'failed', code: 'errored', reason, output: null },
   refusal: null,
   trace: null,
 });
@@ -57,9 +65,12 @@ const reasonOf = (outcome: StepOutcome): string =>
   outcome.status === 'failed' ? outcome.reason : 'had no answer in time';
 
 class StepFailed extends Error {
-  constructor(hook: string, step: string, reason: string) {
-    super(`The hook ${hook} failed at ${step}: ${reason}`);
+  readonly failure: HookFailure;
+
+  constructor(hook: string, step: string, failure: HookFailure) {
+    super(`The hook ${hook} failed at ${step}: ${failure.reason}`);
     this.name = 'StepFailed';
+    this.failure = HookFailure.of(failure.code, this.message);
   }
 }
 
@@ -68,10 +79,12 @@ export class HookFirings {
     private readonly runtime: HookRuntimePort,
     private readonly firings: HookFiringsPort,
     private readonly tasks: HookedTasksPort,
+    private readonly notes: TaskNotesFromHooksPort,
     private readonly traces: HookTracesPort,
     private readonly pullRequests: PullRequestPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
+    private readonly causation: CausationPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -91,6 +104,7 @@ export class HookFirings {
       at: this.clock.now(),
       task,
       event,
+      firing: null,
     };
 
     const budget = new Date(
@@ -132,8 +146,21 @@ export class HookFirings {
   }
 
   async happened(happened: Happened): Promise<number> {
-    const moment: HookMoment = { ...happened, at: this.clock.now() };
+    const moment: HookMoment = {
+      on: happened.on,
+      occurrence: happened.occurrence,
+      task: happened.task,
+      event: happened.event,
+      at: this.clock.now(),
+      firing: null,
+    };
     const matchedLater = happened.matchedLater === true;
+    const change = {
+      kind: 'event' as const,
+      key: `${happened.on}:${happened.task.taskId}:${happened.change}`,
+      saying: `${happened.on} of ${happened.task.title}${happened.change ? ` (${happened.change})` : ''}`,
+    };
+    const cause = this.causation.current().followedBy(change);
     let fired = 0;
 
     for (const hook of await this.runtime.listening(
@@ -159,11 +186,18 @@ export class HookFirings {
         teamId: happened.task.teamId,
         taskId: happened.task.taskId,
         runId: happened.task.runId,
+        stationKey: happened.task.stationKey,
         on: happened.on,
         occurrence: happened.occurrence,
         at: moment.at,
         event: happened.event,
         matched: !matchedLater,
+        cause,
+        link: {
+          kind: 'hook',
+          key: `hook:${hook.id}:${change.key}`,
+          saying: `the hook ${hook.key}`,
+        },
       });
 
       fired += queued ? 1 : 0;
@@ -180,19 +214,126 @@ export class HookFirings {
     }
 
     try {
-      await this.delivered(firing);
+      await this.causation.within(firing.cause.followedBy(firing.link), () =>
+        this.delivered(firing),
+      );
     } catch (error) {
-      const now = this.clock.now();
-      const again = nextDeliveryAttempt(firing.attempts + 1, now);
-
-      if (again) {
-        await this.firings.retryAt(firing, because(error), again);
-      } else {
-        await this.firings.failed(firing, because(error), now);
-      }
+      await this.settled(
+        firing,
+        error instanceof StepFailed
+          ? error.failure
+          : HookFailure.of('errored', because(error)),
+      );
     }
 
     return true;
+  }
+
+  private async settled(
+    firing: StoredFiring,
+    failure: HookFailure,
+  ): Promise<void> {
+    if (firing.failure?.code === 'loop') {
+      await this.reportAgain(firing, firing.failure);
+      return;
+    }
+
+    const now = this.clock.now();
+    const again = failure.nextAttemptAfter(firing.attempts + 1, now);
+
+    if (again) {
+      await this.firings.retryAt(firing, failure, again);
+      return;
+    }
+
+    const movedOn = await this.notes.movedOn(firing.taskId, firing.stationKey);
+
+    await this.firings.failed(
+      firing,
+      movedOn ? failure.superseded() : failure,
+      now,
+    );
+  }
+
+  private async loopOf(
+    firing: StoredFiring,
+    hook: string,
+  ): Promise<HookFailure | null> {
+    if (firing.failure?.code === 'loop') {
+      return firing.failure;
+    }
+
+    if (firing.steps.length > 0) {
+      return null;
+    }
+
+    const stop = loopStopFor({
+      chain: firing.cause,
+      firing: firing.link,
+      recentRepeats: await this.firings.recentRepeats(
+        firing,
+        new Date(firing.at.getTime() - RECENT_MS),
+      ),
+    });
+
+    return stop
+      ? HookFailure.of('loop', `The hook ${hook} was stopped: ${stop.saying}`)
+      : null;
+  }
+
+  private async stopped(
+    firing: StoredFiring,
+    hook: string,
+    loop: HookFailure,
+  ): Promise<void> {
+    if (
+      firing.failure?.code !== 'loop' &&
+      !(await this.firings.stopping(firing, loop))
+    ) {
+      return;
+    }
+
+    try {
+      const heard = await this.notes.failed({
+        taskId: firing.taskId,
+        stationKey: firing.stationKey,
+        hook,
+        code: loop.code,
+        saying: loop.reason,
+        heardAs: `loop:${firing.id}`,
+      });
+
+      this.logger.warn(
+        { hook, task: firing.taskId, loop: loop.reason, heard },
+        'Stopped a hook that would loop',
+      );
+
+      await this.firings.failed(
+        firing,
+        heard === 'reported' ? loop : loop.superseded(),
+        this.clock.now(),
+      );
+    } catch (error) {
+      this.logger.warn(
+        { err: error, hook, task: firing.taskId },
+        'Could not yet tell of a hook stopped for looping',
+      );
+      await this.reportAgain(firing, loop);
+    }
+  }
+
+  private async reportAgain(
+    firing: StoredFiring,
+    loop: HookFailure,
+  ): Promise<void> {
+    const now = this.clock.now();
+    const again = nextDeliveryAttempt(firing.attempts + 1, now);
+
+    if (again) {
+      await this.firings.retryAt(firing, loop, again);
+    } else {
+      await this.firings.failed(firing, loop, now);
+    }
   }
 
   async workOff(limit = 50): Promise<number> {
@@ -275,7 +416,10 @@ export class HookFirings {
     if (hook.broken) {
       await this.firings.failed(
         firing,
-        `The hook ${hook.key} no longer reads as it was written: ${hook.broken}`,
+        HookFailure.of(
+          'broken',
+          `The hook ${hook.key} no longer reads as it was written: ${hook.broken}`,
+        ),
         this.clock.now(),
       );
       return;
@@ -286,7 +430,10 @@ export class HookFirings {
     if (!task) {
       await this.firings.failed(
         firing,
-        'its task is gone, so there is nothing to tell about',
+        HookFailure.of(
+          'superseded',
+          'its task is gone, so there is nothing to tell about',
+        ),
         this.clock.now(),
       );
       return;
@@ -303,6 +450,13 @@ export class HookFirings {
       if (!(await this.firings.matched(firing, moment.event))) {
         return;
       }
+    }
+
+    const loop = await this.loopOf(firing, hook.key);
+
+    if (loop) {
+      await this.stopped(firing, hook.key, loop);
+      return;
     }
 
     const held = new Map(firing.steps.map((step) => [step.name, step]));
@@ -341,7 +495,11 @@ export class HookFirings {
 
       if (taken.outcome.status === 'failed') {
         await this.firings.stepped(firing, [...earlier, taken.outcome]);
-        throw new StepFailed(hook.key, step, taken.outcome.reason);
+        throw new StepFailed(
+          hook.key,
+          step,
+          HookFailure.of(taken.outcome.code, taken.outcome.reason),
+        );
       }
 
       earlier.push(taken.outcome);
@@ -364,6 +522,7 @@ export class HookFirings {
       at: firing.at,
       task,
       event: firing.event,
+      firing: firing.id,
     };
 
     if (firing.matched || firing.on !== 'pull-request.merged') {

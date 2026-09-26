@@ -43,7 +43,7 @@ const waiting = (
     id: RunId.of(id),
     workspaceId: WorkspaceId.of(workspace),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(TaskId.of('task_1'), null),
+    subject: RunSubject.task(TaskId.of('task_1'), null, 0),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',

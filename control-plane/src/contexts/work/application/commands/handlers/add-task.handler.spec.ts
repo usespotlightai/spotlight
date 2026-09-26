@@ -202,6 +202,7 @@ describe('AddTaskHandler', () => {
     ).resolves.toEqual({
       id: 'task_1',
       stationId: 'station_1',
+      revision: 0,
       title: 'Fix the queue',
       description: null,
       attachments: [],

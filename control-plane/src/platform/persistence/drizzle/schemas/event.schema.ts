@@ -13,6 +13,7 @@ export const eventOutbox = pgTable('event_outbox', {
   id: uuid('id').primaryKey(),
   kind: text('kind').notNull(),
   payload: jsonb('payload').notNull(),
+  cause: jsonb('cause'),
   recordedAt: timestamp('recorded_at').defaultNow().notNull(),
 });
 

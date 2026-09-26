@@ -9,5 +9,6 @@ export interface HappeningReactionsPort {
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
     happenings: readonly Happened[],
+    heardAs: string | null,
   ): Promise<void>;
 }

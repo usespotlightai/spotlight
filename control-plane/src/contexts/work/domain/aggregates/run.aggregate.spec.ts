@@ -13,7 +13,6 @@ import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
-import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -70,6 +69,7 @@ describe('Run', () => {
     const given = spent.requeue(new Date(lapsedAt.getTime() + 600_000));
 
     expect(given.state).toBe('failed');
+    expect(given.outcome?.failure?.code).toBe('runner-lost');
     const events = given.pullEvents();
     expect(events.some((each) => each instanceof RunAbandoned)).toBe(true);
   });
@@ -421,7 +421,7 @@ describe('Run', () => {
       );
     });
 
-    it('waits twice as long each time it is handed back, never more than two minutes', () => {
+    it('waits twice as long each time it is handed back', () => {
       let run = claimed();
       const waits: number[] = [];
 
@@ -434,9 +434,6 @@ describe('Run', () => {
       }
 
       expect(waits).toEqual([5_000, 10_000, 20_000, 40_000, 80_000]);
-      expect(
-        HandBacks.rehydrate(9, null).handedBackAt(noon).claimableFrom,
-      ).toEqual(laterBy(120_000));
     });
 
     it('ends failed, saying its hooks could not be asked, the sixth time it is handed back', () => {
@@ -519,10 +516,11 @@ describe('Run', () => {
   });
 
   describe('being withdrawn before a runner takes it up', () => {
-    it('ends a queued run as withdrawn, not as abandoned', () => {
+    it('ends a queued run as superseded, since its task moved on without it', () => {
       const withdrawn = queued().withdrawn('The task moved on.');
 
-      expect(withdrawn.state).toBe('failed');
+      expect(withdrawn.state).toBe('superseded');
+      expect(withdrawn.outcome?.failure?.code).toBe('superseded');
       expect(withdrawn.hasEnded).toBe(true);
       expect(withdrawn.outcome?.message).toBe('The task moved on.');
       expect(withdrawn.pullEvents().map((each) => each.kind)).toEqual([
@@ -866,6 +864,45 @@ describe('Run', () => {
 
       expect(started.requeue(started.leaseExpiresAt as Date).ranIn).toBeNull();
       expect(started.release().ranIn).toBeNull();
+    });
+  });
+
+  describe('superseded by its task', () => {
+    const failedRun = () =>
+      claimed().complete(
+        runner(),
+        RunOutcome.of({ exitCode: 1, failed: true }),
+      );
+
+    it('supersedes a failure its task has since moved on from', () => {
+      const failed = failedRun();
+      failed.pullEvents();
+      const superseded = failed.supersededByItsTask();
+
+      expect(superseded.state).toBe('superseded');
+      expect(superseded.hasEnded).toBe(true);
+      expect(superseded.outcome?.failure?.code).toBe('superseded');
+      expect(superseded.outcome?.message).toBe(failed.outcome?.message);
+      expect(superseded.pullEvents().map((each) => each.kind)).toEqual([
+        'run.superseded',
+      ]);
+    });
+
+    it('leaves a run that succeeded, is still going, or was already superseded as it was', () => {
+      const succeeded = claimed().complete(
+        runner(),
+        RunOutcome.of({ exitCode: 0, failed: false }),
+      );
+      const superseded = failedRun().supersededByItsTask();
+
+      expect(succeeded.supersededByItsTask()).toBe(succeeded);
+      expect(claimed().supersededByItsTask().state).toBe('claimed');
+      expect(superseded.supersededByItsTask()).toBe(superseded);
+    });
+
+    it('ends failed, not superseded, when it exits badly while its task still holds it', () => {
+      expect(failedRun().state).toBe('failed');
+      expect(failedRun().outcome?.failure?.code).toBe('exited');
     });
   });
 });

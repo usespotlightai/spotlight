@@ -103,6 +103,10 @@ import {
 import { API_PREFIX } from '@platform/http/routes';
 import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 import {
+  CAUSATION,
+  type CausationPort,
+} from '@shared-kernel/application/ports/causation.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -129,7 +133,10 @@ import {
   NETWORK_CALLS,
   type NetworkCallsPort,
 } from '@work/application/ports/network-calls.port';
-import { TASK_NOTES_FROM_HOOKS } from '@work/application/ports/task-notes-from-hooks.port';
+import {
+  TASK_NOTES_FROM_HOOKS,
+  type TaskNotesFromHooksPort,
+} from '@work/application/ports/task-notes-from-hooks.port';
 
 export const HOOKS_CONTROLLERS: readonly Type[] = [
   HookResourceController,
@@ -260,30 +267,36 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       HOOK_RUNTIME,
       HOOK_FIRINGS,
       HOOKED_TASKS,
+      TASK_NOTES_FROM_HOOKS,
       HOOK_TRACES,
       PULL_REQUESTS,
       ID_GENERATOR,
       CLOCK,
+      CAUSATION,
       LOGGER,
     ],
     useFactory: (
       runtime: HookRuntimePort,
       firings: HookFiringsPort,
       tasks: HookedTasksPort,
+      notes: TaskNotesFromHooksPort,
       traces: HookTracesPort,
       pullRequests: PullRequestPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
+      causation: CausationPort,
       logger: LoggerPort,
     ) =>
       new HookFirings(
         runtime,
         firings,
         tasks,
+        notes,
         traces,
         pullRequests,
         ids,
         clock,
+        causation,
         logger,
       ),
   },
@@ -364,6 +377,8 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(NoteByCallbackCommand, NoteByCallbackHandler, [
     HOOK_CALLBACKS,
     TASK_NOTES_FROM_HOOKS,
+    HOOK_FIRINGS,
+    CAUSATION,
     CLOCK,
   ]),
 ];

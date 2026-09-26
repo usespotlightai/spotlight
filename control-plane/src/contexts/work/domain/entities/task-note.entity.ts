@@ -9,6 +9,7 @@ import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { Remark } from '@work/domain/value-objects/remark.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -21,6 +22,7 @@ export const TASK_NOTE_FORMS = [
   'setup',
   'settled',
   'approval',
+  'failure',
 ] as const;
 
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
@@ -40,6 +42,7 @@ export class TaskNote {
     readonly form: TaskNoteForm,
     readonly attachments: readonly Attachment[],
     readonly approval: Approval | null,
+    readonly failure: TaskFailure | null,
   ) {}
 
   static of(input: {
@@ -56,6 +59,7 @@ export class TaskNote {
     form?: TaskNoteForm;
     attachments?: readonly Attachment[];
     approval?: Approval | null;
+    failure?: TaskFailure | null;
   }): TaskNote {
     return new TaskNote(
       input.position,
@@ -71,6 +75,7 @@ export class TaskNote {
       input.form ?? 'words',
       input.attachments ?? [],
       input.approval ?? null,
+      input.failure ?? null,
     );
   }
 
@@ -118,6 +123,27 @@ export class TaskNote {
       : this;
   }
 
+  recurred(): TaskNote {
+    return this.failure
+      ? new TaskNote(
+          this.position,
+          this.station,
+          this.body,
+          this.at,
+          this.voice,
+          this.said,
+          this.answeredAt,
+          this.kind,
+          null,
+          this.deliveredAt,
+          this.form,
+          this.attachments,
+          this.approval,
+          this.failure.again(),
+        )
+      : this;
+  }
+
   delivered(at: Date): TaskNote {
     return this.undelivered ? this.with({ deliveredAt: at }) : this;
   }
@@ -146,6 +172,7 @@ export class TaskNote {
       this.form,
       this.attachments,
       part.approval ?? this.approval,
+      this.failure,
     );
   }
 }

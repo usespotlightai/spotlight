@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { CallbackHolder } from '@integrations/application/ports/hook-callbacks.port';
 import type {
   HookMoment,
   ListeningHook,
@@ -31,6 +32,7 @@ const HOOK: ListeningHook = {
 const MOMENT: HookMoment = {
   on: 'pull-request.opening',
   occurrence: 'occurrence_1',
+  firing: null,
   at: NOW,
   event: { changed: ['db/migrations/1.sql'] },
   task: {
@@ -87,11 +89,15 @@ const requests = (
 ) => {
   const fetch = vi.fn(reply);
   const signed = vi.fn(async () => 'jwt');
+  const minted = vi.fn(
+    async (_holder: CallbackHolder, _until: Date) => 'callback_token',
+  );
 
   return {
     fetch,
     calls,
     signed,
+    minted,
     requests: new HookRequests(
       {
         publicUrl: 'https://spotlight.example.com',
@@ -104,7 +110,7 @@ const requests = (
         signed,
         keys: async () => ({ keys: [] }),
       },
-      { minted: async () => 'callback_token', heldBy: async () => null },
+      { minted, heldBy: async () => null },
       calls,
       fetch as unknown as typeof globalThis.fetch,
     ),
@@ -228,10 +234,56 @@ describe('HookRequests', () => {
     await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
       outcome: {
         status: 'failed',
+        code: 'server-error',
         reason: 'was answered 503 by https://dba.example.com/review',
       },
       trace: { status: 503, failed: true },
     });
+  });
+
+  it.each([
+    [404, 'rejected'],
+    [401, 'rejected'],
+    [429, 'throttled'],
+    [408, 'throttled'],
+    [500, 'server-error'],
+  ])('types an answer of %i as %s', async (status, code) => {
+    const { requests: sending } = requests(
+      async () => new Response('no', { status }),
+    );
+
+    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+      outcome: { status: 'failed', code },
+    });
+  });
+
+  it('names the firing it was sent for, so a reply can carry the chain back', async () => {
+    const {
+      fetch,
+      minted,
+      requests: sending,
+    } = requests(async () => new Response('{}', { status: 200 }));
+
+    await sending.sent(
+      asked({ moment: { ...MOMENT, firing: 'firing_1' } }),
+      NOW,
+    );
+
+    expect(sentHeaders(fetch)['spotlight-cause']).toBe('firing_1');
+    expect(minted).toHaveBeenCalledWith(
+      expect.objectContaining({ firing: 'firing_1' }),
+      expect.any(Date),
+    );
+  });
+
+  it('names no firing for a hook before an event', async () => {
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{}', { status: 200 }),
+    );
+
+    await sending.sent(asked(), NOW);
+
+    expect(sentHeaders(fetch)['spotlight-cause']).toBeUndefined();
   });
 
   it('fails a step it could not send, saying why', async () => {
@@ -244,6 +296,7 @@ describe('HookRequests', () => {
     await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
       outcome: {
         status: 'failed',
+        code: 'unreachable',
         reason:
           'could not reach https://dba.example.com/review: nothing answered there',
       },
@@ -258,7 +311,7 @@ describe('HookRequests', () => {
     );
 
     await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
-      outcome: { status: 'failed' },
+      outcome: { status: 'failed', code: 'not-allowed' },
     });
     expect(fetch).not.toHaveBeenCalled();
   });

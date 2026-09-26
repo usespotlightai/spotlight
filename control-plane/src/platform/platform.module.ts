@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ConfigModule } from '@platform/config/config.module';
+import { AmbientCausation } from '@platform/events/ambient-causation';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -24,6 +25,7 @@ import { SystemClock } from '@platform/time/system-clock';
 import { TokenMint } from '@platform/tokens/token-mint.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
 import { BACKGROUND } from '@shared-kernel/application/ports/background.port';
+import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
@@ -53,6 +55,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     DrizzleContext,
     { provide: TRANSACTION, useExisting: DrizzleContext },
     { provide: BACKGROUND, useExisting: DrizzleContext },
+    { provide: CAUSATION, useClass: AmbientCausation },
     {
       provide: EventTypes,
       useFactory: () => {
@@ -84,6 +87,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     DrizzleContext,
     TRANSACTION,
     BACKGROUND,
+    CAUSATION,
     EventTypes,
     EventSubscribers,
     EventPublications,

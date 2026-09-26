@@ -12,6 +12,7 @@ export const TaskHttpMapper = {
     return new TaskResponseDto(
       dto.id,
       dto.stationId,
+      dto.revision,
       dto.title,
       dto.description,
       dto.attachments.map(AttachmentHttpMapper.toResponse),

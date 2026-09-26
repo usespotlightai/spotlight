@@ -15557,7 +15557,17 @@
     "/hook-callbacks/notes": {
       "post": {
         "operationId": "noteOnHookTask",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "The same on every retry of one note, so a retried note is said once",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -17362,6 +17372,31 @@
           "position"
         ]
       },
+      "InboxFailureResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "run",
+            "description": "Where the failure came from: the run, or the hook that failed"
+          },
+          "code": {
+            "type": "string",
+            "example": "exited",
+            "description": "What kind of failure it was"
+          },
+          "occurrences": {
+            "type": "number",
+            "example": 3,
+            "description": "How many times it happened while this was open, rather than asking again each time"
+          }
+        },
+        "required": [
+          "source",
+          "code",
+          "occurrences"
+        ]
+      },
       "InboxAuthorResponseDto": {
         "type": "object",
         "properties": {
@@ -17472,7 +17507,8 @@
               "words",
               "setup",
               "settled",
-              "approval"
+              "approval",
+              "failure"
             ],
             "description": "What it shows, which is not what it did"
           },
@@ -17538,6 +17574,16 @@
                 "$ref": "#/components/schemas/InboxApprovalResponseDto"
               }
             ]
+          },
+          "failure": {
+            "nullable": true,
+            "description": "The failure it reports, where it reports one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxFailureResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -17553,7 +17599,8 @@
           "attachments",
           "at",
           "author",
-          "approval"
+          "approval",
+          "failure"
         ]
       },
       "InboxItemResponseDto": {
@@ -17654,6 +17701,16 @@
             "nullable": true,
             "description": "What the station that opened this conversation was given"
           },
+          "failure": {
+            "nullable": true,
+            "description": "The failure this conversation is about, where it is about one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxFailureResponseDto"
+              }
+            ]
+          },
           "notes": {
             "type": "array",
             "items": {
@@ -17681,6 +17738,7 @@
           "runId",
           "unread",
           "briefing",
+          "failure",
           "notes"
         ]
       },
@@ -17943,6 +18001,11 @@
             "type": "string",
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
           },
+          "revision": {
+            "type": "number",
+            "example": 3,
+            "description": "How many times it has moved; a move names the revision it was based on"
+          },
           "title": {
             "type": "string",
             "example": "Fix the queue"
@@ -18019,6 +18082,7 @@
         "required": [
           "id",
           "stationId",
+          "revision",
           "title",
           "description",
           "attachments",
@@ -18094,7 +18158,8 @@
               "queued",
               "claimed",
               "completed",
-              "failed"
+              "failed",
+              "superseded"
             ]
           },
           "attempt": {
@@ -18241,7 +18306,8 @@
               "queued",
               "claimed",
               "completed",
-              "failed"
+              "failed",
+              "superseded"
             ]
           },
           "startedAt": {
@@ -18408,7 +18474,8 @@
               "queued",
               "claimed",
               "completed",
-              "failed"
+              "failed",
+              "superseded"
             ]
           },
           "attempt": {
@@ -18525,6 +18592,11 @@
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80",
             "description": "The station to move the task to, on the same line"
           },
+          "revision": {
+            "type": "number",
+            "example": 3,
+            "description": "The revision the move was based on; a task that has moved since is not moved again"
+          },
           "afterTaskId": {
             "type": "string",
             "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
@@ -18533,7 +18605,8 @@
           }
         },
         "required": [
-          "stationId"
+          "stationId",
+          "revision"
         ]
       },
       "AssignTaskRequestDto": {

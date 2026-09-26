@@ -54,6 +54,7 @@ import {
   DeliveryWorkPort,
 } from '@integrations/application/ports/delivery-work.port';
 import { EXPRESSION_CHECKS } from '@integrations/application/ports/expression-checks.port';
+import { HOOK_FIRINGS } from '@integrations/application/ports/hook-firings.port';
 import {
   INBOX_LINKS,
   type InboxLinksPort,
@@ -183,6 +184,7 @@ import {
   SECRET_USES,
   type SecretUsesPort,
 } from '@secrets/application/ports/secret-uses.port';
+import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
 import { CLOCK, ClockPort } from '@shared-kernel/application/ports/clock.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -708,6 +710,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ReadDeliveryCommand, ReadDeliveryHandler, [
     SourceForDelivery,
     HAPPENING_REACTIONS,
+    HOOK_FIRINGS,
+    CAUSATION,
   ]),
 
   {

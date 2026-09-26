@@ -10,6 +10,7 @@ import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
+import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
@@ -75,6 +76,7 @@ import { Remark } from '@work/domain/value-objects/remark.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
+import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -89,6 +91,7 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -157,6 +160,8 @@ export const WORK_EVENT_TYPES = [
   Remark,
   RunAttempt,
   RunOutcome,
+  RunFailure,
+  TaskFailure,
   RunPriority,
   RunSpec,
   RunSubject,
@@ -191,6 +196,7 @@ export const WORK_EVENT_TYPES = [
   PullRequestOpened,
   RunAbandoned,
   RunWithdrawn,
+  RunSuperseded,
   RunCompleted,
   RunStopRequested,
   StationHarnessChanged,

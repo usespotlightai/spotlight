@@ -12,8 +12,10 @@ import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
+import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-revision.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
+import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -26,6 +28,7 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -35,6 +38,7 @@ import { describe, expect, it } from 'vitest';
 
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
   Task.rehydrate({
+    revision: 0,
     id: task.id,
     workspaceId: task.workspaceId,
     stationId: task.stationId,
@@ -1142,5 +1146,123 @@ describe('Task, what it is doing', () => {
 
       expect(movedEvents(task.reorderTo(TaskRank.of('z')))).toEqual([]);
     });
+  });
+});
+
+describe('Task, a failure reported on it', () => {
+  const RUN_EXITED = TaskFailure.of({ source: 'run', code: 'exited' });
+  const LOOPED = TaskFailure.of({ source: 'hook:notify', code: 'loop' });
+  const worked = () => added().handedTo(RUN, LINE);
+  const failure = (said: string) => ({
+    ...saying,
+    body: TaskNoteBody.of(said),
+  });
+
+  it('puts the first failure to a person, saying where it came from', () => {
+    const failed = worked().failed(RUN_EXITED, failure('It exited 1.'), RUN);
+
+    expect(failed.awaitingReview).toBe(true);
+    expect(failed.running).toBe(false);
+    expect(failed.notes[0]?.kind).toBe('asked');
+    expect(failed.notes[0]?.form).toBe('failure');
+    expect(failed.notes[0]?.failure?.equals(RUN_EXITED)).toBe(true);
+  });
+
+  it('counts the same failure again while a person has not yet answered, rather than asking twice', () => {
+    const failed = added()
+      .failed(LOOPED, failure('Stopped a loop.'), null)
+      .failed(LOOPED, failure('Stopped it again.'), null);
+
+    expect(failed.notes).toHaveLength(1);
+    expect(failed.notes[0]?.failure?.occurrences).toBe(2);
+    expect(failed.notes[0]?.unread).toBe(true);
+  });
+
+  it('keeps a repeat in the conversation it belongs to once a person has answered', () => {
+    const asked = worked().failed(RUN_EXITED, failure('It exited 1.'), RUN);
+    const answered = asked.answered(NotePosition.of(0), {
+      ...saying,
+      body: TaskNoteBody.of('Try again.'),
+      voice: Voice.person(UserId.of('user_1')),
+    });
+    const again = answered
+      .handedTo(RunId.of('run_2'), LINE)
+      .failed(RUN_EXITED, failure('It exited 1 again.'), RunId.of('run_2'));
+
+    expect(again.openConversation?.from).toBe(0);
+    expect(again.notes.map((each) => each.kind)).toEqual([
+      'asked',
+      'answered',
+      'asked',
+    ]);
+    expect(again.notes[2]?.failure?.occurrences).toBe(2);
+  });
+
+  it('says a different failure in the open conversation rather than opening another', () => {
+    const failed = added()
+      .failed(LOOPED, failure('Stopped a loop.'), null)
+      .failed(
+        TaskFailure.of({ source: 'hook:audit', code: 'loop' }),
+        failure('Stopped another.'),
+        null,
+      );
+
+    expect(failed.notes.map((each) => each.kind)).toEqual(['asked', 'said']);
+    expect(failed.openConversation?.from).toBe(0);
+  });
+
+  it('lets go of the run working it when the failure is not that run’s', () => {
+    const failed = worked().failed(LOOPED, failure('Stopped a loop.'), null);
+
+    expect(failed.running).toBe(false);
+    expect(failed.pullEvents().map((each) => each.kind)).toContain(
+      'task.let-go-of-run',
+    );
+  });
+
+  it('puts no failure on a finished task to anyone', () => {
+    const finished = worked().finishedHere(RUN, LINE, saying);
+
+    expect(finished.movedOnFrom(HERE)).toBe(true);
+    expect(() =>
+      finished.failed(LOOPED, failure('Stopped a loop.'), null),
+    ).toThrow(InvalidTaskTransitionError);
+  });
+
+  it('knows it has moved on from a station it no longer stands at', () => {
+    expect(added().movedOnFrom(HERE)).toBe(false);
+    expect(added().movedOnFrom(StationId.of('station_2'))).toBe(true);
+    expect(added().movedOnFrom(null)).toBe(false);
+  });
+});
+
+describe('Task, its revision', () => {
+  it('starts at the first revision and counts each move', () => {
+    const moved = added().moveTo(
+      LINE,
+      StationId.of('station_2'),
+      TaskRank.of('i'),
+      saying,
+    );
+
+    expect(added().revision).toBe(0);
+    expect(moved.revision).toBe(1);
+    expect(moved.standsAt(1)).toBe(true);
+  });
+
+  it('counts being finished as a move', () => {
+    expect(
+      added().handedTo(RUN, LINE).finishedHere(RUN, LINE, saying).revision,
+    ).toBe(1);
+  });
+
+  it('does not count what is said on it as a move', () => {
+    expect(added().heard(saying).revision).toBe(0);
+  });
+
+  it('refuses what was decided on a revision it has moved on from', () => {
+    expect(added().expecting(0).revision).toBe(0);
+    expect(() => added().expecting(1)).toThrow(StaleTaskRevisionError);
+    expect(() => added().expecting(-1)).toThrow(InvalidTaskRevisionError);
   });
 });

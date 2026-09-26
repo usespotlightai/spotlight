@@ -24,7 +24,7 @@ const NOW = new Date('2026-09-26T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
 const REASON = 'The hook core/freeze refused: deploys are frozen.';
 
-const claimed = (subject = RunSubject.task(TaskId.of('task_1'), null)) =>
+const claimed = (subject = RunSubject.task(TaskId.of('task_1'), null, 0)) =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),

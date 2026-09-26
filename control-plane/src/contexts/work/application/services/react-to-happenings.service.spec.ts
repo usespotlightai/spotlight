@@ -11,6 +11,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import { heardInMemory } from '@work/application/ports/heard-happenings.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -199,8 +200,9 @@ const heard = (
     ids,
     members,
     files,
+    heardInMemory(),
     logger,
-  ).react(WorkspaceId.of('ws_1'), null, [news(happening, said)]);
+  ).react(WorkspaceId.of('ws_1'), null, [news(happening, said)], 'heard-as');
 
 describe('ReactToHappenings', () => {
   beforeEach(() => {
@@ -214,6 +216,76 @@ describe('ReactToHappenings', () => {
 
     expect(saved?.stationId).toEqual(StationId.of('station_1'));
     expect(saved?.notes[0]?.body.value).toContain('Handle the empty case.');
+  });
+
+  it('has no second effect when the same delivery is heard again', async () => {
+    const held = tasks(standing());
+    const reactions = new ReactToHappenings(
+      held,
+      held,
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      members,
+      files,
+      heardInMemory(),
+      logger,
+    );
+    const said = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
+
+    await reactions.react(WorkspaceId.of('ws_1'), null, said, 'delivery_1');
+    await reactions.react(WorkspaceId.of('ws_1'), null, said, 'delivery_1');
+
+    expect(held.save).toHaveBeenCalledTimes(1);
+    expect(dispatched).toHaveLength(1);
+  });
+
+  it('hears what a poll with no cursor says each time, since only a cursor tells news apart', async () => {
+    const held = tasks(standing());
+    const reactions = new ReactToHappenings(
+      held,
+      held,
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      members,
+      files,
+      heardInMemory(),
+      logger,
+    );
+    const said = [news(COMMENTED, 'Still retries.')];
+
+    await reactions.react(WorkspaceId.of('ws_1'), null, said, null);
+    await reactions.react(WorkspaceId.of('ws_1'), null, said, null);
+
+    expect(held.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('hears a later delivery saying the same thing as news of its own', async () => {
+    const held = tasks(standing());
+    const reactions = new ReactToHappenings(
+      held,
+      held,
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      members,
+      files,
+      heardInMemory(),
+      logger,
+    );
+    const said = [news(COMMENTED, 'Still retries.')];
+
+    await reactions.react(WorkspaceId.of('ws_1'), null, said, 'delivery_1');
+    await reactions.react(WorkspaceId.of('ws_1'), null, said, 'delivery_2');
+
+    expect(held.save).toHaveBeenCalledTimes(2);
   });
 
   it('starts the work at the station it was taken to', async () => {
@@ -309,8 +381,9 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
+      heardInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [reply]);
+    ).react(WorkspaceId.of('ws_1'), null, [reply], 'heard-as');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
       'asked',
@@ -367,8 +440,9 @@ describe('ReactToHappenings', () => {
         ids,
         members,
         files,
+        heardInMemory(),
         logger,
-      ).react(WorkspaceId.of('ws_1'), null, [reply]);
+      ).react(WorkspaceId.of('ws_1'), null, [reply], 'heard-as');
 
     it('takes a reply that is only a file as the answer, and keeps the file', async () => {
       await react(replying(null, async () => new Uint8Array([1, 2, 3, 4])));
@@ -436,13 +510,22 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
+      heardInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [
-      {
-        ...news(MERGED, null),
-        concerns: { branch: null, marks: [{ kind: 'Not A Kind', value: 'x' }] },
-      },
-    ]);
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [
+        {
+          ...news(MERGED, null),
+          concerns: {
+            branch: null,
+            marks: [{ kind: 'Not A Kind', value: 'x' }],
+          },
+        },
+      ],
+      'heard-as',
+    );
 
     expect(saved).toBeUndefined();
     expect(logger.warn).toHaveBeenCalled();
@@ -519,8 +602,9 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
+      heardInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)]);
+    ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'heard-as');
 
     expect(held.holding).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
@@ -596,8 +680,9 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
+      heardInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [filed]);
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'heard-as');
 
     expect(held.add).toHaveBeenCalledTimes(1);
     expect(added?.stationId).toEqual(entry.id);
@@ -678,8 +763,9 @@ describe('ReactToHappenings', () => {
       ids,
       { listForTeam: async () => null, byEmail, onTeam: async () => false },
       files,
+      heardInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [filed]);
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'heard-as');
 
     expect(byEmail).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
@@ -759,8 +845,9 @@ describe('ReactToHappenings', () => {
         onTeam: async () => false,
       },
       files,
+      heardInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [filed]);
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'heard-as');
 
     expect(added?.assignee).toBeNull();
   });
@@ -841,8 +928,9 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
+      heardInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [filed]);
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'heard-as');
 
     expect(held.add).toHaveBeenCalledTimes(1);
     expect(added[0]?.stationId).toEqual((first.entry as Station).id);

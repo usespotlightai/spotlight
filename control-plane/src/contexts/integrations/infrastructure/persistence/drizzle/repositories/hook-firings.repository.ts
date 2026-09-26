@@ -6,21 +6,47 @@ import type {
 import type { StepOutcome } from '@integrations/application/ports/hook-runtime.port';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import {
+  HOOK_FAILURES,
+  HookFailure,
+  type HookFailureCode,
+} from '@integrations/domain/value-objects/hook-failure.vo';
+import {
   type HookFiringState,
   hookFiring,
 } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { and, asc, eq, inArray, lt, lte, or, sql } from 'drizzle-orm';
+import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  inArray,
+  lt,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 const REASON_LIMIT = 1_000;
 
-const FINISHED: HookFiringState[] = ['done', 'failed'];
+const FINISHED: HookFiringState[] = ['done', 'failed', 'superseded'];
 
 const held = (firing: StoredFiring) =>
   and(eq(hookFiring.id, firing.id), eq(hookFiring.claimedAt, firing.claimedAt));
 
 const LEASE_MS = 10 * 60 * 1000;
+
+const isCode = (code: string): code is HookFailureCode =>
+  Object.keys(HOOK_FAILURES).includes(code);
+
+const failureOf = (
+  code: string | null,
+  reason: string | null,
+): HookFailure | null =>
+  code && isCode(code) ? HookFailure.of(code, reason ?? '') : null;
 
 @Injectable()
 export class DrizzleHookFirings implements HookFiringsPort {
@@ -36,10 +62,13 @@ export class DrizzleHookFirings implements HookFiringsPort {
         teamId: firing.teamId,
         taskId: firing.taskId,
         runId: firing.runId,
+        stationKey: firing.stationKey,
         on: firing.on,
         occurrence: firing.occurrence,
         event: { ...firing.event },
         matched: firing.matched,
+        cause: { ...firing.cause.stored },
+        link: { ...firing.link },
         firedAt: firing.at,
         dueAt: firing.at,
       })
@@ -89,11 +118,15 @@ export class DrizzleHookFirings implements HookFiringsPort {
       teamId: found.teamId,
       taskId: found.taskId,
       runId: found.runId,
+      stationKey: found.stationKey,
       on: found.on as HookEventName,
       occurrence: found.occurrence,
       at: found.firedAt,
       event: found.event,
       matched: found.matched,
+      cause: CausalChain.read(found.cause),
+      link: found.link,
+      failure: failureOf(found.failure, found.failed),
       steps: found.steps as unknown as StepOutcome[],
       attempts: found.attempts,
       claimedAt: found.claimedAt,
@@ -144,9 +177,22 @@ export class DrizzleHookFirings implements HookFiringsPort {
       .where(held(firing));
   }
 
+  async stopping(firing: StoredFiring, failure: HookFailure): Promise<boolean> {
+    const written = await this.context.db
+      .update(hookFiring)
+      .set({
+        failure: failure.code,
+        failed: failure.reason.slice(0, REASON_LIMIT),
+      })
+      .where(held(firing))
+      .returning({ id: hookFiring.id });
+
+    return written.length > 0;
+  }
+
   async retryAt(
     firing: StoredFiring,
-    because: string,
+    failure: HookFailure,
     at: Date,
   ): Promise<void> {
     await this.context.db
@@ -156,21 +202,67 @@ export class DrizzleHookFirings implements HookFiringsPort {
         dueAt: at,
         claimedAt: null,
         attempts: sql`${hookFiring.attempts} + 1`,
-        failed: because.slice(0, REASON_LIMIT),
+        failure: failure.code,
+        failed: failure.reason.slice(0, REASON_LIMIT),
       })
       .where(held(firing));
   }
 
-  async failed(firing: StoredFiring, because: string, at: Date): Promise<void> {
+  async failed(
+    firing: StoredFiring,
+    failure: HookFailure,
+    at: Date,
+  ): Promise<void> {
     await this.context.db
       .update(hookFiring)
       .set({
-        state: 'failed',
+        state: failure.code === 'superseded' ? 'superseded' : 'failed',
         handledAt: at,
         attempts: sql`${hookFiring.attempts} + 1`,
-        failed: because.slice(0, REASON_LIMIT),
+        failure: failure.code,
+        failed: failure.reason.slice(0, REASON_LIMIT),
       })
       .where(held(firing));
+  }
+
+  async recentRepeats(firing: StoredFiring, since: Date): Promise<number> {
+    const [row] = await this.context.db
+      .select({ repeats: count() })
+      .from(hookFiring)
+      .where(
+        and(
+          eq(hookFiring.hookId, firing.hookId),
+          eq(hookFiring.taskId, firing.taskId),
+          gte(hookFiring.firedAt, since),
+          or(
+            lt(hookFiring.firedAt, firing.at),
+            and(
+              eq(hookFiring.firedAt, firing.at),
+              lt(hookFiring.id, firing.id),
+            ),
+          ),
+          sql`${hookFiring.link}->>'key' = ${firing.link.key}`,
+        ),
+      );
+
+    return row?.repeats ?? 0;
+  }
+
+  async chainOf(
+    workspaceId: string,
+    firingId: string,
+  ): Promise<CausalChain | null> {
+    const [row] = await this.context.db
+      .select({ cause: hookFiring.cause, link: hookFiring.link })
+      .from(hookFiring)
+      .where(
+        and(
+          eq(hookFiring.id, firingId),
+          eq(hookFiring.workspaceId, workspaceId),
+        ),
+      );
+
+    return row ? CausalChain.read(row.cause).followedBy(row.link) : null;
   }
 
   async forgetFinished(before: Date, most: number): Promise<number> {

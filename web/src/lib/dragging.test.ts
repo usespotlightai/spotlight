@@ -5,6 +5,7 @@ import type { Task } from '@/lib/task';
 const task = (id: string, stationId: string): Task => ({
   id,
   stationId,
+  revision: 0,
   title: id,
   description: null,
   attachments: [],

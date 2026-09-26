@@ -7,6 +7,10 @@ import {
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import {
+  CAUSATION,
+  type CausationPort,
+} from '@shared-kernel/application/ports/causation.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -14,6 +18,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { and, asc, count, eq, isNull, lte } from 'drizzle-orm';
 
 export const MOST_ATTEMPTS = 8;
@@ -29,6 +34,7 @@ interface Due {
   readonly subscriber: string;
   readonly attempts: number;
   readonly payload: unknown;
+  readonly cause: unknown;
 }
 
 @Injectable()
@@ -39,6 +45,7 @@ export class EventDelivery {
     private readonly subscribers: EventSubscribers,
     @Inject(CLOCK) private readonly clock: ClockPort,
     @Inject(LOGGER) private readonly logger: LoggerPort,
+    @Inject(CAUSATION) private readonly causation: CausationPort,
   ) {}
 
   async workOff(limit = 100): Promise<number> {
@@ -117,6 +124,7 @@ export class EventDelivery {
         subscriber: eventDelivery.subscriber,
         attempts: eventDelivery.attempts,
         payload: eventOutbox.payload,
+        cause: eventOutbox.cause,
       })
       .from(eventDelivery)
       .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
@@ -141,9 +149,11 @@ export class EventDelivery {
       throw new Error(`No subscriber is called ${due.subscriber} any more`);
     }
 
-    const raised = await subscriber.handle(this.outbox.decode(due.payload));
+    await this.causation.within(CausalChain.read(due.cause), async () => {
+      const raised = await subscriber.handle(this.outbox.decode(due.payload));
 
-    await this.outbox.record(raised);
+      await this.outbox.record(raised);
+    });
   }
 
   private async failed(due: Due, error: unknown): Promise<void> {

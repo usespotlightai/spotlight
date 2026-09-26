@@ -50,11 +50,13 @@ export class MoveTaskHandler
         command.viewerId,
       );
 
-      const task = await this.tasks.find(TaskId.of(command.taskId));
+      const found = await this.tasks.find(TaskId.of(command.taskId));
 
-      if (!task) {
+      if (!found) {
         throw new UnknownTaskError(command.taskId);
       }
+
+      const task = found.expecting(command.expectedRevision);
 
       const station = line.stationAt(stationId);
 

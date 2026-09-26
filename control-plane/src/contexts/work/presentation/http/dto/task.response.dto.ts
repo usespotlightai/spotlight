@@ -58,6 +58,13 @@ export class TaskResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
   readonly stationId: string;
 
+  @ApiProperty({
+    example: 3,
+    description:
+      'How many times it has moved; a move names the revision it was based on',
+  })
+  readonly revision: number;
+
   @ApiProperty({ example: 'Fix the queue' })
   readonly title: string;
 
@@ -121,6 +128,7 @@ export class TaskResponseDto {
   constructor(
     id: string,
     stationId: string,
+    revision: number,
     title: string,
     description: string | null,
     attachments: readonly AttachmentResponseDto[],
@@ -134,6 +142,7 @@ export class TaskResponseDto {
   ) {
     this.id = id;
     this.stationId = stationId;
+    this.revision = revision;
     this.title = title;
     this.description = description;
     this.attachments = attachments;

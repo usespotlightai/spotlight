@@ -16,6 +16,7 @@ interface TaskReviewSummary {
 export interface TaskSummary {
   readonly id: string;
   readonly stationId: string;
+  readonly revision: number;
   readonly title: string;
   readonly description: string | null;
   readonly attachments: readonly AttachmentSummary[];

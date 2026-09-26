@@ -1,15 +1,25 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
-const PROVISION_FAILURES = [
-  'unreachable',
-  'refused',
-  'not-allowed',
-  'unusable',
-  'lapsed',
-  'harness-missing',
-] as const;
+const BACKING_OFF = Retry.backoff({
+  most: 5,
+  firstMs: 5_000,
+  longestMs: 120_000,
+});
 
-export type ProvisionFailureKind = (typeof PROVISION_FAILURES)[number];
+export const PROVISION_FAILURES = {
+  unreachable: BACKING_OFF,
+  refused: BACKING_OFF,
+  lapsed: BACKING_OFF,
+  'not-allowed': Retry.never(),
+  unusable: Retry.never(),
+  'harness-missing': Retry.never(),
+} as const satisfies Record<string, Retry>;
+
+export type ProvisionFailureKind = keyof typeof PROVISION_FAILURES;
+
+const isKind = (kind: string): kind is ProvisionFailureKind =>
+  Object.keys(PROVISION_FAILURES).includes(kind);
 
 const MOST_DETAIL = 1_000;
 
@@ -20,16 +30,14 @@ export class ProvisionFailure {
   ) {}
 
   static of(kind: string, detail: string): ProvisionFailure {
-    const known = PROVISION_FAILURES.find((each) => each === kind);
-
-    if (!known) {
+    if (!isKind(kind)) {
       throw new InconsistentStateError(
         'provision failure',
         `is of an unknown kind (${kind})`,
       );
     }
 
-    return new ProvisionFailure(known, detail.trim().slice(0, MOST_DETAIL));
+    return new ProvisionFailure(kind, detail.trim().slice(0, MOST_DETAIL));
   }
 
   static lapsed(until: Date): ProvisionFailure {
@@ -44,6 +52,10 @@ export class ProvisionFailure {
       'harness-missing',
       `the runner the pool started has no ${harness} installed`,
     );
+  }
+
+  get retry(): Retry {
+    return PROVISION_FAILURES[this.kind];
   }
 
   get saying(): string {

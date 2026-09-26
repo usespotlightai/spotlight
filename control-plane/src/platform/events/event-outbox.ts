@@ -10,6 +10,10 @@ import {
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import {
+  CAUSATION,
+  type CausationPort,
+} from '@shared-kernel/application/ports/causation.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -33,6 +37,7 @@ export class EventOutbox implements DomainEventDispatcher {
     private readonly projections: EventProjections,
     @Inject(ID_GENERATOR) private readonly ids: IdGeneratorPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    @Inject(CAUSATION) private readonly causation: CausationPort,
   ) {
     this.#codec = new EventCodec(types);
   }
@@ -52,6 +57,8 @@ export class EventOutbox implements DomainEventDispatcher {
     }
 
     const at = this.clock.now();
+    const chain = this.causation.current();
+    const cause = chain.started ? chain.stored : null;
 
     await this.context.run(async () => {
       for (const event of events) {
@@ -69,6 +76,7 @@ export class EventOutbox implements DomainEventDispatcher {
           id,
           kind: event.kind,
           payload: this.#codec.encode(event),
+          cause,
           recordedAt: at,
         });
 

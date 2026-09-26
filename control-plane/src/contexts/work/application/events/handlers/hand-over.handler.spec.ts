@@ -1,4 +1,5 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -16,6 +17,7 @@ import { Station } from '@work/domain/entities/station.entity';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -30,8 +32,10 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -98,7 +102,7 @@ const queued = (taskId: string | null = 'task_1') =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: taskId ? RunSubject.task(TaskId.of(taskId), null) : null,
+    subject: taskId ? RunSubject.task(TaskId.of(taskId), null, 0) : null,
     spec: aSpec(),
   });
 
@@ -130,6 +134,15 @@ const givenUp = () => {
 };
 
 let saved: Task | undefined;
+let savedRun: Run | undefined;
+let storedRun: Run | null = null;
+
+const runs = {
+  findById: vi.fn(async () => storedRun),
+  save: vi.fn(async (each: Run) => {
+    savedRun = each;
+  }),
+} as unknown as RunRepository;
 
 const tasks = (found: Task | null = task()) =>
   ({
@@ -165,11 +178,13 @@ const dispatch: TaskDispatching = {
 const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
   const handler = new HandOver(
     held,
+    runs,
     held as TaskRepository & TaskPlacementsPort,
     lines(),
     dispatch,
     clock,
   );
+  storedRun = ended;
   const [raised] = ended.pullEvents();
 
   if (!raised) {
@@ -183,6 +198,8 @@ const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
 
 beforeEach(() => {
   saved = undefined;
+  savedRun = undefined;
+  storedRun = null;
 });
 
 describe('HandOver', () => {
@@ -201,6 +218,58 @@ describe('HandOver', () => {
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes[0]?.body.value).toContain('The run failed');
+    expect(saved?.notes[0]?.form).toBe('failure');
+    expect(saved?.notes[0]?.failure).toMatchObject({
+      source: 'run',
+      code: 'exited',
+      occurrences: 1,
+    });
+  });
+
+  it('supersedes a failed run whose task moved on, and asks nobody about it', async () => {
+    await handOver(run(true), tasks(task('run_9')));
+
+    expect(saved).toBeUndefined();
+    expect(savedRun?.state).toBe('superseded');
+    expect(savedRun?.outcome?.failure?.code).toBe('superseded');
+  });
+
+  it('refuses to hand over a task held by a run given a revision it has since moved on from', async () => {
+    const runner = RunnerId.of('runner_1');
+    const stale = Run.enqueue({
+      id: RunId.of('run_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      harness: HarnessId.of('dev'),
+      subject: RunSubject.task(TaskId.of('task_1'), null, 3),
+      spec: aSpec(),
+    })
+      .claim(runner, NOW)
+      .complete(runner, RunOutcome.of({ exitCode: 1, failed: true }));
+
+    await expect(handOver(stale)).rejects.toThrow(InconsistentStateError);
+
+    expect(saved).toBeUndefined();
+    expect(savedRun).toBeUndefined();
+  });
+
+  it('keeps a failure on a finished task from the inbox', async () => {
+    const finished = task().finishedHere(RunId.of('run_1'), line(), {
+      station: StationName.of('Triage'),
+      body: TaskNoteBody.of('Done by hand.'),
+      at: NOW,
+      voice: Voice.station(RunId.of('run_1')),
+    });
+
+    await handOver(run(true), tasks(finished));
+
+    expect(saved).toBeUndefined();
+    expect(savedRun?.state).toBe('superseded');
+  });
+
+  it('leaves a run that succeeded as it was, even where its task moved on', async () => {
+    await handOver(run(false), tasks(task('run_9')));
+
+    expect(savedRun).toBeUndefined();
   });
 
   it('brings a stopped run back to the person rather than advancing it', async () => {
@@ -258,6 +327,7 @@ describe('HandOver', () => {
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes[0]?.body.value).toContain('3 attempts');
+    expect(saved?.notes[0]?.failure?.code).toBe('runner-lost');
   });
 
   it('hands over even where the task has since gone missing', async () => {

@@ -78,13 +78,15 @@ export function useBoardDrag(board: Board) {
       return;
     }
 
+    const moving = board.tasks.find((each) => each.id === active.id);
     const held = landingOver(String(active.id), over);
 
-    if (held) {
+    if (moving && held) {
       moveTask.mutate({
         teamId: board.teamId,
         lineId: board.lineId,
-        taskId: String(active.id),
+        taskId: moving.id,
+        revision: moving.revision,
         ...held,
       });
     }

@@ -20,6 +20,7 @@ export class HookedHappenings {
       await this.firings.happened({
         on: 'run.ended',
         occurrence: `run-ended:${event.runId}`,
+        change: event.outcome,
         task,
         event: { outcome: event.outcome },
       });
@@ -33,6 +34,7 @@ export class HookedHappenings {
       await this.firings.happened({
         on: 'task.opened',
         occurrence: `task-opened:${event.taskId}`,
+        change: task.stationKey,
         task,
         event: {},
       });
@@ -46,6 +48,7 @@ export class HookedHappenings {
       await this.firings.happened({
         on: 'task.moved',
         occurrence: `task-moved:${event.taskId}:${event.at}`,
+        change: `${event.from} → ${event.to}`,
         task,
         event: { from: event.from, to: event.to },
       });
@@ -68,6 +71,7 @@ export class HookedHappenings {
       await this.firings.happened({
         on: 'pull-request.merged',
         occurrence: `pull-request-merged:${event.pullRequest}`,
+        change: event.pullRequest,
         task,
         event: {
           url: event.pullRequest,

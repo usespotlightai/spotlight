@@ -124,8 +124,12 @@ const working = (state: PollState = { cursor: null, ranAt: null }) => {
     async (_request: unknown, _against: { cursor: string }) => REPLY,
   );
   const react = vi.fn(
-    async (_workspaceId: unknown, _teamId: unknown, _happenings: Happened[]) =>
-      undefined,
+    async (
+      _workspaceId: unknown,
+      _teamId: unknown,
+      _happenings: Happened[],
+      _heardAs: string | null,
+    ) => undefined,
   );
   const cursors = new FakeIntegrationCursors();
 
@@ -156,6 +160,14 @@ describe('WorkOffPolls', () => {
     expect(raised?.[0]?.concerns.marks.map((each) => each.value)).toEqual([
       'ENG-1',
     ]);
+  });
+
+  it('names what it heard by the cursor it polled from, so a poll taken again acts once', async () => {
+    const { polls, react } = working({ cursor: 'ENG-0', ranAt: null });
+
+    await polls.workOff();
+
+    expect(react.mock.calls[0]?.[3]).toBe('poll:linear:team_1:ENG-0');
   });
 
   it('keeps the cursor the response named, and marks it run', async () => {

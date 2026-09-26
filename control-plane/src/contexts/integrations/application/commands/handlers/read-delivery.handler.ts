@@ -1,9 +1,23 @@
 import type { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
+import {
+  CAUSE_HEADER,
+  type HookFiringsPort,
+} from '@integrations/application/ports/hook-firings.port';
+import type { WebhookHeaders } from '@integrations/application/ports/webhook-source.port';
 import type { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
+
+const causeIn = (headers: WebhookHeaders): string | null => {
+  const named = headers[CAUSE_HEADER];
+  const cause = Array.isArray(named) ? named[0] : named;
+
+  return cause?.trim() || null;
+};
 
 export class ReadDeliveryHandler
   implements CommandHandlerPort<ReadDeliveryCommand, void>
@@ -11,6 +25,8 @@ export class ReadDeliveryHandler
   constructor(
     private readonly sources: SourceForDelivery,
     private readonly reactions: HappeningReactionsPort,
+    private readonly firings: HookFiringsPort,
+    private readonly causation: CausationPort,
   ) {}
 
   async execute(command: ReadDeliveryCommand): Promise<void> {
@@ -47,13 +63,31 @@ export class ReadDeliveryHandler
         return;
       }
 
-      await this.reactions.react(
-        workspaceId,
-        stored.teamId ? TeamId.of(stored.teamId) : null,
-        news,
+      const cause = causeIn(stored.headers);
+      const fired = cause
+        ? await this.firings.chainOf(workspaceId.value, cause)
+        : null;
+
+      await this.causation.within(this.heardFrom(fired, stored.source), () =>
+        this.reactions.react(
+          workspaceId,
+          stored.teamId ? TeamId.of(stored.teamId) : null,
+          news,
+          `delivery:${stored.source}:${stored.teamId}:${stored.id}`,
+        ),
       );
     } catch (error) {
       rethrowAsFault(error);
     }
+  }
+
+  private heardFrom(fired: CausalChain | null, source: string): CausalChain {
+    return fired
+      ? fired.followedBy({
+          kind: 'delivery',
+          key: `delivery:${source}`,
+          saying: `a delivery from ${source}`,
+        })
+      : CausalChain.none();
   }
 }

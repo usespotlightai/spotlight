@@ -31,6 +31,7 @@ import {
   AnswerInboxItemRequestDto,
   InboxApprovalResponseDto,
   InboxAuthorResponseDto,
+  InboxFailureResponseDto,
   InboxItemResponseDto,
   InboxMessageResponseDto,
   InboxStationResponseDto,
@@ -99,6 +100,7 @@ export class InboxController {
           item.runId,
           item.unread,
           item.briefing,
+          item.failure ? new InboxFailureResponseDto(item.failure) : null,
           item.notes.map(
             (note) =>
               new InboxMessageResponseDto(
@@ -123,6 +125,7 @@ export class InboxController {
                 note.approval
                   ? new InboxApprovalResponseDto(note.approval)
                   : null,
+                note.failure ? new InboxFailureResponseDto(note.failure) : null,
               ),
           ),
         ),

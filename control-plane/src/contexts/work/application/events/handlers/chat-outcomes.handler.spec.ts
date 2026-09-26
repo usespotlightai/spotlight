@@ -113,7 +113,11 @@ describe('ChatOutcomes', () => {
     const { outcomes, save } = settling(working());
 
     await outcomes.onRunCompleted(
-      completed(undefined, 'run_1', RunSubject.task(TaskId.of('task_1'), null)),
+      completed(
+        undefined,
+        'run_1',
+        RunSubject.task(TaskId.of('task_1'), null, 0),
+      ),
     );
 
     expect(save).not.toHaveBeenCalled();

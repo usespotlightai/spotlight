@@ -22,7 +22,7 @@ const published = (event: DomainEvent) =>
 const TASK = TaskId.of('task_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const RUN = RunId.of('run_1');
-const SUBJECT = RunSubject.task(TASK, StationId.of('station_1'));
+const SUBJECT = RunSubject.task(TASK, StationId.of('station_1'), 0);
 
 describe('WORK_PUBLICATIONS', () => {
   it('publishes a task opening', () => {

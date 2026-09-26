@@ -14,7 +14,7 @@ const cases = {
 describe('RunSubject', () => {
   it('works a task at a station, or a chat, and says which', () => {
     expect(
-      RunSubject.task(TaskId.of('task_1'), StationId.of('station_1')).match(
+      RunSubject.task(TaskId.of('task_1'), StationId.of('station_1'), 0).match(
         cases,
       ),
     ).toBe('task task_1 at station_1');
@@ -28,13 +28,19 @@ describe('RunSubject', () => {
       taskId: TaskId.of('task_1'),
       stationId: null,
       chatId: null,
+      revision: 0,
     });
 
-    expect(subject?.equals(RunSubject.task(TaskId.of('task_1'), null))).toBe(
+    expect(subject?.equals(RunSubject.task(TaskId.of('task_1'), null, 0))).toBe(
       true,
     );
     expect(
-      RunSubject.rehydrate({ taskId: null, stationId: null, chatId: null }),
+      RunSubject.rehydrate({
+        taskId: null,
+        stationId: null,
+        chatId: null,
+        revision: null,
+      }),
     ).toBeNull();
   });
 
@@ -44,6 +50,7 @@ describe('RunSubject', () => {
         taskId: TaskId.of('task_1'),
         stationId: null,
         chatId: ChatId.of('chat_1'),
+        revision: null,
       }),
     ).toThrow(InconsistentStateError);
   });
@@ -54,6 +61,18 @@ describe('RunSubject', () => {
         taskId: null,
         stationId: StationId.of('station_1'),
         chatId: null,
+        revision: null,
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+
+  it('refuses a task subject that does not say which revision it was handed', () => {
+    expect(() =>
+      RunSubject.rehydrate({
+        taskId: TaskId.of('task_1'),
+        stationId: null,
+        chatId: null,
+        revision: null,
       }),
     ).toThrow(InconsistentStateError);
   });
