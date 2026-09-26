@@ -23,6 +23,13 @@ const LINE_NUMBERS = ' [data-line-number-content] { min-width: 4ch; }';
 const GUTTER_UTILITY =
   ' [data-gutter-utility-slot] { left: 0 !important; right: 0 !important; justify-content: flex-end !important; z-index: 3; pointer-events: none; }';
 
+export const FLUSH_DIFF_METRICS = {
+  hunkLineCount: 50,
+  lineHeight: 16.5,
+  diffHeaderHeight: 0,
+  spacing: 0,
+} as const;
+
 export const diffOptions = (flush: boolean, gutter = false) =>
   ({
     diffStyle: 'unified',
