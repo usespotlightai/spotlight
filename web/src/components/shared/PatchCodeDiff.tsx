@@ -6,7 +6,7 @@ import type {
 import { PatchDiff } from '@pierre/diffs/react';
 import type { ReactNode } from 'react';
 import { useHighlighterReady } from '@/hooks/useHighlighterReady';
-import { diffOptions } from '@/lib/diff';
+import { diffOptions, FLUSH_DIFF_METRICS } from '@/lib/diff';
 
 export type HoveredLine = () =>
   | { lineNumber: number; side: AnnotationSide }
@@ -40,6 +40,7 @@ export function PatchCodeDiff<T>({
       {ready && (
         <PatchDiff<T>
           patch={patch}
+          metrics={FLUSH_DIFF_METRICS}
           lineAnnotations={annotations}
           renderAnnotation={renderAnnotation}
           renderGutterUtility={gutter}

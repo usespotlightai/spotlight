@@ -275,9 +275,9 @@ export const decidedChangeStack = (client: QueryClient) => {
   client.setQueryData(taskDecisionKeys.forTask(TASK_ID), DECISIONS);
 };
 
-const GENERATED_LINES = 1_400;
+const GENERATED_LINES = 20_000;
 
-const generated: ChangeStackResponseDto = {
+export const LARGE_FILE: ChangeStackResponseDto = {
   ...INVITATIONS,
   id: 'stack_generated',
   files: [
@@ -330,7 +330,7 @@ const generated: ChangeStackResponseDto = {
 };
 
 export const largeFileChangeStack = (client: QueryClient) =>
-  seedStacks(client, { stacks: [generated] });
+  seedStacks(client, { stacks: [LARGE_FILE] });
 
 export const draftingChangeStack = (client: QueryClient) =>
   seedStacks(client, {

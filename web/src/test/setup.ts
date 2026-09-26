@@ -8,6 +8,7 @@ Element.prototype.hasPointerCapture = () => false;
 Element.prototype.setPointerCapture = () => undefined;
 Element.prototype.releasePointerCapture = () => undefined;
 Element.prototype.scrollIntoView = () => undefined;
+Element.prototype.scrollTo = () => undefined;
 
 class NoResizeObserver implements ResizeObserver {
   observe() {}
@@ -16,3 +17,18 @@ class NoResizeObserver implements ResizeObserver {
 }
 
 globalThis.ResizeObserver ??= NoResizeObserver;
+
+class NoIntersectionObserver implements IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = '';
+  readonly scrollMargin = '';
+  readonly thresholds = [];
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+globalThis.IntersectionObserver ??= NoIntersectionObserver;

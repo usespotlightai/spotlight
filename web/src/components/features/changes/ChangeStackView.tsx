@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { Virtualizer } from '@pierre/diffs/react';
 import { LayerDetail } from '@/components/features/changes/LayerDetail';
 import { StackNavCohort } from '@/components/features/changes/StackNavCohort';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
@@ -26,17 +26,10 @@ export function ChangeStackView({
   onPick,
 }: ChangeStackViewProps) {
   const located = layerAt(stack, layerId);
-  const reading = useRef<HTMLDivElement>(null);
   const nav = usePaneWidth<HTMLDivElement>(STACK_NAV_PANE);
   const shown = located?.layer.id;
 
   usePreloadedLanguages(stack.files.map((file) => file.path));
-
-  useEffect(() => {
-    if (shown && reading.current) {
-      reading.current.scrollTop = 0;
-    }
-  }, [shown]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -63,11 +56,11 @@ export function ChangeStackView({
         <PaneHandle {...nav.handleProps} edge="right" resizing={nav.resizing} />
       </div>
 
-      <div ref={reading} className="min-w-0 flex-1 overflow-y-auto">
+      <Virtualizer className="min-w-0 flex-1 overflow-y-auto">
         {located && (
           <LayerDetail stack={stack} located={located} onPick={onPick} />
         )}
-      </div>
+      </Virtualizer>
     </div>
   );
 }

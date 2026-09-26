@@ -1,21 +1,15 @@
 import { ChevronRight, MessageSquarePlus } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { FileThread } from '@/components/features/changes/FileThread';
 import { FileDecisions } from '@/components/features/decisions/FileDecisions';
 import { HunkReview } from '@/components/features/review/HunkReview';
 import { DiffTally } from '@/components/shared/DiffTally';
-import { Unfold } from '@/components/shared/Unfold';
+import { UNFOLD_MS, Unfold } from '@/components/shared/Unfold';
 import { Button } from '@/components/ui/button';
-import { useNearViewport } from '@/hooks/useNearViewport';
-import { type LayerFile, linesOf, tallyOf } from '@/lib/change-stack';
+import { useLingering } from '@/hooks/useLingering';
+import { type LayerFile, tallyOf } from '@/lib/change-stack';
 import { useReviewing } from '@/lib/review-context';
 import { cn } from '@/lib/utils';
-
-const LINE_HEIGHT = 17;
-
-const HEADER_HEIGHT = 36;
-
-const TOO_LARGE = 800;
 
 const STATUS: Record<LayerFile['file']['status'], string | null> = {
   added: 'Added',
@@ -34,24 +28,13 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
   const { file, hunks, note } = placed;
   const tally = tallyOf(hunks);
   const status = STATUS[file.status];
-  const card = useRef<HTMLElement>(null);
-  const near = useNearViewport(card);
-  const [asked, setAsked] = useState(false);
   const [replying, setReplying] = useState(false);
   const reviewing = useReviewing();
-  const lines = linesOf(hunks);
-  const tooLarge = lines > TOO_LARGE;
-  const shows = open && (!tooLarge || asked);
-  const tall = shows ? lines * LINE_HEIGHT : 0;
+  const mounted = useLingering(open || null, UNFOLD_MS) !== null;
 
   return (
     <article
-      ref={card}
       aria-label={file.path}
-      style={{
-        contentVisibility: 'auto',
-        containIntrinsicSize: `auto ${tall + HEADER_HEIGHT}px`,
-      }}
       className="overflow-hidden rounded-lg border-[0.5px] border-border bg-card"
     >
       <div
@@ -121,20 +104,7 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
 
         <FileDecisions path={file.path} />
 
-        {tooLarge && !asked ? (
-          <div className="flex items-center gap-3 px-3 py-3 text-xs">
-            <p className="text-faint">Large files are not shown by default.</p>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto h-7 shrink-0 rounded-full bg-card text-xs"
-              onClick={() => setAsked(true)}
-            >
-              Show the changes
-            </Button>
-          </div>
-        ) : near ? (
+        {mounted && (
           <ol className="flex flex-col divide-y-[0.5px] divide-border">
             {hunks.map((hunk) => (
               <li key={hunk.id} className="flex flex-col">
@@ -150,8 +120,6 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
               </li>
             ))}
           </ol>
-        ) : (
-          <div style={{ height: tall }} />
         )}
       </Unfold>
     </article>

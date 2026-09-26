@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RunChangeStacks } from '@/lib/change-stack';
 import { RunChangeStack } from '@/routes/RunChangeStack';
-import { INVITATIONS } from '@/stories/fixtures/change-stack';
+import { INVITATIONS, LARGE_FILE } from '@/stories/fixtures/change-stack';
 
 const stacks = vi.fn();
 const stacksFailing = vi.fn();
@@ -309,6 +309,18 @@ describe('RunChangeStack', () => {
           screen.getByRole('region', { name: 'Files in this layer' }),
         ).getAllByRole('button', { expanded: false }).length,
       ).toBeGreaterThan(0);
+    });
+
+    it('opens large files collapsed, the rest open', () => {
+      given({ stacks: [LARGE_FILE] });
+      renderAt('?layer=c1.l1');
+
+      expect(
+        screen.getByRole('button', { name: /types\.gen\.ts/ }),
+      ).toHaveAttribute('aria-expanded', 'false');
+      expect(
+        screen.getByRole('button', { name: /invitation\.schema\.ts/ }),
+      ).toHaveAttribute('aria-expanded', 'true');
     });
 
     it('folds each layer afresh, though the pane stays put', async () => {
