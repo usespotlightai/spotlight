@@ -72,6 +72,7 @@ export const chatMessage = pgTable(
     traces: jsonb('traces').$type<TraceRow[]>().notNull().default([]),
     proposal: jsonb('proposal').$type<ProposalRow>(),
     deliveredAt: timestamp('delivered_at'),
+    deliveredTo: text('delivered_to'),
   },
   (table) => [primaryKey({ columns: [table.chatId, table.position] })],
 );

@@ -611,6 +611,7 @@ CREATE TABLE "chat_message" (
 	"traces" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"proposal" jsonb,
 	"delivered_at" timestamp,
+	"delivered_to" text,
 	CONSTRAINT "chat_message_chat_id_position_pk" PRIMARY KEY("chat_id","position")
 );
 --> statement-breakpoint

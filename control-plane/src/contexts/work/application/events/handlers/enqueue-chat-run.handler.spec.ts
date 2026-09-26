@@ -18,7 +18,7 @@ const chatHeldBy = (runId: RunId | null) => {
   const released = { currentRunId: null } as unknown as Chat;
   return {
     currentRunId: runId,
-    runNeverStarted: vi.fn(() => released),
+    runKeptNothing: vi.fn(() => released),
     released,
   };
 };
@@ -61,11 +61,12 @@ describe('EnqueueChatRun', () => {
     expect(twice.enqueue).not.toHaveBeenCalled();
   });
 
-  it('lets the chat go when its run can no longer start', async () => {
+  it('lets the chat go and takes back what it handed when its run can no longer start', async () => {
     const { handler, chat, save } = enqueuing({ enqueued: false });
 
     await handler.on(new ChatHandedToRun(CHAT, RUN, HANDED));
 
+    expect(chat.runKeptNothing).toHaveBeenCalledWith(RUN);
     expect(save).toHaveBeenCalledWith(chat.released);
   });
 });

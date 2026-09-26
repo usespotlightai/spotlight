@@ -33,6 +33,17 @@ const working = () =>
     newId: () => 'chat_1',
   }).handedTo(RunId.of('run_1'), NOW);
 
+const handedAgain = () =>
+  working()
+    .workedIn(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
+    .endedRun(RunId.of('run_1'))
+    .said({
+      by: UserId.of('user_1'),
+      body: ChatMessageBody.of('Split it.'),
+      at: NOW,
+    })
+    .handedTo(RunId.of('run_2'), NOW);
+
 const completed = (
   outcome = RunOutcome.of({ exitCode: 0, failed: false }),
   runId = 'run_1',
@@ -101,6 +112,44 @@ describe('ChatOutcomes', () => {
     expect(takenUp).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      'a run that never started',
+      RunOutcome.unprovisioned({ saying: 'no capacity' }, 3),
+      null,
+    ],
+    [
+      'a run whose runner failed before briefing it',
+      RunOutcome.of({ exitCode: -1, failed: true, message: 'checkout failed' }),
+      RunnerId.of('runner_1'),
+    ],
+  ])(
+    'takes back what %s was handed, and waits for the person',
+    async (_, outcome, workedBy) => {
+      const { outcomes, save, takenUp } = settling(handedAgain());
+
+      await outcomes.onRunCompleted(
+        new RunCompleted(
+          RunId.of('run_2'),
+          WorkspaceId.of('ws_1'),
+          IN_CHAT,
+          outcome,
+          workedBy,
+          null,
+          null,
+        ),
+      );
+
+      const saved = save.mock.calls[0]?.[0];
+      expect(saved?.running).toBe(false);
+      expect(saved?.sessionId?.value).toBe('session_1');
+      expect(saved?.undelivered.map((each) => each.position.value)).toEqual([
+        1,
+      ]);
+      expect(takenUp).not.toHaveBeenCalled();
+    },
+  );
+
   it('ignores a run the chat has already moved past', async () => {
     const { outcomes, save } = settling(working());
 
@@ -123,13 +172,16 @@ describe('ChatOutcomes', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('lets go of a run no runner finished', async () => {
-    const { outcomes, save } = settling(working());
+  it('lets go of a run no runner finished, and takes back what it was handed', async () => {
+    const { outcomes, save, takenUp } = settling(handedAgain());
 
     await outcomes.onRunAbandoned(
-      new RunAbandoned(RunId.of('run_1'), WorkspaceId.of('ws_1'), IN_CHAT, 3),
+      new RunAbandoned(RunId.of('run_2'), WorkspaceId.of('ws_1'), IN_CHAT, 3),
     );
 
-    expect(save.mock.calls[0]?.[0].running).toBe(false);
+    const saved = save.mock.calls[0]?.[0];
+    expect(saved?.running).toBe(false);
+    expect(saved?.undelivered.map((each) => each.position.value)).toEqual([1]);
+    expect(takenUp).not.toHaveBeenCalled();
   });
 });

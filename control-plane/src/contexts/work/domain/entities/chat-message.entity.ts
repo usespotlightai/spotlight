@@ -26,6 +26,7 @@ export class ChatMessage {
     readonly traces: readonly TraceReference[],
     readonly proposal: TaskProposal | null,
     readonly deliveredAt: Date | null,
+    readonly deliveredTo: RunId | null,
   ) {}
 
   static said(input: {
@@ -45,6 +46,7 @@ export class ChatMessage {
       null,
       input.attachments ?? [],
       TraceReference.distinct(input.traces ?? []),
+      null,
       null,
       null,
     );
@@ -69,6 +71,7 @@ export class ChatMessage {
       [],
       TaskProposal.open(input),
       input.at,
+      null,
     );
   }
 
@@ -83,11 +86,19 @@ export class ChatMessage {
     traces: readonly TraceReference[];
     proposal: TaskProposal | null;
     deliveredAt: Date | null;
+    deliveredTo: RunId | null;
   }): ChatMessage {
     if (input.proposal && !input.proposal.position.equals(input.position)) {
       throw new InconsistentStateError(
         'chat message',
         'holds a proposal made somewhere else',
+      );
+    }
+
+    if (input.deliveredTo && !input.deliveredAt) {
+      throw new InconsistentStateError(
+        'chat message',
+        'names a run it was delivered to without saying when',
       );
     }
 
@@ -102,6 +113,7 @@ export class ChatMessage {
       input.traces,
       input.proposal,
       input.deliveredAt,
+      input.deliveredTo,
     );
   }
 
@@ -109,8 +121,25 @@ export class ChatMessage {
     return this.kind === 'said' && this.deliveredAt === null;
   }
 
-  delivered(at: Date): ChatMessage {
-    return this.undelivered ? this.with({ deliveredAt: at }) : this;
+  wasDeliveredTo(runId: RunId): boolean {
+    return this.deliveredTo?.equals(runId) ?? false;
+  }
+
+  delivered(runId: RunId, at: Date): ChatMessage {
+    return this.undelivered
+      ? this.with({ deliveredAt: at, deliveredTo: runId })
+      : this;
+  }
+
+  takenBack(): ChatMessage {
+    if (this.deliveredTo === null) {
+      throw new InconsistentStateError(
+        'chat message',
+        'was never delivered to a run, so it cannot be taken back',
+      );
+    }
+
+    return this.with({ deliveredAt: null, deliveredTo: null });
   }
 
   settled(proposal: TaskProposal): ChatMessage {
@@ -130,6 +159,7 @@ export class ChatMessage {
 
   private with(part: {
     deliveredAt?: Date | null;
+    deliveredTo?: RunId | null;
     proposal?: TaskProposal | null;
   }): ChatMessage {
     return new ChatMessage(
@@ -143,6 +173,7 @@ export class ChatMessage {
       this.traces,
       part.proposal !== undefined ? part.proposal : this.proposal,
       part.deliveredAt !== undefined ? part.deliveredAt : this.deliveredAt,
+      part.deliveredTo !== undefined ? part.deliveredTo : this.deliveredTo,
     );
   }
 }
