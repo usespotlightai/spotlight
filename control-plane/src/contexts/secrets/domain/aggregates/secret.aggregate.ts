@@ -258,11 +258,15 @@ export class Secret extends EventRecorder {
   }
 
   wornToward(url: string, value: SecretValue): WornHeader {
+    return this.bindingToward(url).wear(this.wearable(value));
+  }
+
+  wearable(value: SecretValue): SecretValue {
     if (!value.fitsOneLine) {
       throw new SecretUnwearableError(this.name.value);
     }
 
-    return this.bindingToward(url).wear(value);
+    return value;
   }
 
   grantToward(runId: RunId, url: string): SecretGrant {
@@ -272,6 +276,23 @@ export class Secret extends EventRecorder {
       secretId: this.id,
       host: this.bindingToward(url).host,
     });
+  }
+
+  bindingFor(grant: SecretGrant): SecretBinding {
+    if (!grant.secretId.equals(this.id)) {
+      throw new InconsistentStateError(
+        'secret',
+        'was asked to honour a grant of another secret',
+      );
+    }
+
+    const binding = this.bindings.on(grant.host);
+
+    if (!binding) {
+      throw new SecretNotBoundError(this.name.value, grant.host);
+    }
+
+    return binding;
   }
 
   grantedTo(runId: RunId): readonly SecretGrant[] {

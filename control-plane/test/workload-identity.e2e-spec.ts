@@ -153,6 +153,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     expect(claimed.body).toEqual({
       runnerId: expect.any(String),
       token: expect.any(String),
+      egressToken: expect.any(String),
       work: expect.objectContaining({ kind: 'run', run: expect.anything() }),
     });
     expect(claimed.body.work.run.id).toBe(placed);

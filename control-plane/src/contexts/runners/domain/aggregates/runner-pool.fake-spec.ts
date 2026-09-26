@@ -106,6 +106,7 @@ export const aRunner = (
     through: input.through ?? aPullPool(),
     host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),
     tokenHash: hashOf('b'),
+    egressTokenHash: input.host === null ? null : hashOf('e'),
     installed: input.installed ?? [],
     running: input.running ?? null,
     at: STARTED_AT,

@@ -34,6 +34,7 @@ interface State {
   readonly hostId: HostId | null;
   readonly labels: RunnerLabels;
   readonly tokenHash: TokenHash;
+  readonly egressTokenHash: TokenHash | null;
   readonly installed: readonly InstalledHarness[];
   readonly running: RunningImage | null;
   readonly work: RunnerWork | null;
@@ -57,6 +58,7 @@ export class Runner extends EventRecorder {
     through: RunnerPool | RunnerTrust;
     host: HostId | null;
     tokenHash: TokenHash;
+    egressTokenHash: TokenHash | null;
     installed: readonly InstalledHarness[];
     running: RunningImage | null;
     at: Date;
@@ -88,6 +90,7 @@ export class Runner extends EventRecorder {
         hostId: input.host,
         labels: through.labels,
         tokenHash: input.tokenHash,
+        egressTokenHash: input.egressTokenHash,
         installed: [...input.installed],
         running: input.running,
         work: null,
@@ -138,6 +141,10 @@ export class Runner extends EventRecorder {
 
   get tokenHash(): TokenHash {
     return this.state.tokenHash;
+  }
+
+  get egressTokenHash(): TokenHash | null {
+    return this.state.egressTokenHash;
   }
 
   get installed(): readonly InstalledHarness[] {
@@ -200,6 +207,12 @@ export class Runner extends EventRecorder {
 
   static unseenSinceLongestHold(now: Date): Date {
     return new Date(now.getTime() - LONGEST_HOLD_UNSEEN_MS);
+  }
+
+  workEgressActsFor(now: Date): RunnerWork | null {
+    return this.state.egressTokenHash !== null && this.standsAt(now)
+      ? this.state.work
+      : null;
   }
 
   claimsAt(now: Date): RunnerClaims {

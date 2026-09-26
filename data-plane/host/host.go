@@ -93,6 +93,10 @@ func run(version string) error {
 		ControlURL: cfg.URL,
 		SandboxURL: cfg.SandboxURL,
 		SandboxEnv: cfg.SandboxEnv,
+		Egress: serve.Egress{
+			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, Reads: cfg.Egress.Reads,
+			Env: cfg.Egress.Env, Trust: cfg.Egress.Trust,
+		},
 		Network:    cfg.Network,
 		ExtraHosts: cfg.ExtraHosts,
 	}, claims, engine, mirrors, log.With("host", id))

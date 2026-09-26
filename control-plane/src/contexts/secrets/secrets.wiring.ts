@@ -22,6 +22,11 @@ import { UpdateSecretCommand } from '@secrets/application/commands/update-secret
 import { CREDENTIAL_SEALING } from '@secrets/application/ports/credential-sealing.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
+import { RUN_REDEMPTIONS } from '@secrets/application/ports/run-redemptions.port';
+import {
+  RUN_SEALING,
+  type RunSealingPort,
+} from '@secrets/application/ports/run-sealing.port';
 import { SECRET_CONFIGURATION } from '@secrets/application/ports/secret-configuration.port';
 import { SECRET_DEFINITIONS } from '@secrets/application/ports/secret-definitions.port';
 import { SECRET_INJECTION } from '@secrets/application/ports/secret-injection.port';
@@ -40,9 +45,11 @@ import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secr
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { AbandonWorkspaceSecrets } from '@secrets/application/services/abandon-workspace-secrets.service';
 import { RunGrants } from '@secrets/application/services/run-grants.service';
+import { RunRedemptions } from '@secrets/application/services/run-redemptions.service';
 import { SecretConfiguration } from '@secrets/application/services/secret-configuration.service';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
+import { SecretUsesRegistry } from '@secrets/application/services/secret-uses-registry.service';
 import { SECRETS_EVENT_TYPES } from '@secrets/domain/event-types';
 import {
   SECRETS,
@@ -63,6 +70,7 @@ import { LocalKeyManagement } from '@secrets/infrastructure/kms/local-key-manage
 import { DrizzleSecretResources } from '@secrets/infrastructure/persistence/drizzle/readers/secret-resources.reader';
 import { DrizzleSecretGrants } from '@secrets/infrastructure/persistence/drizzle/repositories/secret-grants.repository';
 import { DrizzleSecrets } from '@secrets/infrastructure/persistence/drizzle/repositories/secrets.repository';
+import { X25519RunSealing } from '@secrets/infrastructure/sealing/run-sealing';
 import { WorkspaceCredentialSealing } from '@secrets/infrastructure/sealing/workspace-credential-sealing';
 import { AwsSecretsManagerSource } from '@secrets/infrastructure/sources/aws-secrets-manager.source';
 import { BuiltInSecretStore } from '@secrets/infrastructure/sources/built-in-secret.store';
@@ -149,6 +157,18 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
     useFactory: (store: SecretSourcePort, aws: SecretSourcePort) =>
       new SecretSources(store, aws),
   },
+  { provide: RUN_SEALING, useClass: X25519RunSealing },
+  {
+    provide: RUN_REDEMPTIONS,
+    inject: [SECRETS, SECRET_GRANTS, SecretSources, RUN_SEALING],
+    useFactory: (
+      secrets: SecretRepository,
+      grants: SecretGrantRepository,
+      sources: SecretSources,
+      sealing: RunSealingPort,
+    ) => new RunRedemptions(secrets, grants, sources, sealing),
+  },
+  { provide: SECRET_USES, useFactory: () => new SecretUsesRegistry() },
   {
     provide: SECRET_INJECTION,
     inject: [SECRETS, SECRET_GRANTS, SecretSources],

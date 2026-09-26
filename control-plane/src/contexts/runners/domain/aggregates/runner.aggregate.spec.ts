@@ -105,6 +105,23 @@ describe('Runner', () => {
     expect(working.hasEnded).toBe(true);
   });
 
+  it('lets its egress act only for the work it holds, while it stands', () => {
+    const waiting = aRunner();
+    const working = waiting.took(RUN, later(1));
+
+    expect(waiting.workEgressActsFor(later(2))).toBeNull();
+    expect(working.workEgressActsFor(later(2))?.equals(RUN)).toBe(true);
+    expect(working.workEgressActsFor(later(180_001))).toBeNull();
+    expect(working.ended(later(3)).workEgressActsFor(later(4))).toBeNull();
+  });
+
+  it('has no egress when a pool provisioned it, since no host stands beside it', () => {
+    const provisioned = aRunner({ host: null }).took(RUN, later(1));
+
+    expect(provisioned.egressTokenHash).toBeNull();
+    expect(provisioned.workEgressActsFor(later(2))).toBeNull();
+  });
+
   it('knows the work it holds', () => {
     const working = aRunner().took(RUN, later(1));
 

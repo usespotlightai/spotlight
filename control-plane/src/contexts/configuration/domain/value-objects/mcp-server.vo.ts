@@ -1,5 +1,6 @@
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
 import { areWords } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -47,5 +48,13 @@ export class McpServer {
     }
 
     return new McpServer(name, command, [...input.args], { ...input.env });
+  }
+
+  get wornSecrets(): readonly { variable: string; secret: SecretName }[] {
+    return Object.entries(this.env).flatMap(([variable, value]) => {
+      const secret = SecretName.referencedBy(value);
+
+      return secret ? [{ variable, secret }] : [];
+    });
   }
 }

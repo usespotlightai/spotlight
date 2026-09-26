@@ -939,6 +939,54 @@ describe('runner pools (e2e)', () => {
       }
     });
 
+    it('provisions nothing for a run wearing secrets, which only a host’s egress can wear', async () => {
+      const endpoint = await listening(() => 202);
+
+      try {
+        await define({
+          key: 'sandboxes',
+          labels: ['sandbox'],
+          provision: { url: endpoint.url, secret: SECRET, secretVersion: 1 },
+        }).expect(201);
+        const wearing = randomUUID();
+        await db.insert(schema.run).values({
+          id: wearing,
+          workspaceId: held,
+          harness: 'dev',
+          state: 'queued',
+          placement: [['sandbox']],
+          spec: {
+            command: { executable: 'sh', args: [] },
+            briefing: 'do the thing',
+            handover: { options: [], noteLimit: 0 },
+            continuity: { key: `task:${wearing}` },
+            wears: ['LINEAR_API_KEY'],
+          },
+        });
+        const plain = await queue([['sandbox']]);
+
+        await eventually(async () =>
+          endpoint.calls.some(
+            (call) => JSON.parse(call.body).data.runId === plain,
+          ),
+        );
+
+        expect(
+          endpoint.calls.map((call) => JSON.parse(call.body).data.runId),
+        ).not.toContain(wearing);
+        const [waiting] = await db
+          .select({
+            state: schema.run.state,
+            reservedFor: schema.run.reservedFor,
+          })
+          .from(schema.run)
+          .where(eq(schema.run.id, wearing));
+        expect(waiting).toEqual({ state: 'queued', reservedFor: null });
+      } finally {
+        endpoint.server.close();
+      }
+    });
+
     it('fails a run visibly, in its trace, when provision cannot be reached', async () => {
       const endpoint = await listening(() => 202);
       endpoint.server.close();

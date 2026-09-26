@@ -427,7 +427,7 @@ const replacedAt = (
 };
 
 const withSecretReferences = (
-  definition: Readonly<Record<string, unknown>>,
+  definition: unknown,
   worn: readonly WornSecret[],
   refer: Referring,
 ): unknown =>
@@ -461,7 +461,10 @@ const profile = (
     ...refer.owner(held),
     attribute('key', held.key),
     attribute('permissions', hclOf(held.permissions)),
-    attribute('mcp_servers', hclOf(held.mcpServers)),
+    attribute(
+      'mcp_servers',
+      hclOf(withSecretReferences(held.mcpServers, held.secretsWorn, refer)),
+    ),
     attribute('native', hclOf(held.native)),
   ]);
 

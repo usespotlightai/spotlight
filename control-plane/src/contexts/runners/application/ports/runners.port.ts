@@ -13,6 +13,7 @@ export type StartedRunner =
       readonly outcome: 'started';
       readonly runnerId: RunnerId;
       readonly token: string;
+      readonly egressToken: string;
     }
   | { readonly outcome: 'full' }
   | { readonly outcome: 'gone' }

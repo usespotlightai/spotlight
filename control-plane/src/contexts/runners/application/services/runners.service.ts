@@ -69,12 +69,14 @@ export class Runners implements RunnersPort {
 
     const runnerId = RunnerId.of(this.ids.generate());
     const minted = this.tokens.mint();
+    const egress = this.tokens.mint();
     const began = await this.began(way, 'pull', at, (through) =>
       Runner.started({
         id: runnerId,
         through,
         host: hostId,
         tokenHash: TokenHash.of(minted.hash),
+        egressTokenHash: TokenHash.of(egress.hash),
         installed: offered.harnesses,
         running: offered.running,
         at,
@@ -83,7 +85,12 @@ export class Runners implements RunnersPort {
     );
 
     return began.outcome === 'began'
-      ? { outcome: 'started', runnerId, token: minted.token }
+      ? {
+          outcome: 'started',
+          runnerId,
+          token: minted.token,
+          egressToken: egress.token,
+        }
       : began;
   }
 
@@ -105,6 +112,7 @@ export class Runners implements RunnersPort {
             through,
             host: null,
             tokenHash: TokenHash.of(minted.hash),
+            egressTokenHash: null,
             installed: [],
             running: null,
             at,

@@ -4,6 +4,7 @@ import type { HarnessProfileCompilerPort } from '@configuration/application/port
 import type { KeptProfile } from '@configuration/application/ports/harness-profile-resources.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 
 export class HarnessProfileViews {
@@ -37,6 +38,10 @@ export class HarnessProfileViews {
       permissions: read.settings.permissions,
       mcpServers: HarnessProfileMapper.servers(read.settings),
       native: read.settings.native,
+      secretsWorn: read.settings.wornSecrets.map(({ at, secret }) => ({
+        path: FieldPath.of(at.slice(1)),
+        name: secret.value,
+      })),
       warnings: this.compiler.warningsOf(read),
     };
   }

@@ -57,6 +57,10 @@ export class SecretBindings {
     return this.all.find((each) => each.toward(url)) ?? null;
   }
 
+  on(host: string): SecretBinding | null {
+    return this.all.find((each) => each.host === host) ?? null;
+  }
+
   get hosts(): readonly string[] {
     return this.all.map((each) => each.host);
   }

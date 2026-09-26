@@ -9,7 +9,6 @@ import {
 } from '@integrations/integrations.wiring';
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
 import { SecretsModule } from '@secrets/secrets.module';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
@@ -33,7 +32,6 @@ import { WorkModule } from '@work/work.module';
     HELD_INTEGRATIONS,
     TASK_NOTICES,
     INTEGRATION_TOOL_CALLS,
-    SECRET_USES,
   ],
 })
 export class IntegrationsModule {}

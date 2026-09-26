@@ -46,6 +46,7 @@ import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { RUNNER_ADMISSIONS } from '@runners/application/ports/runner-admissions.port';
+import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
 import {
   RUNNER_POOLS,
   type RunnerPoolsPort,
@@ -63,6 +64,7 @@ import {
   RUN_GRANTS,
   type RunGrantsPort,
 } from '@secrets/application/ports/run-grants.port';
+import { RUN_REDEMPTIONS } from '@secrets/application/ports/run-redemptions.port';
 import {
   CLOCK,
   type ClockPort,
@@ -97,6 +99,7 @@ import { CreateLineCommand } from '@work/application/commands/create-line.comman
 import { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
+import { RedeemEgressCommand } from '@work/application/commands/egress.commands';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
@@ -120,6 +123,7 @@ import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handler
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
+import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
 import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
@@ -230,6 +234,7 @@ import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import { RUN_STREAM } from '@work/application/ports/run-stream.port';
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
+import { SANDBOX_REACH } from '@work/application/ports/sandbox-reach.port';
 import {
   STATION_PROFILES,
   type StationProfilesPort,
@@ -412,11 +417,13 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { S3WorkspaceArchiveStore } from '@work/infrastructure/storage/s3-workspace-archive.store';
+import { StorageReach } from '@work/infrastructure/storage/storage-reach';
 import { InMemoryRunStream } from '@work/infrastructure/streaming/in-memory-run-stream';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { AttachmentController } from '@work/presentation/http/controllers/attachment.controller';
 import { ChatController } from '@work/presentation/http/controllers/chat.controller';
+import { EgressController } from '@work/presentation/http/controllers/egress.controller';
 import { GitController } from '@work/presentation/http/controllers/git.controller';
 import { HarnessController } from '@work/presentation/http/controllers/harness.controller';
 import { HostWorkController } from '@work/presentation/http/controllers/host-work.controller';
@@ -447,6 +454,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
   WorkspaceArchiveController,
   PoolController,
   HostWorkController,
+  EgressController,
   RunnerActivityController,
   HarnessController,
   InboxController,
@@ -521,6 +529,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
 
   { provide: ATTACHMENT_READER, useClass: DrizzleAttachmentReader },
+
+  {
+    provide: SANDBOX_REACH,
+    inject: [ENV],
+    useFactory: (env: Env) => new StorageReach(env),
+  },
 
   {
     provide: ATTACHMENT_STORE,
@@ -1398,6 +1412,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleRunRepository,
     RunLeases,
     CHECK_WORK,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(RedeemEgressCommand, RedeemEgressHandler, [
+    RUNNER_EGRESS,
+    DrizzleRunRepository,
+    RUN_REDEMPTIONS,
+    RUN_GRANTS,
+    SANDBOX_REACH,
     CLOCK,
   ]),
 

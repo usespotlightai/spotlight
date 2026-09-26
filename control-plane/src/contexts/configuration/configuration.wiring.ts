@@ -80,6 +80,7 @@ import { AbandonTeamProfiles } from '@configuration/application/services/abandon
 import { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
 import { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import { HeldConfigurations } from '@configuration/application/services/held-configurations.service';
+import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
 import { SkillViews } from '@configuration/application/services/skill-views.service';
 import { StationGifts } from '@configuration/application/services/station-gifts.service';
 import { CONFIGURATION_EVENT_TYPES } from '@configuration/domain/event-types';
@@ -144,6 +145,10 @@ import {
   SECRET_CONFIGURATION,
   type SecretConfigurationPort,
 } from '@secrets/application/ports/secret-configuration.port';
+import {
+  SECRET_USES,
+  type SecretUsesPort,
+} from '@secrets/application/ports/secret-uses.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -170,6 +175,8 @@ import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 const CONFIGURATION_EVENTS = Symbol('CONFIGURATION_EVENTS');
 
 const CONFIGURATION_HOLDINGS = Symbol('CONFIGURATION_HOLDINGS');
+
+const PROFILE_SECRET_USES = Symbol('PROFILE_SECRET_USES');
 
 export const CONFIGURATION_CONTROLLERS: readonly Type[] = [
   ConfigurationController,
@@ -321,6 +328,7 @@ const handlers: Provider[] = [
       WORKSPACE_ACCESS,
       TEAM_DIRECTORY,
       HARNESS_PROFILE_COMPILER,
+      HELD_SECRETS,
       HARNESS_PROFILES,
       IDEMPOTENT_CREATES,
       ID_GENERATOR,
@@ -330,7 +338,13 @@ const handlers: Provider[] = [
   ...bindCommandHandler(
     UpdateHarnessProfileCommand,
     UpdateHarnessProfileHandler,
-    [WORKSPACE_ACCESS, HARNESS_PROFILE_COMPILER, HARNESS_PROFILES, TRANSACTION],
+    [
+      WORKSPACE_ACCESS,
+      HARNESS_PROFILE_COMPILER,
+      HELD_SECRETS,
+      HARNESS_PROFILES,
+      TRANSACTION,
+    ],
   ),
   ...bindCommandHandler(
     DeleteHarnessProfileCommand,
@@ -412,6 +426,18 @@ const published: Provider[] = [
     ) => {
       holdings.register(skills);
       holdings.register(profiles);
+      return true;
+    },
+  },
+  {
+    provide: PROFILE_SECRET_USES,
+    inject: [SECRET_USES, TEAM_DIRECTORY, HARNESS_PROFILES],
+    useFactory: (
+      uses: SecretUsesPort,
+      teams: TeamDirectoryPort,
+      profiles: HarnessProfileRepository,
+    ) => {
+      uses.register(new ProfileSecretUses(teams, profiles));
       return true;
     },
   },

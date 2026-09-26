@@ -300,6 +300,54 @@ describe('Run', () => {
     });
   });
 
+  describe('knowing the secrets it wears', () => {
+    const wearing = () =>
+      Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        spec: RunSpec.of({
+          command: { executable: 'sh', args: [] },
+          briefing: 'do the thing',
+          handover: { options: [], noteLimit: 4_000 },
+          continuity: { key: 'task:station' },
+          wears: ['LINEAR_API_KEY'],
+        }),
+      });
+
+    it('wears them for the runner holding it', () => {
+      expect(wearing().claim(runner(), noon).secretsWornFor(runner())).toEqual([
+        'LINEAR_API_KEY',
+      ]);
+    });
+
+    it('wears nothing for another runner, while it waits, or once it has ended', () => {
+      const held = wearing().claim(runner(), noon);
+
+      expect(held.secretsWornFor(runner('runner_2'))).toEqual([]);
+      expect(wearing().secretsWornFor(runner())).toEqual([]);
+      expect(
+        held
+          .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
+          .secretsWornFor(runner()),
+      ).toEqual([]);
+    });
+
+    it('wears nothing its spec does not name', () => {
+      expect(claimed().secretsWornFor(runner())).toEqual([]);
+    });
+
+    it('is never reserved for a runner a pool provisions, which has no egress to wear them', () => {
+      expect(wearing().wearsSecrets).toBe(true);
+      expect(() => wearing().reservedFor(runner(), 'pool_1', noon)).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(
+        queued().reservedFor(runner(), 'pool_1', noon).reservation,
+      ).not.toBeNull();
+    });
+  });
+
   describe('knowing who worked it', () => {
     it('was worked by the runner that claimed it, even once it has ended', () => {
       const ended = claimed().complete(

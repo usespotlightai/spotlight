@@ -158,6 +158,7 @@ export class HostWorkController {
     return new HostClaimResponseDto(
       claimed.runnerId,
       claimed.token,
+      claimed.egressToken,
       ClaimedWorkHttpMapper.toResponse(claimed.work),
     );
   }

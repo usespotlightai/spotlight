@@ -386,6 +386,7 @@ CREATE TABLE "runner" (
 	"host_id" text,
 	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"token_hash" text NOT NULL,
+	"egress_token_hash" text,
 	"harnesses" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"advertised_models" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"harness_versions" jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -811,6 +812,7 @@ CREATE INDEX "workspace_member_user_idx" ON "workspace_member" USING btree ("use
 CREATE UNIQUE INDEX "workspace_token_workspace_name_idx" ON "workspace_token" USING btree ("workspace_id","name");--> statement-breakpoint
 CREATE INDEX "inbound_delivery_state_idx" ON "inbound_delivery" USING btree ("state","due_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
 CREATE INDEX "runner_work_idx" ON "runner" USING btree ("work_kind","work_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
 CREATE INDEX "runner_workspace_standing_idx" ON "runner" USING btree ("workspace_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint

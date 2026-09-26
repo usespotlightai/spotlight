@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -189,6 +190,7 @@ type hostConfig struct {
 
 type created struct {
 	Image      string
+	Entrypoint []string `json:",omitempty"`
 	Cmd        []string `json:",omitempty"`
 	Env        []string
 	Labels     map[string]string
@@ -197,10 +199,11 @@ type created struct {
 
 func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 	config := created{
-		Image:  spec.Image,
-		Cmd:    spec.Args,
-		Env:    spec.Env,
-		Labels: spec.Labels,
+		Image:      spec.Image,
+		Entrypoint: spec.Entrypoint,
+		Cmd:        spec.Args,
+		Env:        spec.Env,
+		Labels:     spec.Labels,
 		HostConfig: hostConfig{
 			Init:        true,
 			NetworkMode: spec.Network,
@@ -220,6 +223,12 @@ func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 	}
 	if _, err := e.call(ctx, http.MethodPost, "/containers/create?"+query.Encode(), config, &answer); err != nil {
 		return "", fmt.Errorf("create a sandbox: %w", err)
+	}
+
+	for _, join := range spec.Joins {
+		if err := e.join(ctx, answer.Id, join); err != nil {
+			return answer.Id, err
+		}
 	}
 
 	if err := e.lay(ctx, answer.Id, spec.Files); err != nil {
@@ -271,7 +280,7 @@ func (e *Engine) extract(
 		made = path.Join(made, dir)
 		mode := int64(0o755)
 		if at == len(dirs)-1 {
-			mode = 0o700
+			mode = cmp.Or(file.DirMode, 0o700)
 		}
 		if err := writer.WriteHeader(&tar.Header{Typeflag: tar.TypeDir, Name: made + "/", Mode: mode}); err != nil {
 			return 0, err
@@ -384,6 +393,86 @@ func (e *Engine) Labelled(ctx context.Context, key, value string) ([]string, err
 	var listed []struct{ Id string }
 	if _, err := e.call(ctx, http.MethodGet, "/containers/json?"+query.Encode(), nil, &listed); err != nil {
 		return nil, fmt.Errorf("list sandboxes: %w", err)
+	}
+
+	ids := make([]string, 0, len(listed))
+	for _, each := range listed {
+		ids = append(ids, each.Id)
+	}
+
+	return ids, nil
+}
+
+func (e *Engine) join(ctx context.Context, id string, join sandbox.Join) error {
+	body := map[string]any{
+		"Container":      id,
+		"EndpointConfig": map[string]any{"Aliases": join.Aliases},
+	}
+	if _, err := e.call(ctx, http.MethodPost, "/networks/"+url.PathEscape(join.Network)+"/connect", body, nil); err != nil {
+		return fmt.Errorf("join network %s: %w", join.Network, err)
+	}
+
+	return nil
+}
+
+func (e *Engine) Read(ctx context.Context, id, file string) ([]byte, error) {
+	query := url.Values{"path": {file}}
+
+	response, err := e.send(ctx, http.MethodGet, "/containers/"+id+"/archive?"+query.Encode(), nil, "")
+	if err != nil {
+		return nil, fmt.Errorf("read %s from a sandbox: %w", file, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("read %s from a sandbox: %w", file, os.ErrNotExist)
+	}
+	if response.StatusCode >= 300 {
+		return nil, fmt.Errorf("read %s from a sandbox: %w", file, failure(response))
+	}
+
+	archive := tar.NewReader(response.Body)
+	for {
+		header, err := archive.Next()
+		if errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("read %s from a sandbox: %w", file, os.ErrNotExist)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read %s from a sandbox: %w", file, err)
+		}
+		if header.Typeflag == tar.TypeReg {
+			return io.ReadAll(io.LimitReader(archive, 16<<20))
+		}
+	}
+}
+
+func (e *Engine) Network(ctx context.Context, name string, labels map[string]string) (string, error) {
+	body := map[string]any{"Name": name, "Internal": true, "Labels": labels, "CheckDuplicate": true}
+
+	var answer struct{ Id string }
+	if _, err := e.call(ctx, http.MethodPost, "/networks/create", body, &answer); err != nil {
+		return "", fmt.Errorf("make the sandbox's network: %w", err)
+	}
+
+	return answer.Id, nil
+}
+
+func (e *Engine) Unnetwork(ctx context.Context, id string) error {
+	status, err := e.call(ctx, http.MethodDelete, "/networks/"+url.PathEscape(id), nil, nil)
+	if err != nil && status != http.StatusNotFound {
+		return fmt.Errorf("remove a sandbox's network: %w", err)
+	}
+
+	return nil
+}
+
+func (e *Engine) Networks(ctx context.Context, key, value string) ([]string, error) {
+	filters, _ := json.Marshal(map[string][]string{"label": {key + "=" + value}})
+	query := url.Values{"filters": {string(filters)}}
+
+	var listed []struct{ Id string }
+	if _, err := e.call(ctx, http.MethodGet, "/networks?"+query.Encode(), nil, &listed); err != nil {
+		return nil, fmt.Errorf("list sandbox networks: %w", err)
 	}
 
 	ids := make([]string, 0, len(listed))

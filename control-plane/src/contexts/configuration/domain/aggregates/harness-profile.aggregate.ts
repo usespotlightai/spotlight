@@ -4,6 +4,8 @@ import { HarnessProfileRetired } from '@configuration/domain/events/harness-prof
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
 import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
 import { HarnessProfileMovedOnError } from '@configuration/domain/exceptions/harness-profile-moved-on.error';
+import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
+import { unheldSecrets } from '@configuration/domain/services/unheld-secrets';
 import type { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import type { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
@@ -12,6 +14,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 interface Kept {
@@ -31,6 +34,14 @@ export interface ReadProfile {
   readonly settings: ProfileSettings;
 }
 
+const refuseUnheld = (read: ReadProfile, held: readonly SecretName[]): void => {
+  const unheld = unheldSecrets(read.settings, held);
+
+  if (unheld.length > 0) {
+    throw new SecretsUnheldError(read.key.value, unheld);
+  }
+};
+
 export class HarnessProfile extends EventRecorder {
   private constructor(private readonly state: State) {
     super();
@@ -41,8 +52,11 @@ export class HarnessProfile extends EventRecorder {
       id: HarnessProfileId;
       teamId: TeamId;
       by: Attribution;
+      held: readonly SecretName[];
     },
   ): HarnessProfile {
+    refuseUnheld(input, input.held);
+
     const defined = new HarnessProfile({
       id: input.id,
       teamId: input.teamId,
@@ -81,7 +95,11 @@ export class HarnessProfile extends EventRecorder {
     }
   }
 
-  redefinedAs(read: ReadProfile, by: Attribution): HarnessProfile {
+  redefinedAs(
+    read: ReadProfile,
+    by: Attribution,
+    held: readonly SecretName[],
+  ): HarnessProfile {
     this.guardLive();
 
     if (!read.key.equals(this.key)) {
@@ -90,6 +108,8 @@ export class HarnessProfile extends EventRecorder {
         `keeps its key for its whole life, since stations name it by that key; replace it to define ${read.key.value}`,
       );
     }
+
+    refuseUnheld(read, held);
 
     const redefined = this.with({ settings: read.settings });
 

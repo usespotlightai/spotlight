@@ -3,6 +3,7 @@ package config
 import (
 	"bufio"
 	"crypto/rand"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/trust"
+	"usespotlight.ai/data-plane/reach"
 )
 
 type Config struct {
@@ -30,11 +32,20 @@ type Config struct {
 	Registry   string
 	RunTimeout time.Duration
 	SandboxEnv []string
+	Egress     Egress
 	Network    string
 	ExtraHosts []string
 	State      string
 	Name       string
 	DockerHost string
+}
+
+type Egress struct {
+	Image string
+	Allow []string
+	Reads []string
+	Env   []string
+	Trust []byte
 }
 
 const (
@@ -53,6 +64,12 @@ const (
 	envPass       = "SPOTLIGHT_SANDBOX_PASS"
 	envNetwork    = "SPOTLIGHT_SANDBOX_NETWORK"
 	envHosts      = "SPOTLIGHT_SANDBOX_HOSTS"
+	envEgressImg  = "SPOTLIGHT_EGRESS_IMAGE"
+	envEgressOK   = "SPOTLIGHT_EGRESS_ALLOW"
+	envEgressEnv  = "SPOTLIGHT_EGRESS_ENV"
+	envEgressPass = "SPOTLIGHT_EGRESS_PASS"
+	envEgressCA   = "SPOTLIGHT_EGRESS_TRUST"
+	envEgressRead = "SPOTLIGHT_EGRESS_READS"
 	envState      = "SPOTLIGHT_STATE"
 	envName       = "SPOTLIGHT_HOST_NAME"
 	envDocker     = "DOCKER_HOST"
@@ -167,6 +184,9 @@ func Load(version string) (Config, error) {
 	cfg.SandboxEnv, err = sandboxed(values, cfg.PoolToken)
 	note(err)
 
+	cfg.Egress, err = egressOf(get, version, cfg.PoolToken)
+	note(err)
+
 	if cfg.State == "" {
 		cfg.State = defaultState()
 	}
@@ -185,6 +205,48 @@ func (c Config) Credential() control.Credential {
 	return c.Workload
 }
 
+func egressOf(get func(string) string, version, poolToken string) (Egress, error) {
+	egress := Egress{Image: get(envEgressImg), Allow: list(get(envEgressOK)), Reads: list(get(envEgressRead))}
+	if egress.Image == "" {
+		egress.Image = DefaultImage(version)
+	}
+
+	var problems []error
+	if _, err := reach.Parse(egress.Allow); err != nil {
+		problems = append(problems, fmt.Errorf("%s: %w", envEgressOK, err))
+	}
+
+	envFile := get(envEgressEnv)
+	if envFile == "" {
+		envFile = filepath.Join(filepath.Dir(Path()), "egress.env")
+	}
+	values, err := sandboxEnv(envFile, get(envEgressEnv) != "")
+	if err != nil {
+		problems = append(problems, err)
+	}
+	for _, name := range list(get(envEgressPass)) {
+		if value, ok := os.LookupEnv(name); ok {
+			values[name] = value
+		}
+	}
+	egress.Env, err = sandboxed(values, poolToken)
+	if err != nil {
+		problems = append(problems, fmt.Errorf("egress: %w", err))
+	}
+
+	if path := get(envEgressCA); path != "" {
+		egress.Trust, err = os.ReadFile(path)
+		switch {
+		case err != nil:
+			problems = append(problems, fmt.Errorf("%s: %w", envEgressCA, err))
+		case !x509.NewCertPool().AppendCertsFromPEM(egress.Trust):
+			problems = append(problems, fmt.Errorf("%s: %s holds no PEM certificate", envEgressCA, path))
+		}
+	}
+
+	return egress, errors.Join(problems...)
+}
+
 func DefaultImage(version string) string {
 	if version == "" || version == "dev" {
 		return Image + ":latest"
@@ -198,7 +260,7 @@ func sandboxEnv(path string, named bool) (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 	if err != nil {
-		return map[string]string{}, fmt.Errorf("read the sandbox environment %s: %w", path, err)
+		return map[string]string{}, fmt.Errorf("read the environment %s: %w", path, err)
 	}
 
 	return values, nil

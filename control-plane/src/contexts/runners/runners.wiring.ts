@@ -54,6 +54,7 @@ import {
 import { RUNNER_ADMISSIONS } from '@runners/application/ports/runner-admissions.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_DEFINITIONS } from '@runners/application/ports/runner-definitions.port';
+import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_PRESENCE } from '@runners/application/ports/runner-presence.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
@@ -92,6 +93,7 @@ import { AbandonWorkspaceRunners } from '@runners/application/services/abandon-w
 import { ForgetHosts } from '@runners/application/services/forget-hosts.service';
 import { RunnerAdmissions } from '@runners/application/services/runner-admissions.service';
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
+import { RunnerEgress } from '@runners/application/services/runner-egress.service';
 import { RunnerHoldings } from '@runners/application/services/runner-holdings.service';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import { RunnerPresence } from '@runners/application/services/runner-presence.service';
@@ -238,6 +240,12 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     inject: [ForgetHosts, LOGGER],
     useFactory: (forgetting: ForgetHosts, logger: LoggerPort) =>
       new ForgottenHostsWorker(forgetting, logger),
+  },
+  {
+    provide: RUNNER_EGRESS,
+    inject: [DrizzleRunnerRepository, TOKEN_MINT],
+    useFactory: (runners: DrizzleRunnerRepository, tokens: TokenMintPort) =>
+      new RunnerEgress(runners, tokens),
   },
   {
     provide: RUNNER_PRESENCE,

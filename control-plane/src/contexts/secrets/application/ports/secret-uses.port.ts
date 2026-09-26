@@ -5,6 +5,12 @@ export interface NamedSecret {
   readonly name: string;
 }
 
+export interface SecretUser {
+  usesOf(secret: NamedSecret): Promise<readonly string[]>;
+}
+
 export interface SecretUsesPort {
+  register(user: SecretUser): void;
+
   of(secret: NamedSecret): Promise<readonly string[]>;
 }

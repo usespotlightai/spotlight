@@ -36,7 +36,7 @@ const prepared = (
   const ready = harnesses.preparedFor(HarnessId.of(harness), {
     model: chosen.model ? HarnessModel.of(chosen.model) : null,
     effort: chosen.effort ? Effort.of(chosen.effort) : null,
-    profile: { ...given, key: ProfileKey.of(given.key) },
+    profile: { ...given, key: ProfileKey.of(given.key), wears: [] },
   });
 
   if (!ready?.setup) {

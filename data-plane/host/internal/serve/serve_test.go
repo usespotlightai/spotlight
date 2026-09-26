@@ -2,11 +2,19 @@ package serve_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	crand "crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"math/big"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -45,6 +53,13 @@ type fakeEngine struct {
 	waitFails int
 	starts    int
 	probes    int
+
+	egresses    map[string]sandbox.Spec
+	networks    map[string]map[string]string
+	unnetworked []string
+	leftNets    []string
+	egressMute  bool
+	egressFails bool
 }
 
 func newEngine() *fakeEngine {
@@ -52,9 +67,18 @@ func newEngine() *fakeEngine {
 		started: map[string]sandbox.Spec{},
 		exits:   map[string]chan int{},
 		release: leastRelease,
-		images:  map[string]sandbox.Image{},
+		images:  map[string]sandbox.Image{egressImage: {ID: "sha256:egress"}},
 		pullTo:  map[string]sandbox.Image{},
+
+		egresses: map[string]sandbox.Spec{},
+		networks: map[string]map[string]string{},
 	}
+}
+
+const egressImage = "egress:1"
+
+func isEgress(spec sandbox.Spec) bool {
+	return slices.Equal(spec.Entrypoint, []string{"spotlight", "egress"})
 }
 
 func imageAt(name, hex string) sandbox.Image {
@@ -67,11 +91,15 @@ func (e *fakeEngine) Inspect(_ context.Context, image string) (sandbox.Image, er
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	found, ok := e.images[image]
-	if !ok {
-		return sandbox.Image{}, sandbox.ErrNoImage
+	if found, ok := e.images[image]; ok {
+		return found, nil
 	}
-	return found, nil
+	for _, found := range e.images {
+		if found.ID == image {
+			return found, nil
+		}
+	}
+	return sandbox.Image{}, sandbox.ErrNoImage
 }
 
 func (e *fakeEngine) Pull(_ context.Context, image, auth string) error {
@@ -101,6 +129,16 @@ func (e *fakeEngine) Pull(_ context.Context, image, auth string) error {
 func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	if isEgress(spec) {
+		if e.egressFails {
+			return "", errors.New("the egress image will not run")
+		}
+		e.next++
+		id := fmt.Sprintf("egress_%d", e.next)
+		e.egresses[id] = spec
+		return id, nil
+	}
 
 	if len(spec.Args) > 0 {
 		e.probes++
@@ -181,6 +219,56 @@ func (e *fakeEngine) Destroy(_ context.Context, id string) error {
 
 func (e *fakeEngine) Labelled(context.Context, string, string) ([]string, error) {
 	return e.left, nil
+}
+
+func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	spec, ok := e.egresses[id]
+	if !ok || (e.egressMute && spec.Labels[serve.LabelRunner] != "") {
+		return nil, os.ErrNotExist
+	}
+	return authorityFor(id), nil
+}
+
+func authorityFor(id string) []byte {
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)
+	template := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: id}, NotAfter: time.Now().Add(time.Hour)}
+	der, _ := x509.CreateCertificate(crand.Reader, template, template, &key.PublicKey, key)
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+func (e *fakeEngine) Network(_ context.Context, name string, labels map[string]string) (string, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.networks[name] = labels
+	return name, nil
+}
+
+func (e *fakeEngine) Unnetwork(_ context.Context, id string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.unnetworked = append(e.unnetworked, id)
+	return nil
+}
+
+func (e *fakeEngine) Networks(context.Context, string, string) ([]string, error) {
+	return e.leftNets, nil
+}
+
+func (e *fakeEngine) egressOf(runner string) (string, sandbox.Spec, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	for id, spec := range e.egresses {
+		if spec.Labels[serve.LabelRunner] == runner {
+			return id, spec, true
+		}
+	}
+	return "", sandbox.Spec{}, false
 }
 
 func (e *fakeEngine) set(apply func(e *fakeEngine)) {
@@ -426,8 +514,9 @@ func (registry) For(image string) (string, error) { return "auth-for-" + image, 
 
 func handed(runner string) protocol.Handed {
 	return protocol.Handed{
-		RunnerID: runner,
-		Token:    "one-run-" + runner,
+		RunnerID:    runner,
+		Token:       "one-run-" + runner,
+		EgressToken: "egress-" + runner,
 		Work: protocol.Claimed{Kind: protocol.ClaimedRun, Run: &protocol.Run{
 			ID: "run-" + runner, Harness: "claude-code",
 		}},
@@ -456,6 +545,12 @@ func options(t *testing.T) serve.Options {
 		ControlURL:   "https://spotlight.test",
 		SandboxURL:   "https://spotlight.test",
 		SandboxEnv:   []string{"ANTHROPIC_API_KEY=sk-test"},
+		Egress: serve.Egress{
+			Image: egressImage,
+			Allow: []string{"api.anthropic.com"},
+			Reads: []string{"prod/*"},
+			Env:   []string{"AWS_REGION=eu-west-1"},
+		},
 	}
 }
 
@@ -524,15 +619,15 @@ func TestEveryPieceOfWorkGetsAFreshSandboxThatIsDestroyedAfterwards(t *testing.T
 	for _, id := range ids {
 		spec := engine.sandbox(id)
 
-		if len(spec.Files) != 1 || spec.Files[0].Path != serve.HandedPath || spec.Files[0].Mode != 0o400 {
+		if len(spec.Files) == 0 || spec.Files[0].Path != serve.HandedPath || spec.Files[0].Mode != 0o400 {
 			t.Fatalf("%s was handed %+v", id, spec.Files)
 		}
 		var given protocol.Handed
 		if err := json.Unmarshal(spec.Files[0].Body, &given); err != nil || !strings.HasPrefix(given.Token, "one-run-") {
 			t.Errorf("%s was handed %+v (%v)", id, given, err)
 		}
-		if !slices.Contains(spec.Env, "ANTHROPIC_API_KEY=sk-test") {
-			t.Errorf("%s lacks the sandbox environment: %v", id, spec.Env)
+		if !slices.Contains(spec.Env, "ANTHROPIC_API_KEY=spotlight-egress:ANTHROPIC_API_KEY") {
+			t.Errorf("%s lacks the stand-in for the harness key: %v", id, spec.Env)
 		}
 		if spec.Labels[serve.LabelHost] != "host_1" {
 			t.Errorf("%s is not labelled with its host: %v", id, spec.Labels)
@@ -1083,4 +1178,272 @@ func TestJudgesAnImageAgainWhenTheControlPlaneNeedsANewerRunner(t *testing.T) {
 		each, _ := pool.reported("runner:1")
 		return strings.Contains(each.Refused, "older than the 20261001-01")
 	})
+}
+
+func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.Network = "spotlight_default"
+	opts.ExtraHosts = []string{"app.test:host-gateway"}
+	serving(t, opts, engine, pool)
+
+	pool.work <- handed("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+
+	egressID, egress, ok := engine.egressOf("runner_1")
+	if !ok {
+		t.Fatal("no egress was started for the run")
+	}
+	if egress.Image != "sha256:egress" || egress.Network != "spotlight_default" ||
+		!slices.Equal(egress.ExtraHosts, opts.ExtraHosts) || !slices.Equal(egress.Env, []string{"AWS_REGION=eu-west-1"}) {
+		t.Errorf("egress started as %+v", egress)
+	}
+	if len(egress.Joins) != 1 || egress.Joins[0].Network != "spotlight-runner_1" ||
+		!slices.Equal(egress.Joins[0].Aliases, []string{serve.EgressAlias}) {
+		t.Errorf("egress joined %+v", egress.Joins)
+	}
+
+	var told protocol.EgressHanded
+	if len(egress.Files) != 1 || egress.Files[0].Path != protocol.EgressHandedPath || egress.Files[0].Mode != 0o400 ||
+		json.Unmarshal(egress.Files[0].Body, &told) != nil {
+		t.Fatalf("egress was handed %+v", egress.Files)
+	}
+	if told.Token != "egress-runner_1" || told.URL != opts.SandboxURL || !slices.Equal(told.Allow, []string{"api.anthropic.com"}) ||
+		!slices.Equal(told.Reads, []string{"prod/*"}) || len(told.Credential) < 16 {
+		t.Errorf("egress was told %+v", told)
+	}
+
+	sandboxID := engine.workSandboxes()[0]
+	spec := engine.sandbox(sandboxID)
+	if spec.Network != "spotlight-runner_1" || len(spec.ExtraHosts) != 0 {
+		t.Errorf("the sandbox is on %q with %v, not its egress's network alone", spec.Network, spec.ExtraHosts)
+	}
+
+	var given protocol.Handed
+	if err := json.Unmarshal(spec.Files[0].Body, &given); err != nil || given.EgressToken != "" ||
+		strings.Contains(string(spec.Files[0].Body), "egress-runner_1") {
+		t.Errorf("the sandbox was handed egress's credential: %s", spec.Files[0].Body)
+	}
+
+	proxy := "http://sandbox:" + told.Credential + "@egress:3128"
+	for _, want := range []string{
+		"HTTPS_PROXY=" + proxy,
+		"https_proxy=" + proxy,
+		"HTTP_PROXY=" + proxy,
+		"NO_PROXY=localhost,127.0.0.1,::1",
+		"SSL_CERT_FILE=" + serve.BundlePath,
+		"NODE_EXTRA_CA_CERTS=" + serve.AuthorityPath,
+		"GIT_SSL_CAINFO=" + serve.BundlePath,
+	} {
+		if !slices.Contains(spec.Env, want) {
+			t.Errorf("the sandbox lacks %s: %v", want, spec.Env)
+		}
+	}
+
+	if len(spec.Files) != 2 || spec.Files[1].Path != serve.AuthorityPath || spec.Files[1].Mode != 0o644 ||
+		spec.Files[1].DirMode != 0o755 || !strings.Contains(string(spec.Files[1].Body), "BEGIN CERTIFICATE") {
+		t.Errorf("the sandbox was handed %+v", spec.Files[1:])
+	}
+
+	engine.finish(sandboxID)
+	eventually(t, "egress and its network gone", func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return slices.Contains(engine.destroyed, egressID) && slices.Contains(engine.unnetworked, "spotlight-runner_1")
+	})
+
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	sandboxAt := slices.Index(engine.destroyed, sandboxID)
+	egressAt := slices.Index(engine.destroyed, egressID)
+	if sandboxAt < 0 || egressAt < sandboxAt {
+		t.Errorf("destroyed %v: the sandbox must go before its egress", engine.destroyed)
+	}
+}
+
+func TestGivesUpTheRunWhenItsEgressIsNeverReady(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.egressMute = true
+	opts := options(t)
+	opts.EgressWait = 100 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- handed("runner_1")
+	eventually(t, "the run given up", func() bool {
+		done, ok := pool.worker.completion("run-runner_1")
+		return ok && done.Failed && strings.Contains(done.Message, "egress did not start")
+	})
+
+	if got := len(engine.workSandboxes()); got != 0 {
+		t.Errorf("started %d sandboxes with no way out", got)
+	}
+	egressID, _, _ := engine.egressOf("runner_1")
+	eventually(t, "the egress destroyed", func() bool { return engine.wasDestroyed(egressID) })
+}
+
+func TestGivesUpTheRunWhenTheControlPlaneHandsNoEgressCredential(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	serving(t, options(t), engine, pool)
+
+	work := handed("runner_1")
+	work.EgressToken = ""
+	pool.work <- work
+	eventually(t, "the run given up", func() bool {
+		done, ok := pool.worker.completion("run-runner_1")
+		return ok && done.Failed
+	})
+
+	if _, _, ok := engine.egressOf("runner_1"); ok || len(engine.workSandboxes()) != 0 {
+		t.Error("started a sandbox or egress without egress's credential")
+	}
+}
+
+func TestRemovesTheNetworksACrashedHostLeftBehind(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.leftNets = []string{"spotlight-orphan"}
+	serving(t, options(t), engine, pool)
+
+	eventually(t, "the network removed", func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return slices.Contains(engine.unnetworked, "spotlight-orphan")
+	})
+}
+
+func TestHandsEgressTheAuthoritiesItTrustsForPrivateHosts(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.Egress.Trust = []byte("acme authority")
+	serving(t, opts, engine, pool)
+
+	pool.work <- handed("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+
+	_, egress, _ := engine.egressOf("runner_1")
+	if !slices.Contains(egress.Env, "SSL_CERT_DIR="+serve.EgressTrusts) {
+		t.Errorf("egress env %v", egress.Env)
+	}
+	if len(egress.Files) != 2 || egress.Files[1].Path != serve.EgressTrusts+"/trusted.pem" || string(egress.Files[1].Body) != "acme authority" {
+		t.Errorf("egress files %+v", egress.Files)
+	}
+
+	sandboxed := engine.sandbox(engine.workSandboxes()[0])
+	for _, file := range sandboxed.Files {
+		if string(file.Body) == "acme authority" {
+			t.Error("the sandbox was handed what egress trusts upstream")
+		}
+	}
+}
+
+func TestEachRunsEgressAnswersOnlyToACredentialOfItsOwn(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.Capacity = 2
+	serving(t, opts, engine, pool)
+
+	pool.work <- handed("runner_1")
+	pool.work <- handed("runner_2")
+	eventually(t, "two sandboxes", func() bool { return len(engine.workSandboxes()) == 2 })
+
+	credentials := map[string]bool{}
+	for _, runner := range []string{"runner_1", "runner_2"} {
+		_, egress, _ := engine.egressOf(runner)
+		var told protocol.EgressHanded
+		if err := json.Unmarshal(egress.Files[0].Body, &told); err != nil {
+			t.Fatal(err)
+		}
+		credentials[told.Credential] = true
+	}
+	if len(credentials) != 2 {
+		t.Errorf("two runs' egresses share a credential: %v", credentials)
+	}
+}
+
+func TestPullsTheEgressImageOnceAndRunsEveryEgressFromIt(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.set(func(e *fakeEngine) {
+		e.images[egressImage] = imageAt("egress", strings.Repeat("e", 64))
+	})
+	serving(t, options(t), engine, pool)
+
+	for _, runner := range []string{"runner_1", "runner_2"} {
+		pool.work <- handed(runner)
+		eventually(t, "a sandbox for "+runner, func() bool {
+			_, _, ok := engine.egressOf(runner)
+			return ok && len(engine.workSandboxes()) > 0
+		})
+		engine.finish(engine.workSandboxes()[len(engine.workSandboxes())-1])
+	}
+
+	if pulls := slices.Collect(func(yield func(string) bool) {
+		for _, each := range engine.pulled() {
+			if each == egressImage && !yield(each) {
+				return
+			}
+		}
+	}); len(pulls) != 1 {
+		t.Errorf("pulled the egress image %d times", len(pulls))
+	}
+}
+
+func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.SandboxEnv = []string{"ANTHROPIC_API_KEY=sk-test", "CURSOR_API_KEY=cursor-test", "GIT_AUTHOR=spotlight"}
+	serving(t, opts, engine, pool)
+
+	pool.work <- handed("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+
+	told := func(spec sandbox.Spec) protocol.EgressHanded {
+		var handed protocol.EgressHanded
+		if err := json.Unmarshal(spec.Files[0].Body, &handed); err != nil {
+			t.Fatal(err)
+		}
+		return handed
+	}
+	wantHeld := []protocol.HeldByTheHost{{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-test"}}
+
+	_, runEgress, _ := engine.egressOf("runner_1")
+	if held := told(runEgress).Held; !slices.Equal(held, wantHeld) {
+		t.Errorf("the run's egress holds %+v", held)
+	}
+
+	sandboxed := engine.sandbox(engine.workSandboxes()[0])
+	for _, want := range []string{"ANTHROPIC_API_KEY=spotlight-egress:ANTHROPIC_API_KEY", "CURSOR_API_KEY=cursor-test", "GIT_AUTHOR=spotlight"} {
+		if !slices.Contains(sandboxed.Env, want) {
+			t.Errorf("the sandbox lacks %s: %v", want, sandboxed.Env)
+		}
+	}
+	if slices.Contains(sandboxed.Env, "ANTHROPIC_API_KEY=sk-test") {
+		t.Error("the sandbox holds the harness key")
+	}
+
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	probed := false
+	for _, spec := range engine.started {
+		if len(spec.Args) == 0 || spec.Args[0] != "harnesses" {
+			continue
+		}
+		probed = true
+		if slices.Contains(spec.Env, "ANTHROPIC_API_KEY=sk-test") || !slices.Contains(spec.Env, "ANTHROPIC_API_KEY=spotlight-egress:ANTHROPIC_API_KEY") {
+			t.Errorf("the probe ran with %v", spec.Env)
+		}
+		if !strings.HasPrefix(spec.Network, "spotlight-probe-") {
+			t.Errorf("the probe ran on %q, not behind an egress", spec.Network)
+		}
+	}
+	probeEgress := false
+	for _, spec := range engine.egresses {
+		if spec.Labels[serve.LabelRunner] == "" {
+			probeEgress = true
+			if handed := told(spec); handed.Token != "" || !slices.Equal(handed.Held, wantHeld) {
+				t.Errorf("the probe's egress was told %+v", handed)
+			}
+		}
+	}
+	if !probed || !probeEgress {
+		t.Errorf("probed %v behind an egress %v", probed, probeEgress)
+	}
 }

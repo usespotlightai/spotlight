@@ -174,7 +174,10 @@ import {
   SECRET_INJECTION,
   type SecretInjectionPort,
 } from '@secrets/application/ports/secret-injection.port';
-import { SECRET_USES } from '@secrets/application/ports/secret-uses.port';
+import {
+  SECRET_USES,
+  type SecretUsesPort,
+} from '@secrets/application/ports/secret-uses.port';
 import { CLOCK, ClockPort } from '@shared-kernel/application/ports/clock.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -203,6 +206,8 @@ import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.por
 const INTEGRATIONS_EVENTS = Symbol('INTEGRATIONS_EVENTS');
 
 const INTEGRATIONS_HOLDINGS = Symbol('INTEGRATIONS_HOLDINGS');
+
+const INTEGRATION_SECRET_USES = Symbol('INTEGRATION_SECRET_USES');
 
 export const INTEGRATIONS_CONTROLLERS: readonly Type[] = [
   OAuth2ConnectionController,
@@ -705,12 +710,21 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: SECRET_USES,
-    inject: [TEAM_DIRECTORY, DEFINED_INTEGRATIONS, IntegrationReader],
+    provide: INTEGRATION_SECRET_USES,
+    inject: [
+      SECRET_USES,
+      TEAM_DIRECTORY,
+      DEFINED_INTEGRATIONS,
+      IntegrationReader,
+    ],
     useFactory: (
+      uses: SecretUsesPort,
       teams: TeamDirectoryPort,
       defined: DefinedIntegrationsPort,
       reader: IntegrationReader,
-    ) => new IntegrationSecretUses(teams, defined, reader),
+    ) => {
+      uses.register(new IntegrationSecretUses(teams, defined, reader));
+      return true;
+    },
   },
 ];

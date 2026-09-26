@@ -366,7 +366,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes a harness profile as its settings, its MCP servers’ env as it is', () => {
+  it('writes a harness profile as its settings, its MCP servers’ env as it is but for the secrets it wears, which refer to them', () => {
     expect(mainOf(HELD)).toContain(
       [
         'resource "spotlight_harness_profile" "core_careful" {',
@@ -382,6 +382,8 @@ describe('workspaceTerraform', () => {
         '      args    = ["-y", "linear-mcp"]',
         '      command = "npx"',
         '      env = {',
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+        '        LINEAR_API_KEY   = "secret.${spotlight_secret.linear_signing.name}"',
         '        LINEAR_WORKSPACE = "acme"',
         '        LOG_LEVEL        = "debug"',
         '      }',
