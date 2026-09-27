@@ -71,6 +71,7 @@ export const run = pgTable(
     ),
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
+    index('run_task_idx').on(table.taskId),
     index('run_chat_idx').on(table.chatId),
     index('run_reserved_idx').on(table.reservedFor),
   ],

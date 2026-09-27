@@ -9,6 +9,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   JournalStep,
+  RunChanges,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
@@ -236,6 +237,18 @@ describe('WorkLookup, reading how a run reasoned', () => {
       continuity: { key: 'task_1' },
     });
 
+  const changesOf = (
+    runId: string,
+    steps: readonly JournalStep[],
+    checkouts: readonly string[],
+  ): RunChanges => ({
+    runId,
+    checkouts,
+    paths: steps.flatMap((each) =>
+      each.change?.path ? [each.change.path] : [],
+    ),
+  });
+
   const reading = (
     steps: readonly JournalStep[],
     earlier: readonly JournalStep[] | null = null,
@@ -246,21 +259,17 @@ describe('WorkLookup, reading how a run reasoned', () => {
         findById: async (id: RunId) => ({
           id,
           taskId: earlier ? TaskId.of('task_1') : null,
-          spec:
-            id.value === 'run_1'
-              ? specOf(['api', 'web'])
-              : specOf(earlierFolders),
+          spec: specOf(['api', 'web']),
         }),
       } as unknown as RunRepository,
       {} as TaskRepository,
       {} as LineRepository,
       {
         ofRun: async () => ({ runId: 'run_1', steps }) as unknown as RunJournal,
-        ofTask: async () =>
-          [
-            { runId: 'run_0', steps: earlier ?? [] },
-            { runId: 'run_1', steps },
-          ] as unknown as RunJournal[],
+        changesOfTask: async () => [
+          changesOf('run_0', earlier ?? [], earlierFolders),
+          changesOf('run_1', steps, ['api', 'web']),
+        ],
       } as unknown as RunJournalReaderPort,
     ).reasoning(RunId.of('run_1'));
 

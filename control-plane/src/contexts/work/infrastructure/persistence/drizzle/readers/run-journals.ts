@@ -1,15 +1,32 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import type {
+  RunChanges,
+  RunJournal,
+} from '@work/application/contracts/run-journal.contract';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import {
+  checkoutFoldersOf,
+  type RunCheckout,
+} from '@work/domain/value-objects/run-spec.vo';
+import { ChangedPaths } from '@work/infrastructure/acp/changed-paths';
 import { Told } from '@work/infrastructure/acp/told';
 import { Reported } from '@work/infrastructure/otel/reported';
 import {
   run,
   runJournalEntry,
 } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 export function journalsOfTask(
   db: DrizzleDatabase,
@@ -23,6 +40,70 @@ export function journalsOfChat(
   chatId: ChatId,
 ): Promise<RunJournal[]> {
   return journalsOf(db, eq(run.chatId, chatId.value));
+}
+
+export async function changesOfTask(
+  db: DrizzleDatabase,
+  taskId: TaskId,
+): Promise<RunChanges[]> {
+  const spoken = await db
+    .select({ runId: runJournalEntry.runId, data: runJournalEntry.data })
+    .from(runJournalEntry)
+    .innerJoin(
+      run,
+      and(
+        eq(run.id, runJournalEntry.runId),
+        eq(run.attempt, runJournalEntry.attempt),
+      ),
+    )
+    .where(
+      and(
+        eq(run.taskId, taskId.value),
+        eq(runJournalEntry.type, 'output'),
+        isNull(runJournalEntry.message),
+        isNotNull(runJournalEntry.data),
+      ),
+    )
+    .orderBy(asc(run.createdAt), asc(run.id), asc(runJournalEntry.seq));
+
+  const changed = new Map<string, ChangedPaths>();
+
+  for (const row of spoken) {
+    const paths = changed.get(row.runId) ?? new ChangedPaths();
+    paths.take(row.data ?? '');
+    changed.set(row.runId, paths);
+  }
+
+  const touching = [...changed].flatMap(([runId, paths]) => {
+    const taken = paths.paths();
+    return taken.length > 0 ? [{ runId, paths: taken }] : [];
+  });
+
+  if (touching.length === 0) {
+    return [];
+  }
+
+  const checkouts = new Map(
+    (
+      await db
+        .select({
+          id: run.id,
+          checkouts: sql<RunCheckout[] | null>`${run.spec} -> 'checkouts'`,
+        })
+        .from(run)
+        .where(
+          inArray(
+            run.id,
+            touching.map((each) => each.runId),
+          ),
+        )
+    ).map((each) => [each.id, checkoutFoldersOf(each.checkouts ?? [])]),
+  );
+
+  return touching.map((each) => ({
+    ...each,
+    checkouts: checkouts.get(each.runId) ?? [],
+  }));
 }
 
 export async function journalOfRun(

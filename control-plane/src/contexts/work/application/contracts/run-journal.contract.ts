@@ -72,3 +72,9 @@ export interface RunJournal {
   readonly marks: RunMarks;
   readonly spent: RunSpent | null;
 }
+
+export interface RunChanges {
+  readonly runId: string;
+  readonly checkouts: readonly string[];
+  readonly paths: readonly string[];
+}
