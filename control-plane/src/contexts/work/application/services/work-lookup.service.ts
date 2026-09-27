@@ -3,6 +3,7 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   JournalStep,
@@ -17,6 +18,7 @@ import type {
   RunReasoning,
   SpokenNote,
   TaskLookup,
+  TeamLine,
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -95,6 +97,22 @@ export class WorkLookup implements WorkLookupPort {
           repositories: await this.worked(run, line),
         }
       : null;
+  }
+
+  async linesOf(teamId: TeamId): Promise<readonly TeamLine[]> {
+    return (await this.lines.ofTeam(teamId))
+      .filter((line) => !line.isRetired)
+      .map((line) => ({
+        id: line.id.value,
+        name: line.name.value,
+        stations: line.stations
+          .filter((station) => station.isWorked)
+          .map((station) => ({
+            id: station.id.value,
+            name: station.name.value,
+          })),
+        repositories: line.repositories.all,
+      }));
   }
 
   async reasoning(runId: RunId): Promise<RunReasoning | null> {

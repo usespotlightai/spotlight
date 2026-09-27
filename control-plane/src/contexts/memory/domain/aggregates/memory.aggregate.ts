@@ -1,6 +1,7 @@
 import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
 import { MemoryStood } from '@memory/domain/events/memory-stood.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import { memoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
@@ -9,6 +10,7 @@ import {
   isMemoryKind,
   type MemoryKind,
 } from '@memory/domain/value-objects/memory-kind';
+import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import {
   MEMORY_SOURCES,
@@ -17,12 +19,8 @@ import {
 import type { MemoryStanding } from '@memory/domain/value-objects/memory-standing';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-interface Retirement {
-  readonly at: Date;
-  readonly supersededBy: MemoryId | null;
-}
 
 interface State {
   readonly id: MemoryId;
@@ -30,11 +28,11 @@ interface State {
   readonly kind: MemoryKind;
   readonly body: string;
   readonly scope: MemoryScope;
-  readonly grounds: MemoryGrounds;
+  readonly grounds: MemoryGrounds | null;
   readonly source: MemorySource;
   readonly supersedes: MemoryId | null;
   readonly approval: MemoryDecision;
-  readonly retirement: Retirement | null;
+  readonly retirement: MemoryRetirement | null;
   readonly version: number;
 }
 
@@ -50,6 +48,37 @@ export class Memory extends EventRecorder {
     body: string;
     scope: MemoryScope;
     grounds: MemoryGrounds;
+    source: string;
+    supersedes: MemoryId | null;
+    approval: MemoryDecision;
+  }): Memory {
+    return Memory.standing(input);
+  }
+
+  static written(input: {
+    id: MemoryId;
+    workspaceId: WorkspaceId;
+    kind: string;
+    body: string;
+    scope: MemoryScope;
+    grounds: MemoryGrounds | null;
+    supersedes: MemoryId | null;
+    by: MemoryDecision;
+  }): Memory {
+    return Memory.standing({
+      ...input,
+      source: 'person',
+      approval: input.by,
+    });
+  }
+
+  private static standing(input: {
+    id: MemoryId;
+    workspaceId: WorkspaceId;
+    kind: string;
+    body: string;
+    scope: MemoryScope;
+    grounds: MemoryGrounds | null;
     source: string;
     supersedes: MemoryId | null;
     approval: MemoryDecision;
@@ -118,7 +147,7 @@ export class Memory extends EventRecorder {
     return this.state.scope;
   }
 
-  get grounds(): MemoryGrounds {
+  get grounds(): MemoryGrounds | null {
     return this.state.grounds;
   }
 
@@ -134,7 +163,7 @@ export class Memory extends EventRecorder {
     return this.state.approval;
   }
 
-  get retirement(): Retirement | null {
+  get retirement(): MemoryRetirement | null {
     return this.state.retirement;
   }
 
@@ -147,20 +176,55 @@ export class Memory extends EventRecorder {
   }
 
   supersededBy(successor: MemoryId, at: Date): Memory {
-    if (this.state.retirement) {
-      return this;
-    }
-
     if (successor.equals(this.state.id)) {
       throw new InvalidMemoryError('is never superseded by itself');
     }
 
-    const retired = new Memory({
-      ...this.state,
-      retirement: { at, supersededBy: successor },
+    return this.retiring(MemoryRetirement.superseded(successor, at));
+  }
+
+  correctedAs(input: {
+    id: MemoryId;
+    kind: string;
+    body: string;
+    scope: MemoryScope;
+    by: MemoryDecision;
+  }): { readonly retired: Memory; readonly successor: Memory } {
+    if (this.state.retirement) {
+      throw new MemoryAlreadyRetiredError(this.state.id.value);
+    }
+
+    const successor = Memory.written({
+      ...input,
+      workspaceId: this.state.workspaceId,
+      grounds: this.state.grounds,
+      supersedes: this.state.id,
     });
+
+    return {
+      retired: this.retiring(
+        MemoryRetirement.superseded(input.id, input.by.at),
+      ),
+      successor,
+    };
+  }
+
+  retired(input: { by: UserId; reason: string; at: Date }): Memory {
+    if (this.state.retirement) {
+      throw new MemoryAlreadyRetiredError(this.state.id.value);
+    }
+
+    return this.retiring(MemoryRetirement.retired(input));
+  }
+
+  private retiring(retirement: MemoryRetirement): Memory {
+    if (this.state.retirement) {
+      return this;
+    }
+
+    const retired = new Memory({ ...this.state, retirement });
     retired.inheritEvents(this);
-    retired.record(new MemoryRetired(this.state.id, successor));
+    retired.record(new MemoryRetired(this.state.id, retirement.supersededBy));
     return retired;
   }
 }

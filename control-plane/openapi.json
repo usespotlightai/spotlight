@@ -11257,6 +11257,317 @@
         ]
       }
     },
+    "/teams/{teamId}/memories": {
+      "get": {
+        "operationId": "listTeamMemories",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": false,
+            "in": "query",
+            "description": "Memories about paths beginning with this one",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stationId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "standing",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "stands",
+                "retired"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMemoryResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "A standing or kind no memory has"
+          }
+        },
+        "summary": "What the team remembers, narrowed by where it applies and its kind",
+        "tags": [
+          "memories"
+        ]
+      },
+      "post": {
+        "operationId": "writeMemory",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteMemoryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "An unknown kind, a body too long, or a line, station or repository the team does not have"
+          }
+        },
+        "summary": "Tell the team something to remember; it stands at once",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
+    "/teams/{teamId}/memories/{memoryId}": {
+      "get": {
+        "operationId": "readTeamMemory",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such memory for this caller"
+          }
+        },
+        "summary": "One memory with what it rests on, and what it replaced or was replaced by",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
+    "/teams/{teamId}/memories/{memoryId}/edit": {
+      "post": {
+        "operationId": "editMemory",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteMemoryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such memory for this caller"
+          },
+          "409": {
+            "description": "It was already retired"
+          },
+          "422": {
+            "description": "An unknown kind, a body too long, or a line, station or repository the team does not have"
+          }
+        },
+        "summary": "Correct a memory: a new one replaces it, keeping what it rests on, and it is retired",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
+    "/teams/{teamId}/memories/{memoryId}/retire": {
+      "post": {
+        "operationId": "retireMemory",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetireMemoryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such memory for this caller"
+          },
+          "409": {
+            "description": "It was already retired"
+          },
+          "422": {
+            "description": "No reason given, or one too long"
+          }
+        },
+        "summary": "Stop a memory being given to runs, saying why",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
     "/teams/{teamId}/configuration": {
       "get": {
         "operationId": "readConfiguration",
@@ -21218,6 +21529,431 @@
         },
         "required": [
           "memories"
+        ]
+      },
+      "MemoryPersonResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "user_1"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Maya Chen"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MemoryRetirementResponseDto": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "by": {
+            "nullable": true,
+            "description": "Who retired it; nobody where a newer memory superseded it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "supersededBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "The memory that replaced it"
+          }
+        },
+        "required": [
+          "at",
+          "by",
+          "reason",
+          "supersededBy"
+        ]
+      },
+      "MemoryGroundsResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "example": "task_1"
+          },
+          "runId": {
+            "type": "string",
+            "example": "run_1"
+          }
+        },
+        "required": [
+          "taskId",
+          "runId"
+        ]
+      },
+      "TeamMemoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "preference"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "person",
+              "run",
+              "outside"
+            ],
+            "example": "person"
+          },
+          "standing": {
+            "type": "string",
+            "enum": [
+              "stands",
+              "retired"
+            ],
+            "example": "stands"
+          },
+          "reach": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "example": "team"
+          },
+          "lineId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approvedBy": {
+            "description": "Who approved or wrote it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "approvedAt": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "description": "The memory it replaced"
+          },
+          "retirement": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryRetirementResponseDto"
+              }
+            ]
+          },
+          "grounds": {
+            "nullable": true,
+            "description": "The task and run it rests on; none where a person wrote it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryGroundsResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "body",
+          "source",
+          "standing",
+          "reach",
+          "lineId",
+          "stationId",
+          "repository",
+          "paths",
+          "approvedBy",
+          "approvedAt",
+          "supersedes",
+          "retirement",
+          "grounds"
+        ]
+      },
+      "WriteMemoryRequestDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "preference"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          },
+          "lineId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The line it applies to; none for the whole team"
+          },
+          "stationId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The station of that line it applies to"
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "body"
+        ]
+      },
+      "MemoryLinkResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ]
+      },
+      "TeamMemoryDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "preference"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "person",
+              "run",
+              "outside"
+            ],
+            "example": "person"
+          },
+          "standing": {
+            "type": "string",
+            "enum": [
+              "stands",
+              "retired"
+            ],
+            "example": "stands"
+          },
+          "reach": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "example": "team"
+          },
+          "lineId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approvedBy": {
+            "description": "Who approved or wrote it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "approvedAt": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "description": "The memory it replaced"
+          },
+          "retirement": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryRetirementResponseDto"
+              }
+            ]
+          },
+          "grounds": {
+            "nullable": true,
+            "description": "The task and run it rests on; none where a person wrote it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryGroundsResponseDto"
+              }
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryGroundStepResponseDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryGroundNoteResponseDto"
+            }
+          },
+          "superseded": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryLinkResponseDto"
+              }
+            ]
+          },
+          "successor": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryLinkResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "body",
+          "source",
+          "standing",
+          "reach",
+          "lineId",
+          "stationId",
+          "repository",
+          "paths",
+          "approvedBy",
+          "approvedAt",
+          "supersedes",
+          "retirement",
+          "grounds",
+          "steps",
+          "notes",
+          "superseded",
+          "successor"
+        ]
+      },
+      "RetireMemoryRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "The retry worker was removed.",
+            "description": "Why it no longer holds"
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "ConfiguredIntegrationResponseDto": {

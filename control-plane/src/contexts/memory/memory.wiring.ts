@@ -7,9 +7,15 @@ import {
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import { ApproveMemoriesCommand } from '@memory/application/commands/approve-memories.command';
+import { EditMemoryCommand } from '@memory/application/commands/edit-memory.command';
 import { ApproveMemoriesHandler } from '@memory/application/commands/handlers/approve-memories.handler';
+import { EditMemoryHandler } from '@memory/application/commands/handlers/edit-memory.handler';
 import { RejectMemoryHandler } from '@memory/application/commands/handlers/reject-memory.handler';
+import { RetireMemoryHandler } from '@memory/application/commands/handlers/retire-memory.handler';
+import { WriteMemoryHandler } from '@memory/application/commands/handlers/write-memory.handler';
 import { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
+import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
+import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import {
   KNOWN_MEMORIES,
@@ -25,12 +31,18 @@ import {
   type ReviewsPort,
 } from '@memory/application/ports/reviews.port';
 import { WORK, type WorkPort } from '@memory/application/ports/work.port';
+import { ListTeamMemoriesHandler } from '@memory/application/queries/handlers/list-team-memories.handler';
 import { ReadMemoryReviewHandler } from '@memory/application/queries/handlers/read-memory-review.handler';
+import { ReadTeamMemoryHandler } from '@memory/application/queries/handlers/read-team-memory.handler';
+import { ListTeamMemoriesQuery } from '@memory/application/queries/list-team-memories.query';
 import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-review.query';
+import { ReadTeamMemoryQuery } from '@memory/application/queries/read-team-memory.query';
 import { AskForMemories } from '@memory/application/services/ask-for-memories.service';
 import { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
+import { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
+import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
 import { MEMORY_EVENT_TYPES } from '@memory/domain/event-types';
 import { People } from '@memory/infrastructure/acl/people.adapter';
@@ -42,6 +54,7 @@ import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/driz
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
+import { TeamMemoryController } from '@memory/presentation/http/controllers/team-memory.controller';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
@@ -77,7 +90,10 @@ import {
 
 const MEMORY_EVENTS = Symbol('MEMORY_EVENTS');
 
-export const MEMORY_CONTROLLERS: readonly Type[] = [MemoryReviewController];
+export const MEMORY_CONTROLLERS: readonly Type[] = [
+  MemoryReviewController,
+  TeamMemoryController,
+];
 
 export const MEMORY_PROVIDERS: readonly Provider[] = [
   {
@@ -133,6 +149,55 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     MemoryReviews,
     TRANSACTION,
     CLOCK,
+  ]),
+  {
+    provide: TeamMemoryAtHand,
+    inject: [PEOPLE, DrizzleMemoryRepository, WORK],
+    useFactory: (
+      people: PeoplePort,
+      memories: DrizzleMemoryRepository,
+      work: WorkPort,
+    ) => new TeamMemoryAtHand(people, memories, work),
+  },
+  {
+    provide: TeamMemoryViews,
+    inject: [DrizzleMemoryRepository, WORK, PEOPLE],
+    useFactory: (
+      memories: DrizzleMemoryRepository,
+      work: WorkPort,
+      people: PeoplePort,
+    ) => new TeamMemoryViews(memories, work, people),
+  },
+  ...bindCommandHandler(WriteMemoryCommand, WriteMemoryHandler, [
+    TeamMemoryAtHand,
+    DrizzleMemoryRepository,
+    TeamMemoryViews,
+    ID_GENERATOR,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(EditMemoryCommand, EditMemoryHandler, [
+    TeamMemoryAtHand,
+    DrizzleMemoryRepository,
+    TeamMemoryViews,
+    TRANSACTION,
+    ID_GENERATOR,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(RetireMemoryCommand, RetireMemoryHandler, [
+    TeamMemoryAtHand,
+    DrizzleMemoryRepository,
+    TeamMemoryViews,
+    TRANSACTION,
+    CLOCK,
+  ]),
+  ...bindQueryHandler(ListTeamMemoriesQuery, ListTeamMemoriesHandler, [
+    TeamMemoryAtHand,
+    DrizzleMemoryRepository,
+    TeamMemoryViews,
+  ]),
+  ...bindQueryHandler(ReadTeamMemoryQuery, ReadTeamMemoryHandler, [
+    TeamMemoryAtHand,
+    TeamMemoryViews,
   ]),
   ...bindQueryHandler(ReadMemoryReviewQuery, ReadMemoryReviewHandler, [
     MemoryAccess,

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   approvableTogether,
   decidedBy,
+  filterOf,
+  narrowed,
   type ProposedMemory,
+  paramsOf,
+  placeOf,
   reachOf,
 } from '@/lib/memory';
 
@@ -58,5 +62,40 @@ describe('decidedBy', () => {
         }),
       ),
     ).toBe('Maya Chen rejected this.');
+  });
+});
+
+describe('filterOf and paramsOf', () => {
+  it('reads a filter from the address and writes back only what narrows it', () => {
+    const filter = filterOf(
+      new URLSearchParams('standing=retired&kind=failure&path=src'),
+    );
+
+    expect(filter).toEqual({
+      standing: 'retired',
+      kind: 'failure',
+      lineId: null,
+      stationId: null,
+      repository: null,
+      path: 'src',
+    });
+    expect(narrowed(filter)).toBe(true);
+    expect(paramsOf(filter)).toEqual({
+      standing: 'retired',
+      kind: 'failure',
+      path: 'src',
+    });
+    expect(paramsOf(filterOf(new URLSearchParams()))).toEqual({});
+  });
+});
+
+describe('placeOf', () => {
+  it('names a line that is gone rather than calling it the whole team', () => {
+    expect(
+      placeOf(
+        { lineId: 'line_gone', stationId: null, repository: null, paths: [] },
+        [],
+      ),
+    ).toBe('A line that is gone');
   });
 });

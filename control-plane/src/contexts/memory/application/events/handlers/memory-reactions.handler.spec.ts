@@ -114,6 +114,25 @@ describe('reacting to memories being proposed and decided', () => {
     expect(held[0]?.approval.equals(ADA)).toBe(true);
   });
 
+  it('keeps an approved memory without claiming to replace one that no longer stands', async () => {
+    const gone = Memory.stood({
+      id: OLD,
+      workspaceId: WorkspaceId.of('ws_1'),
+      kind: 'preference',
+      body: 'Name branches after the author.',
+      scope: SCOPE,
+      grounds: GROUNDS,
+      source: 'run',
+      supersedes: null,
+      approval: ADA,
+    }).retired({ by: UserId.of('user_bea'), reason: 'Wrong.', at: NOW });
+    const { reactions, held } = reacting([gone]);
+
+    await reactions.onApproved(approved(OLD));
+
+    expect(held.find((each) => each.id.equals(NEW))?.supersedes).toBeNull();
+  });
+
   it('retires the memory a newly standing one supersedes', async () => {
     const old = Memory.stood({
       id: OLD,

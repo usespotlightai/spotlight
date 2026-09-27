@@ -4,11 +4,13 @@ import type {
   RememberedRun,
   RememberedTask,
   SpokenNote,
+  TeamLine,
   WorkedPlace,
   WorkPort,
 } from '@memory/application/ports/work.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkLookupPort } from '@work/application/ports/work-lookup.port';
 
 export class Work implements WorkPort {
@@ -40,6 +42,18 @@ export class Work implements WorkPort {
         repositories: place.repositories,
       }
     );
+  }
+
+  async linesOf(teamId: TeamId): Promise<readonly TeamLine[]> {
+    return (await this.work.linesOf(teamId)).map((line) => ({
+      id: line.id,
+      name: line.name,
+      stations: line.stations.map((station) => ({
+        id: station.id,
+        name: station.name,
+      })),
+      repositories: line.repositories,
+    }));
   }
 
   async task(taskId: TaskId): Promise<RememberedTask | null> {

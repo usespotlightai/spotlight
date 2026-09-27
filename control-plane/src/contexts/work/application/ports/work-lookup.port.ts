@@ -42,6 +42,13 @@ export interface RunReasoning {
   readonly changed: readonly string[];
 }
 
+export interface TeamLine {
+  readonly id: string;
+  readonly name: string;
+  readonly stations: readonly { readonly id: string; readonly name: string }[];
+  readonly repositories: readonly Repository[];
+}
+
 export interface ChangedFile {
   readonly repository: Repository;
   readonly path: string;
@@ -69,6 +76,8 @@ export interface WorkLookupPort {
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
   placeOf(runId: RunId): Promise<RunPlace | null>;
+
+  linesOf(teamId: TeamId): Promise<readonly TeamLine[]>;
 
   reasoning(runId: RunId): Promise<RunReasoning | null>;
 

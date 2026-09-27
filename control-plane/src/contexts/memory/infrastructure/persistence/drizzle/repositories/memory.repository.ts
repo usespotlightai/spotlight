@@ -1,10 +1,14 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryMovedOnError } from '@memory/domain/exceptions/memory-moved-on.error';
-import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import type {
+  MemoryCriteria,
+  MemoryRepository,
+} from '@memory/domain/repositories/memory.repository';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -20,9 +24,33 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 type Row = typeof memory.$inferSelect;
+
+const MOST_LISTED = 500;
+
+const groundsOf = (row: Row): MemoryGrounds | null => {
+  const { taskId, runId, steps, notes } = row;
+
+  if (taskId && runId && steps && notes) {
+    return MemoryGrounds.of({
+      taskId: TaskId.of(taskId),
+      runId: RunId.of(runId),
+      steps,
+      notes,
+    });
+  }
+
+  if (taskId || runId || steps || notes) {
+    throw new InconsistentStateError(
+      'memory',
+      'rests on part of a run, but not all of what it cites',
+    );
+  }
+
+  return null;
+};
 
 const toMemory = (row: Row): Memory => {
   if ((row.standing === 'retired') !== (row.retiredAt !== null)) {
@@ -44,12 +72,7 @@ const toMemory = (row: Row): Memory => {
       repository: row.repository ? Repository.of(row.repository) : null,
       paths: row.paths.map(MemoryPath.of),
     }),
-    grounds: MemoryGrounds.of({
-      taskId: TaskId.of(row.taskId),
-      runId: RunId.of(row.runId),
-      steps: row.steps,
-      notes: row.notes,
-    }),
+    grounds: groundsOf(row),
     source: row.source,
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
     approval: MemoryDecision.of({
@@ -57,10 +80,12 @@ const toMemory = (row: Row): Memory => {
       at: row.approvedAt,
     }),
     retirement: row.retiredAt
-      ? {
+      ? MemoryRetirement.rehydrate({
           at: row.retiredAt,
+          by: row.retiredBy ? UserId.of(row.retiredBy) : null,
+          reason: row.retireReason,
           supersededBy: row.supersededBy ? MemoryId.of(row.supersededBy) : null,
-        }
+        })
       : null,
     version: row.version,
   });
@@ -69,6 +94,8 @@ const toMemory = (row: Row): Memory => {
 const changedColumnsOf = (held: Memory) => ({
   standing: held.standing,
   retiredAt: held.retirement?.at ?? null,
+  retiredBy: held.retirement?.by?.value ?? null,
+  retireReason: held.retirement?.reason ?? null,
   supersededBy: held.retirement?.supersededBy?.value ?? null,
 });
 
@@ -92,10 +119,10 @@ export class DrizzleMemoryRepository implements MemoryRepository {
         stationId: added.scope.stationId,
         repository: added.scope.repository?.value ?? null,
         paths: added.scope.paths.map((each) => each.value),
-        taskId: added.grounds.taskId.value,
-        runId: added.grounds.runId.value,
-        steps: [...added.grounds.steps],
-        notes: [...added.grounds.notes],
+        taskId: added.grounds?.taskId.value ?? null,
+        runId: added.grounds?.runId.value ?? null,
+        steps: added.grounds ? [...added.grounds.steps] : null,
+        notes: added.grounds ? [...added.grounds.notes] : null,
         source: added.source,
         supersedes: added.supersedes?.value ?? null,
         approvedBy: added.approval.by.value,
@@ -123,6 +150,40 @@ export class DrizzleMemoryRepository implements MemoryRepository {
 
       await this.events.dispatch(saved.pullEvents());
     });
+  }
+
+  async ofTeam(
+    teamId: TeamId,
+    criteria: MemoryCriteria,
+  ): Promise<readonly Memory[]> {
+    const rows = await this.context.db
+      .select()
+      .from(memory)
+      .where(
+        and(
+          eq(memory.teamId, teamId.value),
+          eq(memory.standing, criteria.standing),
+          criteria.kind ? eq(memory.kind, criteria.kind) : undefined,
+          criteria.lineId ? eq(memory.lineId, criteria.lineId) : undefined,
+          criteria.stationId
+            ? eq(memory.stationId, criteria.stationId)
+            : undefined,
+          criteria.repository
+            ? eq(memory.repository, criteria.repository)
+            : undefined,
+          criteria.path
+            ? sql`exists (select 1 from jsonb_array_elements_text(${memory.paths}) as held(path) where starts_with(held.path, ${criteria.path}))`
+            : undefined,
+        ),
+      )
+      .orderBy(
+        criteria.standing === 'retired'
+          ? desc(memory.retiredAt)
+          : desc(memory.approvedAt),
+      )
+      .limit(MOST_LISTED);
+
+    return rows.map(toMemory);
   }
 
   async find(id: MemoryId): Promise<Memory | null> {

@@ -12,6 +12,7 @@ import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-draft
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 
 export const MEMORY_EVENT_TYPES = [
@@ -30,4 +31,5 @@ export const MEMORY_EVENT_TYPES = [
   MemoryStood,
   MemoryRetired,
   MemoryDecision,
+  MemoryRetirement,
 ] as const;

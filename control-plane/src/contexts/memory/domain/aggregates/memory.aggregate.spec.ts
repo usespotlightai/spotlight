@@ -2,6 +2,7 @@ import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
 import { MemoryStood } from '@memory/domain/events/memory-stood.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -57,7 +58,8 @@ describe('Memory', () => {
     const retired = memory.supersededBy(OLD, LATER);
 
     expect(retired.standing).toBe('retired');
-    expect(retired.retirement).toEqual({ at: LATER, supersededBy: OLD });
+    expect(retired.retirement?.supersededBy?.equals(OLD)).toBe(true);
+    expect(retired.retirement?.at).toEqual(LATER);
     expect(retired.pullEvents()).toEqual([new MemoryRetired(NEW, OLD)]);
   });
 
@@ -67,5 +69,92 @@ describe('Memory', () => {
     expect(retired.supersededBy(MemoryId.of('memory_other'), NOW)).toBe(
       retired,
     );
+  });
+
+  it('stands at once when a person writes it, as theirs and resting on nothing', () => {
+    const written = Memory.written({
+      id: NEW,
+      workspaceId: WorkspaceId.of('ws_1'),
+      kind: 'environment',
+      body: 'Staging needs a restart after deploys.',
+      scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),
+      grounds: null,
+      supersedes: null,
+      by: MemoryDecision.of({ by: UserId.of('user_bea'), at: NOW }),
+    });
+
+    expect(written.standing).toBe('stands');
+    expect(written.source).toBe('person');
+    expect(written.grounds).toBeNull();
+    expect(written.approval.by.value).toBe('user_bea');
+  });
+
+  it('retires with a reason, saying who retired it', () => {
+    const retired = stood().retired({
+      by: UserId.of('user_bea'),
+      reason: ' The retry worker was removed. ',
+      at: LATER,
+    });
+
+    expect(retired.standing).toBe('retired');
+    expect(retired.retirement?.reason).toBe('The retry worker was removed.');
+    expect(retired.retirement?.by?.value).toBe('user_bea');
+    expect(retired.retirement?.supersededBy).toBeNull();
+  });
+
+  it('refuses to retire without a reason, or twice', () => {
+    expect(() =>
+      stood().retired({ by: UserId.of('user_bea'), reason: '  ', at: LATER }),
+    ).toThrow(InvalidMemoryError);
+
+    const retired = stood().retired({
+      by: UserId.of('user_bea'),
+      reason: 'Gone.',
+      at: LATER,
+    });
+    expect(() =>
+      retired.retired({
+        by: UserId.of('user_bea'),
+        reason: 'Again.',
+        at: LATER,
+      }),
+    ).toThrow(MemoryAlreadyRetiredError);
+  });
+
+  it('is corrected by a successor that keeps what it rests on, retiring it at once', () => {
+    const old = stood();
+    old.pullEvents();
+
+    const { retired, successor } = old.correctedAs({
+      id: OLD,
+      kind: 'preference',
+      body: 'Name branches after the ticket number.',
+      scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),
+      by: MemoryDecision.of({ by: UserId.of('user_bea'), at: LATER }),
+    });
+
+    expect(retired.standing).toBe('retired');
+    expect(retired.retirement?.supersededBy?.equals(OLD)).toBe(true);
+    expect(successor.supersedes?.equals(NEW)).toBe(true);
+    expect(successor.source).toBe('person');
+    expect(successor.grounds?.equals(old.grounds as MemoryGrounds)).toBe(true);
+  });
+
+  it('refuses to correct a memory that was already retired', () => {
+    const retired = stood().retired({
+      by: UserId.of('user_bea'),
+      reason: 'Gone.',
+      at: LATER,
+    });
+
+    expect(() =>
+      retired.correctedAs({
+        id: OLD,
+        kind: 'preference',
+        body: 'Again.',
+        scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),
+        by: MemoryDecision.of({ by: UserId.of('user_bea'), at: LATER }),
+      }),
+    ).toThrow(MemoryAlreadyRetiredError);
   });
 });

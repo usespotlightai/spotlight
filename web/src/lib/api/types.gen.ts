@@ -2228,6 +2228,114 @@ export type ApproveMemoriesRequestDto = {
   memories: Array<ApprovedMemoryRequestDto>;
 };
 
+export type MemoryPersonResponseDto = {
+  id: string;
+  name: string | null;
+};
+
+export type MemoryRetirementResponseDto = {
+  at: string;
+  /**
+   * Who retired it; nobody where a newer memory superseded it
+   */
+  by: MemoryPersonResponseDto | null;
+  reason: string | null;
+  /**
+   * The memory that replaced it
+   */
+  supersededBy: string | null;
+};
+
+export type MemoryGroundsResponseDto = {
+  taskId: string;
+  runId: string;
+};
+
+export type TeamMemoryResponseDto = {
+  id: string;
+  kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
+  body: string;
+  source: 'person' | 'run' | 'outside';
+  standing: 'stands' | 'retired';
+  reach: 'team' | 'line' | 'station';
+  lineId: string | null;
+  stationId: string | null;
+  repository: string | null;
+  paths: Array<string>;
+  /**
+   * Who approved or wrote it
+   */
+  approvedBy: MemoryPersonResponseDto;
+  approvedAt: string;
+  /**
+   * The memory it replaced
+   */
+  supersedes: string | null;
+  retirement: MemoryRetirementResponseDto | null;
+  /**
+   * The task and run it rests on; none where a person wrote it
+   */
+  grounds: MemoryGroundsResponseDto | null;
+};
+
+export type WriteMemoryRequestDto = {
+  kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
+  body: string;
+  /**
+   * The line it applies to; none for the whole team
+   */
+  lineId?: string | null;
+  /**
+   * The station of that line it applies to
+   */
+  stationId?: string | null;
+  repository?: string | null;
+  paths?: Array<string>;
+};
+
+export type MemoryLinkResponseDto = {
+  id: string;
+  body: string;
+};
+
+export type TeamMemoryDetailResponseDto = {
+  id: string;
+  kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
+  body: string;
+  source: 'person' | 'run' | 'outside';
+  standing: 'stands' | 'retired';
+  reach: 'team' | 'line' | 'station';
+  lineId: string | null;
+  stationId: string | null;
+  repository: string | null;
+  paths: Array<string>;
+  /**
+   * Who approved or wrote it
+   */
+  approvedBy: MemoryPersonResponseDto;
+  approvedAt: string;
+  /**
+   * The memory it replaced
+   */
+  supersedes: string | null;
+  retirement: MemoryRetirementResponseDto | null;
+  /**
+   * The task and run it rests on; none where a person wrote it
+   */
+  grounds: MemoryGroundsResponseDto | null;
+  steps: Array<MemoryGroundStepResponseDto>;
+  notes: Array<MemoryGroundNoteResponseDto>;
+  superseded: MemoryLinkResponseDto | null;
+  successor: MemoryLinkResponseDto | null;
+};
+
+export type RetireMemoryRequestDto = {
+  /**
+   * Why it no longer holds
+   */
+  reason: string;
+};
+
 export type ConfiguredIntegrationResponseDto = {
   source: string;
   name: string;
@@ -8579,6 +8687,173 @@ export type RejectMemoryResponses = {
 };
 
 export type RejectMemoryResponse = RejectMemoryResponses[keyof RejectMemoryResponses];
+
+export type ListTeamMemoriesData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * Memories about paths beginning with this one
+     */
+    path?: string;
+    repository?: string;
+    stationId?: string;
+    lineId?: string;
+    kind?: string;
+    standing?: 'stands' | 'retired';
+  };
+  url: '/teams/{teamId}/memories';
+};
+
+export type ListTeamMemoriesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * A standing or kind no memory has
+   */
+  422: unknown;
+};
+
+export type ListTeamMemoriesResponses = {
+  200: Array<TeamMemoryResponseDto>;
+};
+
+export type ListTeamMemoriesResponse = ListTeamMemoriesResponses[keyof ListTeamMemoriesResponses];
+
+export type WriteMemoryData = {
+  body: WriteMemoryRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memories';
+};
+
+export type WriteMemoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * An unknown kind, a body too long, or a line, station or repository the team does not have
+   */
+  422: unknown;
+};
+
+export type WriteMemoryResponses = {
+  201: TeamMemoryDetailResponseDto;
+};
+
+export type WriteMemoryResponse = WriteMemoryResponses[keyof WriteMemoryResponses];
+
+export type ReadTeamMemoryData = {
+  body?: never;
+  path: {
+    teamId: string;
+    memoryId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memories/{memoryId}';
+};
+
+export type ReadTeamMemoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such memory for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTeamMemoryResponses = {
+  200: TeamMemoryDetailResponseDto;
+};
+
+export type ReadTeamMemoryResponse = ReadTeamMemoryResponses[keyof ReadTeamMemoryResponses];
+
+export type EditMemoryData = {
+  body: WriteMemoryRequestDto;
+  path: {
+    teamId: string;
+    memoryId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memories/{memoryId}/edit';
+};
+
+export type EditMemoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such memory for this caller
+   */
+  404: unknown;
+  /**
+   * It was already retired
+   */
+  409: unknown;
+  /**
+   * An unknown kind, a body too long, or a line, station or repository the team does not have
+   */
+  422: unknown;
+};
+
+export type EditMemoryResponses = {
+  201: TeamMemoryDetailResponseDto;
+};
+
+export type EditMemoryResponse = EditMemoryResponses[keyof EditMemoryResponses];
+
+export type RetireMemoryData = {
+  body: RetireMemoryRequestDto;
+  path: {
+    teamId: string;
+    memoryId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memories/{memoryId}/retire';
+};
+
+export type RetireMemoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such memory for this caller
+   */
+  404: unknown;
+  /**
+   * It was already retired
+   */
+  409: unknown;
+  /**
+   * No reason given, or one too long
+   */
+  422: unknown;
+};
+
+export type RetireMemoryResponses = {
+  200: TeamMemoryDetailResponseDto;
+};
+
+export type RetireMemoryResponse = RetireMemoryResponses[keyof RetireMemoryResponses];
 
 export type ReadConfigurationData = {
   body?: never;

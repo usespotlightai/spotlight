@@ -32,6 +32,10 @@ export class MemoryReactions {
         return;
       }
 
+      const superseded = event.supersedes
+        ? await this.memories.find(event.supersedes)
+        : null;
+
       await this.memories.add(
         Memory.stood({
           id: event.memoryId,
@@ -41,7 +45,7 @@ export class MemoryReactions {
           scope: event.scope,
           grounds: event.grounds,
           source: event.source,
-          supersedes: event.supersedes,
+          supersedes: superseded?.standing === 'stands' ? superseded.id : null,
           approval: event.decision,
         }),
       );

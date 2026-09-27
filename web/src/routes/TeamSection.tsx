@@ -1,5 +1,7 @@
 import { Navigate, useParams } from 'react-router';
 import { AgentChats } from '@/components/features/agent/AgentChats';
+import { TeamMemory } from '@/components/features/memory/TeamMemory';
+import { WriteMemoryButton } from '@/components/features/memory/WriteMemoryButton';
 import { TeamRuns } from '@/components/features/runs/TeamRuns';
 import { RangePicker } from '@/components/features/trace/list/RangePicker';
 import { TraceList } from '@/components/features/trace/list/TraceList';
@@ -58,6 +60,8 @@ export function TeamSection() {
         actions={
           meta.id === 'observability' ? (
             <RangePicker value={range} onChange={remember} />
+          ) : meta.id === 'memory' ? (
+            <WriteMemoryButton teamId={teamId} />
           ) : undefined
         }
       />
@@ -65,6 +69,8 @@ export function TeamSection() {
       {meta.id === 'agent' && <AgentChats slug={slug} teamId={teamId} />}
 
       {meta.id === 'runs' && <TeamRuns slug={slug} teamId={teamId} />}
+
+      {meta.id === 'memory' && <TeamMemory slug={slug} teamId={teamId} />}
 
       {meta.id === 'observability' && (
         <TraceList slug={slug} teamId={teamId} range={range} />

@@ -111,6 +111,7 @@ const working = (input: {
     } as unknown as MemoryDraftRepository,
     {
       run: async () => null,
+      linesOf: async () => [],
       placeOf: async () => (input.place === undefined ? PLACE : input.place),
       task: async () => ({
         id: TASK,

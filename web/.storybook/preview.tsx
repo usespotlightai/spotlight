@@ -34,6 +34,7 @@ const preview: Preview = {
             ['All runs', 'Run', 'Change stack'],
             'Observability',
             ['Traces', 'Task trace'],
+            'Memory',
             'Settings',
             ['General', 'Integrations', 'Skills'],
           ],

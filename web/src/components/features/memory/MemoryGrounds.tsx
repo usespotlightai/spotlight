@@ -1,11 +1,11 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Unfold } from '@/components/shared/Unfold';
-import type { ProposedMemory } from '@/lib/memory';
+import type { MemoryGround } from '@/lib/memory';
 import { cn } from '@/lib/utils';
 
 type MemoryGroundsProps = {
-  memory: ProposedMemory;
+  grounds: MemoryGround;
   startsOpen: boolean;
 };
 
@@ -14,9 +14,9 @@ const SPOKEN_BY: Record<string, string> = {
   world: 'Someone outside Spotlight said',
 };
 
-export function MemoryGrounds({ memory, startsOpen }: MemoryGroundsProps) {
+export function MemoryGrounds({ grounds, startsOpen }: MemoryGroundsProps) {
   const [open, setOpen] = useState(startsOpen);
-  const cited = memory.steps.length + memory.notes.length;
+  const cited = grounds.steps.length + grounds.notes.length;
 
   if (cited === 0) {
     return null;
@@ -42,7 +42,7 @@ export function MemoryGrounds({ memory, startsOpen }: MemoryGroundsProps) {
 
       <Unfold open={open} appear={false}>
         <ol className="flex flex-col gap-2 rounded-lg border border-border bg-muted/60 px-3 py-2">
-          {memory.notes.map((note) => (
+          {grounds.notes.map((note) => (
             <li key={`note-${note.position}`} className="flex flex-col gap-0.5">
               <span className="text-muted-foreground text-xs">
                 {SPOKEN_BY[note.by] ?? 'Someone said'}
@@ -52,7 +52,7 @@ export function MemoryGrounds({ memory, startsOpen }: MemoryGroundsProps) {
               </p>
             </li>
           ))}
-          {memory.steps.map((step) => (
+          {grounds.steps.map((step) => (
             <li key={`step-${step.index}`} className="flex flex-col gap-0.5">
               <span className="text-muted-foreground text-xs">
                 The agent {step.kind === 'handover' ? 'handed over' : step.kind}

@@ -46,10 +46,19 @@ export interface SpokenNote {
   readonly text: string;
 }
 
+export interface TeamLine {
+  readonly id: string;
+  readonly name: string;
+  readonly stations: readonly { readonly id: string; readonly name: string }[];
+  readonly repositories: readonly Repository[];
+}
+
 export interface WorkPort {
   run(runId: RunId): Promise<RememberedRun | null>;
 
   placeOf(runId: RunId): Promise<WorkedPlace | null>;
+
+  linesOf(teamId: TeamId): Promise<readonly TeamLine[]>;
 
   task(taskId: TaskId): Promise<RememberedTask | null>;
 

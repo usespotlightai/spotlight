@@ -1,5 +1,5 @@
 {
-  "id": "c1af2d42-ed2e-4d9d-9c18-88c995bc187c",
+  "id": "f4e86290-c927-461b-b819-6435dd38182d",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3864,25 +3864,25 @@
           "name": "task_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "run_id": {
           "name": "run_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "steps": {
           "name": "steps",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "notes": {
           "name": "notes",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "source": {
           "name": "source",
@@ -3920,6 +3920,18 @@
         "retired_at": {
           "name": "retired_at",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retired_by": {
+          "name": "retired_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retire_reason": {
+          "name": "retire_reason",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

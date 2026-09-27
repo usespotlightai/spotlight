@@ -202,7 +202,7 @@ describe('reviewing the memories a run proposed', () => {
     expect(standing.every((each) => each.approvedBy === team.owner.value)).toBe(
       true,
     );
-    expect(standing.every((each) => each.steps.join() === '5')).toBe(true);
+    expect(standing.every((each) => each.steps?.join() === '5')).toBe(true);
 
     const settled = await eventually(async () => {
       const item = asideFor(await inbox(team.owner.value), runId);

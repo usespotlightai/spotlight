@@ -427,3 +427,26 @@ describe('WorkLookup, reading what people said on a task', () => {
     ]);
   });
 });
+
+describe('WorkLookup, reading a team’s lines', () => {
+  it('names each line still in use, with the stations that work and its repositories', async () => {
+    const retired = { ...line, isRetired: true, id: { value: 'line_old' } };
+
+    const lines = await new WorkLookup(
+      {} as RunRepository,
+      {} as TaskRepository,
+      { ofTeam: async () => [line, retired] } as unknown as LineRepository,
+      {} as RunJournalReaderPort,
+    ).linesOf(TeamId.of('team_1'));
+
+    expect(lines.map((each) => each.id)).toEqual([line.id.value]);
+    expect(lines[0]?.stations.map((each) => each.name)).toEqual(
+      line.stations
+        .filter((each) => each.isWorked)
+        .map((each) => each.name.value),
+    );
+    expect(lines[0]?.stations.some((each) => each.name === 'Backlog')).toBe(
+      false,
+    );
+  });
+});

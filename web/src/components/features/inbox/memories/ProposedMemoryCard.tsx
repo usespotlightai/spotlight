@@ -1,6 +1,6 @@
 import { TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
-import { MemoryGrounds } from '@/components/features/inbox/memories/MemoryGrounds';
+import { MemoryGrounds } from '@/components/features/memory/MemoryGrounds';
 import { Composer } from '@/components/shared/form/Composer';
 import { Pill } from '@/components/shared/Pill';
 import { Button } from '@/components/ui/button';
@@ -83,7 +83,7 @@ export function ProposedMemoryCard({
         </p>
       )}
 
-      <MemoryGrounds memory={memory} startsOpen={outside} />
+      <MemoryGrounds grounds={memory} startsOpen={outside} />
 
       {settled ? (
         <p className="text-muted-foreground text-sm leading-6">{settled}</p>
