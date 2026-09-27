@@ -19,12 +19,12 @@ describe('RunnerPlacement', () => {
     expect(RunnerPlacement.of([]).admits(answering('build-1'))).toBe(true);
   });
 
-  it('admits only a runner answering to one of the names or labels it gives', () => {
-    const placed = RunnerPlacement.of(['vpc-internal', 'build-1']);
+  it('admits only a runner answering to one of the labels it gives', () => {
+    const placed = RunnerPlacement.of(['vpc-internal', 'gpu']);
 
-    expect(placed.admits(answering('laptop', 'vpc-internal'))).toBe(true);
-    expect(placed.admits(answering('build-1'))).toBe(true);
-    expect(placed.admits(answering('laptop'))).toBe(false);
+    expect(placed.admits(answering('linux', 'vpc-internal'))).toBe(true);
+    expect(placed.admits(answering('gpu'))).toBe(true);
+    expect(placed.admits(answering('linux'))).toBe(false);
     expect(placed.admits(RunnerTerms.none())).toBe(false);
   });
 
@@ -122,6 +122,23 @@ describe('RunnerPlacement', () => {
     ).toBe(true);
     expect(placed.equals(placed.in(gadgets))).toBe(false);
     expect(placed.equals(placed.in(null))).toBe(false);
+  });
+
+  it('names any label a pool or trust may be given, of at most 64 characters', () => {
+    const longest = 'a'.repeat(64);
+
+    expect(RunnerPlacement.of([longest]).admits(answering(longest))).toBe(true);
+    expect(() => RunnerPlacement.of(['a'.repeat(65)])).toThrow(
+      InvalidRunnerPlacementError,
+    );
+  });
+
+  it('refuses a selector no label could be', () => {
+    for (const unlabelled of ['GPU', 'vpc internal', 'claude-code@2.1.270']) {
+      expect(() => RunnerPlacement.of([unlabelled])).toThrow(
+        InvalidRunnerPlacementError,
+      );
+    }
   });
 
   it('refuses an empty or repeated selector', () => {
