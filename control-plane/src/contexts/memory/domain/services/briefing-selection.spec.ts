@@ -30,13 +30,14 @@ const kept = (
   },
   body = 'Remember this.',
   at = new Date('2026-09-20T10:00:00.000Z'),
+  kind = 'preference',
 ) => {
   made += 1;
   return Memory.written({
     id: MemoryId.of(`memory_${made}`),
     handle: MemoryHandle.of(made),
     workspaceId: WorkspaceId.of('ws_1'),
-    kind: 'preference',
+    kind,
     body,
     scope: MemoryScope.of({
       teamId: scope.teamId ?? TEAM,
@@ -51,6 +52,8 @@ const kept = (
   });
 };
 
+const OLDER = new Date('2026-09-01T10:00:00.000Z');
+
 const PLACE: MemoryPlace = {
   teamId: TEAM,
   lineId: 'line_delivery',
@@ -59,12 +62,27 @@ const PLACE: MemoryPlace = {
   touched: [{ repository: API, path: MemoryPath.of('src/uploads/retry.ts') }],
 };
 
+const choosing = (
+  memories: readonly Memory[],
+  place: MemoryPlace,
+  matches: Record<string, number> = {},
+  recalled: Record<string, number> = {},
+) =>
+  selectForBriefing(
+    memories.map((memory) => ({
+      memory,
+      match: matches[memory.body] ?? 0,
+      recalled: recalled[memory.body] ?? 0,
+    })),
+    place,
+  );
+
 const bodies = (memories: readonly Memory[]) =>
   memories.map((each) => each.body);
 
 describe('selecting what to brief a run with', () => {
   it('gives the memories whose scope reaches the run, and no others', () => {
-    const chosen = selectForBriefing(
+    const chosen = choosing(
       [
         kept({}, 'Team-wide.'),
         kept({ lineId: 'line_delivery' }, 'This line.'),
@@ -93,7 +111,7 @@ describe('selecting what to brief a run with', () => {
   });
 
   it('never gives a line’s memory to a chat, which works at no line', () => {
-    const chosen = selectForBriefing(
+    const chosen = choosing(
       [kept({}, 'Team-wide.'), kept({ lineId: 'line_delivery' }, 'This line.')],
       { ...PLACE, lineId: null, stationId: null, touched: [] },
     );
@@ -102,7 +120,7 @@ describe('selecting what to brief a run with', () => {
   });
 
   it('ranks the most specific first, then the most recent', () => {
-    const chosen = selectForBriefing(
+    const chosen = choosing(
       [
         kept({}, 'Team, older.', new Date('2026-09-01T00:00:00.000Z')),
         kept({}, 'Team, newer.', new Date('2026-09-10T00:00:00.000Z')),
@@ -133,8 +151,8 @@ describe('selecting what to brief a run with', () => {
       kept({}, `${at}`.padEnd(900, '.')),
     );
 
-    expect(selectForBriefing(many, PLACE).briefed).toHaveLength(12);
-    expect(selectForBriefing(long, PLACE).briefed).toHaveLength(4);
+    expect(choosing(many, PLACE).briefed).toHaveLength(8);
+    expect(choosing(long, PLACE).briefed).toHaveLength(3);
   });
 
   it('keeps what the cap cut, the nearest to making it first, and never what did not reach the run', () => {
@@ -143,13 +161,13 @@ describe('selecting what to brief a run with', () => {
     );
     const elsewhere = kept({ lineId: 'line_docs' }, 'Another line.');
 
-    const chosen = selectForBriefing([...many, elsewhere], PLACE);
+    const chosen = choosing([...many, elsewhere], PLACE);
 
     expect(bodies(chosen.cut)).toEqual(
-      Array.from({ length: 20 }, (_, at) => `Memory ${at + 12}.`),
+      Array.from({ length: 20 }, (_, at) => `Memory ${at + 8}.`),
     );
     expect(bodies(chosen.cut)).not.toContain('Another line.');
-    expect(bodies(selectForBriefing(many.slice(0, 3), PLACE).cut)).toEqual([]);
+    expect(bodies(choosing(many.slice(0, 3), PLACE).cut)).toEqual([]);
   });
 
   it('never gives a retired memory', () => {
@@ -159,9 +177,104 @@ describe('selecting what to brief a run with', () => {
       at: new Date('2026-09-21T10:00:00.000Z'),
     });
 
-    expect(selectForBriefing([retired], PLACE)).toEqual({
+    expect(choosing([retired], PLACE)).toEqual({
       briefed: [],
       cut: [],
     });
+  });
+
+  it('ranks a memory whose words match the task above an equally scoped one that does not', () => {
+    const chosen = choosing(
+      [
+        kept({}, 'Name branches after the ticket.'),
+        kept({}, 'Uploads retry in the request.'),
+      ],
+      PLACE,
+      { 'Uploads retry in the request.': 0.3 },
+    );
+
+    expect(bodies(chosen.briefed)).toEqual([
+      'Uploads retry in the request.',
+      'Name branches after the ticket.',
+    ]);
+  });
+
+  it('lets the task’s words lift a memory past a more specific one', () => {
+    const chosen = choosing(
+      [
+        kept({ lineId: 'line_delivery' }, 'This line names branches.'),
+        kept({}, 'Uploads retry in the request.'),
+      ],
+      PLACE,
+      { 'Uploads retry in the request.': 1 },
+    );
+
+    expect(bodies(chosen.briefed)[0]).toBe('Uploads retry in the request.');
+  });
+
+  it('reaches a memory about paths the task has not touched only when its words match', () => {
+    const elsewhere = { ...PLACE, touched: [] };
+    const aboutUploads = kept(
+      { repository: API, paths: ['src/uploads'] },
+      'Uploads retry in the request.',
+    );
+
+    expect(bodies(choosing([aboutUploads], elsewhere).briefed)).toEqual([]);
+    expect(
+      bodies(
+        choosing([aboutUploads], elsewhere, {
+          'Uploads retry in the request.': 0.1,
+        }).briefed,
+      ),
+    ).toEqual(['Uploads retry in the request.']);
+  });
+
+  it('puts warnings ahead of preferences at the same specificity', () => {
+    const chosen = choosing(
+      [
+        kept({}, 'Name branches after the ticket.'),
+        kept({}, 'The worker test hangs without Redis.', undefined, 'failure'),
+      ],
+      PLACE,
+    );
+
+    expect(bodies(chosen.briefed)[0]).toBe(
+      'The worker test hangs without Redis.',
+    );
+  });
+
+  it('nudges up what earlier runs recalled', () => {
+    const chosen = choosing(
+      [kept({}, 'Newer.'), kept({}, 'Recalled before.', OLDER)],
+      PLACE,
+      {},
+      { 'Recalled before.': 2 },
+    );
+
+    expect(bodies(chosen.briefed)[0]).toBe('Recalled before.');
+  });
+
+  it('never lets a weak match on a memory about untouched paths outrank a station’s warning', () => {
+    const chosen = choosing(
+      [
+        kept(
+          { repository: API, paths: ['src/uploads'] },
+          'Fix retries by draining the queue.',
+        ),
+        kept(
+          { lineId: 'line_delivery', stationId: 'station_build' },
+          'The build needs Redis.',
+          undefined,
+          'failure',
+        ),
+      ],
+      { ...PLACE, touched: [] },
+      { 'Fix retries by draining the queue.': 0.4 },
+    );
+
+    expect(bodies(chosen.briefed)).toEqual([
+      'The build needs Redis.',
+      'Fix retries by draining the queue.',
+    ]);
   });
 });

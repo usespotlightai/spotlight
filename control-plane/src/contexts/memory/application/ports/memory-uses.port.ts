@@ -21,5 +21,6 @@ export interface MemoryUsesPort {
 
   runsUsing(
     memories: readonly MemoryId[],
+    way?: MemoryUse,
   ): Promise<ReadonlyMap<string, number>>;
 }

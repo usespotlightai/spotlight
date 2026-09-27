@@ -4,6 +4,7 @@ import type {
   ReasonedStep,
   RememberedRun,
   RememberedTask,
+  RunSite,
   SpokenNote,
   TeamLine,
   WorkedPlace,
@@ -43,12 +44,32 @@ export class Work implements WorkPort {
         workspaceId: held.workspaceId,
         teamId: held.teamId,
         taskId: held.taskId,
+        lineId: held.lineId,
+        stationId: held.stationId,
+        repositories: held.repositories,
       }
     );
   }
 
-  teamOfRun(runId: RunId): Promise<TeamId | null> {
-    return this.work.teamOfRun(runId);
+  async siteOfRun(runId: RunId): Promise<RunSite | null> {
+    const site = await this.work.siteOfRun(runId);
+
+    return (
+      site && {
+        teamId: site.teamId,
+        lineId: site.lineId,
+        stationId: site.stationId,
+        repositories: site.repositories,
+      }
+    );
+  }
+
+  referencedUnder(
+    runId: RunId,
+    folder: string,
+    file: RegExp,
+  ): Promise<readonly string[] | null> {
+    return this.work.referencedUnder(runId, folder, file);
   }
 
   async placeOf(runId: RunId): Promise<WorkedPlace | null> {

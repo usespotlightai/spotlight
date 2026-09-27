@@ -42,10 +42,12 @@ import {
 } from '@memory/application/ports/reviews.port';
 import { WORK, type WorkPort } from '@memory/application/ports/work.port';
 import { ListTeamMemoriesHandler } from '@memory/application/queries/handlers/list-team-memories.handler';
+import { ReadMemoryFilesHandler } from '@memory/application/queries/handlers/read-memory-files.handler';
 import { ReadMemoryReviewHandler } from '@memory/application/queries/handlers/read-memory-review.handler';
 import { ReadRunMemoriesHandler } from '@memory/application/queries/handlers/read-run-memories.handler';
 import { ReadTeamMemoryHandler } from '@memory/application/queries/handlers/read-team-memory.handler';
 import { ListTeamMemoriesQuery } from '@memory/application/queries/list-team-memories.query';
+import { ReadMemoryFilesQuery } from '@memory/application/queries/read-memory-files.query';
 import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-review.query';
 import { ReadRunMemoriesQuery } from '@memory/application/queries/read-run-memories.query';
 import { ReadTeamMemoryQuery } from '@memory/application/queries/read-team-memory.query';
@@ -72,6 +74,7 @@ import { memorySubscribers } from '@memory/presentation/events/memory.subscriber
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
 import { RunMemoriesController } from '@memory/presentation/http/controllers/run-memories.controller';
 import { RunnerMemoryController } from '@memory/presentation/http/controllers/runner-memory.controller';
+import { RunnerMemoryFilesController } from '@memory/presentation/http/controllers/runner-memory-files.controller';
 import { TeamMemoryController } from '@memory/presentation/http/controllers/team-memory.controller';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
@@ -114,6 +117,7 @@ export const MEMORY_CONTROLLERS: readonly Type[] = [
   TeamMemoryController,
   RunMemoriesController,
   RunnerMemoryController,
+  RunnerMemoryFilesController,
 ];
 
 export const MEMORY_PROVIDERS: readonly Provider[] = [
@@ -137,9 +141,9 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   DrizzleMemoryRepository,
   {
     provide: TEAM_MEMORIES,
-    inject: [DrizzleMemoryRepository],
-    useFactory: (memories: DrizzleMemoryRepository) =>
-      new MemoriesForBriefing(memories),
+    inject: [DrizzleMemoryRepository, MEMORY_USES],
+    useFactory: (memories: DrizzleMemoryRepository, uses: MemoryUsesPort) =>
+      new MemoriesForBriefing(memories, uses),
   },
   {
     provide: MemoryAccess,
@@ -199,10 +203,20 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: NoteMemoryUses,
-    inject: [MEMORY_USES, CLOCK],
-    useFactory: (uses: MemoryUsesPort, clock: ClockPort) =>
-      new NoteMemoryUses(uses, clock),
+    inject: [MEMORY_USES, WORK, DrizzleMemoryRepository, CLOCK],
+    useFactory: (
+      uses: MemoryUsesPort,
+      work: WorkPort,
+      memories: DrizzleMemoryRepository,
+      clock: ClockPort,
+    ) => new NoteMemoryUses(uses, work, memories, clock),
   },
+  ...bindQueryHandler(ReadMemoryFilesQuery, ReadMemoryFilesHandler, [
+    RunnerMemoryAtHand,
+    DrizzleMemoryRepository,
+    WORK,
+    PEOPLE,
+  ]),
   ...bindCommandHandler(WriteMemoryCommand, WriteMemoryHandler, [
     TeamMemoryAtHand,
     DrizzleMemoryRepository,

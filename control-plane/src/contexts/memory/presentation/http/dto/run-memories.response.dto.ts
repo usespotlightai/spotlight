@@ -50,7 +50,8 @@ export class RunMemoriesResponseDto {
   @ApiProperty({
     type: TeamMemoryResponseDto,
     isArray: true,
-    description: 'What the run looked up with spotlight recall',
+    description:
+      'What the run looked up with spotlight recall, or read from the memory folder in its workspace',
   })
   readonly recalled: readonly TeamMemoryResponseDto[];
 

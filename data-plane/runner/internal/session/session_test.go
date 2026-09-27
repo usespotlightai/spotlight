@@ -39,6 +39,8 @@ type journal struct {
 	asked      []protocol.PermissionAsked
 	archives   *keptArchives
 	remembered []remembered
+	memory     []protocol.MemoryFile
+	memoryErr  error
 }
 
 type remembered struct {
@@ -116,6 +118,10 @@ func (j *journal) Remember(
 	defer j.mu.Unlock()
 	j.remembered = append(j.remembered, remembered{asked: asked, journal: slices.Clone(j.events)})
 	return json.Marshal(map[string]string{"kind": asked.Kind, "body": asked.Body})
+}
+
+func (j *journal) MemoryFiles(context.Context, string) ([]protocol.MemoryFile, error) {
+	return j.memory, j.memoryErr
 }
 
 func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {
@@ -294,6 +300,8 @@ type runOptions struct {
 	setup       protocol.HarnessSetup
 	decision    string
 	archives    *keptArchives
+	memory      []protocol.MemoryFile
+	memoryErr   error
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -310,6 +318,8 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		files:     settings.files,
 		decision:  settings.decision,
 		archives:  settings.archives,
+		memory:    settings.memory,
+		memoryErr: settings.memoryErr,
 	}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
@@ -756,6 +766,77 @@ func TestSkillsAreLaidBeforeTheAgentStarts(t *testing.T) {
 
 	if heard := said(t, written); heard != "how to hand over" {
 		t.Errorf("the agent found %q", heard)
+	}
+}
+
+func TestTheTeamsMemoryIsLaidOutBeforeTheAgentStarts(t *testing.T) {
+	root := t.TempDir()
+	stale := filepath.Join(root, "task_1", ".spotlight/memory/team/M-1.md")
+	if err := os.MkdirAll(filepath.Dir(stale), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stale, []byte("retired since"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	written := run(t, harness(t, `const fs = require("node:fs");
+said = JSON.stringify([
+  fs.readFileSync(".spotlight/memory/repositories/acme/api/src/uploads/M-18.md", "utf8"),
+  fs.existsSync(".spotlight/memory/team/M-1.md"),
+  fs.existsSync("elsewhere.md"),
+]);`, "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.memory = []protocol.MemoryFile{
+			{Path: ".spotlight/memory/repositories/acme/api/src/uploads/M-18.md", Body: "# M-18 · rationale"},
+			{Path: "elsewhere.md", Body: "not memory"},
+		}
+	})
+
+	if heard := said(t, written); heard != `["# M-18 · rationale",false,false]` {
+		t.Errorf("the agent found %s", heard)
+	}
+}
+
+func TestARunStartsWithANoteWhenTheTeamsMemoryCannotBeRead(t *testing.T) {
+	written := run(t, harness(t, `const fs = require("node:fs");
+said = JSON.stringify([fs.readdirSync(".spotlight/memory"), fs.readFileSync(".spotlight/memory/README.md", "utf8")]);`, "end_turn"),
+		func(o *runOptions) { o.memoryErr = errors.New("control plane down") })
+
+	if heard := said(t, written); !strings.Contains(heard, `["README.md"]`) || !strings.Contains(heard, "could not be read") {
+		t.Errorf("the agent found %s", heard)
+	}
+}
+
+func TestTheMemoryFolderIsLaidEvenWhereARestoredWorkspaceLeftAFileInItsPlace(t *testing.T) {
+	root := t.TempDir()
+	blocking := filepath.Join(root, "task_1", ".spotlight/memory")
+	if err := os.MkdirAll(filepath.Dir(blocking), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(blocking, []byte("not a folder"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	written := run(t, harness(t, reading(".spotlight/memory/team/M-1.md"), "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/team/M-1.md", Body: "# M-1"}}
+	})
+
+	if heard := said(t, written); heard != "# M-1" {
+		t.Errorf("the agent found %q", heard)
+	}
+}
+
+func TestAMemoryFileThatWouldLeaveTheFolderIsLeftOut(t *testing.T) {
+	written := run(t, harness(t, `said = String(require("node:fs").existsSync("escaped.md"));`, "end_turn"),
+		func(o *runOptions) {
+			o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/../../escaped.md", Body: "out"}}
+		})
+
+	if heard := said(t, written); heard != "false" {
+		t.Errorf("a memory file escaped the folder: %s", heard)
 	}
 }
 

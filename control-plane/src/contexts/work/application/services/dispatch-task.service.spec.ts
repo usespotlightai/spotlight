@@ -297,7 +297,7 @@ const WEB_SEARCH = {
 };
 
 let briefedAt: BriefingPlace[] = [];
-let remembered: BriefingSelection = { briefed: [], cut: [] };
+let remembered: BriefingSelection = { briefed: [], cut: [], folder: null };
 let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
 
@@ -350,7 +350,7 @@ const dispatch = async (
 describe('DispatchTask', () => {
   beforeEach(() => {
     briefedAt = [];
-    remembered = { briefed: [], cut: [] };
+    remembered = { briefed: [], cut: [], folder: null };
     touchedOnTask = [];
     queued = [];
     catalogGiving = { tools: [], skills: [], refused: [] };
@@ -1008,6 +1008,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           },
         ],
         cut: [{ id: 'memory_2', handle: 'M-13' }],
+        folder: { path: '.spotlight/memory', layout: [], mirroring: null },
       };
       touchedOnTask = [
         { repository: Repository.of('acme/api'), path: 'src/uploads.ts' },

@@ -93,6 +93,7 @@ const place = (over: Partial<BriefingPlace> = {}): BriefingPlace => ({
   lineId: DELIVERY,
   stationId: BUILD,
   repositories: [API],
+  about: '',
   touched: async () => [{ repository: API, path: 'src/uploads/retry.ts' }],
   ...over,
 });
@@ -325,6 +326,17 @@ describe('briefing runs with what the team remembers', () => {
     expect(underOtherTeam.status).toBe(404);
   });
 
+  it('briefs a memory about paths the task has not touched yet when the task is about the same thing', async () => {
+    const { briefed: memories } = await briefed().forBriefing(
+      place({
+        touched: async () => [],
+        about: 'Uploads retry in the request and fail',
+      }),
+    );
+
+    expect(memories[0]?.id).toBe(byPath.id);
+  });
+
   it('keeps what the cap cut apart from what it briefs', async () => {
     for (let at = 0; at < 13; at += 1) {
       await writing({ body: `Team-wide memory number ${at}.` });
@@ -332,7 +344,7 @@ describe('briefing runs with what the team remembers', () => {
 
     const chosen = await briefed().forBriefing(place());
 
-    expect(chosen.briefed).toHaveLength(12);
+    expect(chosen.briefed).toHaveLength(8);
     expect(chosen.cut.length).toBeGreaterThan(0);
     expect(
       chosen.cut.filter((each) =>

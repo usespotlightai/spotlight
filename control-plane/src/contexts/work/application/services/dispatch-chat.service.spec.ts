@@ -112,6 +112,7 @@ const dispatching = (
             },
           ],
           cut: [{ id: 'memory_2', handle: 'M-4' }],
+          folder: { path: '.spotlight/memory', layout: [], mirroring: null },
         };
       },
     },

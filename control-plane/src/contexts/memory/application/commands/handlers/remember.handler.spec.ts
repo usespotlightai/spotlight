@@ -25,6 +25,9 @@ const HELD: HeldRun = {
   workspaceId: WORKSPACE,
   teamId: TEAM,
   taskId: TASK,
+  lineId: 'line_1',
+  stationId: 'station_1',
+  repositories: [],
 };
 
 const remembering = (held: HeldRun | null = HELD) => {

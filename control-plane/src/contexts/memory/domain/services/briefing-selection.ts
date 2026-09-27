@@ -1,28 +1,69 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import { isWarning } from '@memory/domain/value-objects/memory-kind';
 import type { MemoryPlace } from '@memory/domain/value-objects/memory-scope.vo';
 
-const MOST_BRIEFED = 12;
+const MOST_BRIEFED = 8;
 
-const MOST_BRIEFED_LENGTH = 4_000;
+const MOST_BRIEFED_LENGTH = 3_000;
 
 const MOST_CUT_KEPT = 20;
+
+const TASK_WEIGHT = 3;
+
+const WARNING_WEIGHT = 1;
+
+const RECALLED_WEIGHT = 0.5;
+
+export interface BriefingCandidate {
+  readonly memory: Memory;
+  readonly match: number;
+  readonly recalled: number;
+}
 
 export interface BriefingChoice {
   readonly briefed: readonly Memory[];
   readonly cut: readonly Memory[];
 }
 
+const REPOSITORY_SPECIFICITY = 1;
+
+const reaching = (
+  candidate: BriefingCandidate,
+  place: MemoryPlace,
+): boolean => {
+  const { memory, match } = candidate;
+
+  return (
+    memory.standing === 'stands' &&
+    (memory.scope.reaches(place) ||
+      (match > 0 && memory.scope.appliesAt(place)))
+  );
+};
+
+const specificityAt = (memory: Memory, place: MemoryPlace): number =>
+  memory.scope.reaches(place)
+    ? memory.scope.specificity
+    : REPOSITORY_SPECIFICITY;
+
+const bearing = (candidate: BriefingCandidate, place: MemoryPlace): number =>
+  specificityAt(candidate.memory, place) +
+  TASK_WEIGHT * Math.min(1, Math.max(0, candidate.match)) +
+  (isWarning(candidate.memory.kind) ? WARNING_WEIGHT : 0) +
+  (candidate.recalled > 0 ? RECALLED_WEIGHT : 0);
+
 export const selectForBriefing = (
-  memories: readonly Memory[],
+  candidates: readonly BriefingCandidate[],
   place: MemoryPlace,
 ): BriefingChoice => {
-  const ranked = memories
-    .filter((each) => each.standing === 'stands' && each.scope.reaches(place))
+  const ranked = candidates
+    .filter((each) => reaching(each, place))
+    .map((each) => ({ memory: each.memory, bears: bearing(each, place) }))
     .sort(
       (one, other) =>
-        other.scope.specificity - one.scope.specificity ||
-        other.approval.at.getTime() - one.approval.at.getTime(),
-    );
+        other.bears - one.bears ||
+        other.memory.approval.at.getTime() - one.memory.approval.at.getTime(),
+    )
+    .map((each) => each.memory);
   const chosen: Memory[] = [];
   let length = 0;
 

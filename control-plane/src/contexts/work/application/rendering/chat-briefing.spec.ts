@@ -4,7 +4,10 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { BriefedMemory } from '@work/application/ports/team-memories.port';
+import type {
+  BriefedMemory,
+  MemoryFolder,
+} from '@work/application/ports/team-memories.port';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
@@ -35,8 +38,12 @@ const started = (traces: readonly TraceReference[] = []) =>
     newId: () => 'chat_1',
   });
 
-const brief = (chat: Chat, memories: readonly BriefedMemory[] = []) =>
-  ChatBriefing.brief({ chat, team: 'Core', lines: [], memories });
+const brief = (
+  chat: Chat,
+  memories: readonly BriefedMemory[] = [],
+  memoryFolder: MemoryFolder | null = null,
+) =>
+  ChatBriefing.brief({ chat, team: 'Core', lines: [], memories, memoryFolder });
 
 const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   const handed = chat
@@ -115,10 +122,28 @@ describe('ChatBriefing', () => {
     );
   });
 
-  it('says how to recall more, but not to remember, since a chat has no task to ground it', () => {
-    const briefing = brief(started(), []);
+  it('points a chat at the memory folder, without the line or station, and never asks it to remember', () => {
+    const briefing = brief(started(), [], {
+      path: '.spotlight/memory',
+      layout: [
+        { folder: 'team/', holds: 'the whole team' },
+        {
+          folder: 'repositories/<owner>/<name>/<path>/',
+          holds: 'a repository, or a file or folder in it',
+        },
+      ],
+      mirroring: 'repositories/',
+    });
 
-    expect(briefing).toContain('`spotlight recall "<words>"`');
+    expect(briefing).toContain('## The rest of what the team remembers');
+    expect(briefing).toContain('`.spotlight/memory/`');
+    expect(briefing).not.toContain('station/ ');
     expect(briefing).not.toContain('spotlight remember');
+  });
+
+  it('says nothing of a memory folder where nothing applies', () => {
+    expect(brief(started())).not.toContain(
+      'The rest of what the team remembers',
+    );
   });
 });

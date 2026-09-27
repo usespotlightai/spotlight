@@ -7,11 +7,14 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MOST_PATHS = 20;
 
-export interface MemoryPlace {
+export interface MemorySite {
   readonly teamId: TeamId;
   readonly lineId: string | null;
   readonly stationId: string | null;
   readonly repositories: readonly Repository[];
+}
+
+export interface MemoryPlace extends MemorySite {
   readonly touched: readonly {
     readonly repository: Repository;
     readonly path: MemoryPath;
@@ -56,7 +59,7 @@ export class MemoryScope {
     return new MemoryScope(input.teamId, lineId, stationId, repository, paths);
   }
 
-  reaches(place: MemoryPlace): boolean {
+  appliesAt(place: MemorySite): boolean {
     if (!this.teamId.equals(place.teamId)) {
       return false;
     }
@@ -71,20 +74,22 @@ export class MemoryScope {
 
     const { repository } = this;
 
-    if (
-      repository &&
-      !place.repositories.some((each) => each.equals(repository))
-    ) {
-      return false;
-    }
+    return (
+      !repository || place.repositories.some((each) => each.equals(repository))
+    );
+  }
+
+  reaches(place: MemoryPlace): boolean {
+    const { repository } = this;
 
     return (
-      this.paths.length === 0 ||
-      place.touched.some(
-        (touched) =>
-          repository?.equals(touched.repository) &&
-          this.paths.some((path) => path.covers(touched.path)),
-      )
+      this.appliesAt(place) &&
+      (this.paths.length === 0 ||
+        place.touched.some(
+          (touched) =>
+            repository?.equals(touched.repository) &&
+            this.paths.some((path) => path.covers(touched.path)),
+        ))
     );
   }
 

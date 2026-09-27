@@ -31,6 +31,8 @@ type Row = typeof memory.$inferSelect;
 
 const MOST_LISTED = 500;
 
+const STRONG_MATCH = 0.1;
+
 const groundsOf = (row: Row): MemoryGrounds | null => {
   const { taskId, runId, steps, notes } = row;
 
@@ -251,6 +253,59 @@ export class DrizzleMemoryRepository implements MemoryRepository {
       .limit(1);
 
     return row ? toMemory(row) : null;
+  }
+
+  async withHandles(
+    teamId: TeamId,
+    handles: readonly MemoryHandle[],
+  ): Promise<readonly Memory[]> {
+    if (handles.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(memory)
+      .where(
+        and(
+          eq(memory.teamId, teamId.value),
+          inArray(
+            memory.handle,
+            handles.map((each) => each.number),
+          ),
+        ),
+      );
+
+    return rows.map(toMemory);
+  }
+
+  async matching(
+    ids: readonly MemoryId[],
+    words: string,
+  ): Promise<ReadonlyMap<string, number>> {
+    if (ids.length === 0 || !words.trim()) {
+      return new Map();
+    }
+
+    const document = sql`to_tsvector('english', ${memory.body})`;
+    const anyOf = sql`nullif(replace(plainto_tsquery('english', ${words})::text, '&', '|'), '')::tsquery`;
+    const rows = await this.context.db
+      .select({
+        id: memory.id,
+        match: sql<number>`least(1, ts_rank(${document}, ${anyOf}) / ${STRONG_MATCH})`,
+      })
+      .from(memory)
+      .where(
+        and(
+          inArray(
+            memory.id,
+            ids.map((each) => each.value),
+          ),
+          sql`${document} @@ ${anyOf}`,
+        ),
+      );
+
+    return new Map(rows.map((row) => [row.id, Number(row.match)]));
   }
 
   async recalled(

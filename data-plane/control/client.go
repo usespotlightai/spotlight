@@ -193,6 +193,17 @@ func (c *Client) RecallMemory(
 	return out, nil
 }
 
+func (c *Client) MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error) {
+	var out []protocol.MemoryFile
+	path := fmt.Sprintf("/api/runs/%s/memory-files", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, fmt.Errorf("read the team's memory: %w", err)
+	}
+
+	return out, nil
+}
+
 func (c *Client) Remember(
 	ctx context.Context, runID string, remembered protocol.Remembering,
 ) (json.RawMessage, error) {

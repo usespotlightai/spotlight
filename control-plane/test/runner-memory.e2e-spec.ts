@@ -466,3 +466,86 @@ describe('what the run remembered, as a person sees it', () => {
     expect(theirs.status).toBe(404);
   });
 });
+
+describe('the team’s memory laid out in the run’s workspace', () => {
+  interface MemoryFile {
+    readonly path: string;
+    readonly body: string;
+  }
+
+  const filesOf = async (): Promise<MemoryFile[]> =>
+    (
+      await http()
+        .get(`/api/runs/${runId}/memory-files`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+    ).body as MemoryFile[];
+
+  it('holds every standing memory that applies to the run, and none of another line or team', async () => {
+    const elsewhere = await writing(team.teamId.value, team.owner.value, {
+      body: 'The default line ships on Fridays.',
+      lineId: team.line.id.value,
+    });
+    const here = await writing(team.teamId.value, team.owner.value, {
+      kind: 'failure',
+      body: 'The upload worker needs Redis.',
+      lineId: DELIVERY,
+      repository: 'acme/api',
+      paths: ['src/uploads'],
+    });
+
+    const files = await filesOf();
+    const paths = files.map((each) => each.path);
+
+    expect(paths).toContain(
+      `.spotlight/memory/repositories/acme/api/src/uploads/${here.handle}.md`,
+    );
+    expect(paths.some((each) => each.endsWith(`/${elsewhere.handle}.md`))).toBe(
+      false,
+    );
+    expect(files.some((each) => each.body.includes('Ours alone.'))).toBe(false);
+    expect(
+      files.every((each) => each.path.startsWith('.spotlight/memory/')),
+    ).toBe(true);
+  });
+
+  it('answers only the runner holding the run', async () => {
+    const refused = await http()
+      .get(`/api/runs/${randomUUID()}/memory-files`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(refused.status).toBe(404);
+  });
+
+  it('counts a memory file the run read as recalled once the run ends', async () => {
+    const [file] = (await filesOf()).filter((each) =>
+      each.path.startsWith('.spotlight/memory/team/'),
+    );
+    const handle = file?.path.split('/').pop()?.replace('.md', '');
+
+    await journalled(3, {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'toolu_read',
+      title: `cat ${file?.path}`,
+      kind: 'execute',
+      status: 'completed',
+    });
+    await http()
+      .post(`/api/runs/${runId}/completion`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ exitCode: 0, failed: false })
+      .expect(204);
+
+    const recalled = await eventually(async () => {
+      const read = (
+        await http()
+          .get(`/api/teams/${team.teamId.value}/runs/${runId}/memories`)
+          .set(TEST_USER_HEADER, team.owner.value)
+      ).body as { recalled: Recalled[] };
+      return (
+        read.recalled.some((each) => each.handle === handle) && read.recalled
+      );
+    });
+    expect(recalled.map((each) => each.handle)).toContain(handle);
+  });
+});

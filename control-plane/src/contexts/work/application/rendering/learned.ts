@@ -1,15 +1,43 @@
-import type { BriefedMemory } from '@work/application/ports/team-memories.port';
+import type {
+  BriefedMemory,
+  MemoryFolder,
+} from '@work/application/ports/team-memories.port';
 import { REMEMBER_COMMAND } from '@work/domain/services/run-reasoning';
 
 const kindOf = (kind: string): string => kind.replaceAll('-', ' ');
 
 const flat = (body: string): string => body.replace(/\s+/g, ' ').trim();
 
-const RECALL_COMMAND = 'spotlight recall';
-
-const RECALLING = `When you meet something your briefing does not cover — a part of the code you do not know, a failure you cannot explain, a choice the team may already have made — search what the team remembers with \`${RECALL_COMMAND} "<words>"\`, and read one in full, with where it came from, with \`${RECALL_COMMAND} M-12\`.`;
-
 const REMEMBERING = `When you learn something the next run should know and the code will not tell it — why an approach was taken or dropped, a trap in the environment, a correction from a person — propose it with \`${REMEMBER_COMMAND} --kind <kind> --body "…" [--path <path>]\`; a person approves it before the team keeps it.`;
+
+const looking = (folder: MemoryFolder): string =>
+  [
+    'Look there before you:',
+    folder.mirroring
+      ? `- change code you do not know: the same path under \`${folder.mirroring}\`, and the folders above it;`
+      : null,
+    '- choose between approaches: grep for what you are deciding, since a rejected approach may already be written down;',
+    '- chase a failure you cannot explain: grep for the error, the test or the service.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+const COPY =
+  'Follow what you find where it bears on your work. The files are only a copy: changing them changes nothing the team remembers.';
+
+const WIDEST = 38;
+
+interface RestOfMemory {
+  readonly folder: MemoryFolder | null;
+  readonly briefed: boolean;
+}
+
+const layout = (folder: MemoryFolder): string =>
+  [
+    '```',
+    ...folder.layout.map((row) => `${row.folder.padEnd(WIDEST)}${row.holds}`),
+    '```',
+  ].join('\n');
 
 export const Learned = {
   section(memories: readonly BriefedMemory[]): string | null {
@@ -27,13 +55,23 @@ export const Learned = {
       : null;
   },
 
-  reaching(remembering: boolean): string {
+  rest(rest: RestOfMemory): string | null {
+    const { folder } = rest;
+
+    if (!folder) {
+      return null;
+    }
+
     return [
-      '## Recalling and remembering',
-      RECALLING,
-      remembering ? REMEMBERING : null,
-    ]
-      .filter(Boolean)
-      .join('\n\n');
+      '## The rest of what the team remembers',
+      `${rest.briefed ? 'The list above is only what bears most closely on this work. ' : ''}Everything the team remembers that applies here is in \`${folder.path}/\` in the workspace, one file per memory, named by its handle and laid out by where it applies:`,
+      layout(folder),
+      looking(folder),
+      COPY,
+    ].join('\n\n');
+  },
+
+  remembering(): string {
+    return ['## Remembering', REMEMBERING].join('\n\n');
   },
 };

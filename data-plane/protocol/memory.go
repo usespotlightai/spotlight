@@ -74,3 +74,8 @@ type ProposedMemory struct {
 	Paths      []string     `json:"paths"`
 	Steps      []MemoryStep `json:"steps"`
 }
+
+type MemoryFile struct {
+	Path string `json:"path"`
+	Body string `json:"body"`
+}

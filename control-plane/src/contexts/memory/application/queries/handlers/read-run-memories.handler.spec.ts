@@ -58,7 +58,13 @@ const reading = (input: {
       briefed: input.briefed.map((each) => each.id.value),
       cut: input.cut.map((each) => each.id.value),
     }),
-    teamOfRun: async () => input.teamOfRun,
+    siteOfRun: async () =>
+      input.teamOfRun && {
+        teamId: input.teamOfRun,
+        lineId: null,
+        stationId: null,
+        repositories: [],
+      },
   } as unknown as WorkPort;
   const people = {
     memberOf: async () => ({

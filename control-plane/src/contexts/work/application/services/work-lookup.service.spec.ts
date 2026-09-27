@@ -462,6 +462,8 @@ describe('WorkLookup, reading a team’s lines', () => {
 });
 
 describe('WorkLookup, finding the run a runner holds', () => {
+  const API = Repository.of('acme/api');
+  const WEB = Repository.of('acme/web');
   const RUNNER = RunnerId.of('runner_1');
   const TEAM = TeamId.of('team_1');
 
@@ -477,16 +479,23 @@ describe('WorkLookup, finding the run a runner holds', () => {
           workspaceId: WORKSPACE,
           taskId: run.chatId ? null : TaskId.of('task_1'),
           chatId: run.chatId ? { value: run.chatId } : null,
-          stationId: run.stationId ?? null,
+          stationId: run.stationId ? { value: run.stationId } : null,
           isHeldBy: (by: RunnerId) => run.held && by.equals(RUNNER),
         }),
       } as unknown as RunRepository,
-      {} as TaskRepository,
+      { find: async () => null } as unknown as TaskRepository,
       {
-        holding: async () => ({ teamId: TEAM }),
+        holding: async () => ({
+          teamId: TEAM,
+          id: { value: 'line_1' },
+          repositories: { all: [API] },
+        }),
       } as unknown as LineRepository,
       {
-        find: async () => ({ teamId: TeamId.of('team_chat') }),
+        find: async () => ({
+          teamId: TeamId.of('team_chat'),
+          repositories: [WEB],
+        }),
       } as unknown as ChatRepository,
       {} as RunJournalReaderPort,
     );
@@ -498,6 +507,9 @@ describe('WorkLookup, finding the run a runner holds', () => {
     const held = await holding({ held: true, stationId: 'station_1' });
 
     expect(held?.teamId.equals(TEAM)).toBe(true);
+    expect(held?.lineId).toBe('line_1');
+    expect(held?.stationId).toBe('station_1');
+    expect(held?.repositories).toEqual([API]);
     expect(held?.taskId?.value).toBe('task_1');
     expect(held?.workspaceId.equals(WORKSPACE)).toBe(true);
   });
@@ -516,14 +528,20 @@ describe('WorkLookup, finding the run a runner holds', () => {
 
   it('names the team of any run, held or not, by its chat or its line', async () => {
     const teamOf = (run: Parameters<typeof lookingAt>[0]) =>
-      lookingAt(run).teamOfRun(RunId.of('run_1'));
+      lookingAt(run).siteOfRun(RunId.of('run_1'));
 
-    expect(
-      (await teamOf({ held: false, stationId: 'station_1' }))?.equals(TEAM),
-    ).toBe(true);
-    expect((await teamOf({ held: false, chatId: 'chat_1' }))?.value).toBe(
-      'team_chat',
-    );
+    expect(await teamOf({ held: false, stationId: 'station_1' })).toEqual({
+      teamId: TEAM,
+      lineId: 'line_1',
+      stationId: 'station_1',
+      repositories: [API],
+    });
+    expect(await teamOf({ held: false, chatId: 'chat_1' })).toEqual({
+      teamId: TeamId.of('team_chat'),
+      lineId: null,
+      stationId: null,
+      repositories: [WEB],
+    });
     expect(await teamOf({ held: false })).toBeNull();
   });
 });

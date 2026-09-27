@@ -110,7 +110,7 @@ export function RunRemembered({ slug, teamId, runId }: RunRememberedProps) {
           {remembered.recalled.length > 0 && (
             <RememberedGroup
               title="Recalled"
-              about="What the agent looked up with spotlight recall."
+              about="What the agent looked up with spotlight recall, or read from the memory folder in its workspace."
             >
               {remembered.recalled.map((memory) => (
                 <RememberedMemory

@@ -37,6 +37,7 @@ type Journal interface {
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.Remembering) (json.RawMessage, error)
+	MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
@@ -123,6 +124,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
+
+	layMemory(ctx, opts.Journal, run.ID, space, log)
 
 	state, err := space.State()
 	if err != nil {
@@ -553,6 +556,43 @@ func fetch(
 	}
 
 	return nil
+}
+
+const memoryFolder = ".spotlight/memory"
+
+const unreadMemory = "The team's memory could not be read for this run, so nothing is laid out here.\n"
+
+func layMemory(ctx context.Context, journal Journal, runID string, space *workspace.Workspace, log *slog.Logger) {
+	files, err := journal.MemoryFiles(ctx, runID)
+	if err != nil {
+		log.Warn("could not read what the team remembers", "error", err)
+		files = []protocol.MemoryFile{{Path: memoryFolder + "/README.md", Body: unreadMemory}}
+	}
+
+	laid := make([]string, 0, len(files))
+	for _, file := range files {
+		if strings.HasPrefix(filepath.Clean(file.Path), memoryFolder+string(filepath.Separator)) {
+			laid = append(laid, filepath.Clean(file.Path))
+		} else {
+			log.Warn("left out a memory file outside the memory folder", "path", file.Path)
+		}
+	}
+
+	if err := space.Prune(memoryFolder, laid); err != nil {
+		if err := space.Remove(memoryFolder); err != nil {
+			log.Warn("could not clear the memory folder", "error", err)
+			return
+		}
+	}
+
+	for _, file := range files {
+		if !slices.Contains(laid, filepath.Clean(file.Path)) {
+			continue
+		}
+		if err := space.Replace(file.Path, nil, writing(file.Body)); err != nil {
+			log.Warn("could not lay a memory file", "path", file.Path, "error", err)
+		}
+	}
 }
 
 const skillFile = "SKILL.md"

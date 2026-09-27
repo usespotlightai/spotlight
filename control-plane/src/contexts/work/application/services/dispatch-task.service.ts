@@ -29,6 +29,7 @@ import {
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import { taskWords } from '@work/application/services/remembering-words';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -225,6 +226,7 @@ export class DispatchTask implements TaskDispatching {
           lineId: line.id.value,
           stationId: task.stationId.value,
           repositories: repositoriesWorked(task, line),
+          about: taskWords(task),
           touched: () => this.touched.onTask(task, line),
         }),
       )
@@ -242,6 +244,7 @@ export class DispatchTask implements TaskDispatching {
       listedIn: home.readByHarness ? null : home.directory,
       decisions: await this.decisions.ofTask(task.id),
       memories: memories.briefed,
+      memoryFolder: memories.folder,
     });
 
     const queued = Run.enqueue({

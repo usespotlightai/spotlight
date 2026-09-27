@@ -660,3 +660,20 @@ func TestAnUnreachableSpotlightIsNoRefusal(t *testing.T) {
 		}
 	}
 }
+
+func TestReadsTheMemoryFilesOfARun(t *testing.T) {
+	var asked string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = r.Method + " " + r.URL.RequestURI()
+		_, _ = w.Write([]byte(`[{"path":".spotlight/memory/team/M-1.md","body":"# M-1"}]`))
+	})
+
+	files, err := client.MemoryFiles(context.Background(), "run_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if asked != "GET /api/runs/run_1/memory-files" || len(files) != 1 || files[0].Body != "# M-1" {
+		t.Errorf("asked %s, got %+v", asked, files)
+	}
+}

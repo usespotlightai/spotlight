@@ -26,6 +26,16 @@ export interface MemoryRepository {
 
   withHandle(teamId: TeamId, handle: MemoryHandle): Promise<Memory | null>;
 
+  withHandles(
+    teamId: TeamId,
+    handles: readonly MemoryHandle[],
+  ): Promise<readonly Memory[]>;
+
+  matching(
+    ids: readonly MemoryId[],
+    words: string,
+  ): Promise<ReadonlyMap<string, number>>;
+
   recalled(
     teamId: TeamId,
     words: string,

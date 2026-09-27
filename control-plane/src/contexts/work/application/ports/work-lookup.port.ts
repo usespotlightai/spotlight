@@ -38,10 +38,16 @@ export interface RunLookup {
   readonly completed: boolean;
 }
 
-export interface HeldRunLookup {
+export interface RunSite {
+  readonly teamId: TeamId;
+  readonly lineId: string | null;
+  readonly stationId: string | null;
+  readonly repositories: readonly Repository[];
+}
+
+export interface HeldRunLookup extends RunSite {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
-  readonly teamId: TeamId;
   readonly taskId: TaskId | null;
 }
 
@@ -91,7 +97,13 @@ export interface WorkLookupPort {
 
   heldBy(runId: RunId, runner: RunnerId): Promise<HeldRunLookup | null>;
 
-  teamOfRun(runId: RunId): Promise<TeamId | null>;
+  siteOfRun(runId: RunId): Promise<RunSite | null>;
+
+  referencedUnder(
+    runId: RunId,
+    folder: string,
+    file: RegExp,
+  ): Promise<readonly string[] | null>;
 
   placeOf(runId: RunId): Promise<RunPlace | null>;
 

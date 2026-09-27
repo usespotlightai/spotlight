@@ -17,11 +17,13 @@ import type {
   RunLookup,
   RunPlace,
   RunReasoning,
+  RunSite,
   SpokenNote,
   TaskLookup,
   TeamLine,
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
+import { referencesUnder } from '@work/application/services/journal-references';
 import {
   distinctFiles,
   filesChangedIn,
@@ -199,30 +201,57 @@ export class WorkLookup implements WorkLookupPort {
       return null;
     }
 
-    const teamId = await this.teamOf(run);
+    const site = await this.siteOf(run);
 
     return (
-      teamId && {
+      site && {
         id: run.id,
         workspaceId: run.workspaceId,
-        teamId,
         taskId: run.taskId,
+        ...site,
       }
     );
   }
 
-  async teamOfRun(runId: RunId): Promise<TeamId | null> {
+  async siteOfRun(runId: RunId): Promise<RunSite | null> {
     const run = await this.runs.findById(runId);
-    return run ? this.teamOf(run) : null;
+    return run ? this.siteOf(run) : null;
   }
 
-  private async teamOf(run: Run): Promise<TeamId | null> {
+  async referencedUnder(
+    runId: RunId,
+    folder: string,
+    file: RegExp,
+  ): Promise<readonly string[] | null> {
+    const journal = await this.journals.ofRun(runId);
+
+    return journal ? referencesUnder(journal, folder, file) : null;
+  }
+
+  private async siteOf(run: Run): Promise<RunSite | null> {
     if (run.chatId) {
-      return (await this.chats.find(run.chatId))?.teamId ?? null;
+      const chat = await this.chats.find(run.chatId);
+      return (
+        chat && {
+          teamId: chat.teamId,
+          lineId: null,
+          stationId: null,
+          repositories: chat.repositories,
+        }
+      );
     }
 
     const line = run.stationId ? await this.lines.holding(run.stationId) : null;
-    return line?.teamId ?? null;
+
+    return (
+      line &&
+      run.stationId && {
+        teamId: line.teamId,
+        lineId: line.id.value,
+        stationId: run.stationId.value,
+        repositories: await this.worked(run, line),
+      }
+    );
   }
 
   async task(taskId: TaskId): Promise<TaskLookup | null> {

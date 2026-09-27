@@ -1,7 +1,10 @@
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 import type { SkillBrief } from '@work/application/dto/ready-skill.dto';
 import type { BriefedDecision } from '@work/application/ports/task-decisions.port';
-import type { BriefedMemory } from '@work/application/ports/team-memories.port';
+import type {
+  BriefedMemory,
+  MemoryFolder,
+} from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
 import { Learned } from '@work/application/rendering/learned';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -156,6 +159,7 @@ export const TaskBriefing = {
     listedIn: string | null;
     decisions: readonly BriefedDecision[];
     memories: readonly BriefedMemory[];
+    memoryFolder: MemoryFolder | null;
   }): string {
     const station = input.line.stationAt(input.task.stationId);
     const notes = input.task.notes.map(
@@ -171,7 +175,11 @@ export const TaskBriefing = {
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
       onRecord(input.decisions),
       Learned.section(input.memories),
-      Learned.reaching(true),
+      Learned.rest({
+        folder: input.memoryFolder,
+        briefed: input.memories.length > 0,
+      }),
+      Learned.remembering(),
       station?.decisions ? SAYING_DECISIONS : null,
       workspaceOf(input.line),
       listing(input.skills, input.listedIn),

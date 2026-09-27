@@ -8,7 +8,7 @@ import { memoryUse } from '@memory/infrastructure/persistence/drizzle/schemas/me
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { asc, countDistinct, eq, inArray } from 'drizzle-orm';
+import { and, asc, countDistinct, eq, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleMemoryUses implements MemoryUsesPort {
@@ -52,6 +52,7 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
 
   async runsUsing(
     memories: readonly MemoryId[],
+    way?: MemoryUse,
   ): Promise<ReadonlyMap<string, number>> {
     if (memories.length === 0) {
       return new Map();
@@ -64,9 +65,12 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
       })
       .from(memoryUse)
       .where(
-        inArray(
-          memoryUse.memoryId,
-          memories.map((each) => each.value),
+        and(
+          inArray(
+            memoryUse.memoryId,
+            memories.map((each) => each.value),
+          ),
+          way ? eq(memoryUse.way, way) : undefined,
         ),
       )
       .groupBy(memoryUse.memoryId);

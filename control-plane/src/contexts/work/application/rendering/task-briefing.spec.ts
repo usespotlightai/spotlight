@@ -3,7 +3,10 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BriefedDecision } from '@work/application/ports/task-decisions.port';
-import type { BriefedMemory } from '@work/application/ports/team-memories.port';
+import type {
+  BriefedMemory,
+  MemoryFolder,
+} from '@work/application/ports/team-memories.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -150,6 +153,7 @@ const brief = (
   worked?: Task,
   decisions: readonly BriefedDecision[] = [],
   memories: readonly BriefedMemory[] = [],
+  memoryFolder: MemoryFolder | null = null,
 ) =>
   TaskBriefing.brief({
     task: worked ?? task(station.id.value),
@@ -158,6 +162,7 @@ const brief = (
     listedIn: null,
     decisions,
     memories,
+    memoryFolder,
   });
 
 describe('TaskBriefing', () => {
@@ -345,6 +350,7 @@ describe('TaskBriefing', () => {
         listedIn: '.spotlight/skills',
         decisions: [],
         memories: [],
+        memoryFolder: null,
       });
 
     it('pastes no skill in, and lists none, where the harness reads them itself', () => {
@@ -460,15 +466,49 @@ describe('TaskBriefing', () => {
       expect(brief(triage())).not.toContain('What the team has learned');
     });
 
-    it('says when to recall more of it and when to propose something to keep', () => {
-      const briefing = brief(triage());
+    it('points at the memory folder, says when to look there, and how to propose something to keep', () => {
+      const briefing = brief(
+        triage(),
+        undefined,
+        [],
+        [
+          {
+            id: 'memory_1',
+            handle: 'M-12',
+            kind: 'rationale',
+            body: 'Uploads retry in the request.',
+          },
+        ],
+        {
+          path: '.spotlight/memory',
+          layout: [
+            { folder: 'team/', holds: 'the whole team' },
+            { folder: 'station/', holds: 'this station' },
+          ],
+          mirroring: null,
+        },
+      );
 
-      expect(briefing).toContain('## Recalling and remembering');
-      expect(briefing).toContain('`spotlight recall "<words>"`');
-      expect(briefing).toContain('`spotlight recall M-12`');
+      expect(briefing).toContain('## The rest of what the team remembers');
+      expect(briefing).toContain(
+        'The list above is only what bears most closely on this work.',
+      );
+      expect(briefing).toContain('`.spotlight/memory/` in the workspace');
+      expect(briefing).toContain('station/');
+      expect(briefing).not.toContain('- change code you do not know');
+      expect(briefing).toContain('- choose between approaches');
+      expect(briefing).toContain('changing them changes nothing');
       expect(briefing).toContain(
         '`spotlight remember --kind <kind> --body "…" [--path <path>]`',
       );
+      expect(briefing).not.toContain('spotlight recall');
+    });
+
+    it('says nothing of a memory folder where nothing applies, but still how to propose one', () => {
+      const briefing = brief(triage());
+
+      expect(briefing).not.toContain('The rest of what the team remembers');
+      expect(briefing).toContain('## Remembering');
     });
   });
 });

@@ -13,6 +13,7 @@ import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import {
   type BriefedMemory,
+  type MemoryFolder,
   NOTHING_REMEMBERED,
   type TeamMemoriesPort,
 } from '@work/application/ports/team-memories.port';
@@ -20,6 +21,7 @@ import type { TraceParentPort } from '@work/application/ports/trace-parent.port'
 import { Attached } from '@work/application/rendering/attached';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import { chatWords } from '@work/application/services/remembering-words';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -93,6 +95,7 @@ export class DispatchChat implements ChatDispatching {
               lineId: null,
               stationId: null,
               repositories: chat.repositories,
+              about: chatWords(chat),
               touched: async () => [],
             }),
           )
@@ -105,7 +108,7 @@ export class DispatchChat implements ChatDispatching {
           });
     const briefing = continuity.sessionId
       ? ChatBriefing.followUp(chat, handed)
-      : await this.briefed(chat, memories.briefed);
+      : await this.briefed(chat, memories.briefed, memories.folder);
 
     const queued = Run.enqueue({
       id,
@@ -149,6 +152,7 @@ export class DispatchChat implements ChatDispatching {
   private async briefed(
     chat: Chat,
     memories: readonly BriefedMemory[],
+    memoryFolder: MemoryFolder | null,
   ): Promise<string> {
     const [team, lines] = await Promise.all([
       this.teams.find(chat.teamId),
@@ -160,6 +164,7 @@ export class DispatchChat implements ChatDispatching {
       team: team?.name ?? null,
       lines,
       memories,
+      memoryFolder,
     });
   }
 }

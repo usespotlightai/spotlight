@@ -57,6 +57,11 @@ export const memorySubscribers = (
     (event) => reactions.onStood(event),
   ),
   subscribing<RunEndedIntegrationEvent>(
+    'memory.note-memories-read',
+    [RUN_ENDED],
+    (event) => noting.runEnded(RunId.of(event.runId)),
+  ),
+  subscribing<RunEndedIntegrationEvent>(
     'memory.ask-for-memories',
     [RUN_ENDED],
     (event) =>

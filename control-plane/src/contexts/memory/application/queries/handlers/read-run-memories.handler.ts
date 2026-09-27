@@ -36,12 +36,13 @@ export class ReadRunMemoriesHandler
     try {
       await this.atHand.member(query.teamId, query.viewerId);
       const runId = RunId.of(query.runId);
-      const [run, teamId] = await Promise.all([
+      const [run, site] = await Promise.all([
         this.work.run(runId),
-        this.work.teamOfRun(runId),
+        this.work.siteOfRun(runId),
       ]);
+      const teamId = site?.teamId;
 
-      if (!run || teamId?.value !== query.teamId) {
+      if (!run || !teamId || teamId.value !== query.teamId) {
         throw new UnknownRunError(query.runId);
       }
 

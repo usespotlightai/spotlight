@@ -26,10 +26,16 @@ export interface RememberedRun {
   readonly cut: readonly string[];
 }
 
-export interface HeldRun {
+export interface RunSite {
+  readonly teamId: TeamId;
+  readonly lineId: string | null;
+  readonly stationId: string | null;
+  readonly repositories: readonly Repository[];
+}
+
+export interface HeldRun extends RunSite {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
-  readonly teamId: TeamId;
   readonly taskId: TaskId | null;
 }
 
@@ -69,7 +75,13 @@ export interface WorkPort {
 
   heldBy(runId: RunId, runner: RunnerId): Promise<HeldRun | null>;
 
-  teamOfRun(runId: RunId): Promise<TeamId | null>;
+  siteOfRun(runId: RunId): Promise<RunSite | null>;
+
+  referencedUnder(
+    runId: RunId,
+    folder: string,
+    file: RegExp,
+  ): Promise<readonly string[] | null>;
 
   placeOf(runId: RunId): Promise<WorkedPlace | null>;
 
