@@ -3307,7 +3307,7 @@ export type RunMemoriesResponseDto = {
    */
   cut: Array<TeamMemoryResponseDto>;
   /**
-   * What the run looked up with spotlight recall
+   * What the run looked up with spotlight recall, or read from the memory folder in its workspace
    */
   recalled: Array<TeamMemoryResponseDto>;
   /**
@@ -3331,6 +3331,14 @@ export type RememberRequestDto = {
    * The standing memory it corrects, by handle
    */
   supersedes?: string | null;
+};
+
+export type MemoryFileResponseDto = {
+  /**
+   * Where to lay it, relative to the run’s workspace
+   */
+  path: string;
+  body: string;
 };
 
 export type HookSigningRequestDtoWritable = {
@@ -11124,3 +11132,29 @@ export type RecallMemoryResponses = {
 };
 
 export type RecallMemoryResponse = RecallMemoryResponses[keyof RecallMemoryResponses];
+
+export type ReadMemoryFilesData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/memory-files';
+};
+
+export type ReadMemoryFilesErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run held by this runner
+   */
+  404: unknown;
+};
+
+export type ReadMemoryFilesResponses = {
+  200: Array<MemoryFileResponseDto>;
+};
+
+export type ReadMemoryFilesResponse = ReadMemoryFilesResponses[keyof ReadMemoryFilesResponses];
