@@ -2,6 +2,7 @@ import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
@@ -25,6 +26,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, isNotNull, isNull, lte, or } from 'drizzle-orm';
 
@@ -87,7 +89,13 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
     recordedAt: row.recordedAt,
     state: row.state,
-    rejectedAt: row.rejectedAt,
+    decision:
+      row.decidedBy && row.decidedAt
+        ? MemoryDecision.of({
+            by: UserId.of(row.decidedBy),
+            at: row.decidedAt,
+          })
+        : null,
   });
 
 const toDraft = (
@@ -139,7 +147,8 @@ const proposalRows = (draft: MemoryDraft) =>
     supersedes: each.supersedes?.value ?? null,
     recordedAt: each.recordedAt,
     state: each.state,
-    rejectedAt: each.rejectedAt,
+    decidedBy: each.decision?.by.value ?? null,
+    decidedAt: each.decision?.at ?? null,
   }));
 
 @Injectable()

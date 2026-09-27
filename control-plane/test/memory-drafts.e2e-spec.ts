@@ -240,10 +240,12 @@ describe('reading what the team already knows', () => {
     },
   ) =>
     held.db.execute(sql`
-      insert into memory (id, workspace_id, kind, body, team_id, line_id, station_id, repository, paths, source, standing, recorded_at)
+      insert into memory (id, workspace_id, kind, body, team_id, line_id, station_id, repository, paths,
+        task_id, run_id, steps, notes, source, standing, approved_by, approved_at)
       values (${id}, 'ws_1', 'preference', ${`Memory ${id}`}, ${scope.team ?? 'team_1'},
-        ${scope.line ?? null}, ${scope.station ?? null}, ${scope.repository ?? null}, '[]'::jsonb, 'person',
-        ${scope.standing ?? 'stands'}, ${NOW.toISOString()})
+        ${scope.line ?? null}, ${scope.station ?? null}, ${scope.repository ?? null}, '[]'::jsonb,
+        'task_1', 'run_1', '[]'::jsonb, '[2]'::jsonb, 'person',
+        ${scope.standing ?? 'stands'}, 'user_ada', ${NOW.toISOString()})
     `);
 
   it('reads the standing memories that reach this station, and none that do not', async () => {
@@ -279,10 +281,10 @@ describe('reading what the team already knows', () => {
     );
     const [lately, longAgo] = (await stored(draft)).proposals;
     await held.db.execute(
-      sql`update memory_proposal set state = 'rejected', rejected_at = ${LATER.toISOString()} where id = ${lately?.id.value ?? ''}`,
+      sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = ${LATER.toISOString()} where id = ${lately?.id.value ?? ''}`,
     );
     await held.db.execute(
-      sql`update memory_proposal set state = 'rejected', rejected_at = '2026-01-01T00:00:00Z' where id = ${longAgo?.id.value ?? ''}`,
+      sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = '2026-01-01T00:00:00Z' where id = ${longAgo?.id.value ?? ''}`,
     );
 
     const rejected = await known.rejectedIn(REACH, NOW);

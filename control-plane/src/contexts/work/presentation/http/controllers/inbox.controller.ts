@@ -22,6 +22,7 @@ import {
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
+import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
 import type { RunJournalDto } from '@work/application/dto/run-journal.dto';
@@ -30,6 +31,7 @@ import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journa
 import {
   AnswerInboxItemRequestDto,
   InboxApprovalResponseDto,
+  InboxAsideResponseDto,
   InboxAuthorResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
@@ -102,6 +104,7 @@ export class InboxController {
           item.unread,
           item.briefing,
           item.failure ? new InboxFailureResponseDto(item.failure) : null,
+          item.aside ? new InboxAsideResponseDto(item.aside) : null,
           item.notes.map(
             (note) =>
               new InboxMessageResponseDto(
@@ -182,6 +185,23 @@ export class InboxController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(new ReadInboxItemCommand(itemId, user.id));
+  }
+
+  @Post('asides/:asideId/read')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'readInboxAside',
+    summary: 'Mark what was put aside for a person as seen',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'asideId', type: String, example: 'aside_1' })
+  @ApiNoContentResponse({ description: 'It is no longer unread' })
+  @ApiNotFoundResponse({ description: 'No such aside for this caller' })
+  async readAside(
+    @Param('asideId') asideId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new ReadInboxAsideCommand(asideId, user.id));
   }
 
   @Get('tasks/:taskId/journal')

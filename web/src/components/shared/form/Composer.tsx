@@ -7,10 +7,11 @@ import {
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { Button } from '@/components/ui/button';
 
-type ReviewComposerProps = {
+type ComposerProps = {
   label: string;
   submitLabel: string;
-  placeholder?: string;
+  placeholder: string;
+  most?: number;
   initial?: string;
   avatar?: ReactNode;
   pending: boolean;
@@ -19,17 +20,18 @@ type ReviewComposerProps = {
   onCancel: () => void;
 };
 
-export function ReviewComposer({
+export function Composer({
   label,
   submitLabel,
-  placeholder = 'Leave a comment',
+  placeholder,
+  most,
   initial = '',
   avatar,
   pending,
   failed = false,
   onSubmit,
   onCancel,
-}: ReviewComposerProps) {
+}: ComposerProps) {
   const [body, setBody] = useState(initial);
   const ready = body.trim().length > 0 && !pending;
 
@@ -64,6 +66,7 @@ export function ReviewComposer({
         <AutoGrowTextarea
           aria-label={label}
           placeholder={placeholder}
+          maxLength={most}
           value={body}
           onChange={(event) => setBody(event.target.value)}
           onKeyDown={onKeyDown}

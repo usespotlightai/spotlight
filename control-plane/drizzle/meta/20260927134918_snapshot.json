@@ -1,5 +1,5 @@
 {
-  "id": "15cb4257-504b-47ed-bf11-a01cbf697156",
+  "id": "c1af2d42-ed2e-4d9d-9c18-88c995bc187c",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3860,6 +3860,30 @@
           "primaryKey": false,
           "notNull": true
         },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "steps": {
+          "name": "steps",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
         "source": {
           "name": "source",
           "type": "memory_source",
@@ -3881,8 +3905,14 @@
           "notNull": true,
           "default": "'stands'"
         },
-        "recorded_at": {
-          "name": "recorded_at",
+        "approved_by": {
+          "name": "approved_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "approved_at": {
+          "name": "approved_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true
@@ -3890,6 +3920,12 @@
         "retired_at": {
           "name": "retired_at",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "superseded_by": {
+          "name": "superseded_by",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -3918,7 +3954,7 @@
               "nulls": "last"
             },
             {
-              "expression": "recorded_at",
+              "expression": "approved_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -4173,8 +4209,14 @@
           "notNull": true,
           "default": "'proposed'"
         },
-        "rejected_at": {
-          "name": "rejected_at",
+        "decided_by": {
+          "name": "decided_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decided_at": {
+          "name": "decided_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -4202,8 +4244,8 @@
           "method": "btree",
           "with": {}
         },
-        "memory_proposal_rejected_idx": {
-          "name": "memory_proposal_rejected_idx",
+        "memory_proposal_decided_idx": {
+          "name": "memory_proposal_decided_idx",
           "columns": [
             {
               "expression": "team_id",
@@ -4218,7 +4260,7 @@
               "nulls": "last"
             },
             {
-              "expression": "rejected_at",
+              "expression": "decided_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7154,6 +7196,185 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.task_aside": {
+      "name": "task_aside",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "form": {
+          "name": "form",
+          "type": "aside_form",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "about": {
+          "name": "about",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "raised_at": {
+          "name": "raised_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "settled_at": {
+          "name": "settled_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "task_aside_about_idx": {
+          "name": "task_aside_about_idx",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "form",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "about",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_aside_workspace_idx": {
+          "name": "task_aside_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "settled_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "task_aside_task_id_task_id_fk": {
+          "name": "task_aside_task_id_task_id_fk",
+          "tableFrom": "task_aside",
+          "tableTo": "task",
+          "columnsFrom": [
+            "task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.task_aside_read": {
+      "name": "task_aside_read",
+      "schema": "",
+      "columns": {
+        "aside_id": {
+          "name": "aside_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "task_aside_read_aside_id_task_aside_id_fk": {
+          "name": "task_aside_read_aside_id_task_aside_id_fk",
+          "tableFrom": "task_aside_read",
+          "tableTo": "task_aside",
+          "columnsFrom": [
+            "aside_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "task_aside_read_aside_id_user_id_pk": {
+          "name": "task_aside_read_aside_id_user_id_pk",
+          "columns": [
+            "aside_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.task": {
       "name": "task",
       "schema": "",
@@ -7978,6 +8199,7 @@
       "schema": "public",
       "values": [
         "proposed",
+        "approved",
         "rejected"
       ]
     },
@@ -8007,6 +8229,13 @@
         "completed",
         "failed",
         "superseded"
+      ]
+    },
+    "public.aside_form": {
+      "name": "aside_form",
+      "schema": "public",
+      "values": [
+        "memories"
       ]
     }
   },

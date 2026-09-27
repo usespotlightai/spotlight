@@ -19,6 +19,11 @@ import type {
   WorkspaceResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
+import {
+  MEMORIES_ITEM_ID,
+  RUN_ID as MEMORIES_RUN_ID,
+  seedMemoryReview,
+} from '@/stories/fixtures/memories';
 
 export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
@@ -27,6 +32,8 @@ export const OPENED_ITEM_ID = 'task_retries:0';
 export const APPROVAL_ITEM_ID = 'task_release_note:0';
 
 export const FAILING_ITEM_ID = 'task_nightly_build:0';
+
+export { MEMORIES_ITEM_ID };
 
 const STATIONS = {
   triage: { name: 'Triage', color: '#edc12b', position: 0 },
@@ -91,6 +98,7 @@ const waiting = (
     unread: false,
     briefing: null,
     failure: null,
+    aside: null,
     ...rest,
   };
 };
@@ -112,6 +120,16 @@ const step = (
 });
 
 const INBOX: InboxItemResponseDto[] = [
+  waiting({
+    id: MEMORIES_ITEM_ID,
+    taskId: 'task_retries',
+    title: 'Drain the stuck retry queues',
+    at: STATIONS.implementation,
+    askedAt: '2026-09-15T10:40:00.000Z',
+    unread: true,
+    aside: { form: 'memories', about: MEMORIES_RUN_ID },
+    notes: [],
+  }),
   waiting({
     taskId: 'task_retries',
     title: 'Drain the stuck retry queues',
@@ -412,6 +430,7 @@ export const seedInbox = (client: QueryClient) => {
     RELEASE_NOTE_JOURNAL,
   );
   client.setQueryData(journalKeys.forTask('task_nightly_build'), []);
+  seedMemoryReview(client);
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(taskKeys.forTeam(TEAM_ID), TASKS);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);

@@ -1,6 +1,11 @@
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
+import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
+import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
+import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
+import { MemoryStood } from '@memory/domain/events/memory-stood.event';
+import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
@@ -20,4 +25,9 @@ export const MEMORY_EVENT_TYPES = [
   MemoriesProposed,
   MemoryDraftingAsked,
   MemoryDraftingFailed,
+  MemoryApproved,
+  MemoryReviewSettled,
+  MemoryStood,
+  MemoryRetired,
+  MemoryDecision,
 ] as const;

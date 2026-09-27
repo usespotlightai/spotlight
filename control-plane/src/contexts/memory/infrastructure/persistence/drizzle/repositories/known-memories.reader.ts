@@ -45,7 +45,7 @@ export class DrizzleKnownMemories implements KnownMemoriesPort {
       .select({ id: memory.id, kind: memory.kind, body: memory.body })
       .from(memory)
       .where(and(within(memory, reach), eq(memory.standing, 'stands')))
-      .orderBy(desc(memory.recordedAt))
+      .orderBy(desc(memory.approvedAt))
       .limit(MOST_STANDING);
   }
 
@@ -61,10 +61,10 @@ export class DrizzleKnownMemories implements KnownMemoriesPort {
         and(
           within(memoryProposal, reach),
           eq(memoryProposal.state, 'rejected'),
-          gte(memoryProposal.rejectedAt, since),
+          gte(memoryProposal.decidedAt, since),
         ),
       )
-      .orderBy(desc(memoryProposal.rejectedAt))
+      .orderBy(desc(memoryProposal.decidedAt))
       .limit(MOST_REJECTED);
   }
 }

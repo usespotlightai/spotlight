@@ -2,7 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   APPROVAL_STANDING,
   APPROVAL_SUBJECTS,
+  INBOX_ASIDE_FORMS,
   type InboxApprovalDto,
+  type InboxAsideDto,
   type InboxFailureDto,
   NOTE_FORMS,
   NOTE_KINDS,
@@ -80,6 +82,27 @@ export class InboxApprovalResponseDto {
       (input) => new InboxApprovalInputResponseDto(input.name, input.value),
     );
     this.standing = approval.standing;
+  }
+}
+
+export class InboxAsideResponseDto {
+  @ApiProperty({
+    enum: INBOX_ASIDE_FORMS,
+    example: 'memories',
+    description:
+      'What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject',
+  })
+  readonly form: string;
+
+  @ApiProperty({
+    example: 'run_1',
+    description: 'What it is about: for memories, the run that proposed them',
+  })
+  readonly about: string;
+
+  constructor(aside: InboxAsideDto) {
+    this.form = aside.form;
+    this.about = aside.about;
   }
 }
 
@@ -332,6 +355,14 @@ export class InboxItemResponseDto {
   })
   readonly failure: InboxFailureResponseDto | null;
 
+  @ApiProperty({
+    type: InboxAsideResponseDto,
+    nullable: true,
+    description:
+      'What this item puts aside for a person to settle, where it is not a conversation; it never holds the task up',
+  })
+  readonly aside: InboxAsideResponseDto | null;
+
   @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
   readonly notes: readonly InboxMessageResponseDto[];
 
@@ -356,6 +387,7 @@ export class InboxItemResponseDto {
     unread: boolean,
     briefing: string | null,
     failure: InboxFailureResponseDto | null,
+    aside: InboxAsideResponseDto | null,
     notes: readonly InboxMessageResponseDto[],
   ) {
     this.id = id;
@@ -378,6 +410,7 @@ export class InboxItemResponseDto {
     this.unread = unread;
     this.briefing = briefing;
     this.failure = failure;
+    this.aside = aside;
     this.notes = notes;
   }
 }

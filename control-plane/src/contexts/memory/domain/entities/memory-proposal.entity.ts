@@ -1,4 +1,7 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
+import { memoryBody } from '@memory/domain/value-objects/memory-body';
+import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import {
@@ -9,12 +12,15 @@ import {
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-export const MEMORY_PROPOSAL_STATES = ['proposed', 'rejected'] as const;
+export const MEMORY_PROPOSAL_STATES = [
+  'proposed',
+  'approved',
+  'rejected',
+] as const;
 
 export type MemoryProposalState = (typeof MEMORY_PROPOSAL_STATES)[number];
-
-const MOST_BODY = 1_000;
 
 export interface ProposedMemory {
   readonly kind: string;
@@ -38,7 +44,7 @@ export class MemoryProposal {
     readonly supersedes: MemoryId | null,
     readonly recordedAt: Date,
     readonly state: MemoryProposalState,
-    readonly rejectedAt: Date | null,
+    readonly decision: MemoryDecision | null,
   ) {}
 
   static of(input: {
@@ -57,14 +63,6 @@ export class MemoryProposal {
       );
     }
 
-    const body = input.body.trim();
-
-    if (!body || body.length > MOST_BODY) {
-      throw new InvalidMemoryError(
-        `says what is remembered in at most ${MOST_BODY} characters`,
-      );
-    }
-
     if (input.supersedes?.equals(input.id)) {
       throw new InvalidMemoryError('never supersedes itself');
     }
@@ -72,7 +70,7 @@ export class MemoryProposal {
     return new MemoryProposal(
       input.id,
       input.kind,
-      body,
+      memoryBody(input.body),
       input.scope,
       input.grounds,
       input.source,
@@ -93,12 +91,12 @@ export class MemoryProposal {
     supersedes: MemoryId | null;
     recordedAt: Date;
     state: MemoryProposalState;
-    rejectedAt: Date | null;
+    decision: MemoryDecision | null;
   }): MemoryProposal {
-    if ((input.state === 'rejected') !== (input.rejectedAt !== null)) {
+    if ((input.state === 'proposed') !== (input.decision === null)) {
       throw new InconsistentStateError(
         'memory proposal',
-        'is rejected without saying when, or says when while still proposed',
+        'is decided without saying who decided it and when, or says so while still proposed',
       );
     }
 
@@ -112,7 +110,7 @@ export class MemoryProposal {
       input.supersedes,
       input.recordedAt,
       input.state,
-      input.rejectedAt,
+      input.decision,
     );
   }
 
@@ -120,7 +118,50 @@ export class MemoryProposal {
     return this.state === 'proposed';
   }
 
+  get fromOutside(): boolean {
+    return this.source === 'outside';
+  }
+
+  proposedIn(runId: RunId): boolean {
+    return this.proposed && this.grounds.runId.equals(runId);
+  }
+
   citesNote(position: number): boolean {
     return this.grounds.notes.includes(position);
+  }
+
+  approved(decision: MemoryDecision, body?: string): MemoryProposal {
+    return this.decided(
+      'approved',
+      decision,
+      body === undefined ? this.body : memoryBody(body),
+    );
+  }
+
+  rejected(decision: MemoryDecision): MemoryProposal {
+    return this.decided('rejected', decision, this.body);
+  }
+
+  private decided(
+    state: MemoryProposalState,
+    decision: MemoryDecision,
+    body: string,
+  ): MemoryProposal {
+    if (!this.proposed) {
+      throw new MemoryAlreadyDecidedError(this.id.value, this.state);
+    }
+
+    return new MemoryProposal(
+      this.id,
+      this.kind,
+      body,
+      this.scope,
+      this.grounds,
+      this.source,
+      this.supersedes,
+      this.recordedAt,
+      state,
+      decision,
+    );
   }
 }

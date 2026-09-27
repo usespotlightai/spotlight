@@ -25,6 +25,7 @@ export interface RememberedRun {
 export interface RememberedTask {
   readonly id: TaskId;
   readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId | null;
   readonly fromOutside: boolean;
 }
 

@@ -115,6 +115,7 @@ const working = (input: {
       task: async () => ({
         id: TASK,
         workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
         fromOutside: input.fromOutside ?? false,
       }),
       reasoning: async () => (input.steps === undefined ? STEPS : input.steps),

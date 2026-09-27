@@ -50,6 +50,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   unread: true,
   briefing: null,
   failure,
+  aside: null,
   notes: [note(failure)],
 });
 

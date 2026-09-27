@@ -3,10 +3,14 @@ import {
   type ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
+import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
+import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import type { DraftEvidence } from '@memory/domain/services/draft-evidence';
+import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
@@ -17,6 +21,13 @@ import type { OwesWork } from '@shared-kernel/domain/owes-work';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+const runsOf = (proposals: readonly MemoryProposal[]): RunId[] =>
+  proposals
+    .map((each) => each.grounds.runId)
+    .filter(
+      (runId, at, all) => all.findIndex((one) => one.equals(runId)) === at,
+    );
 
 export class MemoryDraft
   extends EventRecorder
@@ -217,6 +228,9 @@ export class MemoryDraft
       ],
       failure: null,
     });
+    for (const runId of runsOf(replaced)) {
+      drafted.record(new MemoryReviewSettled(this.id, this.taskId, runId));
+    }
     drafted.record(
       new MemoriesProposed(
         this.id,
@@ -228,6 +242,99 @@ export class MemoryDraft
       ),
     );
     return drafted;
+  }
+
+  approved(input: {
+    runId: RunId;
+    approving: readonly { id: MemoryId; body?: string }[];
+    decision: MemoryDecision;
+  }): MemoryDraft {
+    const ids = input.approving.map((each) => each.id.value);
+
+    if (ids.length === 0 || new Set(ids).size !== ids.length) {
+      throw new InvalidMemoryError('is approved by naming each memory once');
+    }
+
+    const approving = input.approving.map((each) => ({
+      proposal: this.proposalNamed(each.id, input.runId),
+      body: each.body,
+    }));
+
+    if (
+      approving.length > 1 &&
+      approving.some(({ proposal }) => proposal.fromOutside)
+    ) {
+      throw new InvalidMemoryError(
+        'from outside the team is approved one at a time, never with others',
+      );
+    }
+
+    const decided = approving.map(({ proposal, body }) =>
+      proposal.approved(input.decision, body),
+    );
+    const next = this.decided(decided);
+
+    for (const each of decided) {
+      next.record(
+        new MemoryApproved(
+          this.id,
+          this.taskId,
+          this.workspaceId,
+          each.id,
+          each.kind,
+          each.body,
+          each.scope,
+          each.grounds,
+          each.source,
+          each.supersedes,
+          input.decision,
+        ),
+      );
+    }
+
+    return next.settledWhereDone(decided);
+  }
+
+  rejected(input: {
+    runId: RunId;
+    id: MemoryId;
+    decision: MemoryDecision;
+  }): MemoryDraft {
+    const decided = [
+      this.proposalNamed(input.id, input.runId).rejected(input.decision),
+    ];
+
+    return this.decided(decided).settledWhereDone(decided);
+  }
+
+  private proposalNamed(id: MemoryId, runId: RunId): MemoryProposal {
+    const held = this.proposals.find(
+      (each) => each.id.equals(id) && each.grounds.runId.equals(runId),
+    );
+
+    if (!held) {
+      throw new UnknownMemoryError(id.value);
+    }
+
+    return held;
+  }
+
+  private decided(decided: readonly MemoryProposal[]): MemoryDraft {
+    return this.with({
+      proposals: this.proposals.map(
+        (each) => decided.find((one) => one.id.equals(each.id)) ?? each,
+      ),
+    });
+  }
+
+  private settledWhereDone(decided: readonly MemoryProposal[]): MemoryDraft {
+    for (const runId of runsOf(decided)) {
+      if (!this.proposals.some((each) => each.proposedIn(runId))) {
+        this.record(new MemoryReviewSettled(this.id, this.taskId, runId));
+      }
+    }
+
+    return this;
   }
 
   private ended(failure: MemoryDraftingFailure): MemoryDraft {

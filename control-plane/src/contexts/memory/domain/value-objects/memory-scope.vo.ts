@@ -1,5 +1,6 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import type { MemoryReach } from '@memory/domain/value-objects/memory-reach';
 import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -42,6 +43,10 @@ export class MemoryScope {
     }
 
     return new MemoryScope(input.teamId, lineId, stationId, repository, paths);
+  }
+
+  get reach(): MemoryReach {
+    return this.stationId ? 'station' : this.lineId ? 'line' : 'team';
   }
 
   equals(other: MemoryScope): boolean {

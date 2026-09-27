@@ -49,6 +49,7 @@ export class Work implements WorkPort {
       task && {
         id: task.id,
         workspaceId: task.workspaceId,
+        teamId: task.teamId,
         fromOutside: task.fromOutside,
       }
     );

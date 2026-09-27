@@ -76,17 +76,18 @@ export const memoryProposal = pgTable(
     supersedes: text('supersedes'),
     recordedAt: timestamp('recorded_at').notNull(),
     state: memoryProposalState('state').notNull().default('proposed'),
-    rejectedAt: timestamp('rejected_at'),
+    decidedBy: text('decided_by'),
+    decidedAt: timestamp('decided_at'),
   },
   (table) => [
     uniqueIndex('memory_proposal_position_idx').on(
       table.draftId,
       table.position,
     ),
-    index('memory_proposal_rejected_idx').on(
+    index('memory_proposal_decided_idx').on(
       table.teamId,
       table.state,
-      table.rejectedAt,
+      table.decidedAt,
     ),
   ],
 );
@@ -103,18 +104,24 @@ export const memory = pgTable(
     stationId: text('station_id'),
     repository: text('repository'),
     paths: jsonb('paths').$type<string[]>().notNull(),
+    taskId: text('task_id').notNull(),
+    runId: text('run_id').notNull(),
+    steps: jsonb('steps').$type<number[]>().notNull(),
+    notes: jsonb('notes').$type<number[]>().notNull(),
     source: memorySource('source').notNull(),
     supersedes: text('supersedes'),
     standing: memoryStanding('standing').notNull().default('stands'),
-    recordedAt: timestamp('recorded_at').notNull(),
+    approvedBy: text('approved_by').notNull(),
+    approvedAt: timestamp('approved_at').notNull(),
     retiredAt: timestamp('retired_at'),
+    supersededBy: text('superseded_by'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
     index('memory_standing_idx').on(
       table.teamId,
       table.standing,
-      table.recordedAt,
+      table.approvedAt,
     ),
   ],
 );

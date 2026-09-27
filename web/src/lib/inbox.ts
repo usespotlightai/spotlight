@@ -99,6 +99,12 @@ export const shownAt = (
   notes.find((note) => runId && note.runId === runId)?.position ?? null;
 
 export const previewOf = (item: InboxItem): string => {
+  if (item.aside?.form === 'memories') {
+    return item.resolved
+      ? 'The memories a run proposed are decided.'
+      : 'A run proposed memories for the team to keep.';
+  }
+
   const asked = item.notes[item.notes.length - 1];
 
   if (!asked) {

@@ -4,10 +4,15 @@ import {
   type ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
+import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
+import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
+import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
+import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
@@ -19,6 +24,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -108,7 +114,7 @@ const rejected = (id: string) =>
     supersedes: null,
     recordedAt: NOW,
     state: 'rejected',
-    rejectedAt: NOW,
+    decision: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
   });
 
 describe('MemoryDraft', () => {
@@ -347,6 +353,244 @@ describe('MemoryDraft', () => {
         .failed(MemoryDraftingFailure.of('refused', NOW));
 
       expect(() => waiting.leased(NOW)).toThrow(InvalidMemoryError);
+    });
+  });
+
+  describe('deciding', () => {
+    const ADA = MemoryDecision.of({ by: UserId.of('user_ada'), at: LATER });
+
+    const three = () => {
+      const draft = drafting(opened().asked(FIRST, NOW), FIRST, [
+        remembered({ body: 'First.' }),
+        remembered({ body: 'Second.' }),
+        remembered({ body: 'Third.' }),
+      ]);
+      draft.pullEvents();
+      return draft;
+    };
+
+    const outside = () => {
+      const draft = opened()
+        .asked(FIRST, NOW)
+        .drafted({
+          runId: FIRST,
+          proposed: [
+            remembered({ body: 'From outside.' }),
+            remembered({ body: 'Also from outside.' }),
+          ],
+          evidence: DraftEvidence.of({
+            taskId: TASK,
+            runId: FIRST,
+            place: {
+              teamId: TEAM,
+              lineId: 'line_1',
+              stationId: 'station_1',
+              repositories: [API],
+            },
+            steps: [{ index: 5, kind: 'said', text: 'Said it.' }],
+            notes: [],
+            notesRead: 0,
+            changed: [{ repository: API, path: 'src/uploads.ts' }],
+            standing: [],
+            fromOutside: true,
+          }),
+          newId,
+          now: NOW,
+        });
+      draft.pullEvents();
+      return draft;
+    };
+
+    const idOf = (draft: MemoryDraft, at: number) => {
+      const proposal = draft.proposals[at];
+      if (!proposal) throw new Error('no proposal there');
+      return proposal.id;
+    };
+
+    it('approves a memory, recording who approved it and when', () => {
+      const draft = three();
+
+      const approved = draft.approved({
+        runId: FIRST,
+        approving: [{ id: idOf(draft, 0) }],
+        decision: ADA,
+      });
+
+      const [first] = approved.proposals;
+      expect(first?.state).toBe('approved');
+      expect(first?.decision?.equals(ADA)).toBe(true);
+      expect(approved.pullEvents()).toEqual([
+        expect.objectContaining({
+          constructor: MemoryApproved,
+          memoryId: first?.id,
+          body: 'First.',
+          decision: ADA,
+        }),
+      ]);
+    });
+
+    it('approves an edited memory with its new body and its original grounds', () => {
+      const draft = three();
+      const before = draft.proposals[0];
+
+      const approved = draft.approved({
+        runId: FIRST,
+        approving: [{ id: idOf(draft, 0), body: '  Edited.  ' }],
+        decision: ADA,
+      });
+
+      expect(approved.proposals[0]?.body).toBe('Edited.');
+      expect(
+        before && approved.proposals[0]?.grounds.equals(before.grounds),
+      ).toBe(true);
+    });
+
+    it('approves several memories at once', () => {
+      const draft = three();
+
+      const approved = draft.approved({
+        runId: FIRST,
+        approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
+        decision: ADA,
+      });
+
+      expect(approved.proposals.map((each) => each.state)).toEqual([
+        'approved',
+        'approved',
+        'proposed',
+      ]);
+    });
+
+    it('approves a memory from outside the team only on its own', () => {
+      const draft = outside();
+
+      expect(() =>
+        draft.approved({
+          runId: FIRST,
+          approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
+          decision: ADA,
+        }),
+      ).toThrow(InvalidMemoryError);
+      expect(
+        draft.approved({
+          runId: FIRST,
+          approving: [{ id: idOf(draft, 0) }],
+          decision: ADA,
+        }).proposals[0]?.state,
+      ).toBe('approved');
+    });
+
+    it('rejects a memory and keeps it, announcing nothing to keep', () => {
+      const draft = three();
+
+      const rejected = draft.rejected({
+        runId: FIRST,
+        id: idOf(draft, 2),
+        decision: ADA,
+      });
+
+      expect(rejected.proposals[2]?.state).toBe('rejected');
+      expect(rejected.proposals).toHaveLength(3);
+      expect(rejected.pullEvents()).toEqual([]);
+    });
+
+    it('decides a memory only once', () => {
+      const draft = three();
+      const rejected = draft.rejected({
+        runId: FIRST,
+        id: idOf(draft, 0),
+        decision: ADA,
+      });
+
+      expect(() =>
+        rejected.approved({
+          runId: FIRST,
+          approving: [{ id: idOf(draft, 0) }],
+          decision: ADA,
+        }),
+      ).toThrow(MemoryAlreadyDecidedError);
+    });
+
+    it('refuses a memory of another run than the one under review', () => {
+      const draft = three();
+
+      expect(() =>
+        draft.rejected({ runId: SECOND, id: idOf(draft, 0), decision: ADA }),
+      ).toThrow(UnknownMemoryError);
+    });
+
+    it('refuses a memory it does not hold, or one named twice', () => {
+      const draft = three();
+
+      expect(() =>
+        draft.rejected({
+          runId: FIRST,
+          id: MemoryId.of('memory_elsewhere'),
+          decision: ADA,
+        }),
+      ).toThrow(UnknownMemoryError);
+      expect(() =>
+        draft.approved({
+          runId: FIRST,
+          approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 0) }],
+          decision: ADA,
+        }),
+      ).toThrow(InvalidMemoryError);
+    });
+
+    it('settles a run’s review once nothing it proposed is left to decide', () => {
+      let draft = three();
+
+      draft = draft.approved({
+        runId: FIRST,
+        approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
+        decision: ADA,
+      });
+      expect(draft.pullEvents()).not.toContainEqual(
+        expect.any(MemoryReviewSettled),
+      );
+
+      draft = draft.rejected({
+        runId: FIRST,
+        id: idOf(draft, 2),
+        decision: ADA,
+      });
+      expect(draft.pullEvents()).toEqual([
+        new MemoryReviewSettled(draft.id, TASK, FIRST),
+      ]);
+    });
+
+    it('settles an earlier run’s review when a later run replaces what it left undecided', () => {
+      const draft = three();
+
+      const later = drafting(draft.asked(SECOND, LATER), SECOND, [
+        remembered({ body: 'Later.' }),
+      ]);
+
+      expect(later.pullEvents()).toEqual(
+        expect.arrayContaining([
+          new MemoryReviewSettled(later.id, TASK, FIRST),
+          new MemoriesProposed(later.id, TASK, SECOND, 1, 0, 3),
+        ]),
+      );
+    });
+
+    it('keeps approved and rejected memories when a later run replaces the rest', () => {
+      const draft = three();
+      const decided = draft
+        .approved({
+          runId: FIRST,
+          approving: [{ id: idOf(draft, 0) }],
+          decision: ADA,
+        })
+        .rejected({ runId: FIRST, id: idOf(draft, 1), decision: ADA });
+
+      const later = drafting(decided.asked(SECOND, LATER), SECOND, []);
+
+      expect(later.proposals.map((each) => each.state)).toEqual([
+        'approved',
+        'rejected',
+      ]);
     });
   });
 

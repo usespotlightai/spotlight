@@ -752,6 +752,17 @@ export type InboxFailureResponseDto = {
   occurrences: number;
 };
 
+export type InboxAsideResponseDto = {
+  /**
+   * What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject
+   */
+  form: 'memories';
+  /**
+   * What it is about: for memories, the run that proposed them
+   */
+  about: string;
+};
+
 export type InboxAuthorResponseDto = {
   id: string;
   name: string;
@@ -881,6 +892,10 @@ export type InboxItemResponseDto = {
    * The failure this conversation is about, where it is about one
    */
   failure: InboxFailureResponseDto | null;
+  /**
+   * What this item puts aside for a person to settle, where it is not a conversation; it never holds the task up
+   */
+  aside: InboxAsideResponseDto | null;
   notes: Array<InboxMessageResponseDto>;
 };
 
@@ -2127,6 +2142,90 @@ export type WorkspaceRunnersResourceListResponseDto = {
    * Every one there is, each as a read would answer it, in address order
    */
   items: Array<WorkspaceRunnersResourceResponseDto>;
+};
+
+export type MemoryDecisionResponseDto = {
+  by: string;
+  name: string | null;
+  at: string;
+};
+
+export type MemoryGroundStepResponseDto = {
+  /**
+   * Where the step stands in its run
+   */
+  index: number;
+  /**
+   * said, thought, planned, or handover
+   */
+  kind: string;
+  text: string;
+};
+
+export type MemoryGroundNoteResponseDto = {
+  /**
+   * Where the note stands on its task
+   */
+  position: number;
+  /**
+   * person: a teammate signed in to Spotlight; world: someone writing through another tool
+   */
+  by: string;
+  text: string;
+};
+
+export type ProposedMemoryResponseDto = {
+  id: string;
+  kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
+  body: string;
+  /**
+   * person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else
+   */
+  source: 'person' | 'run' | 'outside';
+  state: 'proposed' | 'approved' | 'rejected';
+  /**
+   * Where it applies: the whole team, its line, or its station
+   */
+  reach: 'team' | 'line' | 'station';
+  repository: string | null;
+  paths: Array<string>;
+  /**
+   * The standing memory it replaces once approved
+   */
+  supersedes: string | null;
+  /**
+   * Who approved or rejected it, and when
+   */
+  decision: MemoryDecisionResponseDto | null;
+  /**
+   * The steps of its run it rests on
+   */
+  steps: Array<MemoryGroundStepResponseDto>;
+  /**
+   * What people said on the task that it rests on
+   */
+  notes: Array<MemoryGroundNoteResponseDto>;
+};
+
+export type MemoryReviewResponseDto = {
+  taskId: string;
+  runId: string;
+  memories: Array<ProposedMemoryResponseDto>;
+};
+
+export type ApprovedMemoryRequestDto = {
+  id: string;
+  /**
+   * The memory as it should stand, where it was edited
+   */
+  body?: string;
+};
+
+export type ApproveMemoriesRequestDto = {
+  /**
+   * The memories to approve; one from outside the team is approved on its own
+   */
+  memories: Array<ApprovedMemoryRequestDto>;
 };
 
 export type ConfiguredIntegrationResponseDto = {
@@ -4232,6 +4331,36 @@ export type ReadInboxItemResponses = {
 };
 
 export type ReadInboxItemResponse = ReadInboxItemResponses[keyof ReadInboxItemResponses];
+
+export type ReadInboxAsideData = {
+  body?: never;
+  path: {
+    asideId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/asides/{asideId}/read';
+};
+
+export type ReadInboxAsideErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such aside for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxAsideResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type ReadInboxAsideResponse = ReadInboxAsideResponses[keyof ReadInboxAsideResponses];
 
 export type ReadTaskJournalData = {
   body?: never;
@@ -8353,6 +8482,103 @@ export type ImportWorkspaceRunnersResponses = {
 };
 
 export type ImportWorkspaceRunnersResponse = ImportWorkspaceRunnersResponses[keyof ImportWorkspaceRunnersResponses];
+
+export type ReadMemoryReviewData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/runs/{runId}/memories';
+};
+
+export type ReadMemoryReviewErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ReadMemoryReviewResponses = {
+  200: MemoryReviewResponseDto;
+};
+
+export type ReadMemoryReviewResponse = ReadMemoryReviewResponses[keyof ReadMemoryReviewResponses];
+
+export type ApproveMemoriesData = {
+  body: ApproveMemoriesRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/runs/{runId}/memories/approve';
+};
+
+export type ApproveMemoriesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such memory for this caller
+   */
+  404: unknown;
+  /**
+   * It was decided or redrafted meanwhile
+   */
+  409: unknown;
+  /**
+   * No memories named, one named twice, an edit too long, or one from outside the team approved with others
+   */
+  422: unknown;
+};
+
+export type ApproveMemoriesResponses = {
+  200: MemoryReviewResponseDto;
+};
+
+export type ApproveMemoriesResponse = ApproveMemoriesResponses[keyof ApproveMemoriesResponses];
+
+export type RejectMemoryData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+    runId: string;
+    memoryId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/runs/{runId}/memories/{memoryId}/reject';
+};
+
+export type RejectMemoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such memory for this caller
+   */
+  404: unknown;
+  /**
+   * It was decided or redrafted meanwhile
+   */
+  409: unknown;
+};
+
+export type RejectMemoryResponses = {
+  200: MemoryReviewResponseDto;
+};
+
+export type RejectMemoryResponse = RejectMemoryResponses[keyof RejectMemoryResponses];
 
 export type ReadConfigurationData = {
   body?: never;

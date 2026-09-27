@@ -1,4 +1,17 @@
 import {
+  PERSON_READER,
+  type PersonReaderPort,
+} from '@identity/application/ports/person-reader.port';
+import {
+  WORKSPACE_ACCESS,
+  type WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
+import { ApproveMemoriesCommand } from '@memory/application/commands/approve-memories.command';
+import { ApproveMemoriesHandler } from '@memory/application/commands/handlers/approve-memories.handler';
+import { RejectMemoryHandler } from '@memory/application/commands/handlers/reject-memory.handler';
+import { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
+import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
+import {
   KNOWN_MEMORIES,
   type KnownMemoriesPort,
 } from '@memory/application/ports/known-memories.port';
@@ -6,19 +19,34 @@ import {
   MEMORY_DRAFTER,
   type MemoryDrafterPort,
 } from '@memory/application/ports/memory-drafter.port';
+import { PEOPLE, type PeoplePort } from '@memory/application/ports/people.port';
+import {
+  REVIEWS,
+  type ReviewsPort,
+} from '@memory/application/ports/reviews.port';
 import { WORK, type WorkPort } from '@memory/application/ports/work.port';
+import { ReadMemoryReviewHandler } from '@memory/application/queries/handlers/read-memory-review.handler';
+import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-review.query';
 import { AskForMemories } from '@memory/application/services/ask-for-memories.service';
 import { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
+import { MemoryAccess } from '@memory/application/services/memory-access.service';
+import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
 import { MEMORY_EVENT_TYPES } from '@memory/domain/event-types';
+import { People } from '@memory/infrastructure/acl/people.adapter';
+import { Reviews } from '@memory/infrastructure/acl/reviews.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
 import { OpenRouterMemoryDrafter } from '@memory/infrastructure/drafting/openrouter-memory.drafter';
 import { DrizzleKnownMemories } from '@memory/infrastructure/persistence/drizzle/repositories/known-memories.reader';
+import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
-import type { Provider } from '@nestjs/common';
+import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
+import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
+import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
+import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
@@ -39,11 +67,17 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import {
+  TASK_ASIDES,
+  type TaskAsidesPort,
+} from '@work/application/ports/task-asides.port';
+import {
   WORK_LOOKUP,
   type WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
 
 const MEMORY_EVENTS = Symbol('MEMORY_EVENTS');
+
+export const MEMORY_CONTROLLERS: readonly Type[] = [MemoryReviewController];
 
 export const MEMORY_PROVIDERS: readonly Provider[] = [
   {
@@ -51,7 +85,60 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     inject: [WORK_LOOKUP],
     useFactory: (work: WorkLookupPort) => new Work(work),
   },
+  {
+    provide: REVIEWS,
+    inject: [TASK_ASIDES],
+    useFactory: (asides: TaskAsidesPort) => new Reviews(asides),
+  },
+  {
+    provide: PEOPLE,
+    inject: [WORKSPACE_ACCESS, PERSON_READER],
+    useFactory: (access: WorkspaceAccessPort, people: PersonReaderPort) =>
+      new People(access, people),
+  },
   DrizzleMemoryDraftRepository,
+  DrizzleMemoryRepository,
+  {
+    provide: MemoryAccess,
+    inject: [PEOPLE, WORK],
+    useFactory: (people: PeoplePort, work: WorkPort) =>
+      new MemoryAccess(people, work),
+  },
+  {
+    provide: MemoryReviews,
+    inject: [WORK, PEOPLE],
+    useFactory: (work: WorkPort, people: PeoplePort) =>
+      new MemoryReviews(work, people),
+  },
+  {
+    provide: MemoryReactions,
+    inject: [REVIEWS, DrizzleMemoryRepository, TRANSACTION, CLOCK],
+    useFactory: (
+      reviews: ReviewsPort,
+      memories: DrizzleMemoryRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new MemoryReactions(reviews, memories, transaction, clock),
+  },
+  ...bindCommandHandler(ApproveMemoriesCommand, ApproveMemoriesHandler, [
+    MemoryAccess,
+    DrizzleMemoryDraftRepository,
+    MemoryReviews,
+    TRANSACTION,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(RejectMemoryCommand, RejectMemoryHandler, [
+    MemoryAccess,
+    DrizzleMemoryDraftRepository,
+    MemoryReviews,
+    TRANSACTION,
+    CLOCK,
+  ]),
+  ...bindQueryHandler(ReadMemoryReviewQuery, ReadMemoryReviewHandler, [
+    MemoryAccess,
+    DrizzleMemoryDraftRepository,
+    MemoryReviews,
+  ]),
   { provide: KNOWN_MEMORIES, useClass: DrizzleKnownMemories },
   {
     provide: MEMORY_DRAFTER,
@@ -125,15 +212,22 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: MEMORY_EVENTS,
-    inject: [EventTypes, EventSubscribers, AskForMemories, ForgetMemoryDraft],
+    inject: [
+      EventTypes,
+      EventSubscribers,
+      AskForMemories,
+      ForgetMemoryDraft,
+      MemoryReactions,
+    ],
     useFactory: (
       types: EventTypes,
       subscribers: EventSubscribers,
       asking: AskForMemories,
       forgetting: ForgetMemoryDraft,
+      reactions: MemoryReactions,
     ) => {
       types.register('memory', MEMORY_EVENT_TYPES);
-      subscribers.register(memorySubscribers(asking, forgetting));
+      subscribers.register(memorySubscribers(asking, forgetting, reactions));
       return true;
     },
   },

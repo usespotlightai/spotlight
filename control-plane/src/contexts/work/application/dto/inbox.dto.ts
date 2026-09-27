@@ -8,6 +8,7 @@ import {
   APPROVAL_SUBJECT_KINDS,
   type ApprovalSubjectKind,
 } from '@work/domain/value-objects/approval-subject.vo';
+import { ASIDE_FORMS } from '@work/domain/value-objects/aside-form';
 import { VOICES } from '@work/domain/value-objects/voice.vo';
 
 export const NOTE_KINDS = TASK_NOTE_KINDS;
@@ -15,6 +16,7 @@ export const NOTE_FORMS = TASK_NOTE_FORMS;
 export const NOTE_VOICES = VOICES;
 export const APPROVAL_STANDING = APPROVAL_STANDINGS;
 export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
+export const INBOX_ASIDE_FORMS = ASIDE_FORMS;
 
 interface InboxApprovalInputDto {
   readonly name: string;
@@ -33,6 +35,11 @@ export interface InboxFailureDto {
   readonly source: string;
   readonly code: string;
   readonly occurrences: number;
+}
+
+export interface InboxAsideDto {
+  readonly form: string;
+  readonly about: string;
 }
 
 interface InboxAuthorDto {
@@ -85,5 +92,6 @@ export interface InboxItemDto {
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailureDto | null;
+  readonly aside: InboxAsideDto | null;
   readonly notes: readonly InboxMessageDto[];
 }

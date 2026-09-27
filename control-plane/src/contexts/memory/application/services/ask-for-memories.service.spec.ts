@@ -36,6 +36,7 @@ const asking = (input: {
       task: async () => ({
         id: TASK,
         workspaceId: WorkspaceId.of('ws_1'),
+        teamId: null,
         fromOutside: false,
       }),
     } as unknown as WorkPort,

@@ -22,4 +22,5 @@ export * from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
