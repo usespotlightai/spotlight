@@ -4,10 +4,12 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
+import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -127,6 +129,28 @@ describe('WORK_PUBLICATIONS', () => {
         workspaceId: 'ws_1',
         taskId: null,
         outcome: 'withdrawn',
+      },
+    ]);
+  });
+
+  it('publishes the memories a run was briefed with, and never those the cap cut', () => {
+    expect(
+      published(
+        new RunBriefed(
+          RUN,
+          WORKSPACE,
+          BriefedMemories.of({
+            briefed: [{ id: 'memory_1', handle: 'M-1' }],
+            cut: [{ id: 'memory_2', handle: 'M-2' }],
+          }),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.run-briefed.v1',
+        runId: 'run_1',
+        workspaceId: 'ws_1',
+        memories: ['memory_1'],
       },
     ]);
   });

@@ -102,14 +102,17 @@ const dispatching = (
         if (memoryFails) {
           throw new Error('memory is down');
         }
-        return [
-          {
-            id: 'memory_1',
-            handle: 'M-3',
-            kind: 'preference',
-            body: 'Name branches after the ticket.',
-          },
-        ];
+        return {
+          briefed: [
+            {
+              id: 'memory_1',
+              handle: 'M-3',
+              kind: 'preference',
+              body: 'Name branches after the ticket.',
+            },
+          ],
+          cut: [{ id: 'memory_2', handle: 'M-4' }],
+        };
       },
     },
     {
@@ -189,9 +192,11 @@ describe('DispatchChat', () => {
     const run = await enqueued(chatIn([API]));
 
     expect(briefedAt[0]).toMatchObject({ lineId: null, stationId: null });
-    expect(run.briefedWith.memories).toEqual([
-      { id: 'memory_1', handle: 'M-3' },
-    ]);
+    expect(run.briefedWith.value).toEqual({
+      briefed: [{ id: 'memory_1', handle: 'M-3' }],
+      cut: [{ id: 'memory_2', handle: 'M-4' }],
+    });
+    expect(run.spec.value.briefing).not.toContain('M-4');
     expect(run.spec.value.briefing).toContain('M-3');
   });
 
@@ -200,7 +205,7 @@ describe('DispatchChat', () => {
     const run = await enqueued(chatIn([API]));
     memoryFails = false;
 
-    expect(run.briefedWith.memories).toEqual([]);
+    expect(run.briefedWith.value).toEqual({ briefed: [], cut: [] });
     expect(run.spec.value.briefing).not.toContain('What the team has learned');
   });
 });

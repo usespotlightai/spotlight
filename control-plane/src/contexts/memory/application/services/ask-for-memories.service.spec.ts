@@ -21,7 +21,8 @@ const ENDED: RememberedRun = {
   taskId: TASK,
   completed: true,
   memories: true,
-  briefedWith: [],
+  briefed: [],
+  cut: [],
 };
 
 const asking = (input: {

@@ -112,6 +112,7 @@ const working = (input: {
     {
       run: async () => null,
       heldBy: async () => null,
+      teamOfRun: async () => null,
       linesOf: async () => [],
       placeOf: async () => (input.place === undefined ? PLACE : input.place),
       task: async () => ({

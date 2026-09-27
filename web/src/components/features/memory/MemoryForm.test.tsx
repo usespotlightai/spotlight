@@ -85,6 +85,7 @@ describe('MemoryForm', () => {
       supersedes: null,
       retirement: null,
       grounds: null,
+      runs: 0,
     });
 
     const body = screen.getByRole('textbox', {

@@ -11,6 +11,7 @@ type RunOpeningProps = {
   run: TeamRun;
   briefing: string | null;
   attachments: readonly Attachment[];
+  remembered?: ReactNode;
   activity?: ReactNode;
 };
 
@@ -18,6 +19,7 @@ export function RunOpening({
   run,
   briefing,
   attachments,
+  remembered,
   activity,
 }: RunOpeningProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
@@ -40,6 +42,8 @@ export function RunOpening({
             />
           )}
         </div>
+
+        {remembered && <div className="mt-3">{remembered}</div>}
 
         {activity}
       </div>

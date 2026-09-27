@@ -22,7 +22,8 @@ export interface RememberedRun {
   readonly taskId: TaskId | null;
   readonly completed: boolean;
   readonly memories: boolean;
-  readonly briefedWith: readonly string[];
+  readonly briefed: readonly string[];
+  readonly cut: readonly string[];
 }
 
 export interface HeldRun {
@@ -67,6 +68,8 @@ export interface WorkPort {
   run(runId: RunId): Promise<RememberedRun | null>;
 
   heldBy(runId: RunId, runner: RunnerId): Promise<HeldRun | null>;
+
+  teamOfRun(runId: RunId): Promise<TeamId | null>;
 
   placeOf(runId: RunId): Promise<WorkedPlace | null>;
 

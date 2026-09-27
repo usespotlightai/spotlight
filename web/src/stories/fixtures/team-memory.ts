@@ -82,6 +82,7 @@ const memory = (
   supersedes: null,
   retirement: null,
   grounds: null,
+  runs: 0,
   ...over,
 });
 
@@ -184,3 +185,12 @@ export const failTeamMemory = (client: QueryClient) => {
 };
 
 export const loadTeamMemory = seedLines;
+
+export const FOCUSED_ID = 'memory_gone';
+
+export const MISSING_ID = 'memory_missing';
+
+export const seedMissingMemory = (client: QueryClient) => {
+  seedLines(client);
+  client.setQueryData(teamMemoryKeys.one(TEAM_ID, MISSING_ID), null);
+};

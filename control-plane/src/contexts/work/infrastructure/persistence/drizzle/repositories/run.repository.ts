@@ -70,7 +70,7 @@ export class DrizzleRunRepository implements RunRepository {
       stopped: added.outcome?.stopped ?? false,
       placement: added.placement.clauses,
       placementImage: added.placement.image?.value ?? null,
-      briefedMemories: [...added.briefedWith.memories],
+      briefedMemories: added.briefedWith.value,
       ...reservationOf(added),
     });
   }
@@ -339,6 +339,8 @@ const toRun = (row: Row): Run =>
       asDate(row.claimableFrom),
     ),
     ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
-    briefedWith: BriefedMemories.of(row.briefedMemories ?? []),
+    briefedWith: row.briefedMemories
+      ? BriefedMemories.of(row.briefedMemories)
+      : BriefedMemories.none(),
     version: row.version,
   });

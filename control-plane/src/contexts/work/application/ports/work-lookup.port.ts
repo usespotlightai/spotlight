@@ -27,10 +27,13 @@ export interface RunLookup {
   readonly placement: RunnerPlacement;
   readonly decisions: boolean;
   readonly memories: boolean;
-  readonly briefedWith: readonly {
-    readonly id: string;
-    readonly handle: string;
-  }[];
+  readonly briefedWith: {
+    readonly briefed: readonly {
+      readonly id: string;
+      readonly handle: string;
+    }[];
+    readonly cut: readonly { readonly id: string; readonly handle: string }[];
+  };
   readonly ended: boolean;
   readonly completed: boolean;
 }
@@ -87,6 +90,8 @@ export interface WorkLookupPort {
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
   heldBy(runId: RunId, runner: RunnerId): Promise<HeldRunLookup | null>;
+
+  teamOfRun(runId: RunId): Promise<TeamId | null>;
 
   placeOf(runId: RunId): Promise<RunPlace | null>;
 

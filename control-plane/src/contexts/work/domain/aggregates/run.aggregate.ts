@@ -11,6 +11,7 @@ import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-re
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
+import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
@@ -75,7 +76,7 @@ export class Run extends EventRecorder {
     placement?: RunnerPlacement;
     briefedWith?: BriefedMemories;
   }): Run {
-    return new Run(
+    const run = new Run(
       input.id,
       input.workspaceId,
       input.harness,
@@ -95,6 +96,12 @@ export class Run extends EventRecorder {
       HandBacks.none(),
       input.briefedWith ?? BriefedMemories.none(),
     );
+
+    if (run.briefedWith.briefed.length > 0) {
+      run.record(new RunBriefed(run.id, run.workspaceId, run.briefedWith));
+    }
+
+    return run;
   }
 
   static rehydrate(input: {

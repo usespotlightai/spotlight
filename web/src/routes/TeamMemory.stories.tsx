@@ -4,9 +4,12 @@ import { teamSectionPath } from '@/lib/team';
 import { TeamSection } from '@/routes/TeamSection';
 import {
   emptyTeamMemory,
+  FOCUSED_ID,
   failTeamMemory,
   loadTeamMemory,
+  MISSING_ID,
   SLUG,
+  seedMissingMemory,
   seedTeamMemory,
   TEAM_ID,
 } from '@/stories/fixtures/team-memory';
@@ -91,4 +94,20 @@ export const Writing: Story = {
       await canvas.findByRole('button', { name: 'Write a memory' }),
     );
   },
+};
+
+export const Focused: Story = {
+  render: () => (
+    <StoryPage at={`${at}?memory=${FOCUSED_ID}`} seed={seedTeamMemory}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const FocusedMissing: Story = {
+  render: () => (
+    <StoryPage at={`${at}?memory=${MISSING_ID}`} seed={seedMissingMemory}>
+      {routes}
+    </StoryPage>
+  ),
 };

@@ -11,9 +11,10 @@ import {
 } from '@work/application/contracts/run-spec.contract';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
-import type {
-  BriefedMemory,
-  TeamMemoriesPort,
+import {
+  type BriefedMemory,
+  NOTHING_REMEMBERED,
+  type TeamMemoriesPort,
 } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
@@ -84,7 +85,7 @@ export class DispatchChat implements ChatDispatching {
     }
 
     const memories = continuity.sessionId
-      ? []
+      ? NOTHING_REMEMBERED
       : await this.isolation
           .isolated(() =>
             this.memories.forBriefing({
@@ -100,11 +101,11 @@ export class DispatchChat implements ChatDispatching {
               { err: error, chatId: chat.id.value },
               'Briefing the chat without what the team remembers, which could not be read',
             );
-            return [];
+            return NOTHING_REMEMBERED;
           });
     const briefing = continuity.sessionId
       ? ChatBriefing.followUp(chat, handed)
-      : await this.briefed(chat, memories);
+      : await this.briefed(chat, memories.briefed);
 
     const queued = Run.enqueue({
       id,
@@ -113,7 +114,10 @@ export class DispatchChat implements ChatDispatching {
       priority: CHAT_PRIORITY,
       subject: RunSubject.chat(chat.id),
       placement,
-      briefedWith: BriefedMemories.of(memories),
+      briefedWith: BriefedMemories.of({
+        briefed: memories.briefed,
+        cut: memories.cut,
+      }),
       spec: RunSpec.of({
         checkouts: chat.repositories.map((repository) => {
           const setup = chatSetupOf(repository, lines);

@@ -1,13 +1,40 @@
 import type {
   LineResponseDto,
   ProposedMemoryResponseDto,
+  RunMemoriesResponseDto,
+  RunProposalResponseDto,
   TeamMemoryResponseDto,
   WriteMemoryRequestDto,
 } from '@/lib/api';
+import { teamSectionPath } from '@/lib/team';
 
 export type ProposedMemory = ProposedMemoryResponseDto;
 
 export type TeamMemory = TeamMemoryResponseDto;
+
+export type RunMemories = RunMemoriesResponseDto;
+
+export type RunProposal = RunProposalResponseDto;
+
+export const FOCUS_PARAM = 'memory';
+
+export const memoryPath = (
+  slug: string,
+  teamId: string,
+  memoryId: string,
+): string =>
+  `${teamSectionPath(slug, teamId, 'memory')}?${FOCUS_PARAM}=${encodeURIComponent(memoryId)}`;
+
+export const usedBy = (runs: number): string =>
+  runs === 0
+    ? 'No run has used it yet'
+    : `Used by ${runs} ${runs === 1 ? 'run' : 'runs'}`;
+
+export const rememberedNothing = (memories: RunMemories): boolean =>
+  memories.briefed.length === 0 &&
+  memories.cut.length === 0 &&
+  memories.recalled.length === 0 &&
+  memories.proposed.length === 0;
 
 export type MemoryGround = Pick<ProposedMemoryResponseDto, 'steps' | 'notes'>;
 
@@ -171,3 +198,28 @@ export const retiredAs = (
   retirement.supersededBy
     ? 'Replaced by a newer memory.'
     : `Retired by ${retirement.by?.name ?? 'someone'}: ${retirement.reason ?? 'no reason given'}`;
+
+const counted = (count: number, what: string): string | null =>
+  count > 0 ? `${count} ${what}` : null;
+
+export const rememberedSummary = (memories: RunMemories): string =>
+  [
+    counted(memories.briefed.length, 'briefed'),
+    counted(memories.cut.length, 'cut by the cap'),
+    counted(memories.recalled.length, 'recalled'),
+    counted(memories.proposed.length, 'proposed'),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+export const proposalStateOf = (proposal: RunProposal): string => {
+  if (proposal.state === 'rejected') {
+    return 'Rejected';
+  }
+
+  if (proposal.state === 'approved') {
+    return proposal.standing === 'retired' ? 'Kept, since retired' : 'Kept';
+  }
+
+  return 'Waiting for a person';
+};

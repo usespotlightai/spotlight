@@ -4,6 +4,7 @@ import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
 import { MEMORY_ORIGINS } from '@memory/domain/value-objects/memory-origin';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
 import { MEMORY_STANDINGS } from '@memory/domain/value-objects/memory-standing';
+import { MEMORY_USES } from '@memory/domain/value-objects/memory-use';
 import { sql } from 'drizzle-orm';
 import {
   index,
@@ -12,6 +13,7 @@ import {
   pgEnum,
   pgSequence,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -26,6 +28,7 @@ export const memoryKind = pgEnum('memory_kind', MEMORY_KINDS);
 export const memorySource = pgEnum('memory_source', MEMORY_SOURCES);
 export const memoryStanding = pgEnum('memory_standing', MEMORY_STANDINGS);
 export const memoryOrigin = pgEnum('memory_origin', MEMORY_ORIGINS);
+export const memoryUseWay = pgEnum('memory_use_way', MEMORY_USES);
 export const memoryProposalState = pgEnum(
   'memory_proposal_state',
   MEMORY_PROPOSAL_STATES,
@@ -138,5 +141,21 @@ export const memory = pgTable(
       'gin',
       sql`to_tsvector('english', ${table.body})`,
     ),
+  ],
+);
+
+export const memoryUse = pgTable(
+  'memory_use',
+  {
+    memoryId: text('memory_id')
+      .notNull()
+      .references(() => memory.id, { onDelete: 'cascade' }),
+    runId: text('run_id').notNull(),
+    way: memoryUseWay('way').notNull(),
+    at: timestamp('at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.memoryId, table.runId, table.way] }),
+    index('memory_use_run_idx').on(table.runId, table.at),
   ],
 );

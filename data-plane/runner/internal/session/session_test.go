@@ -539,6 +539,25 @@ func TestTheAgentRemembersThroughItsRunAfterItsStepsAreJournalled(t *testing.T) 
 	}
 }
 
+func TestARecallReachesSpotlightAndTheTraceAsASpan(t *testing.T) {
+	recalling := `execSync(` + "`" +
+		`node -e '
+      fetch(process.env.SPOTLIGHT_HANDOVER_URL + "recall", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        body: JSON.stringify({ words: "upload retries" }),
+      }).then((answer) => process.exit(answer.ok ? 0 : 1));
+    '` + "`" + `); said = "recalled";`
+
+	written := run(t, harness(t, recalling, "end_turn"))
+
+	spans := written.typed(protocol.EventSpan)
+	if len(spans) != 1 || !strings.Contains(string(spans[0].Data), `"spotlight.recall"`) ||
+		!strings.Contains(string(spans[0].Data), "upload retries") {
+		t.Fatalf("spans %v", spans)
+	}
+}
+
 func TestTheBriefingReachesTheAgent(t *testing.T) {
 	written := run(t, harness(t, `said = msg.params.prompt[0].text;`, "end_turn"),
 		func(o *runOptions) { o.briefing = "## Fix the queue" })

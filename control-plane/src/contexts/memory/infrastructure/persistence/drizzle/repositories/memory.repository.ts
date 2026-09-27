@@ -279,6 +279,28 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     return rows.map(toMemory);
   }
 
+  async findAll(ids: readonly MemoryId[]): Promise<readonly Memory[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(memory)
+      .where(
+        inArray(
+          memory.id,
+          ids.map((each) => each.value),
+        ),
+      );
+    const found = new Map(rows.map((row) => [row.id, toMemory(row)]));
+
+    return ids.flatMap((each) => {
+      const held = found.get(each.value);
+      return held ? [held] : [];
+    });
+  }
+
   async find(id: MemoryId): Promise<Memory | null> {
     const [row] = await this.context.db
       .select()

@@ -5,10 +5,17 @@ const MOST_BRIEFED = 12;
 
 const MOST_BRIEFED_LENGTH = 4_000;
 
+const MOST_CUT_KEPT = 20;
+
+export interface BriefingChoice {
+  readonly briefed: readonly Memory[];
+  readonly cut: readonly Memory[];
+}
+
 export const selectForBriefing = (
   memories: readonly Memory[],
   place: MemoryPlace,
-): Memory[] => {
+): BriefingChoice => {
   const ranked = memories
     .filter((each) => each.standing === 'stands' && each.scope.reaches(place))
     .sort(
@@ -31,5 +38,8 @@ export const selectForBriefing = (
     length += memory.body.length;
   }
 
-  return chosen;
+  return {
+    briefed: chosen,
+    cut: ranked.slice(chosen.length, chosen.length + MOST_CUT_KEPT),
+  };
 };

@@ -1,4 +1,4 @@
-export class ReadBriefedMemoriesQuery {
+export class ReadRunMemoriesQuery {
   constructor(
     readonly teamId: string,
     readonly runId: string,

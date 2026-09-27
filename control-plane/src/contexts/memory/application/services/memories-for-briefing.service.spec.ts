@@ -60,14 +60,17 @@ describe('MemoriesForBriefing', () => {
   it('never asks what the task touched when no memory in reach is about paths', async () => {
     const { touched, brief } = briefing([kept(1)]);
 
-    expect((await brief()).map((each) => each.handle)).toEqual(['M-1']);
+    expect((await brief()).briefed.map((each) => each.handle)).toEqual(['M-1']);
     expect(touched).not.toHaveBeenCalled();
   });
 
   it('asks what the task touched to reach a memory about paths', async () => {
     const { touched, brief } = briefing([kept(1), kept(2, ['src/uploads'])]);
 
-    expect((await brief()).map((each) => each.handle)).toEqual(['M-2', 'M-1']);
+    expect((await brief()).briefed.map((each) => each.handle)).toEqual([
+      'M-2',
+      'M-1',
+    ]);
     expect(touched).toHaveBeenCalledOnce();
   });
 });

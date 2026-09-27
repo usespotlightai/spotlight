@@ -87,7 +87,7 @@ describe('selecting what to brief a run with', () => {
       PLACE,
     );
 
-    expect(bodies(chosen).sort()).toEqual(
+    expect(bodies(chosen.briefed).sort()).toEqual(
       ['A folder the run touches.', 'Team-wide.', 'This line.'].sort(),
     );
   });
@@ -98,7 +98,7 @@ describe('selecting what to brief a run with', () => {
       { ...PLACE, lineId: null, stationId: null, touched: [] },
     );
 
-    expect(bodies(chosen)).toEqual(['Team-wide.']);
+    expect(bodies(chosen.briefed)).toEqual(['Team-wide.']);
   });
 
   it('ranks the most specific first, then the most recent', () => {
@@ -116,7 +116,7 @@ describe('selecting what to brief a run with', () => {
       PLACE,
     );
 
-    expect(bodies(chosen)).toEqual([
+    expect(bodies(chosen.briefed)).toEqual([
       'Paths.',
       'Station.',
       'Line.',
@@ -133,8 +133,23 @@ describe('selecting what to brief a run with', () => {
       kept({}, `${at}`.padEnd(900, '.')),
     );
 
-    expect(selectForBriefing(many, PLACE)).toHaveLength(12);
-    expect(selectForBriefing(long, PLACE)).toHaveLength(4);
+    expect(selectForBriefing(many, PLACE).briefed).toHaveLength(12);
+    expect(selectForBriefing(long, PLACE).briefed).toHaveLength(4);
+  });
+
+  it('keeps what the cap cut, the nearest to making it first, and never what did not reach the run', () => {
+    const many = Array.from({ length: 40 }, (_, at) =>
+      kept({}, `Memory ${at}.`, new Date(Date.UTC(2026, 8, 1, 0, 0, 40 - at))),
+    );
+    const elsewhere = kept({ lineId: 'line_docs' }, 'Another line.');
+
+    const chosen = selectForBriefing([...many, elsewhere], PLACE);
+
+    expect(bodies(chosen.cut)).toEqual(
+      Array.from({ length: 20 }, (_, at) => `Memory ${at + 12}.`),
+    );
+    expect(bodies(chosen.cut)).not.toContain('Another line.');
+    expect(bodies(selectForBriefing(many.slice(0, 3), PLACE).cut)).toEqual([]);
   });
 
   it('never gives a retired memory', () => {
@@ -144,6 +159,9 @@ describe('selecting what to brief a run with', () => {
       at: new Date('2026-09-21T10:00:00.000Z'),
     });
 
-    expect(selectForBriefing([retired], PLACE)).toEqual([]);
+    expect(selectForBriefing([retired], PLACE)).toEqual({
+      briefed: [],
+      cut: [],
+    });
   });
 });

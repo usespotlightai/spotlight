@@ -21,6 +21,17 @@ vi.mock('@/hooks/api/useTeamMemories', () => ({
     return memoriesState;
   },
 }));
+const focusedState = {
+  data: undefined as unknown,
+  isPending: false,
+  isFetching: false,
+  errorUpdateCount: 0,
+  refetch,
+};
+
+vi.mock('@/hooks/api/useTeamMemory', () => ({
+  useTeamMemory: () => focusedState,
+}));
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
     data: [
@@ -63,6 +74,7 @@ const memory = (over: Partial<Memory> = {}): Memory => ({
   supersedes: null,
   retirement: null,
   grounds: null,
+  runs: 0,
   ...over,
 });
 
@@ -233,5 +245,45 @@ describe('TeamMemory', () => {
     await userEvent.click(screen.getByRole('button', { name: /Try again/ }));
 
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it('shows how many runs have used each memory', () => {
+    memoriesState.data = [
+      memory({ runs: 3 }),
+      memory({ id: 'memory_2', body: 'Unused.' }),
+    ];
+
+    showing();
+
+    expect(screen.getByText('Used by 3 runs')).toBeVisible();
+    expect(screen.getByText('No run has used it yet')).toBeVisible();
+  });
+
+  it('opens the one memory a link names, and goes back to every memory', async () => {
+    focusedState.data = memory({ id: 'memory_9', body: 'The one linked.' });
+
+    showing('/w/acme/team/team_1/memory?memory=memory_9');
+
+    expect(screen.getByText('The one linked.')).toBeVisible();
+    expect(screen.getByText('Details of memory_9')).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show every memory' }),
+    );
+
+    expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent('');
+  });
+
+  it('says so when a link names a memory the team does not have', () => {
+    focusedState.data = null;
+
+    showing('/w/acme/team/team_1/memory?memory=memory_gone');
+
+    expect(
+      screen.getByText('There is no such memory for this team.'),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Show every memory' }),
+    ).toBeVisible();
   });
 });

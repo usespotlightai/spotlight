@@ -22,7 +22,10 @@ import type {
 } from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
-import type { TeamMemoriesPort } from '@work/application/ports/team-memories.port';
+import {
+  NOTHING_REMEMBERED,
+  type TeamMemoriesPort,
+} from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
@@ -230,7 +233,7 @@ export class DispatchTask implements TaskDispatching {
           { err: error, taskId: task.id.value },
           'Briefing the run without what the team remembers, which could not be read',
         );
-        return [];
+        return NOTHING_REMEMBERED;
       });
     const briefing = TaskBriefing.brief({
       task,
@@ -238,7 +241,7 @@ export class DispatchTask implements TaskDispatching {
       skills: folders.map((each) => each.skill),
       listedIn: home.readByHarness ? null : home.directory,
       decisions: await this.decisions.ofTask(task.id),
-      memories,
+      memories: memories.briefed,
     });
 
     const queued = Run.enqueue({
@@ -248,7 +251,10 @@ export class DispatchTask implements TaskDispatching {
       priority: order.priority,
       subject: RunSubject.task(task.id, order.stationId, task.revision),
       placement: order.placement,
-      briefedWith: BriefedMemories.of(memories),
+      briefedWith: BriefedMemories.of({
+        briefed: memories.briefed,
+        cut: memories.cut,
+      }),
       spec: written(
         order,
         task,

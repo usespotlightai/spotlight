@@ -23,8 +23,8 @@ import type {
   SkillsHome,
 } from '@work/application/ports/harness-launch.port';
 import type {
-  BriefedMemory,
   BriefingPlace,
+  BriefingSelection,
   TouchedFile,
 } from '@work/application/ports/team-memories.port';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
@@ -297,7 +297,7 @@ const WEB_SEARCH = {
 };
 
 let briefedAt: BriefingPlace[] = [];
-let remembered: BriefedMemory[] = [];
+let remembered: BriefingSelection = { briefed: [], cut: [] };
 let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
 
@@ -350,7 +350,7 @@ const dispatch = async (
 describe('DispatchTask', () => {
   beforeEach(() => {
     briefedAt = [];
-    remembered = [];
+    remembered = { briefed: [], cut: [] };
     touchedOnTask = [];
     queued = [];
     catalogGiving = { tools: [], skills: [], refused: [] };
@@ -998,14 +998,17 @@ describe('DispatchTask, the tools a run is told about', () => {
   describe('what the team has learned', () => {
     it('briefs the run with the memories that reach its place, and records them on it', async () => {
       const station = stations[1] as Station;
-      remembered = [
-        {
-          id: 'memory_1',
-          handle: 'M-12',
-          kind: 'preference',
-          body: 'Name branches after the ticket.',
-        },
-      ];
+      remembered = {
+        briefed: [
+          {
+            id: 'memory_1',
+            handle: 'M-12',
+            kind: 'preference',
+            body: 'Name branches after the ticket.',
+          },
+        ],
+        cut: [{ id: 'memory_2', handle: 'M-13' }],
+      };
       touchedOnTask = [
         { repository: Repository.of('acme/api'), path: 'src/uploads.ts' },
       ];
@@ -1022,9 +1025,14 @@ describe('DispatchTask, the tools a run is told about', () => {
       );
       expect(await place?.touched()).toEqual(touchedOnTask);
       const run = queued.slice(-1)[0];
-      expect(run?.briefedWith.memories).toEqual([
-        { id: 'memory_1', handle: 'M-12' },
-      ]);
+      expect(run?.briefedWith.value).toEqual({
+        briefed: [{ id: 'memory_1', handle: 'M-12' }],
+        cut: [{ id: 'memory_2', handle: 'M-13' }],
+      });
+      expect(run?.spec.value.briefing).not.toContain('M-13');
+      expect(run?.pullEvents().map((each) => each.kind)).toContain(
+        'run.briefed',
+      );
       expect(run?.spec.value.briefing).toContain(
         '- **M-12** · preference: Name branches after the ticket.',
       );
@@ -1038,7 +1046,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
       memoryFails = false;
       const run = queued.slice(-1)[0];
-      expect(run?.briefedWith.memories).toEqual([]);
+      expect(run?.briefedWith.value).toEqual({ briefed: [], cut: [] });
       expect(run?.spec.value.briefing).not.toContain(
         'What the team has learned',
       );

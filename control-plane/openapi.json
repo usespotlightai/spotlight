@@ -16086,9 +16086,9 @@
         ]
       }
     },
-    "/teams/{teamId}/runs/{runId}/briefed-memories": {
+    "/teams/{teamId}/runs/{runId}/memories": {
       "get": {
-        "operationId": "readBriefedMemories",
+        "operationId": "readRunMemories",
         "parameters": [
           {
             "name": "teamId",
@@ -16113,10 +16113,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamMemoryResponseDto"
-                  }
+                  "$ref": "#/components/schemas/RunMemoriesResponseDto"
                 }
               }
             }
@@ -16125,10 +16122,10 @@
             "description": "No valid session"
           },
           "404": {
-            "description": "No such run for this caller"
+            "description": "No such run of this team for this caller"
           }
         },
-        "summary": "The memories a run was briefed with, in the order it was told them",
+        "summary": "What a run remembered: the memories it was briefed with and those the cap cut, what it recalled, and what it proposed",
         "tags": [
           "memories"
         ]
@@ -24067,6 +24064,11 @@
                 "$ref": "#/components/schemas/MemoryGroundsResponseDto"
               }
             ]
+          },
+          "runs": {
+            "type": "number",
+            "example": 3,
+            "description": "How many runs were briefed with it or recalled it"
           }
         },
         "required": [
@@ -24085,7 +24087,8 @@
           "approvedAt",
           "supersedes",
           "retirement",
-          "grounds"
+          "grounds",
+          "runs"
         ]
       },
       "WriteMemoryRequestDto": {
@@ -24265,6 +24268,11 @@
               }
             ]
           },
+          "runs": {
+            "type": "number",
+            "example": 3,
+            "description": "How many runs were briefed with it or recalled it"
+          },
           "steps": {
             "type": "array",
             "items": {
@@ -24313,6 +24321,7 @@
           "supersedes",
           "retirement",
           "grounds",
+          "runs",
           "steps",
           "notes",
           "superseded",
@@ -24330,6 +24339,180 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "RunProposalResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "correction"
+          },
+          "body": {
+            "type": "string",
+            "example": "Never retry an upload the bucket refused with a 403."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "person",
+              "run",
+              "outside"
+            ],
+            "example": "person",
+            "description": "person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "drafted",
+              "remembered"
+            ],
+            "example": "remembered",
+            "description": "drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved",
+              "rejected"
+            ],
+            "example": "proposed"
+          },
+          "reach": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "example": "station",
+            "description": "Where it applies: the whole team, its line, or its station"
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "example": [
+              "src/uploads.ts"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "description": "The standing memory it replaces once approved"
+          },
+          "decision": {
+            "nullable": true,
+            "description": "Who approved or rejected it, and when",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryDecisionResponseDto"
+              }
+            ]
+          },
+          "steps": {
+            "description": "The steps of its run it rests on",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryGroundStepResponseDto"
+            }
+          },
+          "notes": {
+            "description": "What people said on the task that it rests on",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryGroundNoteResponseDto"
+            }
+          },
+          "handle": {
+            "type": "string",
+            "nullable": true,
+            "example": "M-12",
+            "description": "Its handle once approved"
+          },
+          "standing": {
+            "type": "string",
+            "nullable": true,
+            "example": "stands",
+            "description": "Once approved, whether it still stands: stands or retired"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "body",
+          "source",
+          "origin",
+          "state",
+          "reach",
+          "repository",
+          "paths",
+          "supersedes",
+          "decision",
+          "steps",
+          "notes",
+          "handle",
+          "standing"
+        ]
+      },
+      "RunMemoriesResponseDto": {
+        "type": "object",
+        "properties": {
+          "briefed": {
+            "description": "What the run was briefed with, in the order it was told",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMemoryResponseDto"
+            }
+          },
+          "cut": {
+            "description": "What reached the run but was left out of its briefing by the cap, the nearest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMemoryResponseDto"
+            }
+          },
+          "recalled": {
+            "description": "What the run looked up with spotlight recall",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMemoryResponseDto"
+            }
+          },
+          "proposed": {
+            "description": "What the run proposed, drafted or asked to remember",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunProposalResponseDto"
+            }
+          }
+        },
+        "required": [
+          "briefed",
+          "cut",
+          "recalled",
+          "proposed"
         ]
       },
       "RememberRequestDto": {

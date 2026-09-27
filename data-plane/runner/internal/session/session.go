@@ -172,10 +172,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	channel.Memories(
 		func(ctx context.Context, asked protocol.RecallRequest) (json.RawMessage, error) {
-			if asked.Handle != "" {
-				return opts.Journal.RecallMemory(ctx, run.ID, asked.Handle)
-			}
-			return opts.Journal.RecallMemories(ctx, run.ID, asked.Words)
+			from := time.Now()
+			answer, err := recall(ctx, opts.Journal, run.ID, asked)
+			journal.append(protocol.Event{Type: protocol.EventSpan, Data: recalled(asked, from, time.Now(), answer, err)})
+			return answer, err
 		},
 		func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error) {
 			within, err := checkedOutPaths(space.Dir, run.Spec.Checkouts, remembered.Paths)
@@ -786,6 +786,13 @@ func (j *journalWriter) flush(ctx context.Context) {
 	if err := j.journal.AppendEvents(ctx, j.runID, batch); err != nil {
 		slog.Warn("could not append events", "run", j.runID, "count", len(batch), "error", err)
 	}
+}
+
+func recall(ctx context.Context, journal Journal, runID string, asked protocol.RecallRequest) (json.RawMessage, error) {
+	if asked.Handle != "" {
+		return journal.RecallMemory(ctx, runID, asked.Handle)
+	}
+	return journal.RecallMemories(ctx, runID, asked.Words)
 }
 
 func checkedOutPaths(dir string, checkouts []protocol.Checkout, asked []string) ([]string, error) {

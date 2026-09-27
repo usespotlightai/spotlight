@@ -18,10 +18,12 @@ import {
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { openTeam } from './support/team';
 
@@ -144,7 +146,7 @@ describe('briefing runs with what the team remembers', () => {
   const briefed = () => app.get<TeamMemoriesPort>(TEAM_MEMORIES);
 
   it('gives a run what reaches its place, the most specific first, each by its handle', async () => {
-    const memories = await briefed().forBriefing(place());
+    const { briefed: memories } = await briefed().forBriefing(place());
 
     expect(memories.map((each) => each.id)).toEqual([
       byPath.id,
@@ -156,7 +158,7 @@ describe('briefing runs with what the team remembers', () => {
   });
 
   it('never gives a line’s memory to another line, nor a retired one to anyone', async () => {
-    const memories = await briefed().forBriefing(
+    const { briefed: memories } = await briefed().forBriefing(
       place({ lineId: DOCS, stationId: null }),
     );
     const ids = memories.map((each) => each.id);
@@ -167,20 +169,21 @@ describe('briefing runs with what the team remembers', () => {
   });
 
   it('gives a path-scoped memory only once the task has touched its paths', async () => {
-    const memories = await briefed().forBriefing(
+    const { briefed: memories } = await briefed().forBriefing(
       place({ touched: async () => [] }),
     );
 
     expect(memories.map((each) => each.id)).not.toContain(byPath.id);
   });
 
-  it('reads back what a run was briefed with, in the order it was told', async () => {
+  it('reads back what a run was briefed with, in the order it was told, apart from what the cap cut, and counts the run as using them', async () => {
     const runId = RunId.of(randomUUID());
     await app.get(DrizzleRunRepository).add(
       Run.enqueue({
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('codex'),
+        subject: RunSubject.task(team.list.id, team.stationId, 0),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'codex-acp', args: [] },
@@ -188,24 +191,41 @@ describe('briefing runs with what the team remembers', () => {
           handover: { options: [], noteLimit: 0 },
           continuity: { key: 'task_1' },
         }),
-        briefedWith: BriefedMemories.of([
-          { id: byPath.id, handle: byPath.handle },
-          { id: teamWide.id, handle: teamWide.handle },
-        ]),
+        briefedWith: BriefedMemories.of({
+          briefed: [
+            { id: byPath.id, handle: byPath.handle },
+            { id: teamWide.id, handle: teamWide.handle },
+          ],
+          cut: [{ id: lineOnly.id, handle: lineOnly.handle }],
+        }),
       }),
     );
 
     const read = await served(app)
-      .get(
-        `/api/teams/${team.teamId.value}/runs/${runId.value}/briefed-memories`,
-      )
+      .get(`/api/teams/${team.teamId.value}/runs/${runId.value}/memories`)
       .set(TEST_USER_HEADER, team.owner.value);
 
     expect(read.status).toBe(200);
-    expect((read.body as Written[]).map((each) => each.handle)).toEqual([
-      byPath.handle,
-      teamWide.handle,
-    ]);
+    expect(
+      (read.body as { briefed: Written[] }).briefed.map((each) => each.handle),
+    ).toEqual([byPath.handle, teamWide.handle]);
+    expect(
+      (read.body as { cut: Written[] }).cut.map((each) => each.handle),
+    ).toEqual([lineOnly.handle]);
+
+    const counted = await eventually(async () => {
+      const listed = (
+        await served(app)
+          .get(`/api/teams/${team.teamId.value}/memories`)
+          .set(TEST_USER_HEADER, team.owner.value)
+      ).body as (Written & { runs: number })[];
+      const runsOf = (id: string) =>
+        listed.find((each) => each.id === id)?.runs ?? 0;
+
+      return runsOf(byPath.id) >= 1 && runsOf;
+    });
+    expect(counted(byPath.id)).toBe(1);
+    expect(counted(lineOnly.id)).toBe(0);
   });
 
   it('never briefs a memory still waiting on a person', async () => {
@@ -252,7 +272,7 @@ describe('briefing runs with what the team remembers', () => {
         }),
     );
 
-    const memories = await briefed().forBriefing(place());
+    const { briefed: memories } = await briefed().forBriefing(place());
 
     expect(memories.map((each) => each.body)).not.toContain(
       'Still waiting on a person.',
@@ -266,6 +286,7 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('claude-code'),
+        subject: RunSubject.task(team.list.id, team.stationId, 0),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'claude-agent-acp', args: [] },
@@ -273,9 +294,10 @@ describe('briefing runs with what the team remembers', () => {
           handover: { options: [], noteLimit: 0 },
           continuity: { key: 'task_2' },
         }),
-        briefedWith: BriefedMemories.of([
-          { id: teamWide.id, handle: teamWide.handle },
-        ]),
+        briefedWith: BriefedMemories.of({
+          briefed: [{ id: teamWide.id, handle: teamWide.handle }],
+          cut: [],
+        }),
       }),
     );
     const stranger = randomUUID();
@@ -293,15 +315,29 @@ describe('briefing runs with what the team remembers', () => {
     });
 
     const byStranger = await served(app)
-      .get(
-        `/api/teams/${team.teamId.value}/runs/${runId.value}/briefed-memories`,
-      )
+      .get(`/api/teams/${team.teamId.value}/runs/${runId.value}/memories`)
       .set(TEST_USER_HEADER, stranger);
     const underOtherTeam = await served(app)
-      .get(`/api/teams/${otherTeam}/runs/${runId.value}/briefed-memories`)
+      .get(`/api/teams/${otherTeam}/runs/${runId.value}/memories`)
       .set(TEST_USER_HEADER, team.owner.value);
 
     expect(byStranger.status).toBe(404);
     expect(underOtherTeam.status).toBe(404);
+  });
+
+  it('keeps what the cap cut apart from what it briefs', async () => {
+    for (let at = 0; at < 13; at += 1) {
+      await writing({ body: `Team-wide memory number ${at}.` });
+    }
+
+    const chosen = await briefed().forBriefing(place());
+
+    expect(chosen.briefed).toHaveLength(12);
+    expect(chosen.cut.length).toBeGreaterThan(0);
+    expect(
+      chosen.cut.filter((each) =>
+        chosen.briefed.some((one) => one.id === each.id),
+      ),
+    ).toEqual([]);
   });
 });

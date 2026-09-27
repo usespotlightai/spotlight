@@ -10,6 +10,7 @@ import {
   retiredAs,
   SOURCE_LABELS,
   type TeamMemory,
+  usedBy,
 } from '@/lib/memory';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,7 @@ type TeamMemoryRowProps = {
   teamId: string;
   memory: TeamMemory;
   lines: readonly LineResponseDto[];
+  startsOpen?: boolean;
 };
 
 export function TeamMemoryRow({
@@ -25,9 +27,10 @@ export function TeamMemoryRow({
   teamId,
   memory,
   lines,
+  startsOpen = false,
 }: TeamMemoryRowProps) {
-  const [open, setOpen] = useState(false);
-  const [seen, setSeen] = useState(false);
+  const [open, setOpen] = useState(startsOpen);
+  const [seen, setSeen] = useState(startsOpen);
 
   return (
     <li
@@ -58,6 +61,8 @@ export function TeamMemoryRow({
               {SOURCE_LABELS[memory.source] ?? memory.source}, kept by{' '}
               {memory.approvedBy.name ?? 'someone'}
             </span>
+            <span aria-hidden>·</span>
+            <span>{usedBy(memory.runs)}</span>
           </span>
           {memory.retirement && (
             <span className="block text-muted-foreground text-xs leading-5">

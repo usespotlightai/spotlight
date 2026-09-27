@@ -23,6 +23,18 @@ export interface BriefedMemory {
   readonly body: string;
 }
 
+interface CutMemory {
+  readonly id: string;
+  readonly handle: string;
+}
+
+export interface BriefingSelection {
+  readonly briefed: readonly BriefedMemory[];
+  readonly cut: readonly CutMemory[];
+}
+
+export const NOTHING_REMEMBERED: BriefingSelection = { briefed: [], cut: [] };
+
 export interface TeamMemoriesPort {
-  forBriefing(place: BriefingPlace): Promise<readonly BriefedMemory[]>;
+  forBriefing(place: BriefingPlace): Promise<BriefingSelection>;
 }

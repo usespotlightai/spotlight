@@ -411,3 +411,58 @@ describe('remembering from inside a run', () => {
     expect((elsewhere.body as { message: string }).message).toContain('(api)');
   });
 });
+
+describe('what the run remembered, as a person sees it', () => {
+  const remembered = () =>
+    http()
+      .get(`/api/teams/${team.teamId.value}/runs/${runId}/memories`)
+      .set(TEST_USER_HEADER, team.owner.value);
+
+  it('shows what the run recalled and what it proposed', async () => {
+    const read = await remembered();
+
+    expect(read.status).toBe(200);
+    const body = read.body as {
+      briefed: Recalled[];
+      recalled: Recalled[];
+      proposed: Proposed[];
+    };
+    expect(body.briefed).toEqual([]);
+    expect(body.recalled.map((each) => each.body)).toEqual(
+      expect.arrayContaining([
+        'Uploads retry in the request, never from a queue.',
+        'Name branches after the ticket.',
+      ]),
+    );
+    expect(body.proposed.map((each) => each.body)).toEqual(
+      expect.arrayContaining([
+        'Uploads retry in the request.',
+        'Staging needs a restart.',
+      ]),
+    );
+  });
+
+  it('retires a memory found wrong, so the run no longer finds it', async () => {
+    const [recalled] = (await recall('upload')).body as Recalled[];
+
+    await http()
+      .post(`/api/teams/${team.teamId.value}/memories/${recalled?.id}/retire`)
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ reason: 'This was wrong: uploads retry from the worker now.' })
+      .expect(200);
+
+    expect(((await recall('upload')).body as Recalled[]).length).toBe(0);
+    const after = (await remembered()).body as { recalled: Recalled[] };
+    expect(
+      after.recalled.find((each) => each.id === recalled?.id)?.standing,
+    ).toBe('retired');
+  });
+
+  it('shows a run’s memories to nobody outside its team', async () => {
+    const theirs = await http()
+      .get(`/api/teams/${other.teamId.value}/runs/${runId}/memories`)
+      .set(TEST_USER_HEADER, other.owner.value);
+
+    expect(theirs.status).toBe(404);
+  });
+});

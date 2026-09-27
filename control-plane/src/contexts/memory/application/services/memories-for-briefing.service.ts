@@ -3,8 +3,8 @@ import type { MemoryRepository } from '@memory/domain/repositories/memory.reposi
 import { selectForBriefing } from '@memory/domain/services/briefing-selection';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import type {
-  BriefedMemory,
   BriefingPlace,
+  BriefingSelection,
   TeamMemoriesPort,
   TouchedFile,
 } from '@work/application/ports/team-memories.port';
@@ -23,7 +23,7 @@ const pathOf = (raw: string): MemoryPath | null => {
 export class MemoriesForBriefing implements TeamMemoriesPort {
   constructor(private readonly memories: MemoryRepository) {}
 
-  async forBriefing(place: BriefingPlace): Promise<readonly BriefedMemory[]> {
+  async forBriefing(place: BriefingPlace): Promise<BriefingSelection> {
     const candidates = await this.memories.mayReach(place);
     const touched: readonly TouchedFile[] = candidates.some(
       (each) => each.scope.paths.length > 0,
@@ -31,7 +31,7 @@ export class MemoriesForBriefing implements TeamMemoriesPort {
       ? await place.touched()
       : [];
 
-    return selectForBriefing(candidates, {
+    const chosen = selectForBriefing(candidates, {
       teamId: place.teamId,
       lineId: place.lineId,
       stationId: place.stationId,
@@ -40,11 +40,19 @@ export class MemoriesForBriefing implements TeamMemoriesPort {
         const path = pathOf(each.path);
         return path ? [{ repository: each.repository, path }] : [];
       }),
-    }).map((each) => ({
-      id: each.id.value,
-      handle: each.handle.value,
-      kind: each.kind,
-      body: each.body,
-    }));
+    });
+
+    return {
+      briefed: chosen.briefed.map((each) => ({
+        id: each.id.value,
+        handle: each.handle.value,
+        kind: each.kind,
+        body: each.body,
+      })),
+      cut: chosen.cut.map((each) => ({
+        id: each.id.value,
+        handle: each.handle.value,
+      })),
+    };
   }
 }

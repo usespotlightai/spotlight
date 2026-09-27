@@ -1,6 +1,7 @@
 import type {
   MemoryGroundNoteDto,
   MemoryGroundStepDto,
+  ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
 import { MEMORY_STANDINGS } from '@memory/domain/value-objects/memory-standing';
 
@@ -40,6 +41,7 @@ export interface TeamMemoryDto {
   readonly supersedes: string | null;
   readonly retirement: MemoryRetirementDto | null;
   readonly grounds: MemoryGroundsDto | null;
+  readonly runs: number;
 }
 
 export interface MemoryLinkDto {
@@ -53,4 +55,16 @@ export interface TeamMemoryDetailDto extends TeamMemoryDto {
   readonly notes: readonly MemoryGroundNoteDto[];
   readonly superseded: MemoryLinkDto | null;
   readonly successor: MemoryLinkDto | null;
+}
+
+export interface RunProposalDto extends ProposedMemoryDto {
+  readonly handle: string | null;
+  readonly standing: string | null;
+}
+
+export interface RunMemoriesDto {
+  readonly briefed: readonly TeamMemoryDto[];
+  readonly cut: readonly TeamMemoryDto[];
+  readonly recalled: readonly TeamMemoryDto[];
+  readonly proposed: readonly RunProposalDto[];
 }

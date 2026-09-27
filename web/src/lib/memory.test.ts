@@ -4,12 +4,17 @@ import {
   askedByAgent,
   decidedBy,
   filterOf,
+  memoryPath,
   narrowed,
   type ProposedMemory,
   paramsOf,
   placeOf,
+  proposalStateOf,
+  type RunProposal,
   reachOf,
+  rememberedSummary,
   stepLabel,
+  usedBy,
 } from '@/lib/memory';
 
 const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
@@ -113,5 +118,48 @@ describe('stepLabel and askedByAgent', () => {
   it('tells a memory the agent asked for from one drafted after the run', () => {
     expect(askedByAgent(memory({ origin: 'remembered' }))).toBe(true);
     expect(askedByAgent(memory())).toBe(false);
+  });
+});
+
+describe('what a run remembered', () => {
+  const proposal = (over: Partial<RunProposal>): RunProposal => ({
+    ...memory(),
+    handle: null,
+    standing: null,
+    ...over,
+  });
+
+  it('counts the runs that used a memory', () => {
+    expect(usedBy(0)).toBe('No run has used it yet');
+    expect(usedBy(1)).toBe('Used by 1 run');
+    expect(usedBy(4)).toBe('Used by 4 runs');
+  });
+
+  it('sums up only what there was', () => {
+    expect(
+      rememberedSummary({
+        briefed: [],
+        cut: [],
+        recalled: [],
+        proposed: [proposal({})],
+      }),
+    ).toBe('1 proposed');
+  });
+
+  it('says where a proposal stands', () => {
+    expect(proposalStateOf(proposal({}))).toBe('Waiting for a person');
+    expect(proposalStateOf(proposal({ state: 'rejected' }))).toBe('Rejected');
+    expect(
+      proposalStateOf(proposal({ state: 'approved', standing: 'stands' })),
+    ).toBe('Kept');
+    expect(
+      proposalStateOf(proposal({ state: 'approved', standing: 'retired' })),
+    ).toBe('Kept, since retired');
+  });
+
+  it('links to one memory on the team’s memory page', () => {
+    expect(memoryPath('acme', 'team_1', 'memory 1')).toBe(
+      '/w/acme/team/team_1/memory?memory=memory%201',
+    );
   });
 });

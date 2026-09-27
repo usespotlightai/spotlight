@@ -9,6 +9,7 @@ import { RunComposer } from '@/components/features/runs/RunComposer';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
 import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
+import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -22,6 +23,7 @@ import {
   runConversationKeys,
   useRunConversation,
 } from '@/hooks/api/useRunConversation';
+import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys, useTeamRuns } from '@/hooks/api/useTeamRuns';
@@ -57,6 +59,11 @@ export function Run() {
     void queryClient.invalidateQueries({
       queryKey: changeStackKeys.forRun(runId),
     });
+    if (teamId && runId) {
+      void queryClient.invalidateQueries({
+        queryKey: runMemoryKeys.forRun(teamId, runId),
+      });
+    }
   }, [queryClient, said?.taskId, runId, teamId]);
 
   useRunStream(runId, run?.state === 'claimed', bump);
@@ -165,6 +172,10 @@ export function Run() {
     !failed(journal) &&
     ran.every((each) => each.steps.length === 0);
 
+  const remembered = (
+    <RunRemembered slug={slug} teamId={teamId} runId={run.id} />
+  );
+
   const activity = run.station ? (
     <RunActivity journals={ran} working={working(run)} station={run.station} />
   ) : null;
@@ -181,11 +192,16 @@ export function Run() {
               worked={worked ?? []}
               opening={
                 said?.briefing ? (
-                  <RunBriefing
-                    briefing={said.briefing}
-                    attachments={said.attachments}
-                  />
-                ) : undefined
+                  <div className="flex flex-col gap-3">
+                    <RunBriefing
+                      briefing={said.briefing}
+                      attachments={said.attachments}
+                    />
+                    {remembered}
+                  </div>
+                ) : (
+                  remembered
+                )
               }
               live={run.state === 'claimed' ? activity : undefined}
               footer={footer}
@@ -196,6 +212,7 @@ export function Run() {
                 run={run}
                 briefing={said?.briefing ?? null}
                 attachments={said?.attachments ?? []}
+                remembered={remembered}
                 activity={
                   quiet ? (
                     <RunEmpty slug={slug} teamId={teamId} run={run} />

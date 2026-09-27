@@ -1,4 +1,4 @@
-export class RecallMemoryQuery {
+export class RecallMemoryCommand {
   constructor(
     readonly runId: string,
     readonly runnerId: string,

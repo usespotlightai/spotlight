@@ -83,7 +83,7 @@ export class WorkLookup implements WorkLookupPort {
       placement: run.placement,
       decisions: station?.decisions ?? false,
       memories: station?.memories ?? false,
-      briefedWith: run.briefedWith.memories,
+      briefedWith: run.briefedWith.value,
       ended: run.hasEnded,
       completed: run.hasCompleted,
     };
@@ -209,6 +209,11 @@ export class WorkLookup implements WorkLookupPort {
         taskId: run.taskId,
       }
     );
+  }
+
+  async teamOfRun(runId: RunId): Promise<TeamId | null> {
+    const run = await this.runs.findById(runId);
+    return run ? this.teamOf(run) : null;
   }
 
   private async teamOf(run: Run): Promise<TeamId | null> {

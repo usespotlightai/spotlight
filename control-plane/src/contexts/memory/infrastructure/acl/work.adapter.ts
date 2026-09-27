@@ -28,7 +28,8 @@ export class Work implements WorkPort {
         taskId: run.taskId,
         completed: run.completed,
         memories: run.memories,
-        briefedWith: run.briefedWith.map((each) => each.id),
+        briefed: run.briefedWith.briefed.map((each) => each.id),
+        cut: run.briefedWith.cut.map((each) => each.id),
       }
     );
   }
@@ -44,6 +45,10 @@ export class Work implements WorkPort {
         taskId: held.taskId,
       }
     );
+  }
+
+  teamOfRun(runId: RunId): Promise<TeamId | null> {
+    return this.work.teamOfRun(runId);
   }
 
   async placeOf(runId: RunId): Promise<WorkedPlace | null> {

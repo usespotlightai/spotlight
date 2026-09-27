@@ -22,6 +22,8 @@ export interface MemoryRepository {
 
   find(id: MemoryId): Promise<Memory | null>;
 
+  findAll(ids: readonly MemoryId[]): Promise<readonly Memory[]>;
+
   withHandle(teamId: TeamId, handle: MemoryHandle): Promise<Memory | null>;
 
   recalled(

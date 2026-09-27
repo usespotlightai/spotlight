@@ -125,4 +125,34 @@ describe('Reported', () => {
   it('has nothing to report for a harness that reported nothing', () => {
     expect(new Reported().spans()).toEqual([]);
   });
+
+  it('reads the span a runner writes for an agent’s recall', () => {
+    const [span] = read({
+      traceId: '0af7651916cd43dd8448eb211c80319c',
+      spanId: 'b7ad6b7169203331',
+      name: 'spotlight.recall',
+      startTimeUnixNano: nanos(AT),
+      endTimeUnixNano: nanos(AT + 40),
+      attributes: [
+        {
+          key: 'spotlight.recall.words',
+          value: { stringValue: 'upload retries' },
+        },
+        { key: 'spotlight.recall.found', value: { intValue: '2' } },
+      ],
+    }).spans();
+
+    expect(span).toEqual({
+      id: 'b7ad6b7169203331',
+      parentId: null,
+      name: 'spotlight.recall',
+      startedAt: new Date(AT),
+      ms: 40,
+      failed: false,
+      attributes: [
+        { name: 'spotlight.recall.words', value: 'upload retries' },
+        { name: 'spotlight.recall.found', value: '2' },
+      ],
+    });
+  });
 });

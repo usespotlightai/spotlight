@@ -1,0 +1,29 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { describe, expect, it } from 'vitest';
+
+const M1 = { id: 'memory_1', handle: 'M-1' };
+const M2 = { id: 'memory_2', handle: 'M-2' };
+
+describe('BriefedMemories', () => {
+  it('keeps what a run was told apart from what the cap cut', () => {
+    const held = BriefedMemories.of({ briefed: [M1], cut: [M2] });
+
+    expect(held.value).toEqual({ briefed: [M1], cut: [M2] });
+    expect(held.equals(BriefedMemories.of({ briefed: [M1], cut: [M2] }))).toBe(
+      true,
+    );
+    expect(
+      held.equals(BriefedMemories.of({ briefed: [M1, M2], cut: [] })),
+    ).toBe(false);
+  });
+
+  it('never holds a memory both told and cut, or one it cannot name', () => {
+    expect(() => BriefedMemories.of({ briefed: [M1], cut: [M1] })).toThrow(
+      InconsistentStateError,
+    );
+    expect(() =>
+      BriefedMemories.of({ briefed: [{ id: ' ', handle: 'M-3' }], cut: [] }),
+    ).toThrow(InconsistentStateError);
+  });
+});

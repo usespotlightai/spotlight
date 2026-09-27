@@ -1,11 +1,11 @@
+import { RecallMemoriesCommand } from '@memory/application/commands/recall-memories.command';
+import { RecallMemoryCommand } from '@memory/application/commands/recall-memory.command';
 import { RememberCommand } from '@memory/application/commands/remember.command';
 import type { ProposedMemoryDto } from '@memory/application/dto/memory-review.dto';
 import type {
   TeamMemoryDetailDto,
   TeamMemoryDto,
 } from '@memory/application/dto/team-memory.dto';
-import { RecallMemoriesQuery } from '@memory/application/queries/recall-memories.query';
-import { RecallMemoryQuery } from '@memory/application/queries/recall-memory.query';
 import { ProposedMemoryResponseDto } from '@memory/presentation/http/dto/memory-review.response.dto';
 import { RememberRequestDto } from '@memory/presentation/http/dto/runner-memory.request.dto';
 import {
@@ -13,7 +13,7 @@ import {
   TeamMemoryResponseDto,
 } from '@memory/presentation/http/dto/team-memory.response.dto';
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { CommandBus } from '@nestjs/cqrs';
 import {
   ApiBody,
   ApiCreatedResponse,
@@ -44,10 +44,7 @@ const optional = (value: unknown): string | null =>
 @RunnerOnly()
 @Controller('runs/:runId/memories')
 export class RunnerMemoryController {
-  constructor(
-    private readonly queryBus: QueryBus,
-    private readonly commandBus: CommandBus,
-  ) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
   @Get()
   @ApiOperation({
@@ -63,10 +60,10 @@ export class RunnerMemoryController {
     @Query('q') words: unknown,
     @CurrentRunner() runnerId: string,
   ): Promise<TeamMemoryResponseDto[]> {
-    const recalled = await this.queryBus.execute<
-      RecallMemoriesQuery,
+    const recalled = await this.commandBus.execute<
+      RecallMemoriesCommand,
       TeamMemoryDto[]
-    >(new RecallMemoriesQuery(runId, runnerId, text(words)));
+    >(new RecallMemoriesCommand(runId, runnerId, text(words)));
 
     return recalled.map((each) => new TeamMemoryResponseDto(each));
   }
@@ -85,8 +82,8 @@ export class RunnerMemoryController {
     @CurrentRunner() runnerId: string,
   ): Promise<TeamMemoryDetailResponseDto> {
     return new TeamMemoryDetailResponseDto(
-      await this.queryBus.execute<RecallMemoryQuery, TeamMemoryDetailDto>(
-        new RecallMemoryQuery(runId, runnerId, handle),
+      await this.commandBus.execute<RecallMemoryCommand, TeamMemoryDetailDto>(
+        new RecallMemoryCommand(runId, runnerId, handle),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import { teamMemoryKeys } from '@/hooks/api/useTeamMemories';
 import { retireMemory } from '@/lib/api';
 
@@ -22,8 +23,11 @@ export function useRetireMemory() {
     },
 
     onSuccess: (_retired, { teamId }) =>
-      queryClient.invalidateQueries({
-        queryKey: teamMemoryKeys.forTeam(teamId),
-      }),
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: teamMemoryKeys.forTeam(teamId),
+        }),
+        queryClient.invalidateQueries({ queryKey: runMemoryKeys.all }),
+      ]),
   });
 }

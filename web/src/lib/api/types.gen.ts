@@ -3179,6 +3179,10 @@ export type TeamMemoryResponseDto = {
    * The task and run it rests on; none where a person wrote it
    */
   grounds: MemoryGroundsResponseDto | null;
+  /**
+   * How many runs were briefed with it or recalled it
+   */
+  runs: number;
 };
 
 export type WriteMemoryRequestDto = {
@@ -3231,6 +3235,10 @@ export type TeamMemoryDetailResponseDto = {
    * The task and run it rests on; none where a person wrote it
    */
   grounds: MemoryGroundsResponseDto | null;
+  /**
+   * How many runs were briefed with it or recalled it
+   */
+  runs: number;
   steps: Array<MemoryGroundStepResponseDto>;
   notes: Array<MemoryGroundNoteResponseDto>;
   superseded: MemoryLinkResponseDto | null;
@@ -3242,6 +3250,70 @@ export type RetireMemoryRequestDto = {
    * Why it no longer holds
    */
   reason: string;
+};
+
+export type RunProposalResponseDto = {
+  id: string;
+  kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
+  body: string;
+  /**
+   * person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else
+   */
+  source: 'person' | 'run' | 'outside';
+  /**
+   * drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember
+   */
+  origin: 'drafted' | 'remembered';
+  state: 'proposed' | 'approved' | 'rejected';
+  /**
+   * Where it applies: the whole team, its line, or its station
+   */
+  reach: 'team' | 'line' | 'station';
+  repository: string | null;
+  paths: Array<string>;
+  /**
+   * The standing memory it replaces once approved
+   */
+  supersedes: string | null;
+  /**
+   * Who approved or rejected it, and when
+   */
+  decision: MemoryDecisionResponseDto | null;
+  /**
+   * The steps of its run it rests on
+   */
+  steps: Array<MemoryGroundStepResponseDto>;
+  /**
+   * What people said on the task that it rests on
+   */
+  notes: Array<MemoryGroundNoteResponseDto>;
+  /**
+   * Its handle once approved
+   */
+  handle: string | null;
+  /**
+   * Once approved, whether it still stands: stands or retired
+   */
+  standing: string | null;
+};
+
+export type RunMemoriesResponseDto = {
+  /**
+   * What the run was briefed with, in the order it was told
+   */
+  briefed: Array<TeamMemoryResponseDto>;
+  /**
+   * What reached the run but was left out of its briefing by the cap, the nearest first
+   */
+  cut: Array<TeamMemoryResponseDto>;
+  /**
+   * What the run looked up with spotlight recall
+   */
+  recalled: Array<TeamMemoryResponseDto>;
+  /**
+   * What the run proposed, drafted or asked to remember
+   */
+  proposed: Array<RunProposalResponseDto>;
 };
 
 export type RememberRequestDto = {
@@ -10930,32 +11002,32 @@ export type RetireMemoryResponses = {
 
 export type RetireMemoryResponse = RetireMemoryResponses[keyof RetireMemoryResponses];
 
-export type ReadBriefedMemoriesData = {
+export type ReadRunMemoriesData = {
   body?: never;
   path: {
     teamId: string;
     runId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/briefed-memories';
+  url: '/teams/{teamId}/runs/{runId}/memories';
 };
 
-export type ReadBriefedMemoriesErrors = {
+export type ReadRunMemoriesErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such run for this caller
+   * No such run of this team for this caller
    */
   404: unknown;
 };
 
-export type ReadBriefedMemoriesResponses = {
-  200: Array<TeamMemoryResponseDto>;
+export type ReadRunMemoriesResponses = {
+  200: RunMemoriesResponseDto;
 };
 
-export type ReadBriefedMemoriesResponse = ReadBriefedMemoriesResponses[keyof ReadBriefedMemoriesResponses];
+export type ReadRunMemoriesResponse = ReadRunMemoriesResponses[keyof ReadRunMemoriesResponses];
 
 export type RecallMemoriesData = {
   body?: never;

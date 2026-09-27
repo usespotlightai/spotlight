@@ -1,10 +1,15 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { AskForMemories } from '@memory/application/services/ask-for-memories.service';
 import type { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
+import type { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
 import type { MemoryStood } from '@memory/domain/events/memory-stood.event';
+import {
+  RUN_BRIEFED,
+  type RunBriefedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-briefed.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -24,7 +29,13 @@ export const memorySubscribers = (
   asking: AskForMemories,
   forgetting: ForgetMemoryDraft,
   reactions: MemoryReactions,
+  noting: NoteMemoryUses,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<RunBriefedIntegrationEvent>(
+    'memory.note-briefed-memories',
+    [RUN_BRIEFED],
+    (event) => noting.runBriefed(RunId.of(event.runId), event.memories),
+  ),
   subscribing<MemoriesProposed>(
     'memory.raise-review',
     ['memory-draft.proposed'],

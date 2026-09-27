@@ -465,7 +465,7 @@ describe('WorkLookup, finding the run a runner holds', () => {
   const RUNNER = RunnerId.of('runner_1');
   const TEAM = TeamId.of('team_1');
 
-  const holding = (run: {
+  const lookingAt = (run: {
     held: boolean;
     chatId?: string | null;
     stationId?: string | null;
@@ -489,7 +489,10 @@ describe('WorkLookup, finding the run a runner holds', () => {
         find: async () => ({ teamId: TeamId.of('team_chat') }),
       } as unknown as ChatRepository,
       {} as RunJournalReaderPort,
-    ).heldBy(RunId.of('run_1'), RUNNER);
+    );
+
+  const holding = (run: Parameters<typeof lookingAt>[0]) =>
+    lookingAt(run).heldBy(RunId.of('run_1'), RUNNER);
 
   it('names the team, task and workspace of a task’s run the runner holds', async () => {
     const held = await holding({ held: true, stationId: 'station_1' });
@@ -509,5 +512,18 @@ describe('WorkLookup, finding the run a runner holds', () => {
   it('knows no run the runner does not hold, or one belonging to no team', async () => {
     expect(await holding({ held: false, stationId: 'station_1' })).toBeNull();
     expect(await holding({ held: true })).toBeNull();
+  });
+
+  it('names the team of any run, held or not, by its chat or its line', async () => {
+    const teamOf = (run: Parameters<typeof lookingAt>[0]) =>
+      lookingAt(run).teamOfRun(RunId.of('run_1'));
+
+    expect(
+      (await teamOf({ held: false, stationId: 'station_1' }))?.equals(TEAM),
+    ).toBe(true);
+    expect((await teamOf({ held: false, chatId: 'chat_1' }))?.value).toBe(
+      'team_chat',
+    );
+    expect(await teamOf({ held: false })).toBeNull();
   });
 });

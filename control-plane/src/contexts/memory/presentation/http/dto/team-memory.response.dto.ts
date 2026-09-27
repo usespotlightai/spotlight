@@ -152,6 +152,12 @@ export class TeamMemoryResponseDto {
   })
   readonly grounds: MemoryGroundsResponseDto | null;
 
+  @ApiProperty({
+    example: 3,
+    description: 'How many runs were briefed with it or recalled it',
+  })
+  readonly runs: number;
+
   constructor(memory: TeamMemoryDto) {
     this.id = memory.id;
     this.handle = memory.handle;
@@ -173,6 +179,7 @@ export class TeamMemoryResponseDto {
     this.grounds = memory.grounds
       ? new MemoryGroundsResponseDto(memory.grounds)
       : null;
+    this.runs = memory.runs;
   }
 }
 
