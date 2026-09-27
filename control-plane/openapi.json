@@ -16280,6 +16280,46 @@
           "runners"
         ]
       }
+    },
+    "/runs/{runId}/memory-files": {
+      "get": {
+        "operationId": "readMemoryFiles",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemoryFileResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "No such run held by this runner"
+          }
+        },
+        "summary": "Every standing memory that applies to the run, as files to lay in its workspace",
+        "tags": [
+          "runners"
+        ]
+      }
     }
   },
   "info": {
@@ -24494,7 +24534,7 @@
             }
           },
           "recalled": {
-            "description": "What the run looked up with spotlight recall",
+            "description": "What the run looked up with spotlight recall, or read from the memory folder in its workspace",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TeamMemoryResponseDto"
@@ -24563,6 +24603,24 @@
         },
         "required": [
           "kind",
+          "body"
+        ]
+      },
+      "MemoryFileResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": ".spotlight/memory/repositories/acme/api/src/uploads/M-18.md",
+            "description": "Where to lay it, relative to the run’s workspace"
+          },
+          "body": {
+            "type": "string",
+            "example": "# M-18 · rationale\n\nUploads retry in the request.\n"
+          }
+        },
+        "required": [
+          "path",
           "body"
         ]
       }
