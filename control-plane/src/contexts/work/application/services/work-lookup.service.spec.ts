@@ -20,6 +20,7 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -131,6 +132,7 @@ describe('WorkLookup, looking up a run', () => {
           stationId: station?.id ?? null,
           hasEnded: true,
           hasCompleted: state === 'completed',
+          briefedWith: BriefedMemories.none(),
           placement,
           spec: RunSpec.of({
             checkouts: [

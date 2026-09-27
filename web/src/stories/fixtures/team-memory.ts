@@ -68,6 +68,7 @@ const MAYA = { id: 'user_2', name: 'Maya Chen' };
 const memory = (
   over: Partial<TeamMemoryResponseDto> & { id: string; body: string },
 ): TeamMemoryResponseDto => ({
+  handle: 'M-1',
   kind: 'preference',
   source: 'person',
   standing: 'stands',
@@ -87,12 +88,14 @@ const memory = (
 const STANDING: TeamMemoryResponseDto[] = [
   memory({
     id: 'memory_billing',
+    handle: 'M-41',
     kind: 'correction',
     body: 'Leave billing-retries alone while billing is being reconciled; drain webhook-retries first.',
     grounds: { taskId: 'task_retries', runId: 'run_retries_2' },
   }),
   memory({
     id: 'memory_gone',
+    handle: 'M-42',
     kind: 'rationale',
     source: 'run',
     reach: 'station',
@@ -105,6 +108,7 @@ const STANDING: TeamMemoryResponseDto[] = [
   }),
   memory({
     id: 'memory_staging',
+    handle: 'M-43',
     kind: 'environment',
     reach: 'line',
     lineId: 'line_delivery',
@@ -115,6 +119,7 @@ const STANDING: TeamMemoryResponseDto[] = [
 const RETIRED: TeamMemoryResponseDto[] = [
   memory({
     id: 'memory_branches',
+    handle: 'M-44',
     body: 'Name branches after the person who opened the task.',
     standing: 'retired',
     retirement: {
@@ -126,6 +131,7 @@ const RETIRED: TeamMemoryResponseDto[] = [
   }),
   memory({
     id: 'memory_flaky',
+    handle: 'M-45',
     kind: 'failure',
     body: 'The upload test flakes on the shared runner.',
     standing: 'retired',

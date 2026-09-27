@@ -24,6 +24,12 @@ export class MemoryPath {
     return new MemoryPath(value);
   }
 
+  covers(other: MemoryPath): boolean {
+    return (
+      other.value === this.value || other.value.startsWith(`${this.value}/`)
+    );
+  }
+
   equals(other: MemoryPath): boolean {
     return this.kind === other.kind && this.value === other.value;
   }

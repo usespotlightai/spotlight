@@ -21,6 +21,11 @@ import type {
   TeamLine,
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
+import {
+  distinctFiles,
+  filesChangedIn,
+  repositoriesWorked,
+} from '@work/application/services/touched-files';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -75,6 +80,7 @@ export class WorkLookup implements WorkLookupPort {
       placement: run.placement,
       decisions: station?.decisions ?? false,
       memories: station?.memories ?? false,
+      briefedWith: run.briefedWith.memories,
       ended: run.hasEnded,
       completed: run.hasCompleted,
     };
@@ -146,22 +152,8 @@ export class WorkLookup implements WorkLookupPort {
 
     const line = run.stationId ? await this.lines.holding(run.stationId) : null;
     const repositories = line ? await this.worked(run, line) : [];
-    const changed = new Map<string, ChangedFile>();
 
-    for (const step of journal.steps) {
-      const within = step.change?.path
-        ? run.spec.workspacePathOf(step.change.path)
-        : null;
-      const [folder, ...rest] = within?.split('/') ?? [];
-      const repository = repositories.find((each) => each.name === folder);
-
-      if (repository && rest.length > 0) {
-        const path = rest.join('/');
-        changed.set(`${repository.value}:${path}`, { repository, path });
-      }
-    }
-
-    return [...changed.values()];
+    return distinctFiles(filesChangedIn(journal, run, repositories));
   }
 
   async spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null> {
@@ -172,9 +164,8 @@ export class WorkLookup implements WorkLookupPort {
 
   private async worked(run: Run, line: Line): Promise<readonly Repository[]> {
     const task = run.taskId ? await this.tasks.find(run.taskId) : null;
-    const reviewed = task?.reviewed;
 
-    return reviewed ? [reviewed] : line.repositories.all;
+    return repositoriesWorked(task, line);
   }
 
   private async changedIn(journal: RunJournal, asked: Run): Promise<string[]> {

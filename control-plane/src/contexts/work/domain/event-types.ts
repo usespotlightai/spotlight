@@ -35,6 +35,7 @@ import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -193,6 +194,7 @@ export const WORK_EVENT_TYPES = [
   WorkspaceArchiveId,
   TaskAsideId,
   AsideRead,
+  BriefedMemories,
   ChatHandedToRun,
   ChatStarted,
   LineRepositoriesChanged,

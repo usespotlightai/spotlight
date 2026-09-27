@@ -39,6 +39,7 @@ export class MemoryReactions {
       await this.memories.add(
         Memory.stood({
           id: event.memoryId,
+          handle: await this.memories.nextHandle(),
           workspaceId: event.workspaceId,
           kind: event.memoryKind,
           body: event.body,

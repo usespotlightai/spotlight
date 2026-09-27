@@ -9,6 +9,7 @@ import type { MemoryRepository } from '@memory/domain/repositories/memory.reposi
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -50,7 +51,12 @@ const approved = (supersedes: MemoryId | null = null) =>
 
 const reacting = (held: Memory[] = []) => {
   const reviews = { raise: vi.fn(), settle: vi.fn() };
+  let handles = 100;
   const memories = {
+    nextHandle: async () => {
+      handles += 1;
+      return MemoryHandle.of(handles);
+    },
     find: async (id: MemoryId) =>
       held.find((each) => each.id.equals(id)) ?? null,
     add: vi.fn(async (memory: Memory) => {
@@ -117,6 +123,7 @@ describe('reacting to memories being proposed and decided', () => {
   it('keeps an approved memory without claiming to replace one that no longer stands', async () => {
     const gone = Memory.stood({
       id: OLD,
+      handle: MemoryHandle.of(1),
       workspaceId: WorkspaceId.of('ws_1'),
       kind: 'preference',
       body: 'Name branches after the author.',
@@ -136,6 +143,7 @@ describe('reacting to memories being proposed and decided', () => {
   it('retires the memory a newly standing one supersedes', async () => {
     const old = Memory.stood({
       id: OLD,
+      handle: MemoryHandle.of(2),
       workspaceId: WorkspaceId.of('ws_1'),
       kind: 'preference',
       body: 'Name branches after the author.',

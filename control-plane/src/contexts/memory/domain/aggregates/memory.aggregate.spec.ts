@@ -5,6 +5,7 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -22,6 +23,7 @@ const NEW = MemoryId.of('memory_new');
 const stood = (change: { supersedes?: MemoryId | null; kind?: string } = {}) =>
   Memory.stood({
     id: NEW,
+    handle: MemoryHandle.of(1),
     workspaceId: WorkspaceId.of('ws_1'),
     kind: change.kind ?? 'preference',
     body: ' Name branches after the ticket. ',
@@ -74,6 +76,7 @@ describe('Memory', () => {
   it('stands at once when a person writes it, as theirs and resting on nothing', () => {
     const written = Memory.written({
       id: NEW,
+      handle: MemoryHandle.of(2),
       workspaceId: WorkspaceId.of('ws_1'),
       kind: 'environment',
       body: 'Staging needs a restart after deploys.',
@@ -127,6 +130,7 @@ describe('Memory', () => {
 
     const { retired, successor } = old.correctedAs({
       id: OLD,
+      handle: MemoryHandle.of(3),
       kind: 'preference',
       body: 'Name branches after the ticket number.',
       scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),
@@ -150,6 +154,7 @@ describe('Memory', () => {
     expect(() =>
       retired.correctedAs({
         id: OLD,
+        handle: MemoryHandle.of(4),
         kind: 'preference',
         body: 'Again.',
         scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),

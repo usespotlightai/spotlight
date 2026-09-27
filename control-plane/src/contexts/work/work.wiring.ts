@@ -79,6 +79,10 @@ import {
 } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import {
+  ISOLATION,
+  type IsolationPort,
+} from '@shared-kernel/application/ports/isolation.port';
+import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
@@ -287,6 +291,10 @@ import {
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
 import {
+  TEAM_MEMORIES,
+  type TeamMemoriesPort,
+} from '@work/application/ports/team-memories.port';
+import {
   TEAM_SKILLS,
   type TeamSkillsPort,
 } from '@work/application/ports/team-skills.port';
@@ -416,6 +424,7 @@ import {
 } from '@work/application/services/task-dispatch';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { ToolSources } from '@work/application/services/tool-sources.service';
+import { TouchedFiles } from '@work/application/services/touched-files';
 import { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
@@ -947,6 +956,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TEAM_DIRECTORY,
       DrizzleLineRepository,
       CLOCK,
+      TEAM_MEMORIES,
+      LOGGER,
+      ISOLATION,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -956,7 +968,22 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       teams: TeamDirectoryPort,
       lines: DrizzleLineRepository,
       clock: ClockPort,
-    ) => new DispatchChat(runs, ids, launch, tracing, teams, lines, clock),
+      memories: TeamMemoriesPort,
+      logger: LoggerPort,
+      isolation: IsolationPort,
+    ) =>
+      new DispatchChat(
+        runs,
+        ids,
+        launch,
+        tracing,
+        teams,
+        lines,
+        clock,
+        memories,
+        logger,
+        isolation,
+      ),
   },
 
   {
@@ -1003,6 +1030,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TASK_DECISIONS,
       StationCatalog,
       STATION_PROFILES,
+      TEAM_MEMORIES,
+      TouchedFiles,
+      LOGGER,
+      ISOLATION,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -1016,6 +1047,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       decisions: TaskDecisionsPort,
       catalog: StationCatalog,
       profiles: StationProfilesPort,
+      memories: TeamMemoriesPort,
+      touched: TouchedFiles,
+      logger: LoggerPort,
+      isolation: IsolationPort,
     ) =>
       new DispatchTask(
         runs,
@@ -1029,7 +1064,22 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         decisions,
         catalog,
         profiles,
+        memories,
+        touched,
+        logger,
+        isolation,
       ),
+  },
+
+  {
+    provide: TouchedFiles,
+    inject: [DrizzleRunRepository, RUN_JOURNAL_READER, PULL_REQUESTS, LOGGER],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      journals: RunJournalReaderPort,
+      pullRequests: PullRequestPort,
+      logger: LoggerPort,
+    ) => new TouchedFiles(runs, journals, pullRequests, logger),
   },
 
   {

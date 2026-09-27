@@ -16,6 +16,7 @@ import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -58,6 +59,7 @@ export class Run extends EventRecorder {
     readonly provisioning: Provisioning,
     readonly ranIn: RunnerImage | null,
     readonly handBacks: HandBacks,
+    readonly briefedWith: BriefedMemories = BriefedMemories.none(),
     readonly version: number = 0,
   ) {
     super();
@@ -71,6 +73,7 @@ export class Run extends EventRecorder {
     subject?: RunSubject | null;
     spec: RunSpec;
     placement?: RunnerPlacement;
+    briefedWith?: BriefedMemories;
   }): Run {
     return new Run(
       input.id,
@@ -90,6 +93,7 @@ export class Run extends EventRecorder {
       Provisioning.none(),
       null,
       HandBacks.none(),
+      input.briefedWith ?? BriefedMemories.none(),
     );
   }
 
@@ -111,6 +115,7 @@ export class Run extends EventRecorder {
     provisioning: Provisioning;
     ranIn?: RunnerImage | null;
     handBacks?: HandBacks;
+    briefedWith?: BriefedMemories;
     version?: number;
   }): Run {
     Run.guardReconstituted(input);
@@ -133,6 +138,7 @@ export class Run extends EventRecorder {
       input.provisioning,
       input.ranIn ?? null,
       input.handBacks ?? HandBacks.none(),
+      input.briefedWith ?? BriefedMemories.none(),
       input.version ?? 0,
     );
   }
@@ -597,6 +603,7 @@ export class Run extends EventRecorder {
       part.provisioning ?? this.provisioning,
       part.ranIn !== undefined ? part.ranIn : this.ranIn,
       part.handBacks ?? this.handBacks,
+      this.briefedWith,
       this.version,
     );
 

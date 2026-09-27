@@ -32,13 +32,16 @@ import {
 } from '@memory/application/ports/reviews.port';
 import { WORK, type WorkPort } from '@memory/application/ports/work.port';
 import { ListTeamMemoriesHandler } from '@memory/application/queries/handlers/list-team-memories.handler';
+import { ReadBriefedMemoriesHandler } from '@memory/application/queries/handlers/read-briefed-memories.handler';
 import { ReadMemoryReviewHandler } from '@memory/application/queries/handlers/read-memory-review.handler';
 import { ReadTeamMemoryHandler } from '@memory/application/queries/handlers/read-team-memory.handler';
 import { ListTeamMemoriesQuery } from '@memory/application/queries/list-team-memories.query';
+import { ReadBriefedMemoriesQuery } from '@memory/application/queries/read-briefed-memories.query';
 import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-review.query';
 import { ReadTeamMemoryQuery } from '@memory/application/queries/read-team-memory.query';
 import { AskForMemories } from '@memory/application/services/ask-for-memories.service';
 import { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
+import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
@@ -53,6 +56,7 @@ import { DrizzleKnownMemories } from '@memory/infrastructure/persistence/drizzle
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
+import { BriefedMemoriesController } from '@memory/presentation/http/controllers/briefed-memories.controller';
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
 import { TeamMemoryController } from '@memory/presentation/http/controllers/team-memory.controller';
 import type { Provider, Type } from '@nestjs/common';
@@ -83,6 +87,7 @@ import {
   TASK_ASIDES,
   type TaskAsidesPort,
 } from '@work/application/ports/task-asides.port';
+import { TEAM_MEMORIES } from '@work/application/ports/team-memories.port';
 import {
   WORK_LOOKUP,
   type WorkLookupPort,
@@ -93,6 +98,7 @@ const MEMORY_EVENTS = Symbol('MEMORY_EVENTS');
 export const MEMORY_CONTROLLERS: readonly Type[] = [
   MemoryReviewController,
   TeamMemoryController,
+  BriefedMemoriesController,
 ];
 
 export const MEMORY_PROVIDERS: readonly Provider[] = [
@@ -114,6 +120,12 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   DrizzleMemoryDraftRepository,
   DrizzleMemoryRepository,
+  {
+    provide: TEAM_MEMORIES,
+    inject: [DrizzleMemoryRepository],
+    useFactory: (memories: DrizzleMemoryRepository) =>
+      new MemoriesForBriefing(memories),
+  },
   {
     provide: MemoryAccess,
     inject: [PEOPLE, WORK],
@@ -192,6 +204,12 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ListTeamMemoriesQuery, ListTeamMemoriesHandler, [
     TeamMemoryAtHand,
+    DrizzleMemoryRepository,
+    TeamMemoryViews,
+  ]),
+  ...bindQueryHandler(ReadBriefedMemoriesQuery, ReadBriefedMemoriesHandler, [
+    TeamMemoryAtHand,
+    WORK,
     DrizzleMemoryRepository,
     TeamMemoryViews,
   ]),

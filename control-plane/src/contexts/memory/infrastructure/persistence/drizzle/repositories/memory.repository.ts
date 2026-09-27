@@ -6,6 +6,7 @@ import type {
 } from '@memory/domain/repositories/memory.repository';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
@@ -24,7 +25,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 type Row = typeof memory.$inferSelect;
 
@@ -62,6 +63,7 @@ const toMemory = (row: Row): Memory => {
 
   return Memory.rehydrate({
     id: MemoryId.of(row.id),
+    handle: MemoryHandle.of(row.handle),
     workspaceId: WorkspaceId.of(row.workspaceId),
     kind: row.kind,
     body: row.body,
@@ -111,6 +113,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     await this.context.run(async () => {
       await this.context.db.insert(memory).values({
         id: added.id.value,
+        handle: added.handle.number,
         workspaceId: added.workspaceId.value,
         kind: added.kind,
         body: added.body,
@@ -182,6 +185,55 @@ export class DrizzleMemoryRepository implements MemoryRepository {
           : desc(memory.approvedAt),
       )
       .limit(MOST_LISTED);
+
+    return rows.map(toMemory);
+  }
+
+  async nextHandle(): Promise<MemoryHandle> {
+    const result = await this.context.db.execute<{ next: string }>(
+      sql`select nextval('memory_handle_seq') as next`,
+    );
+
+    const [row] = result.rows;
+
+    if (!row) {
+      throw new Error('The memory handle sequence gave no number');
+    }
+
+    return MemoryHandle.of(Number(row.next));
+  }
+
+  async mayReach(place: {
+    teamId: TeamId;
+    lineId: string | null;
+    stationId: string | null;
+    repositories: readonly Repository[];
+  }): Promise<readonly Memory[]> {
+    const repositories = place.repositories.map((each) => each.value);
+    const rows = await this.context.db
+      .select()
+      .from(memory)
+      .where(
+        and(
+          eq(memory.teamId, place.teamId.value),
+          eq(memory.standing, 'stands'),
+          place.lineId
+            ? or(isNull(memory.lineId), eq(memory.lineId, place.lineId))
+            : isNull(memory.lineId),
+          place.stationId
+            ? or(
+                isNull(memory.stationId),
+                eq(memory.stationId, place.stationId),
+              )
+            : isNull(memory.stationId),
+          repositories.length > 0
+            ? or(
+                isNull(memory.repository),
+                inArray(memory.repository, repositories),
+              )
+            : isNull(memory.repository),
+        ),
+      );
 
     return rows.map(toMemory);
   }

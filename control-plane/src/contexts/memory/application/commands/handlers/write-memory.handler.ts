@@ -28,6 +28,7 @@ export class WriteMemoryHandler
       const layout = await this.atHand.layoutOf(command.teamId);
       const written = Memory.written({
         id: MemoryId.of(this.ids.generate()),
+        handle: await this.memories.nextHandle(),
         workspaceId: member.workspaceId,
         kind: command.writing.kind,
         body: command.writing.body,

@@ -7,6 +7,17 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MOST_PATHS = 20;
 
+export interface MemoryPlace {
+  readonly teamId: TeamId;
+  readonly lineId: string | null;
+  readonly stationId: string | null;
+  readonly repositories: readonly Repository[];
+  readonly touched: readonly {
+    readonly repository: Repository;
+    readonly path: MemoryPath;
+  }[];
+}
+
 export class MemoryScope {
   private constructor(
     readonly teamId: TeamId,
@@ -43,6 +54,51 @@ export class MemoryScope {
     }
 
     return new MemoryScope(input.teamId, lineId, stationId, repository, paths);
+  }
+
+  reaches(place: MemoryPlace): boolean {
+    if (!this.teamId.equals(place.teamId)) {
+      return false;
+    }
+
+    if (this.lineId && this.lineId !== place.lineId) {
+      return false;
+    }
+
+    if (this.stationId && this.stationId !== place.stationId) {
+      return false;
+    }
+
+    const { repository } = this;
+
+    if (
+      repository &&
+      !place.repositories.some((each) => each.equals(repository))
+    ) {
+      return false;
+    }
+
+    return (
+      this.paths.length === 0 ||
+      place.touched.some(
+        (touched) =>
+          repository?.equals(touched.repository) &&
+          this.paths.some((path) => path.covers(touched.path)),
+      )
+    );
+  }
+
+  get specificity(): number {
+    if (this.paths.length > 0) {
+      return 4;
+    }
+    if (this.stationId) {
+      return 3;
+    }
+    if (this.lineId) {
+      return 2;
+    }
+    return this.repository ? 1 : 0;
   }
 
   get reach(): MemoryReach {

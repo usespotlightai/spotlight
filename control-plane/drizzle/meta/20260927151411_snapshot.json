@@ -1,5 +1,5 @@
 {
-  "id": "f4e86290-c927-461b-b819-6435dd38182d",
+  "id": "fd857b51-7f76-40c1-b79d-03f4a720661e",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3811,6 +3811,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "handle": {
+          "name": "handle",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "workspace_id": {
           "name": "workspace_id",
           "type": "text",
@@ -3950,6 +3956,21 @@
         }
       },
       "indexes": {
+        "memory_handle_idx": {
+          "name": "memory_handle_idx",
+          "columns": [
+            {
+              "expression": "handle",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "memory_standing_idx": {
           "name": "memory_standing_idx",
           "columns": [
@@ -6863,6 +6884,13 @@
           "notNull": true,
           "default": 0
         },
+        "briefed_memories": {
+          "name": "briefed_memories",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "claimable_from": {
           "name": "claimable_from",
           "type": "timestamp",
@@ -8252,7 +8280,18 @@
     }
   },
   "schemas": {},
-  "sequences": {},
+  "sequences": {
+    "public.memory_handle_seq": {
+      "name": "memory_handle_seq",
+      "schema": "public",
+      "increment": "1",
+      "startWith": "1",
+      "minValue": "1",
+      "maxValue": "9223372036854775807",
+      "cache": "1",
+      "cycle": false
+    }
+  },
   "roles": {},
   "policies": {},
   "views": {},

@@ -30,6 +30,7 @@ import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
+import { ISOLATION } from '@shared-kernel/application/ports/isolation.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -54,6 +55,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     { provide: APP_FILTER, useClass: UseCaseFaultFilter },
     DrizzleContext,
     { provide: TRANSACTION, useExisting: DrizzleContext },
+    { provide: ISOLATION, useExisting: DrizzleContext },
     { provide: BACKGROUND, useExisting: DrizzleContext },
     { provide: CAUSATION, useClass: AmbientCausation },
     {
@@ -86,6 +88,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     CqrsModule,
     DrizzleContext,
     TRANSACTION,
+    ISOLATION,
     BACKGROUND,
     CAUSATION,
     EventTypes,

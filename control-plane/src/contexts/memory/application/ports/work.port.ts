@@ -17,9 +17,11 @@ export interface WorkedPlace {
 
 export interface RememberedRun {
   readonly id: RunId;
+  readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
   readonly completed: boolean;
   readonly memories: boolean;
+  readonly briefedWith: readonly string[];
 }
 
 export interface RememberedTask {

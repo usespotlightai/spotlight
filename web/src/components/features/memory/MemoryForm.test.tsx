@@ -70,6 +70,7 @@ describe('MemoryForm', () => {
   it('starts from the memory it corrects, keeping where it applies', async () => {
     const onSave = showing({
       id: 'memory_1',
+      handle: 'M-1',
       kind: 'rationale',
       body: 'Retry uploads from a queue.',
       source: 'run',

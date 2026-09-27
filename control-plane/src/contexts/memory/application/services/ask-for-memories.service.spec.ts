@@ -17,9 +17,11 @@ const TASK = TaskId.of('task_1');
 
 const ENDED: RememberedRun = {
   id: RUN,
+  workspaceId: WorkspaceId.of('ws_1'),
   taskId: TASK,
   completed: true,
   memories: true,
+  briefedWith: [],
 };
 
 const asking = (input: {

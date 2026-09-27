@@ -46,6 +46,10 @@ export const run = pgTable(
     provisionFailures: integer('provision_failures').notNull().default(0),
     nextProvisionAt: timestamp('next_provision_at'),
     handBacks: integer('hand_backs').notNull().default(0),
+    briefedMemories: jsonb('briefed_memories')
+      .$type<{ id: string; handle: string }[]>()
+      .notNull()
+      .default([]),
     claimableFrom: timestamp('claimable_from'),
     exitCode: integer('exit_code'),
     message: text('message'),

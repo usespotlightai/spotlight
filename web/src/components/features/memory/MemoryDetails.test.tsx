@@ -23,6 +23,7 @@ vi.mock('@/hooks/api/useRetireMemory', () => ({
 
 const detail = (over: Record<string, unknown> = {}) => ({
   id: 'memory_1',
+  handle: 'M-1',
   kind: 'rationale',
   body: 'Retry uploads in the request.',
   source: 'run',

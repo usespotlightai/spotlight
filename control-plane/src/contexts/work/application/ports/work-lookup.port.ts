@@ -27,6 +27,10 @@ export interface RunLookup {
   readonly placement: RunnerPlacement;
   readonly decisions: boolean;
   readonly memories: boolean;
+  readonly briefedWith: readonly {
+    readonly id: string;
+    readonly handle: string;
+  }[];
   readonly ended: boolean;
   readonly completed: boolean;
 }

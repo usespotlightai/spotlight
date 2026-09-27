@@ -89,6 +89,12 @@ export class TeamMemoryResponseDto {
   @ApiProperty({ example: 'memory_1' })
   readonly id: string;
 
+  @ApiProperty({
+    example: 'M-12',
+    description: 'How runs and people name it, as in spotlight recall M-12',
+  })
+  readonly handle: string;
+
   @ApiProperty({ enum: MEMORY_KIND_NAMES, example: 'preference' })
   readonly kind: string;
 
@@ -144,6 +150,7 @@ export class TeamMemoryResponseDto {
 
   constructor(memory: TeamMemoryDto) {
     this.id = memory.id;
+    this.handle = memory.handle;
     this.kind = memory.kind;
     this.body = memory.body;
     this.source = memory.source;

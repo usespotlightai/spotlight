@@ -48,6 +48,7 @@ export function TeamMemoryRow({
             {memory.body}
           </span>
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
+            <span className="font-mono">{memory.handle}</span>
             <Pill className="px-1.5 py-0">
               {KIND_LABELS[memory.kind] ?? memory.kind}
             </Pill>

@@ -25,6 +25,7 @@ interface MemoryGroundsDto {
 
 export interface TeamMemoryDto {
   readonly id: string;
+  readonly handle: string;
   readonly kind: string;
   readonly body: string;
   readonly source: string;

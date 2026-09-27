@@ -4,6 +4,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { BriefedMemory } from '@work/application/ports/team-memories.port';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
@@ -34,8 +35,8 @@ const started = (traces: readonly TraceReference[] = []) =>
     newId: () => 'chat_1',
   });
 
-const brief = (chat: Chat) =>
-  ChatBriefing.brief({ chat, team: 'Core', lines: [] });
+const brief = (chat: Chat, memories: readonly BriefedMemory[] = []) =>
+  ChatBriefing.brief({ chat, team: 'Core', lines: [], memories });
 
 const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   const handed = chat
@@ -96,5 +97,21 @@ describe('ChatBriefing', () => {
 
     expect(followed).toContain('`spotlight trace --task task_2`');
     expect(followed).not.toContain('## Reading a trace');
+  });
+
+  it('gives a fresh chat what the team has learned', () => {
+    const briefing = brief(started(), [
+      {
+        id: 'memory_1',
+        handle: 'M-3',
+        kind: 'preference',
+        body: 'Name branches after the ticket.',
+      },
+    ]);
+
+    expect(briefing).toContain('## What the team has learned');
+    expect(briefing).toContain(
+      '- **M-3** · preference: Name branches after the ticket.',
+    );
   });
 });

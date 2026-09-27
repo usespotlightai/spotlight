@@ -22,9 +22,11 @@ export class Work implements WorkPort {
     return (
       run && {
         id: run.id,
+        workspaceId: run.workspaceId,
         taskId: run.taskId,
         completed: run.completed,
         memories: run.memories,
+        briefedWith: run.briefedWith.map((each) => each.id),
       }
     );
   }

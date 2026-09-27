@@ -10,6 +10,7 @@ import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
@@ -32,4 +33,5 @@ export const MEMORY_EVENT_TYPES = [
   MemoryRetired,
   MemoryDecision,
   MemoryRetirement,
+  MemoryHandle,
 ] as const;

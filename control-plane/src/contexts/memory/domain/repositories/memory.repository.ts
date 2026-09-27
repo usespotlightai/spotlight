@@ -1,7 +1,9 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import type { MemoryStanding } from '@memory/domain/value-objects/memory-standing';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface MemoryCriteria {
@@ -19,6 +21,15 @@ export interface MemoryRepository {
   save(memory: Memory): Promise<void>;
 
   find(id: MemoryId): Promise<Memory | null>;
+
+  nextHandle(): Promise<MemoryHandle>;
+
+  mayReach(place: {
+    teamId: TeamId;
+    lineId: string | null;
+    stationId: string | null;
+    repositories: readonly Repository[];
+  }): Promise<readonly Memory[]>;
 
   ofTeam(teamId: TeamId, criteria: MemoryCriteria): Promise<readonly Memory[]>;
 }

@@ -17,6 +17,7 @@ CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> sta
 CREATE TYPE "public"."memory_standing" AS ENUM('stands', 'retired');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'completed', 'failed', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."aside_form" AS ENUM('memories');--> statement-breakpoint
+CREATE SEQUENCE "public"."memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,
 	"subscriber" text NOT NULL,
@@ -449,6 +450,7 @@ CREATE TABLE "oauth2_spent_nonce" (
 --> statement-breakpoint
 CREATE TABLE "memory" (
 	"id" text PRIMARY KEY NOT NULL,
+	"handle" integer NOT NULL,
 	"workspace_id" text NOT NULL,
 	"kind" "memory_kind" NOT NULL,
 	"body" text NOT NULL,
@@ -812,6 +814,7 @@ CREATE TABLE "run" (
 	"provision_failures" integer DEFAULT 0 NOT NULL,
 	"next_provision_at" timestamp,
 	"hand_backs" integer DEFAULT 0 NOT NULL,
+	"briefed_memories" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"claimable_from" timestamp,
 	"exit_code" integer,
 	"message" text,
@@ -1020,6 +1023,7 @@ CREATE INDEX "hook_callback_expires_idx" ON "hook_callback" USING btree ("expire
 CREATE INDEX "hook_definition_on_idx" ON "hook_definition" USING btree ("team_id","on");--> statement-breakpoint
 CREATE INDEX "hook_firing_state_idx" ON "hook_firing" USING btree ("state","due_at");--> statement-breakpoint
 CREATE INDEX "hook_firing_repeats_idx" ON "hook_firing" USING btree ("hook_id","task_id","fired_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "memory_handle_idx" ON "memory" USING btree ("handle");--> statement-breakpoint
 CREATE INDEX "memory_standing_idx" ON "memory" USING btree ("team_id","standing","approved_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_draft_task_idx" ON "memory_draft" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("drafting_asked_at");--> statement-breakpoint

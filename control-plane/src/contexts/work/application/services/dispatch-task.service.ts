@@ -1,4 +1,6 @@
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { IsolationPort } from '@shared-kernel/application/ports/isolation.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
@@ -20,6 +22,7 @@ import type {
 } from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
+import type { TeamMemoriesPort } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
@@ -27,6 +30,10 @@ import type { StationCatalog } from '@work/application/services/station-catalog.
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
+import {
+  repositoriesWorked,
+  type TouchedFiles,
+} from '@work/application/services/touched-files';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -35,6 +42,7 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { describedTools } from '@work/domain/services/given-to-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, type RunOrder } from '@work/domain/services/run-order';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -93,6 +101,10 @@ export class DispatchTask implements TaskDispatching {
     private readonly decisions: TaskDecisionsPort,
     private readonly catalog: StationCatalog,
     private readonly profiles: StationProfilesPort,
+    private readonly memories: TeamMemoriesPort,
+    private readonly touched: TouchedFiles,
+    private readonly logger: LoggerPort,
+    private readonly isolation: IsolationPort,
   ) {}
 
   private async profilesAt(
@@ -203,12 +215,30 @@ export class DispatchTask implements TaskDispatching {
 
     const id = runId;
 
+    const memories = await this.isolation
+      .isolated(() =>
+        this.memories.forBriefing({
+          teamId: line.teamId,
+          lineId: line.id.value,
+          stationId: task.stationId.value,
+          repositories: repositoriesWorked(task, line),
+          touched: () => this.touched.onTask(task, line),
+        }),
+      )
+      .catch((error: unknown) => {
+        this.logger.warn(
+          { err: error, taskId: task.id.value },
+          'Briefing the run without what the team remembers, which could not be read',
+        );
+        return [];
+      });
     const briefing = TaskBriefing.brief({
       task,
       line,
       skills: folders.map((each) => each.skill),
       listedIn: home.readByHarness ? null : home.directory,
       decisions: await this.decisions.ofTask(task.id),
+      memories,
     });
 
     const queued = Run.enqueue({
@@ -218,6 +248,7 @@ export class DispatchTask implements TaskDispatching {
       priority: order.priority,
       subject: RunSubject.task(task.id, order.stationId, task.revision),
       placement: order.placement,
+      briefedWith: BriefedMemories.of(memories),
       spec: written(
         order,
         task,

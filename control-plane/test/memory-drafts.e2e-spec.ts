@@ -240,9 +240,9 @@ describe('reading what the team already knows', () => {
     },
   ) =>
     held.db.execute(sql`
-      insert into memory (id, workspace_id, kind, body, team_id, line_id, station_id, repository, paths,
+      insert into memory (id, handle, workspace_id, kind, body, team_id, line_id, station_id, repository, paths,
         task_id, run_id, steps, notes, source, standing, approved_by, approved_at)
-      values (${id}, 'ws_1', 'preference', ${`Memory ${id}`}, ${scope.team ?? 'team_1'},
+      values (${id}, nextval('memory_handle_seq'), 'ws_1', 'preference', ${`Memory ${id}`}, ${scope.team ?? 'team_1'},
         ${scope.line ?? null}, ${scope.station ?? null}, ${scope.repository ?? null}, '[]'::jsonb,
         'task_1', 'run_1', '[]'::jsonb, '[2]'::jsonb, 'person',
         ${scope.standing ?? 'stands'}, 'user_ada', ${NOW.toISOString()})

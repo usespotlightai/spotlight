@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  pgSequence,
   pgTable,
   text,
   timestamp,
@@ -92,10 +93,13 @@ export const memoryProposal = pgTable(
   ],
 );
 
+export const memoryHandle = pgSequence('memory_handle_seq');
+
 export const memory = pgTable(
   'memory',
   {
     id: text('id').primaryKey(),
+    handle: integer('handle').notNull(),
     workspaceId: text('workspace_id').notNull(),
     kind: memoryKind('kind').notNull(),
     body: text('body').notNull(),
@@ -120,6 +124,7 @@ export const memory = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    uniqueIndex('memory_handle_idx').on(table.handle),
     index('memory_standing_idx').on(
       table.teamId,
       table.standing,

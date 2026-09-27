@@ -48,6 +48,7 @@ vi.mock('@/components/features/memory/MemoryDetails', () => ({
 
 const memory = (over: Partial<Memory> = {}): Memory => ({
   id: 'memory_1',
+  handle: 'M-1',
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',

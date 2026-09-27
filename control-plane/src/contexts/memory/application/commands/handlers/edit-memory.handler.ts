@@ -31,6 +31,7 @@ export class EditMemoryHandler
         const old = await this.atHand.memory(command.teamId, command.memoryId);
         const corrected = old.correctedAs({
           id: MemoryId.of(this.ids.generate()),
+          handle: await this.memories.nextHandle(),
           kind: command.writing.kind,
           body: command.writing.body,
           scope: layout.scopeOf(command.writing),

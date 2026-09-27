@@ -5,6 +5,7 @@ import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-alre
 import { memoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
+import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import {
   isMemoryKind,
@@ -24,6 +25,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 interface State {
   readonly id: MemoryId;
+  readonly handle: MemoryHandle;
   readonly workspaceId: WorkspaceId;
   readonly kind: MemoryKind;
   readonly body: string;
@@ -43,6 +45,7 @@ export class Memory extends EventRecorder {
 
   static stood(input: {
     id: MemoryId;
+    handle: MemoryHandle;
     workspaceId: WorkspaceId;
     kind: string;
     body: string;
@@ -57,6 +60,7 @@ export class Memory extends EventRecorder {
 
   static written(input: {
     id: MemoryId;
+    handle: MemoryHandle;
     workspaceId: WorkspaceId;
     kind: string;
     body: string;
@@ -74,6 +78,7 @@ export class Memory extends EventRecorder {
 
   private static standing(input: {
     id: MemoryId;
+    handle: MemoryHandle;
     workspaceId: WorkspaceId;
     kind: string;
     body: string;
@@ -101,6 +106,7 @@ export class Memory extends EventRecorder {
 
     const stood = new Memory({
       id: input.id,
+      handle: input.handle,
       workspaceId: input.workspaceId,
       kind,
       body: memoryBody(input.body),
@@ -129,6 +135,10 @@ export class Memory extends EventRecorder {
 
   get id(): MemoryId {
     return this.state.id;
+  }
+
+  get handle(): MemoryHandle {
+    return this.state.handle;
   }
 
   get workspaceId(): WorkspaceId {
@@ -185,6 +195,7 @@ export class Memory extends EventRecorder {
 
   correctedAs(input: {
     id: MemoryId;
+    handle: MemoryHandle;
     kind: string;
     body: string;
     scope: MemoryScope;

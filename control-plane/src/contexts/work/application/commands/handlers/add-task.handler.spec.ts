@@ -94,6 +94,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
         skills: [],
         listedIn: null,
         decisions: [],
+        memories: [],
       }),
     });
     return runId === null ? null : RunId.of(runId);

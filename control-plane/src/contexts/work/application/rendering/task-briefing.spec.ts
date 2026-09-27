@@ -3,6 +3,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BriefedDecision } from '@work/application/ports/task-decisions.port';
+import type { BriefedMemory } from '@work/application/ports/team-memories.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -148,6 +149,7 @@ const brief = (
   station: Station,
   worked?: Task,
   decisions: readonly BriefedDecision[] = [],
+  memories: readonly BriefedMemory[] = [],
 ) =>
   TaskBriefing.brief({
     task: worked ?? task(station.id.value),
@@ -155,6 +157,7 @@ const brief = (
     skills: shipped,
     listedIn: null,
     decisions,
+    memories,
   });
 
 describe('TaskBriefing', () => {
@@ -341,6 +344,7 @@ describe('TaskBriefing', () => {
         skills: shipped,
         listedIn: '.spotlight/skills',
         decisions: [],
+        memories: [],
       });
 
     it('pastes no skill in, and lists none, where the harness reads them itself', () => {
@@ -427,6 +431,33 @@ describe('TaskBriefing', () => {
 
     it('says nothing about answering where there is nothing to answer', () => {
       expect(brief(triage())).not.toContain('## Answering the pull request');
+    });
+  });
+
+  describe('what the team has learned', () => {
+    it('gives the memories the team keeps, each by its handle', () => {
+      const briefing = brief(
+        triage(),
+        undefined,
+        [],
+        [
+          {
+            id: 'memory_1',
+            handle: 'M-12',
+            kind: 'rejected-approach',
+            body: 'Retrying uploads from a queue needs a worker we do not run.',
+          },
+        ],
+      );
+
+      expect(briefing).toContain('## What the team has learned');
+      expect(briefing).toContain(
+        '- **M-12** · rejected approach: Retrying uploads from a queue needs a worker we do not run.',
+      );
+    });
+
+    it('says nothing of memory when the team keeps none that bear on it', () => {
+      expect(brief(triage())).not.toContain('What the team has learned');
     });
   });
 });

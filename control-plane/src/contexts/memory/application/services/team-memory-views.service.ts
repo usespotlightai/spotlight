@@ -60,6 +60,7 @@ export class TeamMemoryViews {
 
     return {
       id: memory.id.value,
+      handle: memory.handle.value,
       kind: memory.kind,
       body: memory.body,
       source: memory.source,
