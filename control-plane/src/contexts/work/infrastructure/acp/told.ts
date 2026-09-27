@@ -9,20 +9,11 @@ import {
 } from '@work/application/contracts/run-journal.contract';
 import { Money } from '@work/domain/value-objects/money.vo';
 import type { StepKind } from '@work/domain/value-objects/step-kind';
+import { type Content, diffIn } from '@work/infrastructure/acp/content';
 import {
   decoded,
   type Journalled,
 } from '@work/infrastructure/journal/journalled';
-
-type Content =
-  | { text?: string }
-  | {
-      type?: string;
-      path?: string;
-      oldText?: string;
-      newText?: string;
-      content?: { text?: string };
-    }[];
 
 const DETAIL_LIMIT = 4_000;
 
@@ -74,21 +65,15 @@ const spoken = (content: Content | undefined): string => {
 };
 
 const changed = (content: Content | undefined): StepChange | null => {
-  if (!Array.isArray(content)) {
-    return null;
-  }
+  const diff = diffIn(content);
 
-  for (const each of content) {
-    if (each?.type === 'diff') {
-      return {
-        path: each.path ?? null,
-        before: (each.oldText ?? '').slice(0, DETAIL_LIMIT),
-        after: (each.newText ?? '').slice(0, DETAIL_LIMIT),
-      };
-    }
-  }
-
-  return null;
+  return diff
+    ? {
+        path: diff.path ?? null,
+        before: (diff.oldText ?? '').slice(0, DETAIL_LIMIT),
+        after: (diff.newText ?? '').slice(0, DETAIL_LIMIT),
+      }
+    : null;
 };
 
 const reached = (

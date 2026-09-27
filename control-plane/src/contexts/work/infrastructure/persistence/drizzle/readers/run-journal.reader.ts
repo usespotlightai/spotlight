@@ -10,10 +10,14 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import type {
+  RunChanges,
+  RunJournal,
+} from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import {
+  changesOfTask,
   journalOfRun,
   journalsOfChat,
   journalsOfTask,
@@ -56,8 +60,8 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     return journalOfRun(this.db, runId);
   }
 
-  ofTask(taskId: TaskId): Promise<RunJournal[]> {
-    return journalsOfTask(this.db, taskId);
+  changesOfTask(taskId: TaskId): Promise<RunChanges[]> {
+    return changesOfTask(this.db, taskId);
   }
 
   async listForChat(

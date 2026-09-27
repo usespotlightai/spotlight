@@ -1079,6 +1079,7 @@ CREATE INDEX "network_call_lapsed_idx" ON "network_call" USING btree ("state","l
 CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority","created_at");--> statement-breakpoint
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "run_task_idx" ON "run" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "run_chat_idx" ON "run" USING btree ("chat_id");--> statement-breakpoint
 CREATE INDEX "run_reserved_idx" ON "run" USING btree ("reserved_for");--> statement-breakpoint
 CREATE UNIQUE INDEX "task_aside_about_idx" ON "task_aside" USING btree ("task_id","form","about");--> statement-breakpoint

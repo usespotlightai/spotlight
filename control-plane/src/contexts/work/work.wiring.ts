@@ -1075,13 +1075,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: TouchedFiles,
-    inject: [DrizzleRunRepository, RUN_JOURNAL_READER, PULL_REQUESTS, LOGGER],
+    inject: [RUN_JOURNAL_READER, PULL_REQUESTS, LOGGER],
     useFactory: (
-      runs: DrizzleRunRepository,
       journals: RunJournalReaderPort,
       pullRequests: PullRequestPort,
       logger: LoggerPort,
-    ) => new TouchedFiles(runs, journals, pullRequests, logger),
+    ) => new TouchedFiles(journals, pullRequests, logger),
   },
 
   {

@@ -1,5 +1,5 @@
 {
-  "id": "35f3bc54-2bac-4072-9351-ab2a8a217ca6",
+  "id": "1dcf4d02-012b-466e-ba4b-bbccc47c9458",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -7103,6 +7103,21 @@
           "columns": [
             {
               "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_task_idx": {
+          "name": "run_task_idx",
+          "columns": [
+            {
+              "expression": "task_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

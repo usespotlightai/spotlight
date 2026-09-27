@@ -1,12 +1,13 @@
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   JournalStep,
+  RunChanges,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
@@ -28,6 +29,7 @@ import {
   distinctFiles,
   filesChangedIn,
   repositoriesWorked,
+  workspacePathsIn,
 } from '@work/application/services/touched-files';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
@@ -51,6 +53,14 @@ const spoken = (note: TaskNote): SpokenNote[] => {
 
   return by && text ? [{ position: note.position.value, by, text }] : [];
 };
+
+const changesIn = (journal: RunJournal, run: Run): RunChanges => ({
+  runId: journal.runId,
+  checkouts: run.spec.checkoutFolders,
+  paths: journal.steps.flatMap((step) =>
+    step.change?.path ? [step.change.path] : [],
+  ),
+});
 
 const reasoned = (step: JournalStep, index: number): ReasonedStep[] => {
   const reasoning = reasoningIn(step);
@@ -135,15 +145,12 @@ export class WorkLookup implements WorkLookupPort {
     }
 
     const worked = run.taskId
-      ? await this.journals.ofTask(run.taskId)
-      : [journal];
-    const changed = (
-      await Promise.all(worked.map((each) => this.changedIn(each, run)))
-    ).flat();
+      ? await this.journals.changesOfTask(run.taskId)
+      : [changesIn(journal, run)];
 
     return {
       steps: journal.steps.flatMap(reasoned),
-      changed: [...new Set(changed)],
+      changed: [...new Set(worked.flatMap(workspacePathsIn))],
     };
   }
 
@@ -158,7 +165,7 @@ export class WorkLookup implements WorkLookupPort {
     const line = run.stationId ? await this.lines.holding(run.stationId) : null;
     const repositories = line ? await this.worked(run, line) : [];
 
-    return distinctFiles(filesChangedIn(journal, run, repositories));
+    return distinctFiles(filesChangedIn(changesIn(journal, run), repositories));
   }
 
   async spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null> {
@@ -171,23 +178,6 @@ export class WorkLookup implements WorkLookupPort {
     const task = run.taskId ? await this.tasks.find(run.taskId) : null;
 
     return repositoriesWorked(task, line);
-  }
-
-  private async changedIn(journal: RunJournal, asked: Run): Promise<string[]> {
-    const run =
-      journal.runId === asked.id.value
-        ? asked
-        : await this.runs.findById(RunId.of(journal.runId));
-
-    if (!run) {
-      return [];
-    }
-
-    return journal.steps.flatMap((step) => {
-      const path = step.change?.path;
-      const within = path ? run.spec.workspacePathOf(path) : null;
-      return within ? [within] : [];
-    });
   }
 
   async wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {

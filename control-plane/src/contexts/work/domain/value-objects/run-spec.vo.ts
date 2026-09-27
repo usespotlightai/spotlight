@@ -1,5 +1,4 @@
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
-import { workspacePath } from '@work/domain/services/workspace-path';
 import type { ToolInputType } from '@work/domain/value-objects/declared-tool.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 
@@ -86,6 +85,13 @@ const outside = (path: string): boolean =>
   path.startsWith('/') || path.includes('..');
 
 const blank = (text: string): boolean => text.trim().length === 0;
+
+export const checkoutFoldersOf = (
+  checkouts: readonly RunCheckout[],
+): readonly string[] =>
+  checkouts.flatMap((each) =>
+    each.path && !blank(each.path) ? [each.path] : [],
+  );
 
 const setupCopied = (setup: RunHarnessSetup): RunHarnessSetup => ({
   files: setup.files.map(({ path, text }) => ({ path, text })),
@@ -273,13 +279,7 @@ export class RunSpec {
   }
 
   get checkoutFolders(): readonly string[] {
-    return (this.parts.checkouts ?? []).flatMap((each) =>
-      each.path && !blank(each.path) ? [each.path] : [],
-    );
-  }
-
-  workspacePathOf(path: string): string | null {
-    return workspacePath(path, this.checkoutFolders);
+    return checkoutFoldersOf(this.parts.checkouts ?? []);
   }
 
   get value(): RunSpecParts {
