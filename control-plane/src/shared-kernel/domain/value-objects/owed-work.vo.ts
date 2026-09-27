@@ -42,6 +42,10 @@ export class OwedWork {
     );
   }
 
+  waitingUntil(dueAt: Date): OwedWork {
+    return new OwedWork(this.attempts, dueAt);
+  }
+
   backedOff(now: Date): OwedWork {
     return new OwedWork(
       this.attempts,

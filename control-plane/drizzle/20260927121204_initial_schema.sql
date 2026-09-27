@@ -10,6 +10,11 @@ CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-cha
 CREATE TYPE "public"."check_phase" AS ENUM('waiting', 'reordering', 'checked', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
+CREATE TYPE "public"."memory_drafting_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'errored', 'interrupted');--> statement-breakpoint
+CREATE TYPE "public"."memory_kind" AS ENUM('rationale', 'rejected-approach', 'failure', 'environment', 'preference', 'correction');--> statement-breakpoint
+CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'rejected');--> statement-breakpoint
+CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> statement-breakpoint
+CREATE TYPE "public"."memory_standing" AS ENUM('stands', 'retired');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'completed', 'failed', 'superseded');--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,
@@ -441,6 +446,61 @@ CREATE TABLE "oauth2_spent_nonce" (
 	"until" timestamp NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "memory" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"kind" "memory_kind" NOT NULL,
+	"body" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text,
+	"station_id" text,
+	"repository" text,
+	"paths" jsonb NOT NULL,
+	"source" "memory_source" NOT NULL,
+	"supersedes" text,
+	"standing" "memory_standing" DEFAULT 'stands' NOT NULL,
+	"recorded_at" timestamp NOT NULL,
+	"retired_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "memory_draft" (
+	"id" text PRIMARY KEY NOT NULL,
+	"task_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"drafting_run_id" text,
+	"drafting_asked_at" timestamp,
+	"work_attempts" integer DEFAULT 0 NOT NULL,
+	"work_due_at" timestamp,
+	"drafted_in" text,
+	"notes_read" integer DEFAULT 0 NOT NULL,
+	"failure" "memory_drafting_failure",
+	"failed_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "memory_proposal" (
+	"id" text PRIMARY KEY NOT NULL,
+	"draft_id" text NOT NULL,
+	"position" integer NOT NULL,
+	"kind" "memory_kind" NOT NULL,
+	"body" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text,
+	"station_id" text,
+	"repository" text,
+	"paths" jsonb NOT NULL,
+	"task_id" text NOT NULL,
+	"run_id" text NOT NULL,
+	"steps" jsonb NOT NULL,
+	"notes" jsonb NOT NULL,
+	"source" "memory_source" NOT NULL,
+	"supersedes" text,
+	"recorded_at" timestamp NOT NULL,
+	"state" "memory_proposal_state" DEFAULT 'proposed' NOT NULL,
+	"rejected_at" timestamp
+);
+--> statement-breakpoint
 CREATE TABLE "pool_token" (
 	"token_hash" text PRIMARY KEY NOT NULL,
 	"pool_id" text NOT NULL,
@@ -670,6 +730,7 @@ CREATE TABLE "station" (
 	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"diffs" boolean DEFAULT false NOT NULL,
 	"decisions" boolean DEFAULT false NOT NULL,
+	"memories" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -791,6 +852,7 @@ CREATE TABLE "task" (
 	"runner_id" text,
 	"pull_request" text,
 	"reviewing" boolean DEFAULT false NOT NULL,
+	"review_from_outside" boolean DEFAULT false NOT NULL,
 	"finished_at" timestamp,
 	"revision" integer DEFAULT 0 NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
@@ -868,6 +930,7 @@ ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_user_id_user_id_
 ALTER TABLE "workspace_token" ADD CONSTRAINT "workspace_token_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_token_trust" ADD CONSTRAINT "workspace_token_trust_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "hook_firing" ADD CONSTRAINT "hook_firing_hook_id_hook_definition_id_fk" FOREIGN KEY ("hook_id") REFERENCES "public"."hook_definition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "memory_proposal" ADD CONSTRAINT "memory_proposal_draft_id_memory_draft_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."memory_draft"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_grant" ADD CONSTRAINT "secret_grant_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -927,6 +990,11 @@ CREATE INDEX "hook_callback_expires_idx" ON "hook_callback" USING btree ("expire
 CREATE INDEX "hook_definition_on_idx" ON "hook_definition" USING btree ("team_id","on");--> statement-breakpoint
 CREATE INDEX "hook_firing_state_idx" ON "hook_firing" USING btree ("state","due_at");--> statement-breakpoint
 CREATE INDEX "hook_firing_repeats_idx" ON "hook_firing" USING btree ("hook_id","task_id","fired_at");--> statement-breakpoint
+CREATE INDEX "memory_standing_idx" ON "memory" USING btree ("team_id","standing","recorded_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "memory_draft_task_idx" ON "memory_draft" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("drafting_asked_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "memory_proposal_position_idx" ON "memory_proposal" USING btree ("draft_id","position");--> statement-breakpoint
+CREATE INDEX "memory_proposal_rejected_idx" ON "memory_proposal" USING btree ("team_id","state","rejected_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint

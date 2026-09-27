@@ -34,6 +34,7 @@ type StationRow = Pick<
   | 'runners'
   | 'diffs'
   | 'decisions'
+  | 'memories'
   | 'finishes'
 >;
 
@@ -106,6 +107,7 @@ export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
     ...present('runners', placed(row.runners)),
     diffs: row.diffs,
     decisions: row.decisions,
+    memories: row.memories,
     tools: givenAt(rows.tools, row.id),
     skills: givenAt(rows.skills, row.id),
     passesTo: rows.routes

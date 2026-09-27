@@ -30,6 +30,7 @@ export interface ReviewWord {
   readonly asking: ReviewAsking;
   readonly pullRequest: string;
   readonly author: string | null;
+  readonly outside: boolean;
   readonly draft: boolean;
   readonly branch: string | null;
 }

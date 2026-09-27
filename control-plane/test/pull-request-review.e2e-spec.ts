@@ -110,6 +110,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
           asking: 'mentioned',
           pullRequest: pull,
           author: 'octocat',
+          outside: true,
           draft: false,
           branch: 'fix-uploads',
         },
@@ -132,6 +133,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     );
 
     expect(task?.reviewing).toBe(true);
+    expect(task?.fromOutside).toBe(true);
     expect(task?.pullRequest?.value).toBe(pull);
     expect(task?.stationId.value).toBe(line.entry?.id.value);
     expect(task?.reviewed?.value).toBe(`acme/${held}`);

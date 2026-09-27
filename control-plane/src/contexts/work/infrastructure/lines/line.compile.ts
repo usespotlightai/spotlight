@@ -123,6 +123,7 @@ const compileStation = (
       placement,
       diffs: station.diffs ?? false,
       decisions: station.decisions ?? false,
+      memories: station.memories ?? false,
       tools: station.tools.map((each) => Tool.of(each)),
       skills: station.skills.map((each) => SkillKey.of(each)),
       passesTo: station.passesTo.map((each) => StationKey.of(each)),

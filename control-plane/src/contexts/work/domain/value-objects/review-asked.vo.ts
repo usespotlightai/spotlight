@@ -23,6 +23,7 @@ export interface ReviewRequest {
   readonly asking: ReviewAsking;
   readonly pullRequest: PullRequestUrl;
   readonly author: string | null;
+  readonly outside: boolean;
   readonly draft: boolean;
   readonly branch: Branch | null;
 }

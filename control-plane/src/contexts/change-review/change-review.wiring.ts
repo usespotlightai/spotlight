@@ -139,7 +139,6 @@ import { DecisionController } from '@change-review/presentation/http/controllers
 import { ReviewController } from '@change-review/presentation/http/controllers/review.controller';
 import { RunnerChangeStackController } from '@change-review/presentation/http/controllers/runner-change-stack.controller';
 import { StandingDecisionController } from '@change-review/presentation/http/controllers/standing-decision.controller';
-import { OwedWorkWorker } from '@change-review/presentation/workers/owed-work.worker';
 import { ReviewSyncWorker } from '@change-review/presentation/workers/review-sync.worker';
 import {
   PULL_REQUEST_COMMENTS,
@@ -177,6 +176,7 @@ import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
+import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
 import {
   CLOCK,
   type ClockPort,

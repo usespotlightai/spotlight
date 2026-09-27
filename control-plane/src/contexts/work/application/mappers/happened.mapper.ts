@@ -37,6 +37,7 @@ const reviewOf = (
     asking: reviewAsking(word.asking),
     pullRequest: PullRequestUrl.of(word.pullRequest),
     author: word.author?.trim() || null,
+    outside: word.outside !== false,
     draft: word.draft,
     branch: word.branch ? Branch.of(word.branch) : null,
   };

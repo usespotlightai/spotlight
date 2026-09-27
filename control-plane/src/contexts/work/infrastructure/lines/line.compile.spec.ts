@@ -51,6 +51,16 @@ describe('compileLine', () => {
     ).toEqual(['backlog', 'code-review', 'completed']);
   });
 
+  it('keeps memories from only the stations that ask for them', () => {
+    const compiled = compileLine(
+      withStation(1, { ...DELIVERY.stations[1], memories: true }),
+    );
+
+    expect(
+      compiled.ok && compiled.line.stations.map((each) => each.memories),
+    ).toEqual([false, true, false]);
+  });
+
   it('reads a station’s prompt exactly as written, and none where it has none', () => {
     const compiled = compileLine(DELIVERY);
 

@@ -495,6 +495,7 @@ describe('DispatchTask', () => {
         station,
         task(station.id.value).reviews(
           PullRequestUrl.of('https://github.com/acme/api/pull/42'),
+          { outside: false },
         ),
         ['acme/widgets', 'acme/web'],
       );

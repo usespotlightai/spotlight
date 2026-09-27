@@ -42,6 +42,7 @@ const laid = (key: string, over: Partial<StationPlan> = {}): StationPlan => ({
   placement: RunnerPlacement.anywhere(),
   diffs: false,
   decisions: false,
+  memories: false,
   tools: [],
   skills: [],
   passesTo: [],

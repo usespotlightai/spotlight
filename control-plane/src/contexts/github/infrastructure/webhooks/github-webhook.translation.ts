@@ -38,6 +38,7 @@ interface Described {
   readonly body?: unknown;
   readonly draft?: unknown;
   readonly user?: { readonly login?: unknown };
+  readonly author_association?: unknown;
 }
 
 interface Pull extends Described {
@@ -67,6 +68,8 @@ interface ReviewComment {
   readonly in_reply_to_id?: unknown;
   readonly created_at?: unknown;
 }
+
+const BELONGING: readonly unknown[] = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 
 const REVIEW_COMMENT_ACTIONS = ['created', 'edited', 'deleted'] as const;
 
@@ -123,6 +126,7 @@ const described = (pull: Described | undefined): PullRequestAbout | null => {
         title: title.trim(),
         body: text(pull.body)?.trim() ?? null,
         author: text(pull.user?.login),
+        authorOutside: !BELONGING.includes(pull.author_association),
         draft: pull.draft === true,
       }
     : null;

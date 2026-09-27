@@ -1,0 +1,34 @@
+import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+
+const MOST_PATH = 500;
+
+export class MemoryPath {
+  private readonly kind = 'memory-path';
+
+  private constructor(readonly value: string) {}
+
+  static of(raw: string): MemoryPath {
+    const parts = raw
+      .trim()
+      .replaceAll('\\', '/')
+      .split('/')
+      .filter((each) => each !== '' && each !== '.');
+    const value = parts.join('/');
+
+    if (!value || value.length > MOST_PATH || parts.includes('..')) {
+      throw new InvalidMemoryError(
+        `names a path of at most ${MOST_PATH} characters inside its repository`,
+      );
+    }
+
+    return new MemoryPath(value);
+  }
+
+  equals(other: MemoryPath): boolean {
+    return this.kind === other.kind && this.value === other.value;
+  }
+
+  toString(): string {
+    return this.value;
+  }
+}

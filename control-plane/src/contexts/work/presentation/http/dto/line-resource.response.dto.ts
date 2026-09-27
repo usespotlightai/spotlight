@@ -33,6 +33,7 @@ export class LineResourceResponseDto extends ResourceResponseDto {
           color: '#a3a8b0',
           diffs: false,
           decisions: false,
+          memories: false,
           tools: [],
           skills: [],
           passesTo: ['completed'],

@@ -74,14 +74,65 @@ describe('GitHubWebhookTranslation', () => {
             body: 'Uploads give up too soon.',
             draft: true,
             user: { login: 'octocat' },
+            author_association: 'MEMBER',
           }),
         })?.about,
       ).toEqual({
         title: 'Retry uploads',
         body: 'Uploads give up too soon.',
         author: 'octocat',
+        authorOutside: false,
         draft: true,
       });
+    });
+
+    it('says an author who owns, belongs to or collaborates on the repository is not from outside', () => {
+      for (const association of ['OWNER', 'MEMBER', 'COLLABORATOR']) {
+        expect(
+          activity('pull_request', {
+            action: 'opened',
+            pull_request: pull({
+              title: 'Retry uploads',
+              author_association: association,
+            }),
+          })?.about?.authorOutside,
+        ).toBe(false);
+      }
+    });
+
+    it('reads whether the author of a pull request commented on belongs to the repository', () => {
+      expect(
+        activity('issue_comment', {
+          action: 'created',
+          issue: {
+            title: 'Retry uploads',
+            user: { login: 'octocat' },
+            author_association: 'COLLABORATOR',
+            pull_request: { html_url: 'https://github.com/acme/api/pull/7' },
+          },
+          comment: { body: '@spotlight have a look' },
+        })?.about?.authorOutside,
+      ).toBe(false);
+    });
+
+    it('says an author is from outside unless GitHub says they belong', () => {
+      for (const association of [
+        'CONTRIBUTOR',
+        'FIRST_TIME_CONTRIBUTOR',
+        'FIRST_TIMER',
+        'NONE',
+        undefined,
+      ]) {
+        expect(
+          activity('pull_request', {
+            action: 'opened',
+            pull_request: pull({
+              title: 'Retry uploads',
+              author_association: association,
+            }),
+          })?.about?.authorOutside,
+        ).toBe(true);
+      }
     });
 
     it('reads a pull request a bot opened, since opening one is not answering itself', () => {
@@ -109,6 +160,7 @@ describe('GitHubWebhookTranslation', () => {
         title: 'Retry uploads',
         body: null,
         author: 'octocat',
+        authorOutside: true,
         draft: false,
       });
     });

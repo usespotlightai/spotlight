@@ -6,11 +6,6 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
-import {
-  MOST_WORK_ATTEMPTS,
-  WORK_BACKOFF_MS,
-  WORK_LEASE_MS,
-} from '@change-review/domain/value-objects/owed-work.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
   ProposedCohort,
@@ -20,6 +15,11 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import {
+  MOST_WORK_ATTEMPTS,
+  WORK_BACKOFF_MS,
+  WORK_LEASE_MS,
+} from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';

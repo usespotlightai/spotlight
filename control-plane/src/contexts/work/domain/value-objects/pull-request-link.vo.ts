@@ -7,14 +7,18 @@ export class PullRequestLink {
   private constructor(
     readonly url: PullRequestUrl,
     readonly relation: PullRequestRelation,
+    readonly fromOutside: boolean,
   ) {}
 
   static opened(url: PullRequestUrl): PullRequestLink {
-    return new PullRequestLink(url, 'opened');
+    return new PullRequestLink(url, 'opened', false);
   }
 
-  static reviewing(url: PullRequestUrl): PullRequestLink {
-    return new PullRequestLink(url, 'reviews');
+  static reviewing(
+    url: PullRequestUrl,
+    by: { outside: boolean },
+  ): PullRequestLink {
+    return new PullRequestLink(url, 'reviews', by.outside);
   }
 
   get reviews(): boolean {
@@ -26,6 +30,10 @@ export class PullRequestLink {
   }
 
   equals(other: PullRequestLink): boolean {
-    return this.relation === other.relation && this.url.equals(other.url);
+    return (
+      this.relation === other.relation &&
+      this.fromOutside === other.fromOutside &&
+      this.url.equals(other.url)
+    );
   }
 }

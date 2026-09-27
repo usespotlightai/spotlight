@@ -4,7 +4,6 @@ import { ChangeStackReordered } from '@change-review/domain/events/change-stack-
 import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import type { OwesWork } from '@change-review/domain/owes-work';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
@@ -13,7 +12,6 @@ import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
-import { OwedWork } from '@change-review/domain/value-objects/owed-work.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
   CheckEntry,
@@ -32,6 +30,8 @@ import {
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { OwesWork } from '@shared-kernel/domain/owes-work';
+import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

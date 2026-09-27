@@ -4,7 +4,6 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { OwedWork } from '@change-review/domain/value-objects/owed-work.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import {
   cohortRows,
@@ -22,6 +21,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';

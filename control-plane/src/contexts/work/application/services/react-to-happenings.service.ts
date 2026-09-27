@@ -251,7 +251,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     if (answer.kind === 'opens') {
       await this.openOn(workspaceId, answer.on, happened, attachments, (task) =>
-        task.reviews(request.pullRequest),
+        task.reviews(request.pullRequest, { outside: request.outside }),
       );
     }
   }

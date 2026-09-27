@@ -1,9 +1,11 @@
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   JournalStep,
@@ -13,15 +15,20 @@ import type { RunJournalReaderPort } from '@work/application/ports/run-journal-r
 import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import type { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
 const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/7');
@@ -72,7 +79,7 @@ const lookingUp = (wearers: readonly Task[]) =>
 
 describe('WorkLookup, finding the task a pull request belongs to', () => {
   it('finds the task that opened it before one that reviews it', async () => {
-    const reviewing = task().reviews(PULL);
+    const reviewing = task().reviews(PULL, { outside: false });
     const opened = task().markedBy(Mark.pullRequest(PULL));
 
     const found = await lookingUp([reviewing, opened]).taskWithPullRequest(
@@ -84,7 +91,7 @@ describe('WorkLookup, finding the task a pull request belongs to', () => {
   });
 
   it('finds the task reviewing it where no task of Spotlight’s opened it', async () => {
-    const reviewing = task().reviews(PULL);
+    const reviewing = task().reviews(PULL, { outside: false });
 
     const found = await lookingUp([reviewing]).taskWithPullRequest(
       WORKSPACE,
@@ -94,10 +101,21 @@ describe('WorkLookup, finding the task a pull request belongs to', () => {
     expect(found?.id.equals(reviewing.id)).toBe(true);
     expect(found?.reviewing).toBe(true);
   });
+
+  it('says whether the pull request a task reviews came from outside the team', async () => {
+    const outside = task().reviews(PULL, { outside: true });
+
+    const found = await lookingUp([outside]).taskWithPullRequest(
+      WORKSPACE,
+      PULL,
+    );
+
+    expect(found?.fromOutside).toBe(true);
+  });
 });
 
 describe('WorkLookup, looking up a run', () => {
-  const runAt = (
+  const lookingUpAt = (
     key: string,
     state = 'completed',
     placement = RunnerPlacement.anywhere(),
@@ -128,8 +146,16 @@ describe('WorkLookup, looking up a run', () => {
       {} as TaskRepository,
       { holding: async () => line } as unknown as LineRepository,
       {} as RunJournalReaderPort,
-    ).run(RunId.of('run_1'));
+    );
   };
+
+  const runAt = (
+    key: string,
+    state = 'completed',
+    placement = RunnerPlacement.anywhere(),
+  ) => lookingUpAt(key, state, placement).run(RunId.of('run_1'));
+
+  const placeAt = (key: string) => lookingUpAt(key).placeOf(RunId.of('run_1'));
 
   it('hands a check the setup each checkout carried into its run', async () => {
     expect((await runAt('spec'))?.setups.get('api')).toBe('npm ci');
@@ -152,6 +178,23 @@ describe('WorkLookup, looking up a run', () => {
       (await runAt('gone', 'completed', RunnerPlacement.of(['vpc-internal'])))
         ?.placement.clauses,
     ).toEqual([['vpc-internal']]);
+  });
+
+  it('says where the run worked: its team, line and station', async () => {
+    const place = await placeAt('implementation');
+
+    expect(place?.teamId.value).toBe('team_1');
+    expect(place?.lineId).toBe(line.id.value);
+    expect(place?.lineName).toBe(line.name.value);
+    expect(place?.stationName).toBe('Implementation');
+  });
+
+  it('says a run whose station is gone worked nowhere it can name', async () => {
+    expect(await placeAt('gone')).toBeNull();
+  });
+
+  it('says the run is remembered from only where its station asks for it', async () => {
+    expect((await runAt('implementation'))?.memories).toBe(false);
   });
 
   it('says whether the run completed, not only whether it ended', async () => {
@@ -289,6 +332,98 @@ describe('WorkLookup, reading how a run reasoned', () => {
     expect(reasoned?.changed).toEqual([
       'api/src/uploads.ts',
       'web/src/Upload.tsx',
+    ]);
+  });
+});
+
+describe('WorkLookup, reading what a run changed', () => {
+  const API = Repository.of('acme/api');
+  const WEB = Repository.of('acme/web');
+
+  const changing = (paths: readonly string[]) =>
+    new WorkLookup(
+      {
+        findById: async (id: RunId) => ({
+          id,
+          taskId: null,
+          stationId: line.stations[1]?.id,
+          spec: RunSpec.of({
+            checkouts: ['api', 'web'].map((path) => ({
+              remote: 'spotlight:repository',
+              path,
+            })),
+            command: { executable: 'claude', args: [] },
+            briefing: 'Retry uploads',
+            handover: { options: [], noteLimit: 0 },
+            continuity: { key: 'task_1' },
+          }),
+        }),
+      } as unknown as RunRepository,
+      {} as TaskRepository,
+      {
+        holding: async () => ({ repositories: { all: [API, WEB] } }),
+      } as unknown as LineRepository,
+      {
+        ofRun: async () =>
+          ({
+            runId: 'run_1',
+            steps: paths.map((path) => ({
+              kind: 'tool',
+              text: 'Edit',
+              change: { path, before: 'a', after: 'b' },
+            })),
+          }) as unknown as RunJournal,
+      } as unknown as RunJournalReaderPort,
+    ).changedBy(RunId.of('run_1'));
+
+  it('names each file the run changed once, in the repository it lies in', async () => {
+    const changed = await changing([
+      '/runs/run_1/api/src/uploads.ts',
+      '/runs/run_1/api/src/uploads.ts',
+      '/runs/run_1/web/src/Upload.tsx',
+      '/tmp/scratch.ts',
+      '/runs/run_1/docs/uploads.md',
+    ]);
+
+    expect(changed?.map((each) => [each.repository.value, each.path])).toEqual([
+      ['acme/api', 'src/uploads.ts'],
+      ['acme/web', 'src/Upload.tsx'],
+    ]);
+  });
+});
+
+describe('WorkLookup, reading what people said on a task', () => {
+  const AT = new Date('2026-09-21T10:00:00.000Z');
+
+  const note = (position: number, voice: Voice, body: string) =>
+    TaskNote.of({
+      position: NotePosition.of(position),
+      station: StationName.of('Implementation'),
+      body: TaskNoteBody.of(body),
+      at: AT,
+      voice,
+      kind: 'answered',
+    });
+
+  it('reads what people and the world said, and nothing the stations did', async () => {
+    const spoken = await new WorkLookup(
+      {} as RunRepository,
+      {
+        find: async () => ({
+          notes: [
+            note(0, Voice.station(RunId.of('run_1')), 'Which bucket?'),
+            note(1, Voice.person(UserId.of('user_1')), 'The archive one.'),
+            note(2, Voice.world(), 'Never retry on a 403.'),
+          ],
+        }),
+      } as unknown as TaskRepository,
+      {} as LineRepository,
+      {} as RunJournalReaderPort,
+    ).spokenOn(TaskId.of('task_1'));
+
+    expect(spoken).toEqual([
+      { position: 1, by: 'person', text: 'The archive one.' },
+      { position: 2, by: 'world', text: 'Never retry on a 403.' },
     ]);
   });
 });

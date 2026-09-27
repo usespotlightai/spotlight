@@ -106,6 +106,7 @@ const assemble = (
       placement: planned.placement,
       diffs: planned.diffs,
       decisions: planned.decisions,
+      memories: planned.memories,
       tools: planned.tools,
       skills: planned.skills,
       wayOut: WayOut.of({

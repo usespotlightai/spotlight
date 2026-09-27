@@ -76,6 +76,7 @@ export const station = pgTable(
     runners: jsonb('runners').$type<string[]>().notNull().default([]),
     diffs: boolean('diffs').notNull().default(false),
     decisions: boolean('decisions').notNull().default(false),
+    memories: boolean('memories').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()

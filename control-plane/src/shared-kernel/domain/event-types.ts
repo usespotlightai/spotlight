@@ -10,6 +10,7 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
+import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import {
   PersonPrincipal,
   TokenPrincipal,
@@ -50,6 +51,7 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   HarnessId,
   HarnessModel,
   IdempotencyKey,
+  OwedWork,
   PersonPrincipal,
   PullRequestUrl,
   Repository,

@@ -8,8 +8,8 @@ import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggre
 import type { ProposedDecision } from '@change-review/domain/entities/decision.entity';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
-import { MOST_WORK_ATTEMPTS } from '@change-review/domain/value-objects/owed-work.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { MOST_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

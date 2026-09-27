@@ -1,14 +1,15 @@
-import type { OwedWorkPort } from '@change-review/application/ports/owed-work.port';
 import type { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
-import { OwedWorkPool } from '@change-review/application/services/owed-work-pool';
 import type { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
 
 const MOST_STACKS_AT_ONCE = 4;
 
@@ -41,6 +42,7 @@ export class WorkChangeStacks implements OwedWorkPort {
           attempts: stack.work.attempts,
         }),
         worked: (stack) => this.worked(stack),
+        stale: (error) => error instanceof ChangedSinceReadError,
       },
       transaction,
       clock,

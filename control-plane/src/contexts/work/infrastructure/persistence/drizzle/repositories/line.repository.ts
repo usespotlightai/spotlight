@@ -97,6 +97,7 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     placement: RunnerPlacement.of(row.runners),
     diffs: row.diffs,
     decisions: row.decisions,
+    memories: row.memories,
     kind: row.kind,
     wayOut: WayOut.of({
       stations: ways.routes.get(row.id) ?? [],
@@ -185,6 +186,7 @@ const columnsOf = (each: Station) => ({
   runners: [...each.placement.selectors],
   diffs: each.diffs,
   decisions: each.decisions,
+  memories: each.memories,
   kind: each.kind,
   finishes: each.wayOut.ends,
 });

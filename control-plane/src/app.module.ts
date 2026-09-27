@@ -1,6 +1,7 @@
 import { CatalogModule } from '@catalog/catalog.module';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
+import { MemoryModule } from '@memory/memory.module';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PlatformModule } from '@platform/platform.module';
@@ -19,6 +20,7 @@ import { ContextBindingsModule } from './context-bindings.module';
     SecretsModule,
     CatalogModule,
     GitHubModule,
+    MemoryModule,
     ContextBindingsModule,
   ],
 })

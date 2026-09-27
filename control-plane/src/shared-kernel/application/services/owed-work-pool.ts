@@ -1,8 +1,7 @@
-import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
-import type { OwesWork } from '@change-review/domain/owes-work';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { OwesWork } from '@shared-kernel/domain/owes-work';
 
 export interface OwedWorkSource<Owing extends OwesWork<Owing>, Key> {
   readonly name: string;
@@ -13,6 +12,7 @@ export interface OwedWorkSource<Owing extends OwesWork<Owing>, Key> {
   keyOf(owing: Owing): Key;
   about(owing: Owing): Record<string, unknown>;
   worked(owing: Owing): Promise<Owing>;
+  stale(error: unknown): boolean;
 }
 
 export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
@@ -94,7 +94,7 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
         this.source.name,
       );
 
-      if (error instanceof ChangedSinceReadError) {
+      if (this.source.stale(error)) {
         return;
       }
 

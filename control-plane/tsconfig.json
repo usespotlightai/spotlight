@@ -21,6 +21,7 @@
       "@work/*": ["./src/contexts/work/*"],
       "@runners/*": ["./src/contexts/runners/*"],
       "@change-review/*": ["./src/contexts/change-review/*"],
+      "@memory/*": ["./src/contexts/memory/*"],
       "@github/*": ["./src/contexts/github/*"],
       "@integrations/*": ["./src/contexts/integrations/*"],
       "@configuration/*": ["./src/contexts/configuration/*"],

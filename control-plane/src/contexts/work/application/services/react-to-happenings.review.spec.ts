@@ -104,7 +104,12 @@ const reviewing = (over: Partial<LineOpening> = {}, repositories?: string[]) =>
 
 const asked = (
   asking: 'opened' | 'mentioned',
-  over: { body?: string; draft?: boolean; branch?: string | null } = {},
+  over: {
+    body?: string;
+    draft?: boolean;
+    branch?: string | null;
+    outside?: boolean;
+  } = {},
 ): Happened => {
   const marks = [{ kind: REVIEW_MARK, value: PULL }];
 
@@ -127,6 +132,7 @@ const asked = (
         asking,
         pullRequest: PULL,
         author: 'octocat',
+        outside: over.outside ?? true,
         draft: over.draft ?? false,
         branch: over.branch === undefined ? 'fix-uploads' : over.branch,
       },
@@ -236,6 +242,18 @@ describe('ReactToHappenings, asked for a review', () => {
     expect(dispatched).toHaveLength(1);
   });
 
+  it('remembers whether the pull request under review came from outside the team', async () => {
+    for (const outside of [true, false]) {
+      const { react, added } = world({
+        lines: [reviewing({ reviews: policy('opened') })],
+      });
+
+      await react(asked('opened', { outside }));
+
+      expect(added[0]?.fromOutside).toBe(outside);
+    }
+  });
+
   it('waits to be mentioned where the line starts on a mention', async () => {
     const { react, added } = world({ lines: [reviewing()] });
 
@@ -326,7 +344,7 @@ describe('ReactToHappenings, asked for a review', () => {
       rank: TaskRank.of('i'),
       now: NOW,
       newId: () => 'task_review',
-    }).reviews(PullRequestUrl.of(PULL));
+    }).reviews(PullRequestUrl.of(PULL), { outside: false });
     const { react, added, saved } = world({
       lines: [line],
       holding: (concerns) =>
@@ -362,7 +380,9 @@ describe('ReactToHappenings, asked for a review', () => {
       createdAt: NOW,
       raisedAt: null,
       raisedBy: null,
-      pullRequestLink: PullRequestLink.reviewing(PullRequestUrl.of(PULL)),
+      pullRequestLink: PullRequestLink.reviewing(PullRequestUrl.of(PULL), {
+        outside: false,
+      }),
       marks: [Mark.review(PullRequestUrl.of(PULL))],
       finishedAt: NOW,
     });

@@ -871,7 +871,7 @@ describe('Task, what it is doing', () => {
     const url = PullRequestUrl.of('https://github.com/acme/widgets/pull/7');
 
     it('wears the pull request, and reviews it rather than owning it', () => {
-      const reviewing = added().reviews(url);
+      const reviewing = added().reviews(url, { outside: false });
 
       expect(reviewing.pullRequest).toEqual(url);
       expect(reviewing.reviewing).toBe(true);
@@ -886,7 +886,9 @@ describe('Task, what it is doing', () => {
 
       expect(own.reviewing).toBe(false);
       expect(own.reviewed).toBeNull();
-      expect(() => own.reviews(url)).toThrow(InvalidTaskTransitionError);
+      expect(() => own.reviews(url, { outside: false })).toThrow(
+        InvalidTaskTransitionError,
+      );
     });
   });
 

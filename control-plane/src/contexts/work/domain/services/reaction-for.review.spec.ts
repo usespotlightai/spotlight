@@ -67,6 +67,7 @@ const REQUEST: ReviewRequest = {
   asking: 'opened',
   pullRequest: PULL,
   author: 'octocat',
+  outside: false,
   draft: false,
   branch: Branch.of('fix-uploads'),
 };
@@ -107,11 +108,13 @@ describe('ReactionFor, asked for a review', () => {
   });
 
   it('does not count a pull request as Spotlight’s own because an earlier review of it holds its mark', () => {
-    expect(asked({ holder: taskOn(review).reviews(PULL) }).kind).toBe('opens');
+    expect(
+      asked({ holder: taskOn(review).reviews(PULL, { outside: false }) }).kind,
+    ).toBe('opens');
   });
 
   it('lets a review under way hear the word, rather than opening another', () => {
-    const underway = taskOn(review).reviews(PULL);
+    const underway = taskOn(review).reviews(PULL, { outside: false });
 
     expect(asked({ held: underway })).toEqual({ kind: 'heard', by: underway });
   });

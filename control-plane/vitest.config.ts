@@ -28,6 +28,7 @@ const shared = {
       '@work': resolve(__dirname, 'src/contexts/work'),
       '@runners': resolve(__dirname, 'src/contexts/runners'),
       '@change-review': resolve(__dirname, 'src/contexts/change-review'),
+      '@memory': resolve(__dirname, 'src/contexts/memory'),
       '@github': resolve(__dirname, 'src/contexts/github'),
       '@integrations': resolve(__dirname, 'src/contexts/integrations'),
       '@configuration': resolve(__dirname, 'src/contexts/configuration'),

@@ -1,4 +1,5 @@
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -9,20 +10,36 @@ import type {
 } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type {
+  ChangedFile,
   ReasonedStep,
   RunLookup,
+  RunPlace,
   RunReasoning,
+  SpokenNote,
   TaskLookup,
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
+import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+
+const spoken = (note: TaskNote): SpokenNote[] => {
+  const by = note.voice.isPerson
+    ? 'person'
+    : note.voice.isWorld
+      ? 'world'
+      : null;
+  const text = note.body.value.trim();
+
+  return by && text ? [{ position: note.position.value, by, text }] : [];
+};
 
 const reasoned = (step: JournalStep, index: number): ReasonedStep[] => {
   const kind = reasoningIn(step);
@@ -55,9 +72,29 @@ export class WorkLookup implements WorkLookupPort {
       setups: run.spec.checkoutSetups,
       placement: run.placement,
       decisions: station?.decisions ?? false,
+      memories: station?.memories ?? false,
       ended: run.hasEnded,
       completed: run.hasCompleted,
     };
+  }
+
+  async placeOf(runId: RunId): Promise<RunPlace | null> {
+    const run = await this.runs.findById(runId);
+    const line = run?.stationId
+      ? await this.lines.holding(run.stationId)
+      : null;
+    const station = run?.stationId ? line?.stationAt(run.stationId) : null;
+
+    return run && line && station
+      ? {
+          teamId: line.teamId,
+          lineId: line.id.value,
+          lineName: line.name.value,
+          stationId: station.id.value,
+          stationName: station.name.value,
+          repositories: await this.worked(run, line),
+        }
+      : null;
   }
 
   async reasoning(runId: RunId): Promise<RunReasoning | null> {
@@ -79,6 +116,47 @@ export class WorkLookup implements WorkLookupPort {
       steps: journal.steps.flatMap(reasoned),
       changed: [...new Set(changed)],
     };
+  }
+
+  async changedBy(runId: RunId): Promise<readonly ChangedFile[] | null> {
+    const run = await this.runs.findById(runId);
+    const journal = run ? await this.journals.ofRun(runId) : null;
+
+    if (!run || !journal) {
+      return null;
+    }
+
+    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const repositories = line ? await this.worked(run, line) : [];
+    const changed = new Map<string, ChangedFile>();
+
+    for (const step of journal.steps) {
+      const within = step.change?.path
+        ? run.spec.workspacePathOf(step.change.path)
+        : null;
+      const [folder, ...rest] = within?.split('/') ?? [];
+      const repository = repositories.find((each) => each.name === folder);
+
+      if (repository && rest.length > 0) {
+        const path = rest.join('/');
+        changed.set(`${repository.value}:${path}`, { repository, path });
+      }
+    }
+
+    return [...changed.values()];
+  }
+
+  async spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null> {
+    const task = await this.tasks.find(taskId);
+
+    return task ? task.notes.flatMap(spoken) : null;
+  }
+
+  private async worked(run: Run, line: Line): Promise<readonly Repository[]> {
+    const task = run.taskId ? await this.tasks.find(run.taskId) : null;
+    const reviewed = task?.reviewed;
+
+    return reviewed ? [reviewed] : line.repositories.all;
   }
 
   private async changedIn(journal: RunJournal, asked: Run): Promise<string[]> {
@@ -137,6 +215,7 @@ export class WorkLookup implements WorkLookupPort {
       teamId: line?.teamId ?? null,
       pullRequest: task.pullRequest,
       reviewing: task.reviewing,
+      fromOutside: task.fromOutside,
       currentRunId: task.currentRunId,
     };
   }

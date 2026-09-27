@@ -11,7 +11,6 @@ import { DecisionsRecorded } from '@change-review/domain/events/decisions-record
 import { DecisionsStood } from '@change-review/domain/events/decisions-stood.event';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
-import type { OwesWork } from '@change-review/domain/owes-work';
 import type { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
 import { DecisionDraft } from '@change-review/domain/value-objects/decision-draft.vo';
 import type { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
@@ -22,6 +21,7 @@ import { DecisionStanding } from '@change-review/domain/value-objects/decision-s
 import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { OwesWork } from '@shared-kernel/domain/owes-work';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

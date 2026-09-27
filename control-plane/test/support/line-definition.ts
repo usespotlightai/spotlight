@@ -19,6 +19,7 @@ export const definitionOf = (line: LineOpening) => ({
     skills: (station.skills ?? []).map((each) => each.value),
     diffs: station.diffs ?? false,
     decisions: station.decisions ?? false,
+    memories: station.memories ?? false,
     passesTo: station.passesTo.map((each) => each.value),
     ends: station.ends,
   })),

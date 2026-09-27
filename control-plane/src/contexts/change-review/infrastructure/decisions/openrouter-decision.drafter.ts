@@ -7,11 +7,12 @@ import {
   DECISION_KINDS,
   type ProposedDecision,
 } from '@change-review/domain/entities/decision.entity';
+import { latestWithin } from '@platform/openrouter/latest-within';
 import {
   askForJson,
   type Fetch,
   JsonShape,
-} from '@change-review/infrastructure/openrouter/openrouter-json';
+} from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
 const MOST_OUTPUT = 8_000;
@@ -62,24 +63,6 @@ const clipped = (text: string): string =>
 const line = (step: ReasonedStep): string =>
   `[${step.index}] ${step.kind}: ${clipped(step.text.trim())}`;
 
-const latestWithin = (steps: readonly ReasonedStep[]): string[] => {
-  const kept: string[] = [];
-  let used = 0;
-
-  for (const step of [...steps].reverse()) {
-    const told = line(step);
-
-    if (used + told.length > MOST_ASKED) {
-      break;
-    }
-
-    kept.unshift(told);
-    used += told.length + 1;
-  }
-
-  return kept;
-};
-
 export class OpenRouterDecisionDrafter implements DecisionDrafterPort {
   constructor(
     private readonly apiKey: string | undefined,
@@ -96,7 +79,7 @@ export class OpenRouterDecisionDrafter implements DecisionDrafterPort {
       throw new Error('No OpenRouter API key is set for decisions');
     }
 
-    const told = latestWithin(reasoning.steps);
+    const told = latestWithin(reasoning.steps.map(line), MOST_ASKED);
     const asked = [
       `The files changed on this task so far:\n${reasoning.changed.map((each) => `- ${each}`).join('\n')}`,
       told.length < reasoning.steps.length

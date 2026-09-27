@@ -58,6 +58,7 @@ const station = (key: string): StationPlan => ({
   placement: RunnerPlacement.anywhere(),
   diffs: false,
   decisions: false,
+  memories: false,
   tools: [],
   skills: [],
   passesTo: [],
