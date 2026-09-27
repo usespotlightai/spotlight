@@ -547,10 +547,12 @@ export class Run extends EventRecorder {
     return this.spec.wears.length > 0;
   }
 
+  isHeldBy(runner: RunnerId): boolean {
+    return this.state === 'claimed' && this.wasWorkedBy(runner);
+  }
+
   secretsWornFor(runner: RunnerId): readonly string[] {
-    return this.state === 'claimed' && this.wasWorkedBy(runner)
-      ? this.spec.wears
-      : [];
+    return this.isHeldBy(runner) ? this.spec.wears : [];
   }
 
   wasGiven(tool: Tool): boolean {

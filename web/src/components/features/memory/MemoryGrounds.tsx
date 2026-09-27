@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Unfold } from '@/components/shared/Unfold';
-import type { MemoryGround } from '@/lib/memory';
+import { type MemoryGround, stepLabel } from '@/lib/memory';
 import { cn } from '@/lib/utils';
 
 type MemoryGroundsProps = {
@@ -55,7 +55,7 @@ export function MemoryGrounds({ grounds, startsOpen }: MemoryGroundsProps) {
           {grounds.steps.map((step) => (
             <li key={`step-${step.index}`} className="flex flex-col gap-0.5">
               <span className="text-muted-foreground text-xs">
-                The agent {step.kind === 'handover' ? 'handed over' : step.kind}
+                {stepLabel(step.kind)}
               </span>
               <p className="whitespace-pre-wrap break-words text-foreground text-xs leading-5">
                 {step.text}

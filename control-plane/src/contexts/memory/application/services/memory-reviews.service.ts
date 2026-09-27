@@ -29,6 +29,7 @@ export class MemoryReviews {
           kind: proposal.kind,
           body: proposal.body,
           source: proposal.source,
+          origin: proposal.origin,
           state: proposal.state,
           reach: proposal.scope.reach,
           repository: proposal.scope.repository?.value ?? null,

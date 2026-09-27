@@ -107,6 +107,7 @@ export const ChatBriefing = {
       linesOf(input.lines),
       workspaceOf(input.chat),
       Learned.section(input.memories),
+      Learned.reaching(false),
       proposing,
       proposedSoFar(input.chat, input.lines),
       tracing(said) ? Traced.reading : null,

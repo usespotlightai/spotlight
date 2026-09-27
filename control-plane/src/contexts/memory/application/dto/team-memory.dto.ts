@@ -44,6 +44,7 @@ export interface TeamMemoryDto {
 
 export interface MemoryLinkDto {
   readonly id: string;
+  readonly handle: string;
   readonly body: string;
 }
 

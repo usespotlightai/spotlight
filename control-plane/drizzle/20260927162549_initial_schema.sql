@@ -12,6 +12,7 @@ CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> st
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
 CREATE TYPE "public"."memory_drafting_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'errored', 'interrupted');--> statement-breakpoint
 CREATE TYPE "public"."memory_kind" AS ENUM('rationale', 'rejected-approach', 'failure', 'environment', 'preference', 'correction');--> statement-breakpoint
+CREATE TYPE "public"."memory_origin" AS ENUM('drafted', 'remembered');--> statement-breakpoint
 CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'approved', 'rejected');--> statement-breakpoint
 CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> statement-breakpoint
 CREATE TYPE "public"."memory_standing" AS ENUM('stands', 'retired');--> statement-breakpoint
@@ -506,6 +507,7 @@ CREATE TABLE "memory_proposal" (
 	"steps" jsonb NOT NULL,
 	"notes" jsonb NOT NULL,
 	"source" "memory_source" NOT NULL,
+	"origin" "memory_origin" NOT NULL,
 	"supersedes" text,
 	"recorded_at" timestamp NOT NULL,
 	"state" "memory_proposal_state" DEFAULT 'proposed' NOT NULL,
@@ -1025,6 +1027,7 @@ CREATE INDEX "hook_firing_state_idx" ON "hook_firing" USING btree ("state","due_
 CREATE INDEX "hook_firing_repeats_idx" ON "hook_firing" USING btree ("hook_id","task_id","fired_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_handle_idx" ON "memory" USING btree ("handle");--> statement-breakpoint
 CREATE INDEX "memory_standing_idx" ON "memory" USING btree ("team_id","standing","approved_at");--> statement-breakpoint
+CREATE INDEX "memory_body_search_idx" ON "memory" USING gin (to_tsvector('english', "body"));--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_draft_task_idx" ON "memory_draft" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("drafting_asked_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_proposal_position_idx" ON "memory_proposal" USING btree ("draft_id","position");--> statement-breakpoint

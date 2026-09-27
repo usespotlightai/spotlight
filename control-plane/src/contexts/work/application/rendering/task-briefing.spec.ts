@@ -459,5 +459,16 @@ describe('TaskBriefing', () => {
     it('says nothing of memory when the team keeps none that bear on it', () => {
       expect(brief(triage())).not.toContain('What the team has learned');
     });
+
+    it('says when to recall more of it and when to propose something to keep', () => {
+      const briefing = brief(triage());
+
+      expect(briefing).toContain('## Recalling and remembering');
+      expect(briefing).toContain('`spotlight recall "<words>"`');
+      expect(briefing).toContain('`spotlight recall M-12`');
+      expect(briefing).toContain(
+        '`spotlight remember --kind <kind> --body "…" [--path <path>]`',
+      );
+    });
   });
 });

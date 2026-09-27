@@ -33,6 +33,9 @@ const ASK: MemoryDraftAsk = {
   notes: [{ position: 4, by: 'person', text: 'Never retry on a 403.' }],
   changed: [{ repository: Repository.of('acme/api'), path: 'src/uploads.ts' }],
   standing: [{ id: 'memory_old', kind: 'preference', body: 'Retry twice.' }],
+  proposed: [
+    { id: 'memory_asked', kind: 'rationale', body: 'Retry in the request.' },
+  ],
   rejected: [
     { id: 'memory_no', kind: 'rejected-approach', body: 'Retry forever.' },
   ],
@@ -82,6 +85,9 @@ describe('drafting memories through OpenRouter', () => {
     expect(told).toContain('(4) person: Never retry on a 403.');
     expect(told).toContain('- memory_old (preference): Retry twice.');
     expect(told).toContain('- (rejected-approach): Retry forever.');
+    expect(told).toContain(
+      'Memories the agent already proposed, waiting for a person:\n- (rationale): Retry in the request.',
+    );
   });
 
   it('tells the model that what it reads is evidence, not instructions', async () => {

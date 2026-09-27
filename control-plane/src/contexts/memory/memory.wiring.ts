@@ -11,9 +11,11 @@ import { EditMemoryCommand } from '@memory/application/commands/edit-memory.comm
 import { ApproveMemoriesHandler } from '@memory/application/commands/handlers/approve-memories.handler';
 import { EditMemoryHandler } from '@memory/application/commands/handlers/edit-memory.handler';
 import { RejectMemoryHandler } from '@memory/application/commands/handlers/reject-memory.handler';
+import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RetireMemoryHandler } from '@memory/application/commands/handlers/retire-memory.handler';
 import { WriteMemoryHandler } from '@memory/application/commands/handlers/write-memory.handler';
 import { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
+import { RememberCommand } from '@memory/application/commands/remember.command';
 import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
@@ -35,15 +37,20 @@ import { ListTeamMemoriesHandler } from '@memory/application/queries/handlers/li
 import { ReadBriefedMemoriesHandler } from '@memory/application/queries/handlers/read-briefed-memories.handler';
 import { ReadMemoryReviewHandler } from '@memory/application/queries/handlers/read-memory-review.handler';
 import { ReadTeamMemoryHandler } from '@memory/application/queries/handlers/read-team-memory.handler';
+import { RecallMemoriesHandler } from '@memory/application/queries/handlers/recall-memories.handler';
+import { RecallMemoryHandler } from '@memory/application/queries/handlers/recall-memory.handler';
 import { ListTeamMemoriesQuery } from '@memory/application/queries/list-team-memories.query';
 import { ReadBriefedMemoriesQuery } from '@memory/application/queries/read-briefed-memories.query';
 import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-review.query';
 import { ReadTeamMemoryQuery } from '@memory/application/queries/read-team-memory.query';
+import { RecallMemoriesQuery } from '@memory/application/queries/recall-memories.query';
+import { RecallMemoryQuery } from '@memory/application/queries/recall-memory.query';
 import { AskForMemories } from '@memory/application/services/ask-for-memories.service';
 import { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
+import { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
 import { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
@@ -58,6 +65,7 @@ import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
 import { BriefedMemoriesController } from '@memory/presentation/http/controllers/briefed-memories.controller';
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
+import { RunnerMemoryController } from '@memory/presentation/http/controllers/runner-memory.controller';
 import { TeamMemoryController } from '@memory/presentation/http/controllers/team-memory.controller';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
@@ -99,6 +107,7 @@ export const MEMORY_CONTROLLERS: readonly Type[] = [
   MemoryReviewController,
   TeamMemoryController,
   BriefedMemoriesController,
+  RunnerMemoryController,
 ];
 
 export const MEMORY_PROVIDERS: readonly Provider[] = [
@@ -221,6 +230,31 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     MemoryAccess,
     DrizzleMemoryDraftRepository,
     MemoryReviews,
+  ]),
+  {
+    provide: RunnerMemoryAtHand,
+    inject: [WORK],
+    useFactory: (work: WorkPort) => new RunnerMemoryAtHand(work),
+  },
+  ...bindQueryHandler(RecallMemoriesQuery, RecallMemoriesHandler, [
+    RunnerMemoryAtHand,
+    DrizzleMemoryRepository,
+    TeamMemoryViews,
+  ]),
+  ...bindQueryHandler(RecallMemoryQuery, RecallMemoryHandler, [
+    RunnerMemoryAtHand,
+    DrizzleMemoryRepository,
+    TeamMemoryViews,
+  ]),
+  ...bindCommandHandler(RememberCommand, RememberHandler, [
+    RunnerMemoryAtHand,
+    WORK,
+    DrizzleMemoryDraftRepository,
+    DrizzleMemoryRepository,
+    MemoryReviews,
+    TRANSACTION,
+    ID_GENERATOR,
+    CLOCK,
   ]),
   { provide: KNOWN_MEMORIES, useClass: DrizzleKnownMemories },
   {

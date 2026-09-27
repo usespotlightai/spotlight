@@ -1,4 +1,5 @@
 import type {
+  MemoryLinkDto,
   PersonDto,
   TeamMemoryDetailDto,
   TeamMemoryDto,
@@ -86,10 +87,14 @@ export class TeamMemoryViews {
     };
   }
 
-  private async linkTo(
-    id: MemoryId | null,
-  ): Promise<{ id: string; body: string } | null> {
+  private async linkTo(id: MemoryId | null): Promise<MemoryLinkDto | null> {
     const linked = id ? await this.memories.find(id) : null;
-    return linked && { id: linked.id.value, body: linked.body };
+    return (
+      linked && {
+        id: linked.id.value,
+        handle: linked.handle.value,
+        body: linked.body,
+      }
+    );
   }
 }

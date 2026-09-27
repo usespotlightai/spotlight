@@ -22,6 +22,8 @@ type channel struct {
 	use      func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error)
 	answer   func(ctx context.Context, said protocol.Remark) error
 	trace    func(ctx context.Context, taskID string) (json.RawMessage, error)
+	recall   func(asked protocol.RecallRequest) (json.RawMessage, error)
+	remember func(asked protocol.Remembering) (json.RawMessage, error)
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -62,6 +64,14 @@ func (h *channel) Traces(trace func(ctx context.Context, taskID string) (json.Ra
 	h.trace = trace
 }
 
+func (h *channel) Memories(
+	recall func(asked protocol.RecallRequest) (json.RawMessage, error),
+	remember func(asked protocol.Remembering) (json.RawMessage, error),
+) {
+	h.recall = recall
+	h.remember = remember
+}
+
 func (h *channel) Declared() *protocol.Outcome {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -92,6 +102,20 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.remark(w, r)
 	case r.URL.Path == protocol.HandoverTracePath:
 		h.traceOf(w, r)
+	case r.URL.Path == protocol.HandoverRecallPath:
+		var asked protocol.RecallRequest
+		if h.recall == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
+			refuse(w, http.StatusBadRequest, "unreadable recall")
+			return
+		}
+		answered(w)(h.recall(asked))
+	case r.URL.Path == protocol.HandoverRememberPath:
+		var asked protocol.Remembering
+		if h.remember == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
+			refuse(w, http.StatusBadRequest, "unreadable memory")
+			return
+		}
+		answered(w)(h.remember(asked))
 	default:
 		h.outcome(w, r)
 	}
@@ -178,6 +202,18 @@ func (h *channel) outcome(w http.ResponseWriter, r *http.Request) {
 	h.mu.Unlock()
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func answered(w http.ResponseWriter) func(json.RawMessage, error) {
+	return func(answer json.RawMessage, err error) {
+		if err != nil {
+			refuse(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(answer)
+	}
 }
 
 func answerJSON(w http.ResponseWriter, body any) {

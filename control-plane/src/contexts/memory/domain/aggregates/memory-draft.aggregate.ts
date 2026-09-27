@@ -1,6 +1,6 @@
-import {
-  type MemoryProposal,
-  type ProposedMemory,
+import type {
+  MemoryProposal,
+  ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
@@ -210,9 +210,15 @@ export class MemoryDraft
         throw error;
       }
     });
+    const kept = valid.filter(
+      (each) =>
+        !this.stillRemembered.some(
+          (one) => one.kind === each.kind && one.body === each.body,
+        ),
+    );
     const replaced = input.evidence.isEmpty
       ? []
-      : this.proposals.filter((each) => each.proposed);
+      : this.proposals.filter((each) => each.proposed && !each.remembered);
     const through = input.evidence.notesThrough;
 
     const drafted = this.with({
@@ -224,24 +230,88 @@ export class MemoryDraft
           : Math.max(this.notesRead, through + 1),
       proposals: [
         ...this.proposals.filter((each) => !replaced.includes(each)),
-        ...valid,
+        ...kept,
       ],
       failure: null,
     });
     for (const runId of runsOf(replaced)) {
-      drafted.record(new MemoryReviewSettled(this.id, this.taskId, runId));
+      if (!drafted.proposals.some((each) => each.proposedIn(runId))) {
+        drafted.record(new MemoryReviewSettled(this.id, this.taskId, runId));
+      }
     }
     drafted.record(
       new MemoriesProposed(
         this.id,
         this.taskId,
         input.runId,
-        valid.length,
-        input.proposed.length - valid.length,
+        kept.length,
+        input.proposed.length - kept.length,
         replaced.length,
       ),
     );
     return drafted;
+  }
+
+  remembered(proposal: MemoryProposal): MemoryDraft {
+    if (!proposal.remembered || !proposal.proposed) {
+      throw InvalidMemoryError.ofDraft(
+        'takes in only a memory a run proposed itself',
+      );
+    }
+
+    if (!proposal.grounds.taskId.equals(this.taskId)) {
+      throw InvalidMemoryError.ofDraft(
+        'takes in only a memory grounded in its own task',
+      );
+    }
+
+    if (this.twinOf(proposal)) {
+      return this;
+    }
+
+    const remembered = this.with({
+      proposals: [...this.proposals, proposal],
+    });
+    remembered.record(
+      new MemoriesProposed(
+        this.id,
+        this.taskId,
+        proposal.grounds.runId,
+        1,
+        0,
+        0,
+      ),
+    );
+    return remembered;
+  }
+
+  holding(proposal: MemoryProposal): MemoryProposal | null {
+    return (
+      this.proposals.find((each) => each.id.equals(proposal.id)) ??
+      this.twinOf(proposal)
+    );
+  }
+
+  get stillRemembered(): readonly MemoryProposal[] {
+    return this.proposals.filter((each) => each.proposed && each.remembered);
+  }
+
+  stepsRemembered(runId: RunId): readonly number[] {
+    return this.proposals
+      .filter((each) => each.remembered && each.grounds.runId.equals(runId))
+      .flatMap((each) => each.grounds.steps);
+  }
+
+  private twinOf(proposal: MemoryProposal): MemoryProposal | null {
+    return (
+      this.proposals.find(
+        (each) =>
+          each.remembered &&
+          each.proposedIn(proposal.grounds.runId) &&
+          each.kind === proposal.kind &&
+          each.body === proposal.body,
+      ) ?? null
+    );
   }
 
   approved(input: {

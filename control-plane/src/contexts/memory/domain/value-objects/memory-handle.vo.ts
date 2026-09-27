@@ -4,11 +4,13 @@ const PREFIX = 'M-';
 
 const SHAPE = /^M-(\d+)$/i;
 
+const HIGHEST = 2_147_483_647;
+
 export class MemoryHandle {
   private constructor(readonly number: number) {}
 
   static of(number: number): MemoryHandle {
-    if (!Number.isInteger(number) || number < 1) {
+    if (!Number.isInteger(number) || number < 1 || number > HIGHEST) {
       throw new InvalidMemoryError(`is numbered from 1, not ${number}`);
     }
 

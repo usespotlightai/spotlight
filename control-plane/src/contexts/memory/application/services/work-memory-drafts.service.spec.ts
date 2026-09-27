@@ -111,6 +111,7 @@ const working = (input: {
     } as unknown as MemoryDraftRepository,
     {
       run: async () => null,
+      heldBy: async () => null,
       linesOf: async () => [],
       placeOf: async () => (input.place === undefined ? PLACE : input.place),
       task: async () => ({
@@ -180,6 +181,7 @@ describe('drafting what a run should leave the team remembering', () => {
       notes: SPOKEN,
       changed: CHANGED,
       standing: STANDING,
+      proposed: [],
       rejected: REJECTED,
     });
     expect(worked.since).toHaveBeenCalledWith(

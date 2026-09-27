@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -25,18 +26,24 @@ type drafted struct {
 }
 
 type journal struct {
-	mu        sync.Mutex
-	events    []protocol.Event
-	renewals  int
-	done      *protocol.Completion
-	stopAfter int
-	said      [][]protocol.Said
-	delivered []int
-	files     map[string]string
-	drafted   []drafted
-	decision  string
-	asked     []protocol.PermissionAsked
-	archives  *keptArchives
+	mu         sync.Mutex
+	events     []protocol.Event
+	renewals   int
+	done       *protocol.Completion
+	stopAfter  int
+	said       [][]protocol.Said
+	delivered  []int
+	files      map[string]string
+	drafted    []drafted
+	decision   string
+	asked      []protocol.PermissionAsked
+	archives   *keptArchives
+	remembered []remembered
+}
+
+type remembered struct {
+	asked   protocol.Remembering
+	journal []protocol.Event
 }
 
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
@@ -88,6 +95,27 @@ func (j *journal) Trace(
 	_ context.Context, _ string, _ string,
 ) (json.RawMessage, error) {
 	return nil, nil
+}
+
+func (j *journal) RecallMemories(
+	_ context.Context, _ string, words string,
+) (json.RawMessage, error) {
+	return json.Marshal([]map[string]string{{"handle": "M-1", "body": words}})
+}
+
+func (j *journal) RecallMemory(
+	_ context.Context, _ string, handle string,
+) (json.RawMessage, error) {
+	return json.Marshal(map[string]string{"handle": handle})
+}
+
+func (j *journal) Remember(
+	_ context.Context, _ string, asked protocol.Remembering,
+) (json.RawMessage, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.remembered = append(j.remembered, remembered{asked: asked, journal: slices.Clone(j.events)})
+	return json.Marshal(map[string]string{"kind": asked.Kind, "body": asked.Body})
 }
 
 func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {
@@ -476,6 +504,38 @@ func TestWhatTheAgentDeclaresReachesTheCompletion(t *testing.T) {
 	spoken := written.done.Outcome
 	if spoken == nil || spoken.Next != "Spec" || spoken.Note != "needs a spec" {
 		t.Fatalf("got %+v", spoken)
+	}
+}
+
+func TestTheAgentRemembersThroughItsRunAfterItsStepsAreJournalled(t *testing.T) {
+	remembering := `send({ jsonrpc: "2.0", method: "session/update", params: { sessionId, update: {
+        sessionUpdate: "tool_call", toolCallId: "toolu_remember", title: "spotlight remember" } } });
+      execSync(` + "`" +
+		`node -e '
+      const body = JSON.stringify({ kind: "rationale", body: "Retry in the request." });
+      fetch(process.env.SPOTLIGHT_HANDOVER_URL + "remember", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        body,
+      }).then((answer) => process.exit(answer.ok ? 0 : 1));
+    '` + "`" + `); said = "remembered";`
+
+	written := run(t, harness(t, remembering, "end_turn"))
+
+	written.mu.Lock()
+	defer written.mu.Unlock()
+
+	if len(written.remembered) != 1 {
+		t.Fatalf("remembered %+v", written.remembered)
+	}
+	if got := written.remembered[0].asked; got.Kind != "rationale" || got.Body != "Retry in the request." {
+		t.Errorf("remembered %+v", got)
+	}
+	stepped := slices.ContainsFunc(written.remembered[0].journal, func(event protocol.Event) bool {
+		return strings.Contains(string(event.Data), "toolu_remember")
+	})
+	if !stepped {
+		t.Error("the step the agent remembered from should reach the journal before the memory does")
 	}
 }
 

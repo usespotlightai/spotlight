@@ -2,6 +2,7 @@ import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fa
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -16,6 +17,7 @@ import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
+import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -75,6 +77,7 @@ const lookingUp = (wearers: readonly Task[]) =>
         ) ?? null,
     } as unknown as TaskRepository,
     { holding: async () => line } as unknown as LineRepository,
+    {} as ChatRepository,
     {} as RunJournalReaderPort,
   );
 
@@ -147,6 +150,7 @@ describe('WorkLookup, looking up a run', () => {
       } as unknown as RunRepository,
       {} as TaskRepository,
       { holding: async () => line } as unknown as LineRepository,
+      {} as ChatRepository,
       {} as RunJournalReaderPort,
     );
   };
@@ -254,6 +258,7 @@ describe('WorkLookup, reading how a run reasoned', () => {
       } as unknown as RunRepository,
       {} as TaskRepository,
       {} as LineRepository,
+      {} as ChatRepository,
       {
         ofRun: async () => ({ runId: 'run_1', steps }) as unknown as RunJournal,
         ofTask: async () =>
@@ -365,6 +370,7 @@ describe('WorkLookup, reading what a run changed', () => {
       {
         holding: async () => ({ repositories: { all: [API, WEB] } }),
       } as unknown as LineRepository,
+      {} as ChatRepository,
       {
         ofRun: async () =>
           ({
@@ -420,6 +426,7 @@ describe('WorkLookup, reading what people said on a task', () => {
         }),
       } as unknown as TaskRepository,
       {} as LineRepository,
+      {} as ChatRepository,
       {} as RunJournalReaderPort,
     ).spokenOn(TaskId.of('task_1'));
 
@@ -438,6 +445,7 @@ describe('WorkLookup, reading a team’s lines', () => {
       {} as RunRepository,
       {} as TaskRepository,
       { ofTeam: async () => [line, retired] } as unknown as LineRepository,
+      {} as ChatRepository,
       {} as RunJournalReaderPort,
     ).linesOf(TeamId.of('team_1'));
 
@@ -450,5 +458,56 @@ describe('WorkLookup, reading a team’s lines', () => {
     expect(lines[0]?.stations.some((each) => each.name === 'Backlog')).toBe(
       false,
     );
+  });
+});
+
+describe('WorkLookup, finding the run a runner holds', () => {
+  const RUNNER = RunnerId.of('runner_1');
+  const TEAM = TeamId.of('team_1');
+
+  const holding = (run: {
+    held: boolean;
+    chatId?: string | null;
+    stationId?: string | null;
+  }) =>
+    new WorkLookup(
+      {
+        findById: async (id: RunId) => ({
+          id,
+          workspaceId: WORKSPACE,
+          taskId: run.chatId ? null : TaskId.of('task_1'),
+          chatId: run.chatId ? { value: run.chatId } : null,
+          stationId: run.stationId ?? null,
+          isHeldBy: (by: RunnerId) => run.held && by.equals(RUNNER),
+        }),
+      } as unknown as RunRepository,
+      {} as TaskRepository,
+      {
+        holding: async () => ({ teamId: TEAM }),
+      } as unknown as LineRepository,
+      {
+        find: async () => ({ teamId: TeamId.of('team_chat') }),
+      } as unknown as ChatRepository,
+      {} as RunJournalReaderPort,
+    ).heldBy(RunId.of('run_1'), RUNNER);
+
+  it('names the team, task and workspace of a task’s run the runner holds', async () => {
+    const held = await holding({ held: true, stationId: 'station_1' });
+
+    expect(held?.teamId.equals(TEAM)).toBe(true);
+    expect(held?.taskId?.value).toBe('task_1');
+    expect(held?.workspaceId.equals(WORKSPACE)).toBe(true);
+  });
+
+  it('names a chat’s own team for a chat’s run', async () => {
+    const held = await holding({ held: true, chatId: 'chat_1' });
+
+    expect(held?.teamId.value).toBe('team_chat');
+    expect(held?.taskId).toBeNull();
+  });
+
+  it('knows no run the runner does not hold, or one belonging to no team', async () => {
+    expect(await holding({ held: false, stationId: 'station_1' })).toBeNull();
+    expect(await holding({ held: true })).toBeNull();
   });
 });

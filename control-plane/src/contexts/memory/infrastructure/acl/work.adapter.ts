@@ -1,5 +1,6 @@
 import type {
   ChangedFile,
+  HeldRun,
   ReasonedStep,
   RememberedRun,
   RememberedTask,
@@ -9,6 +10,7 @@ import type {
   WorkPort,
 } from '@memory/application/ports/work.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkLookupPort } from '@work/application/ports/work-lookup.port';
@@ -27,6 +29,19 @@ export class Work implements WorkPort {
         completed: run.completed,
         memories: run.memories,
         briefedWith: run.briefedWith.map((each) => each.id),
+      }
+    );
+  }
+
+  async heldBy(runId: RunId, runner: RunnerId): Promise<HeldRun | null> {
+    const held = await this.work.heldBy(runId, runner);
+
+    return (
+      held && {
+        id: held.id,
+        workspaceId: held.workspaceId,
+        teamId: held.teamId,
+        taskId: held.taskId,
       }
     );
   }

@@ -1,5 +1,5 @@
 {
-  "id": "fd857b51-7f76-40c1-b79d-03f4a720661e",
+  "id": "ed0c505f-28d8-485a-a686-5b2694ad68e4",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3997,6 +3997,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "memory_body_search_idx": {
+          "name": "memory_body_search_idx",
+          "columns": [
+            {
+              "expression": "to_tsvector('english', \"body\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -4218,6 +4233,13 @@
         "source": {
           "name": "source",
           "type": "memory_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origin": {
+          "name": "origin",
+          "type": "memory_origin",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
@@ -8232,6 +8254,14 @@
         "environment",
         "preference",
         "correction"
+      ]
+    },
+    "public.memory_origin": {
+      "name": "memory_origin",
+      "schema": "public",
+      "values": [
+        "drafted",
+        "remembered"
       ]
     },
     "public.memory_proposal_state": {

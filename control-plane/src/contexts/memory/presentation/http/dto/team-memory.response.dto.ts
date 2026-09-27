@@ -76,11 +76,15 @@ export class MemoryLinkResponseDto {
   @ApiProperty({ example: 'memory_1' })
   readonly id: string;
 
+  @ApiProperty({ example: 'M-7' })
+  readonly handle: string;
+
   @ApiProperty({ example: 'Name branches after the ticket.' })
   readonly body: string;
 
   constructor(link: MemoryLinkDto) {
     this.id = link.id;
+    this.handle = link.handle;
     this.body = link.body;
   }
 }

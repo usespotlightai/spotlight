@@ -61,7 +61,7 @@ Rules:
 4. Name a "repository" only when the memory is about one of the repositories listed, and "paths" only when it is about particular files; paths are relative to their repository and must come from the files the run changed in it. Otherwise give null and an empty list.
 5. "body" is one to three plain sentences that stand on their own for a reader who has none of this context. Say the thing to remember, not the story of how it was learned.
 6. Skip anything a memory the team already keeps says. When what you read shows one of them is wrong or out of date, propose its replacement and give that memory's id in "supersedes"; otherwise give null.
-7. Never propose again what people recently turned down.
+7. Never propose again what people recently turned down, nor what the agent already proposed itself.
 8. Prefer a few memories that matter to many that do not. When nothing is worth remembering, give none.`;
 
 const MOST_KNOWN = 1_000;
@@ -98,6 +98,10 @@ const told = (ask: MemoryDraftAsk): string => {
       ask.standing.map(
         (each) => `- ${each.id} (${each.kind}): ${known(each.body)}`,
       ),
+      '(none)',
+    )}`,
+    `Memories the agent already proposed, waiting for a person:\n${listed(
+      ask.proposed.map((each) => `- (${each.kind}): ${known(each.body)}`),
       '(none)',
     )}`,
     `Memories people recently turned down:\n${listed(

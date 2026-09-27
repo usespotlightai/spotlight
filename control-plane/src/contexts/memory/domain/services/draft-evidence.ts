@@ -206,6 +206,7 @@ export class DraftEvidence {
       scope: this.scopeOf(proposed),
       grounds,
       source: this.sourceOf(grounds),
+      origin: 'drafted',
       supersedes,
       recordedAt: now,
     });

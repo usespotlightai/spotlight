@@ -536,14 +536,16 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleRunRepository,
       DrizzleTaskRepository,
       DrizzleLineRepository,
+      DrizzleChatRepository,
       RUN_JOURNAL_READER,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
+      chats: DrizzleChatRepository,
       journals: RunJournalReaderPort,
-    ) => new WorkLookup(runs, tasks, lines, journals),
+    ) => new WorkLookup(runs, tasks, lines, chats, journals),
   },
 
   DrizzleRunRepository,

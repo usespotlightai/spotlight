@@ -12,6 +12,7 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
+import { Remembering } from '@memory/domain/services/remembering';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
@@ -111,6 +112,7 @@ const rejected = (id: string) =>
       notes: [1],
     }),
     source: 'person',
+    origin: 'drafted',
     supersedes: null,
     recordedAt: NOW,
     state: 'rejected',
@@ -594,6 +596,110 @@ describe('MemoryDraft', () => {
     });
   });
 
+  describe('remembering', () => {
+    const asked = (
+      runId: RunId,
+      body = 'Uploads retry in the request, not from a queue.',
+      id = 'memory_asked',
+    ) =>
+      Remembering.of({
+        taskId: TASK,
+        runId,
+        place: {
+          teamId: TEAM,
+          lineId: 'line_1',
+          stationId: 'station_1',
+          repositories: [API],
+        },
+        steps: [{ index: 3, kind: 'remember' }],
+        cited: [],
+        fromOutside: false,
+      }).proposalOf(
+        MemoryId.of(id),
+        { kind: 'rationale', body, reach: null, paths: [], supersedes: null },
+        NOW,
+      );
+
+    it('takes in what a run asked to remember and puts it to a person', () => {
+      const draft = opened().remembered(asked(FIRST));
+
+      expect(draft.proposals.map((each) => each.id.value)).toEqual([
+        'memory_asked',
+      ]);
+      expect(draft.stepsRemembered(FIRST)).toEqual([3]);
+      expect(draft.pullEvents()).toEqual([
+        new MemoriesProposed(draft.id, TASK, FIRST, 1, 0, 0),
+      ]);
+    });
+
+    it('takes in the same memory from the same run only once', () => {
+      const draft = opened().remembered(asked(FIRST));
+      draft.pullEvents();
+      const again = asked(FIRST, undefined, 'memory_again');
+
+      expect(draft.remembered(again)).toBe(draft);
+      expect(draft.holding(again)?.id.value).toBe('memory_asked');
+    });
+
+    it('refuses a drafted proposal, or one of another task', () => {
+      const [drafted] = drafting(opened().asked(FIRST, NOW), FIRST, [
+        remembered(),
+      ]).proposals;
+      if (!drafted) {
+        throw new Error('nothing was drafted');
+      }
+
+      expect(() => opened().remembered(drafted)).toThrow(InvalidMemoryError);
+      expect(() =>
+        MemoryDraft.opened({
+          id: MemoryDraftId.of('draft_2'),
+          taskId: TaskId.of('task_other'),
+          workspaceId: WorkspaceId.of('ws_1'),
+        }).remembered(asked(FIRST)),
+      ).toThrow(InvalidMemoryError);
+    });
+
+    it('drafts nothing the run already asked to remember in the same words', () => {
+      const draft = opened()
+        .remembered(asked(FIRST, remembered().body))
+        .asked(FIRST, NOW);
+      draft.pullEvents();
+
+      const drafted = drafting(draft, FIRST, [
+        remembered({ kind: 'rationale' }),
+      ]);
+
+      expect(drafted.proposals.map((each) => each.origin)).toEqual([
+        'remembered',
+      ]);
+    });
+
+    it('keeps what a run remembered when a later draft replaces the rest', () => {
+      const draft = drafting(
+        opened().remembered(asked(FIRST)).asked(FIRST, NOW),
+        FIRST,
+        [remembered()],
+      ).asked(SECOND, LATER);
+      draft.pullEvents();
+
+      const redrafted = drafting(draft, SECOND, [remembered()]);
+
+      expect(
+        redrafted.proposals
+          .filter((each) => each.proposed)
+          .map((each) => [each.origin, each.grounds.runId.value]),
+      ).toEqual([
+        ['remembered', 'run_1'],
+        ['drafted', 'run_2'],
+      ]);
+      expect(
+        redrafted
+          .pullEvents()
+          .some((event) => event instanceof MemoryReviewSettled),
+      ).toBe(false);
+    });
+  });
+
   describe('rehydrating', () => {
     it('refuses to hold a proposal grounded in another task', () => {
       const other = MemoryProposal.of({
@@ -608,6 +714,7 @@ describe('MemoryDraft', () => {
           notes: [],
         }),
         source: 'run',
+        origin: 'drafted',
         supersedes: null,
         recordedAt: NOW,
       });

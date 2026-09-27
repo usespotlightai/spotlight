@@ -34,6 +34,9 @@ type Journal interface {
 	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
+	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
+	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
+	Remember(ctx context.Context, runID string, remembered protocol.Remembering) (json.RawMessage, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
@@ -166,6 +169,25 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	channel.Traces(func(ctx context.Context, taskID string) (json.RawMessage, error) {
 		return opts.Journal.Trace(ctx, run.ID, taskID)
 	})
+
+	channel.Memories(
+		func(ctx context.Context, asked protocol.RecallRequest) (json.RawMessage, error) {
+			if asked.Handle != "" {
+				return opts.Journal.RecallMemory(ctx, run.ID, asked.Handle)
+			}
+			return opts.Journal.RecallMemories(ctx, run.ID, asked.Words)
+		},
+		func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error) {
+			within, err := checkedOutPaths(space.Dir, run.Spec.Checkouts, remembered.Paths)
+			if err != nil {
+				return nil, err
+			}
+			remembered.Paths = within
+
+			journal.flush(ctx)
+			return opts.Journal.Remember(ctx, run.ID, remembered)
+		},
+	)
 
 	telemetry, err := otel.Serve(func(span json.RawMessage) {
 		journal.append(protocol.Event{Type: protocol.EventSpan, Data: span})
@@ -728,6 +750,7 @@ type journalWriter struct {
 	runID   string
 	journal Journal
 	mu      sync.Mutex
+	sending sync.Mutex
 	seq     int
 	pending []protocol.Event
 }
@@ -748,6 +771,9 @@ func (j *journalWriter) record(ctx context.Context, event protocol.Event) {
 }
 
 func (j *journalWriter) flush(ctx context.Context) {
+	j.sending.Lock()
+	defer j.sending.Unlock()
+
 	j.mu.Lock()
 	batch := j.pending
 	j.pending = nil
@@ -760,6 +786,66 @@ func (j *journalWriter) flush(ctx context.Context) {
 	if err := j.journal.AppendEvents(ctx, j.runID, batch); err != nil {
 		slog.Warn("could not append events", "run", j.runID, "count", len(batch), "error", err)
 	}
+}
+
+func checkedOutPaths(dir string, checkouts []protocol.Checkout, asked []string) ([]string, error) {
+	roots := []string{filepath.Clean(dir)}
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil && resolved != roots[0] {
+		roots = append(roots, resolved)
+	}
+
+	within := make([]string, 0, len(asked))
+	for _, raw := range asked {
+		found, ok := checkedOutPath(roots, checkouts, raw)
+		if !ok {
+			return nil, &declare.Refusal{Because: fmt.Sprintf(
+				"%s is outside the repositories this run checked out; name a path inside %s",
+				raw, checkoutDirs(dir, checkouts),
+			)}
+		}
+		within = append(within, found)
+	}
+
+	return within, nil
+}
+
+func checkedOutPath(roots []string, checkouts []protocol.Checkout, raw string) (string, bool) {
+	candidates := []string{filepath.Clean(raw)}
+	if resolved, err := filepath.EvalSymlinks(raw); err == nil {
+		candidates = append(candidates, resolved)
+	}
+
+	for _, root := range roots {
+		for _, candidate := range candidates {
+			relative, err := filepath.Rel(root, candidate)
+			if err != nil {
+				continue
+			}
+			relative = filepath.ToSlash(relative)
+
+			for _, checkout := range checkouts {
+				folder := filepath.ToSlash(filepath.Clean(checkout.Path))
+				if relative == folder || strings.HasPrefix(relative, folder+"/") {
+					return relative, true
+				}
+			}
+		}
+	}
+
+	return "", false
+}
+
+func checkoutDirs(dir string, checkouts []protocol.Checkout) string {
+	if len(checkouts) == 0 {
+		return "a checkout, and this run has none"
+	}
+
+	named := make([]string, len(checkouts))
+	for at, checkout := range checkouts {
+		named[at] = filepath.Join(dir, checkout.Path)
+	}
+
+	return "one of: " + strings.Join(named, ", ")
 }
 
 const StateVar = "SPOTLIGHT_STATE_DIR"

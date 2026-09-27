@@ -238,6 +238,47 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     return rows.map(toMemory);
   }
 
+  async withHandle(
+    teamId: TeamId,
+    handle: MemoryHandle,
+  ): Promise<Memory | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(memory)
+      .where(
+        and(eq(memory.teamId, teamId.value), eq(memory.handle, handle.number)),
+      )
+      .limit(1);
+
+    return row ? toMemory(row) : null;
+  }
+
+  async recalled(
+    teamId: TeamId,
+    words: string,
+    most: number,
+  ): Promise<readonly Memory[]> {
+    const document = sql`to_tsvector('english', ${memory.body})`;
+    const asked = sql`websearch_to_tsquery('english', ${words})`;
+    const rows = await this.context.db
+      .select()
+      .from(memory)
+      .where(
+        and(
+          eq(memory.teamId, teamId.value),
+          eq(memory.standing, 'stands'),
+          sql`${document} @@ ${asked}`,
+        ),
+      )
+      .orderBy(
+        desc(sql`ts_rank(${document}, ${asked})`),
+        desc(memory.approvedAt),
+      )
+      .limit(most);
+
+    return rows.map(toMemory);
+  }
+
   async find(id: MemoryId): Promise<Memory | null> {
     const [row] = await this.context.db
       .select()

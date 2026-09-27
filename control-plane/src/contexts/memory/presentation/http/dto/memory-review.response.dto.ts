@@ -1,5 +1,6 @@
 import {
   MEMORY_KIND_NAMES,
+  MEMORY_ORIGIN_NAMES,
   MEMORY_REACH_NAMES,
   MEMORY_SOURCE_NAMES,
   MEMORY_STATE_NAMES,
@@ -17,7 +18,7 @@ export class MemoryGroundStepResponseDto {
 
   @ApiProperty({
     example: 'thought',
-    description: 'said, thought, planned, or handover',
+    description: 'said, thought, planned, handover, or remember',
   })
   readonly kind: string;
 
@@ -89,6 +90,14 @@ export class ProposedMemoryResponseDto {
   })
   readonly source: string;
 
+  @ApiProperty({
+    enum: MEMORY_ORIGIN_NAMES,
+    example: 'remembered',
+    description:
+      'drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember',
+  })
+  readonly origin: string;
+
   @ApiProperty({ enum: MEMORY_STATE_NAMES, example: 'proposed' })
   readonly state: string;
 
@@ -138,6 +147,7 @@ export class ProposedMemoryResponseDto {
     this.kind = memory.kind;
     this.body = memory.body;
     this.source = memory.source;
+    this.origin = memory.origin;
     this.state = memory.state;
     this.reach = memory.reach;
     this.repository = memory.repository;

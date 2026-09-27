@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   approvableTogether,
+  askedByAgent,
   decidedBy,
   filterOf,
   narrowed,
@@ -8,6 +9,7 @@ import {
   paramsOf,
   placeOf,
   reachOf,
+  stepLabel,
 } from '@/lib/memory';
 
 const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
@@ -15,6 +17,7 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
+  origin: 'drafted',
   state: 'proposed',
   reach: 'team',
   repository: null,
@@ -97,5 +100,18 @@ describe('placeOf', () => {
         [],
       ),
     ).toBe('A line that is gone');
+  });
+});
+
+describe('stepLabel and askedByAgent', () => {
+  it('names what the agent did in the step a memory rests on', () => {
+    expect(stepLabel('thought')).toBe('The agent thought');
+    expect(stepLabel('handover')).toBe('The agent handed over');
+    expect(stepLabel('remember')).toBe('The agent asked the team to remember');
+  });
+
+  it('tells a memory the agent asked for from one drafted after the run', () => {
+    expect(askedByAgent(memory({ origin: 'remembered' }))).toBe(true);
+    expect(askedByAgent(memory())).toBe(false);
   });
 });

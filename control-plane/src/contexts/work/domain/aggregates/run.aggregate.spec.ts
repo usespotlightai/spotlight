@@ -334,6 +334,19 @@ describe('Run', () => {
       ).toEqual([]);
     });
 
+    it('is held only by the runner that claimed it, and only until it ends', () => {
+      const held = claimed();
+
+      expect(held.isHeldBy(runner())).toBe(true);
+      expect(held.isHeldBy(runner('runner_2'))).toBe(false);
+      expect(queued().isHeldBy(runner())).toBe(false);
+      expect(
+        held
+          .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
+          .isHeldBy(runner()),
+      ).toBe(false);
+    });
+
     it('wears nothing its spec does not name', () => {
       expect(claimed().secretsWornFor(runner())).toEqual([]);
     });

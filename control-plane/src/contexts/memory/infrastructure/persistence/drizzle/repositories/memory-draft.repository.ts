@@ -86,6 +86,7 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
       notes: row.notes,
     }),
     source: row.source,
+    origin: row.origin,
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
     recordedAt: row.recordedAt,
     state: row.state,
@@ -144,6 +145,7 @@ const proposalRows = (draft: MemoryDraft) =>
     steps: [...each.grounds.steps],
     notes: [...each.grounds.notes],
     source: each.source,
+    origin: each.origin,
     supersedes: each.supersedes?.value ?? null,
     recordedAt: each.recordedAt,
     state: each.state,
@@ -161,13 +163,22 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
 
   async add(added: MemoryDraft): Promise<void> {
     await this.context.run(async () => {
-      await this.context.db.insert(memoryDraft).values({
-        id: added.id.value,
-        taskId: added.taskId.value,
-        workspaceId: added.workspaceId.value,
-        version: added.version,
-        ...columnsOf(added),
-      });
+      const written = await this.context.db
+        .insert(memoryDraft)
+        .values({
+          id: added.id.value,
+          taskId: added.taskId.value,
+          workspaceId: added.workspaceId.value,
+          version: added.version,
+          ...columnsOf(added),
+        })
+        .onConflictDoNothing({ target: memoryDraft.taskId })
+        .returning({ id: memoryDraft.id });
+
+      if (written.length === 0) {
+        throw new MemoryDraftMovedOnError(added.id.value);
+      }
+
       await this.proposalsReplaced(added);
       await this.events.dispatch(added.pullEvents());
     });

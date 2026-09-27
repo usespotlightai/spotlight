@@ -9,6 +9,7 @@ import {
   MEMORY_KINDS,
   type MemoryKind,
 } from '@memory/domain/value-objects/memory-kind';
+import type { MemoryOrigin } from '@memory/domain/value-objects/memory-origin';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -41,6 +42,7 @@ export class MemoryProposal {
     readonly scope: MemoryScope,
     readonly grounds: MemoryGrounds,
     readonly source: MemorySource,
+    readonly origin: MemoryOrigin,
     readonly supersedes: MemoryId | null,
     readonly recordedAt: Date,
     readonly state: MemoryProposalState,
@@ -54,6 +56,7 @@ export class MemoryProposal {
     scope: MemoryScope;
     grounds: MemoryGrounds;
     source: MemorySource;
+    origin: MemoryOrigin;
     supersedes: MemoryId | null;
     recordedAt: Date;
   }): MemoryProposal {
@@ -74,6 +77,7 @@ export class MemoryProposal {
       input.scope,
       input.grounds,
       input.source,
+      input.origin,
       input.supersedes,
       input.recordedAt,
       'proposed',
@@ -88,6 +92,7 @@ export class MemoryProposal {
     scope: MemoryScope;
     grounds: MemoryGrounds;
     source: MemorySource;
+    origin: MemoryOrigin;
     supersedes: MemoryId | null;
     recordedAt: Date;
     state: MemoryProposalState;
@@ -107,6 +112,7 @@ export class MemoryProposal {
       input.scope,
       input.grounds,
       input.source,
+      input.origin,
       input.supersedes,
       input.recordedAt,
       input.state,
@@ -120,6 +126,10 @@ export class MemoryProposal {
 
   get fromOutside(): boolean {
     return this.source === 'outside';
+  }
+
+  get remembered(): boolean {
+    return this.origin === 'remembered';
   }
 
   proposedIn(runId: RunId): boolean {
@@ -158,6 +168,7 @@ export class MemoryProposal {
       this.scope,
       this.grounds,
       this.source,
+      this.origin,
       this.supersedes,
       this.recordedAt,
       state,

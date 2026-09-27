@@ -16133,6 +16133,156 @@
           "memories"
         ]
       }
+    },
+    "/runs/{runId}/memories": {
+      "get": {
+        "operationId": "recallMemories",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "description": "Words to look for",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMemoryResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "No such run held by this runner"
+          },
+          "422": {
+            "description": "Nothing to look for"
+          }
+        },
+        "summary": "Search what the run’s team remembers, for an agent reaching past its briefing",
+        "tags": [
+          "runners"
+        ]
+      },
+      "post": {
+        "description": "It waits in the inbox beside the task for a person to approve, like a drafted memory.",
+        "operationId": "remember",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RememberRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedMemoryResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "No such run held by this runner"
+          },
+          "422": {
+            "description": "An unknown kind or reach, a path outside the run’s repositories, or a chat run"
+          }
+        },
+        "summary": "Propose a memory from inside the run, grounded in the step it was asked from",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/memories/{handle}": {
+      "get": {
+        "operationId": "recallMemory",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "handle",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "M-12",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "No such run held by this runner"
+          },
+          "422": {
+            "description": "Not a handle like M-12"
+          }
+        },
+        "summary": "Read one of the team’s memories in full, by its handle",
+        "tags": [
+          "runners"
+        ]
+      }
     }
   },
   "info": {
@@ -23526,7 +23676,7 @@
           "kind": {
             "type": "string",
             "example": "thought",
-            "description": "said, thought, planned, or handover"
+            "description": "said, thought, planned, handover, or remember"
           },
           "text": {
             "type": "string",
@@ -23596,6 +23746,15 @@
             "example": "person",
             "description": "person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else"
           },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "drafted",
+              "remembered"
+            ],
+            "example": "remembered",
+            "description": "drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember"
+          },
           "state": {
             "type": "string",
             "enum": [
@@ -23664,6 +23823,7 @@
           "kind",
           "body",
           "source",
+          "origin",
           "state",
           "reach",
           "repository",
@@ -23981,6 +24141,10 @@
             "type": "string",
             "example": "memory_1"
           },
+          "handle": {
+            "type": "string",
+            "example": "M-7"
+          },
           "body": {
             "type": "string",
             "example": "Name branches after the ticket."
@@ -23988,6 +24152,7 @@
         },
         "required": [
           "id",
+          "handle",
           "body"
         ]
       },
@@ -24165,6 +24330,57 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "RememberRequestDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "rationale"
+          },
+          "body": {
+            "type": "string",
+            "example": "Uploads retry in the request, not from a queue."
+          },
+          "reach": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "nullable": true,
+            "description": "Where it applies; the run’s line when left out"
+          },
+          "paths": {
+            "example": [
+              "api/src/uploads"
+            ],
+            "description": "Paths it bears on, relative to the run’s workspace, each starting with the checkout folder",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "example": "M-7",
+            "description": "The standing memory it corrects, by handle"
+          }
+        },
+        "required": [
+          "kind",
+          "body"
         ]
       }
     }

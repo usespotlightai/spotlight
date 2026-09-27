@@ -114,4 +114,11 @@ describe('ChatBriefing', () => {
       '- **M-3** · preference: Name branches after the ticket.',
     );
   });
+
+  it('says how to recall more, but not to remember, since a chat has no task to ground it', () => {
+    const briefing = brief(started(), []);
+
+    expect(briefing).toContain('`spotlight recall "<words>"`');
+    expect(briefing).not.toContain('spotlight remember');
+  });
 });

@@ -22,6 +22,14 @@ export interface MemoryRepository {
 
   find(id: MemoryId): Promise<Memory | null>;
 
+  withHandle(teamId: TeamId, handle: MemoryHandle): Promise<Memory | null>;
+
+  recalled(
+    teamId: TeamId,
+    words: string,
+    most: number,
+  ): Promise<readonly Memory[]>;
+
   nextHandle(): Promise<MemoryHandle>;
 
   mayReach(place: {

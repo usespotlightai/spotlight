@@ -36,6 +36,17 @@ export const undecided = (memory: ProposedMemory): boolean =>
 export const fromOutside = (memory: ProposedMemory): boolean =>
   memory.source === 'outside';
 
+export const askedByAgent = (memory: ProposedMemory): boolean =>
+  memory.origin === 'remembered';
+
+const STEP_LABELS: Record<string, string> = {
+  handover: 'The agent handed over',
+  remember: 'The agent asked the team to remember',
+};
+
+export const stepLabel = (kind: string): string =>
+  STEP_LABELS[kind] ?? `The agent ${kind}`;
+
 export const approvableTogether = (
   memories: readonly ProposedMemory[],
 ): ProposedMemory[] =>

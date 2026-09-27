@@ -12,6 +12,7 @@ import type {
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type {
   ChangedFile,
+  HeldRunLookup,
   ReasonedStep,
   RunLookup,
   RunPlace,
@@ -30,6 +31,7 @@ import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
+import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -49,8 +51,8 @@ const spoken = (note: TaskNote): SpokenNote[] => {
 };
 
 const reasoned = (step: JournalStep, index: number): ReasonedStep[] => {
-  const kind = reasoningIn(step);
-  return kind ? [{ index, kind, text: step.text }] : [];
+  const reasoning = reasoningIn(step);
+  return reasoning ? [{ index, ...reasoning }] : [];
 };
 
 export class WorkLookup implements WorkLookupPort {
@@ -58,6 +60,7 @@ export class WorkLookup implements WorkLookupPort {
     private readonly runs: RunRepository,
     private readonly tasks: TaskRepository,
     private readonly lines: LineRepository,
+    private readonly chats: ChatRepository,
     private readonly journals: RunJournalReaderPort,
   ) {}
 
@@ -187,6 +190,34 @@ export class WorkLookup implements WorkLookupPort {
 
   async wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
     return (await this.runs.findById(runId))?.wasWorkedBy(runner) ?? false;
+  }
+
+  async heldBy(runId: RunId, runner: RunnerId): Promise<HeldRunLookup | null> {
+    const run = await this.runs.findById(runId);
+
+    if (!run?.isHeldBy(runner)) {
+      return null;
+    }
+
+    const teamId = await this.teamOf(run);
+
+    return (
+      teamId && {
+        id: run.id,
+        workspaceId: run.workspaceId,
+        teamId,
+        taskId: run.taskId,
+      }
+    );
+  }
+
+  private async teamOf(run: Run): Promise<TeamId | null> {
+    if (run.chatId) {
+      return (await this.chats.find(run.chatId))?.teamId ?? null;
+    }
+
+    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    return line?.teamId ?? null;
   }
 
   async task(taskId: TaskId): Promise<TaskLookup | null> {

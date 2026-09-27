@@ -1,8 +1,10 @@
 import { MEMORY_PROPOSAL_STATES } from '@memory/domain/entities/memory-proposal.entity';
 import { MEMORY_DRAFTING_FAILURES } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
+import { MEMORY_ORIGINS } from '@memory/domain/value-objects/memory-origin';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
 import { MEMORY_STANDINGS } from '@memory/domain/value-objects/memory-standing';
+import { sql } from 'drizzle-orm';
 import {
   index,
   integer,
@@ -23,6 +25,7 @@ const FAILURE_CODES = Object.keys(MEMORY_DRAFTING_FAILURES) as [
 export const memoryKind = pgEnum('memory_kind', MEMORY_KINDS);
 export const memorySource = pgEnum('memory_source', MEMORY_SOURCES);
 export const memoryStanding = pgEnum('memory_standing', MEMORY_STANDINGS);
+export const memoryOrigin = pgEnum('memory_origin', MEMORY_ORIGINS);
 export const memoryProposalState = pgEnum(
   'memory_proposal_state',
   MEMORY_PROPOSAL_STATES,
@@ -74,6 +77,7 @@ export const memoryProposal = pgTable(
     steps: jsonb('steps').$type<number[]>().notNull(),
     notes: jsonb('notes').$type<number[]>().notNull(),
     source: memorySource('source').notNull(),
+    origin: memoryOrigin('origin').notNull(),
     supersedes: text('supersedes'),
     recordedAt: timestamp('recorded_at').notNull(),
     state: memoryProposalState('state').notNull().default('proposed'),
@@ -129,6 +133,10 @@ export const memory = pgTable(
       table.teamId,
       table.standing,
       table.approvedAt,
+    ),
+    index('memory_body_search_idx').using(
+      'gin',
+      sql`to_tsvector('english', ${table.body})`,
     ),
   ],
 );

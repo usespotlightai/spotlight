@@ -35,9 +35,16 @@ export interface RunLookup {
   readonly completed: boolean;
 }
 
+export interface HeldRunLookup {
+  readonly id: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly taskId: TaskId | null;
+}
+
 export interface ReasonedStep {
   readonly index: number;
-  readonly kind: 'said' | 'thought' | 'planned' | 'handover';
+  readonly kind: 'said' | 'thought' | 'planned' | 'handover' | 'remember';
   readonly text: string;
 }
 
@@ -78,6 +85,8 @@ export interface WorkLookupPort {
   run(runId: RunId): Promise<RunLookup | null>;
 
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
+
+  heldBy(runId: RunId, runner: RunnerId): Promise<HeldRunLookup | null>;
 
   placeOf(runId: RunId): Promise<RunPlace | null>;
 

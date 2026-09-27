@@ -3051,7 +3051,7 @@ export type MemoryGroundStepResponseDto = {
    */
   index: number;
   /**
-   * said, thought, planned, or handover
+   * said, thought, planned, handover, or remember
    */
   kind: string;
   text: string;
@@ -3077,6 +3077,10 @@ export type ProposedMemoryResponseDto = {
    * person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else
    */
   source: 'person' | 'run' | 'outside';
+  /**
+   * drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember
+   */
+  origin: 'drafted' | 'remembered';
   state: 'proposed' | 'approved' | 'rejected';
   /**
    * Where it applies: the whole team, its line, or its station
@@ -3194,6 +3198,7 @@ export type WriteMemoryRequestDto = {
 
 export type MemoryLinkResponseDto = {
   id: string;
+  handle: string;
   body: string;
 };
 
@@ -3237,6 +3242,23 @@ export type RetireMemoryRequestDto = {
    * Why it no longer holds
    */
   reason: string;
+};
+
+export type RememberRequestDto = {
+  kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
+  body: string;
+  /**
+   * Where it applies; the run’s line when left out
+   */
+  reach?: 'team' | 'line' | 'station';
+  /**
+   * Paths it bears on, relative to the run’s workspace, each starting with the checkout folder
+   */
+  paths?: Array<string>;
+  /**
+   * The standing memory it corrects, by handle
+   */
+  supersedes?: string | null;
 };
 
 export type HookSigningRequestDtoWritable = {
@@ -10934,3 +10956,99 @@ export type ReadBriefedMemoriesResponses = {
 };
 
 export type ReadBriefedMemoriesResponse = ReadBriefedMemoriesResponses[keyof ReadBriefedMemoriesResponses];
+
+export type RecallMemoriesData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query: {
+    /**
+     * Words to look for
+     */
+    q: string;
+  };
+  url: '/runs/{runId}/memories';
+};
+
+export type RecallMemoriesErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run held by this runner
+   */
+  404: unknown;
+  /**
+   * Nothing to look for
+   */
+  422: unknown;
+};
+
+export type RecallMemoriesResponses = {
+  200: Array<TeamMemoryResponseDto>;
+};
+
+export type RecallMemoriesResponse = RecallMemoriesResponses[keyof RecallMemoriesResponses];
+
+export type RememberData = {
+  body: RememberRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/memories';
+};
+
+export type RememberErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run held by this runner
+   */
+  404: unknown;
+  /**
+   * An unknown kind or reach, a path outside the run’s repositories, or a chat run
+   */
+  422: unknown;
+};
+
+export type RememberResponses = {
+  201: ProposedMemoryResponseDto;
+};
+
+export type RememberResponse = RememberResponses[keyof RememberResponses];
+
+export type RecallMemoryData = {
+  body?: never;
+  path: {
+    runId: string;
+    handle: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/memories/{handle}';
+};
+
+export type RecallMemoryErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run held by this runner
+   */
+  404: unknown;
+  /**
+   * Not a handle like M-12
+   */
+  422: unknown;
+};
+
+export type RecallMemoryResponses = {
+  200: TeamMemoryDetailResponseDto;
+};
+
+export type RecallMemoryResponse = RecallMemoryResponses[keyof RecallMemoryResponses];

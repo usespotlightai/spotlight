@@ -119,6 +119,11 @@ export class WorkMemoryDrafts implements OwedWorkPort {
             notes: evidence.notes,
             changed: evidence.changed,
             standing,
+            proposed: draft.stillRemembered.map((each) => ({
+              id: each.id.value,
+              kind: each.kind,
+              body: each.body,
+            })),
             rejected,
           });
     } catch (error) {

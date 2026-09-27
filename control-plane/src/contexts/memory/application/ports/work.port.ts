@@ -1,5 +1,6 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,6 +23,13 @@ export interface RememberedRun {
   readonly completed: boolean;
   readonly memories: boolean;
   readonly briefedWith: readonly string[];
+}
+
+export interface HeldRun {
+  readonly id: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly taskId: TaskId | null;
 }
 
 export interface RememberedTask {
@@ -57,6 +65,8 @@ export interface TeamLine {
 
 export interface WorkPort {
   run(runId: RunId): Promise<RememberedRun | null>;
+
+  heldBy(runId: RunId, runner: RunnerId): Promise<HeldRun | null>;
 
   placeOf(runId: RunId): Promise<WorkedPlace | null>;
 

@@ -5,6 +5,7 @@ import { Composer } from '@/components/shared/form/Composer';
 import { Pill } from '@/components/shared/Pill';
 import { Button } from '@/components/ui/button';
 import {
+  askedByAgent,
   decidedBy,
   fromOutside,
   KIND_LABELS,
@@ -47,6 +48,7 @@ export function ProposedMemoryCard({
         </Pill>
         <p className="min-w-0 truncate text-muted-foreground text-xs">
           {reachOf(memory)}
+          {askedByAgent(memory) && ' · the agent asked to keep this'}
         </p>
       </div>
 

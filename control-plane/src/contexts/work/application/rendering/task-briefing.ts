@@ -171,6 +171,7 @@ export const TaskBriefing = {
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
       onRecord(input.decisions),
       Learned.section(input.memories),
+      Learned.reaching(true),
       station?.decisions ? SAYING_DECISIONS : null,
       workspaceOf(input.line),
       listing(input.skills, input.listedIn),
