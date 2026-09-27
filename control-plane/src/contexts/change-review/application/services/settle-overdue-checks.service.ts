@@ -1,9 +1,9 @@
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
-import type { OwedWorkPort } from '@change-review/application/ports/owed-work.port';
 import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
 
 const MOST_AT_ONCE = 50;
 

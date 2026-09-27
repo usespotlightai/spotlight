@@ -6,6 +6,8 @@ import {
   emptyRun,
   failRun,
   RUN_ID,
+  rememberedFailedRun,
+  rememberingRun,
   SLUG,
   seedRun,
   TEAM_ID,
@@ -50,6 +52,35 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Remembered: Story = {
+  render: () => (
+    <StoryPage at={at} seed={seedRun}>
+      {routes}
+    </StoryPage>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      await canvas.findByRole('button', { name: /Remembered/ }),
+    );
+  },
+};
+
+export const RememberedFailed: Story = {
+  render: () => (
+    <StoryPage at={at} seed={rememberedFailedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const RememberedLoading: Story = {
+  render: () => (
+    <StoryPage at={at} seed={rememberingRun}>
       {routes}
     </StoryPage>
   ),

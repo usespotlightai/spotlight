@@ -79,6 +79,10 @@ import {
 } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import {
+  ISOLATION,
+  type IsolationPort,
+} from '@shared-kernel/application/ports/isolation.port';
+import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
@@ -125,6 +129,7 @@ import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-r
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
+import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-inbox-aside.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
@@ -142,6 +147,7 @@ import {
   ClaimHostCallCommand,
 } from '@work/application/commands/host-call.commands';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
+import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
 import {
   AppendRunJournalCommand,
@@ -265,6 +271,7 @@ import {
   STATION_TALLIES,
   type StationTalliesPort,
 } from '@work/application/ports/station-tallies.port';
+import { TASK_ASIDES } from '@work/application/ports/task-asides.port';
 import {
   TASK_DECISIONS,
   type TaskDecisionsPort,
@@ -283,6 +290,10 @@ import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
+import {
+  TEAM_MEMORIES,
+  type TeamMemoriesPort,
+} from '@work/application/ports/team-memories.port';
 import {
   TEAM_SKILLS,
   type TeamSkillsPort,
@@ -366,6 +377,7 @@ import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.qu
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 import { WatchRunQuery } from '@work/application/queries/watch-run.query';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
+import { AsideAtHand } from '@work/application/services/aside-at-hand.service';
 import {
   BUILT_IN_TOOL_USES,
   BuiltInTools,
@@ -404,6 +416,7 @@ import { RunWorks } from '@work/application/services/run-works.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { StationSkills } from '@work/application/services/station-skills.service';
+import { TaskAsides } from '@work/application/services/task-asides.service';
 import { TaskBindings } from '@work/application/services/task-bindings.service';
 import {
   TASK_DISPATCH,
@@ -411,6 +424,7 @@ import {
 } from '@work/application/services/task-dispatch';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { ToolSources } from '@work/application/services/tool-sources.service';
+import { TouchedFiles } from '@work/application/services/touched-files';
 import { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
@@ -450,6 +464,7 @@ import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/r
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/repositories/run-digest.repository';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/repositories/run-journal.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { DrizzleTaskAsideRepository } from '@work/infrastructure/persistence/drizzle/repositories/task-aside.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { S3WorkspaceArchiveStore } from '@work/infrastructure/storage/s3-workspace-archive.store';
@@ -521,14 +536,16 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleRunRepository,
       DrizzleTaskRepository,
       DrizzleLineRepository,
+      DrizzleChatRepository,
       RUN_JOURNAL_READER,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
+      chats: DrizzleChatRepository,
       journals: RunJournalReaderPort,
-    ) => new WorkLookup(runs, tasks, lines, journals),
+    ) => new WorkLookup(runs, tasks, lines, chats, journals),
   },
 
   DrizzleRunRepository,
@@ -544,6 +561,43 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   DrizzleWorkspaceArchiveRepository,
 
   DrizzleNetworkCallRepository,
+
+  DrizzleTaskAsideRepository,
+
+  {
+    provide: TaskAsides,
+    inject: [
+      DrizzleTaskAsideRepository,
+      DrizzleTaskRepository,
+      TRANSACTION,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      asides: DrizzleTaskAsideRepository,
+      tasks: DrizzleTaskRepository,
+      transaction: TransactionPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new TaskAsides(asides, tasks, transaction, ids, clock),
+  },
+  { provide: TASK_ASIDES, useExisting: TaskAsides },
+
+  {
+    provide: AsideAtHand,
+    inject: [
+      DrizzleTaskAsideRepository,
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+      WORKSPACE_ACCESS,
+    ],
+    useFactory: (
+      asides: DrizzleTaskAsideRepository,
+      tasks: DrizzleTaskRepository,
+      lines: DrizzleLineRepository,
+      access: WorkspaceAccessPort,
+    ) => new AsideAtHand(asides, tasks, lines, access),
+  },
 
   {
     provide: HookedTasks,
@@ -904,6 +958,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TEAM_DIRECTORY,
       DrizzleLineRepository,
       CLOCK,
+      TEAM_MEMORIES,
+      LOGGER,
+      ISOLATION,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -913,7 +970,22 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       teams: TeamDirectoryPort,
       lines: DrizzleLineRepository,
       clock: ClockPort,
-    ) => new DispatchChat(runs, ids, launch, tracing, teams, lines, clock),
+      memories: TeamMemoriesPort,
+      logger: LoggerPort,
+      isolation: IsolationPort,
+    ) =>
+      new DispatchChat(
+        runs,
+        ids,
+        launch,
+        tracing,
+        teams,
+        lines,
+        clock,
+        memories,
+        logger,
+        isolation,
+      ),
   },
 
   {
@@ -960,6 +1032,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TASK_DECISIONS,
       StationCatalog,
       STATION_PROFILES,
+      TEAM_MEMORIES,
+      TouchedFiles,
+      LOGGER,
+      ISOLATION,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -973,6 +1049,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       decisions: TaskDecisionsPort,
       catalog: StationCatalog,
       profiles: StationProfilesPort,
+      memories: TeamMemoriesPort,
+      touched: TouchedFiles,
+      logger: LoggerPort,
+      isolation: IsolationPort,
     ) =>
       new DispatchTask(
         runs,
@@ -986,7 +1066,21 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         decisions,
         catalog,
         profiles,
+        memories,
+        touched,
+        logger,
+        isolation,
       ),
+  },
+
+  {
+    provide: TouchedFiles,
+    inject: [RUN_JOURNAL_READER, PULL_REQUESTS, LOGGER],
+    useFactory: (
+      journals: RunJournalReaderPort,
+      pullRequests: PullRequestPort,
+      logger: LoggerPort,
+    ) => new TouchedFiles(journals, pullRequests, logger),
   },
 
   {
@@ -1384,6 +1478,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     WorkspaceSetup,
   ]),
 
+  ...bindCommandHandler(ReadInboxAsideCommand, ReadInboxAsideHandler, [
+    AsideAtHand,
+    DrizzleTaskAsideRepository,
+    CLOCK,
+  ]),
   ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
     ConversationAtHand,
     DrizzleTaskRepository,

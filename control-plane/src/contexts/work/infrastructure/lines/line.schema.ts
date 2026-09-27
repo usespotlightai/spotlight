@@ -44,6 +44,7 @@ const stationSchema = z.object({
   runners: z.array(z.string()).optional(),
   diffs: z.boolean().optional(),
   decisions: z.boolean().optional(),
+  memories: z.boolean().optional(),
   tools: z.array(identifier(Tool.of)).default([]),
   skills: z.array(identifier(SkillKey.of)).default([]),
   passesTo: z.array(identifier(StationKey.of)).default([]),

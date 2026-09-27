@@ -23,12 +23,22 @@ const (
 var ErrRefused = errors.New("the control plane refused the credential")
 
 type Rejection struct {
-	Status int
-	Reason string
-	Err    error
+	Status  int
+	Reason  string
+	Message string
+	Err     error
 }
 
 func (r *Rejection) Error() string { return r.Err.Error() }
+
+func (r *Rejection) Refused() (string, bool) {
+	switch r.Status {
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity:
+		return r.Message, r.Message != ""
+	}
+
+	return "", false
+}
 
 func (r *Rejection) Unwrap() error { return r.Err }
 
@@ -152,6 +162,56 @@ func (c *Client) Trace(
 
 	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
 		return nil, fmt.Errorf("read a trace: %w", err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) RecallMemories(
+	ctx context.Context, runID, words string,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/memories?q=%s", url.PathEscape(runID), url.QueryEscape(words))
+
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, fmt.Errorf("recall: %w", err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) RecallMemory(
+	ctx context.Context, runID, handle string,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/memories/%s", url.PathEscape(runID), url.PathEscape(handle))
+
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, fmt.Errorf("recall %s: %w", handle, err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error) {
+	var out []protocol.MemoryFile
+	path := fmt.Sprintf("/api/runs/%s/memory-files", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, fmt.Errorf("read the team's memory: %w", err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) Remember(
+	ctx context.Context, runID string, remembered protocol.Remembering,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/memories", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodPost, path, remembered, &out); err != nil {
+		return nil, fmt.Errorf("remember: %w", err)
 	}
 
 	return out, nil
@@ -415,7 +475,11 @@ func (c *Client) send(ctx context.Context, method, path string, in any) (*http.R
 		body = bytes.NewReader(encoded)
 	}
 
-	request, err := http.NewRequestWithContext(ctx, method, c.base.JoinPath(path).String(), body)
+	route, query, _ := strings.Cut(path, "?")
+	target := c.base.JoinPath(route)
+	target.RawQuery = query
+
+	request, err := http.NewRequestWithContext(ctx, method, target.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +497,8 @@ func rejection(method, path string, response *http.Response) error {
 	detail, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 
 	var said struct {
-		Reason string `json:"reason"`
+		Reason  string          `json:"reason"`
+		Message json.RawMessage `json:"message"`
 	}
 	_ = json.Unmarshal(detail, &said)
 
@@ -442,7 +507,23 @@ func rejection(method, path string, response *http.Response) error {
 		err = fmt.Errorf("%w: %w", ErrRefused, err)
 	}
 
-	return &Rejection{Status: response.StatusCode, Reason: said.Reason, Err: err}
+	return &Rejection{
+		Status: response.StatusCode, Reason: said.Reason, Message: messageOf(said.Message), Err: err,
+	}
+}
+
+func messageOf(raw json.RawMessage) string {
+	var one string
+	if json.Unmarshal(raw, &one) == nil {
+		return one
+	}
+
+	var many []string
+	if json.Unmarshal(raw, &many) == nil {
+		return strings.Join(many, "; ")
+	}
+
+	return ""
 }
 
 func refused(method, path string, response *http.Response) error {

@@ -28,6 +28,7 @@ interface StationOpening {
   readonly skills?: readonly SkillKey[];
   readonly diffs?: boolean;
   readonly decisions?: boolean;
+  readonly memories?: boolean;
   readonly ends: boolean;
 }
 
@@ -56,6 +57,7 @@ const opening = (input: {
   tools?: readonly Tool[];
   diffs?: boolean;
   decisions?: boolean;
+  memories?: boolean;
   ends?: boolean;
 }): StationOpening => ({
   key: StationKey.of(input.key),
@@ -67,6 +69,7 @@ const opening = (input: {
   tools: input.tools ?? [],
   diffs: input.diffs ?? false,
   decisions: input.decisions ?? false,
+  memories: input.memories ?? false,
   ends: input.ends ?? false,
 });
 

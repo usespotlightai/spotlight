@@ -10,6 +10,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { BriefingPlace } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -70,6 +71,9 @@ const chatIn = (repositories: Repository[]) =>
     newId: () => 'chat_1',
   });
 
+const briefedAt: BriefingPlace[] = [];
+let memoryFails = false;
+
 const dispatching = (
   over: { launches?: boolean } = {},
 ): { dispatch: DispatchChat; added: () => Run } => {
@@ -92,6 +96,33 @@ const dispatching = (
       ],
     } as unknown as LineRepository,
     { now: () => NOW } as ClockPort,
+    {
+      forBriefing: async (place: BriefingPlace) => {
+        briefedAt.push(place);
+        if (memoryFails) {
+          throw new Error('memory is down');
+        }
+        return {
+          briefed: [
+            {
+              id: 'memory_1',
+              handle: 'M-3',
+              kind: 'preference',
+              body: 'Name branches after the ticket.',
+            },
+          ],
+          cut: [{ id: 'memory_2', handle: 'M-4' }],
+          folder: { path: '.spotlight/memory', layout: [], mirroring: null },
+        };
+      },
+    },
+    {
+      debug: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+      error: () => undefined,
+    },
+    { isolated: (work) => work() },
   );
 
   return { dispatch, added: () => add.mock.calls[0]?.[0] as Run };
@@ -155,5 +186,27 @@ describe('DispatchChat', () => {
     await dispatch.enqueue(again.chat, RunId.of('run_3'), again.handed);
 
     expect(added().spec.briefing).toBe('Split it.\n\nThen the docs.');
+  });
+
+  it('briefs a fresh chat with the team-wide memories, and records them on its run', async () => {
+    briefedAt.length = 0;
+    const run = await enqueued(chatIn([API]));
+
+    expect(briefedAt[0]).toMatchObject({ lineId: null, stationId: null });
+    expect(run.briefedWith.value).toEqual({
+      briefed: [{ id: 'memory_1', handle: 'M-3' }],
+      cut: [{ id: 'memory_2', handle: 'M-4' }],
+    });
+    expect(run.spec.value.briefing).not.toContain('M-4');
+    expect(run.spec.value.briefing).toContain('M-3');
+  });
+
+  it('still starts a chat, told nothing remembered, when memory cannot be read', async () => {
+    memoryFails = true;
+    const run = await enqueued(chatIn([API]));
+    memoryFails = false;
+
+    expect(run.briefedWith.value).toEqual({ briefed: [], cut: [] });
+    expect(run.spec.value.briefing).not.toContain('What the team has learned');
   });
 });

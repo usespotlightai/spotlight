@@ -22,10 +22,16 @@ import type {
   HarnessLaunchPort,
   SkillsHome,
 } from '@work/application/ports/harness-launch.port';
+import type {
+  BriefingPlace,
+  BriefingSelection,
+  TouchedFile,
+} from '@work/application/ports/team-memories.port';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
+import type { TouchedFiles } from '@work/application/services/touched-files';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -290,6 +296,11 @@ const WEB_SEARCH = {
   ],
 };
 
+let briefedAt: BriefingPlace[] = [];
+let remembered: BriefingSelection = { briefed: [], cut: [], folder: null };
+let touchedOnTask: TouchedFile[] = [];
+let memoryFails = false;
+
 const dispatch = async (
   station: Station,
   standing?: Task,
@@ -307,6 +318,23 @@ const dispatch = async (
     { ofTask: async () => [] },
     catalog,
     profiles,
+    {
+      forBriefing: async (place: BriefingPlace) => {
+        briefedAt.push(place);
+        if (memoryFails) {
+          throw new Error('memory is down');
+        }
+        return remembered;
+      },
+    },
+    { onTask: async () => touchedOnTask } as unknown as TouchedFiles,
+    {
+      debug: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+      error: () => undefined,
+    },
+    { isolated: (work) => work() },
   );
   const working = standing ?? task(station.id.value);
   const line = held(station, repositories);
@@ -321,6 +349,9 @@ const dispatch = async (
 
 describe('DispatchTask', () => {
   beforeEach(() => {
+    briefedAt = [];
+    remembered = { briefed: [], cut: [], folder: null };
+    touchedOnTask = [];
     queued = [];
     catalogGiving = { tools: [], skills: [], refused: [] };
     catalogAsked = [];
@@ -495,6 +526,7 @@ describe('DispatchTask', () => {
         station,
         task(station.id.value).reviews(
           PullRequestUrl.of('https://github.com/acme/api/pull/42'),
+          { outside: false },
         ),
         ['acme/widgets', 'acme/web'],
       );
@@ -961,5 +993,64 @@ describe('DispatchTask, the tools a run is told about', () => {
 
     expect(manifest()).toEqual([]);
     expect(toolsGiven(queued[0])).toEqual([]);
+  });
+
+  describe('what the team has learned', () => {
+    it('briefs the run with the memories that reach its place, and records them on it', async () => {
+      const station = stations[1] as Station;
+      remembered = {
+        briefed: [
+          {
+            id: 'memory_1',
+            handle: 'M-12',
+            kind: 'preference',
+            body: 'Name branches after the ticket.',
+          },
+        ],
+        cut: [{ id: 'memory_2', handle: 'M-13' }],
+        folder: { path: '.spotlight/memory', layout: [], mirroring: null },
+      };
+      touchedOnTask = [
+        { repository: Repository.of('acme/api'), path: 'src/uploads.ts' },
+      ];
+
+      await dispatch(station, undefined, [
+        { repository: Repository.of('acme/api') },
+      ] as unknown as readonly Worked[]);
+
+      const place = briefedAt.slice(-1)[0];
+      expect(place?.stationId).toBe(station.id.value);
+      expect(place?.lineId).toBeTruthy();
+      expect(place?.repositories.map((each) => each.value)).toContain(
+        'acme/api',
+      );
+      expect(await place?.touched()).toEqual(touchedOnTask);
+      const run = queued.slice(-1)[0];
+      expect(run?.briefedWith.value).toEqual({
+        briefed: [{ id: 'memory_1', handle: 'M-12' }],
+        cut: [{ id: 'memory_2', handle: 'M-13' }],
+      });
+      expect(run?.spec.value.briefing).not.toContain('M-13');
+      expect(run?.pullEvents().map((each) => each.kind)).toContain(
+        'run.briefed',
+      );
+      expect(run?.spec.value.briefing).toContain(
+        '- **M-12** · preference: Name branches after the ticket.',
+      );
+    });
+
+    it('still runs, told nothing remembered, when memory cannot be read', async () => {
+      const station = stations[1] as Station;
+      memoryFails = true;
+
+      await dispatch(station);
+
+      memoryFails = false;
+      const run = queued.slice(-1)[0];
+      expect(run?.briefedWith.value).toEqual({ briefed: [], cut: [] });
+      expect(run?.spec.value.briefing).not.toContain(
+        'What the team has learned',
+      );
+    });
   });
 });

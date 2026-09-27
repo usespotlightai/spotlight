@@ -14,12 +14,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   InboxItemSummary,
   InboxReaderPort,
 } from '@work/application/ports/inbox-reader.port';
+import { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
 import {
   conversationsOf,
   notesIn,
@@ -40,7 +41,11 @@ import {
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, eq } from 'drizzle-orm';
+import {
+  taskAside,
+  taskAsideRead,
+} from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 @Injectable()
@@ -65,9 +70,19 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return null;
     }
 
+    const items = await this.conversationsIn(
+      await this.assignedTo(visible, userId),
+    );
+
+    items.push(...(await this.asidesFor(visible, userId)));
+
+    return items.sort((one, other) => +other.askedAt - +one.askedAt);
+  }
+
+  private assignedTo(workspaceId: string, userId: UserId) {
     const raised = alias(station, 'raised');
 
-    const rows = await this.db
+    return this.db
       .select({
         taskId: task.id,
         teamId: line.teamId,
@@ -88,9 +103,16 @@ export class DrizzleInboxReader implements InboxReaderPort {
       .innerJoin(line, eq(line.id, station.lineId))
       .leftJoin(raised, eq(raised.id, task.raisedAtStationId))
       .where(
-        and(eq(task.workspaceId, visible), eq(task.assigneeId, userId.value)),
+        and(
+          eq(task.workspaceId, workspaceId),
+          eq(task.assigneeId, userId.value),
+        ),
       );
+  }
 
+  private async conversationsIn(
+    rows: Awaited<ReturnType<DrizzleInboxReader['assignedTo']>>,
+  ): Promise<InboxItemSummary[]> {
     if (rows.length === 0) {
       return [];
     }
@@ -165,11 +187,116 @@ export class DrizzleInboxReader implements InboxReaderPort {
           unread: anyUnread(notes),
           briefing: (note.runId && given.get(note.runId)) || null,
           failure: failureIn(notes),
+          aside: null,
           notes,
         });
       }
     }
 
-    return items.sort((one, other) => +other.askedAt - +one.askedAt);
+    return items;
+  }
+
+  private async asidesFor(
+    workspaceId: string,
+    userId: UserId,
+  ): Promise<InboxItemSummary[]> {
+    const rows = await this.db
+      .select({
+        id: taskAside.id,
+        form: taskAside.form,
+        about: taskAside.about,
+        raisedAt: taskAside.raisedAt,
+        readAt: taskAsideRead.readAt,
+        settledAt: taskAside.settledAt,
+        taskId: task.id,
+        assigneeId: task.assigneeId,
+        teamId: line.teamId,
+        lineId: line.id,
+        title: task.title,
+        description: task.description,
+        createdAt: task.createdAt,
+        standsAtStation: station.name,
+        standsAtColor: station.color,
+        standsAtPosition: station.position,
+      })
+      .from(taskAside)
+      .leftJoin(
+        taskAsideRead,
+        and(
+          eq(taskAsideRead.asideId, taskAside.id),
+          eq(taskAsideRead.userId, userId.value),
+        ),
+      )
+      .innerJoin(task, eq(task.id, taskAside.taskId))
+      .innerJoin(station, eq(station.id, task.stationId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .where(
+        and(
+          eq(taskAside.workspaceId, workspaceId),
+          or(eq(task.assigneeId, userId.value), isNull(task.assigneeId)),
+        ),
+      );
+
+    const teams = new Map<string, boolean>();
+
+    for (const teamId of new Set(
+      rows.filter((row) => !row.assigneeId).map((row) => row.teamId),
+    )) {
+      teams.set(teamId, (await this.access.onTeam(teamId, userId)) !== null);
+    }
+
+    const attending = rows.filter((row) =>
+      TaskAside.attendedBy({
+        viewer: userId,
+        assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
+        onTeam: teams.get(row.teamId) ?? false,
+      }),
+    );
+
+    if (attending.length === 0) {
+      return [];
+    }
+
+    const attached = await attachmentsFor(
+      this.db,
+      attending.map((row) => row.taskId),
+    );
+    const held = await stationsPerLine(
+      this.db,
+      attending.map((row) => row.lineId),
+    );
+
+    return attending.map((row) => {
+      const standsAt = {
+        name: row.standsAtStation,
+        color: row.standsAtColor,
+        position: row.standsAtPosition,
+      };
+
+      return {
+        id: row.id,
+        taskId: row.taskId,
+        teamId: row.teamId,
+        title: row.title,
+        description: row.description,
+        attachments: attachmentsOf(attached, row.taskId).own,
+        station: standsAt.name,
+        stationColor: standsAt.color,
+        stationPosition: standsAt.position,
+        stationCount: held.get(row.lineId) ?? 1,
+        raisedAt: standsAt,
+        standsAt,
+        createdAt: row.createdAt,
+        askedAt: row.raisedAt,
+        resolved: row.settledAt !== null,
+        working: false,
+        runId: null,
+        unread: row.readAt === null && row.settledAt === null,
+        briefing: null,
+        failure: null,
+        aside: { form: row.form, about: row.about },
+        notes: [],
+      };
+    });
   }
 }

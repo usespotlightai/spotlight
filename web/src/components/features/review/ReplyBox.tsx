@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { ReviewComposer } from '@/components/features/review/ReviewComposer';
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
+import { Composer } from '@/components/shared/form/Composer';
 
 const PROMPT = 'Reply…';
 
@@ -43,7 +43,7 @@ export function ReplyBox({
     >
       <div ref={content}>
         {open ? (
-          <ReviewComposer
+          <Composer
             label={label}
             placeholder={PROMPT}
             submitLabel="Reply"

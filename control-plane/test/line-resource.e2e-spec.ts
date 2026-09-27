@@ -142,6 +142,7 @@ describe('a line, created through the resource API (e2e)', () => {
       expect.arrayContaining([
         'color',
         'decisions',
+        'memories',
         'diffs',
         'ends',
         'key',
@@ -173,6 +174,27 @@ describe('a line, created through the resource API (e2e)', () => {
     );
     expect(again.status).toBe(200);
     expect(again.body.definition).toEqual(read.body.definition);
+  });
+
+  it('keeps a station remembering its runs, and forgets it once told to stop', async () => {
+    const remembering = (memories: boolean) => ({
+      ...DELIVERY,
+      stations: DELIVERY.stations.map((each, at) =>
+        at === 1 ? { ...each, memories } : each,
+      ),
+    });
+    const made = await create(remembering(true));
+    const stopped = await change(
+      made.body.id,
+      made.body.version,
+      remembering(false),
+    );
+
+    expect(made.status).toBe(201);
+    expect(made.body.definition.stations[1].memories).toBe(true);
+    expect(made.body.definition.stations[0].memories).toBe(false);
+    expect(stopped.status).toBe(200);
+    expect(stopped.body.definition.stations[1].memories).toBe(false);
   });
 
   it('keeps the image and setup each repository names, and reads them back as written', async () => {

@@ -46,6 +46,7 @@ export interface StationPlan {
   readonly placement: RunnerPlacement;
   readonly diffs: boolean;
   readonly decisions: boolean;
+  readonly memories: boolean;
   readonly tools: readonly Tool[];
   readonly skills: readonly SkillKey[];
   readonly passesTo: readonly StationKey[];

@@ -1,14 +1,15 @@
 import type { DecisionDrafterPort } from '@change-review/application/ports/decision-drafter.port';
-import type { OwedWorkPort } from '@change-review/application/ports/owed-work.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
-import { OwedWorkPool } from '@change-review/application/services/owed-work-pool';
 import type { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
+import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const MOST_SETS_AT_ONCE = 4;
@@ -41,6 +42,7 @@ export class WorkDecisionSets implements OwedWorkPort {
           attempts: set.draft?.work.attempts,
         }),
         worked: (set) => this.drafted(set),
+        stale: (error) => error instanceof ChangedSinceReadError,
       },
       transaction,
       clock,

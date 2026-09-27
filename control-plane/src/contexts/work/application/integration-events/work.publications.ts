@@ -3,6 +3,10 @@ import {
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import {
+  RUN_BRIEFED,
+  type RunBriefedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-briefed.integration-event';
+import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
   type RunEnding,
@@ -26,6 +30,7 @@ import {
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
+import type { RunBriefed } from '@work/domain/events/run-briefed.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -45,6 +50,15 @@ const ended = (
 });
 
 export const WORK_PUBLICATIONS = [
+  publishing<RunBriefed>(
+    'run.briefed',
+    (event): RunBriefedIntegrationEvent => ({
+      kind: RUN_BRIEFED,
+      runId: event.runId.value,
+      workspaceId: event.workspaceId.value,
+      memories: event.memories.briefed.map((each) => each.id),
+    }),
+  ),
   publishing<PullRequestOpened>(
     'task.pull-request-opened',
     (event): PullRequestOpenedIntegrationEvent => ({

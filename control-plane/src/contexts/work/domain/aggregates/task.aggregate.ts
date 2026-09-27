@@ -338,7 +338,7 @@ export class Task extends EventRecorder {
     return opened;
   }
 
-  reviews(url: PullRequestUrl): Task {
+  reviews(url: PullRequestUrl, by: { outside: boolean }): Task {
     if (this.pullRequestLink) {
       throw new InvalidTaskTransitionError(
         'cannot review a pull request once it has one of its own',
@@ -346,7 +346,7 @@ export class Task extends EventRecorder {
     }
 
     return this.markedBy(Mark.review(url)).with({
-      pullRequestLink: PullRequestLink.reviewing(url),
+      pullRequestLink: PullRequestLink.reviewing(url, by),
     });
   }
 
@@ -356,6 +356,10 @@ export class Task extends EventRecorder {
 
   get reviewing(): boolean {
     return this.pullRequestLink?.reviews ?? false;
+  }
+
+  get fromOutside(): boolean {
+    return this.pullRequestLink?.fromOutside ?? false;
   }
 
   get reviewed(): Repository | null {

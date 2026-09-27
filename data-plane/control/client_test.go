@@ -603,3 +603,77 @@ func TestAnswerCallTellsACallAlreadyAnswered(t *testing.T) {
 		t.Errorf("answered with %v", err)
 	}
 }
+
+func TestRecallsByWordsAndByHandle(t *testing.T) {
+	var asked []string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = append(asked, r.Method+" "+r.URL.RequestURI())
+		_, _ = w.Write([]byte(`[]`))
+	})
+
+	if _, err := client.RecallMemories(context.Background(), "run_1", "upload retries"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.RecallMemory(context.Background(), "run_1", "M-12"); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{
+		"GET /api/runs/run_1/memories?q=upload+retries",
+		"GET /api/runs/run_1/memories/M-12",
+	}
+	if strings.Join(asked, "\n") != strings.Join(want, "\n") {
+		t.Errorf("asked %v", asked)
+	}
+}
+
+func TestARefusedMemorySaysWhatSpotlightSaid(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"A memory is one of rationale, not gossip","error":"Unprocessable Entity","statusCode":422}`))
+	})
+
+	_, err := client.Remember(context.Background(), "run_1", protocol.Remembering{Kind: "gossip", Body: "x"})
+
+	var rejection *control.Rejection
+	if !errors.As(err, &rejection) {
+		t.Fatalf("got %v", err)
+	}
+	if said, ok := rejection.Refused(); !ok || said != "A memory is one of rationale, not gossip" {
+		t.Errorf("refused %q, %v", said, ok)
+	}
+}
+
+func TestAnUnreachableSpotlightIsNoRefusal(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`{"message":"upstream down"}`))
+	})
+
+	_, err := client.Remember(context.Background(), "run_1", protocol.Remembering{Kind: "rationale", Body: "x"})
+
+	var rejection *control.Rejection
+	if errors.As(err, &rejection) {
+		if _, ok := rejection.Refused(); ok {
+			t.Error("a 502 should not read as a refusal")
+		}
+	}
+}
+
+func TestReadsTheMemoryFilesOfARun(t *testing.T) {
+	var asked string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = r.Method + " " + r.URL.RequestURI()
+		_, _ = w.Write([]byte(`[{"path":".spotlight/memory/team/M-1.md","body":"# M-1"}]`))
+	})
+
+	files, err := client.MemoryFiles(context.Background(), "run_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if asked != "GET /api/runs/run_1/memory-files" || len(files) != 1 || files[0].Body != "# M-1" {
+		t.Errorf("asked %s, got %+v", asked, files)
+	}
+}

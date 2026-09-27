@@ -10,7 +10,6 @@ import { DecisionMerge } from '@change-review/domain/value-objects/decision-merg
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { DecisionStanding } from '@change-review/domain/value-objects/decision-standing.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
-import { OwedWork } from '@change-review/domain/value-objects/owed-work.vo';
 import {
   type DecisionSetRow,
   draftedRunOf,
@@ -28,6 +27,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';

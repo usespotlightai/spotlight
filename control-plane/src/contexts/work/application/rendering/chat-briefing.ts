@@ -1,4 +1,9 @@
+import type {
+  BriefedMemory,
+  MemoryFolder,
+} from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
+import { Learned } from '@work/application/rendering/learned';
 import { Traced } from '@work/application/rendering/traced';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -94,6 +99,8 @@ export const ChatBriefing = {
     chat: Chat;
     team: string | null;
     lines: readonly Line[];
+    memories: readonly BriefedMemory[];
+    memoryFolder: MemoryFolder | null;
   }): string {
     const said = input.chat.messages.filter(
       (message) => message.kind === 'said',
@@ -103,6 +110,11 @@ export const ChatBriefing = {
       opening(input.team),
       linesOf(input.lines),
       workspaceOf(input.chat),
+      Learned.section(input.memories),
+      Learned.rest({
+        folder: input.memoryFolder,
+        briefed: input.memories.length > 0,
+      }),
       proposing,
       proposedSoFar(input.chat, input.lines),
       tracing(said) ? Traced.reading : null,

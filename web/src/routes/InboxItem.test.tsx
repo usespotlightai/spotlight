@@ -50,6 +50,18 @@ vi.mock('@/hooks/api/useReadInboxItem', () => ({
   useReadInboxItem: () => ({ mutate: read }),
 }));
 
+const readAside = vi.fn();
+
+vi.mock('@/hooks/api/useReadInboxAside', () => ({
+  useReadInboxAside: () => ({ mutate: readAside }),
+}));
+
+vi.mock('@/components/features/inbox/memories/MemoryReview', () => ({
+  MemoryReview: ({ runId }: { runId: string }) => (
+    <p>The memories run {runId} proposed</p>
+  ),
+}));
+
 const message = (over: Record<string, unknown> = {}) => ({
   position: 0,
   kind: 'asked',
@@ -89,10 +101,10 @@ const item = (notes: unknown[], description: string | null = null) => [
   },
 ];
 
-const renderItem = () =>
+const renderItem = (itemId = 'task_1:0') =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/w/acme/inbox/task_1:0']}>
+      <MemoryRouter initialEntries={[`/w/acme/inbox/${itemId}`]}>
         <Routes>
           <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
         </Routes>
@@ -145,6 +157,42 @@ describe('InboxItem', () => {
         screen.getByText('Which queue should I drain?'),
       ).toBeInTheDocument();
       expect(screen.queryByText(/Worked/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('when it puts memories aside for review', () => {
+    const aside = (unread: boolean) => [
+      {
+        ...item([])[0],
+        id: 'aside_1',
+        unread,
+        aside: { form: 'memories', about: 'run_7' },
+      },
+    ];
+
+    it('shows the memories the run proposed, without waiting on the work', () => {
+      waiting.mockReturnValue(aside(false));
+      journal.mockReturnValue(undefined);
+
+      renderItem('aside_1');
+
+      expect(
+        screen.getByText('The memories run run_7 proposed'),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('marks it seen as an aside, not as a conversation', () => {
+      readAside.mockClear();
+      waiting.mockReturnValue(aside(true));
+
+      renderItem('aside_1');
+
+      expect(readAside).toHaveBeenCalledWith({
+        slug: 'acme',
+        asideId: 'aside_1',
+      });
+      expect(read).not.toHaveBeenCalled();
     });
   });
 

@@ -11,6 +11,7 @@ import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -332,6 +333,37 @@ describe('Run', () => {
           .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
           .secretsWornFor(runner()),
       ).toEqual([]);
+    });
+
+    it('says which memories it was briefed with once enqueued, and nothing when it was told none', () => {
+      const briefed = Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        spec: aSpec(),
+        briefedWith: BriefedMemories.of({
+          briefed: [{ id: 'memory_1', handle: 'M-1' }],
+          cut: [],
+        }),
+      });
+
+      expect(briefed.pullEvents().map((each) => each.kind)).toEqual([
+        'run.briefed',
+      ]);
+      expect(queued().pullEvents()).toEqual([]);
+    });
+
+    it('is held only by the runner that claimed it, and only until it ends', () => {
+      const held = claimed();
+
+      expect(held.isHeldBy(runner())).toBe(true);
+      expect(held.isHeldBy(runner('runner_2'))).toBe(false);
+      expect(queued().isHeldBy(runner())).toBe(false);
+      expect(
+        held
+          .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
+          .isHeldBy(runner()),
+      ).toBe(false);
     });
 
     it('wears nothing its spec does not name', () => {

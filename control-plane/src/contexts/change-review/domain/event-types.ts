@@ -32,7 +32,6 @@ import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-
 import { DecisionStanding } from '@change-review/domain/value-objects/decision-standing.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
-import { OwedWork } from '@change-review/domain/value-objects/owed-work.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -56,7 +55,6 @@ export const CHANGE_REVIEW_EVENT_TYPES = [
   StackCheck,
   StackFacts,
   StackProgress,
-  OwedWork,
   ChangeStackChecked,
   ChangeStackDraftingBegan,
   ChangeStackFailed,

@@ -24,6 +24,7 @@ const station = (
   runners: [],
   diffs: false,
   decisions: false,
+  memories: false,
   finishes: false,
   ...over,
 });

@@ -9,6 +9,7 @@ import {
   emptyInbox,
   FAILING_ITEM_ID,
   failInbox,
+  MEMORIES_ITEM_ID,
   OPENED_ITEM_ID,
   SLUG,
   seedApproved,
@@ -82,6 +83,14 @@ export const Approved: Story = {
 export const Rejected: Story = {
   render: () => (
     <StoryPage at={inboxItemPath(SLUG, APPROVAL_ITEM_ID)} seed={seedRejected}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ProposedMemories: Story = {
+  render: () => (
+    <StoryPage at={inboxItemPath(SLUG, MEMORIES_ITEM_ID)} seed={seedInbox}>
       {routes}
     </StoryPage>
   ),

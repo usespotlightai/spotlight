@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ReviewCommentState } from '@/components/features/review/ReviewCommentState';
-import { ReviewComposer } from '@/components/features/review/ReviewComposer';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
+import { Composer } from '@/components/shared/form/Composer';
 import { Logo } from '@/components/shared/icons';
 import { Unfold } from '@/components/shared/Unfold';
 import { useDeleteReviewComment } from '@/hooks/api/useDeleteReviewComment';
@@ -83,9 +83,10 @@ export function ReviewCommentItem({
             </div>
 
             {editing ? (
-              <ReviewComposer
+              <Composer
                 label="Edit the comment"
                 submitLabel="Save"
+                placeholder="Leave a comment"
                 initial={comment.body}
                 pending={edit.isPending}
                 failed={edit.isError}

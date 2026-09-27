@@ -144,7 +144,9 @@ const toTask = (
     version: row.version,
     pullRequestLink: row.pullRequest
       ? row.reviewing
-        ? PullRequestLink.reviewing(PullRequestUrl.of(row.pullRequest))
+        ? PullRequestLink.reviewing(PullRequestUrl.of(row.pullRequest), {
+            outside: row.reviewFromOutside,
+          })
         : PullRequestLink.opened(PullRequestUrl.of(row.pullRequest))
       : null,
     marks: marks.map((each) => Mark.of(each.kind, each.value)),
@@ -189,6 +191,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         assigneeId: added.assignee?.value ?? null,
         pullRequest: added.pullRequest?.value ?? null,
         reviewing: added.reviewing,
+        reviewFromOutside: added.fromOutside,
         finishedAt: added.finishedAt,
         revision: added.revision,
       }),
@@ -236,6 +239,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           runnerId: saved.runnerId?.value ?? null,
           pullRequest: saved.pullRequest?.value ?? null,
           reviewing: saved.reviewing,
+          reviewFromOutside: saved.fromOutside,
           finishedAt: saved.finishedAt,
           assigneeId: saved.assignee?.value ?? null,
           revision: saved.revision,

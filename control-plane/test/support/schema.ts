@@ -11,6 +11,7 @@ export * from '@identity/infrastructure/persistence/drizzle/schemas/workspace.sc
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/delivery.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
+export * from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
 export * from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
@@ -21,4 +22,5 @@ export * from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';

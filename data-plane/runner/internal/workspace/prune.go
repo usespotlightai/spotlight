@@ -82,3 +82,21 @@ func prune(root *os.Root, dir string, kept, held map[string]bool) error {
 
 	return nil
 }
+
+func (w *Workspace) Remove(path string) error {
+	if !filepath.IsLocal(path) {
+		return fmt.Errorf("%q escapes the workspace", path)
+	}
+
+	root, err := os.OpenRoot(w.Dir)
+	if err != nil {
+		return fmt.Errorf("open workspace: %w", err)
+	}
+	defer root.Close()
+
+	if err := root.RemoveAll(filepath.Clean(path)); err != nil {
+		return fmt.Errorf("remove %s: %w", path, err)
+	}
+
+	return nil
+}

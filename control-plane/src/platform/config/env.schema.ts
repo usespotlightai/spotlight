@@ -55,6 +55,7 @@ export const envSchema = databaseSchema
     OPENROUTER_API_KEY: z.string().optional(),
     CHANGE_STACK_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
     DECISIONS_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
+    MEMORIES_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .refine((env) => env.SPOTLIGHT_SECRETS_KEY || env.SECRETS_KMS_KEY_ID, {

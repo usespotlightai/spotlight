@@ -22,7 +22,7 @@ const preview: Preview = {
             'Runners',
           ],
           'Inbox',
-          ['Items', 'Setup steps'],
+          ['Items', 'Setup steps', 'Proposed memories'],
           'Team',
           [
             'Landing',
@@ -34,6 +34,7 @@ const preview: Preview = {
             ['All runs', 'Run', 'Change stack'],
             'Observability',
             ['Traces', 'Task trace'],
+            'Memory',
             'Settings',
             ['General', 'Integrations', 'Skills'],
           ],

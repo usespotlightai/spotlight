@@ -10,6 +10,7 @@ const asked = (over: Partial<ReviewAsked> = {}): ReviewAsked => ({
   asking: 'opened',
   pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
   author: 'octocat',
+  outside: false,
   draft: false,
   branch: Branch.of('fix-uploads'),
   said: null,

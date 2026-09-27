@@ -3,6 +3,7 @@ import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { lineKeys } from '@/hooks/api/useLines';
 import { repositoryKeys } from '@/hooks/api/useRepositories';
 import { runConversationKeys } from '@/hooks/api/useRunConversation';
+import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
@@ -20,6 +21,11 @@ import type {
   WorkspaceResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
+import {
+  failRunMemories,
+  seedNoRunMemories,
+  seedRunMemories,
+} from '@/stories/fixtures/run-memories';
 
 export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
@@ -221,6 +227,17 @@ export const seedRun = (client: QueryClient) => {
   client.setQueryData(teamRunKeys.forTeam(TEAM_ID), [RUN]);
   client.setQueryData(runConversationKeys.forRun(RUN_ID), CONVERSATION);
   client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
+  seedRunMemories(client, TEAM_ID, RUN_ID);
+};
+
+export const rememberingRun = (client: QueryClient) => {
+  seedRun(client);
+  client.removeQueries({ queryKey: runMemoryKeys.forRun(TEAM_ID, RUN_ID) });
+};
+
+export const rememberedFailedRun = (client: QueryClient) => {
+  seedRun(client);
+  failRunMemories(client, TEAM_ID, RUN_ID);
 };
 
 export const emptyRun = (client: QueryClient) => {
@@ -233,6 +250,7 @@ export const emptyRun = (client: QueryClient) => {
     notes: [],
   });
   client.setQueryData(journalKeys.forTask(TASK_ID), []);
+  seedNoRunMemories(client, TEAM_ID, RUN_ID);
 };
 
 export const failRun = (client: QueryClient) => {

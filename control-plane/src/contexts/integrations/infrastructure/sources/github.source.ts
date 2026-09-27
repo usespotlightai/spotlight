@@ -131,6 +131,7 @@ const askedFor = (
         asking,
         pullRequest,
         author: heard.about.author,
+        outside: heard.about.authorOutside,
         draft: heard.about.draft,
         branch: heard.branch,
       },

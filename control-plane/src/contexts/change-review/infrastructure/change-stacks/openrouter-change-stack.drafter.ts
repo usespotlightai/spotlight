@@ -18,7 +18,7 @@ import {
   askForJson,
   type Fetch,
   JsonShape,
-} from '@change-review/infrastructure/openrouter/openrouter-json';
+} from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
 export const DEFAULT_MODEL = 'google/gemini-3.8-flash';

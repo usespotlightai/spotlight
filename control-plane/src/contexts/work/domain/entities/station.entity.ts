@@ -35,6 +35,7 @@ type Part = {
   placement?: RunnerPlacement;
   diffs?: boolean;
   decisions?: boolean;
+  memories?: boolean;
   wayOut?: WayOut;
   tools?: readonly Tool[];
   skills?: readonly SkillKey[];
@@ -56,6 +57,7 @@ export type StationInput = {
   placement?: RunnerPlacement;
   diffs?: boolean;
   decisions?: boolean;
+  memories?: boolean;
   kind?: StationKind;
   wayOut?: WayOut;
   tools?: readonly Tool[];
@@ -85,6 +87,7 @@ export abstract class Station {
   abstract readonly placement: RunnerPlacement;
   abstract readonly diffs: boolean;
   abstract readonly decisions: boolean;
+  abstract readonly memories: boolean;
 
   static of(input: StationInput): Station {
     Station.guardWhatItGives(input.tools ?? [], input.skills ?? []);
@@ -118,6 +121,7 @@ export abstract class Station {
           input.placement ?? RunnerPlacement.anywhere(),
           input.diffs ?? false,
           input.decisions ?? false,
+          input.memories ?? false,
         );
     }
   }
@@ -201,6 +205,7 @@ class WorkStation extends Station {
     readonly placement: RunnerPlacement,
     readonly diffs: boolean,
     readonly decisions: boolean,
+    readonly memories: boolean,
   ) {
     super(id, key, name, position, color, description, wayOut, tools, skills);
   }
@@ -241,6 +246,7 @@ class WorkStation extends Station {
       part.placement ?? this.placement,
       part.diffs !== undefined ? part.diffs : this.diffs,
       part.decisions !== undefined ? part.decisions : this.decisions,
+      part.memories !== undefined ? part.memories : this.memories,
     );
   }
 }
@@ -256,6 +262,7 @@ class Backlog extends Station {
   readonly placement = RunnerPlacement.anywhere();
   readonly diffs = false;
   readonly decisions = false;
+  readonly memories = false;
 
   runsOn(): Station {
     throw new InvalidStationChangeError(
@@ -301,6 +308,7 @@ class Completed extends Station {
   readonly placement = RunnerPlacement.anywhere();
   readonly diffs = false;
   readonly decisions = false;
+  readonly memories = false;
 
   runsOn(): Station {
     throw new InvalidStationChangeError(

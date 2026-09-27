@@ -8,12 +8,15 @@ import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
+import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
+import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
+import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
@@ -29,9 +32,11 @@ import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
+import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -90,6 +95,7 @@ import { StationDescription } from '@work/domain/value-objects/station-descripti
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -187,6 +193,9 @@ export const WORK_EVENT_TYPES = [
   Voice,
   WayOut,
   WorkspaceArchiveId,
+  TaskAsideId,
+  AsideRead,
+  BriefedMemories,
   ChatHandedToRun,
   ChatStarted,
   LineRepositoriesChanged,
@@ -198,12 +207,15 @@ export const WORK_EVENT_TYPES = [
   PullRequestOpened,
   RunAbandoned,
   RunWithdrawn,
+  RunBriefed,
   RunSuperseded,
   RunCompleted,
   RunStopRequested,
   StationHarnessChanged,
   StationRenamed,
   TaskAsked,
+  TaskAsideRaised,
+  TaskAsideSettled,
   TaskDeleted,
   TaskFinished,
   TaskHandedToRun,

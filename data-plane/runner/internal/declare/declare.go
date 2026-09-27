@@ -27,6 +27,22 @@ type Answerer func(ctx context.Context, said protocol.Remark) error
 
 type Tracer func(ctx context.Context, taskID string) (json.RawMessage, error)
 
+type Recaller func(ctx context.Context, asked protocol.RecallRequest) (json.RawMessage, error)
+
+type Rememberer func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error)
+
+type Refusal struct {
+	Because string
+}
+
+func (r *Refusal) Error() string { return r.Because }
+
+func (r *Refusal) Refused() (string, bool) { return r.Because, true }
+
+type refusing interface {
+	Refused() (string, bool)
+}
+
 type Server struct {
 	listener  net.Listener
 	http      *http.Server
@@ -38,6 +54,8 @@ type Server struct {
 	use       Tooler
 	answer    Answerer
 	trace     Tracer
+	recall    Recaller
+	remember  Rememberer
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -97,6 +115,11 @@ func (s *Server) Traces(trace Tracer) {
 	s.trace = trace
 }
 
+func (s *Server) Memories(recall Recaller, remember Rememberer) {
+	s.recall = recall
+	s.remember = remember
+}
+
 func (s *Server) Spoken() <-chan struct{} {
 	return s.spoken
 }
@@ -145,6 +168,16 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	if path.Clean(request.URL.Path) == protocol.HandoverTracePath {
 		s.traceOf(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.HandoverRecallPath {
+		s.recalled(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.HandoverRememberPath {
+		s.remembered(writer, request)
 		return
 	}
 
@@ -286,6 +319,66 @@ func (s *Server) traceOf(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	_, _ = writer.Write(trace)
+}
+
+func (s *Server) recalled(writer http.ResponseWriter, request *http.Request) {
+	if s.recall == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot recall what its team remembers")
+		return
+	}
+
+	var asked protocol.RecallRequest
+	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&asked); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable recall")
+		return
+	}
+
+	if strings.TrimSpace(asked.Words) == "" && strings.TrimSpace(asked.Handle) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say what to look for, or which memory, like M-12")
+		return
+	}
+
+	s.answered(writer, func() (json.RawMessage, error) { return s.recall(request.Context(), asked) })
+}
+
+func (s *Server) remembered(writer http.ResponseWriter, request *http.Request) {
+	if s.remember == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot propose a memory")
+		return
+	}
+
+	var remembered protocol.Remembering
+	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&remembered); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable memory")
+		return
+	}
+
+	if strings.TrimSpace(remembered.Kind) == "" || strings.TrimSpace(remembered.Body) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say what kind of memory it is, and what to remember")
+		return
+	}
+
+	s.answered(writer, func() (json.RawMessage, error) { return s.remember(request.Context(), remembered) })
+}
+
+func (s *Server) answered(writer http.ResponseWriter, asking func() (json.RawMessage, error)) {
+	answer, err := asking()
+	if err != nil {
+		var refused refusing
+		if errors.As(err, &refused) {
+			if because, ok := refused.Refused(); ok {
+				refuse(writer, http.StatusUnprocessableEntity, because)
+				return
+			}
+		}
+
+		refuse(writer, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	_, _ = writer.Write(answer)
 }
 
 func (s *Server) option(spoken string) (string, bool) {

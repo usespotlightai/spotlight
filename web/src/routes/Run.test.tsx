@@ -56,6 +56,14 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 }));
 
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
+vi.mock('@/hooks/api/useRunMemories', () => ({
+  useRunMemories: () => ({
+    data: { briefed: [], cut: [], recalled: [], proposed: [] },
+    isPending: false,
+    isFetching: false,
+    errorUpdateCount: 0,
+  }),
+}));
 
 vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   changeStackKeys: { forRun: () => ['change-stacks'] },

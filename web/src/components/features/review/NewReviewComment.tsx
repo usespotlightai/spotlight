@@ -1,5 +1,5 @@
-import { ReviewComposer } from '@/components/features/review/ReviewComposer';
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
+import { Composer } from '@/components/shared/form/Composer';
 import { Unfold } from '@/components/shared/Unfold';
 import { useDraftReviewComment } from '@/hooks/api/useDraftReviewComment';
 import { linesOf, type ReviewSpot } from '@/lib/review';
@@ -24,9 +24,10 @@ export function NewReviewComment({ spot, open }: NewReviewCommentProps) {
       appear={reviewing.composerAppears}
       className="px-3 py-2 font-sans"
     >
-      <ReviewComposer
+      <Composer
         label={`Comment on ${linesOf(spot)}`}
         submitLabel="Add to review"
+        placeholder="Leave a comment"
         avatar={<ReviewerAvatar />}
         pending={draft.isPending}
         failed={draft.isError}

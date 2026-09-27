@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -25,18 +26,26 @@ type drafted struct {
 }
 
 type journal struct {
-	mu        sync.Mutex
-	events    []protocol.Event
-	renewals  int
-	done      *protocol.Completion
-	stopAfter int
-	said      [][]protocol.Said
-	delivered []int
-	files     map[string]string
-	drafted   []drafted
-	decision  string
-	asked     []protocol.PermissionAsked
-	archives  *keptArchives
+	mu         sync.Mutex
+	events     []protocol.Event
+	renewals   int
+	done       *protocol.Completion
+	stopAfter  int
+	said       [][]protocol.Said
+	delivered  []int
+	files      map[string]string
+	drafted    []drafted
+	decision   string
+	asked      []protocol.PermissionAsked
+	archives   *keptArchives
+	remembered []remembered
+	memory     []protocol.MemoryFile
+	memoryErr  error
+}
+
+type remembered struct {
+	asked   protocol.Remembering
+	journal []protocol.Event
 }
 
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
@@ -88,6 +97,31 @@ func (j *journal) Trace(
 	_ context.Context, _ string, _ string,
 ) (json.RawMessage, error) {
 	return nil, nil
+}
+
+func (j *journal) RecallMemories(
+	_ context.Context, _ string, words string,
+) (json.RawMessage, error) {
+	return json.Marshal([]map[string]string{{"handle": "M-1", "body": words}})
+}
+
+func (j *journal) RecallMemory(
+	_ context.Context, _ string, handle string,
+) (json.RawMessage, error) {
+	return json.Marshal(map[string]string{"handle": handle})
+}
+
+func (j *journal) Remember(
+	_ context.Context, _ string, asked protocol.Remembering,
+) (json.RawMessage, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.remembered = append(j.remembered, remembered{asked: asked, journal: slices.Clone(j.events)})
+	return json.Marshal(map[string]string{"kind": asked.Kind, "body": asked.Body})
+}
+
+func (j *journal) MemoryFiles(context.Context, string) ([]protocol.MemoryFile, error) {
+	return j.memory, j.memoryErr
 }
 
 func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {
@@ -266,6 +300,8 @@ type runOptions struct {
 	setup       protocol.HarnessSetup
 	decision    string
 	archives    *keptArchives
+	memory      []protocol.MemoryFile
+	memoryErr   error
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -282,6 +318,8 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		files:     settings.files,
 		decision:  settings.decision,
 		archives:  settings.archives,
+		memory:    settings.memory,
+		memoryErr: settings.memoryErr,
 	}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
@@ -476,6 +514,57 @@ func TestWhatTheAgentDeclaresReachesTheCompletion(t *testing.T) {
 	spoken := written.done.Outcome
 	if spoken == nil || spoken.Next != "Spec" || spoken.Note != "needs a spec" {
 		t.Fatalf("got %+v", spoken)
+	}
+}
+
+func TestTheAgentRemembersThroughItsRunAfterItsStepsAreJournalled(t *testing.T) {
+	remembering := `send({ jsonrpc: "2.0", method: "session/update", params: { sessionId, update: {
+        sessionUpdate: "tool_call", toolCallId: "toolu_remember", title: "spotlight remember" } } });
+      execSync(` + "`" +
+		`node -e '
+      const body = JSON.stringify({ kind: "rationale", body: "Retry in the request." });
+      fetch(process.env.SPOTLIGHT_HANDOVER_URL + "remember", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        body,
+      }).then((answer) => process.exit(answer.ok ? 0 : 1));
+    '` + "`" + `); said = "remembered";`
+
+	written := run(t, harness(t, remembering, "end_turn"))
+
+	written.mu.Lock()
+	defer written.mu.Unlock()
+
+	if len(written.remembered) != 1 {
+		t.Fatalf("remembered %+v", written.remembered)
+	}
+	if got := written.remembered[0].asked; got.Kind != "rationale" || got.Body != "Retry in the request." {
+		t.Errorf("remembered %+v", got)
+	}
+	stepped := slices.ContainsFunc(written.remembered[0].journal, func(event protocol.Event) bool {
+		return strings.Contains(string(event.Data), "toolu_remember")
+	})
+	if !stepped {
+		t.Error("the step the agent remembered from should reach the journal before the memory does")
+	}
+}
+
+func TestARecallReachesSpotlightAndTheTraceAsASpan(t *testing.T) {
+	recalling := `execSync(` + "`" +
+		`node -e '
+      fetch(process.env.SPOTLIGHT_HANDOVER_URL + "recall", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        body: JSON.stringify({ words: "upload retries" }),
+      }).then((answer) => process.exit(answer.ok ? 0 : 1));
+    '` + "`" + `); said = "recalled";`
+
+	written := run(t, harness(t, recalling, "end_turn"))
+
+	spans := written.typed(protocol.EventSpan)
+	if len(spans) != 1 || !strings.Contains(string(spans[0].Data), `"spotlight.recall"`) ||
+		!strings.Contains(string(spans[0].Data), "upload retries") {
+		t.Fatalf("spans %v", spans)
 	}
 }
 
@@ -677,6 +766,77 @@ func TestSkillsAreLaidBeforeTheAgentStarts(t *testing.T) {
 
 	if heard := said(t, written); heard != "how to hand over" {
 		t.Errorf("the agent found %q", heard)
+	}
+}
+
+func TestTheTeamsMemoryIsLaidOutBeforeTheAgentStarts(t *testing.T) {
+	root := t.TempDir()
+	stale := filepath.Join(root, "task_1", ".spotlight/memory/team/M-1.md")
+	if err := os.MkdirAll(filepath.Dir(stale), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stale, []byte("retired since"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	written := run(t, harness(t, `const fs = require("node:fs");
+said = JSON.stringify([
+  fs.readFileSync(".spotlight/memory/repositories/acme/api/src/uploads/M-18.md", "utf8"),
+  fs.existsSync(".spotlight/memory/team/M-1.md"),
+  fs.existsSync("elsewhere.md"),
+]);`, "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.memory = []protocol.MemoryFile{
+			{Path: ".spotlight/memory/repositories/acme/api/src/uploads/M-18.md", Body: "# M-18 · rationale"},
+			{Path: "elsewhere.md", Body: "not memory"},
+		}
+	})
+
+	if heard := said(t, written); heard != `["# M-18 · rationale",false,false]` {
+		t.Errorf("the agent found %s", heard)
+	}
+}
+
+func TestARunStartsWithANoteWhenTheTeamsMemoryCannotBeRead(t *testing.T) {
+	written := run(t, harness(t, `const fs = require("node:fs");
+said = JSON.stringify([fs.readdirSync(".spotlight/memory"), fs.readFileSync(".spotlight/memory/README.md", "utf8")]);`, "end_turn"),
+		func(o *runOptions) { o.memoryErr = errors.New("control plane down") })
+
+	if heard := said(t, written); !strings.Contains(heard, `["README.md"]`) || !strings.Contains(heard, "could not be read") {
+		t.Errorf("the agent found %s", heard)
+	}
+}
+
+func TestTheMemoryFolderIsLaidEvenWhereARestoredWorkspaceLeftAFileInItsPlace(t *testing.T) {
+	root := t.TempDir()
+	blocking := filepath.Join(root, "task_1", ".spotlight/memory")
+	if err := os.MkdirAll(filepath.Dir(blocking), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(blocking, []byte("not a folder"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	written := run(t, harness(t, reading(".spotlight/memory/team/M-1.md"), "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/team/M-1.md", Body: "# M-1"}}
+	})
+
+	if heard := said(t, written); heard != "# M-1" {
+		t.Errorf("the agent found %q", heard)
+	}
+}
+
+func TestAMemoryFileThatWouldLeaveTheFolderIsLeftOut(t *testing.T) {
+	written := run(t, harness(t, `said = String(require("node:fs").existsSync("escaped.md"));`, "end_turn"),
+		func(o *runOptions) {
+			o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/../../escaped.md", Body: "out"}}
+		})
+
+	if heard := said(t, written); heard != "false" {
+		t.Errorf("a memory file escaped the folder: %s", heard)
 	}
 }
 

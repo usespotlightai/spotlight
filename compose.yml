@@ -26,6 +26,7 @@ x-control-plane-env: &control-plane-env
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
   CHANGE_STACK_MODEL: ${CHANGE_STACK_MODEL:-google/gemini-3.8-flash}
   DECISIONS_MODEL: ${DECISIONS_MODEL:-google/gemini-3.8-flash}
+  MEMORIES_MODEL: ${MEMORIES_MODEL:-google/gemini-3.8-flash}
 
 services:
   traefik:

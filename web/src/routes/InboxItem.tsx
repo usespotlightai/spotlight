@@ -6,6 +6,7 @@ import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked'
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
 import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
+import { MemoryReview } from '@/components/features/inbox/memories/MemoryReview';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
@@ -18,6 +19,7 @@ import {
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 import { inboxKeys, useInbox } from '@/hooks/api/useInbox';
+import { useReadInboxAside } from '@/hooks/api/useReadInboxAside';
 import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
@@ -33,10 +35,11 @@ export function InboxItem() {
   const [params] = useSearchParams();
   const inbox = useInbox(slug);
   const item = inbox.data?.find((each) => each.id === itemId);
-  const journal = useTaskJournal(slug, item?.taskId);
+  const journal = useTaskJournal(slug, item?.aside ? undefined : item?.taskId);
   const worked = journal.data;
   const { data: workspace } = useWorkspace(slug);
   const read = useReadInboxItem();
+  const readAside = useReadInboxAside();
   const answer = useAnswerInboxItem();
 
   const queryClient = useQueryClient();
@@ -62,8 +65,13 @@ export function InboxItem() {
     }
 
     seen.current = at;
-    read.mutate({ slug, itemId: item.id });
-  }, [slug, item, read.mutate]);
+
+    if (item.aside) {
+      readAside.mutate({ slug, asideId: item.id });
+    } else {
+      read.mutate({ slug, itemId: item.id });
+    }
+  }, [slug, item, read.mutate, readAside.mutate]);
 
   const team = workspace?.teams.find(
     (candidate) => candidate.id === item?.teamId,
@@ -85,7 +93,7 @@ export function InboxItem() {
   ];
   const { trail } = useTrail(base);
 
-  if (loading(inbox) || (item && loading(journal))) {
+  if (loading(inbox) || (item && !item.aside && loading(journal))) {
     return <InboxItemSkeleton />;
   }
 
@@ -108,6 +116,25 @@ export function InboxItem() {
           Nothing here is waiting on you any more.
         </p>
       </PageNotice>
+    );
+  }
+
+  if (item.aside?.form === 'memories') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PageHeader title={<Breadcrumbs segments={trail} />} />
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
+            <MemoryReview
+              slug={slug}
+              teamId={item.teamId}
+              taskId={item.taskId}
+              runId={item.aside.about}
+            />
+          </div>
+        </div>
+      </div>
     );
   }
 

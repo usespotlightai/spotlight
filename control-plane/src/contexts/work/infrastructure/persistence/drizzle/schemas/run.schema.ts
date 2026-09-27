@@ -1,3 +1,4 @@
+import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
 import { RUN_STATES } from '@work/domain/value-objects/run-state';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
@@ -46,6 +47,10 @@ export const run = pgTable(
     provisionFailures: integer('provision_failures').notNull().default(0),
     nextProvisionAt: timestamp('next_provision_at'),
     handBacks: integer('hand_backs').notNull().default(0),
+    briefedMemories: jsonb('briefed_memories')
+      .$type<BriefedMemoriesParts>()
+      .notNull()
+      .default({ briefed: [], cut: [] }),
     claimableFrom: timestamp('claimable_from'),
     exitCode: integer('exit_code'),
     message: text('message'),
@@ -67,6 +72,7 @@ export const run = pgTable(
     ),
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
+    index('run_task_idx').on(table.taskId),
     index('run_chat_idx').on(table.chatId),
     index('run_reserved_idx').on(table.reservedFor),
   ],

@@ -1,6 +1,8 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { IsolationPort } from '@shared-kernel/application/ports/isolation.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
   RunSpecContract,
@@ -9,10 +11,17 @@ import {
 } from '@work/application/contracts/run-spec.contract';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import {
+  type BriefedMemory,
+  type MemoryFolder,
+  NOTHING_REMEMBERED,
+  type TeamMemoriesPort,
+} from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import { chatWords } from '@work/application/services/remembering-words';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -23,6 +32,7 @@ import {
   chatSetupOf,
 } from '@work/domain/services/chat-placement';
 import { CHAT_PRIORITY } from '@work/domain/services/chat-priority';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -36,6 +46,9 @@ export class DispatchChat implements ChatDispatching {
     private readonly teams: TeamDirectoryPort,
     private readonly lines: LineRepository,
     private readonly clock: ClockPort,
+    private readonly memories: TeamMemoriesPort,
+    private readonly logger: LoggerPort,
+    private readonly isolation: IsolationPort,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {
@@ -73,9 +86,29 @@ export class DispatchChat implements ChatDispatching {
       return false;
     }
 
+    const memories = continuity.sessionId
+      ? NOTHING_REMEMBERED
+      : await this.isolation
+          .isolated(() =>
+            this.memories.forBriefing({
+              teamId: chat.teamId,
+              lineId: null,
+              stationId: null,
+              repositories: chat.repositories,
+              about: chatWords(chat),
+              touched: async () => [],
+            }),
+          )
+          .catch((error: unknown) => {
+            this.logger.warn(
+              { err: error, chatId: chat.id.value },
+              'Briefing the chat without what the team remembers, which could not be read',
+            );
+            return NOTHING_REMEMBERED;
+          });
     const briefing = continuity.sessionId
       ? ChatBriefing.followUp(chat, handed)
-      : await this.briefed(chat);
+      : await this.briefed(chat, memories.briefed, memories.folder);
 
     const queued = Run.enqueue({
       id,
@@ -84,6 +117,10 @@ export class DispatchChat implements ChatDispatching {
       priority: CHAT_PRIORITY,
       subject: RunSubject.chat(chat.id),
       placement,
+      briefedWith: BriefedMemories.of({
+        briefed: memories.briefed,
+        cut: memories.cut,
+      }),
       spec: RunSpec.of({
         checkouts: chat.repositories.map((repository) => {
           const setup = chatSetupOf(repository, lines);
@@ -112,7 +149,11 @@ export class DispatchChat implements ChatDispatching {
     return true;
   }
 
-  private async briefed(chat: Chat): Promise<string> {
+  private async briefed(
+    chat: Chat,
+    memories: readonly BriefedMemory[],
+    memoryFolder: MemoryFolder | null,
+  ): Promise<string> {
     const [team, lines] = await Promise.all([
       this.teams.find(chat.teamId),
       this.lines.ofTeam(chat.teamId),
@@ -122,6 +163,8 @@ export class DispatchChat implements ChatDispatching {
       chat,
       team: team?.name ?? null,
       lines,
+      memories,
+      memoryFolder,
     });
   }
 }

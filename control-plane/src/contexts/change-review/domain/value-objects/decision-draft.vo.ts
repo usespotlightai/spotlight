@@ -1,4 +1,4 @@
-import { OwedWork } from '@change-review/domain/value-objects/owed-work.vo';
+import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class DecisionDraft {

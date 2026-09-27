@@ -23,6 +23,7 @@ import type {
   RunRepository,
 } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
@@ -69,6 +70,7 @@ export class DrizzleRunRepository implements RunRepository {
       stopped: added.outcome?.stopped ?? false,
       placement: added.placement.clauses,
       placementImage: added.placement.image?.value ?? null,
+      briefedMemories: added.briefedWith.value,
       ...reservationOf(added),
     });
   }
@@ -104,6 +106,7 @@ export class DrizzleRunRepository implements RunRepository {
           provision_failures AS "provisionFailures",
           next_provision_at AS "nextProvisionAt",
           hand_backs        AS "handBacks",
+          briefed_memories  AS "briefedMemories",
           claimable_from    AS "claimableFrom",
           exit_code         AS "exitCode",
           message,
@@ -336,5 +339,8 @@ const toRun = (row: Row): Run =>
       asDate(row.claimableFrom),
     ),
     ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
+    briefedWith: row.briefedMemories
+      ? BriefedMemories.of(row.briefedMemories)
+      : BriefedMemories.none(),
     version: row.version,
   });

@@ -77,6 +77,7 @@ export const task = pgTable(
     runnerId: text('runner_id'),
     pullRequest: text('pull_request'),
     reviewing: boolean('reviewing').notNull().default(false),
+    reviewFromOutside: boolean('review_from_outside').notNull().default(false),
     finishedAt: timestamp('finished_at'),
     revision: integer('revision').notNull().default(0),
     version: integer('version').notNull().default(0),
