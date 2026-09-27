@@ -1,10 +1,12 @@
 import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/invalid-runner-placement.error';
 import { distinct } from '@shared-kernel/domain/services/distinct';
 import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
+import {
+  areWords,
+  LONGEST_WORDS,
+} from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
-
-const MOST_SELECTOR_LENGTH = 63;
 
 type Clause = readonly string[];
 
@@ -27,13 +29,9 @@ export class RunnerPlacement {
     for (const each of raw) {
       const trimmed = each.trim();
 
-      if (
-        !trimmed ||
-        trimmed.length > MOST_SELECTOR_LENGTH ||
-        /[\r\n]/.test(trimmed)
-      ) {
+      if (!areWords(trimmed)) {
         throw new InvalidRunnerPlacementError(
-          `are each named by a runner name or label of at most ${MOST_SELECTOR_LENGTH} characters`,
+          `are each named by a runner pool or trust label: lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in vpc-internal`,
         );
       }
 
