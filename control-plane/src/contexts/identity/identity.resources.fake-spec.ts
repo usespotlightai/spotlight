@@ -118,11 +118,10 @@ export const teamKeys = (
     tokenTrustKeysIn: vi.fn(async () => trusts),
   }) as unknown as IdentityResourcesPort;
 
-export const holdings = (held: readonly string[] = []) =>
-  ({
-    register: vi.fn(),
-    of: vi.fn(async () => held),
-  }) satisfies TeamHoldingsPort;
+export const holdings = (held: readonly string[] = []): TeamHoldingsPort => ({
+  register: vi.fn(),
+  of: vi.fn(async () => held),
+});
 
 export const creates = () =>
   ({
