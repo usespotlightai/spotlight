@@ -58,8 +58,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
-    "@nestjs/cli": "^12.0.1",
-    "@nestjs/schematics": "^12.0.2",
+    "@nestjs/cli": "^12.0.7",
+    "@nestjs/schematics": "^12.0.5",
     "@nestjs/testing": "^12.1.0",
     "@swc/core": "^1.16.2",
     "@types/express": "^5.0.6",
