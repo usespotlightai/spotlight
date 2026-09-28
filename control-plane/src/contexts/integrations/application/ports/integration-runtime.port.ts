@@ -2,6 +2,7 @@ import type { DefinedIntegration } from '@integrations/application/ports/defined
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
+import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type {
@@ -93,6 +94,7 @@ export type Renewed =
 
 export interface ReachableTool {
   readonly integration: Integration;
+  readonly offered: OfferedTool;
   readonly declared: ToolDeclaration;
   readonly wears: readonly string[];
   defaultFor(input: ToolInputDeclaration): unknown;

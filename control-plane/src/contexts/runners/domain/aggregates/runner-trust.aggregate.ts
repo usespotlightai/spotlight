@@ -3,8 +3,10 @@ import { RunnerTrustRedefined } from '@runners/domain/events/runner-trust-redefi
 import { RunnerTrustWithdrawn } from '@runners/domain/events/runner-trust-withdrawn.event';
 import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
 import { RunnerTrustMovedOnError } from '@runners/domain/exceptions/runner-trust-moved-on.error';
+import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
+import type { StartVerdict } from '@runners/domain/value-objects/start-verdict';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import type { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -89,6 +91,10 @@ export class RunnerTrust extends EventRecorder {
 
   admits(claims: WorkloadClaims): boolean {
     return !this.isWithdrawn && this.workload.admits(claims);
+  }
+
+  startVerdict(mode: PoolMode): Exclude<StartVerdict, 'full'> {
+    return this.isWithdrawn || mode !== 'pull' ? 'gone' : 'open';
   }
 
   expecting(version: number): void {

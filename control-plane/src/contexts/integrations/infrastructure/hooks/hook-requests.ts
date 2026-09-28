@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { HookCallbacksPort } from '@integrations/application/ports/hook-callbacks.port';
-import { CAUSE_HEADER } from '@integrations/application/ports/hook-firings.port';
+import { CAUSE_HEADER } from '@integrations/application/ports/hook-firing-history.port';
 import type {
   HookMoment,
   ListeningHook,
@@ -10,10 +9,9 @@ import type {
 } from '@integrations/application/ports/hook-runtime.port';
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookTokensPort } from '@integrations/application/ports/hook-tokens.port';
-import {
-  HookFailure,
-  type HookFailureCode,
-} from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
+import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
 import type { HookSigningIR } from '@integrations/infrastructure/hooks/hook.compile';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { API_PREFIX, HOOK_CALLBACKS } from '@platform/http/routes';
@@ -25,8 +23,6 @@ import type {
 } from '@work/application/ports/network-calls.port';
 
 type Fetch = typeof globalThis.fetch;
-
-const CALLBACK_LIFE_MS = 15 * 60 * 1000;
 
 const NETWORK_PATIENCE_MS = 2 * 60 * 1000;
 
@@ -47,8 +43,7 @@ export interface HookRequest {
 }
 
 interface Answered {
-  readonly status: number;
-  readonly response: unknown;
+  readonly reply: HookReply;
   readonly error: string | null;
 }
 
@@ -127,25 +122,24 @@ const firstOf = async (reply: Response): Promise<string> => {
   return Buffer.concat(chunks).subarray(0, MOST_KEPT).toString('utf8');
 };
 
-const refusalIn = (answered: Answered): string | null => {
-  const refuse = (answered.response as { refuse?: unknown } | null)?.refuse;
-
-  return answered.status >= 200 &&
-    answered.status < 300 &&
-    typeof refuse === 'string' &&
-    refuse.trim()
-    ? refuse.trim()
-    : null;
-};
+const UNANSWERED = (error: string): Answered => ({
+  reply: HookReply.unanswered(),
+  error,
+});
 
 const messageId = (hook: string, occurrence: string, step: string): string =>
   `msg_${createHash('sha256').update(`${hook}\u0000${occurrence}\u0000${step}`).digest('hex').slice(0, 32)}`;
 
-const fromAnswer = (answer: NetworkAnswer): Answered => ({
-  status: answer.status,
-  response: kept(Buffer.from(answer.body).toString('utf8')),
-  error: answer.error,
-});
+const fromAnswer = (answer: NetworkAnswer): Answered =>
+  answer.status === 0
+    ? UNANSWERED(answer.error ?? 'nothing answered there')
+    : {
+        reply: HookReply.answered(
+          answer.status,
+          kept(Buffer.from(answer.body).toString('utf8')),
+        ),
+        error: answer.error,
+      };
 
 export class HookRequests {
   private readonly policy: OutboundPolicy;
@@ -154,7 +148,7 @@ export class HookRequests {
     private readonly settings: HookRequestSettings,
     private readonly secrets: HookSigningSecretsPort,
     private readonly tokens: HookTokensPort,
-    private readonly callbacks: HookCallbacksPort,
+    private readonly callbacks: HookCallbackGrants,
     private readonly network: NetworkCallsPort,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {
@@ -163,16 +157,6 @@ export class HookRequests {
 
   async sent(request: HookRequest, now: Date): Promise<StepTaken> {
     const started = now;
-    const target = new URL(request.url);
-
-    if (target.protocol !== 'https:' && !request.fromNetwork) {
-      return this.failedBefore(
-        request,
-        started,
-        'not-allowed',
-        `sends to ${target.origin}, which is not https`,
-      );
-    }
 
     if (request.resuming?.status === 'waiting') {
       return this.resumed(request, request.resuming, started);
@@ -183,11 +167,10 @@ export class HookRequests {
     try {
       headers = await this.headers(request, started);
     } catch (error) {
-      return this.failedBefore(
+      return this.refused(
         request,
+        HookFailure.of('not-allowed', described(error)),
         started,
-        'not-allowed',
-        described(error),
       );
     }
 
@@ -198,11 +181,10 @@ export class HookRequests {
     try {
       this.policy.allow(request.url);
     } catch (error) {
-      return this.failedBefore(
+      return this.refused(
         request,
+        HookFailure.of('not-allowed', described(error)),
         started,
-        'not-allowed',
-        described(error),
       );
     }
 
@@ -220,12 +202,11 @@ export class HookRequests {
       });
 
       answered = {
-        status: reply.status,
-        response: kept(await firstOf(reply)),
+        reply: HookReply.answered(reply.status, kept(await firstOf(reply))),
         error: null,
       };
     } catch (error) {
-      answered = { status: 0, response: null, error: described(error) };
+      answered = UNANSWERED(described(error));
     }
 
     return this.taken(request, headers, answered, started, new Date());
@@ -241,15 +222,12 @@ export class HookRequests {
       request.step,
     );
     const timestamp = Math.floor(at.getTime() / 1000);
-    const callback = await this.callbacks.minted(
-      {
-        workspaceId: request.moment.task.workspaceId,
-        taskId: request.moment.task.taskId,
-        hook: request.hook.key,
-        firing: request.moment.firing,
-      },
-      new Date(at.getTime() + CALLBACK_LIFE_MS),
-    );
+    const callback = await this.callbacks.issued({
+      workspaceId: request.moment.task.workspaceId,
+      taskId: request.moment.task.taskId,
+      hook: request.hook.key,
+      firing: request.moment.firing,
+    });
     const signed: Record<string, string> = {
       ...request.headers,
       'content-type': 'application/json',
@@ -350,11 +328,7 @@ export class HookRequests {
       : this.taken(
           request,
           headers,
-          {
-            status: 0,
-            response: null,
-            error: 'no host of the workspace answered in time',
-          },
+          UNANSWERED('no host of the workspace answered in time'),
           started,
           new Date(),
         );
@@ -374,11 +348,7 @@ export class HookRequests {
     const answered: Answered =
       state.kind === 'answered'
         ? fromAnswer(state.answer)
-        : {
-            status: 0,
-            response: null,
-            error: 'no host of the workspace answered in time',
-          };
+        : UNANSWERED('no host of the workspace answered in time');
     const ms = state.kind === 'answered' ? state.answer.ms : 0;
 
     return this.taken(request, {}, answered, new Date(now.getTime() - ms), now);
@@ -391,10 +361,11 @@ export class HookRequests {
     started: Date,
     ended: Date,
   ): StepTaken {
-    const ok = answered.status >= 200 && answered.status < 300;
+    const { reply } = answered;
     const reason = answered.error
       ? `could not reach ${request.url}: ${answered.error}`
-      : `was answered ${answered.status} by ${request.url}`;
+      : `was answered ${reply.status} by ${request.url}`;
+    const failure = reply.failure(reason);
     const shown = Object.fromEntries(
       Object.entries(headers).filter(
         ([name]) =>
@@ -405,46 +376,43 @@ export class HookRequests {
     );
 
     return {
-      outcome: ok
-        ? { name: request.step, status: 'done', output: answered.response }
-        : {
-            name: request.step,
-            status: 'failed',
-            code:
-              answered.status === 0
-                ? 'unreachable'
-                : HookFailure.answered(answered.status, reason).code,
-            reason,
-            output: answered.response,
-          },
-      refusal: refusalIn(answered),
+      outcome:
+        failure === null
+          ? { name: request.step, status: 'done', output: reply.body }
+          : {
+              name: request.step,
+              status: 'failed',
+              code: failure.code,
+              reason,
+              output: reply.body,
+            },
+      refusal: reply.refusal,
       trace: {
         hook: request.hook.key,
         step: request.step,
         kind: 'request',
         target: request.url,
         request: { headers: shown, body: kept(request.body) },
-        response: answered.error ?? answered.response,
-        status: answered.status === 0 ? null : answered.status,
-        failed: !ok,
+        response: answered.error ?? reply.body,
+        status: reply.status,
+        failed: failure !== null,
         startedAt: started,
         ms: Math.max(ended.getTime() - started.getTime(), 0),
       },
     };
   }
 
-  private failedBefore(
+  refused(
     request: HookRequest,
+    failure: HookFailure,
     started: Date,
-    code: HookFailureCode,
-    reason: string,
   ): StepTaken {
     return {
       outcome: {
         name: request.step,
         status: 'failed',
-        code,
-        reason,
+        code: failure.code,
+        reason: failure.reason,
         output: null,
       },
       refusal: null,
@@ -454,7 +422,7 @@ export class HookRequests {
         kind: 'request',
         target: request.url,
         request: { body: kept(request.body) },
-        response: reason,
+        response: failure.reason,
         status: null,
         failed: true,
         startedAt: started,

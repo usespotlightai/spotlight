@@ -75,7 +75,7 @@ const proposing = async (
     evidence: DraftEvidence.of({
       taskId: team.list.id,
       runId,
-      place: {
+      site: {
         teamId: team.teamId,
         lineId: team.line.id.value,
         stationId: team.stationId.value,
@@ -87,7 +87,7 @@ const proposing = async (
       notes: [],
       notesRead: 0,
       changed: [],
-      standing: [],
+      known: [],
       fromOutside,
     }),
     newId: () => randomUUID(),

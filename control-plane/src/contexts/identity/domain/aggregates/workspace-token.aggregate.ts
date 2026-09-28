@@ -3,6 +3,7 @@ import { WorkspaceTokenLapsed } from '@identity/domain/events/workspace-token-la
 import { WorkspaceTokenRedescribed } from '@identity/domain/events/workspace-token-redescribed.event';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
 import { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
+import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
 import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
 import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
 import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
@@ -137,7 +138,7 @@ export class WorkspaceToken extends EventRecorder {
             minted.workspaceId,
           ),
           MintedTokenDetail.of({
-            trustId: input.mintedThrough,
+            mintedThrough: input.mintedThrough,
             subject: input.subject,
             scopes: input.scopes.all.map((each) => each.value),
             expiresAt: input.expiresAt,
@@ -163,10 +164,7 @@ export class WorkspaceToken extends EventRecorder {
     this.guardStanding();
 
     if (this.isMinted) {
-      throw new InconsistentStateError(
-        'workspace token',
-        'minted through a trust was described anew',
-      );
+      throw new MintedTokenFixedError(this.name.value);
     }
 
     if (!terms.name.equals(this.name)) {
@@ -269,6 +267,17 @@ export class WorkspaceToken extends EventRecorder {
   }
 
   get expiresAt(): Date | null {
+    return this.state.expiresAt;
+  }
+
+  expiry(): Date {
+    if (!this.state.expiresAt) {
+      throw new InconsistentStateError(
+        'workspace token',
+        'was asked when it expires, but it never does',
+      );
+    }
+
     return this.state.expiresAt;
   }
 

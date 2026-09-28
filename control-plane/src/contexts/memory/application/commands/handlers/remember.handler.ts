@@ -4,16 +4,13 @@ import type {
 } from '@memory/application/commands/remember.command';
 import type { ProposedMemoryDto } from '@memory/application/dto/memory-review.dto';
 import type {
-  HeldRun,
   RememberedTask,
-  WorkedPlace,
   WorkPort,
 } from '@memory/application/ports/work.port';
 import type { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import type { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
-import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
@@ -26,22 +23,23 @@ import {
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import type { StationSite } from '@memory/domain/value-objects/run-site';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 interface Remembrance {
-  readonly held: HeldRun;
-  readonly taskId: TaskId;
+  readonly remembering: Remembering;
+  readonly runId: RunId;
   readonly task: RememberedTask;
-  readonly place: WorkedPlace;
+  readonly site: StationSite;
   readonly steps: readonly RememberedStep[];
   readonly supersedes: Memory | null;
-  readonly remembering: MemoryRemembering;
+  readonly asked: MemoryRemembering;
   readonly id: MemoryId;
 }
 
@@ -62,33 +60,30 @@ export class RememberHandler
   async execute(command: RememberCommand): Promise<ProposedMemoryDto> {
     try {
       const held = await this.atHand.held(command.runId, command.runnerId);
-      const { taskId } = held;
+      const remembering = Remembering.of({
+        taskId: held.taskId,
+        runId: held.id,
+      });
 
-      if (!taskId) {
-        throw new InvalidMemoryError(
-          "is remembered only from a task's run; in a chat, ask the person to write it on the team's Memory page",
-        );
-      }
-
-      const [task, place, steps, supersedes] = await Promise.all([
-        this.work.task(taskId),
-        this.work.placeOf(held.id),
+      const [task, site, steps, supersedes] = await Promise.all([
+        this.work.task(remembering.taskId),
+        this.work.stationSiteOf(held.id),
         this.work.reasoning(held.id),
         this.superseded(held.teamId, command.remembering.supersedes),
       ]);
 
-      if (!task || !place || !steps) {
+      if (!task || !site || !steps) {
         throw new UnknownRunError(command.runId);
       }
 
       const remembrance: Remembrance = {
-        held,
-        taskId,
+        remembering,
+        runId: held.id,
         task,
-        place,
+        site,
         steps,
         supersedes,
-        remembering: command.remembering,
+        asked: command.remembering,
         id: MemoryId.of(this.ids.generate()),
       };
       const remembered = await this.rememberedOnce(remembrance).catch(
@@ -135,40 +130,34 @@ export class RememberHandler
   private rememberedOnce(
     remembrance: Remembrance,
   ): Promise<{ draft: MemoryDraft; id: MemoryId }> {
-    const { held, taskId, task, place, remembering } = remembrance;
+    const { remembering, runId, task, site, asked } = remembrance;
 
     return this.transaction.run(async () => {
-      const found = await this.drafts.forTask(taskId);
+      const found = await this.drafts.forTask(remembering.taskId);
       const draft =
         found ??
         MemoryDraft.opened({
           id: MemoryDraftId.of(this.ids.generate()),
-          taskId,
+          taskId: remembering.taskId,
           workspaceId: task.workspaceId,
         });
-      const proposal = Remembering.of({
-        taskId,
-        runId: held.id,
-        place: {
-          teamId: place.teamId,
-          lineId: place.lineId,
-          stationId: place.stationId,
-          repositories: place.repositories,
-        },
-        steps: remembrance.steps,
-        cited: draft.stepsRemembered(held.id),
-        fromOutside: task.fromOutside,
-      }).proposalOf(
-        remembrance.id,
-        {
-          kind: remembering.kind,
-          body: remembering.body,
-          reach: remembering.reach,
-          paths: remembering.paths,
+      const proposal = remembering.proposalOf({
+        id: remembrance.id,
+        remembered: {
+          kind: asked.kind,
+          body: asked.body,
+          reach: asked.reach,
+          paths: asked.paths,
           supersedes: remembrance.supersedes,
         },
-        this.clock.now(),
-      );
+        at: {
+          site,
+          steps: remembrance.steps,
+          cited: draft.stepsRemembered(runId),
+          fromOutside: task.fromOutside,
+        },
+        now: this.clock.now(),
+      });
       const next = draft.remembered(proposal);
 
       if (next !== draft) {

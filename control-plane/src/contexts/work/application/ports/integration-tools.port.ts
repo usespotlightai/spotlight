@@ -7,6 +7,7 @@ import type {
   DeclaredTool,
   ToolInput,
 } from '@work/domain/value-objects/declared-tool.vo';
+import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -38,5 +39,10 @@ export interface ReachableTool {
 }
 
 export interface IntegrationToolsPort {
-  reach(tool: Tool, context: ToolContext): Promise<ReachableTool | null>;
+  reach(
+    tool: Tool,
+    context: ToolContext,
+    attempt: RunAttempt,
+    runnerId: string,
+  ): Promise<ReachableTool | null>;
 }

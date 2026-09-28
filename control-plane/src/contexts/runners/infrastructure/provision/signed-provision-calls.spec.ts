@@ -34,7 +34,7 @@ const calling = (
 
 const calls = (
   answer: () => Promise<Response>,
-  settings: { hosts?: string[]; insecureAllowed?: boolean } = {},
+  settings: { hosts?: string[] } = {},
 ) => {
   const fetch = vi.fn(answer);
 
@@ -44,7 +44,6 @@ const calls = (
       {
         spotlightUrl: 'https://app.usespotlight.ai',
         hosts: new OutboundHosts(settings.hosts ?? ['example.com']),
-        insecureAllowed: settings.insecureAllowed ?? false,
       },
       fetch as unknown as typeof globalThis.fetch,
     ),
@@ -159,19 +158,5 @@ describe('SignedProvisionCalls', () => {
       provision.call(calling('https://elsewhere.test/runs')),
     ).resolves.toMatchObject({ outcome: 'not-allowed' });
     expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it('never sends a token in the clear unless the deployment allows it', async () => {
-    const refusing = calls(async () => new Response(null));
-    const allowing = calls(async () => new Response(null), {
-      insecureAllowed: true,
-    });
-
-    await expect(
-      refusing.provision.call(calling('http://provision.example.com/runs')),
-    ).resolves.toMatchObject({ outcome: 'not-allowed' });
-    await expect(
-      allowing.provision.call(calling('http://provision.example.com/runs')),
-    ).resolves.toEqual({ outcome: 'accepted' });
   });
 });

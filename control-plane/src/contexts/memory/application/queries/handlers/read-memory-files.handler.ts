@@ -3,6 +3,7 @@ import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import type { ReadMemoryFilesQuery } from '@memory/application/queries/read-memory-files.query';
 import { memoryFilesOf } from '@memory/application/rendering/memory-files';
+import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import type { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -13,6 +14,7 @@ export class ReadMemoryFilesHandler
 {
   constructor(
     private readonly atHand: RunnerMemoryAtHand,
+    private readonly inReach: MemoriesInReach,
     private readonly memories: MemoryRepository,
     private readonly work: WorkPort,
     private readonly people: PeoplePort,
@@ -21,9 +23,7 @@ export class ReadMemoryFilesHandler
   async execute(query: ReadMemoryFilesQuery): Promise<MemoryFileDto[]> {
     try {
       const held = await this.atHand.held(query.runId, query.runnerId);
-      const applying = (await this.memories.mayReach(held)).filter(
-        (each) => each.standing === 'stands' && each.scope.appliesAt(held),
-      );
+      const applying = await this.inReach.at(held);
       const [lines, replaced] = await Promise.all([
         this.work.linesOf(held.teamId),
         this.memories.findAll(

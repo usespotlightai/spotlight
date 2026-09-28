@@ -3,14 +3,13 @@ import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo'
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import {
   PersonPrincipal,
   TokenPrincipal,
@@ -44,9 +43,7 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   Attribution,
   Client,
   ConfigurationChange,
-  ConfigurationFile,
   ConfigurationProblem,
-  DefinitionDocument,
   FieldPath,
   HarnessId,
   HarnessModel,
@@ -75,6 +72,7 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   WorkspaceTokenTrustId,
   ProvisionFailure,
   Provisioning,
+  PoolId,
   RunnerReservation,
   Retry,
   CausalChain,

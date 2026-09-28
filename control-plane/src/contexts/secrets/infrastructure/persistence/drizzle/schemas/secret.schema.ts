@@ -1,4 +1,6 @@
 import {
+  boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -50,16 +52,31 @@ export const secretDataKey = pgTable('secret_data_key', {
   issuedAt: timestamp('issued_at').defaultNow().notNull(),
 });
 
+export const runGrants = pgTable(
+  'run_grants',
+  {
+    runId: text('run_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    attempt: integer('attempt').notNull(),
+    recipient: text('recipient'),
+    holdLost: boolean('hold_lost').notNull().default(false),
+    endedAt: timestamp('ended_at'),
+    version: integer('version').notNull().default(1),
+  },
+  (table) => [
+    index('run_grants_workspace_idx').on(table.workspaceId),
+    index('run_grants_ended_idx').on(table.endedAt),
+  ],
+);
+
 export const secretGrant = pgTable(
   'secret_grant',
   {
-    runId: text('run_id').notNull(),
-    secretId: text('secret_id')
+    runId: text('run_id')
       .notNull()
-      .references(() => secret.id, { onDelete: 'cascade' }),
+      .references(() => runGrants.runId, { onDelete: 'cascade' }),
+    secretId: text('secret_id').notNull(),
     host: text('host').notNull(),
-    workspaceId: text('workspace_id').notNull(),
-    grantedAt: timestamp('granted_at').defaultNow().notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.runId, table.secretId, table.host] }),

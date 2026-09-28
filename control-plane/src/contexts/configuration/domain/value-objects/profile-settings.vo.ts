@@ -5,6 +5,7 @@ import {
   type PermissionDecision,
   PermissionRule,
 } from '@configuration/domain/value-objects/permission-rule.vo';
+import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type WrittenPermissions = Readonly<
@@ -82,9 +83,9 @@ export class ProfileSettings {
     });
 
     return new ProfileSettings(
-      [...input.rules],
-      [...input.mcpServers],
-      JSON.parse(JSON.stringify(input.native)),
+      Object.freeze([...input.rules]),
+      Object.freeze([...input.mcpServers]),
+      deepFrozen(JSON.parse(JSON.stringify(input.native))),
     );
   }
 

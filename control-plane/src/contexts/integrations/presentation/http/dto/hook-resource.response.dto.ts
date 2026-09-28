@@ -1,4 +1,8 @@
 import type { HookResourceDto } from '@integrations/application/dto/hook-resource.dto';
+import {
+  HOOK_ON_FAILURES,
+  Hook,
+} from '@integrations/domain/entities/hook.entity';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
@@ -228,7 +232,7 @@ export class HookResourceResponseDto extends ResourceResponseDto {
   readonly signing: HookSigningDto | null;
 
   @ApiProperty({
-    enum: ['continue', 'block'],
+    enum: [...HOOK_ON_FAILURES],
     example: 'continue',
     description:
       'What a failed step does to the event: continue lets it go on; block stops it, before an event only',
@@ -262,7 +266,9 @@ export class HookResourceResponseDto extends ResourceResponseDto {
       held.signing && typeof held.signing === 'object'
         ? new HookSigningDto(held.signing as Held)
         : null;
-    this.failure = String(held.failure ?? 'continue');
-    this.timeoutSeconds = Number(held.timeoutSeconds ?? 10);
+    this.failure = String(held.failure ?? Hook.DEFAULTS.failure);
+    this.timeoutSeconds = Number(
+      held.timeoutSeconds ?? Hook.DEFAULTS.timeoutSeconds,
+    );
   }
 }

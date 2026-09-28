@@ -1,5 +1,6 @@
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
+import type { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import type { AsideForm } from '@work/domain/value-objects/aside-form';
 import type { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
 
@@ -13,6 +14,6 @@ export interface TaskAsideRepository {
   about(
     taskId: TaskId,
     form: AsideForm,
-    about: string,
+    about: AsideAbout,
   ): Promise<TaskAside | null>;
 }

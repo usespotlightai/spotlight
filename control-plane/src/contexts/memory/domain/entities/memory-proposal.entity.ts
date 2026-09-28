@@ -1,14 +1,10 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
-import { memoryBody } from '@memory/domain/value-objects/memory-body';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import {
-  isMemoryKind,
-  MEMORY_KINDS,
-  type MemoryKind,
-} from '@memory/domain/value-objects/memory-kind';
+import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import type { MemoryOrigin } from '@memory/domain/value-objects/memory-origin';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
@@ -38,7 +34,7 @@ export class MemoryProposal {
   private constructor(
     readonly id: MemoryId,
     readonly kind: MemoryKind,
-    readonly body: string,
+    readonly body: MemoryBody,
     readonly scope: MemoryScope,
     readonly grounds: MemoryGrounds,
     readonly source: MemorySource,
@@ -51,8 +47,8 @@ export class MemoryProposal {
 
   static of(input: {
     id: MemoryId;
-    kind: string;
-    body: string;
+    kind: MemoryKind;
+    body: MemoryBody;
     scope: MemoryScope;
     grounds: MemoryGrounds;
     source: MemorySource;
@@ -60,12 +56,6 @@ export class MemoryProposal {
     supersedes: MemoryId | null;
     recordedAt: Date;
   }): MemoryProposal {
-    if (!isMemoryKind(input.kind)) {
-      throw new InvalidMemoryError(
-        `is one of ${MEMORY_KINDS.join(', ')}, not ${input.kind}`,
-      );
-    }
-
     if (input.supersedes?.equals(input.id)) {
       throw new InvalidMemoryError('never supersedes itself');
     }
@@ -73,7 +63,7 @@ export class MemoryProposal {
     return new MemoryProposal(
       input.id,
       input.kind,
-      memoryBody(input.body),
+      input.body,
       input.scope,
       input.grounds,
       input.source,
@@ -88,7 +78,7 @@ export class MemoryProposal {
   static rehydrate(input: {
     id: MemoryId;
     kind: MemoryKind;
-    body: string;
+    body: MemoryBody;
     scope: MemoryScope;
     grounds: MemoryGrounds;
     source: MemorySource;
@@ -140,11 +130,15 @@ export class MemoryProposal {
     return this.grounds.notes.includes(position);
   }
 
+  says(other: MemoryProposal): boolean {
+    return this.kind === other.kind && this.body.equals(other.body);
+  }
+
   approved(decision: MemoryDecision, body?: string): MemoryProposal {
     return this.decided(
       'approved',
       decision,
-      body === undefined ? this.body : memoryBody(body),
+      body === undefined ? this.body : MemoryBody.of(body),
     );
   }
 
@@ -155,7 +149,7 @@ export class MemoryProposal {
   private decided(
     state: MemoryProposalState,
     decision: MemoryDecision,
-    body: string,
+    body: MemoryBody,
   ): MemoryProposal {
     if (!this.proposed) {
       throw new MemoryAlreadyDecidedError(this.id.value, this.state);

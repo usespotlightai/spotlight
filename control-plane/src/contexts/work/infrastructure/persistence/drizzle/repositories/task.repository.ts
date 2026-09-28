@@ -36,6 +36,7 @@ import { TaskDescription } from '@work/domain/value-objects/task-description.vo'
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { claimAttachments } from '@work/infrastructure/persistence/drizzle/attachment-claims';
@@ -140,7 +141,7 @@ const toTask = (
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
-    revision: row.revision,
+    revision: TaskRevision.of(row.revision),
     version: row.version,
     pullRequestLink: row.pullRequest
       ? row.reviewing
@@ -193,7 +194,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         reviewing: added.reviewing,
         reviewFromOutside: added.fromOutside,
         finishedAt: added.finishedAt,
-        revision: added.revision,
+        revision: added.revision.value,
       }),
     );
 
@@ -242,7 +243,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           reviewFromOutside: saved.fromOutside,
           finishedAt: saved.finishedAt,
           assigneeId: saved.assignee?.value ?? null,
-          revision: saved.revision,
+          revision: saved.revision.value,
         })
         .where(
           and(eq(task.id, saved.id.value), eq(task.version, saved.version)),

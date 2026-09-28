@@ -16,14 +16,13 @@ import {
 } from '@runners/application/rendering/runner-problems';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { z } from 'zod';
-
-const TOKEN = /^[A-Za-z0-9._~-]{32,255}$/;
 
 const once = (all: readonly string[], context: z.RefinementCtx) => {
   for (const [at, each] of all.entries()) {
@@ -42,13 +41,6 @@ const labels = z
   .default([])
   .superRefine(once);
 
-const token = z
-  .string()
-  .regex(
-    TOKEN,
-    'is 32 to 255 URL-safe characters, as a generated password would be',
-  );
-
 const writeOnlyVersion = z
   .number({ error: 'is a whole number that changes to rotate the value' })
   .int('is a whole number that changes to rotate the value')
@@ -66,7 +58,7 @@ const poolSchema = z
       .number({ error: 'is a whole number of runs' })
       .superRefine(refinedBy(MaxRuns.of))
       .nullish(),
-    token: token.nullish(),
+    token: madeBy(PoolToken.of).nullish(),
     tokenVersion: writeOnlyVersion,
     provision: z
       .object({
@@ -97,8 +89,8 @@ const trustSchema = z.object({
 });
 
 const workspaceRunnersSchema = z.object({
-  trusts: z.array(madeBy(TrustKey.of)).default([]).superRefine(once),
-  pools: z.array(madeBy(PoolKey.of)).default([]).superRefine(once),
+  trusts: z.array(madeBy(TrustKey.of)).default([]),
+  pools: z.array(madeBy(PoolKey.of)).default([]),
 });
 
 export class RunnerDefinitions implements RunnerDefinitionsPort {
@@ -143,7 +135,7 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
           }
         : {
             mode: 'pull',
-            token: read.data.token ?? null,
+            token: read.data.token ? PoolToken.of(read.data.token) : null,
             tokenVersion: read.data.tokenVersion ?? null,
           },
     };

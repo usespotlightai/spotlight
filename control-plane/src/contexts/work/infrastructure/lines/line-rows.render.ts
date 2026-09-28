@@ -1,4 +1,5 @@
 import { inCodePointOrder } from '@platform/ordering/code-point-order';
+import type { HeldLine } from '@work/application/contracts/held-line.contract';
 import type { LineFields } from '@work/infrastructure/lines/line.schema';
 import type {
   line,
@@ -9,6 +10,34 @@ import type {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 
 type Rendered<T> = { -readonly [K in keyof T]: T[K] };
+
+type SameKeys<A, B> = [keyof A] extends [keyof B]
+  ? [keyof B] extends [keyof A]
+    ? true
+    : false
+  : false;
+
+type DeeplySameKeys<A, B> = [A] extends [readonly (infer OfA)[]]
+  ? [B] extends [readonly (infer OfB)[]]
+    ? DeeplySameKeys<OfA, OfB>
+    : false
+  : [A] extends [object]
+    ? [B] extends [object]
+      ? SameKeys<A, B> extends true
+        ? false extends {
+            [K in keyof A & keyof B]-?: DeeplySameKeys<
+              NonNullable<A[K]>,
+              NonNullable<B[K]>
+            >;
+          }[keyof A & keyof B]
+          ? false
+          : true
+        : false
+      : false
+    : true;
+
+type ExactlyHeld<T extends HeldLine> =
+  DeeplySameKeys<T, HeldLine> extends true ? T : never;
 
 type StationFields = LineFields['stations'][number];
 
@@ -83,7 +112,9 @@ const inReactionOrder =
     place(one.fromStationId) - place(other.fromStationId) ||
     place(one.toStationId) - place(other.toStationId);
 
-export const renderLineRows = (rows: LineRows): Rendered<LineFields> => {
+export const renderLineRows = (
+  rows: LineRows,
+): ExactlyHeld<Rendered<LineFields>> => {
   const keyOf = new Map(rows.stations.map((each) => [each.id, each.key]));
   const positionOf = new Map(rows.stations.map((each, at) => [each.id, at]));
   const at = (stationId: string): string => keyOf.get(stationId) ?? '';

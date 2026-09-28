@@ -38,7 +38,9 @@ const actorColumns = (actor: Actor | null) => {
     userId: principal.userId.value,
     tokenId: principal.kind === 'token' ? principal.tokenId.value : null,
     trustId:
-      principal.kind === 'token' ? (principal.trustId?.value ?? null) : null,
+      principal.kind === 'token'
+        ? (principal.mintedThrough?.value ?? null)
+        : null,
     client: actor.client.toString(),
   };
 };
@@ -49,7 +51,7 @@ const changedBy = (row: Row): ChangedBy => {
       kind: 'token',
       tokenId: row.tokenId,
       userId: row.userId,
-      trustId: row.trustId,
+      trust: row.trustId,
     };
   }
 

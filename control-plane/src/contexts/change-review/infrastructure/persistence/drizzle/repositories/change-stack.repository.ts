@@ -1,5 +1,5 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
-import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
+import { ChangeStackMovedOnError } from '@change-review/domain/exceptions/change-stack-moved-on.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -133,7 +133,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       .returning({ id: changeStack.id });
 
     if (written.length === 0) {
-      throw new ChangedSinceReadError('change stack', saved.id.value);
+      throw new ChangeStackMovedOnError(saved.id.value);
     }
   }
 

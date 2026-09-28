@@ -16,9 +16,6 @@ const forgetting = () => {
   const calls: WorkspaceId[] = [];
   const subscribers = catalogSubscribers({
     plans: {
-      of: async () => {
-        throw new Error('not read on close');
-      },
       forget: async (workspaceId) => void plans.push(workspaceId),
     },
     meter: {

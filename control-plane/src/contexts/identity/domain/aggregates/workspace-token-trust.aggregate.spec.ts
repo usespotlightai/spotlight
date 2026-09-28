@@ -1,10 +1,12 @@
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
 import { WorkspaceTokenLapsed } from '@identity/domain/events/workspace-token-lapsed.event';
+import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
 import { TokenTrustMovedOnError } from '@identity/domain/exceptions/token-trust-moved-on.error';
 import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
+import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
@@ -73,7 +75,7 @@ describe('WorkspaceTokenTrust', () => {
       id: ID,
       workspaceId: WORKSPACE,
       definedBy: ADMIN,
-      grantor: null,
+      grantor: Grantor.unlimited,
       by: BY,
     });
 
@@ -90,7 +92,7 @@ describe('WorkspaceTokenTrust', () => {
     expect(token.name.value).toBe('github-main');
     expect(token.scopes.toString()).toBe('configure, secrets');
     expect(token.expiresAt).toEqual(new Date('2026-09-25T10:15:00.000Z'));
-    expect(token.principal).toMatchObject({ userId: ADMIN, trustId: ID });
+    expect(token.principal).toMatchObject({ userId: ADMIN, mintedThrough: ID });
     expect(token.admitsAt(new Date('2026-09-25T10:14:59.000Z'))).toBe(true);
     expect(token.admitsAt(new Date('2026-09-25T10:15:00.000Z'))).toBe(false);
   });
@@ -100,7 +102,10 @@ describe('WorkspaceTokenTrust', () => {
 
     expect(issued).toBeInstanceOf(WorkspaceTokenIssued);
     expect((issued as WorkspaceTokenIssued).change.by.actor).toMatchObject({
-      principal: { tokenId: WorkspaceTokenId.of('token_9'), trustId: ID },
+      principal: {
+        tokenId: WorkspaceTokenId.of('token_9'),
+        mintedThrough: ID,
+      },
     });
     expect((issued as WorkspaceTokenIssued).change.recordedDetail).toEqual({
       trust: 'trust_1',
@@ -122,17 +127,19 @@ describe('WorkspaceTokenTrust', () => {
     expect(token.mintedUnder).toBe(2);
     expect(kept(2).stillGrants(token)).toBe(true);
     expect(kept(3).stillGrants(token)).toBe(false);
-    expect(kept(2).withdrawn(BY).stillGrants(token)).toBe(false);
+    expect(kept(2).withdrawn(Grantor.unlimited, BY).stillGrants(token)).toBe(
+      false,
+    );
   });
 
   it('changes nothing, and so cuts no token, when redefined as it already is', () => {
     const standing = kept();
 
-    expect(standing.redefinedAs(terms(), null, BY)).toBe(standing);
+    expect(standing.redefinedAs(terms(), Grantor.unlimited, BY)).toBe(standing);
     expect(standing.pullEvents()).toEqual([]);
     expect(
       kept()
-        .redefinedAs(terms({ minutes: 5 }), null, BY)
+        .redefinedAs(terms({ minutes: 5 }), Grantor.unlimited, BY)
         .pullEvents()
         .map((each) => each.kind),
     ).toEqual(['workspace-token-trust.redefined']);
@@ -145,7 +152,7 @@ describe('WorkspaceTokenTrust', () => {
         id: ID,
         workspaceId: WORKSPACE,
         definedBy: ADMIN,
-        grantor: TokenScopes.named(scopes),
+        grantor: Grantor.holding(TokenScopes.named(scopes)),
         by: BY,
       });
 
@@ -158,7 +165,7 @@ describe('WorkspaceTokenTrust', () => {
     expect(() =>
       kept().redefinedAs(
         terms({ scopes: ['plan'] }),
-        TokenScopes.named(['configure', 'trusts']),
+        Grantor.holding(TokenScopes.named(['configure', 'trusts'])),
         BY,
       ),
     ).toThrow(TokenTrustBeyondGrantorError);
@@ -166,16 +173,37 @@ describe('WorkspaceTokenTrust', () => {
       kept()
         .redefinedAs(
           terms({ scopes: ['plan'] }),
-          TokenScopes.named(['configure', 'secrets', 'trusts']),
+          Grantor.holding(
+            TokenScopes.named(['configure', 'secrets', 'trusts']),
+          ),
           BY,
         )
         .scopes.toString(),
     ).toBe('plan');
   });
 
+  it('is withdrawn only by a grantor holding every scope it grants', () => {
+    expect(() =>
+      kept().withdrawn(
+        Grantor.holding(TokenScopes.named(['plan', 'trusts'])),
+        BY,
+      ),
+    ).toThrow(TokenTrustBeyondGrantorError);
+    expect(
+      kept().withdrawn(
+        Grantor.holding(TokenScopes.named(['configure', 'secrets', 'trusts'])),
+        BY,
+      ).isWithdrawn,
+    ).toBe(true);
+  });
+
   it('keeps its key for life', () => {
     expect(() =>
-      kept().redefinedAs(terms({ key: 'github-release' }), null, BY),
+      kept().redefinedAs(
+        terms({ key: 'github-release' }),
+        Grantor.unlimited,
+        BY,
+      ),
     ).toThrow(TokenTrustKeyFixedError);
   });
 
@@ -184,13 +212,15 @@ describe('WorkspaceTokenTrust', () => {
   });
 
   it('admits nothing, and cannot change, once withdrawn', () => {
-    const withdrawn = kept().withdrawn(BY);
+    const withdrawn = kept().withdrawn(Grantor.unlimited, BY);
 
     expect(withdrawn.admits(workload())).toBe(false);
     expect(withdrawn.pullEvents().map((each) => each.kind)).toEqual([
       'workspace-token-trust.withdrawn',
     ]);
-    expect(() => withdrawn.withdrawn(BY)).toThrow(InconsistentStateError);
+    expect(() => withdrawn.withdrawn(Grantor.unlimited, BY)).toThrow(
+      InconsistentStateError,
+    );
   });
 });
 
@@ -224,6 +254,18 @@ describe('a minted WorkspaceToken', () => {
         },
         BY,
       ),
-    ).toThrow(InconsistentStateError);
+    ).toThrow(MintedTokenFixedError);
+  });
+
+  it('is revoked like any other token, saying so', () => {
+    const token = minted();
+    token.pullEvents();
+
+    const revoked = token.revoked(BY);
+
+    expect(revoked.isRevoked).toBe(true);
+    expect(revoked.pullEvents().map((each) => each.kind)).toEqual([
+      'workspace-token.revoked',
+    ]);
   });
 });

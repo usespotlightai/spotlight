@@ -1,7 +1,9 @@
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface CheckClaimant {
@@ -16,6 +18,12 @@ export interface StackCheckRepository {
   save(check: StackCheck): Promise<void>;
 
   find(stackId: ChangeStackId): Promise<StackCheck | null>;
+
+  ofRun(runId: RunId): Promise<readonly StackCheck[]>;
+
+  ofTask(taskId: TaskId): Promise<readonly StackCheck[]>;
+
+  remove(check: StackCheck): Promise<void>;
 
   dueForCheck(by: CheckClaimant, now: Date): Promise<StackCheck | null>;
 
@@ -35,8 +43,4 @@ export interface StackCheckRepository {
     workspaceId: WorkspaceId,
     now: Date,
   ): Promise<readonly StackCheck[]>;
-
-  isClaimedBy(runId: string, runner: RunnerId, now: Date): Promise<boolean>;
-
-  removeForStacks(stackIds: readonly ChangeStackId[]): Promise<void>;
 }

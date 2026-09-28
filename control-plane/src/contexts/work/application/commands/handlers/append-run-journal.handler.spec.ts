@@ -25,7 +25,7 @@ const held = Run.enqueue({
   }),
 })
   .claim(RunnerId.of('runner_1'), NOW)
-  .release()
+  .requeue(new Date(NOW.getTime() + 60_000))
   .claim(RunnerId.of('runner_1'), NOW);
 
 const journalling = () => {

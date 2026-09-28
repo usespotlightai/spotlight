@@ -215,6 +215,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     return {
       integration: readable.integration,
+      offered: declared,
       wears: action.auth?.kind === 'secrets' ? action.auth.secrets : [],
       declared: {
         tool: declared.tool,

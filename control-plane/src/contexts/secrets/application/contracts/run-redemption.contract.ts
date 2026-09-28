@@ -1,6 +1,7 @@
 export interface RunRedemption {
   readonly workspaceId: string;
   readonly runId: string;
+  readonly attempt: number;
   readonly wears: readonly string[];
   readonly recipient: string;
 }

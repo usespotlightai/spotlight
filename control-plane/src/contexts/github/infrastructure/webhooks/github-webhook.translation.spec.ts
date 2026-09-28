@@ -81,13 +81,13 @@ describe('GitHubWebhookTranslation', () => {
         title: 'Retry uploads',
         body: 'Uploads give up too soon.',
         author: 'octocat',
-        authorOutside: false,
+        authorAssociation: 'MEMBER',
         draft: true,
       });
     });
 
-    it('says an author who owns, belongs to or collaborates on the repository is not from outside', () => {
-      for (const association of ['OWNER', 'MEMBER', 'COLLABORATOR']) {
+    it('passes on how GitHub associates the author with the repository, as GitHub names it', () => {
+      for (const association of ['OWNER', 'CONTRIBUTOR', 'NONE']) {
         expect(
           activity('pull_request', {
             action: 'opened',
@@ -95,8 +95,8 @@ describe('GitHubWebhookTranslation', () => {
               title: 'Retry uploads',
               author_association: association,
             }),
-          })?.about?.authorOutside,
-        ).toBe(false);
+          })?.about?.authorAssociation,
+        ).toBe(association);
       }
     });
 
@@ -111,18 +111,12 @@ describe('GitHubWebhookTranslation', () => {
             pull_request: { html_url: 'https://github.com/acme/api/pull/7' },
           },
           comment: { body: '@spotlight have a look' },
-        })?.about?.authorOutside,
-      ).toBe(false);
+        })?.about?.authorAssociation,
+      ).toBe('COLLABORATOR');
     });
 
-    it('says an author is from outside unless GitHub says they belong', () => {
-      for (const association of [
-        'CONTRIBUTOR',
-        'FIRST_TIME_CONTRIBUTOR',
-        'FIRST_TIMER',
-        'NONE',
-        undefined,
-      ]) {
+    it('reads no association where GitHub gives none', () => {
+      for (const association of [undefined, 7, ' ']) {
         expect(
           activity('pull_request', {
             action: 'opened',
@@ -130,8 +124,8 @@ describe('GitHubWebhookTranslation', () => {
               title: 'Retry uploads',
               author_association: association,
             }),
-          })?.about?.authorOutside,
-        ).toBe(true);
+          })?.about?.authorAssociation,
+        ).toBeNull();
       }
     });
 
@@ -160,7 +154,7 @@ describe('GitHubWebhookTranslation', () => {
         title: 'Retry uploads',
         body: null,
         author: 'octocat',
-        authorOutside: true,
+        authorAssociation: null,
         draft: false,
       });
     });

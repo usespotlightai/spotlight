@@ -32,13 +32,13 @@ export class ChangedByResponseDto {
     description:
       'For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust',
   })
-  readonly trustId: string | null;
+  readonly trust: string | null;
 
   constructor(by: ChangedBy) {
     this.kind = by.kind;
     this.userId = by.kind === 'spotlight' ? null : by.userId;
     this.tokenId = by.kind === 'token' ? by.tokenId : null;
-    this.trustId = by.kind === 'token' ? by.trustId : null;
+    this.trust = by.kind === 'token' ? by.trust : null;
   }
 }
 

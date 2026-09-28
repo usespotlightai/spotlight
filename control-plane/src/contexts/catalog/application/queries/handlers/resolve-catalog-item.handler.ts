@@ -8,7 +8,7 @@ import { CatalogProblems } from '@catalog/application/rendering/catalog-problems
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
 import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
-import { entitlementTo } from '@catalog/domain/services/entitlement';
+import { givingOfItem } from '@catalog/domain/services/giving';
 import { newestAdmitted } from '@catalog/domain/services/newest-admitted';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { VersionConstraint } from '@catalog/domain/value-objects/version-constraint.vo';
@@ -98,15 +98,15 @@ export class ResolveCatalogItemHandler
         return { outcome: 'unmatched', because: admission.because };
       }
 
-      const entitlement = entitlementTo(
+      const giving = givingOfItem(
         admission.item,
         await this.plans.of(cleared.workspaceId),
         this.clock.now(),
       );
 
-      return entitlement.entitled
-        ? { outcome: 'resolved', item: itemDto(admission.item, constraint) }
-        : { outcome: 'not-entitled', because: entitlement.because };
+      return giving.given
+        ? { outcome: 'resolved', item: itemDto(giving.item, constraint) }
+        : { outcome: 'not-entitled', because: giving.refusal.because };
     } catch (error) {
       rethrowAsFault(error);
     }

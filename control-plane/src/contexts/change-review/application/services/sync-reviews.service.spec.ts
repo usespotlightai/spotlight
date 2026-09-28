@@ -9,7 +9,7 @@ import {
 } from '@change-review/application/services/sync-reviews.service';
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
-import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
+import { ReviewCommentMovedOnError } from '@change-review/domain/exceptions/review-comment-moved-on.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
@@ -131,7 +131,7 @@ const syncing = (over: {
       find: async (id) => comments.get(id.value) ?? null,
       save: async (comment) => {
         if (conflicts.delete(comment.id.value)) {
-          throw new ChangedSinceReadError('review comment', comment.id.value);
+          throw new ReviewCommentMovedOnError(comment.id.value);
         }
         comments.set(comment.id.value, comment);
       },
@@ -208,18 +208,18 @@ describe('SyncReviews', () => {
       }),
     );
     expect(synced.reviews.get('review_1')?.state).toBe('posted');
-    expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
-      expect.objectContaining({
-        kind: 'review.posted',
-        placed: [
-          expect.objectContaining({
-            github: { id: 100, url: 'https://github.com/c/100' },
-          }),
-          expect.objectContaining({
-            github: { id: 101, url: 'https://github.com/c/101' },
-          }),
-        ],
-      }),
+    expect(synced.reviews.get('review_1')?.pullEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'review.posted' }),
+        expect.objectContaining({
+          kind: 'review.comment-placed',
+          github: { id: 100, url: 'https://github.com/c/100' },
+        }),
+        expect.objectContaining({
+          kind: 'review.comment-placed',
+          github: { id: 101, url: 'https://github.com/c/101' },
+        }),
+      ]),
     );
     expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
@@ -357,10 +357,7 @@ describe('SyncReviews', () => {
     ]);
     expect(last.reviews.get('review_1')?.state).toBe('failed');
     expect(last.reviews.get('review_1')?.pullEvents()).toContainEqual(
-      expect.objectContaining({
-        kind: 'review.not-posted',
-        outcome: 'failed',
-      }),
+      expect.objectContaining({ kind: 'review.comment-not-posted' }),
     );
   });
 
@@ -388,10 +385,7 @@ describe('SyncReviews', () => {
     expect(synced.github.submit).not.toHaveBeenCalled();
     expect(synced.reviews.get('review_1')?.state).toBe('withdrawn');
     expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
-      expect.objectContaining({
-        kind: 'review.not-posted',
-        outcome: 'withdrawn',
-      }),
+      expect.objectContaining({ kind: 'review.comment-not-posted' }),
     );
     expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
@@ -489,7 +483,6 @@ describe('SyncReviews', () => {
     expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
       expect.objectContaining({
         kind: 'review.posted',
-        placed: [expect.objectContaining({ github: expect.anything() })],
         onFiles: [ReviewCommentId.of('comment_3')],
       }),
     );
@@ -603,15 +596,18 @@ describe('SyncReviews', () => {
         comments: [expect.objectContaining({ line: 3, body: 'About line 3' })],
       }),
     );
-    expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
-      expect.objectContaining({
-        placed: [
-          expect.objectContaining({
-            github: { id: 100, url: 'https://github.com/c/100' },
-          }),
-          { commentId: second.id, github: null },
-        ],
-      }),
+    expect(synced.reviews.get('review_1')?.pullEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'review.comment-placed',
+          github: { id: 100, url: 'https://github.com/c/100' },
+        }),
+        expect.objectContaining({
+          kind: 'review.comment-placed',
+          commentId: second.id,
+          github: null,
+        }),
+      ]),
     );
   });
 

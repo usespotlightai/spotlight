@@ -6,6 +6,7 @@ import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-
 import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
 import { TokenTrustMovedOnError } from '@identity/domain/exceptions/token-trust-moved-on.error';
 import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
+import type { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import type { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import type { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
@@ -51,11 +52,11 @@ export class WorkspaceTokenTrust extends EventRecorder {
       id: WorkspaceTokenTrustId;
       workspaceId: WorkspaceId;
       definedBy: UserId;
-      grantor: TokenScopes | null;
+      grantor: Grantor;
       by: Attribution;
     },
   ): WorkspaceTokenTrust {
-    if (input.grantor && !input.grantor.covers(input.scopes)) {
+    if (!input.grantor.covers(input.scopes)) {
       throw new TokenTrustBeyondGrantorError(input.key.value);
     }
 
@@ -102,15 +103,13 @@ export class WorkspaceTokenTrust extends EventRecorder {
 
   redefinedAs(
     terms: TokenTrustTerms,
-    grantor: TokenScopes | null,
+    grantor: Grantor,
     by: Attribution,
   ): WorkspaceTokenTrust {
     this.guardStanding();
+    this.guardWithin(grantor);
 
-    if (
-      grantor &&
-      !(grantor.covers(this.scopes) && grantor.covers(terms.scopes))
-    ) {
+    if (!grantor.covers(terms.scopes)) {
       throw new TokenTrustBeyondGrantorError(this.key.value);
     }
 
@@ -143,8 +142,9 @@ export class WorkspaceTokenTrust extends EventRecorder {
     return redefined;
   }
 
-  withdrawn(by: Attribution): WorkspaceTokenTrust {
+  withdrawn(grantor: Grantor, by: Attribution): WorkspaceTokenTrust {
     this.guardStanding();
+    this.guardWithin(grantor);
 
     const withdrawn = this.with({ withdrawn: true });
 
@@ -251,6 +251,12 @@ export class WorkspaceTokenTrust extends EventRecorder {
       terms.scopes.equals(this.scopes) &&
       terms.lifetime.equals(this.lifetime)
     );
+  }
+
+  private guardWithin(grantor: Grantor): void {
+    if (!grantor.covers(this.scopes)) {
+      throw new TokenTrustBeyondGrantorError(this.key.value);
+    }
   }
 
   private guardStanding(): void {

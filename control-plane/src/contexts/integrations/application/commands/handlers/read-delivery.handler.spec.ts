@@ -1,7 +1,7 @@
 import { ReadDeliveryHandler } from '@integrations/application/commands/handlers/read-delivery.handler';
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
 import type { StoredDelivery } from '@integrations/application/ports/delivery-inbox.port';
-import type { HookFiringsPort } from '@integrations/application/ports/hook-firings.port';
+import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type { WebhookSourcePort } from '@integrations/application/ports/webhook-source.port';
 import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
 import { WebhookSources } from '@integrations/application/services/webhook-sources.service';
@@ -46,7 +46,7 @@ const reading = (
     chainOf: vi.fn(async (workspaceId: string, firingId: string) =>
       workspaceId === 'ws_1' && firingId === 'firing_1' ? FIRED : null,
     ),
-  } as unknown as HookFiringsPort;
+  } as unknown as HookFiringHistoryPort;
   react.mockImplementation(async () => {
     chains.push(causation.current().saying);
   });

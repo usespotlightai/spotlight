@@ -33,16 +33,12 @@ export class RecordChangeStackCheckHandler
       }
 
       const now = this.clock.now();
-
-      if (!check.claim.heldBy(RunnerId.of(command.runnerId), now)) {
-        throw new UnknownChangeStackError(
-          `change stack ${command.stackId} is not being checked by this runner`,
-        );
-      }
+      const runner = RunnerId.of(command.runnerId);
 
       if (command.skipped) {
         await this.checks.save(
           check.skipped(
+            runner,
             skipOf(command.skipped.code, command.skipped.detail),
             now,
           ),
@@ -60,6 +56,7 @@ export class RecordChangeStackCheckHandler
 
       await this.checks.save(
         check.recorded(
+          runner,
           {
             steps: stack.checkSteps(check.entries),
             layers: stack.layers(),

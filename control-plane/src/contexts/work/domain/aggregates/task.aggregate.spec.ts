@@ -1,6 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -17,6 +18,7 @@ import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
+import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -31,6 +33,7 @@ import { TaskDescription } from '@work/domain/value-objects/task-description.vo'
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
@@ -38,7 +41,7 @@ import { describe, expect, it } from 'vitest';
 
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
   Task.rehydrate({
-    revision: 0,
+    revision: TaskRevision.first(),
     id: task.id,
     workspaceId: task.workspaceId,
     stationId: task.stationId,
@@ -875,17 +878,28 @@ describe('Task, what it is doing', () => {
 
       expect(reviewing.pullRequest).toEqual(url);
       expect(reviewing.reviewing).toBe(true);
-      expect(reviewing.reviewed?.value).toBe('acme/widgets');
+      expect(reviewing.reviewedHead).toEqual({
+        repository: Repository.of('acme/widgets'),
+        ref: 'refs/pull/7/head',
+      });
       expect(reviewing.marks.map(String)).toEqual([
         `github.review:${url.value}`,
       ]);
+    });
+
+    it('reviews only a pull request whose head it can check out', () => {
+      expect(() =>
+        added().reviews(PullRequestUrl.of('https://gitlab.example/acme/7'), {
+          outside: false,
+        }),
+      ).toThrow(UnreviewablePullRequestError);
     });
 
     it('reviews nothing once it has a pull request of its own', () => {
       const own = added().handedTo(RUN, LINE).openedAt(RUN, url);
 
       expect(own.reviewing).toBe(false);
-      expect(own.reviewed).toBeNull();
+      expect(own.reviewedHead).toBeNull();
       expect(() => own.reviews(url, { outside: false })).toThrow(
         InvalidTaskTransitionError,
       );
@@ -1152,8 +1166,8 @@ describe('Task, what it is doing', () => {
 });
 
 describe('Task, a failure reported on it', () => {
-  const RUN_EXITED = TaskFailure.of({ source: 'run', code: 'exited' });
-  const LOOPED = TaskFailure.of({ source: 'hook:notify', code: 'loop' });
+  const RUN_EXITED = TaskFailure.fromRun('exited');
+  const LOOPED = TaskFailure.fromHook('notify', 'loop');
   const worked = () => added().handedTo(RUN, LINE);
   const failure = (said: string) => ({
     ...saying,
@@ -1204,7 +1218,7 @@ describe('Task, a failure reported on it', () => {
     const failed = added()
       .failed(LOOPED, failure('Stopped a loop.'), null)
       .failed(
-        TaskFailure.of({ source: 'hook:audit', code: 'loop' }),
+        TaskFailure.fromHook('audit', 'loop'),
         failure('Stopped another.'),
         null,
       );
@@ -1247,24 +1261,27 @@ describe('Task, its revision', () => {
       saying,
     );
 
-    expect(added().revision).toBe(0);
-    expect(moved.revision).toBe(1);
-    expect(moved.standsAt(1)).toBe(true);
+    expect(added().revision.value).toBe(0);
+    expect(moved.revision.value).toBe(1);
+    expect(moved.standsAt(TaskRevision.of(1))).toBe(true);
   });
 
   it('counts being finished as a move', () => {
     expect(
-      added().handedTo(RUN, LINE).finishedHere(RUN, LINE, saying).revision,
+      added().handedTo(RUN, LINE).finishedHere(RUN, LINE, saying).revision
+        .value,
     ).toBe(1);
   });
 
   it('does not count what is said on it as a move', () => {
-    expect(added().heard(saying).revision).toBe(0);
+    expect(added().heard(saying).revision.value).toBe(0);
   });
 
   it('refuses what was decided on a revision it has moved on from', () => {
-    expect(added().expecting(0).revision).toBe(0);
-    expect(() => added().expecting(1)).toThrow(StaleTaskRevisionError);
-    expect(() => added().expecting(-1)).toThrow(InvalidTaskRevisionError);
+    expect(added().expecting(TaskRevision.of(0)).revision.value).toBe(0);
+    expect(() => added().expecting(TaskRevision.of(1))).toThrow(
+      StaleTaskRevisionError,
+    );
+    expect(() => TaskRevision.of(-1)).toThrow(InvalidTaskRevisionError);
   });
 });

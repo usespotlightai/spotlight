@@ -8,6 +8,8 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -31,6 +33,8 @@ const { diff: DIFF } = new GitDiffReader().read(
 );
 
 const NOW = new Date('2026-09-16T10:00:00Z');
+
+const CHECKER = RunnerId.of('checker_1');
 
 const stack = () =>
   ChangeStack.draft({
@@ -69,24 +73,28 @@ const checkOf = (built = stack()) =>
   StackCheck.begin({
     stackId: built.id,
     runId: built.runId,
+    taskId: null,
     workspaceId: built.workspaceId,
     request: CheckRequest.of('npx tsc --noEmit', null),
     entries: built.entries(),
     now: NOW,
-  }).recorded(
-    { steps: built.checkSteps(built.entries()), layers: built.layers() },
-    [
-      { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
-      {
-        step: LayerId.of('c1.l1'),
-        passed: false,
-        output:
-          "src/presentation/http/mappers/task.http.mapper.spec.ts(5,7): error TS2741: Property 'labels' is missing",
-        tookMs: 1,
-      },
-    ],
-    NOW,
-  );
+  })
+    .claimedFor(CHECKER, RunnerTerms.none(), NOW)
+    .recorded(
+      CHECKER,
+      { steps: built.checkSteps(built.entries()), layers: built.layers() },
+      [
+        { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
+        {
+          step: LayerId.of('c1.l1'),
+          passed: false,
+          output:
+            "src/presentation/http/mappers/task.http.mapper.spec.ts(5,7): error TS2741: Property 'labels' is missing",
+          tookMs: 1,
+        },
+      ],
+      NOW,
+    );
 
 describe('revisionOf', () => {
   it('gives how the stack stood, what failed, and where the files its errors name sit', () => {
@@ -139,6 +147,7 @@ describe('revisionOf', () => {
         StackCheck.begin({
           stackId: built.id,
           runId: built.runId,
+          taskId: null,
           workspaceId: built.workspaceId,
           request: CheckRequest.of('npx tsc --noEmit', null),
           entries: [],

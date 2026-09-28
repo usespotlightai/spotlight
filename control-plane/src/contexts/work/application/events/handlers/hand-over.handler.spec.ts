@@ -34,6 +34,7 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
@@ -102,7 +103,9 @@ const queued = (taskId: string | null = 'task_1') =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: taskId ? RunSubject.task(TaskId.of(taskId), null, 0) : null,
+    subject: taskId
+      ? RunSubject.task(TaskId.of(taskId), null, TaskRevision.of(0))
+      : null,
     spec: aSpec(),
   });
 
@@ -128,6 +131,7 @@ const givenUp = () => {
   const runner = RunnerId.of('runner_1');
   let ended = queued();
   for (let attempt = 0; attempt < 3; attempt += 1) {
+    ended.pullEvents();
     ended = ended.claim(runner, NOW).requeue(LATER);
   }
   return ended;
@@ -239,7 +243,7 @@ describe('HandOver', () => {
       id: RunId.of('run_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       harness: HarnessId.of('dev'),
-      subject: RunSubject.task(TaskId.of('task_1'), null, 3),
+      subject: RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(3)),
       spec: aSpec(),
     })
       .claim(runner, NOW)

@@ -1,13 +1,13 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { selectForBriefing } from '@memory/domain/services/briefing-selection';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import {
-  type MemoryPlace,
-  MemoryScope,
-} from '@memory/domain/value-objects/memory-scope.vo';
+import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import type { TouchedSite } from '@memory/domain/value-objects/run-site';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -30,7 +30,7 @@ const kept = (
   },
   body = 'Remember this.',
   at = new Date('2026-09-20T10:00:00.000Z'),
-  kind = 'preference',
+  kind: MemoryKind = 'preference',
 ) => {
   made += 1;
   return Memory.written({
@@ -38,7 +38,7 @@ const kept = (
     handle: MemoryHandle.of(made),
     workspaceId: WorkspaceId.of('ws_1'),
     kind,
-    body,
+    body: MemoryBody.of(body),
     scope: MemoryScope.of({
       teamId: scope.teamId ?? TEAM,
       lineId: scope.lineId ?? null,
@@ -47,14 +47,13 @@ const kept = (
       paths: (scope.paths ?? []).map(MemoryPath.of),
     }),
     grounds: null,
-    supersedes: null,
     by: MemoryDecision.of({ by: UserId.of('user_1'), at }),
   });
 };
 
 const OLDER = new Date('2026-09-01T10:00:00.000Z');
 
-const PLACE: MemoryPlace = {
+const PLACE: TouchedSite = {
   teamId: TEAM,
   lineId: 'line_delivery',
   stationId: 'station_build',
@@ -64,21 +63,21 @@ const PLACE: MemoryPlace = {
 
 const choosing = (
   memories: readonly Memory[],
-  place: MemoryPlace,
-  matches: Record<string, number> = {},
+  site: TouchedSite,
+  ranks: Record<string, number> = {},
   recalled: Record<string, number> = {},
 ) =>
   selectForBriefing(
     memories.map((memory) => ({
       memory,
-      match: matches[memory.body] ?? 0,
-      recalled: recalled[memory.body] ?? 0,
+      rank: ranks[memory.body.value] ?? 0,
+      recalled: recalled[memory.body.value] ?? 0,
     })),
-    place,
+    site,
   );
 
 const bodies = (memories: readonly Memory[]) =>
-  memories.map((each) => each.body);
+  memories.map((each) => each.body.value);
 
 describe('selecting what to brief a run with', () => {
   it('gives the memories whose scope reaches the run, and no others', () => {
@@ -190,7 +189,7 @@ describe('selecting what to brief a run with', () => {
         kept({}, 'Uploads retry in the request.'),
       ],
       PLACE,
-      { 'Uploads retry in the request.': 0.3 },
+      { 'Uploads retry in the request.': 0.03 },
     );
 
     expect(bodies(chosen.briefed)).toEqual([
@@ -206,10 +205,26 @@ describe('selecting what to brief a run with', () => {
         kept({}, 'Uploads retry in the request.'),
       ],
       PLACE,
-      { 'Uploads retry in the request.': 1 },
+      { 'Uploads retry in the request.': 0.1 },
     );
 
     expect(bodies(chosen.briefed)[0]).toBe('Uploads retry in the request.');
+  });
+
+  it('counts any rank past a strong match as a full match', () => {
+    const chosen = choosing(
+      [
+        kept({}, 'Ranked far past strong.', OLDER),
+        kept({}, 'Ranked just strong.'),
+      ],
+      PLACE,
+      { 'Ranked far past strong.': 0.9, 'Ranked just strong.': 0.1 },
+    );
+
+    expect(bodies(chosen.briefed)).toEqual([
+      'Ranked just strong.',
+      'Ranked far past strong.',
+    ]);
   });
 
   it('reaches a memory about paths the task has not touched only when its words match', () => {
@@ -223,10 +238,30 @@ describe('selecting what to brief a run with', () => {
     expect(
       bodies(
         choosing([aboutUploads], elsewhere, {
-          'Uploads retry in the request.': 0.1,
+          'Uploads retry in the request.': 0.01,
         }).briefed,
       ),
     ).toEqual(['Uploads retry in the request.']);
+  });
+
+  it('never briefs a memory beside the correction replacing it', () => {
+    const old = kept({}, 'Name branches after people.');
+    const correction = old.correctedAs({
+      id: MemoryId.of('memory_correction'),
+      handle: MemoryHandle.of(900),
+      kind: old.kind,
+      body: MemoryBody.of('Name branches after the ticket.'),
+      scope: old.scope,
+      by: MemoryDecision.of({
+        by: UserId.of('user_1'),
+        at: new Date('2026-09-21T10:00:00.000Z'),
+      }),
+    });
+
+    const chosen = choosing([old, correction], PLACE);
+
+    expect(bodies(chosen.briefed)).toEqual(['Name branches after the ticket.']);
+    expect(bodies(chosen.cut)).toEqual([]);
   });
 
   it('puts warnings ahead of preferences at the same specificity', () => {
@@ -269,7 +304,7 @@ describe('selecting what to brief a run with', () => {
         ),
       ],
       { ...PLACE, touched: [] },
-      { 'Fix retries by draining the queue.': 0.4 },
+      { 'Fix retries by draining the queue.': 0.04 },
     );
 
     expect(bodies(chosen.briefed)).toEqual([

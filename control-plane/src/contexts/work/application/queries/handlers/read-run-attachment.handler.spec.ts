@@ -24,7 +24,6 @@ const reading = (holding: Record<string, string>) => {
       holding[runId.value] === runnerId.value && attachmentId === 'att_1'
         ? { workspaceId: WorkspaceId.of('ws_1'), attachment: SCREEN }
         : null,
-    continuityOf: async () => null,
   };
   const files = {
     open: async (workspaceId: WorkspaceId, file: Attachment) => {

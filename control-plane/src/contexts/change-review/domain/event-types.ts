@@ -1,21 +1,23 @@
-import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { ChangeStackDraftingBegan } from '@change-review/domain/events/change-stack-drafting-began.event';
 import { ChangeStackFailed } from '@change-review/domain/events/change-stack-failed.event';
 import { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
 import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import { DecisionDraftingFailed } from '@change-review/domain/events/decision-drafting-failed.event';
 import { DecisionsAsked } from '@change-review/domain/events/decisions-asked.event';
 import { DecisionsDiscarded } from '@change-review/domain/events/decisions-discarded.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
 import { DecisionsStood } from '@change-review/domain/events/decisions-stood.event';
+import { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
+import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
 import { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
 import { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
-import { ReviewNotPosted } from '@change-review/domain/events/review-not-posted.event';
 import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
@@ -52,7 +54,6 @@ export const CHANGE_REVIEW_EVENT_TYPES = [
   ReviewId,
   ReviewAuthor,
   CheckRequest,
-  StackCheck,
   StackFacts,
   StackProgress,
   ChangeStackChecked,
@@ -61,11 +62,14 @@ export const CHANGE_REVIEW_EVENT_TYPES = [
   ChangeStackReordered,
   ChangeStackReorderingEnded,
   ChangeStackSettled,
+  CheckReservationDropped,
+  HeldCheckForgotten,
   LayersFailedCheck,
+  ReviewCommentNotPosted,
+  ReviewCommentPlaced,
   ReviewCommentRemoved,
   ReviewCommentReplied,
   ReviewCommentRewritten,
-  ReviewNotPosted,
   ReviewPosted,
   ReviewSubmitted,
   DecisionId,

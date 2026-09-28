@@ -36,6 +36,7 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -105,18 +106,14 @@ const chat = () =>
 const lineWorking = (repositories: readonly string[]): Line => {
   const held = repositories.map((each) => Repository.of(each));
 
-  return {
-    repositories: held,
-    repositoryNamed: (name: string) =>
-      held.find((each) => each.name === name) ?? null,
-  } as unknown as Line;
+  return { repositories: { all: held } } as unknown as Line;
 };
 
 const enqueued = (
   subject: RunSubject = RunSubject.task(
     TaskId.of('task_1'),
     StationId.of('station_1'),
-    0,
+    TaskRevision.of(0),
   ),
 ) =>
   Run.enqueue({

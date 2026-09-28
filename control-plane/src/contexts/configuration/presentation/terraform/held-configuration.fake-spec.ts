@@ -3,10 +3,11 @@ import type {
   HeldResourceDto,
 } from '@configuration/application/dto/held-configuration.dto';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import type { HeldLine } from '@work/application/contracts/held-line.contract';
 
 export const WORKSPACE_ID = '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57';
 
-const DELIVERY = {
+const DELIVERY: HeldLine = {
   key: 'delivery',
   name: 'Delivery',
   role: 'delivery',
@@ -69,7 +70,7 @@ const DELIVERY = {
   ],
 };
 
-const REVIEW = {
+const REVIEW: HeldLine = {
   key: 'review',
   name: 'Review',
   role: 'review',
@@ -446,8 +447,8 @@ export const HELD: HeldConfigurationDto = {
         },
       ],
       signing: null,
-      failure: 'continue',
-      timeoutSeconds: 10,
+      failure: null,
+      timeoutSeconds: null,
     },
     {
       kind: 'harness-profile',

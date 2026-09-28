@@ -83,8 +83,9 @@ const heldOn = (teamKey: string, kept: KeptHook): HeldHook => {
       .filter(isHeld)
       .map(stepOf),
     signing: signingOf(held.signing),
-    failure: String(held.failure ?? 'continue'),
-    timeoutSeconds: Number(held.timeoutSeconds ?? 10),
+    failure: typeof held.failure === 'string' ? held.failure : null,
+    timeoutSeconds:
+      typeof held.timeoutSeconds === 'number' ? held.timeoutSeconds : null,
   };
 };
 

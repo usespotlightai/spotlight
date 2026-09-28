@@ -2,6 +2,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { ArchiveStandingsPort } from '@work/application/ports/archive-standings.port';
 import type { WorkspaceArchiveStorePort } from '@work/application/ports/workspace-archive-store.port';
+import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { WorkspaceArchiveMovedOnError } from '@work/domain/exceptions/workspace-archive-moved-on.error';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 
@@ -21,21 +22,41 @@ export class RemoveReleasedArchives {
   async workDue(): Promise<void> {
     const now = this.clock.now();
 
-    for (const due of await this.standings.due(now, MOST_AT_ONCE)) {
-      try {
-        const archive = await this.archives.find(due.id);
+    const due = await this.standings.due(
+      WorkspaceArchive.removalCutoffs(now),
+      MOST_AT_ONCE,
+    );
 
-        if (!archive?.removableAt(now, due.facts)) {
+    for (const each of due) {
+      try {
+        const archive = await this.archives.find(each.id);
+
+        if (!archive?.removableAt(now, each.facts)) {
           continue;
         }
 
-        await this.store.remove(archive);
-        await this.archives.save(archive.removed());
+        await this.archives.save(archive.removed(now, each.facts));
+        await this.removeStored(archive);
       } catch (error) {
         if (!(error instanceof WorkspaceArchiveMovedOnError)) {
-          this.logger.error({ err: error, archive: due.id.value }, this.name);
+          this.logger.error({ err: error, archive: each.id.value }, this.name);
         }
       }
+    }
+  }
+
+  private async removeStored(archive: WorkspaceArchive): Promise<void> {
+    try {
+      await this.store.remove(archive);
+    } catch (error) {
+      this.logger.error(
+        {
+          err: error,
+          archive: archive.id.value,
+          workspaceId: archive.workspaceId.value,
+        },
+        'A removed workspace archive was left behind in storage',
+      );
     }
   }
 }

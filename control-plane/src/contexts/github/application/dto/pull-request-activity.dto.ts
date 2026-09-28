@@ -18,7 +18,7 @@ export interface PullRequestAbout {
   readonly title: string;
   readonly body: string | null;
   readonly author: string | null;
-  readonly authorOutside: boolean;
+  readonly authorAssociation: string | null;
   readonly draft: boolean;
 }
 

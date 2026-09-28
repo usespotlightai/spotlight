@@ -17,12 +17,16 @@ import type { HookDefinitionRepository } from '@integrations/domain/repositories
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookFailureCode } from '@integrations/domain/value-objects/hook-failure.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   compileHook,
   type HookIR,
   type HookStepIR,
 } from '@integrations/infrastructure/hooks/hook.compile';
-import type { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
+import type {
+  HookRequest,
+  HookRequests,
+} from '@integrations/infrastructure/hooks/hook-requests';
 import {
   asJson,
   requiredTextOf,
@@ -297,22 +301,24 @@ export class CompiledHookRuntime implements HookRuntimePort {
       );
     }
 
-    return this.requests.sent(
-      {
-        hook,
-        moment: asked.moment,
-        step: step.name,
-        url,
-        headers,
-        body,
-        fromNetwork: step.fromNetwork,
-        signing: hook.ir.signing,
-        deadline: asked.deadline,
-        waiting: asked.waiting,
-        resuming: asked.resuming,
-      },
-      now,
-    );
+    const request: HookRequest = {
+      hook,
+      moment: asked.moment,
+      step: step.name,
+      url,
+      headers,
+      body,
+      fromNetwork: step.fromNetwork,
+      signing: hook.ir.signing,
+      deadline: asked.deadline,
+      waiting: asked.waiting,
+      resuming: asked.resuming,
+    };
+    const refused = hook.ir.hook.refusalToRequest(step.name, new URL(url));
+
+    return refused
+      ? this.requests.refused(request, refused, now)
+      : this.requests.sent(request, now);
   }
 
   private async called(
@@ -337,17 +343,15 @@ export class CompiledHookRuntime implements HookRuntimePort {
         boundTask(moment),
       );
 
-      if (!reachable) {
-        throw new StepRefused(
-          'not-allowed',
-          `names ${step.tool}, which no integration of the team offers now`,
-        );
-      }
+      const refused = hook.ir.hook.refusalToCall(
+        ToolName.of(step.tool),
+        reachable?.offered ?? null,
+      );
 
-      if (reachable.declared.approval) {
+      if (refused || !reachable) {
         throw new StepRefused(
-          'not-allowed',
-          `calls ${step.tool}, which asks a person's approval before each call, and a hook cannot give it`,
+          refused?.code ?? 'not-allowed',
+          refused?.reason ?? `names ${step.tool}, which nothing offers`,
         );
       }
 
@@ -436,18 +440,20 @@ export class CompiledHookRuntime implements HookRuntimePort {
           timeoutSeconds: read.ir.hook.timeoutSeconds,
           steps: read.ir.steps.map((step) => step.name),
           broken: null,
+          written: read.ir.hook,
           ir: read.ir,
         }
       : {
           id: hook.id.value,
           key: hook.key.value,
           teamId: hook.teamId.value,
-          blocks: hook.document.fields.failure === 'block',
+          blocks: hook.blocks,
           timeoutSeconds: 1,
           steps: [],
           broken: read.problems
             .map((problem) => `${problem.field.rendered} ${problem.reason}`)
             .join('; '),
+          written: null,
           ir: null,
         };
 

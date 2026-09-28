@@ -2,7 +2,7 @@ import {
   aPullPool,
   aPushPool,
   hashOf,
-  secretOf,
+  sealedOf,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerPoolDefined } from '@runners/domain/events/runner-pool-defined.event';
 import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefined.event';
@@ -15,7 +15,6 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
-import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { describe, expect, it } from 'vitest';
 
 const BY = attributedIn();
@@ -110,26 +109,6 @@ describe('RunnerPool', () => {
     expect(relabelled.labels.values).toEqual(['linux', 'gpu']);
   });
 
-  it('gives the token it is defined with, and none when it provisions', () => {
-    expect(aPullPool().tokenGiven?.equals(hashOf('a'))).toBe(true);
-    expect(aPushPool().tokenGiven).toBeNull();
-  });
-
-  it('gives a token only when it is rotated to a new one', () => {
-    const pool = aPullPool({ tokenVersion: 1 });
-    const pulled = (tokenHash: TokenHash | null, tokenVersion: number) =>
-      pool.redefinedAs(
-        keeping('ephemeral', ['gpu']),
-        { mode: 'pull', tokenHash, tokenVersion },
-        BY,
-      ).tokenGiven;
-
-    expect(pulled(hashOf('c'), 2)?.equals(hashOf('c'))).toBe(true);
-    expect(pulled(null, 1)).toBeNull();
-    expect(pulled(hashOf('a'), 2)).toBeNull();
-    expect(pool.retired(BY).tokenGiven).toBeNull();
-  });
-
   it('keeps its key and its mode for its whole life', () => {
     expect(() =>
       aPullPool().redefinedAs(
@@ -162,11 +141,11 @@ describe('RunnerPool', () => {
 
     const rotated = pool.redefinedAs(
       keeping('sandboxes'),
-      { mode: 'push', url, secret: secretOf('t'), secretVersion: 2 },
+      { mode: 'push', url, secret: sealedOf('t'), secretVersion: 2 },
       BY,
     );
 
-    expect(rotated.provision?.secret?.equals(secretOf('t'))).toBe(true);
+    expect(rotated.provision?.secret.equals(sealedOf('t'))).toBe(true);
     expect(changeOf(rotated)?.detail?.recorded()).toEqual({
       mode: 'push',
       secretRotated: true,
@@ -180,6 +159,42 @@ describe('RunnerPool', () => {
     expect(bounded.hasRoomFor(2)).toBe(false);
     expect(aPullPool().hasRoomFor(10_000)).toBe(true);
     expect(bounded.retired(BY).hasRoomFor(0)).toBe(false);
+  });
+
+  it('says how many more runs it has room for, none past maxRuns, and no bound without one', () => {
+    const bounded = aPullPool({ maxRuns: 3 });
+
+    expect(bounded.roomFor(1)).toBe(2);
+    expect(bounded.roomFor(5)).toBe(0);
+    expect(aPullPool().roomFor(10_000)).toBeNull();
+    expect(aPullPool().retired(BY).roomFor(0)).toBe(0);
+  });
+
+  it('lets a runner start only in its own mode, while it stands and has room', () => {
+    const pulled = aPullPool({ maxRuns: 1 });
+
+    expect(pulled.startVerdict('pull', 0)).toBe('open');
+    expect(pulled.startVerdict('pull', 1)).toBe('full');
+    expect(pulled.startVerdict('push', 0)).toBe('gone');
+    expect(aPushPool().startVerdict('push', 0)).toBe('open');
+    expect(aPushPool().startVerdict('pull', 0)).toBe('gone');
+    expect(pulled.retired(BY).startVerdict('pull', 0)).toBe('gone');
+  });
+
+  it('always holds its provision secret sealed, even when kept from a redefinition that gave none', () => {
+    const kept = aPushPool().redefinedAs(
+      keeping('sandboxes'),
+      {
+        mode: 'push',
+        url: ProvisionUrl.of('https://provision.example.com/v2'),
+        secret: null,
+        secretVersion: 1,
+      },
+      BY,
+    );
+
+    expect(kept.provision?.secret.equals(sealedOf('s'))).toBe(true);
+    expect(kept.provision?.url.value).toBe('https://provision.example.com/v2');
   });
 
   it('is retired as a deleted change', () => {

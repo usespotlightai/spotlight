@@ -1,18 +1,21 @@
+import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import {
   MemoryProposal,
   type ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import { MEMORY_REACHES } from '@memory/domain/value-objects/memory-reach';
+import { parseMemoryReach } from '@memory/domain/value-objects/memory-reach';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
+import type { StationSite } from '@memory/domain/value-objects/run-site';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MOST_TOLD = 2_000;
 
@@ -20,14 +23,9 @@ const MOST_STEPS_TOLD = 100_000;
 
 const MOST_NOTES_TOLD = 20_000;
 
-export type NoteSpeaker = 'person' | 'world';
+const MOST_STANDING_TOLD = 50;
 
-export interface DraftedPlace {
-  readonly teamId: TeamId;
-  readonly lineId: string;
-  readonly stationId: string;
-  readonly repositories: readonly Repository[];
-}
+export type NoteSpeaker = 'person' | 'world';
 
 export interface EvidenceStep {
   readonly index: number;
@@ -90,25 +88,25 @@ export class DraftEvidence {
   private constructor(
     private readonly taskId: TaskId,
     private readonly runId: RunId,
-    private readonly place: DraftedPlace,
+    private readonly site: StationSite,
     readonly steps: readonly EvidenceStep[],
     readonly stepsLeftOut: number,
     readonly notes: readonly EvidenceNote[],
     readonly changed: readonly ChangedPath[],
     private readonly changedKeys: ReadonlySet<string>,
-    private readonly standing: ReadonlySet<string>,
+    readonly standing: readonly Memory[],
     private readonly fromOutside: boolean,
   ) {}
 
   static of(input: {
     taskId: TaskId;
     runId: RunId;
-    place: DraftedPlace;
+    site: StationSite;
     steps: readonly EvidenceStep[];
     notes: readonly EvidenceNote[];
     notesRead: number;
     changed: readonly ChangedPath[];
-    standing: readonly string[];
+    known: readonly Memory[];
     fromOutside: boolean;
   }): DraftEvidence {
     const steps = within(
@@ -135,16 +133,23 @@ export class DraftEvidence {
         : [];
     });
 
+    const standing = input.known
+      .filter((each) => each.appliesAt(input.site))
+      .sort(
+        (one, other) => other.approval.at.getTime() - one.approval.at.getTime(),
+      )
+      .slice(0, MOST_STANDING_TOLD);
+
     return new DraftEvidence(
       input.taskId,
       input.runId,
-      input.place,
+      input.site,
       steps,
       input.steps.length - steps.length,
       [...revisited, ...unread],
       changed.map(({ each }) => each),
       new Set(changed.map(({ key }) => key)),
-      new Set(input.standing),
+      standing,
       input.fromOutside,
     );
   }
@@ -193,7 +198,10 @@ export class DraftEvidence {
       ? MemoryId.of(proposed.supersedes.trim())
       : null;
 
-    if (supersedes && !this.standing.has(supersedes.value)) {
+    if (
+      supersedes &&
+      !this.standing.some((each) => each.id.equals(supersedes))
+    ) {
       throw new InvalidMemoryError(
         'supersedes only a memory standing in scope',
       );
@@ -201,8 +209,8 @@ export class DraftEvidence {
 
     return MemoryProposal.of({
       id,
-      kind: proposed.kind,
-      body: proposed.body,
+      kind: parseMemoryKind(proposed.kind),
+      body: MemoryBody.of(proposed.body),
       scope: this.scopeOf(proposed),
       grounds,
       source: this.sourceOf(grounds),
@@ -217,17 +225,10 @@ export class DraftEvidence {
   }
 
   private scopeOf(proposed: ProposedMemory): MemoryScope {
-    const reach = MEMORY_REACHES.find((each) => each === proposed.reach);
-
-    if (!reach) {
-      throw new InvalidMemoryError(
-        `reaches one of ${MEMORY_REACHES.join(', ')}, not ${proposed.reach}`,
-      );
-    }
-
+    const reach = parseMemoryReach(proposed.reach);
     const named = proposed.repository?.trim() || null;
     const repository = named
-      ? this.place.repositories.find((each) => each.value === named)
+      ? this.site.repositories.find((each) => each.value === named)
       : null;
 
     if (named && !repository) {
@@ -247,9 +248,9 @@ export class DraftEvidence {
     }
 
     return MemoryScope.of({
-      teamId: this.place.teamId,
-      lineId: reach === 'team' ? null : this.place.lineId,
-      stationId: reach === 'station' ? this.place.stationId : null,
+      teamId: this.site.teamId,
+      lineId: reach === 'team' ? null : this.site.lineId,
+      stationId: reach === 'station' ? this.site.stationId : null,
       repository,
       paths,
     });

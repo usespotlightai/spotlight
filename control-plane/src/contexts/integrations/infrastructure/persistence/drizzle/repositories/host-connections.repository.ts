@@ -6,6 +6,7 @@ import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { hostConnection } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { CredentialSealingPort } from '@secrets/application/ports/credential-sealing.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -130,16 +131,18 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     return this.sealing.seal(
       connection.workspaceId.value,
       labelFor(connection.teamId.value, connection.source.value, held),
-      plain,
+      Credential.of(plain),
     );
   }
 
-  private opened(row: Row, held: Held, sealed: string): Promise<string> {
-    return this.sealing.open(
-      row.workspaceId,
-      labelFor(row.teamId, row.source, held),
-      sealed,
-    );
+  private async opened(row: Row, held: Held, sealed: string): Promise<string> {
+    return (
+      await this.sealing.open(
+        row.workspaceId,
+        labelFor(row.teamId, row.source, held),
+        sealed,
+      )
+    ).revealed();
   }
 
   private async rehydrate(row: Row): Promise<HostConnection> {

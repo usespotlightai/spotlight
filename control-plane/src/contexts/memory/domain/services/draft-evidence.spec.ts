@@ -1,23 +1,59 @@
+import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
+import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
+const TEAM = TeamId.of('team_1');
+
+let handles = 0;
+const kept = (id: string, scope: MemoryScope, at = NOW) => {
+  handles += 1;
+  return Memory.written({
+    id: MemoryId.of(id),
+    handle: MemoryHandle.of(handles),
+    workspaceId: WorkspaceId.of('ws_1'),
+    kind: 'preference',
+    body: MemoryBody.of('Retry twice.'),
+    scope,
+    grounds: null,
+    by: MemoryDecision.of({ by: UserId.of('user_1'), at }),
+  });
+};
+
+const KNOWN = [
+  kept('memory_old', MemoryScope.of({ teamId: TEAM, lineId: 'line_1' })),
+  kept(
+    'memory_other_station',
+    MemoryScope.of({ teamId: TEAM, lineId: 'line_1', stationId: 'station_9' }),
+  ),
+  kept('memory_retired', MemoryScope.of({ teamId: TEAM })).retired({
+    by: UserId.of('user_1'),
+    reason: 'Gone.',
+    at: NOW,
+  }),
+];
 
 const evidence = (fromOutside = false) =>
   DraftEvidence.of({
     taskId: TaskId.of('task_1'),
     runId: RunId.of('run_1'),
-    place: {
-      teamId: TeamId.of('team_1'),
+    site: {
+      teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
       repositories: [API, WEB],
@@ -35,7 +71,7 @@ const evidence = (fromOutside = false) =>
       { repository: API, path: 'src/uploads.ts' },
       { repository: WEB, path: 'src/Upload.tsx' },
     ],
-    standing: ['memory_old'],
+    known: KNOWN,
     fromOutside,
   });
 
@@ -208,6 +244,40 @@ describe('DraftEvidence', () => {
         proposalOf(remembered({ supersedes: 'memory_elsewhere' })),
       ).toThrow(InvalidMemoryError);
     });
+
+    it('refuses to supersede a memory that does not apply where the run worked, or no longer stands', () => {
+      for (const supersedes of ['memory_other_station', 'memory_retired']) {
+        expect(() => proposalOf(remembered({ supersedes }))).toThrow(
+          InvalidMemoryError,
+        );
+      }
+    });
+
+    it('shows the drafter only what stands where the run worked, newest first', () => {
+      const newer = kept(
+        'memory_newer',
+        MemoryScope.of({ teamId: TEAM }),
+        new Date('2026-09-28T10:00:00.000Z'),
+      );
+      const shown = DraftEvidence.of({
+        taskId: TaskId.of('task_1'),
+        runId: RunId.of('run_1'),
+        site: {
+          teamId: TEAM,
+          lineId: 'line_1',
+          stationId: 'station_1',
+          repositories: [API],
+        },
+        steps: [],
+        notes: [],
+        notesRead: 0,
+        changed: [],
+        known: [...KNOWN, newer],
+        fromOutside: false,
+      }).standing.map((each) => each.id.value);
+
+      expect(shown).toEqual(['memory_newer', 'memory_old']);
+    });
   });
 
   it('says the last note it read', () => {
@@ -226,8 +296,8 @@ describe('DraftEvidence', () => {
       DraftEvidence.of({
         taskId: TaskId.of('task_1'),
         runId: RunId.of('run_1'),
-        place: {
-          teamId: TeamId.of('team_1'),
+        site: {
+          teamId: TEAM,
           lineId: 'line_1',
           stationId: 'station_1',
           repositories: [API],
@@ -247,7 +317,7 @@ describe('DraftEvidence', () => {
           repository: API,
           path,
         })),
-        standing: [],
+        known: [],
         fromOutside: false,
       });
 

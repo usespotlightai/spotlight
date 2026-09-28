@@ -404,27 +404,45 @@ describe('Workspace', () => {
       ).toThrow(WorkspaceSlugFixedError);
     });
 
-    it('closes only once it holds no team, no token, no token trust and nothing else', () => {
+    it('closes only once it holds no team, no token, no token trust, no token minted and nothing else', () => {
       expect(() =>
-        kept().closed([TeamKey.of('core')], [], [], Holdings.none(), BY),
+        kept().closed([TeamKey.of('core')], [], [], [], Holdings.none(), BY),
       ).toThrow(/still holds team core/);
       expect(() =>
-        kept().closed([], [TokenName.of('ci')], [], Holdings.none(), BY),
+        kept().closed([], [TokenName.of('ci')], [], [], Holdings.none(), BY),
       ).toThrow(/still holds token ci/);
       expect(() =>
         kept().closed(
           [],
           [],
           [TokenTrustKey.of('github-main')],
+          [],
           Holdings.none(),
           BY,
         ),
       ).toThrow(/still holds token trust github-main/);
       expect(() =>
-        kept().closed([], [], [], Holdings.of(['secret LINEAR_API_KEY']), BY),
+        kept().closed(
+          [],
+          [],
+          [],
+          [TokenTrustKey.of('github-main')],
+          Holdings.none(),
+          BY,
+        ),
+      ).toThrow(/still holds tokens minted through github-main/);
+      expect(() =>
+        kept().closed(
+          [],
+          [],
+          [],
+          [],
+          Holdings.of(['secret LINEAR_API_KEY']),
+          BY,
+        ),
       ).toThrow(/still holds secret LINEAR_API_KEY/);
 
-      const closed = kept().closed([], [], [], Holdings.none(), BY);
+      const closed = kept().closed([], [], [], [], Holdings.none(), BY);
 
       expect(closed.isClosed).toBe(true);
       expect(closed.pullEvents()).toEqual([
@@ -541,7 +559,7 @@ describe('Workspace', () => {
     it('clears nothing once it has closed', () => {
       expect(
         acme
-          .closed([], [], [], Holdings.none(), BY)
+          .closed([], [], [], [], Holdings.none(), BY)
           .clearanceFor(person('owner')).reads,
       ).toBe(false);
     });

@@ -3,6 +3,7 @@ import type {
   ProvisionCall,
   ProvisionCallsPort,
 } from '@runners/application/ports/provision-calls.port';
+import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import { Runners } from '@runners/application/services/runners.service';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
@@ -17,6 +18,7 @@ import {
   heldHosts,
   POOL_ID,
   STARTED_AT,
+  secretOf,
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
@@ -46,7 +48,7 @@ const HOST = HOST_ID.value;
 const IMAGE = 'ghcr.io/acme/runner:main';
 
 const running = (
-  pool: RunnerPool | Error | null,
+  pool: RunnerPool | null,
   given: {
     standing?: readonly Runner[];
     held?: Runner | null;
@@ -54,6 +56,8 @@ const running = (
     unsaved?: Error;
     trust?: RunnerTrust | null;
     host?: RunnerHost | null;
+    unopenable?: boolean;
+    insecureAllowed?: boolean;
   } = {},
 ) => {
   const known = given.host === undefined ? aHost() : given.host;
@@ -65,12 +69,7 @@ const running = (
   let minted = 0;
   const service = new Runners(
     {
-      findForStart: vi.fn(async () => {
-        if (pool instanceof Error) {
-          throw pool;
-        }
-        return pool;
-      }),
+      findForStart: vi.fn(async () => pool),
     } as unknown as RunnerPoolRepository,
     {
       find: vi.fn(async () => given.trust ?? null),
@@ -96,6 +95,16 @@ const running = (
         return given.answer ?? { outcome: 'accepted' };
       }),
     } as ProvisionCallsPort,
+    {
+      sealed: vi.fn(),
+      opened: vi.fn(async () => {
+        if (given.unopenable) {
+          throw new ProvisionSecretUnopenableError(POOL_ID.value);
+        }
+        return secretOf('s');
+      }),
+    } satisfies ProvisionSecretsPort,
+    { insecureAllowed: given.insecureAllowed ?? false },
     {
       mint: () =>
         minted++ % 2 === 0
@@ -399,10 +408,18 @@ describe('Runners', () => {
       expect(logged).toEqual([{ err: lost, runner: 'pooled_1' }]);
     });
 
-    it('fails as unusable when the pool’s secret does not open here', async () => {
-      const { service, added, called } = running(
-        new ProvisionSecretUnopenableError(POOL_ID.value),
-      );
+    it('signs the call with the pool’s secret, opened only to provision', async () => {
+      const { service, called } = running(aPushPool());
+
+      await service.provision(request, STARTED_AT);
+
+      expect(called[0]?.secret.equals(secretOf('s'))).toBe(true);
+    });
+
+    it('fails as unusable, calling nobody and letting the runner go, when the pool’s secret does not open here', async () => {
+      const { service, saved, called } = running(aPushPool(), {
+        unopenable: true,
+      });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
@@ -410,8 +427,37 @@ describe('Runners', () => {
         detail:
           'the pool’s provision secret does not open with this deployment’s keys',
       });
-      expect(added).toEqual([]);
       expect(called).toEqual([]);
+      expect(saved[0]?.isDiscarded).toBe(true);
+    });
+
+    it('never sends a one-run token in the clear unless the deployment allows it', async () => {
+      const clear = aPushPool({ url: 'http://provision.example.com/runs' });
+      const refusing = running(clear);
+
+      await expect(
+        refusing.service.provision(request, STARTED_AT),
+      ).resolves.toMatchObject({ outcome: 'failed', kind: 'not-allowed' });
+      expect(refusing.called).toEqual([]);
+      expect(refusing.saved[0]?.isDiscarded).toBe(true);
+
+      const allowing = running(clear, { insecureAllowed: true });
+
+      await expect(
+        allowing.service.provision(request, STARTED_AT),
+      ).resolves.toEqual({ outcome: 'provisioned' });
+    });
+
+    it('provisions nothing for a pool that is gone, or that is pulled from', async () => {
+      for (const pool of [null, aPullPool()]) {
+        const { service, added, called } = running(pool);
+
+        await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+          outcome: 'gone',
+        });
+        expect(added).toEqual([]);
+        expect(called).toEqual([]);
+      }
     });
 
     it('calls nobody when the pool is full', async () => {

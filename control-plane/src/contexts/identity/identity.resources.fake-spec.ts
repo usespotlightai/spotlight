@@ -111,11 +111,13 @@ export const teamKeys = (
   keys: readonly string[],
   tokens: readonly string[] = [],
   trusts: readonly string[] = [],
+  minting: readonly string[] = [],
 ): IdentityResourcesPort =>
   ({
     teamKeysIn: vi.fn(async () => keys),
     tokenNamesIn: vi.fn(async () => tokens),
     tokenTrustKeysIn: vi.fn(async () => trusts),
+    mintingTrustKeysIn: vi.fn(async () => minting),
   }) as unknown as IdentityResourcesPort;
 
 export const holdings = (held: readonly string[] = []) =>

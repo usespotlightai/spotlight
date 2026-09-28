@@ -1,7 +1,9 @@
 import type { DeleteWorkspaceTokenTrustCommand } from '@identity/application/commands/workspace-token-trust.commands';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import { TokenTrustMovedOnError } from '@identity/domain/exceptions/token-trust-moved-on.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
+import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import {
   forbiddenTo,
   type ResourceDeleted,
@@ -49,6 +51,7 @@ export class DeleteWorkspaceTokenTrustHandler
       await this.transaction.run(() =>
         this.trusts.save(
           standing.withdrawn(
+            Grantor.of(command.actor.principal),
             Attribution.of(command.actor, cleared.workspaceId),
           ),
         ),
@@ -62,6 +65,10 @@ export class DeleteWorkspaceTokenTrustHandler
         return current
           ? { outcome: 'moved-on', currentVersion: current.version }
           : null;
+      }
+
+      if (error instanceof TokenTrustBeyondGrantorError) {
+        return forbiddenTo('manage-token-trusts');
       }
 
       rethrowAsFault(error);

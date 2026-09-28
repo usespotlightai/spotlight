@@ -14,18 +14,28 @@ import type {
   HookFailureReport,
   TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
+import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { Station } from '@work/domain/entities/station.entity';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const ATTEMPTS = 3;
+
+const firedAtIn = (line: Line, stationKey: string): Station | null => {
+  const key = StationKey.parsed(stationKey);
+
+  return key ? line.stationKeyed(key) : null;
+};
 
 export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
   private readonly base: string;
@@ -118,9 +128,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
         return 'reported';
       }
 
-      const firedAt = line.stations.find(
-        (each) => each.key.value === report.stationKey,
-      );
+      const firedAt = firedAtIn(line, report.stationKey);
 
       if (task.movedOnFrom(firedAt?.id ?? null) || !firedAt) {
         return 'superseded';
@@ -138,7 +146,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
 
       await this.tasks.save(
         task.failed(
-          TaskFailure.of({ source: `hook:${report.hook}`, code: report.code }),
+          TaskFailure.fromHook(report.hook, report.code),
           {
             station: firedAt.name,
             body: TaskNoteBody.fromHook(report.hook, report.saying),
@@ -156,9 +164,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
   async movedOn(taskId: string, stationKey: string): Promise<boolean> {
     const task = await this.tasks.find(TaskId.of(taskId));
     const line = task ? await this.lines.holding(task.stationId) : null;
-    const firedAt = line?.stations.find(
-      (each) => each.key.value === stationKey,
-    );
+    const firedAt = line ? firedAtIn(line, stationKey) : null;
 
     return !task || !firedAt || task.movedOnFrom(firedAt.id);
   }
@@ -202,7 +208,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
       marks: Object.fromEntries(
         task.marks.map((mark) => [mark.kind, mark.value]),
       ),
-      repositories: line.repositories.all.map((each) => each.value),
+      repositories: repositoriesWorkedOn(task, line).map((each) => each.value),
       pullRequest: task.pullRequest?.value ?? null,
       runId,
     };

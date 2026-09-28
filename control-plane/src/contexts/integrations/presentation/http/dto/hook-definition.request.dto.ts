@@ -1,3 +1,7 @@
+import {
+  HOOK_ON_FAILURES,
+  Hook,
+} from '@integrations/domain/entities/hook.entity';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HookMatchDto,
@@ -56,9 +60,16 @@ export class HookDefinitionRequestDto {
   @ApiPropertyOptional({ type: HookSigningRequestDto, nullable: true })
   readonly signing?: HookSigningRequestDto | null;
 
-  @ApiPropertyOptional({ enum: ['continue', 'block'], example: 'continue' })
+  @ApiPropertyOptional({
+    enum: [...HOOK_ON_FAILURES],
+    example: Hook.DEFAULTS.failure,
+  })
   readonly failure?: string;
 
-  @ApiPropertyOptional({ example: 10, minimum: 1, maximum: 30 })
+  @ApiPropertyOptional({
+    example: Hook.DEFAULTS.timeoutSeconds,
+    minimum: 1,
+    maximum: 30,
+  })
   readonly timeoutSeconds?: number;
 }

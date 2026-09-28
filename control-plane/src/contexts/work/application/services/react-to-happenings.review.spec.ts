@@ -33,6 +33,7 @@ import { Mark } from '@work/domain/value-objects/mark.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -109,9 +110,11 @@ const asked = (
     draft?: boolean;
     branch?: string | null;
     outside?: boolean;
+    pullRequest?: string;
   } = {},
 ): Happened => {
-  const marks = [{ kind: REVIEW_MARK, value: PULL }];
+  const pullRequest = over.pullRequest ?? PULL;
+  const marks = [{ kind: REVIEW_MARK, value: pullRequest }];
 
   return {
     happening: `github.pull_request.${asking}`,
@@ -125,12 +128,12 @@ const asked = (
       onto: 'review',
       at: null,
       title: 'Retry uploads',
-      description: `Review ${PULL}`,
+      description: `Review ${pullRequest}`,
       assignEmail: null,
       marks,
       review: {
         asking,
-        pullRequest: PULL,
+        pullRequest,
         author: 'octocat',
         outside: over.outside ?? true,
         draft: over.draft ?? false,
@@ -240,6 +243,29 @@ describe('ReactToHappenings, asked for a review', () => {
     expect(task?.marks.map(String)).toEqual([`${REVIEW_MARK}:${PULL}`]);
     expect(task?.currentRunId?.value).toBe('run_1');
     expect(dispatched).toHaveLength(1);
+  });
+
+  it('leaves a review asked of a pull request whose head it cannot check out, as a happening that does not read', async () => {
+    vi.mocked(logger.warn).mockClear();
+    const { react, added } = world({
+      lines: [reviewing({ reviews: policy('opened') })],
+    });
+
+    await expect(
+      react(
+        asked('opened', {
+          pullRequest: 'https://github.com/acme/api/issues/7',
+        }),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(added).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: expect.stringMatching(/whose head it can check out/),
+      }),
+      'Left a happening that does not read as one',
+    );
   });
 
   it('remembers whether the pull request under review came from outside the team', async () => {
@@ -366,7 +392,7 @@ describe('ReactToHappenings, asked for a review', () => {
   it('opens a fresh review where the last one is finished', async () => {
     const line = reviewing();
     const finished = Task.rehydrate({
-      revision: 0,
+      revision: TaskRevision.first(),
       id: TaskId.of('task_done'),
       workspaceId: WorkspaceId.of('ws_1'),
       stationId: line.completed.id,

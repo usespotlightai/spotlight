@@ -1,25 +1,15 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import type { MemoryReach } from '@memory/domain/value-objects/memory-reach';
+import type {
+  RunSite,
+  TouchedSite,
+} from '@memory/domain/value-objects/run-site';
 import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MOST_PATHS = 20;
-
-export interface MemorySite {
-  readonly teamId: TeamId;
-  readonly lineId: string | null;
-  readonly stationId: string | null;
-  readonly repositories: readonly Repository[];
-}
-
-export interface MemoryPlace extends MemorySite {
-  readonly touched: readonly {
-    readonly repository: Repository;
-    readonly path: MemoryPath;
-  }[];
-}
 
 export class MemoryScope {
   private constructor(
@@ -59,33 +49,33 @@ export class MemoryScope {
     return new MemoryScope(input.teamId, lineId, stationId, repository, paths);
   }
 
-  appliesAt(place: MemorySite): boolean {
-    if (!this.teamId.equals(place.teamId)) {
+  appliesAt(site: RunSite): boolean {
+    if (!this.teamId.equals(site.teamId)) {
       return false;
     }
 
-    if (this.lineId && this.lineId !== place.lineId) {
+    if (this.lineId && this.lineId !== site.lineId) {
       return false;
     }
 
-    if (this.stationId && this.stationId !== place.stationId) {
+    if (this.stationId && this.stationId !== site.stationId) {
       return false;
     }
 
     const { repository } = this;
 
     return (
-      !repository || place.repositories.some((each) => each.equals(repository))
+      !repository || site.repositories.some((each) => each.equals(repository))
     );
   }
 
-  reaches(place: MemoryPlace): boolean {
+  reaches(site: TouchedSite): boolean {
     const { repository } = this;
 
     return (
-      this.appliesAt(place) &&
+      this.appliesAt(site) &&
       (this.paths.length === 0 ||
-        place.touched.some(
+        site.touched.some(
           (touched) =>
             repository?.equals(touched.repository) &&
             this.paths.some((path) => path.covers(touched.path)),

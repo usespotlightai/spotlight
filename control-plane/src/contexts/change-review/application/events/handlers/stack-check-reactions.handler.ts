@@ -23,6 +23,7 @@ export class StackCheckReactions {
       StackCheck.begin({
         stackId: stack.id,
         runId: stack.runId,
+        taskId: stack.taskId,
         workspaceId: stack.workspaceId,
         request: stack.request,
         entries: stack.entries(),

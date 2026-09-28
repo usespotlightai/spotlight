@@ -1,4 +1,3 @@
-import type { KnownMemory } from '@memory/application/ports/known-memories.port';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import type {
   ChangedPath,
@@ -7,6 +6,12 @@ import type {
 } from '@memory/domain/services/draft-evidence';
 
 export const MEMORY_DRAFTER = Symbol('MEMORY_DRAFTER');
+
+export interface KnownMemory {
+  readonly id: string;
+  readonly kind: string;
+  readonly body: string;
+}
 
 export interface MemoryDraftAsk {
   readonly lineName: string;

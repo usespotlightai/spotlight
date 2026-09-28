@@ -34,13 +34,14 @@ export class Work implements WorkPort {
         id: run.id,
         workspaceId: run.workspaceId,
         taskId: run.taskId,
-        checking: run.check?.trim()
-          ? {
-              command: run.check,
-              setups: run.setups,
-              placement: run.placement,
-            }
-          : null,
+        checking:
+          run.check !== null
+            ? {
+                command: run.check,
+                setups: run.setups,
+                placement: run.placement,
+              }
+            : null,
         ended: run.ended,
         completed: run.completed,
         decisions: run.decisions,

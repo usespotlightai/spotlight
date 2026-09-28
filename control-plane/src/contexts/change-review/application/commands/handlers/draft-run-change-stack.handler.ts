@@ -40,13 +40,7 @@ export class DraftRunChangeStackHandler
           diff: command.diff,
           repository: command.repository,
           base: command.base,
-          request: run.checking
-            ? CheckRequest.of(
-                run.checking.command,
-                run.checking.setups.get(command.repository ?? '') ?? null,
-                run.checking.placement,
-              )
-            : null,
+          request: CheckRequest.forRepository(run.checking, command.repository),
         },
       );
     } catch (error) {

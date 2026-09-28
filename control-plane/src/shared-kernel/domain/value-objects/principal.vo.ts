@@ -26,7 +26,7 @@ export class TokenPrincipal {
     readonly workspaceId: WorkspaceId,
     readonly scopes: TokenScopes,
     readonly userId: UserId,
-    readonly trustId: WorkspaceTokenTrustId | null,
+    readonly mintedThrough: WorkspaceTokenTrustId | null,
   ) {}
 
   static of(input: {

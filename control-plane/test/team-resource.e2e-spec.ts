@@ -8,6 +8,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -252,16 +253,21 @@ describe('a team, created through the resource API (e2e)', () => {
     ];
   };
 
-  const abandon = async (teamId: string) => {
-    for (const each of app.get(EventSubscribers).listeningTo(TEAM_DISBANDED)) {
-      await each.handle({
-        kind: TEAM_DISBANDED,
-        workspaceId,
-        teamId,
-        key: 'core',
-      } as never);
+  const delivered = async (event: DomainEvent): Promise<void> => {
+    for (const each of app.get(EventSubscribers).listeningTo(event.kind)) {
+      for (const raised of await each.handle(event)) {
+        await delivered(raised);
+      }
     }
   };
+
+  const abandon = (teamId: string) =>
+    delivered({
+      kind: TEAM_DISBANDED,
+      workspaceId,
+      teamId,
+      key: 'core',
+    } as DomainEvent);
 
   it('counts every kind of thing a team can hold, from every context', async () => {
     const teamId = randomUUID();

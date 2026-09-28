@@ -1,29 +1,40 @@
 import { MemoryDraftingError } from '@memory/application/errors/memory-drafting.error';
 import type {
-  KnownMemoriesPort,
   KnownMemory,
-} from '@memory/application/ports/known-memories.port';
-import type {
   MemoryDraftAsk,
   MemoryDrafterPort,
 } from '@memory/application/ports/memory-drafter.port';
+import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
+import type {
+  RejectedMemoriesPort,
+  RejectedMemory,
+} from '@memory/application/ports/rejected-memories.port';
 import type {
   ChangedFile,
+  NamedStationSite,
   ReasonedStep,
   SpokenNote,
-  WorkedPlace,
   WorkPort,
 } from '@memory/application/ports/work.port';
+import { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
+import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
+import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
+import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -31,9 +42,10 @@ const NOW = new Date('2026-09-27T10:00:00.000Z');
 const RUN = RunId.of('run_1');
 const TASK = TaskId.of('task_1');
 const API = Repository.of('acme/api');
+const TEAM = TeamId.of('team_1');
 
-const PLACE: WorkedPlace = {
-  teamId: TeamId.of('team_1'),
+const SITE: NamedStationSite = {
+  teamId: TEAM,
   lineId: 'line_1',
   lineName: 'Delivery',
   stationId: 'station_1',
@@ -55,8 +67,45 @@ const SPOKEN: readonly SpokenNote[] = [
   { position: 1, by: 'person', text: 'Never retry on a 403.' },
 ];
 
+const kept = (id: string, scope: MemoryScope, at = NOW) =>
+  Memory.written({
+    id: MemoryId.of(id),
+    handle: MemoryHandle.of(id.length),
+    workspaceId: WorkspaceId.of('ws_1'),
+    kind: 'preference',
+    body: MemoryBody.of('Retry twice.'),
+    scope,
+    grounds: null,
+    by: MemoryDecision.of({ by: UserId.of('user_1'), at }),
+  });
+
+const CANDIDATES: readonly Memory[] = [
+  kept('memory_old', MemoryScope.of({ teamId: TEAM, lineId: 'line_1' })),
+  kept('memory_elsewhere', MemoryScope.of({ teamId: TEAM, lineId: 'line_2' })),
+];
+
 const STANDING: readonly KnownMemory[] = [
   { id: 'memory_old', kind: 'preference', body: 'Retry twice.' },
+];
+
+const rejection = (
+  id: string,
+  scope: MemoryScope,
+  decidedAt = NOW,
+): RejectedMemory => ({
+  id,
+  kind: 'rejected-approach',
+  body: 'Retry forever.',
+  scope,
+  decidedAt,
+});
+
+const REJECTIONS: readonly RejectedMemory[] = [
+  rejection('memory_no', MemoryScope.of({ teamId: TEAM })),
+  rejection(
+    'memory_other_station',
+    MemoryScope.of({ teamId: TEAM, lineId: 'line_1', stationId: 'station_9' }),
+  ),
 ];
 
 const REJECTED: readonly KnownMemory[] = [
@@ -83,7 +132,7 @@ const QUIET: LoggerPort = {
 
 const working = (input: {
   answer?: (ask: MemoryDraftAsk) => Promise<readonly ProposedMemory[]>;
-  place?: WorkedPlace | null;
+  site?: NamedStationSite | null;
   steps?: readonly ReasonedStep[] | null;
   spoken?: readonly SpokenNote[];
   fromOutside?: boolean;
@@ -115,7 +164,7 @@ const working = (input: {
       siteOfRun: async () => null,
       referencedUnder: async () => null,
       linesOf: async () => [],
-      placeOf: async () => (input.place === undefined ? PLACE : input.place),
+      stationSiteOf: async () => (input.site === undefined ? SITE : input.site),
       task: async () => ({
         id: TASK,
         workspaceId: WorkspaceId.of('ws_1'),
@@ -126,13 +175,19 @@ const working = (input: {
       changedBy: async () => CHANGED,
       spokenOn: async () => input.spoken ?? SPOKEN,
     } satisfies WorkPort,
+    new MemoriesInReach(
+      {
+        mayReach: async () => CANDIDATES,
+        successorsOf: async () => [],
+      } as unknown as MemoryRepository,
+      {} as MemoryRelevancePort,
+    ),
     {
-      standingIn: async () => STANDING,
-      rejectedIn: async (_reach, at) => {
+      rejectedOnTeam: async (_team, at) => {
         since(at);
-        return REJECTED;
+        return REJECTIONS;
       },
-    } satisfies KnownMemoriesPort,
+    } satisfies RejectedMemoriesPort,
     { available: true, draft } as MemoryDrafterPort,
     {
       generate: () => {
@@ -161,7 +216,7 @@ describe('drafting what a run should leave the team remembering', () => {
 
     const [proposal] = worked.stored().proposals;
     expect(worked.stored().owesWork).toBe(false);
-    expect(proposal?.body).toBe(
+    expect(proposal?.body.value).toBe(
       'Never retry an upload the bucket refused with a 403.',
     );
     expect(proposal?.source).toBe('person');
@@ -169,7 +224,7 @@ describe('drafting what a run should leave the team remembering', () => {
     expect(proposal?.scope.stationId).toBe('station_1');
   });
 
-  it('asks with the agent’s own words, what people said, and what the team already keeps', async () => {
+  it('asks with the agent’s own words, what people said, and what the team keeps or turned down where the run worked', async () => {
     const worked = working({});
 
     await worked.turn();
@@ -236,7 +291,7 @@ describe('drafting what a run should leave the team remembering', () => {
   });
 
   it('keeps nothing and says so when the run’s evidence is gone', async () => {
-    const worked = working({ place: null });
+    const worked = working({ site: null });
 
     await worked.turn();
 

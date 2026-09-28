@@ -1,3 +1,4 @@
+import { AuthorAssociation } from '@github/application/contracts/author-association.contract';
 import type {
   PullRequestActivity,
   PullRequestActivityKind,
@@ -131,7 +132,7 @@ const askedFor = (
         asking,
         pullRequest,
         author: heard.about.author,
-        outside: heard.about.authorOutside,
+        outside: AuthorAssociation.of(heard.about.authorAssociation).isOutside,
         draft: heard.about.draft,
         branch: heard.branch,
       },

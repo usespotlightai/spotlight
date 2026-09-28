@@ -2,7 +2,6 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { BackgroundPort } from '@shared-kernel/application/ports/background.port';
 import type { IsolationPort } from '@shared-kernel/application/ports/isolation.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
@@ -12,9 +11,7 @@ interface Ambient {
 }
 
 @Injectable()
-export class DrizzleContext
-  implements TransactionPort, BackgroundPort, IsolationPort
-{
+export class DrizzleContext implements TransactionPort, IsolationPort {
   private readonly ambient = new AsyncLocalStorage<Ambient>();
 
   constructor(@Inject(DRIZZLE) private readonly root: DrizzleDatabase) {}
@@ -63,10 +60,6 @@ export class DrizzleContext
         work,
       ),
     );
-  }
-
-  start(work: () => Promise<void>): void {
-    void this.ambient.exit(work);
   }
 
   afterCommit(then: () => void): void {

@@ -7,6 +7,11 @@ import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 
 export const INTEGRATION_TOOL_CALLS = Symbol('INTEGRATION_TOOL_CALLS');
 
+export interface RunAttemptDto {
+  readonly runId: string;
+  readonly attempt: number;
+}
+
 export interface IntegrationTool {
   readonly declared: ToolDeclaration;
   defaultFor(input: ToolInputDeclaration): unknown;
@@ -17,6 +22,6 @@ export interface IntegrationToolCallsPort {
   reach(
     tool: string,
     task: BoundTaskDto,
-    runId: string,
+    run: RunAttemptDto,
   ): Promise<IntegrationTool | null>;
 }

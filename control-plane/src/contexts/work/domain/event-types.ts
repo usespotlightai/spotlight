@@ -10,6 +10,8 @@ import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
@@ -26,12 +28,14 @@ import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
+import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
+import { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -100,10 +104,12 @@ import { TaskDescription } from '@work/domain/value-objects/task-description.vo'
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
+import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -184,9 +190,11 @@ export const WORK_EVENT_TYPES = [
   TaskDescription,
   TaskNoteBody,
   TaskRank,
+  TaskRevision,
   TaskTitle,
   ToolCall,
   ToolInputs,
+  ToolOutput,
   Tool,
   Trail,
   TraceReference,
@@ -194,6 +202,7 @@ export const WORK_EVENT_TYPES = [
   WayOut,
   WorkspaceArchiveId,
   TaskAsideId,
+  AsideAbout,
   AsideRead,
   BriefedMemories,
   ChatHandedToRun,
@@ -210,6 +219,8 @@ export const WORK_EVENT_TYPES = [
   RunBriefed,
   RunSuperseded,
   RunCompleted,
+  RunLapsed,
+  RunReservationDropped,
   RunStopRequested,
   StationHarnessChanged,
   StationRenamed,
@@ -224,4 +235,5 @@ export const WORK_EVENT_TYPES = [
   TaskMoved,
   TaskOpened,
   TaskProposed,
+  ToolUsed,
 ] as const;

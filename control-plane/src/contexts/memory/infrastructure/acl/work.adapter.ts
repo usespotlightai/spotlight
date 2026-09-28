@@ -1,15 +1,15 @@
 import type {
   ChangedFile,
   HeldRun,
+  NamedStationSite,
   ReasonedStep,
   RememberedRun,
   RememberedTask,
-  RunSite,
   SpokenNote,
   TeamLine,
-  WorkedPlace,
   WorkPort,
 } from '@memory/application/ports/work.port';
+import type { RunSite } from '@memory/domain/value-objects/run-site';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -72,17 +72,17 @@ export class Work implements WorkPort {
     return this.work.referencedUnder(runId, folder, file);
   }
 
-  async placeOf(runId: RunId): Promise<WorkedPlace | null> {
-    const place = await this.work.placeOf(runId);
+  async stationSiteOf(runId: RunId): Promise<NamedStationSite | null> {
+    const site = await this.work.placeOf(runId);
 
     return (
-      place && {
-        teamId: place.teamId,
-        lineId: place.lineId,
-        lineName: place.lineName,
-        stationId: place.stationId,
-        stationName: place.stationName,
-        repositories: place.repositories,
+      site && {
+        teamId: site.teamId,
+        lineId: site.lineId,
+        lineName: site.lineName,
+        stationId: site.stationId,
+        stationName: site.stationName,
+        repositories: site.repositories,
       }
     );
   }

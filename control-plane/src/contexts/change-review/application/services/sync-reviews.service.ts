@@ -7,7 +7,7 @@ import type {
 import type { ReviewSyncWorkPort } from '@change-review/application/ports/review-sync-work.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
-import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
+import { ReviewCommentMovedOnError } from '@change-review/domain/exceptions/review-comment-moved-on.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -311,16 +311,16 @@ export class SyncReviews implements ReviewSyncWorkPort {
     if (parent.sending) {
       throw new NotYet('The comment it answers is not on GitHub yet', true);
     }
-    if (parent.state !== 'posted') {
+
+    const thread = parent.threadOnGitHub;
+
+    if (!thread) {
       throw new GaveUp('The comment it answers never reached GitHub');
-    }
-    if (!parent.github) {
-      throw new GaveUp('The comment it answers is not a thread on GitHub');
     }
 
     const posted = await this.github.reply({
       ...target,
-      to: parent.github.id,
+      to: thread.id,
       body: reply.sentBody ?? reply.body,
     });
 
@@ -364,7 +364,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
         return;
       } catch (error) {
         if (
-          !(error instanceof ChangedSinceReadError) ||
+          !(error instanceof ReviewCommentMovedOnError) ||
           attempt >= KEEPING_ATTEMPTS
         ) {
           throw new GaveUp(

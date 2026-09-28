@@ -7,6 +7,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { RecordRunImageCommand } from '@work/application/commands/runner.commands';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
+import { UnknownRunnerError } from '@work/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 export class RecordRunImageHandler
@@ -23,7 +24,7 @@ export class RecordRunImageHandler
       const runner = RunnerId.of(command.runnerId);
 
       if (!(await this.presence.seen(runner, this.clock.now()))) {
-        throw new UnknownRunError(`runner ${command.runnerId} is not known`);
+        throw new UnknownRunnerError(command.runnerId);
       }
 
       const run = await this.runs.findById(RunId.of(command.runId));

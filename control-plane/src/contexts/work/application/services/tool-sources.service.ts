@@ -12,6 +12,7 @@ type Reaching = (
   tool: Tool,
   run: Run,
   context: ToolContext,
+  runnerId: string,
 ) => Promise<ReachableTool | null>;
 
 export class ToolSources {
@@ -24,12 +25,13 @@ export class ToolSources {
   ) {
     this.from = {
       'built-in': async (tool, _run, context) => builtIns.reach(tool, context),
-      integration: (tool, _run, context) => integrations.reach(tool, context),
+      integration: (tool, run, context, runnerId) =>
+        integrations.reach(tool, context, run.currentAttempt, runnerId),
       catalog: (tool, run, context) => catalog.reach(tool, run, context),
     };
   }
 
-  reach(tool: Tool, run: Run, context: ToolContext) {
-    return this.from[tool.origin](tool, run, context);
+  reach(tool: Tool, run: Run, context: ToolContext, runnerId: string) {
+    return this.from[tool.origin](tool, run, context, runnerId);
   }
 }

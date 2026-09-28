@@ -1,16 +1,21 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
+import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
@@ -45,6 +50,8 @@ const queued = () =>
 
 const claimed = (by = runner(), when = noon) => queued().claim(by, when);
 
+const lostAndRequeued = (run: Run) => run.requeue(run.leaseExpiresAt as Date);
+
 const onAttempt = (attempt: number, leaseUntil: Date) =>
   Run.rehydrate({
     id: RunId.of('run_1'),
@@ -75,15 +82,23 @@ describe('Run', () => {
     expect(events.some((each) => each instanceof RunAbandoned)).toBe(true);
   });
 
-  it('goes back on the queue while it still has attempts left', () => {
+  it('goes back on the queue while it still has attempts left, letting go of the runner it lapsed on', () => {
     const lapsedAt = at('2026-08-28T12:00:00.000Z');
     const first = onAttempt(1, lapsedAt);
+    const requeuedAt = new Date(lapsedAt.getTime() + 600_000);
 
-    const again = first.requeue(new Date(lapsedAt.getTime() + 600_000));
+    const again = first.requeue(requeuedAt);
 
     expect(again.state).toBe('queued');
-    const events = again.pullEvents();
-    expect(events.some((each) => each instanceof RunAbandoned)).toBe(false);
+    expect(again.pullEvents()).toEqual([
+      new RunLapsed(
+        RunId.of('run_1'),
+        WorkspaceId.of('ws_1'),
+        RunnerId.of('runner_1'),
+        requeuedAt,
+        1,
+      ),
+    ]);
   });
 
   it('starts queued, unclaimed and on its first attempt', () => {
@@ -232,17 +247,27 @@ describe('Run', () => {
     );
   });
 
-  it('goes back on the queue when its claimant can no longer serve it', () => {
-    const released = claimed().release();
+  it('lets its runner act on the attempt it holds, and on no attempt it has left behind', () => {
+    const held = claimed();
+    const first = held.currentAttempt;
+    const reclaimed = lostAndRequeued(held).claim(
+      runner(),
+      at('2026-08-28T12:00:00.000Z'),
+    );
 
-    expect(released.state).toBe('queued');
-    expect(released.claimedBy).toBeNull();
-    expect(released.leaseExpiresAt).toBeNull();
-    expect(released.attempt).toBe(2);
-  });
-
-  it('refuses to release a run nobody is holding', () => {
-    expect(() => queued().release()).toThrow(InvalidRunTransitionError);
+    expect(() => held.assertStillOn(first, runner())).not.toThrow();
+    expect(() => lostAndRequeued(held).assertStillOn(first, runner())).toThrow(
+      RunAttemptOverError,
+    );
+    expect(() => reclaimed.assertStillOn(first, runner())).toThrow(
+      RunAttemptOverError,
+    );
+    expect(() =>
+      reclaimed.assertStillOn(reclaimed.currentAttempt, runner()),
+    ).not.toThrow();
+    expect(() =>
+      held.assertStillOn(first, RunnerId.of('runner_other')),
+    ).toThrow(RunAttemptOverError);
   });
 
   describe('keeping a journal', () => {
@@ -319,7 +344,7 @@ describe('Run', () => {
 
     it('wears them for the runner holding it', () => {
       expect(wearing().claim(runner(), noon).secretsWornFor(runner())).toEqual([
-        'LINEAR_API_KEY',
+        SecretName.of('LINEAR_API_KEY'),
       ]);
     });
 
@@ -372,11 +397,12 @@ describe('Run', () => {
 
     it('is never reserved for a runner a pool provisions, which has no egress to wear them', () => {
       expect(wearing().wearsSecrets).toBe(true);
-      expect(() => wearing().reservedFor(runner(), 'pool_1', noon)).toThrow(
-        InvalidRunTransitionError,
-      );
+      expect(wearing().provisionableAt(noon)).toBe(false);
+      expect(() =>
+        wearing().reservedFor(runner(), PoolId.of('pool_1'), noon),
+      ).toThrow(InvalidRunTransitionError);
       expect(
-        queued().reservedFor(runner(), 'pool_1', noon).reservation,
+        queued().reservedFor(runner(), PoolId.of('pool_1'), noon).reservation,
       ).not.toBeNull();
     });
   });
@@ -422,6 +448,41 @@ describe('Run', () => {
 
     it('cannot be refused once a runner holds it', () => {
       expect(() => claimed().refused(LAPSED)).toThrow(
+        InvalidRunTransitionError,
+      );
+    });
+  });
+
+  describe('being unclaimed when its runner could not take it', () => {
+    it('goes back on the queue as it was, counting neither an attempt nor a hand-back', () => {
+      const before = queued();
+      const unclaimed = claimed().unclaimedBy(runner());
+
+      expect(unclaimed.state).toBe('queued');
+      expect(unclaimed.claimedBy).toBeNull();
+      expect(unclaimed.leaseExpiresAt).toBeNull();
+      expect(unclaimed.attempt).toBe(before.attempt);
+      expect(unclaimed.handBacks).toEqual(before.handBacks);
+      expect(unclaimed.claimableAt(noon)).toBe(true);
+      expect(unclaimed.pullEvents()).toEqual([]);
+    });
+
+    it('is unclaimed only by the runner that claimed it', () => {
+      expect(() => claimed().unclaimedBy(runner('runner_2'))).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(() => queued().unclaimedBy(runner())).toThrow(
+        InvalidRunTransitionError,
+      );
+    });
+
+    it('cannot be unclaimed once it has started', () => {
+      const started = claimed().startedIn(
+        runner(),
+        RunnerImage.of(`ghcr.io/acme/widgets@sha256:${'a'.repeat(64)}`),
+      );
+
+      expect(() => started.unclaimedBy(runner())).toThrow(
         InvalidRunTransitionError,
       );
     });
@@ -504,7 +565,7 @@ describe('Run', () => {
         .handedBack(runner(), noon, DOWN)
         .claim(runner(), laterBy(5_000));
 
-      expect(back.release().handBacks.count).toBe(0);
+      expect(lostAndRequeued(back).handBacks.count).toBe(0);
     });
 
     it('is handed back only by the runner that claimed it', () => {
@@ -648,12 +709,12 @@ describe('Run', () => {
         run = run.claim(runner(), noon).requeue(at('2026-08-23T12:05:00.000Z'));
       }
 
-      const events = run.pullEvents();
-      const [raised] = events;
+      const raised = run
+        .pullEvents()
+        .filter((each) => each instanceof RunAbandoned);
 
-      expect(raised).toBeInstanceOf(RunAbandoned);
-      expect((raised as RunAbandoned).attempt).toBe(3);
-      expect(events.some((each) => each instanceof RunAbandoned)).toBe(true);
+      expect(raised).toHaveLength(1);
+      expect((raised[0] as RunAbandoned).attempt).toBe(3);
     });
 
     it('leaves the run it was completed from with nothing to announce', () => {
@@ -669,19 +730,19 @@ describe('Run', () => {
   describe('waiting for a runner provisioned for it', () => {
     const later = (ms: number) => new Date(noon.getTime() + ms);
     const reserved = () =>
-      queued().reservedFor(runner('pooled_1'), 'burst', noon);
+      queued().reservedFor(runner('pooled_1'), PoolId.of('burst'), noon);
 
     it('holds itself for the provisioned runner for five minutes', () => {
       const run = reserved();
 
       expect(run.reservation?.runner.value).toBe('pooled_1');
-      expect(run.reservation?.pool).toBe('burst');
+      expect(run.reservation?.pool.value).toBe('burst');
       expect(run.reservation?.until).toEqual(later(5 * 60_000));
       expect(run.isReservedAt(later(5 * 60_000 - 1))).toBe(true);
       expect(run.isReservedAt(later(5 * 60_000))).toBe(false);
     });
 
-    it('is provisionable only while queued, open and unreserved', () => {
+    it('is provisionable only while queued, open, unreserved and wearing no secrets', () => {
       expect(queued().provisionableAt(noon)).toBe(true);
       expect(reserved().provisionableAt(noon)).toBe(false);
       expect(claimed().provisionableAt(noon)).toBe(false);
@@ -689,13 +750,13 @@ describe('Run', () => {
 
     it('refuses to be reserved twice', () => {
       expect(() =>
-        reserved().reservedFor(runner('pooled_2'), 'burst', noon),
+        reserved().reservedFor(runner('pooled_2'), PoolId.of('burst'), noon),
       ).toThrow(InvalidRunTransitionError);
     });
 
     it('refuses to be reserved once a runner holds it', () => {
       expect(() =>
-        claimed().reservedFor(runner('pooled_1'), 'burst', noon),
+        claimed().reservedFor(runner('pooled_1'), PoolId.of('burst'), noon),
       ).toThrow(InvalidRunTransitionError);
     });
 
@@ -705,11 +766,18 @@ describe('Run', () => {
       );
     });
 
-    it('lets another runner take it once the reservation lapses', () => {
+    it('lets another runner take it once the reservation lapses, letting go of the runner reserved', () => {
       const run = reserved().claim(runner('runner_9'), later(5 * 60_000));
 
       expect(run.claimedBy?.value).toBe('runner_9');
       expect(run.reservation).toBeNull();
+      expect(run.pullEvents()).toEqual([
+        new RunReservationDropped(
+          RunId.of('run_1'),
+          WorkspaceId.of('ws_1'),
+          runner('pooled_1'),
+        ),
+      ]);
     });
 
     it('is taken by the provisioned runner, dropping the reservation', () => {
@@ -718,6 +786,7 @@ describe('Run', () => {
       expect(run.state).toBe('claimed');
       expect(run.claimedBy?.value).toBe('pooled_1');
       expect(run.reservation).toBeNull();
+      expect(run.pullEvents()).toEqual([]);
     });
 
     it('knows its reservation lapsed only once it is behind it while still queued', () => {
@@ -726,11 +795,40 @@ describe('Run', () => {
       expect(queued().reservationLapsedAt(later(5 * 60_000))).toBe(false);
     });
 
-    it('drops its reservation when unreserved by its runner', () => {
+    it('drops its reservation when unreserved by its runner, letting the runner go', () => {
       const run = reserved().unreservedFor(runner('pooled_1'));
 
       expect(run.reservation).toBeNull();
       expect(run.provisionableAt(noon)).toBe(true);
+      expect(run.pullEvents()).toEqual([
+        new RunReservationDropped(
+          RunId.of('run_1'),
+          WorkspaceId.of('ws_1'),
+          runner('pooled_1'),
+        ),
+      ]);
+    });
+
+    it('lets its provisioned runner go when withdrawn', () => {
+      const run = reserved().withdrawn('The task moved on.');
+
+      expect(run.reservation).toBeNull();
+      expect(run.pullEvents().map((each) => each.kind)).toEqual([
+        'run.reservation-dropped',
+        'run.withdrawn',
+      ]);
+    });
+
+    it('lets its provisioned runner go when refused', () => {
+      const run = reserved().refused(
+        RunOutcome.refused([{ saying: 'The plan lapsed.' }]),
+      );
+
+      expect(run.reservation).toBeNull();
+      expect(run.pullEvents().map((each) => each.kind)).toEqual([
+        'run.reservation-dropped',
+        'run.completed',
+      ]);
     });
 
     it('keeps its reservation when another runner lets it go', () => {
@@ -760,7 +858,7 @@ describe('Run', () => {
       const due = run.provisioning.nextAt ?? noon;
 
       return run
-        .reservedFor(pooled, 'burst', due)
+        .reservedFor(pooled, PoolId.of('burst'), due)
         .provisionFailed(pooled, refused, due);
     };
 
@@ -795,18 +893,42 @@ describe('Run', () => {
         'No runner was provisioned for it in 5 attempts; the last was refused: the pool said no',
       );
 
-      const events = run.pullEvents();
-      expect(events).toHaveLength(1);
-      expect(events[0]).toBeInstanceOf(RunCompleted);
-      expect((events[0] as RunCompleted).workedBy).toBeNull();
+      const completed = run
+        .pullEvents()
+        .filter((each) => each instanceof RunCompleted);
+      expect(completed).toHaveLength(1);
+      expect((completed[0] as RunCompleted).workedBy).toBeNull();
     });
 
-    it('announces nothing while it still has tries left', () => {
-      expect(failedAgain(queued()).pullEvents()).toHaveLength(0);
+    it('only lets go of the runner reserved for it while it still has tries left', () => {
+      expect(failedAgain(queued()).pullEvents()).toEqual([
+        new RunReservationDropped(
+          RunId.of('run_1'),
+          WorkspaceId.of('ws_1'),
+          pooled,
+        ),
+      ]);
+    });
+
+    it('is refused by a provisioned runner without its harness, and by no other', () => {
+      const run = queued().reservedFor(pooled, PoolId.of('burst'), noon);
+
+      expect(
+        run.provisionRefusedBy(pooled, [HarnessId.of('claude-code')]),
+      ).toEqual(ProvisionFailure.harnessMissing('dev'));
+      expect(run.provisionRefusedBy(pooled, [HarnessId.of('dev')])).toBeNull();
+      expect(
+        run.provisionRefusedBy(runner('pooled_2'), [
+          HarnessId.of('claude-code'),
+        ]),
+      ).toBeNull();
+      expect(
+        queued().provisionRefusedBy(pooled, [HarnessId.of('claude-code')]),
+      ).toBeNull();
     });
 
     it('counts no failure when another runner reports one', () => {
-      const run = queued().reservedFor(pooled, 'burst', noon);
+      const run = queued().reservedFor(pooled, PoolId.of('burst'), noon);
 
       expect(run.provisionFailed(runner('pooled_2'), refused, noon)).toBe(run);
     });
@@ -831,15 +953,7 @@ describe('Run', () => {
       expect(again.provisioning.failures).toBe(0);
       expect(again.provisioning.nextAt).toBeNull();
       expect(again.reservation).toBeNull();
-    });
-
-    it('starts provisioning afresh when released', () => {
-      const again = failedAgain(queued())
-        .claim(runner(), later(5_000))
-        .release();
-
-      expect(again.provisioning.failures).toBe(0);
-      expect(again.provisionableAt(later(5_000))).toBe(true);
+      expect(again.provisionableAt(later(10 * 60_000))).toBe(true);
     });
   });
 
@@ -895,7 +1009,6 @@ describe('Run', () => {
       const started = claimed().startedIn(runner(), pinned);
 
       expect(started.requeue(started.leaseExpiresAt as Date).ranIn).toBeNull();
-      expect(started.release().ranIn).toBeNull();
     });
   });
 

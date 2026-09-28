@@ -136,7 +136,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     expect(task?.fromOutside).toBe(true);
     expect(task?.pullRequest?.value).toBe(pull);
     expect(task?.stationId.value).toBe(line.entry?.id.value);
-    expect(task?.reviewed?.value).toBe(`acme/${held}`);
+    expect(task?.reviewedHead?.repository.value).toBe(`acme/${held}`);
 
     const reviewing = app.get<PullRequestReviewingPort>(PULL_REQUEST_REVIEWING);
     if (!task) {

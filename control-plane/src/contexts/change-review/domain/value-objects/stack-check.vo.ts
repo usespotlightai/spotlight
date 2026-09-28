@@ -1,4 +1,8 @@
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import {
+  type CheckHold,
+  holdsAt,
+} from '@change-review/domain/value-objects/check-claim.vo';
 import type {
   HunkId,
   LayerId,
@@ -16,6 +20,32 @@ export const CHECK_PHASES = [
 ] as const;
 
 export type CheckPhase = (typeof CHECK_PHASES)[number];
+
+export const WAITING_LIMIT_MS = 60 * 60 * 1000;
+
+export interface CheckStanding {
+  readonly phase: CheckPhase;
+  readonly waitingSince: Date;
+  readonly hold: CheckHold;
+}
+
+const waitedOutAt = (check: CheckStanding, now: Date): boolean =>
+  now.getTime() - check.waitingSince.getTime() > WAITING_LIMIT_MS &&
+  !holdsAt(check.hold, now);
+
+export const checkStateAt = (
+  check: CheckStanding,
+  now: Date,
+): StackCheckState => {
+  switch (check.phase) {
+    case 'waiting':
+      return waitedOutAt(check, now) ? 'skipped' : 'waiting';
+    case 'reordering':
+      return 'waiting';
+    default:
+      return check.phase;
+  }
+};
 
 export const WHOLE_STEP = 'whole';
 

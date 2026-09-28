@@ -12,11 +12,12 @@ import {
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
-import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import type { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
+import type { StartVerdict } from '@runners/domain/value-objects/start-verdict';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -39,7 +40,7 @@ export type GivenAccess =
   | {
       readonly mode: 'push';
       readonly url: ProvisionUrl;
-      readonly secret: ProvisionSecret | null;
+      readonly secret: SealedProvisionSecret | null;
       readonly secretVersion: number | null;
     };
 
@@ -55,7 +56,6 @@ export class RunnerPool extends EventRecorder {
     readonly access: PoolAccess,
     readonly version: number,
     readonly isRetired: boolean,
-    readonly tokenGiven: TokenHash | null,
   ) {
     super();
   }
@@ -78,7 +78,6 @@ export class RunnerPool extends EventRecorder {
       access,
       0,
       false,
-      access.mode === 'pull' ? access.tokenHash : null,
     );
 
     defined.record(
@@ -121,7 +120,6 @@ export class RunnerPool extends EventRecorder {
       input.access,
       input.version,
       false,
-      null,
     );
   }
 
@@ -167,6 +165,22 @@ export class RunnerPool extends EventRecorder {
     return !this.isRetired && (this.maxRuns?.allows(running) ?? true);
   }
 
+  roomFor(running: number): number | null {
+    if (this.isRetired) {
+      return 0;
+    }
+
+    return this.maxRuns ? this.maxRuns.roomAfter(running) : null;
+  }
+
+  startVerdict(mode: PoolMode, standing: number): StartVerdict {
+    if (this.isRetired || mode !== this.mode) {
+      return 'gone';
+    }
+
+    return this.hasRoomFor(standing) ? 'open' : 'full';
+  }
+
   expecting(version: number): void {
     if (version !== this.version) {
       throw new RunnerPoolMovedOnError(this.id.value);
@@ -205,7 +219,6 @@ export class RunnerPool extends EventRecorder {
       labels: definition.labels,
       maxRuns: definition.maxRuns,
       access,
-      tokenGiven: rekeyed ? access.tokenHash : null,
     });
 
     redefined.record(
@@ -230,7 +243,7 @@ export class RunnerPool extends EventRecorder {
   retired(by: Attribution): RunnerPool {
     this.guardStanding();
 
-    const retired = this.reshaped({ retired: true, tokenGiven: null });
+    const retired = this.reshaped({ retired: true });
 
     retired.record(
       new RunnerPoolRetired(
@@ -302,7 +315,6 @@ export class RunnerPool extends EventRecorder {
     maxRuns?: MaxRuns | null;
     access?: PoolAccess;
     retired?: boolean;
-    tokenGiven?: TokenHash | null;
   }): RunnerPool {
     const next = new RunnerPool(
       this.id,
@@ -313,7 +325,6 @@ export class RunnerPool extends EventRecorder {
       part.access ?? this.access,
       this.version,
       part.retired ?? this.isRetired,
-      part.tokenGiven !== undefined ? part.tokenGiven : this.tokenGiven,
     );
 
     next.inheritEvents(this);

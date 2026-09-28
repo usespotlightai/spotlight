@@ -46,7 +46,7 @@ export class RejectMemoryHandler
           runId: RunId.of(command.runId),
           id: MemoryId.of(command.memoryId),
           decision: MemoryDecision.of({
-            by: reviewing.by,
+            by: reviewing.clearance.by,
             at: this.clock.now(),
           }),
         });

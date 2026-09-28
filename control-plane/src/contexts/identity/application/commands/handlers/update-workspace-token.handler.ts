@@ -2,6 +2,7 @@ import type { UpdateWorkspaceTokenCommand } from '@identity/application/commands
 import type { IdentityDefinitionsPort } from '@identity/application/ports/identity-definitions.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { IdentityProblems } from '@identity/application/rendering/identity-problems';
+import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
 import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
 import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
@@ -32,8 +33,7 @@ export class UpdateWorkspaceTokenHandler
     const id = WorkspaceTokenId.of(command.tokenId);
 
     try {
-      const found = await this.tokens.find(id);
-      const standing = found?.isMinted ? null : found;
+      const standing = await this.tokens.find(id);
       const cleared = standing
         ? await this.access.clearanceIn(
             standing.workspaceId,
@@ -76,7 +76,10 @@ export class UpdateWorkspaceTokenHandler
           : null;
       }
 
-      if (error instanceof WorkspaceTokenTermsFixedError) {
+      if (
+        error instanceof WorkspaceTokenTermsFixedError ||
+        error instanceof MintedTokenFixedError
+      ) {
         return {
           outcome: 'invalid',
           problems: [IdentityProblems.tokenRefused(error)],

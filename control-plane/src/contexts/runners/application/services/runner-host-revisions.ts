@@ -24,3 +24,26 @@ export const reviseHost = async (
     }
   }
 };
+
+export const forgetHost = async (
+  hosts: RunnerHostRepository,
+  id: HostId,
+  forgets: (known: RunnerHost) => boolean,
+): Promise<void> => {
+  for (let attempt = 1; ; attempt++) {
+    const known = await hosts.find(id);
+
+    if (!known || !forgets(known)) {
+      return;
+    }
+
+    try {
+      await hosts.remove(known);
+      return;
+    } catch (error) {
+      if (!(error instanceof RunnerHostMovedOnError) || attempt >= ATTEMPTS) {
+        throw error;
+      }
+    }
+  }
+};

@@ -7,9 +7,9 @@ import type {
   ChangeStackSummary,
 } from '@change-review/application/ports/change-stack-reader.port';
 import { checkReasonOf } from '@change-review/application/rendering/check-reason';
-import { WAITING_LIMIT_MS } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import {
+  checkStateAt,
   keptSkipOf,
   nobodyChecked,
 } from '@change-review/domain/value-objects/stack-check.vo';
@@ -37,6 +37,8 @@ const CHECK = {
   phase: stackCheck.phase,
   outcome: stackCheck.outcome,
   waitingSince: stackCheck.waitingSince,
+  leaseExpiresAt: stackCheck.leaseExpiresAt,
+  claimedAt: stackCheck.claimedAt,
 };
 
 type CheckRow = {
@@ -48,15 +50,14 @@ const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
     return null;
   }
 
-  const lapsed = now.getTime() - row.waitingSince.getTime() > WAITING_LIMIT_MS;
-  const state =
-    row.phase === 'waiting'
-      ? lapsed
-        ? 'skipped'
-        : 'waiting'
-      : row.phase === 'reordering'
-        ? 'waiting'
-        : row.phase;
+  const state = checkStateAt(
+    {
+      phase: row.phase,
+      waitingSince: row.waitingSince,
+      hold: { leaseExpiresAt: row.leaseExpiresAt, claimedAt: row.claimedAt },
+    },
+    now,
+  );
 
   const skipped =
     state === 'skipped'

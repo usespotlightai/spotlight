@@ -8,13 +8,17 @@ export interface PoolAtWork {
   readonly workspaceId: WorkspaceId;
   readonly key: string;
   readonly labels: RunnerTerms;
-  readonly maxRuns: number | null;
 }
 
 export interface RunnerPoolsPort {
-  pulledWith(token: string | undefined): Promise<PoolAtWork | null>;
+  pulledWith(
+    token: string | undefined,
+    poolId: string,
+  ): Promise<PoolAtWork | null>;
 
   provisioning(): Promise<readonly PoolAtWork[]>;
 
   running(poolId: string, now: Date): Promise<number>;
+
+  roomIn(poolId: string, now: Date): Promise<number | null>;
 }

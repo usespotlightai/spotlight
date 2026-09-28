@@ -1,8 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  KNOWN_MEMORIES,
-  type KnownMemoriesPort,
-} from '@memory/application/ports/known-memories.port';
+import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -275,26 +272,26 @@ describe('the team’s memory', () => {
     const held = (
       await writing({ kind: 'environment', body: 'CI has no network.' })
     ).body as MemoryBody;
-    const reach = {
+    const site = {
       teamId: TeamId.of(team.teamId.value),
       lineId: LINE,
       stationId: STATION,
       repositories: [],
     };
-    const known = app.get<KnownMemoriesPort>(KNOWN_MEMORIES);
+    const repository = app.get(DrizzleMemoryRepository);
+    const applying = async () =>
+      (await repository.mayReach(site))
+        .filter((each) => each.appliesAt(site))
+        .map((each) => each.id.value);
 
-    expect((await known.standingIn(reach)).map((each) => each.id)).toContain(
-      held.id,
-    );
+    expect(await applying()).toContain(held.id);
 
     await served(app)
       .post(`${memories()}/${held.id}/retire`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ reason: 'CI has network now.' });
 
-    expect(
-      (await known.standingIn(reach)).map((each) => each.id),
-    ).not.toContain(held.id);
+    expect(await applying()).not.toContain(held.id);
   });
 
   it('knows no memory of another team', async () => {

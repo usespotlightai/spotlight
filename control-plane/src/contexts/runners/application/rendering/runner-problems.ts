@@ -1,4 +1,5 @@
 import type { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
+import type { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
 import type { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import type { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import type { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
@@ -31,6 +32,16 @@ export const RunnerProblems = {
     return ConfigurationProblem.of({
       path: RUNNER_POOL,
       at: FieldPath.of(error.field.split('.')),
+      reason: error.because,
+    });
+  },
+
+  declarationRefused(
+    error: InvalidWorkspaceRunnersError,
+  ): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: WORKSPACE_RUNNERS,
+      at: FieldPath.of([error.field, error.at]),
       reason: error.because,
     });
   },

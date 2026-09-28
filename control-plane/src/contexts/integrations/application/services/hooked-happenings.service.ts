@@ -1,14 +1,14 @@
-import type { HookFirings } from '@integrations/application/services/hook-firings.service';
+import type { TasksForHooksPort } from '@integrations/application/ports/tasks-for-hooks.port';
+import type { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { TaskMovedIntegrationEvent } from '@shared-kernel/application/integration-events/task-moved.integration-event';
 import type { TaskOpenedIntegrationEvent } from '@shared-kernel/application/integration-events/task-opened.integration-event';
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
 
 export class HookedHappenings {
   constructor(
-    private readonly firings: HookFirings,
-    private readonly tasks: HookedTasksPort,
+    private readonly firings: FireHooks,
+    private readonly tasks: TasksForHooksPort,
   ) {}
 
   async runEnded(event: RunEndedIntegrationEvent): Promise<void> {

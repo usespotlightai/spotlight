@@ -39,7 +39,7 @@ export class NoteMemoryUses {
     }
 
     const read = (await this.memories.withHandles(site.teamId, handles)).filter(
-      (each) => each.standing === 'stands' && each.scope.appliesAt(site),
+      (each) => each.appliesAt(site),
     );
 
     await this.uses.record(

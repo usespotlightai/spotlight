@@ -6,6 +6,7 @@ import { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
 import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
 import { InvalidTaskAsideError } from '@work/domain/exceptions/invalid-task-aside.error';
+import { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -21,7 +22,7 @@ const raised = (change: { form?: string; about?: string } = {}) =>
     workspaceId: WorkspaceId.of('ws_1'),
     taskId: TaskId.of('task_1'),
     form: change.form ?? 'memories',
-    about: change.about ?? ' run_1 ',
+    about: AsideAbout.of(change.about ?? ' run_1 '),
     now: NOW,
   });
 
@@ -31,9 +32,14 @@ describe('TaskAside', () => {
 
     expect(aside.open).toBe(true);
     expect(aside.unreadBy(ADA)).toBe(true);
-    expect(aside.about).toBe('run_1');
+    expect(aside.about.value).toBe('run_1');
     expect(aside.pullEvents()).toEqual([
-      new TaskAsideRaised(aside.id, aside.taskId, 'memories', 'run_1'),
+      new TaskAsideRaised(
+        aside.id,
+        aside.taskId,
+        'memories',
+        AsideAbout.of('run_1'),
+      ),
     ]);
   });
 
@@ -79,7 +85,7 @@ describe('TaskAside', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         taskId: TaskId.of('task_1'),
         form: 'memories',
-        about: 'run_1',
+        about: AsideAbout.of('run_1'),
         raisedAt: LATER,
         reads,
         settledAt: null,

@@ -64,4 +64,13 @@ describe('proposalPlacementWithin', () => {
       proposalPlacementWithin([LINE], { line: 'delivery', station: 'review' }),
     ).toThrow(/its stations are: backlog, completed/);
   });
+
+  it('names the stations there are when given a station no key could name', () => {
+    expect(() =>
+      proposalPlacementWithin([LINE], {
+        line: 'delivery',
+        station: 'Back Log!',
+      }),
+    ).toThrow(/its stations are: backlog, completed/);
+  });
 });

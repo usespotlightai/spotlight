@@ -2,6 +2,7 @@ import type { MemoryFileDto } from '@memory/application/dto/memory-file.dto';
 import type { TeamLine } from '@memory/application/ports/work.port';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { filesOf } from '@memory/domain/services/memory-folder';
+import type { MemorySource } from '@memory/domain/value-objects/memory-source';
 
 export interface MemoryFileContext {
   readonly lines: readonly TeamLine[];
@@ -9,7 +10,7 @@ export interface MemoryFileContext {
   readonly names: ReadonlyMap<string, string | null>;
 }
 
-const SOURCED: Record<string, string> = {
+const SOURCED: Record<MemorySource, string> = {
   run: 'a run',
   person: 'what a person said',
   outside: 'a run on input from outside the team',
@@ -41,7 +42,7 @@ const keptOf = (memory: Memory, context: MemoryFileContext): string => {
   const on = day(memory.approval.at);
 
   return memory.grounds
-    ? `from ${SOURCED[memory.source] ?? SOURCED.run} on task ${memory.grounds.taskId.value}, approved by ${by} on ${on}`
+    ? `from ${SOURCED[memory.source]} on task ${memory.grounds.taskId.value}, approved by ${by} on ${on}`
     : `written by ${by} on ${on}`;
 };
 
@@ -53,13 +54,13 @@ const bodyOf = (memory: Memory, context: MemoryFileContext): string => {
   return [
     `# ${memory.handle.value} · ${memory.kind.replaceAll('-', ' ')}`,
     '',
-    memory.body.trim(),
+    memory.body.value,
     '',
     `- Applies to: ${whereOf(memory, context.lines)}`,
     `- Kept: ${keptOf(memory, context)}`,
     ...(replaced
       ? [
-          `- Replaced ${replaced.handle.value}, which said: ${replaced.body.replace(/\s+/g, ' ').trim()}`,
+          `- Replaced ${replaced.handle.value}, which said: ${replaced.body.value.replace(/\s+/g, ' ').trim()}`,
         ]
       : []),
     ...(memory.grounds

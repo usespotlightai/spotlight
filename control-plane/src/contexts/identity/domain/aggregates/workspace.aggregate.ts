@@ -137,6 +137,7 @@ export class Workspace extends EventRecorder {
     teams: readonly TeamKey[],
     tokens: readonly TokenName[],
     trusts: readonly TokenTrustKey[],
+    minting: readonly TokenTrustKey[],
     holdings: Holdings,
     by: Attribution,
   ): Workspace {
@@ -146,6 +147,7 @@ export class Workspace extends EventRecorder {
       ...teams.map((each) => `team ${each.value}`),
       ...tokens.map((each) => `token ${each.value}`),
       ...trusts.map((each) => `token trust ${each.value}`),
+      ...minting.map((each) => `tokens minted through ${each.value}`),
     ]).and(holdings);
 
     if (!held.isEmpty) {

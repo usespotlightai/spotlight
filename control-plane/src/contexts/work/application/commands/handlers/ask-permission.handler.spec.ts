@@ -33,6 +33,7 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
@@ -87,7 +88,11 @@ const PUSH = {
 
 const runOf = (
   id: string,
-  subject = RunSubject.task(TaskId.of('task_1'), IMPLEMENTING, 0),
+  subject = RunSubject.task(
+    TaskId.of('task_1'),
+    IMPLEMENTING,
+    TaskRevision.of(0),
+  ),
 ) =>
   Run.enqueue({
     id: RunId.of(id),

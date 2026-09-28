@@ -7,12 +7,14 @@ import { ChatRunWork } from '@work/application/services/chat-run-work';
 import type { RunWork } from '@work/application/services/run-work';
 import { TaskRunWork } from '@work/application/services/task-run-work';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { repositoryNamedIn } from '@work/domain/services/repository-named';
+import { repositoryWorkedOnNamed } from '@work/domain/services/task-checkouts';
+import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
 export interface WorkedRun {
   readonly run: Run;
@@ -45,6 +47,16 @@ export class RunWorks {
     return { run, work: await this.workOf(run) };
   }
 
+  async stillOn(attempt: RunAttempt, runnerId: string): Promise<void> {
+    const run = await this.runs.findById(attempt.runId);
+
+    if (!run) {
+      throw new UnknownRunError(`there is no run ${attempt.runId.value}`);
+    }
+
+    run.assertStillOn(attempt, RunnerId.of(runnerId));
+  }
+
   async repositoryForCheck(
     runId: RunId,
     name: string,
@@ -55,17 +67,13 @@ export class RunWorks {
       return null;
     }
 
-    const reviewed =
-      (await run.subject?.match<Promise<Repository | null>>({
-        task: async (taskId) =>
-          (await this.tasks.find(taskId))?.reviewed ?? null,
+    const task =
+      (await run.subject?.match<Promise<Task | null>>({
+        task: (taskId) => this.tasks.find(taskId),
         chat: async () => null,
       })) ?? null;
-
-    const repository = repositoryNamedIn(name, {
-      reviewed,
-      line: await this.lines.holding(run.stationId),
-    });
+    const line = await this.lines.holding(run.stationId);
+    const repository = line ? repositoryWorkedOnNamed(name, task, line) : null;
 
     return repository ? { workspaceId: run.workspaceId, repository } : null;
   }

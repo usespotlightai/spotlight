@@ -15,7 +15,7 @@ import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { repositoryNamedIn } from '@work/domain/services/repository-named';
+import { repositoryWorkedOnNamed } from '@work/domain/services/task-checkouts';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -59,10 +59,9 @@ export class TaskRunWork implements RunWork {
       return null;
     }
 
-    return repositoryNamedIn(name, {
-      reviewed: this.task.reviewed,
-      line: await this.lines.holding(this.run.stationId),
-    });
+    const line = await this.lines.holding(this.run.stationId);
+
+    return line ? repositoryWorkedOnNamed(name, this.task, line) : null;
   }
 
   async clearFor(declared: DeclaredTool, call: ToolCall): Promise<Cleared> {

@@ -146,6 +146,25 @@ describe('HookedTasks', () => {
     });
   });
 
+  it('gives hooks only the reviewed repository of a review', async () => {
+    const reviewing = Task.add({
+      line: DELIVERY,
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Review the queue fix'),
+      rank: TaskRank.of('i'),
+      raisedBy: UserId.of('user_1'),
+      now: NOW,
+      newId: () => 'task_1',
+    }).reviews(PullRequestUrl.of('https://github.com/acme/web/pull/9'), {
+      outside: false,
+    });
+    const { hooked } = hooking({ task: reviewing });
+
+    expect((await hooked.of('task_1', null))?.repositories).toEqual([
+      'acme/web',
+    ]);
+  });
+
   it('names the run working the task when it is asked about none', async () => {
     const { hooked } = hooking();
 

@@ -7,16 +7,20 @@ import type {
   LiveRunnerSummary,
   RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
+import { Runner } from '@runners/domain/aggregates/runner.aggregate';
+import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import {
   runner,
   runnerHost,
   runnerPool,
   runnerTrust,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, isNotNull, isNull, or, sql } from 'drizzle-orm';
-
-const RECENTLY = sql`now() - interval '1 day'`;
+import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
 
 const through = (row: {
   poolId: string | null;
@@ -29,7 +33,10 @@ const through = (row: {
 
 @Injectable()
 export class DrizzleRunnerReader implements RunnerReaderPort {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
+    @Inject(CLOCK) private readonly clock: ClockPort,
+  ) {}
 
   async anyOffersWork(workspaceId: WorkspaceId): Promise<boolean> {
     const [way] = await this.db
@@ -50,6 +57,9 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
   async advertisedModels(
     workspaceId: WorkspaceId,
   ): Promise<ReadonlyMap<string, readonly string[]>> {
+    const now = this.clock.now();
+    const hostsSeenSince = RunnerHost.rememberedSince(now);
+    const runnersEndedSince = Runner.rememberedEndingSince(now);
     const [hosts, runners] = await Promise.all([
       this.db
         .select({ images: runnerHost.images })
@@ -57,7 +67,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         .where(
           and(
             eq(runnerHost.workspaceId, workspaceId.value),
-            gt(runnerHost.lastSeenAt, RECENTLY),
+            gt(runnerHost.lastSeenAt, hostsSeenSince),
           ),
         ),
       this.db
@@ -66,7 +76,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         .where(
           and(
             eq(runner.workspaceId, workspaceId.value),
-            or(isNull(runner.endedAt), gt(runner.endedAt, RECENTLY)),
+            or(isNull(runner.endedAt), gt(runner.endedAt, runnersEndedSince)),
           ),
         ),
     ]);

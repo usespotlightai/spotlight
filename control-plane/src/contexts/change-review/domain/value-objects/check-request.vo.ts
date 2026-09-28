@@ -18,6 +18,12 @@ const oneLine = (raw: string, what: string): string => {
   return trimmed;
 };
 
+export interface CheckingPlan {
+  readonly command: string;
+  readonly setups: ReadonlyMap<string, string>;
+  readonly placement: RunnerPlacement;
+}
+
 export class CheckRequest {
   private constructor(
     readonly command: string,
@@ -34,6 +40,21 @@ export class CheckRequest {
       oneLine(command, 'check command'),
       setup === null ? null : oneLine(setup, 'setup command'),
       placement,
+    );
+  }
+
+  static forRepository(
+    plan: CheckingPlan | null,
+    repository: string | null,
+  ): CheckRequest | null {
+    if (!plan?.command.trim()) {
+      return null;
+    }
+
+    return CheckRequest.of(
+      plan.command,
+      plan.setups.get(repository ?? '') ?? null,
+      plan.placement,
     );
   }
 

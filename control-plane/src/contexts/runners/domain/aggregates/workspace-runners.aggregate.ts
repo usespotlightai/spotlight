@@ -1,6 +1,7 @@
 import { WorkspaceRunnersDeclared } from '@runners/domain/events/workspace-runners-declared.event';
 import { WorkspaceRunnersDropped } from '@runners/domain/events/workspace-runners-dropped.event';
 import { WorkspaceRunnersRedeclared } from '@runners/domain/events/workspace-runners-redeclared.event';
+import { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
 import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
@@ -15,6 +16,26 @@ interface Declaration {
   readonly trusts: readonly TrustKey[];
   readonly pools: readonly PoolKey[];
 }
+
+const refuseRepeated = <K extends { readonly value: string }>(
+  field: 'trusts' | 'pools',
+  keys: readonly K[],
+): void => {
+  for (const [at, key] of keys.entries()) {
+    if (keys.findIndex((each) => each.value === key.value) !== at) {
+      throw new InvalidWorkspaceRunnersError(
+        field,
+        at,
+        `gives ${key.value} a second time`,
+      );
+    }
+  }
+};
+
+const refuseRepeats = (declaration: Declaration): void => {
+  refuseRepeated('trusts', declaration.trusts);
+  refuseRepeated('pools', declaration.pools);
+};
 
 export class WorkspaceRunners extends EventRecorder {
   private constructor(
@@ -35,6 +56,8 @@ export class WorkspaceRunners extends EventRecorder {
       by: Attribution;
     },
   ): WorkspaceRunners {
+    refuseRepeats(input);
+
     const declared = new WorkspaceRunners(
       input.id,
       input.workspaceId,
@@ -87,6 +110,7 @@ export class WorkspaceRunners extends EventRecorder {
 
   redeclaredAs(declaration: Declaration, by: Attribution): WorkspaceRunners {
     this.guardStanding();
+    refuseRepeats(declaration);
 
     const redeclared = this.reshaped({
       trusts: declaration.trusts,

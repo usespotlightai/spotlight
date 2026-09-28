@@ -21,14 +21,14 @@ import {
   type DefinedIntegrationsPort,
 } from '@integrations/application/ports/defined-integrations.port';
 import {
-  HOOK_CALLBACKS,
-  type HookCallbacksPort,
-} from '@integrations/application/ports/hook-callbacks.port';
+  HOOK_CALLS,
+  type HookCallsPort,
+} from '@integrations/application/ports/hook-calls.port';
 import { HOOK_COMPILER } from '@integrations/application/ports/hook-compiler.port';
 import {
-  HOOK_FIRINGS,
-  type HookFiringsPort,
-} from '@integrations/application/ports/hook-firings.port';
+  HOOK_FIRING_HISTORY,
+  type HookFiringHistoryPort,
+} from '@integrations/application/ports/hook-firing-history.port';
 import {
   HOOK_RESOURCES,
   type HookResourcesPort,
@@ -53,6 +53,10 @@ import {
   OUTBOUND_HOSTS,
   type OutboundHostsPort,
 } from '@integrations/application/ports/outbound-hosts.port';
+import {
+  TASKS_FOR_HOOKS,
+  type TasksForHooksPort,
+} from '@integrations/application/ports/tasks-for-hooks.port';
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackTaskHandler } from '@integrations/application/queries/handlers/callback-task.handler';
 import { HookIssuerHandler } from '@integrations/application/queries/handlers/hook-issuer.handler';
@@ -63,27 +67,39 @@ import { HookIssuerQuery } from '@integrations/application/queries/hook-issuer.q
 import { ImportHookQuery } from '@integrations/application/queries/import-hook.query';
 import { ListHookResourcesQuery } from '@integrations/application/queries/list-hook-resources.query';
 import { ReadHookQuery } from '@integrations/application/queries/read-hook.query';
+import { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
-import { HookFirings } from '@integrations/application/services/hook-firings.service';
+import { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
 import { HookViews } from '@integrations/application/services/hook-views.service';
 import { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
 import { HostReach } from '@integrations/application/services/host-reach.service';
+import {
+  HOOK_CALLBACK_GRANTS,
+  type HookCallbackGrantRepository,
+} from '@integrations/domain/repositories/hook-callback-grant.repository';
 import {
   HOOK_DEFINITIONS,
   type HookDefinitionRepository,
 } from '@integrations/domain/repositories/hook-definition.repository';
 import {
+  HOOK_FIRINGS,
+  type HookFiringRepository,
+} from '@integrations/domain/repositories/hook-firing.repository';
+import {
   INTEGRATION_DEFINITIONS,
   type IntegrationDefinitionRepository,
 } from '@integrations/domain/repositories/integration-definition.repository';
 import { HeldHooks } from '@integrations/infrastructure/acl/held-hooks.adapter';
+import { HookCalls } from '@integrations/infrastructure/acl/hook-calls.adapter';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
+import { TasksForHooks } from '@integrations/infrastructure/acl/tasks-for-hooks.adapter';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
 import { HookCompiler } from '@integrations/infrastructure/hooks/hook-compiler';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { JoseHookTokens } from '@integrations/infrastructure/hooks/jose-hook-tokens';
+import { DrizzleHookFiringHistory } from '@integrations/infrastructure/persistence/drizzle/readers/hook-firing-history.reader';
 import { DrizzleHookResources } from '@integrations/infrastructure/persistence/drizzle/readers/hook-resources.reader';
-import { DrizzleHookCallbacks } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-callbacks.repository';
+import { DrizzleHookCallbackGrants } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-callback-grants.repository';
 import { DrizzleHookDefinitions } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-definitions.repository';
 import { DrizzleHookFirings } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-firings.repository';
 import { HookCallbackController } from '@integrations/presentation/http/controllers/hook-callback.controller';
@@ -119,6 +135,10 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import {
+  TOKEN_MINT,
+  type TokenMintPort,
+} from '@shared-kernel/application/ports/token-mint.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
   HOOK_TRACES,
@@ -150,7 +170,30 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   { provide: HOOK_SIGNING_SECRETS, useExisting: DrizzleHookDefinitions },
   { provide: HOOK_RESOURCES, useClass: DrizzleHookResources },
   { provide: HOOK_FIRINGS, useClass: DrizzleHookFirings },
-  { provide: HOOK_CALLBACKS, useClass: DrizzleHookCallbacks },
+  { provide: HOOK_FIRING_HISTORY, useClass: DrizzleHookFiringHistory },
+  { provide: HOOK_CALLBACK_GRANTS, useClass: DrizzleHookCallbackGrants },
+
+  {
+    provide: HookCallbackGrants,
+    inject: [HOOK_CALLBACK_GRANTS, TOKEN_MINT, CLOCK],
+    useFactory: (
+      grants: HookCallbackGrantRepository,
+      mint: TokenMintPort,
+      clock: ClockPort,
+    ) => new HookCallbackGrants(grants, mint, clock),
+  },
+
+  {
+    provide: TASKS_FOR_HOOKS,
+    inject: [HOOKED_TASKS],
+    useFactory: (tasks: HookedTasksPort) => new TasksForHooks(tasks),
+  },
+
+  {
+    provide: HOOK_CALLS,
+    inject: [HOOK_TRACES],
+    useFactory: (traces: HookTracesPort) => new HookCalls(traces),
+  },
 
   {
     provide: HELD_HOOKS,
@@ -208,14 +251,14 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       ENV,
       HOOK_SIGNING_SECRETS,
       HOOK_TOKENS,
-      HOOK_CALLBACKS,
+      HookCallbackGrants,
       NETWORK_CALLS,
     ],
     useFactory: (
       env: Env,
       secrets: HookSigningSecretsPort,
       tokens: HookTokensPort,
-      callbacks: HookCallbacksPort,
+      callbacks: HookCallbackGrants,
       network: NetworkCallsPort,
     ) =>
       new HookRequests(
@@ -262,13 +305,14 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: HookFirings,
+    provide: FireHooks,
     inject: [
       HOOK_RUNTIME,
       HOOK_FIRINGS,
-      HOOKED_TASKS,
+      HOOK_FIRING_HISTORY,
+      TASKS_FOR_HOOKS,
       TASK_NOTES_FROM_HOOKS,
-      HOOK_TRACES,
+      HOOK_CALLS,
       PULL_REQUESTS,
       ID_GENERATOR,
       CLOCK,
@@ -277,22 +321,24 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       runtime: HookRuntimePort,
-      firings: HookFiringsPort,
-      tasks: HookedTasksPort,
+      firings: HookFiringRepository,
+      history: HookFiringHistoryPort,
+      tasks: TasksForHooksPort,
       notes: TaskNotesFromHooksPort,
-      traces: HookTracesPort,
+      calls: HookCallsPort,
       pullRequests: PullRequestPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
       causation: CausationPort,
       logger: LoggerPort,
     ) =>
-      new HookFirings(
+      new FireHooks(
         runtime,
         firings,
+        history,
         tasks,
         notes,
-        traces,
+        calls,
         pullRequests,
         ids,
         clock,
@@ -303,21 +349,21 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: HookedHappenings,
-    inject: [HookFirings, HOOKED_TASKS],
-    useFactory: (firings: HookFirings, tasks: HookedTasksPort) =>
+    inject: [FireHooks, TASKS_FOR_HOOKS],
+    useFactory: (firings: FireHooks, tasks: TasksForHooksPort) =>
       new HookedHappenings(firings, tasks),
   },
 
   {
     provide: LIFECYCLE_HOOKS,
-    inject: [HookFirings],
-    useFactory: (firings: HookFirings) => new LifecycleHooks(firings),
+    inject: [FireHooks],
+    useFactory: (firings: FireHooks) => new LifecycleHooks(firings),
   },
 
   {
     provide: HookFiringWorker,
-    inject: [HookFirings, LOGGER],
-    useFactory: (firings: HookFirings, logger: LoggerPort) =>
+    inject: [FireHooks, LOGGER],
+    useFactory: (firings: FireHooks, logger: LoggerPort) =>
       new HookFiringWorker(firings, logger),
   },
 
@@ -369,16 +415,14 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(HookIssuerQuery, HookIssuerHandler, [HOOK_TOKENS]),
 
   ...bindQueryHandler(CallbackTaskQuery, CallbackTaskHandler, [
-    HOOK_CALLBACKS,
-    HOOKED_TASKS,
-    CLOCK,
+    HookCallbackGrants,
+    TASKS_FOR_HOOKS,
   ]),
 
   ...bindCommandHandler(NoteByCallbackCommand, NoteByCallbackHandler, [
-    HOOK_CALLBACKS,
+    HookCallbackGrants,
     TASK_NOTES_FROM_HOOKS,
-    HOOK_FIRINGS,
+    HOOK_FIRING_HISTORY,
     CAUSATION,
-    CLOCK,
   ]),
 ];

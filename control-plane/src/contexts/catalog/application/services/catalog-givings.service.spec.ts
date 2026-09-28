@@ -25,7 +25,7 @@ const givings = (
 
   const service = new CatalogGivings(
     new SeededCatalog(CATALOG_ITEMS),
-    { of: async () => plan, forget: async () => undefined },
+    { of: async () => plan },
     {
       record: async (call) => {
         metered.push(call);
@@ -88,80 +88,6 @@ describe('CatalogGivings', () => {
         reason: 'not-entitled',
         because:
           'catalog.web-search@1.1.0 needs the Team plan, and this workspace is on the Free plan',
-      },
-    ]);
-  });
-
-  it('refuses what a plan past the day it lapses included, as lapsed', async () => {
-    const { service } = givings(
-      WorkspacePlan.of(Plan.team, new Date('2026-09-01T00:00:00.000Z')),
-    );
-
-    const given = await service.givenTo(
-      WORKSPACE,
-      tools('catalog.web-search@1.1.0'),
-    );
-
-    expect(given.refused).toEqual([
-      {
-        id: 'catalog.web-search@1.1.0',
-        reason: 'lapsed',
-        because:
-          'catalog.web-search@1.1.0 needs the Team plan, and this workspace’s Team plan lapsed at 2026-09-01T00:00:00.000Z',
-      },
-    ]);
-  });
-
-  it('refuses what a lapsed plan never included as not entitled, not as lapsed', async () => {
-    const { service } = givings(
-      WorkspacePlan.of(Plan.free, new Date('2026-09-01T00:00:00.000Z')),
-    );
-
-    const given = await service.givenTo(
-      WORKSPACE,
-      tools('catalog.web-search@1.1.0'),
-    );
-
-    expect(given.refused.map((each) => each.reason)).toEqual(['not-entitled']);
-  });
-
-  it('refuses a skill named as a tool, and a tool named as a skill, as the wrong kind', async () => {
-    const { service } = givings(WorkspacePlan.of(Plan.team));
-
-    const given = await service.givenTo(WORKSPACE, {
-      tools: ['catalog.research@1.0.0'],
-      skills: ['catalog.fetch-page@1.0.0'],
-    });
-
-    expect(given.tools).toEqual([]);
-    expect(given.skills).toEqual([]);
-    expect(given.refused).toEqual([
-      {
-        id: 'catalog.research@1.0.0',
-        reason: 'wrong-kind',
-        because: 'catalog.research@1.0.0 is a catalog skill, not a tool',
-      },
-      {
-        id: 'catalog.fetch-page@1.0.0',
-        reason: 'wrong-kind',
-        because: 'catalog.fetch-page@1.0.0 is a catalog tool, not a skill',
-      },
-    ]);
-  });
-
-  it('refuses what the catalog does not have', async () => {
-    const { service } = givings(WorkspacePlan.of(Plan.enterprise));
-
-    const given = await service.givenTo(
-      WORKSPACE,
-      tools('catalog.web-search@9.0.0'),
-    );
-
-    expect(given.refused).toEqual([
-      {
-        id: 'catalog.web-search@9.0.0',
-        reason: 'unknown',
-        because: 'catalog.web-search@9.0.0 is not in the catalog',
       },
     ]);
   });

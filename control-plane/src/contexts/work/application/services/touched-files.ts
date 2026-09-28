@@ -1,33 +1,15 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunChanges } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TouchedFile } from '@work/application/ports/team-memories.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { workspacePath } from '@work/domain/services/workspace-path';
+import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
+import { filesChangedIn } from '@work/domain/services/workspace-path';
 
 const MOST_WAIT_MS = 5_000;
-
-export const workspacePathsIn = (changes: RunChanges): string[] =>
-  changes.paths.flatMap((path) => {
-    const within = workspacePath(path, changes.checkouts);
-    return within ? [within] : [];
-  });
-
-export const filesChangedIn = (
-  changes: RunChanges,
-  repositories: readonly Repository[],
-): TouchedFile[] =>
-  workspacePathsIn(changes).flatMap((within) => {
-    const [folder, ...rest] = within.split('/');
-    const repository = repositories.find((each) => each.name === folder);
-
-    return repository && rest.length > 0
-      ? [{ repository, path: rest.join('/') }]
-      : [];
-  });
 
 export const distinctFiles = (files: readonly TouchedFile[]): TouchedFile[] => [
   ...new Map(
@@ -35,23 +17,16 @@ export const distinctFiles = (files: readonly TouchedFile[]): TouchedFile[] => [
   ).values(),
 ];
 
-export const repositoriesWorked = (
-  task: Task | null,
-  line: Line,
-): readonly Repository[] => {
-  const reviewed = task?.reviewed;
-  return reviewed ? [reviewed] : line.repositories.all;
-};
-
 export class TouchedFiles {
   constructor(
     private readonly journals: RunJournalReaderPort,
     private readonly pullRequests: PullRequestPort,
     private readonly logger: LoggerPort,
+    private readonly clock: ClockPort,
   ) {}
 
   async onTask(task: Task, line: Line): Promise<readonly TouchedFile[]> {
-    const repositories = repositoriesWorked(task, line);
+    const repositories = repositoriesWorkedOn(task, line);
     const [earlier, pulled] = await Promise.all([
       this.earlierRuns(task, repositories),
       this.pullRequestFiles(task),
@@ -77,18 +52,18 @@ export class TouchedFiles {
       return [];
     }
 
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    const answered = new AbortController();
 
     try {
       const paths = await Promise.race([
         this.pullRequests.changedIn(task.workspaceId, repository, url),
-        new Promise<never>((_, refuse) => {
-          timer = setTimeout(
-            () => refuse(new Error('GitHub took too long to answer')),
-            MOST_WAIT_MS,
-          );
-        }),
+        this.clock.sleep(MOST_WAIT_MS, answered.signal).then(() => null),
       ]);
+
+      if (!paths) {
+        throw new Error('GitHub took too long to answer');
+      }
+
       return paths.map((path) => ({ repository, path }));
     } catch (error) {
       this.logger.warn(
@@ -97,7 +72,7 @@ export class TouchedFiles {
       );
       return [];
     } finally {
-      clearTimeout(timer);
+      answered.abort();
     }
   }
 }

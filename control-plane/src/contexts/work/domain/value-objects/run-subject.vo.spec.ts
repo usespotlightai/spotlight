@@ -3,6 +3,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
 const cases = {
@@ -14,9 +15,11 @@ const cases = {
 describe('RunSubject', () => {
   it('works a task at a station, or a chat, and says which', () => {
     expect(
-      RunSubject.task(TaskId.of('task_1'), StationId.of('station_1'), 0).match(
-        cases,
-      ),
+      RunSubject.task(
+        TaskId.of('task_1'),
+        StationId.of('station_1'),
+        TaskRevision.of(0),
+      ).match(cases),
     ).toBe('task task_1 at station_1');
     expect(RunSubject.chat(ChatId.of('chat_1')).match(cases)).toBe(
       'chat chat_1',
@@ -28,12 +31,14 @@ describe('RunSubject', () => {
       taskId: TaskId.of('task_1'),
       stationId: null,
       chatId: null,
-      revision: 0,
+      revision: TaskRevision.of(0),
     });
 
-    expect(subject?.equals(RunSubject.task(TaskId.of('task_1'), null, 0))).toBe(
-      true,
-    );
+    expect(
+      subject?.equals(
+        RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
+      ),
+    ).toBe(true);
     expect(
       RunSubject.rehydrate({
         taskId: null,

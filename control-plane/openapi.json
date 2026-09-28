@@ -1244,6 +1244,55 @@
         ]
       }
     },
+    "/runs/{runId}/change-stack-checks/{stackId}/lease": {
+      "post": {
+        "description": "The runner holding a check renews its lease while the check runs, so a long check is not handed to a second runner. The answer carries back whether the runner should stop checking.",
+        "operationId": "renewCheckLease",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewCheckLeaseResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "No such runner, or the check this runner holds is of another run"
+          },
+          "409": {
+            "description": "The check kept moving on while it was renewed"
+          }
+        },
+        "summary": "Say the check of a change stack is still being worked on",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/image": {
       "post": {
         "description": "The host pulls the image named for the run just after it claims it, and records the digest it pulled here, so the run shows the environment it had.",
@@ -13080,7 +13129,7 @@
         "operationId": "listRunChangeStacks",
         "parameters": [
           {
-            "name": "runId",
+            "name": "teamId",
             "required": true,
             "in": "path",
             "schema": {
@@ -13088,7 +13137,7 @@
             }
           },
           {
-            "name": "teamId",
+            "name": "runId",
             "required": true,
             "in": "path",
             "schema": {
@@ -13125,7 +13174,7 @@
         "operationId": "readTaskChangeStack",
         "parameters": [
           {
-            "name": "taskId",
+            "name": "teamId",
             "required": true,
             "in": "path",
             "schema": {
@@ -13133,7 +13182,7 @@
             }
           },
           {
-            "name": "teamId",
+            "name": "taskId",
             "required": true,
             "in": "path",
             "schema": {
@@ -13433,6 +13482,9 @@
           },
           "404": {
             "description": "Not a run this runner worked, or no such stack of it"
+          },
+          "409": {
+            "description": "This runner does not hold the check of that stack"
           },
           "422": {
             "description": "The stack was already checked, or names steps it has not"
@@ -16131,8 +16183,8 @@
         ]
       }
     },
-    "/runs/{runId}/memories": {
-      "get": {
+    "/runs/{runId}/memories/recall": {
+      "post": {
         "operationId": "recallMemories",
         "parameters": [
           {
@@ -16142,17 +16194,18 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "q",
-            "required": true,
-            "in": "query",
-            "description": "Words to look for",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallMemoriesRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -16177,11 +16230,62 @@
             "description": "Nothing to look for"
           }
         },
-        "summary": "Search what the run’s team remembers, for an agent reaching past its briefing",
+        "summary": "Search what the run’s team remembers, for an agent reaching past its briefing, noting what it recalled",
         "tags": [
           "runners"
         ]
-      },
+      }
+    },
+    "/runs/{runId}/memories/{handle}/recall": {
+      "post": {
+        "operationId": "recallMemory",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "handle",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "M-12",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "No such run held by this runner"
+          },
+          "422": {
+            "description": "Not a handle like M-12"
+          }
+        },
+        "summary": "Read one of the team’s memories in full, by its handle, noting the run recalled it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/memories": {
       "post": {
         "description": "It waits in the inbox beside the task for a person to approve, like a drafted memory.",
         "operationId": "remember",
@@ -16227,55 +16331,6 @@
           }
         },
         "summary": "Propose a memory from inside the run, grounded in the step it was asked from",
-        "tags": [
-          "runners"
-        ]
-      }
-    },
-    "/runs/{runId}/memories/{handle}": {
-      "get": {
-        "operationId": "recallMemory",
-        "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "handle",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "M-12",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, spent or wrong runner token"
-          },
-          "404": {
-            "description": "No such run held by this runner"
-          },
-          "422": {
-            "description": "Not a handle like M-12"
-          }
-        },
-        "summary": "Read one of the team’s memories in full, by its handle",
         "tags": [
           "runners"
         ]
@@ -17286,6 +17341,19 @@
             "type": "boolean",
             "example": false,
             "description": "Whether a person has asked the runner to stop this run"
+          }
+        },
+        "required": [
+          "stop"
+        ]
+      },
+      "RenewCheckLeaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "stop": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the runner should stop checking: the check was forgotten with its task, settled, or waited too long to be recorded"
           }
         },
         "required": [
@@ -20378,7 +20446,7 @@
             "type": "string",
             "nullable": true
           },
-          "trustId": {
+          "trust": {
             "type": "string",
             "nullable": true,
             "description": "For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust"
@@ -20388,7 +20456,7 @@
           "kind",
           "userId",
           "tokenId",
-          "trustId"
+          "trust"
         ]
       },
       "ConfigurationChangeResponseDto": {
@@ -24553,6 +24621,19 @@
           "cut",
           "recalled",
           "proposed"
+        ]
+      },
+      "RecallMemoriesRequestDto": {
+        "type": "object",
+        "properties": {
+          "words": {
+            "type": "string",
+            "example": "upload retries",
+            "description": "Words to look for"
+          }
+        },
+        "required": [
+          "words"
         ]
       },
       "RememberRequestDto": {

@@ -9,6 +9,10 @@ import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  RUN_GRANTS,
+  type RunGrantsPort,
+} from '@secrets/application/ports/run-grants.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
@@ -98,10 +102,10 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     waiting: null,
   });
 
-  const comment = async (runId = 'run_1') => {
+  const comment = async (runId = 'run_1', attempt = 1) => {
     const reached = (await app
       .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
-      .reach('linear.comment', task(), runId)) as IntegrationTool;
+      .reach('linear.comment', task(), { runId, attempt })) as IntegrationTool;
 
     return reached.call({ body: 'Fixed in the queue worker.' });
   };
@@ -153,6 +157,9 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       .where(eq(schema.hostConnection.teamId, held));
     await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
     await db
+      .delete(schema.runGrants)
+      .where(eq(schema.runGrants.workspaceId, held));
+    await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, held));
     await db
@@ -188,11 +195,78 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     expect(
       (
         await db
-          .select()
+          .select({
+            runId: schema.secretGrant.runId,
+            host: schema.secretGrant.host,
+          })
           .from(schema.secretGrant)
-          .where(eq(schema.secretGrant.workspaceId, held))
+          .innerJoin(
+            schema.runGrants,
+            eq(schema.runGrants.runId, schema.secretGrant.runId),
+          )
+          .where(eq(schema.runGrants.workspaceId, held))
       ).map((each) => [each.runId, each.host]),
     ).toEqual([['run_7', 'api.linear.app']]);
+  });
+
+  it('grants each attempt of a run afresh, and nothing more to an attempt the run moved past', async () => {
+    await post(
+      `/api/resources/workspaces/${held}/secrets`,
+      secretBoundTo('api.linear.app'),
+    );
+
+    await expect(comment('run_8', 1)).resolves.toBe('https://linear.app/c/1');
+    await expect(comment('run_8', 2)).resolves.toBe('https://linear.app/c/1');
+    await expect(comment('run_8', 1)).rejects.toThrow(
+      /no longer holds attempt 1/,
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    const [kept] = await db
+      .select({ attempt: schema.runGrants.attempt })
+      .from(schema.runGrants)
+      .where(eq(schema.runGrants.runId, 'run_8'));
+
+    expect(kept?.attempt).toBe(2);
+  });
+
+  it('sends nothing for an attempt once its lost hold is heard, and grants the next attempt afresh', async () => {
+    const grants = app.get<RunGrantsPort>(RUN_GRANTS);
+
+    await post(
+      `/api/resources/workspaces/${held}/secrets`,
+      secretBoundTo('api.linear.app'),
+    );
+
+    await expect(comment('run_9', 1)).resolves.toBe('https://linear.app/c/1');
+    await grants.holdLost({ workspaceId: held, runId: 'run_9', attempt: 1 });
+
+    await expect(comment('run_9', 1)).rejects.toThrow(
+      /no longer holds attempt 1/,
+    );
+    await expect(comment('run_9', 2)).resolves.toBe('https://linear.app/c/1');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('sends nothing for a run whose end was heard before anything was granted to it', async () => {
+    await post(
+      `/api/resources/workspaces/${held}/secrets`,
+      secretBoundTo('api.linear.app'),
+    );
+
+    await app
+      .get<RunGrantsPort>(RUN_GRANTS)
+      .endedFor({ workspaceId: held, runId: 'run_10', attempt: 1 });
+
+    await expect(comment('run_10', 1)).rejects.toThrow(/has ended/);
+    expect(fetch).not.toHaveBeenCalled();
+
+    const [kept] = await db
+      .select({ endedAt: schema.runGrants.endedAt })
+      .from(schema.runGrants)
+      .where(eq(schema.runGrants.runId, 'run_10'));
+
+    expect(kept?.endedAt).toBeInstanceOf(Date);
   });
 
   it('sends nothing where the secret is bound to another host', async () => {

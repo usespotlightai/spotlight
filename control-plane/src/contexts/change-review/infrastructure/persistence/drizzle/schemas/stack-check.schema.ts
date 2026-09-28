@@ -20,6 +20,7 @@ export const stackCheck = pgTable(
   {
     stackId: text('stack_id').primaryKey(),
     runId: text('run_id').notNull(),
+    taskId: text('task_id'),
     workspaceId: text('workspace_id').notNull(),
     command: text('command').notNull(),
     setup: text('setup'),
@@ -35,6 +36,7 @@ export const stackCheck = pgTable(
     claimedBy: text('claimed_by'),
     attempts: integer('attempts').notNull().default(0),
     leaseExpiresAt: timestamp('lease_expires_at'),
+    claimedAt: timestamp('claimed_at'),
     waitingSince: timestamp('waiting_since').notNull(),
     reservedFor: text('reserved_for'),
     reservedPool: text('reserved_pool'),
@@ -45,6 +47,7 @@ export const stackCheck = pgTable(
   },
   (table) => [
     index('stack_check_run_idx').on(table.runId),
+    index('stack_check_task_idx').on(table.taskId),
     index('stack_check_waiting_idx').on(table.workspaceId, table.phase),
     index('stack_check_reserved_idx').on(table.reservedFor),
     index('stack_check_overdue_idx').on(table.phase, table.waitingSince),

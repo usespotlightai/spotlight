@@ -1,7 +1,7 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
-import type { MemorySite } from '@memory/domain/value-objects/memory-scope.vo';
+import type { RunSite } from '@memory/domain/value-objects/run-site';
 
 export const MEMORY_FOLDER = '.spotlight/memory';
 
@@ -24,26 +24,30 @@ const foldersOf = (memory: Memory): string[] => {
   return [lineId ? 'line' : 'team'];
 };
 
-export interface FolderRow {
+export type FolderHolding = 'team' | 'line' | 'station' | 'repository';
+
+export interface LaidOutFolder {
   readonly folder: string;
-  readonly holds: string;
+  readonly holds: FolderHolding;
 }
 
 const MIRRORING = 'repositories/';
 
-export const mirroringAt = (site: MemorySite): string | null =>
+export const mirroringAt = (site: RunSite): string | null =>
   site.repositories.length > 0 ? MIRRORING : null;
 
-export const layoutAt = (site: MemorySite): FolderRow[] => [
-  { folder: 'team/', holds: 'the whole team' },
-  ...(site.lineId ? [{ folder: 'line/', holds: 'this line' }] : []),
-  ...(site.stationId ? [{ folder: 'station/', holds: 'this station' }] : []),
+export const layoutAt = (site: RunSite): LaidOutFolder[] => [
+  { folder: 'team/', holds: 'team' },
+  ...(site.lineId ? [{ folder: 'line/', holds: 'line' } as const] : []),
+  ...(site.stationId
+    ? [{ folder: 'station/', holds: 'station' } as const]
+    : []),
   ...(site.repositories.length > 0
     ? [
         {
           folder: `${MIRRORING}<owner>/<name>/<path>/`,
-          holds: 'a repository, or a file or folder in it',
-        },
+          holds: 'repository',
+        } as const,
       ]
     : []),
 ];

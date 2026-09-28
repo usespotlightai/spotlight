@@ -22,6 +22,10 @@ export class MaxRuns {
     return running < this.value;
   }
 
+  roomAfter(running: number): number {
+    return Math.max(0, this.value - running);
+  }
+
   equals(other: MaxRuns): boolean {
     return this.kind === other.kind && this.value === other.value;
   }

@@ -29,7 +29,10 @@ import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
+import type {
+  KeptLine,
+  LineResourcesPort,
+} from '@work/application/ports/line-resources.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
@@ -150,12 +153,18 @@ const handlers = (over: { cleared?: boolean } = {}) => {
     definition,
     secretsWorn: [],
   });
-  const lineOf = (teamId: TeamId, key: string) => ({
+  const lineOf = (teamId: TeamId, key: string): KeptLine => ({
     id: `line_${key}`,
     version: 1,
     teamId,
     key,
-    definition: { key, name: key },
+    definition: {
+      key,
+      name: key,
+      repositories: [],
+      stations: [],
+      reactions: [],
+    },
   });
   const lines = {
     withId: vi.fn(async (id: string) =>

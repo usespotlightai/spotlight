@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import type { CallbackHolder } from '@integrations/application/ports/hook-callbacks.port';
 import type {
   HookMoment,
   ListeningHook,
 } from '@integrations/application/ports/hook-runtime.port';
+import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import {
   type HookRequest,
@@ -27,6 +27,7 @@ const HOOK: ListeningHook = {
   timeoutSeconds: 10,
   steps: ['ask'],
   broken: null,
+  written: null,
 };
 
 const MOMENT: HookMoment = {
@@ -89,15 +90,13 @@ const requests = (
 ) => {
   const fetch = vi.fn(reply);
   const signed = vi.fn(async () => 'jwt');
-  const minted = vi.fn(
-    async (_holder: CallbackHolder, _until: Date) => 'callback_token',
-  );
+  const issued = vi.fn(async () => 'callback_token');
 
   return {
     fetch,
     calls,
     signed,
-    minted,
+    issued,
     requests: new HookRequests(
       {
         publicUrl: 'https://spotlight.example.com',
@@ -110,7 +109,7 @@ const requests = (
         signed,
         keys: async () => ({ keys: [] }),
       },
-      { minted, heldBy: async () => null },
+      { issued } as unknown as HookCallbackGrants,
       calls,
       fetch as unknown as typeof globalThis.fetch,
     ),
@@ -260,7 +259,7 @@ describe('HookRequests', () => {
   it('names the firing it was sent for, so a reply can carry the chain back', async () => {
     const {
       fetch,
-      minted,
+      issued,
       requests: sending,
     } = requests(async () => new Response('{}', { status: 200 }));
 
@@ -270,9 +269,8 @@ describe('HookRequests', () => {
     );
 
     expect(sentHeaders(fetch)['spotlight-cause']).toBe('firing_1');
-    expect(minted).toHaveBeenCalledWith(
+    expect(issued).toHaveBeenCalledWith(
       expect.objectContaining({ firing: 'firing_1' }),
-      expect.any(Date),
     );
   });
 

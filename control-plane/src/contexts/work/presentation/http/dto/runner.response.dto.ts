@@ -176,6 +176,20 @@ export class RenewLeaseResponseDto {
   }
 }
 
+export class RenewCheckLeaseResponseDto {
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the runner should stop checking: the check was forgotten ' +
+      'with its task, settled, or waited too long to be recorded',
+  })
+  readonly stop: boolean;
+
+  constructor(stop: boolean) {
+    this.stop = stop;
+  }
+}
+
 export class PermissionAnswerResponseDto {
   @ApiProperty({
     enum: PERMISSION_ANSWERS,

@@ -2,11 +2,11 @@ import type {
   Applied,
   AppliedConfigurationPort,
 } from '@configuration/application/ports/applied-configuration.port';
+import { ConfigurationFile } from '@configuration/domain/value-objects/configuration-file.vo';
 import { SKILLS_UNDER } from '@configuration/infrastructure/configuration-files';
 import { skillDefinition } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { asc, eq } from 'drizzle-orm';
 

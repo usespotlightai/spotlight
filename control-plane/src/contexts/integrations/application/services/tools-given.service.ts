@@ -21,7 +21,10 @@ export class ToolsGiven {
         by: `the station ${each.line}/${each.station}`,
       })),
       ...hooks.flatMap((hook) =>
-        hook.tools.map((tool) => ({ tool, by: `the hook ${hook.key.value}` })),
+        hook.tools.map((tool) => ({
+          tool: tool.value,
+          by: `the hook ${hook.key.value}`,
+        })),
       ),
     ]);
   }

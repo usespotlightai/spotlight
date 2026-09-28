@@ -49,7 +49,7 @@ export class ApproveMemoriesHandler
             body: each.body,
           })),
           decision: MemoryDecision.of({
-            by: reviewing.by,
+            by: reviewing.clearance.by,
             at: this.clock.now(),
           }),
         });

@@ -132,6 +132,7 @@ export const memory = pgTable(
   },
   (table) => [
     uniqueIndex('memory_handle_idx').on(table.handle),
+    uniqueIndex('memory_supersedes_idx').on(table.supersedes),
     index('memory_standing_idx').on(
       table.teamId,
       table.standing,

@@ -2,8 +2,10 @@ import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import {
   type Remembered,
+  type RememberedAt,
   Remembering,
 } from '@memory/domain/services/remembering';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -21,30 +23,27 @@ const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
 
-const remembering = (
+const at = (
   change: {
     steps?: readonly { index: number; kind: string }[];
     cited?: readonly number[];
     fromOutside?: boolean;
   } = {},
-) =>
-  Remembering.of({
-    taskId: TaskId.of('task_1'),
-    runId: RunId.of('run_1'),
-    place: {
-      teamId: TEAM,
-      lineId: 'line_1',
-      stationId: 'station_1',
-      repositories: [API, WEB],
-    },
-    steps: change.steps ?? [
-      { index: 2, kind: 'said' },
-      { index: 7, kind: 'remember' },
-      { index: 9, kind: 'thought' },
-    ],
-    cited: change.cited ?? [],
-    fromOutside: change.fromOutside ?? false,
-  });
+): RememberedAt => ({
+  site: {
+    teamId: TEAM,
+    lineId: 'line_1',
+    stationId: 'station_1',
+    repositories: [API, WEB],
+  },
+  steps: change.steps ?? [
+    { index: 2, kind: 'said' },
+    { index: 7, kind: 'remember' },
+    { index: 9, kind: 'thought' },
+  ],
+  cited: change.cited ?? [],
+  fromOutside: change.fromOutside ?? false,
+});
 
 const asked = (change: Partial<Remembered> = {}): Remembered => ({
   kind: 'rationale',
@@ -61,19 +60,33 @@ const standing = (teamId = TEAM) =>
     handle: MemoryHandle.of(7),
     workspaceId: WorkspaceId.of('ws_1'),
     kind: 'rationale',
-    body: 'Uploads retry from a queue.',
+    body: MemoryBody.of('Uploads retry from a queue.'),
     scope: MemoryScope.of({ teamId }),
     grounds: null,
-    supersedes: null,
     by: MemoryDecision.of({ by: UserId.of('user_1'), at: NOW }),
   });
 
 const proposed = (
   change: Partial<Remembered> = {},
-  over?: Parameters<typeof remembering>[0],
-) => remembering(over).proposalOf(MemoryId.of('memory_1'), asked(change), NOW);
+  over?: Parameters<typeof at>[0],
+) =>
+  Remembering.of({
+    taskId: TaskId.of('task_1'),
+    runId: RunId.of('run_1'),
+  }).proposalOf({
+    id: MemoryId.of('memory_1'),
+    remembered: asked(change),
+    at: at(over),
+    now: NOW,
+  });
 
 describe('Remembering, what an agent asks its team to keep', () => {
+  it('is only for a task’s run, sending a chat to the person instead', () => {
+    expect(() =>
+      Remembering.of({ taskId: null, runId: RunId.of('run_1') }),
+    ).toThrow(/only from a task's run/);
+  });
+
   it('rests on the step the agent remembered it from, as the run’s own', () => {
     const proposal = proposed();
 

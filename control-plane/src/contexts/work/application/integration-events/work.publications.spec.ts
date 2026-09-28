@@ -14,6 +14,7 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
 const published = (event: DomainEvent) =>
@@ -24,7 +25,11 @@ const published = (event: DomainEvent) =>
 const TASK = TaskId.of('task_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const RUN = RunId.of('run_1');
-const SUBJECT = RunSubject.task(TASK, StationId.of('station_1'), 0);
+const SUBJECT = RunSubject.task(
+  TASK,
+  StationId.of('station_1'),
+  TaskRevision.of(0),
+);
 
 describe('WORK_PUBLICATIONS', () => {
   it('publishes a task opening', () => {
@@ -73,6 +78,7 @@ describe('WORK_PUBLICATIONS', () => {
           null,
           null,
           null,
+          1,
         ),
       ),
     ).toBe('completed');
@@ -86,6 +92,7 @@ describe('WORK_PUBLICATIONS', () => {
           null,
           null,
           null,
+          1,
         ),
       ),
     ).toBe('failed');
@@ -99,6 +106,7 @@ describe('WORK_PUBLICATIONS', () => {
           null,
           null,
           null,
+          1,
         ),
       ),
     ).toBe('failed');
@@ -112,17 +120,20 @@ describe('WORK_PUBLICATIONS', () => {
           null,
           null,
           null,
+          1,
         ),
       ),
     ).toBe('completed');
     expect(ended(new RunAbandoned(RUN, WORKSPACE, SUBJECT, 3))).toBe(
       'abandoned',
     );
-    expect(ended(new RunWithdrawn(RUN, WORKSPACE, SUBJECT))).toBe('withdrawn');
+    expect(ended(new RunWithdrawn(RUN, WORKSPACE, SUBJECT, 1))).toBe(
+      'withdrawn',
+    );
   });
 
   it('publishes a run with no task as ending for no task', () => {
-    expect(published(new RunWithdrawn(RUN, WORKSPACE, null))).toEqual([
+    expect(published(new RunWithdrawn(RUN, WORKSPACE, null, 1))).toEqual([
       {
         kind: 'work.run-ended.v1',
         runId: 'run_1',

@@ -1,4 +1,5 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -31,7 +32,7 @@ const waiting = () =>
 
 const POOLED = RunnerId.of('pooled_1');
 
-const reserved = () => waiting().reservedFor(POOLED, 'pool_1', NOON);
+const reserved = () => waiting().reservedFor(POOLED, PoolId.of('pool_1'), NOON);
 
 const failing = (stored: Run, conflicts = 0) => {
   let held = stored;
@@ -98,7 +99,11 @@ describe('ProvisionFailures', () => {
     const { failures, append } = failing(
       reserved()
         .provisionFailed(POOLED, REFUSED, NOON)
-        .reservedFor(POOLED, 'pool_1', new Date(NOON.getTime() + 5_000)),
+        .reservedFor(
+          POOLED,
+          PoolId.of('pool_1'),
+          new Date(NOON.getTime() + 5_000),
+        ),
     );
 
     await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON);

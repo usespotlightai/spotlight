@@ -16,7 +16,7 @@ import {
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, lte } from 'drizzle-orm';
 
 type Row = typeof runnerHost.$inferSelect;
 
@@ -125,14 +125,19 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   }
 
   async remove(host: RunnerHost): Promise<void> {
-    await this.context.db
+    const removed = await this.context.db
       .delete(runnerHost)
       .where(
         and(
           eq(runnerHost.id, host.id.value),
           eq(runnerHost.version, host.version),
         ),
-      );
+      )
+      .returning({ id: runnerHost.id });
+
+    if (removed.length === 0) {
+      throw new RunnerHostMovedOnError(host.id.value);
+    }
   }
 
   async removeThrough(admission: Admission): Promise<void> {
@@ -150,7 +155,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   async removeUnseenSince(since: Date): Promise<number> {
     const removed = await this.context.db
       .delete(runnerHost)
-      .where(lt(runnerHost.lastSeenAt, since))
+      .where(lte(runnerHost.lastSeenAt, since))
       .returning({ id: runnerHost.id });
 
     return removed.length;

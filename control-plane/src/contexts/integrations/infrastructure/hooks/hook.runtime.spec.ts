@@ -9,13 +9,18 @@ import type {
 import type { HostReach } from '@integrations/application/services/host-reach.service';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
+import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
+import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
+import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
 import type { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -34,6 +39,11 @@ const DOCUMENT = {
       with: { channel: 'C1', text: 'Searched ${{ event.inputs.query }}' },
     },
     { name: 'audit', request: { url: 'https://audit.example.com/' } },
+    {
+      name: 'plain',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+      request: { url: 'http://audit.example.com/${{ event.tool }}' },
+    },
   ],
   signing: { secretVersion: 1 },
   timeoutSeconds: 2,
@@ -72,6 +82,13 @@ const tool = (
 ): ReachableTool =>
   ({
     integration: {},
+    offered: OfferedTool.of({
+      source: SourceKey.of('slack'),
+      name: 'post-message',
+      description: 'Post',
+      does: 'post',
+      approval: approval ? ApprovalNeeded.of(approval, 'post-message') : null,
+    }),
     declared: {
       tool: 'slack.post-message',
       description: 'Post',
@@ -100,15 +117,18 @@ const tool = (
     call,
   }) as unknown as ReachableTool;
 
-const setUp = (reachable: ReachableTool | null) => {
+const setUp = (
+  reachable: ReachableTool | null,
+  document: Record<string, unknown> = DOCUMENT,
+) => {
   const definition = HookDefinition.rehydrate({
     id: HookDefinitionId.of('hook_1'),
     workspaceId: WorkspaceId.of('workspace_1'),
     teamId: TeamId.of('team_1'),
     key: HookKey.of('grafana-reads'),
     event: HookEvent.of('tool.used'),
-    document: DefinitionDocument.of(DOCUMENT),
-    tools: ['grafana.search', 'slack.post-message'],
+    document: DefinitionDocument.of(document),
+    tools: [ToolName.of('grafana.search'), ToolName.of('slack.post-message')],
     signing: { version: 1 },
     version: 1,
   });
@@ -124,6 +144,17 @@ const setUp = (reachable: ReachableTool | null) => {
   const requests = {
     sent: vi.fn(async (request: { step: string }) => ({
       outcome: { name: request.step, status: 'done' as const, output: null },
+      refusal: null,
+      trace: null,
+    })),
+    refused: vi.fn((request: { step: string }, failure: HookFailure) => ({
+      outcome: {
+        name: request.step,
+        status: 'failed' as const,
+        code: failure.code,
+        reason: failure.reason,
+        output: null,
+      },
       refusal: null,
       trace: null,
     })),
@@ -314,5 +345,33 @@ describe('CompiledHookRuntime', () => {
         event: { ...MOMENT.event, tool: 'grafana.dashboard' },
       }),
     ).toBe(false);
+  });
+
+  it('never sends a request in the clear from Spotlight once its url is written out', async () => {
+    const { hooked, requests } = setUp(tool(vi.fn()));
+
+    await expect(
+      hooked.step(await asking(hooked, 'plain')),
+    ).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        code: 'not-allowed',
+        reason: 'sends to http://audit.example.com, which is not https',
+      },
+    });
+    expect(requests.sent).not.toHaveBeenCalled();
+  });
+
+  it('tells whether a hook that no longer reads as written blocks by what it was written with', async () => {
+    const { hooked } = setUp(tool(vi.fn()), {
+      ...DOCUMENT,
+      when: 'no.such.thing ==',
+      failure: 'block',
+    });
+    const [hook] = await hooked.listening('team_1', 'tool.used');
+
+    expect(hook?.broken).not.toBeNull();
+    expect(hook?.written).toBeNull();
+    expect(hook?.blocks).toBe(true);
   });
 });

@@ -285,6 +285,66 @@ describe('Chat', () => {
     expect(working().endedRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
+  describe('when its run ends', () => {
+    const SESSION = HarnessSession.of('session_1');
+    const RUNNER = RunnerId.of('runner_1');
+    const saidMeanwhile = () =>
+      working().said({
+        by: LEON,
+        body: ChatMessageBody.of('Split it.'),
+        at: LATER,
+      });
+
+    it('keeps the session the run worked in and follows up on what was said meanwhile', () => {
+      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+        session: SESSION,
+        workedBy: RUNNER,
+        stopped: false,
+      });
+
+      expect(ended.chat.running).toBe(false);
+      expect(ended.chat.sessionId?.equals(SESSION)).toBe(true);
+      expect(ended.followsUp).toBe(true);
+    });
+
+    it('does not follow up after a run it was asked to stop', () => {
+      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+        session: SESSION,
+        workedBy: RUNNER,
+        stopped: true,
+      });
+
+      expect(ended.chat.running).toBe(false);
+      expect(ended.followsUp).toBe(false);
+    });
+
+    it('takes back what it handed a run that kept no session, and leaves the follow-up for later', () => {
+      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+        session: null,
+        workedBy: RUNNER,
+        stopped: false,
+      });
+
+      expect(ended.chat.running).toBe(false);
+      expect(ended.chat.undelivered.map((each) => each.position.value)).toEqual(
+        [0, 1],
+      );
+      expect(ended.followsUp).toBe(false);
+    });
+
+    it('stays as it is when a run it is not held by ends', () => {
+      const chat = working();
+      const ended = chat.runEnded(RunId.of('run_2'), {
+        session: SESSION,
+        workedBy: RUNNER,
+        stopped: false,
+      });
+
+      expect(ended.chat).toBe(chat);
+      expect(ended.followsUp).toBe(false);
+    });
+  });
+
   it('lets go of its run only for the run that works it', () => {
     const chat = working();
 

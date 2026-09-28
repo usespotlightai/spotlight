@@ -2,15 +2,19 @@ package stackcheck_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
 )
@@ -18,16 +22,35 @@ import (
 const consistent = `! grep -q lib app.txt || test -f lib.txt`
 
 type reporter struct {
+	mu       sync.Mutex
 	recorded []protocol.StackChecked
 	stacks   []string
+	renewals int
+	stop     bool
+	refusal  error
+}
+
+func (r *reporter) RenewCheckLease(_ context.Context, _, _ string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.renewals++
+	return r.stop, r.refusal
 }
 
 func (r *reporter) RecordChangeStackCheck(
 	_ context.Context, _ string, stackID string, checked protocol.StackChecked,
 ) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.recorded = append(r.recorded, checked)
 	r.stacks = append(r.stacks, stackID)
 	return nil
+}
+
+func (r *reporter) renewed() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.renewals
 }
 
 func (r *reporter) only() protocol.StackChecked {
@@ -299,6 +322,104 @@ func TestPerformStopsAStepThatRunsTooLong(t *testing.T) {
 	}
 	if !strings.Contains(steps[0].Output, "did not finish") {
 		t.Fatalf("output %q", steps[0].Output)
+	}
+}
+
+func TestPerformKeepsTheCheckLeasedWhileItRuns(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
+
+	check := r.check(whole(r.whole))
+	check.Command = "sleep 0.3"
+
+	options := r.options()
+	options.Renew = 20 * time.Millisecond
+
+	stackcheck.Perform(context.Background(), told, check, options)
+
+	if renewed := told.renewed(); renewed < 3 {
+		t.Errorf("renewed %d times over a 300ms check", renewed)
+	}
+	if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
+		t.Fatalf("steps %+v", steps)
+	}
+}
+
+func TestPerformKeepsCheckingThroughARenewalThatCouldNotReachTheControlPlane(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{refusal: errors.New("connection refused")}
+
+	check := r.check(whole(r.whole))
+	check.Command = "sleep 0.2"
+
+	options := r.options()
+	options.Renew = 20 * time.Millisecond
+
+	stackcheck.Perform(context.Background(), told, check, options)
+
+	if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
+		t.Fatalf("steps %+v", steps)
+	}
+}
+
+func TestPerformStopsACheckItNoLongerHolds(t *testing.T) {
+	for name, told := range map[string]*reporter{
+		"told to stop": {stop: true},
+		"refused": {refusal: &control.Rejection{
+			Status: http.StatusNotFound, Reason: "not-found", Err: errors.New("404 Not Found"),
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := setUp(t)
+
+			check := r.check(whole(r.whole))
+			check.Command = "sleep 30"
+
+			options := r.options()
+			options.Renew = 20 * time.Millisecond
+
+			started := time.Now()
+			stackcheck.Perform(context.Background(), told, check, options)
+
+			if took := time.Since(started); took > 10*time.Second {
+				t.Errorf("kept checking for %s once the check was gone", took)
+			}
+			if len(told.recorded) != 0 {
+				t.Errorf("reported %+v for a check it no longer holds", told.recorded)
+			}
+		})
+	}
+}
+
+func TestPerformKeepsCheckingThroughARenewalRejectedForAWhile(t *testing.T) {
+	for name, status := range map[string]int{
+		"conflict":          http.StatusConflict,
+		"unauthorized":      http.StatusUnauthorized,
+		"request timeout":   http.StatusRequestTimeout,
+		"too many requests": http.StatusTooManyRequests,
+		"unavailable":       http.StatusServiceUnavailable,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := setUp(t)
+			told := &reporter{refusal: &control.Rejection{
+				Status: status, Err: errors.New(http.StatusText(status)),
+			}}
+
+			check := r.check(whole(r.whole))
+			check.Command = "sleep 0.2"
+
+			options := r.options()
+			options.Renew = 20 * time.Millisecond
+
+			stackcheck.Perform(context.Background(), told, check, options)
+
+			if renewed := told.renewed(); renewed < 2 {
+				t.Errorf("gave up renewing after %d tries", renewed)
+			}
+			if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
+				t.Fatalf("steps %+v", steps)
+			}
+		})
 	}
 }
 

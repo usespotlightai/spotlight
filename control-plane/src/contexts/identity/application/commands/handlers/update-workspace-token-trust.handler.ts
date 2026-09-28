@@ -6,6 +6,7 @@ import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-
 import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
 import { TokenTrustMovedOnError } from '@identity/domain/exceptions/token-trust-moved-on.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
+import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import {
   forbiddenTo,
   type ResourceUpdated,
@@ -57,10 +58,9 @@ export class UpdateWorkspaceTokenTrustHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const { principal } = command.actor;
       const redefined = standing.redefinedAs(
         compiled.terms,
-        principal.kind === 'token' ? principal.scopes : null,
+        Grantor.of(command.actor.principal),
         Attribution.of(command.actor, cleared.workspaceId),
       );
 

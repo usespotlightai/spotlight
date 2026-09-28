@@ -24,11 +24,11 @@ import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
-import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-revision.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
+import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
 import {
   type Conversation,
   notesIn,
@@ -49,7 +49,10 @@ import type { HarnessSession } from '@work/domain/value-objects/harness-session.
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
+import {
+  PullRequestLink,
+  type ReviewedHead,
+} from '@work/domain/value-objects/pull-request-link.vo';
 import type { Remark } from '@work/domain/value-objects/remark.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -58,6 +61,7 @@ import type { TaskDescription } from '@work/domain/value-objects/task-descriptio
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import type { Voice } from '@work/domain/value-objects/voice.vo';
@@ -115,7 +119,7 @@ export class Task extends EventRecorder {
     readonly finishedAt: Date | null,
     readonly assignee: UserId | null,
     readonly attachments: readonly Attachment[],
-    readonly revision: number = 0,
+    readonly revision: TaskRevision = TaskRevision.first(),
     readonly version: number = 0,
   ) {
     super();
@@ -190,16 +194,9 @@ export class Task extends EventRecorder {
     finishedAt: Date | null;
     assignee?: UserId | null;
     attachments?: readonly Attachment[];
-    revision: number;
+    revision: TaskRevision;
     version?: number;
   }): Task {
-    if (!Number.isInteger(input.revision) || input.revision < 0) {
-      throw new InconsistentStateError(
-        'task',
-        `stands at an impossible revision (${input.revision})`,
-      );
-    }
-
     if (input.finishedAt !== null && input.currentRunId !== null) {
       throw new InconsistentStateError(
         'task',
@@ -209,6 +206,13 @@ export class Task extends EventRecorder {
 
     if (input.notes.some((note, place) => note.position.value !== place)) {
       throw new InconsistentStateError('task', 'has a gap in its trail');
+    }
+
+    if (input.pullRequestLink?.reviews && !input.pullRequestLink.reviewedHead) {
+      throw new InconsistentStateError(
+        'task',
+        'reviews a pull request whose head it cannot check out',
+      );
     }
 
     return new Task(
@@ -235,20 +239,20 @@ export class Task extends EventRecorder {
     );
   }
 
-  expecting(revision: number): Task {
-    if (!Number.isInteger(revision) || revision < 0) {
-      throw new InvalidTaskRevisionError(revision);
-    }
-
-    if (this.revision !== revision) {
-      throw new StaleTaskRevisionError(this.id.value, revision, this.revision);
+  expecting(revision: TaskRevision): Task {
+    if (!this.revision.equals(revision)) {
+      throw new StaleTaskRevisionError(
+        this.id.value,
+        revision.value,
+        this.revision.value,
+      );
     }
 
     return this;
   }
 
-  standsAt(revision: number): boolean {
-    return this.revision === revision;
+  standsAt(revision: TaskRevision): boolean {
+    return this.revision.equals(revision);
   }
 
   moveTo(
@@ -287,7 +291,7 @@ export class Task extends EventRecorder {
       ...this.spoke(saying, 'passed'),
       finishedAt: into.isCompleted ? saying.at : null,
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
-      revision: this.revision + 1,
+      revision: this.revision.next(),
     });
 
     moved.record(
@@ -345,9 +349,13 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.markedBy(Mark.review(url)).with({
-      pullRequestLink: PullRequestLink.reviewing(url, by),
-    });
+    const link = PullRequestLink.reviewing(url, by);
+
+    if (!link.reviewedHead) {
+      throw new UnreviewablePullRequestError(url.value);
+    }
+
+    return this.markedBy(Mark.review(url)).with({ pullRequestLink: link });
   }
 
   get pullRequest(): PullRequestUrl | null {
@@ -362,8 +370,8 @@ export class Task extends EventRecorder {
     return this.pullRequestLink?.fromOutside ?? false;
   }
 
-  get reviewed(): Repository | null {
-    return this.pullRequestLink?.reviewed ?? null;
+  get reviewedHead(): ReviewedHead | null {
+    return this.pullRequestLink?.reviewedHead ?? null;
   }
 
   markedBy(mark: Mark): Task {
@@ -461,7 +469,7 @@ export class Task extends EventRecorder {
       currentRunId: null,
       ...this.spoke(saying, 'passed'),
       finishedAt: saying.at,
-      revision: this.revision + 1,
+      revision: this.revision.next(),
     });
 
     finished.record(
@@ -900,7 +908,7 @@ export class Task extends EventRecorder {
     marks?: readonly Mark[];
     finishedAt?: Date | null;
     assignee?: UserId | null;
-    revision?: number;
+    revision?: TaskRevision;
   }): Task {
     const next = new Task(
       this.id,

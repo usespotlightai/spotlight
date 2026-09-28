@@ -1,26 +1,29 @@
 import type { CallbackTaskDto } from '@integrations/application/dto/callback-task.dto';
-import type { HookCallbacksPort } from '@integrations/application/ports/hook-callbacks.port';
+import type { TasksForHooksPort } from '@integrations/application/ports/tasks-for-hooks.port';
 import type { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
+import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class CallbackTaskHandler
   implements QueryHandlerPort<CallbackTaskQuery, CallbackTaskDto | null>
 {
   constructor(
-    private readonly callbacks: HookCallbacksPort,
-    private readonly tasks: HookedTasksPort,
-    private readonly clock: ClockPort,
+    private readonly grants: HookCallbackGrants,
+    private readonly tasks: TasksForHooksPort,
   ) {}
 
   async execute(query: CallbackTaskQuery): Promise<CallbackTaskDto | null> {
     try {
-      const holder = await this.callbacks.heldBy(query.token, this.clock.now());
-      const task = holder ? await this.tasks.of(holder.taskId, null) : null;
+      const grant = await this.grants.heldBy(query.token);
+      const task = grant ? await this.tasks.of(grant.taskId.value, null) : null;
 
-      if (!holder || !task || task.workspaceId !== holder.workspaceId) {
+      if (
+        !grant ||
+        !task ||
+        !grant.coversTaskIn(WorkspaceId.of(task.workspaceId))
+      ) {
         return null;
       }
 
@@ -34,7 +37,7 @@ export class CallbackTaskHandler
         marks: task.marks,
         repositories: task.repositories,
         pullRequest: task.pullRequest,
-        hook: holder.hook,
+        hook: grant.hook,
       };
     } catch (error) {
       rethrowAsFault(error);

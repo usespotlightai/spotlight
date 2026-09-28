@@ -1,4 +1,4 @@
-import type { HookFirings } from '@integrations/application/services/hook-firings.service';
+import type { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -14,7 +14,7 @@ export class HookFiringWorker implements OnModuleDestroy {
   #stopped = false;
 
   constructor(
-    private readonly firings: HookFirings,
+    private readonly firings: FireHooks,
     private readonly logger: LoggerPort,
   ) {}
 

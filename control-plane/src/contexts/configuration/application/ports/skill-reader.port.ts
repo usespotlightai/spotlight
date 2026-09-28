@@ -1,6 +1,6 @@
 import type { Skill } from '@configuration/domain/entities/skill.entity';
+import type { ConfigurationFile } from '@configuration/domain/value-objects/configuration-file.vo';
 import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
-import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export interface SkillFile {

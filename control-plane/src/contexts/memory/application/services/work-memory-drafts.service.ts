@@ -1,14 +1,24 @@
 import { MemoryDraftingError } from '@memory/application/errors/memory-drafting.error';
-import type { KnownMemoriesPort } from '@memory/application/ports/known-memories.port';
-import type { MemoryDrafterPort } from '@memory/application/ports/memory-drafter.port';
+import type {
+  KnownMemory,
+  MemoryDrafterPort,
+} from '@memory/application/ports/memory-drafter.port';
+import type { RejectedMemoriesPort } from '@memory/application/ports/rejected-memories.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
+import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
-import { rejectionsHeededSince } from '@memory/domain/services/rejections-heeded';
+import {
+  rejectionsHeededAt,
+  rejectionsHeededSince,
+} from '@memory/domain/services/rejections-heeded';
+import type { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
+import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -19,6 +29,16 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const MOST_DRAFTS_AT_ONCE = 4;
 
+const known = (each: {
+  readonly id: MemoryId;
+  readonly kind: MemoryKind;
+  readonly body: MemoryBody;
+}): KnownMemory => ({
+  id: each.id.value,
+  kind: each.kind,
+  body: each.body.value,
+});
+
 export class WorkMemoryDrafts implements OwedWorkPort {
   readonly name = 'Drafting memories';
 
@@ -27,7 +47,8 @@ export class WorkMemoryDrafts implements OwedWorkPort {
   constructor(
     private readonly drafts: MemoryDraftRepository,
     private readonly work: WorkPort,
-    private readonly known: KnownMemoriesPort,
+    private readonly inReach: MemoriesInReach,
+    private readonly rejections: RejectedMemoriesPort,
     private readonly drafter: MemoryDrafterPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -70,39 +91,36 @@ export class WorkMemoryDrafts implements OwedWorkPort {
     }
 
     const { runId } = draft.drafting;
-    const [place, task, steps, changed, spoken] = await Promise.all([
-      this.work.placeOf(runId),
+    const [site, task, steps, changed, spoken] = await Promise.all([
+      this.work.stationSiteOf(runId),
       this.work.task(draft.taskId),
       this.work.reasoning(runId),
       this.work.changedBy(runId),
       this.work.spokenOn(draft.taskId),
     ]);
 
-    if (!place || !task || !steps || !changed || !spoken) {
+    if (!site || !task || !steps || !changed || !spoken) {
       return draft.failed(
         MemoryDraftingFailure.of('no-evidence', this.clock.now()),
       );
     }
 
-    const reach = {
-      teamId: place.teamId,
-      lineId: place.lineId,
-      stationId: place.stationId,
-      repositories: place.repositories,
-    };
-    const [standing, rejected] = await Promise.all([
-      this.known.standingIn(reach),
-      this.known.rejectedIn(reach, rejectionsHeededSince(this.clock.now())),
+    const [candidates, rejected] = await Promise.all([
+      this.inReach.at(site),
+      this.rejections.rejectedOnTeam(
+        site.teamId,
+        rejectionsHeededSince(this.clock.now()),
+      ),
     ]);
     const evidence = DraftEvidence.of({
       taskId: draft.taskId,
       runId,
-      place: reach,
+      site,
       steps,
       notes: spoken.filter((each) => draft.reads(each.position)),
       notesRead: draft.notesRead,
       changed,
-      standing: standing.map((each) => each.id),
+      known: candidates,
       fromOutside: task.fromOutside,
     });
     let proposed: readonly ProposedMemory[] = [];
@@ -111,20 +129,18 @@ export class WorkMemoryDrafts implements OwedWorkPort {
       proposed = evidence.isEmpty
         ? []
         : await this.drafter.draft({
-            lineName: place.lineName,
-            stationName: place.stationName,
-            repositories: place.repositories.map((each) => each.value),
+            lineName: site.lineName,
+            stationName: site.stationName,
+            repositories: site.repositories.map((each) => each.value),
             steps: evidence.steps,
             stepsLeftOut: evidence.stepsLeftOut,
             notes: evidence.notes,
             changed: evidence.changed,
-            standing,
-            proposed: draft.stillRemembered.map((each) => ({
-              id: each.id.value,
-              kind: each.kind,
-              body: each.body,
-            })),
-            rejected,
+            standing: evidence.standing.map(known),
+            proposed: draft.stillRemembered.map(known),
+            rejected: rejectionsHeededAt(rejected, site).map(
+              ({ id, kind, body }) => ({ id, kind, body }),
+            ),
           });
     } catch (error) {
       if (error instanceof MemoryDraftingError) {

@@ -32,7 +32,7 @@ export class MemoryReactions {
         return;
       }
 
-      const superseded = event.supersedes
+      const supersedes = event.supersedes
         ? await this.memories.find(event.supersedes)
         : null;
 
@@ -46,7 +46,7 @@ export class MemoryReactions {
           scope: event.scope,
           grounds: event.grounds,
           source: event.source,
-          supersedes: superseded?.standing === 'stands' ? superseded.id : null,
+          supersedes,
           approval: event.decision,
         }),
       );
@@ -63,7 +63,7 @@ export class MemoryReactions {
     await this.transaction.run(async () => {
       const superseded = await this.memories.find(supersedes);
 
-      if (superseded?.standing === 'stands') {
+      if (superseded?.stands) {
         await this.memories.save(
           superseded.supersededBy(event.memoryId, this.clock.now()),
         );

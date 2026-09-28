@@ -5,11 +5,8 @@ import type {
   RunChanges,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
+import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import {
-  checkoutFoldersOf,
-  type RunCheckout,
-} from '@work/domain/value-objects/run-spec.vo';
 import { ChangedPaths } from '@work/infrastructure/acp/changed-paths';
 import { Told } from '@work/infrastructure/acp/told';
 import { Reported } from '@work/infrastructure/otel/reported';
@@ -88,7 +85,7 @@ export async function changesOfTask(
       await db
         .select({
           id: run.id,
-          checkouts: sql<RunCheckout[] | null>`${run.spec} -> 'checkouts'`,
+          checkouts: sql<unknown>`${run.spec} -> 'checkouts'`,
         })
         .from(run)
         .where(
@@ -97,7 +94,10 @@ export async function changesOfTask(
             touching.map((each) => each.runId),
           ),
         )
-    ).map((each) => [each.id, checkoutFoldersOf(each.checkouts ?? [])]),
+    ).map((each) => [
+      each.id,
+      RunSpecContract.checkoutFoldersIn(each.checkouts),
+    ]),
   );
 
   return touching.map((each) => ({

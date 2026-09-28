@@ -1,6 +1,7 @@
 import type { LeaveAsHostCommand } from '@runners/application/commands/host.commands';
 import type { HostLeftDto } from '@runners/application/dto/host-standing.dto';
 import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import { forgetHost } from '@runners/application/services/runner-host-revisions';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
@@ -23,14 +24,11 @@ export class LeaveAsHostHandler
         return { outcome: 'refused' };
       }
 
-      const id = HostId.of(command.hostId);
-      const known = await this.hosts.find(id);
+      const through = Admission.of(admitted.way.kind, admitted.way.id);
 
-      if (
-        known?.servesThrough(Admission.of(admitted.way.kind, admitted.way.id))
-      ) {
-        await this.hosts.remove(known);
-      }
+      await forgetHost(this.hosts, HostId.of(command.hostId), (known) =>
+        known.servesThrough(through),
+      );
 
       return { outcome: 'left' };
     } catch (error) {

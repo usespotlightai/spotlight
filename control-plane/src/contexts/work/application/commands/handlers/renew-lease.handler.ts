@@ -7,6 +7,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RenewLeaseCommand } from '@work/application/commands/runner.commands';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
+import { UnknownRunnerError } from '@work/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 export class RenewLeaseHandler
@@ -24,7 +25,7 @@ export class RenewLeaseHandler
       const at = this.clock.now();
 
       if (!(await this.presence.seen(renewing, at))) {
-        throw new UnknownRunError(`runner ${command.runnerId} is not known`);
+        throw new UnknownRunnerError(command.runnerId);
       }
 
       await this.runs.save(

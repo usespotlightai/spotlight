@@ -20,6 +20,7 @@ import { WorkspaceTokenTrustWithdrawn } from '@identity/domain/events/workspace-
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
 import { Clearance } from '@identity/domain/value-objects/clearance.vo';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
+import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
@@ -38,6 +39,7 @@ export const IDENTITY_EVENT_TYPES = [
   ClaimPattern,
   Clearance,
   EmailAddress,
+  Grantor,
   InviteId,
   MintedTokenDetail,
   Holdings,

@@ -2,6 +2,7 @@ package stackcheck
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
 	"usespotlight.ai/data-plane/runner/internal/prepare"
@@ -22,9 +24,13 @@ const (
 	sh           = "/bin/sh"
 	defaultStep  = 5 * time.Minute
 	defaultTotal = 60 * time.Minute
+	defaultRenew = time.Minute
 )
 
-type Reporter interface {
+var errNoLongerHeld = errors.New("the check is no longer held")
+
+type Control interface {
+	RenewCheckLease(ctx context.Context, runID, stackID string) (bool, error)
 	RecordChangeStackCheck(ctx context.Context, runID, stackID string, checked protocol.StackChecked) error
 }
 
@@ -37,6 +43,7 @@ type Options struct {
 	Step    time.Duration
 	Setup   time.Duration
 	Total   time.Duration
+	Renew   time.Duration
 }
 
 func (o Options) or(value, fallback time.Duration) time.Duration {
@@ -46,15 +53,61 @@ func (o Options) or(value, fallback time.Duration) time.Duration {
 	return fallback
 }
 
-func Perform(ctx context.Context, reporter Reporter, check protocol.StackCheck, opts Options) {
+func Perform(ctx context.Context, client Control, check protocol.StackCheck, opts Options) {
 	checking, stop := context.WithTimeout(ctx, opts.or(opts.Total, defaultTotal))
 	defer stop()
 
-	checked := opts.perform(checking, check)
+	held, letGo := context.WithCancelCause(checking)
+	renewing := opts.renew(held, client, check, letGo)
 
-	if err := reporter.RecordChangeStackCheck(ctx, check.RunID, check.StackID, checked); err != nil {
+	checked := opts.perform(held, check)
+	lost := errors.Is(context.Cause(held), errNoLongerHeld)
+	letGo(nil)
+	<-renewing
+
+	if lost {
+		opts.Log.Info("stopped checking a change stack it no longer holds", "stack", check.StackID)
+		return
+	}
+
+	if err := client.RecordChangeStackCheck(ctx, check.RunID, check.StackID, checked); err != nil {
 		opts.Log.Warn("could not report a change stack check", "stack", check.StackID, "error", err)
 	}
+}
+
+func (o Options) renew(
+	ctx context.Context, client Control, check protocol.StackCheck, letGo context.CancelCauseFunc,
+) <-chan struct{} {
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(o.or(o.Renew, defaultRenew))
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				stop, err := client.RenewCheckLease(ctx, check.RunID, check.StackID)
+				switch {
+				case err == nil && stop:
+					o.Log.Info("told to stop checking a change stack", "stack", check.StackID)
+					letGo(errNoLongerHeld)
+					return
+				case err != nil && control.CheckLeaseLost(err):
+					o.Log.Warn("lost the lease of a change stack check", "stack", check.StackID, "error", err)
+					letGo(errNoLongerHeld)
+					return
+				case err != nil && ctx.Err() == nil:
+					o.Log.Warn("could not renew the lease of a change stack check", "stack", check.StackID, "error", err)
+				}
+			}
+		}
+	}()
+
+	return done
 }
 
 func skipped(code, detail string) protocol.StackChecked {

@@ -35,7 +35,7 @@ export class CompleteRunHandler
             message: command.message,
           });
       const declared =
-        command.declared && !outcome.failed && !outcome.stopped
+        command.declared && outcome.handsOver
           ? await this.handingOver(
               runId,
               runnerId,

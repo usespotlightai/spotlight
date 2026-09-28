@@ -17,7 +17,6 @@ const atWork = (pool: KeptPool): PoolAtWork => ({
   workspaceId: pool.workspaceId,
   key: pool.key,
   labels: RunnerTerms.of(pool.labels),
-  maxRuns: pool.maxRuns,
 });
 
 export class RunnerPools implements RunnerPoolsPort {
@@ -28,15 +27,23 @@ export class RunnerPools implements RunnerPoolsPort {
     private readonly admissions: RunnerAdmissionsPort,
   ) {}
 
-  async pulledWith(token: string | undefined): Promise<PoolAtWork | null> {
+  async pulledWith(
+    token: string | undefined,
+    poolId: string,
+  ): Promise<PoolAtWork | null> {
     const admitted = await this.admissions.admit({
       bearer: token,
       trust: undefined,
     });
-    const pool =
-      admitted?.way.kind === 'pool'
-        ? await this.pools.find(RunnerPoolId.of(admitted.way.id))
-        : null;
+
+    if (admitted?.way.kind !== 'pool') {
+      return null;
+    }
+
+    const id = RunnerPoolId.of(admitted.way.id);
+    const pool = id.equals(RunnerPoolId.of(poolId))
+      ? await this.pools.find(id)
+      : null;
 
     return pool
       ? {
@@ -44,7 +51,6 @@ export class RunnerPools implements RunnerPoolsPort {
           workspaceId: pool.workspaceId,
           key: pool.key.value,
           labels: RunnerTerms.of(pool.labels.values),
-          maxRuns: pool.maxRuns?.value ?? null,
         }
       : null;
   }
@@ -55,5 +61,14 @@ export class RunnerPools implements RunnerPoolsPort {
 
   async running(poolId: string, now: Date): Promise<number> {
     return (await this.runners.standingIn(RunnerPoolId.of(poolId), now)).length;
+  }
+
+  async roomIn(poolId: string, now: Date): Promise<number | null> {
+    const id = RunnerPoolId.of(poolId);
+    const pool = await this.pools.find(id);
+
+    return pool
+      ? pool.roomFor((await this.runners.standingIn(id, now)).length)
+      : 0;
   }
 }

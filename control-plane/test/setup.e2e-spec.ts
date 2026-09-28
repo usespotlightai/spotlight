@@ -185,7 +185,11 @@ describe('the inbox item a setup list stands as', () => {
 });
 
 describe('whether a workspace has a way in for runners to offer work', () => {
-  const runners = () => new DrizzleRunnerReader(db);
+  const runners = () =>
+    new DrizzleRunnerReader(db, {
+      now: () => new Date(),
+      sleep: async () => {},
+    });
 
   const pooled = (workspaceId: WorkspaceId, mode: 'pull' | 'push') =>
     db.insert(schema.runnerPool).values({

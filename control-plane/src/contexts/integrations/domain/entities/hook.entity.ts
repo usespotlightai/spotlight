@@ -1,14 +1,20 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
+import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
-export type HookFailure = 'continue' | 'block';
+export const HOOK_ON_FAILURES = ['continue', 'block'] as const;
+
+export type HookOnFailure = (typeof HOOK_ON_FAILURES)[number];
 
 export type HookSigning = 'hmac' | 'oidc';
 
 export type HookStep =
-  | { readonly name: string; readonly kind: 'call'; readonly tool: string }
+  | { readonly name: string; readonly kind: 'call'; readonly tool: ToolName }
   | {
       readonly name: string;
       readonly kind: 'request';
@@ -17,7 +23,7 @@ export type HookStep =
     };
 
 interface HookMatch {
-  readonly tools: readonly string[];
+  readonly tools: readonly ToolName[];
   readonly paths: readonly string[];
 }
 
@@ -27,9 +33,19 @@ interface Described {
   readonly match: HookMatch;
   readonly steps: readonly HookStep[];
   readonly signing: HookSigning | null;
-  readonly failure: HookFailure;
+  readonly failure: HookOnFailure;
   readonly timeoutSeconds: number;
 }
+
+export interface StepEnded {
+  readonly refusal: string | null;
+  readonly failedBecause: string | null;
+}
+
+const DEFAULTS = {
+  failure: 'continue',
+  timeoutSeconds: 10,
+} as const satisfies Pick<Described, 'failure' | 'timeoutSeconds'>;
 
 const STEP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -38,6 +54,14 @@ const SHORTEST_TIMEOUT = 1;
 const LONGEST_TIMEOUT = 30;
 
 const at = (...segments: (string | number)[]) => FieldPath.of(segments);
+
+const sendsInTheClear = (url: URL, fromNetwork: boolean): boolean =>
+  url.protocol !== 'https:' && !fromNetwork;
+
+const uniqueNames = (tools: readonly ToolName[]): ToolName[] =>
+  tools.filter(
+    (tool, index) => tools.findIndex((each) => each.equals(tool)) === index,
+  );
 
 const guardMatch = (described: Described): void => {
   if (described.match.tools.length > 0 && !described.event.aboutTool) {
@@ -66,8 +90,7 @@ const guardStep = (step: HookStep, index: number): void => {
   if (
     step.kind === 'request' &&
     step.url &&
-    step.url.protocol !== 'https:' &&
-    !step.fromNetwork
+    sendsInTheClear(step.url, step.fromNetwork)
   ) {
     throw new InvalidHookError(
       at('steps', index, 'request', 'url'),
@@ -131,6 +154,8 @@ const guardFailure = (described: Described): void => {
 };
 
 export class Hook {
+  static readonly DEFAULTS = DEFAULTS;
+
   private constructor(private readonly described: Described) {}
 
   static of(described: Described): Hook {
@@ -141,7 +166,7 @@ export class Hook {
     return new Hook({
       ...described,
       match: {
-        tools: [...new Set(described.match.tools)],
+        tools: uniqueNames(described.match.tools),
         paths: [...described.match.paths],
       },
       steps: described.steps.map((step) => ({ ...step })),
@@ -156,7 +181,7 @@ export class Hook {
     return this.described.event;
   }
 
-  get failure(): HookFailure {
+  get failure(): HookOnFailure {
     return this.described.failure;
   }
 
@@ -176,18 +201,16 @@ export class Hook {
     return this.described.timeoutSeconds;
   }
 
-  get tools(): readonly string[] {
-    return [
-      ...new Set([
-        ...this.described.match.tools,
-        ...this.described.steps.flatMap((step) =>
-          step.kind === 'call' ? [step.tool] : [],
-        ),
-      ]),
-    ].sort();
+  get tools(): readonly ToolName[] {
+    return uniqueNames([
+      ...this.described.match.tools,
+      ...this.described.steps.flatMap((step) =>
+        step.kind === 'call' ? [step.tool] : [],
+      ),
+    ]).sort((one, other) => (one.value < other.value ? -1 : 1));
   }
 
-  get matchedTools(): readonly string[] {
+  get matchedTools(): readonly ToolName[] {
     return this.described.match.tools;
   }
 
@@ -195,5 +218,58 @@ export class Hook {
     return this.described.steps.some(
       (step) => step.kind === 'request' && step.fromNetwork,
     );
+  }
+
+  refusalToCall(
+    named: ToolName,
+    offered: OfferedTool | null,
+  ): HookFailure | null {
+    if (offered === null || offered.tool !== named.value) {
+      return HookFailure.of(
+        'not-allowed',
+        `names ${named.value}, which no integration of the team offers now`,
+      );
+    }
+
+    if (offered.approval) {
+      return HookFailure.of(
+        'not-allowed',
+        `calls ${named.value}, which asks a person's approval before each call, and a hook cannot give it`,
+      );
+    }
+
+    return null;
+  }
+
+  refusalToRequest(step: string, url: URL): HookFailure | null {
+    const fromNetwork = this.described.steps.some(
+      (each) =>
+        each.name === step && each.kind === 'request' && each.fromNetwork,
+    );
+
+    return sendsInTheClear(url, fromNetwork)
+      ? HookFailure.of(
+          'not-allowed',
+          `sends to ${url.origin}, which is not https`,
+        )
+      : null;
+  }
+
+  verdictOn(step: string, ended: StepEnded): HookVerdict | null {
+    const hook = this.described.key.value;
+
+    if (ended.refusal !== null) {
+      return HookVerdict.refused(`The hook ${hook} refused: ${ended.refusal}`);
+    }
+
+    if (ended.failedBecause === null) {
+      return null;
+    }
+
+    return this.blocks
+      ? HookVerdict.refused(
+          `The hook ${hook} failed at ${step} (${ended.failedBecause}), and it blocks on failure`,
+        )
+      : HookVerdict.allowed();
   }
 }

@@ -6,6 +6,7 @@ import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
 import { MemoryStood } from '@memory/domain/events/memory-stood.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
@@ -41,7 +42,7 @@ const approved = (supersedes: MemoryId | null = null) =>
     WorkspaceId.of('ws_1'),
     NEW,
     'preference',
-    'Name branches after the ticket.',
+    MemoryBody.of('Name branches after the ticket.'),
     SCOPE,
     GROUNDS,
     'run',
@@ -126,7 +127,7 @@ describe('reacting to memories being proposed and decided', () => {
       handle: MemoryHandle.of(1),
       workspaceId: WorkspaceId.of('ws_1'),
       kind: 'preference',
-      body: 'Name branches after the author.',
+      body: MemoryBody.of('Name branches after the author.'),
       scope: SCOPE,
       grounds: GROUNDS,
       source: 'run',
@@ -146,7 +147,7 @@ describe('reacting to memories being proposed and decided', () => {
       handle: MemoryHandle.of(2),
       workspaceId: WorkspaceId.of('ws_1'),
       kind: 'preference',
-      body: 'Name branches after the author.',
+      body: MemoryBody.of('Name branches after the author.'),
       scope: SCOPE,
       grounds: GROUNDS,
       source: 'run',
@@ -159,5 +160,28 @@ describe('reacting to memories being proposed and decided', () => {
 
     expect(held[0]?.standing).toBe('retired');
     expect(held[0]?.retirement?.supersededBy?.equals(NEW)).toBe(true);
+  });
+
+  it('leaves a memory already superseded by another standing as it was', async () => {
+    const old = Memory.stood({
+      id: OLD,
+      handle: MemoryHandle.of(3),
+      workspaceId: WorkspaceId.of('ws_1'),
+      kind: 'preference',
+      body: MemoryBody.of('Name branches after the author.'),
+      scope: SCOPE,
+      grounds: GROUNDS,
+      source: 'run',
+      supersedes: null,
+      approval: ADA,
+    }).supersededBy(MemoryId.of('memory_first'), NOW);
+    const { reactions, memories, held } = reacting([old]);
+
+    await reactions.onStood(new MemoryStood(NEW, OLD));
+
+    expect(memories.save).not.toHaveBeenCalled();
+    expect(
+      held[0]?.retirement?.supersededBy?.equals(MemoryId.of('memory_first')),
+    ).toBe(true);
   });
 });

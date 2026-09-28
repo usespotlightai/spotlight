@@ -1,3 +1,4 @@
+import { Credential } from '@secrets/application/contracts/credential.contract';
 import { CredentialUnopenableError } from '@secrets/application/errors/credential-unopenable.error';
 import type { CredentialSealingPort } from '@secrets/application/ports/credential-sealing.port';
 import {
@@ -17,11 +18,11 @@ export class WorkspaceCredentialSealing implements CredentialSealingPort {
   async seal(
     workspaceId: string,
     label: string,
-    plain: string,
+    credential: Credential,
   ): Promise<string> {
     return sealed(
       await this.keys.of(WorkspaceId.of(workspaceId)),
-      Buffer.from(plain, 'utf8'),
+      Buffer.from(credential.revealed(), 'utf8'),
       boundTo(workspaceId, label),
     );
   }
@@ -30,13 +31,15 @@ export class WorkspaceCredentialSealing implements CredentialSealingPort {
     workspaceId: string,
     label: string,
     written: string,
-  ): Promise<string> {
+  ): Promise<Credential> {
     try {
-      return opened(
-        await this.keys.of(WorkspaceId.of(workspaceId)),
-        written,
-        boundTo(workspaceId, label),
-      ).toString('utf8');
+      return Credential.of(
+        opened(
+          await this.keys.of(WorkspaceId.of(workspaceId)),
+          written,
+          boundTo(workspaceId, label),
+        ).toString('utf8'),
+      );
     } catch (error) {
       if (error instanceof UnopenableEnvelopeError) {
         throw new CredentialUnopenableError(label);

@@ -626,8 +626,10 @@ const bodyOf = (held: HeldResourceDto): object => {
           held.signing && 'secretVersion' in held.signing
             ? { secret: HOOK_SECRET, secretVersion: held.signing.secretVersion }
             : held.signing,
-        failure: held.failure,
-        timeoutSeconds: held.timeoutSeconds,
+        ...(held.failure === null ? {} : { failure: held.failure }),
+        ...(held.timeoutSeconds === null
+          ? {}
+          : { timeoutSeconds: held.timeoutSeconds }),
       };
     case 'harness-profile':
       return {

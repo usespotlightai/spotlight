@@ -1,14 +1,18 @@
-import { RunGrants } from '@secrets/application/services/run-grants.service';
+import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
+import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
+import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
+import { RunHoldOverError } from '@secrets/domain/exceptions/run-hold-over.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-granted.error';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import {
   BY,
+  clockAt,
   definition,
   InMemoryGrants,
   InMemorySecrets,
@@ -56,7 +60,12 @@ const holding = async () => {
   );
 
   return {
-    injection: new SecretInjection(secrets, grants, sources),
+    injection: new SecretInjection(
+      secrets,
+      grants,
+      new RunGrantsKept(grants),
+      sources,
+    ),
     secrets,
     grants,
   };
@@ -157,6 +166,7 @@ describe('SecretInjection', () => {
       await injection.grant({
         workspaceId: WORKSPACE.value,
         runId: 'run_1',
+        attempt: 1,
         secrets: ['LINEAR_API_KEY', 'LINEAR_API_KEY'],
       });
 
@@ -176,6 +186,7 @@ describe('SecretInjection', () => {
         injection.grant({
           workspaceId: WORKSPACE.value,
           runId: 'run_1',
+          attempt: 1,
           secrets: ['LINEAR_API_KEY', 'GITHUB_TOKEN'],
         }),
       ).rejects.toThrow(NoSuchSecretError);
@@ -188,6 +199,7 @@ describe('SecretInjection', () => {
       await injection.grant({
         workspaceId: WORKSPACE.value,
         runId: 'run_1',
+        attempt: 1,
         secrets: ['LINEAR_API_KEY'],
       });
 
@@ -196,6 +208,7 @@ describe('SecretInjection', () => {
           injection.forRun({
             workspaceId: WORKSPACE.value,
             runId: 'run_1',
+            attempt: 1,
             secrets: ['LINEAR_API_KEY'],
             url: URL,
           }),
@@ -209,6 +222,7 @@ describe('SecretInjection', () => {
       await injection.grant({
         workspaceId: WORKSPACE.value,
         runId: 'run_1',
+        attempt: 1,
         secrets: ['LINEAR_API_KEY'],
       });
 
@@ -216,6 +230,7 @@ describe('SecretInjection', () => {
         injection.forRun({
           workspaceId: WORKSPACE.value,
           runId: 'run_2',
+          attempt: 1,
           secrets: ['LINEAR_API_KEY'],
           url: URL,
         }),
@@ -229,10 +244,15 @@ describe('SecretInjection', () => {
         await injection.grant({
           workspaceId: WORKSPACE.value,
           runId,
+          attempt: 1,
           secrets: ['LINEAR_API_KEY'],
         });
       }
-      await new RunGrants(grants).endedFor('run_1');
+      await new RunGrantEndings(new RunGrantsKept(grants), clockAt()).endedFor({
+        workspaceId: WORKSPACE.value,
+        runId: 'run_1',
+        attempt: 1,
+      });
 
       expect(grants.all.map((each) => each.runId.value)).toEqual(['run_2']);
 
@@ -240,10 +260,87 @@ describe('SecretInjection', () => {
         injection.forRun({
           workspaceId: WORKSPACE.value,
           runId: 'run_1',
+          attempt: 1,
           secrets: ['LINEAR_API_KEY'],
           url: URL,
         }),
       ).rejects.toThrow(SecretNotGrantedError);
+    });
+
+    it('grants nothing to a run whose end was heard before anything was granted to it', async () => {
+      const { injection, grants } = await holding();
+
+      await new RunGrantEndings(new RunGrantsKept(grants), clockAt()).endedFor({
+        workspaceId: WORKSPACE.value,
+        runId: 'run_1',
+        attempt: 1,
+      });
+
+      await expect(
+        injection.grant({
+          workspaceId: WORKSPACE.value,
+          runId: 'run_1',
+          attempt: 1,
+          secrets: ['LINEAR_API_KEY'],
+        }),
+      ).rejects.toThrow(RunGrantsEndedError);
+      expect(grants.of('run_1')?.isEnded).toBe(true);
+      expect(grants.all).toEqual([]);
+    });
+
+    it('grants nothing to an attempt whose lost hold was heard before anything was granted to it, and grants the next attempt', async () => {
+      const { injection, grants } = await holding();
+      const granting = (attempt: number) =>
+        injection.grant({
+          workspaceId: WORKSPACE.value,
+          runId: 'run_1',
+          attempt,
+          secrets: ['LINEAR_API_KEY'],
+        });
+
+      await new RunGrantEndings(new RunGrantsKept(grants), clockAt()).holdLost({
+        workspaceId: WORKSPACE.value,
+        runId: 'run_1',
+        attempt: 1,
+      });
+
+      await expect(granting(1)).rejects.toThrow(RunHoldOverError);
+      await granting(2);
+
+      expect(grants.all.map((each) => each.host)).toEqual(['api.linear.app']);
+    });
+
+    it('wears only what the run’s current attempt was granted', async () => {
+      const { injection } = await holding();
+      const asking = (attempt: number) =>
+        injection.forRun({
+          workspaceId: WORKSPACE.value,
+          runId: 'run_1',
+          attempt,
+          secrets: ['LINEAR_API_KEY'],
+          url: URL,
+        });
+
+      await injection.grant({
+        workspaceId: WORKSPACE.value,
+        runId: 'run_1',
+        attempt: 1,
+        secrets: ['LINEAR_API_KEY'],
+      });
+
+      await expect(asking(2)).rejects.toThrow(SecretNotGrantedError);
+
+      await injection.grant({
+        workspaceId: WORKSPACE.value,
+        runId: 'run_1',
+        attempt: 2,
+        secrets: ['LINEAR_API_KEY'],
+      });
+
+      expect(await headersOf(asking(2))).toEqual({
+        authorization: 'Bearer lin_api_1',
+      });
+      await expect(asking(1)).rejects.toThrow(SecretNotGrantedError);
     });
 
     it('wears nothing toward a host it was rebound away from since the grant', async () => {
@@ -252,6 +349,7 @@ describe('SecretInjection', () => {
       await injection.grant({
         workspaceId: WORKSPACE.value,
         runId: 'run_1',
+        attempt: 1,
         secrets: ['LINEAR_API_KEY'],
       });
 
@@ -270,6 +368,7 @@ describe('SecretInjection', () => {
         injection.forRun({
           workspaceId: WORKSPACE.value,
           runId: 'run_1',
+          attempt: 1,
           secrets: ['LINEAR_API_KEY'],
           url: URL,
         }),

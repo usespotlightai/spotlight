@@ -1,5 +1,6 @@
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import type { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -26,7 +27,7 @@ export type CompiledTrust =
 export type CompiledPoolAccess =
   | {
       readonly mode: 'pull';
-      readonly token: string | null;
+      readonly token: PoolToken | null;
       readonly tokenVersion: number | null;
     }
   | {

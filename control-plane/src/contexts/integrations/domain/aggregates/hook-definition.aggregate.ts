@@ -1,19 +1,23 @@
-import type { Hook } from '@integrations/domain/entities/hook.entity';
+import type {
+  Hook,
+  HookOnFailure,
+} from '@integrations/domain/entities/hook.entity';
 import { HookDefined } from '@integrations/domain/events/hook-defined.event';
 import { HookRedefined } from '@integrations/domain/events/hook-redefined.event';
 import { HookRetired } from '@integrations/domain/events/hook-retired.event';
 import { HookDefinitionMovedOnError } from '@integrations/domain/exceptions/hook-definition-moved-on.error';
 import { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import type { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -34,7 +38,7 @@ interface Kept {
   readonly key: HookKey;
   readonly event: HookEvent;
   readonly document: DefinitionDocument;
-  readonly tools: readonly string[];
+  readonly tools: readonly ToolName[];
   readonly signing: SigningVersion | null;
   readonly version: number;
 }
@@ -67,21 +71,21 @@ export interface HookAllowances {
 
 const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   const missing = hook.matchedTools.filter(
-    (tool) => !allowances.offered.includes(tool),
+    (tool) => !allowances.offered.includes(tool.value),
   );
 
   if (missing.length > 0) {
     throw new InvalidHookError(
       FieldPath.of(['match', 'tools']),
-      `names ${missing.join(', ')}, which no integration of the team offers`,
+      `names ${missing.map((tool) => tool.value).join(', ')}, which no integration of the team offers`,
     );
   }
 
   hook.steps.forEach((step, index) => {
-    if (step.kind === 'call' && !allowances.offered.includes(step.tool)) {
+    if (step.kind === 'call' && !allowances.offered.includes(step.tool.value)) {
       throw new InvalidHookError(
         FieldPath.of(['steps', index, 'call']),
-        `names ${step.tool}, which no integration of the team offers`,
+        `names ${step.tool.value}, which no integration of the team offers`,
       );
     }
 
@@ -272,8 +276,14 @@ export class HookDefinition extends EventRecorder {
     return this.state.document;
   }
 
-  get tools(): readonly string[] {
+  get tools(): readonly ToolName[] {
     return this.state.tools;
+  }
+
+  get blocks(): boolean {
+    const blocking: HookOnFailure = 'block';
+
+    return this.state.document.says('failure', blocking);
   }
 
   get workspaceId(): WorkspaceId {

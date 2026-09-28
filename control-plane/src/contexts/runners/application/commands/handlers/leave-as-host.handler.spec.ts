@@ -10,6 +10,7 @@ import {
   heldHosts,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import { RunnerHostMovedOnError } from '@runners/domain/exceptions/runner-host-moved-on.error';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -53,6 +54,36 @@ describe('LeaveAsHostHandler', () => {
 
   it('forgets nothing of a host served through another way, yet lets it leave', async () => {
     const { leave, hosts } = leaving(aTrust());
+
+    await expect(leave()).resolves.toEqual({ outcome: 'left' });
+    expect(hosts.remove).not.toHaveBeenCalled();
+  });
+
+  it('forgets a host that reported again while it left', async () => {
+    const { leave, hosts, held } = leaving(aPullPool());
+    hosts.remove.mockImplementationOnce(async () => {
+      throw new RunnerHostMovedOnError(HOST_ID.value);
+    });
+
+    await expect(leave()).resolves.toEqual({ outcome: 'left' });
+    expect(hosts.remove).toHaveBeenCalledTimes(2);
+    expect(held.size).toBe(0);
+  });
+
+  it('leaves when the host was forgotten while it left', async () => {
+    const { leave, hosts, held } = leaving(aPullPool());
+    hosts.remove.mockImplementationOnce(async () => {
+      held.clear();
+      throw new RunnerHostMovedOnError(HOST_ID.value);
+    });
+
+    await expect(leave()).resolves.toEqual({ outcome: 'left' });
+    expect(hosts.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves without forgetting anything when the host is already forgotten', async () => {
+    const { leave, hosts, held } = leaving(aPullPool());
+    held.clear();
 
     await expect(leave()).resolves.toEqual({ outcome: 'left' });
     expect(hosts.remove).not.toHaveBeenCalled();

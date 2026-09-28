@@ -1,3 +1,4 @@
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -27,7 +28,7 @@ export interface CheckProvisioningPort {
   reserve(
     stackId: string,
     runner: RunnerId,
-    pool: string,
+    pool: PoolId,
     now: Date,
   ): Promise<Date | null>;
 

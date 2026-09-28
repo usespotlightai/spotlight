@@ -1,4 +1,4 @@
-import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
+import type { ConfigurationFile } from '@configuration/domain/value-objects/configuration-file.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const APPLIED_CONFIGURATION = Symbol('APPLIED_CONFIGURATION');

@@ -204,7 +204,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
       resource: string;
       key: string;
       action: string;
-      by: { kind: string; tokenId: string; userId: string; trustId: string };
+      by: { kind: string; tokenId: string; userId: string; trust: string };
       client: string;
       details: Record<string, unknown>;
     }[];
@@ -418,7 +418,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
         kind: 'token',
         tokenId: minted.tokenId,
         userId: seat.owner,
-        trustId: trust.id,
+        trust: trust.id,
       },
       details: {
         trust: trust.id,
@@ -430,11 +430,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     expect(team).toMatchObject({
       action: 'created',
       key: 'platform',
-      by: { kind: 'token', tokenId: minted.tokenId, trustId: trust.id },
+      by: { kind: 'token', tokenId: minted.tokenId, trust: trust.id },
     });
   });
 
-  it('never lists a minted token among the workspace’s tokens', async () => {
+  it('never lists a minted token among the workspace’s tokens, yet lets an admin revoke one by its id', async () => {
     const trust = await define(trusting());
     const minted = await exchanged(trust.id, MAIN);
     const listed = await http()
@@ -443,13 +443,38 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
 
     expect(listed.status).toBe(200);
     expect(JSON.stringify(listed.body)).not.toContain(minted.tokenId);
+
+    const item = `/api/resources/tokens/${minted.tokenId}`;
+    const read = await http().get(item).set(TEST_USER_HEADER, seat.owner);
+
+    expect(read.status).toBe(200);
+    expect(read.body).toMatchObject({ name: 'github-main' });
     expect(
       (
         await http()
-          .get(`/api/resources/tokens/${minted.tokenId}`)
+          .put(item)
           .set(TEST_USER_HEADER, seat.owner)
+          .set('If-Match', '"0"')
+          .send({
+            name: 'github-main',
+            description: 'described',
+            scopes: ['configure'],
+            expiresAt: minted.expiresAt,
+          })
       ).status,
-    ).toBe(404);
+    ).toBe(422);
+    expect(
+      (
+        await http()
+          .delete(item)
+          .set(TEST_USER_HEADER, seat.owner)
+          .set('If-Match', '"0"')
+      ).status,
+    ).toBe(204);
+    expect(
+      (await as(minted.token).get(`/api/resources/workspaces/${seat.held}`))
+        .status,
+    ).toBe(401);
   });
 
   it('leaves trusts to the workspace’s admins and to tokens granted trusts', async () => {
@@ -507,8 +532,18 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
       .delete(`/api/resources/token-trusts/${secrets.id}`)
       .set('Authorization', `Bearer ${await issue(['configure', 'secrets'])}`)
       .set('If-Match', '"0"');
+    const withdrawing = await http()
+      .delete(`/api/resources/token-trusts/${secrets.id}`)
+      .set('Authorization', `Bearer ${await issue(['trusts', 'plan'])}`)
+      .set('If-Match', '"0"');
 
-    for (const refused of [escalating, takeover, updating, removing]) {
+    for (const refused of [
+      escalating,
+      takeover,
+      updating,
+      removing,
+      withdrawing,
+    ]) {
       expect(refused.status).toBe(403);
       expect(refused.body).toMatchObject({
         permission: 'manage-token-trusts',

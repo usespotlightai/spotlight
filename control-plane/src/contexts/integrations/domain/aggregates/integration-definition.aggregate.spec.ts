@@ -7,6 +7,7 @@ import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptio
 import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
+import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
@@ -14,7 +15,6 @@ import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 

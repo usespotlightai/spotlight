@@ -64,6 +64,8 @@ export interface IdentityResourcesPort {
 
   tokenNamesIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
 
+  mintingTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
+
   tokensIn(workspaceId: WorkspaceId): Promise<readonly KeptWorkspaceToken[]>;
 
   tokenWithId(id: WorkspaceTokenId): Promise<KeptWorkspaceToken | null>;

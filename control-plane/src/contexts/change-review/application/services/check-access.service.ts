@@ -6,7 +6,13 @@ import type { CheckAccessPort } from '@work/application/ports/check-access.port'
 export class CheckAccess implements CheckAccessPort {
   constructor(private readonly checks: StackCheckRepository) {}
 
-  holdsCheckOfRun(runId: RunId, runner: RunnerId, now: Date): Promise<boolean> {
-    return this.checks.isClaimedBy(runId.value, runner, now);
+  async holdsCheckOfRun(
+    runId: RunId,
+    runner: RunnerId,
+    now: Date,
+  ): Promise<boolean> {
+    return (await this.checks.ofRun(runId)).some((check) =>
+      check.beingCheckedBy(runner, now),
+    );
   }
 }

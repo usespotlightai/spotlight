@@ -69,7 +69,7 @@ export class TeamMemoryViews {
       id: memory.id.value,
       handle: memory.handle.value,
       kind: memory.kind,
-      body: memory.body,
+      body: memory.body.value,
       source: memory.source,
       standing: memory.standing,
       reach: scope.reach,
@@ -100,7 +100,7 @@ export class TeamMemoryViews {
       linked && {
         id: linked.id.value,
         handle: linked.handle.value,
-        body: linked.body,
+        body: linked.body.value,
       }
     );
   }

@@ -8,25 +8,26 @@ import {
 import { HeldWorkspaceArchiveHandler } from '@work/application/queries/handlers/held-workspace-archive.handler';
 import { HeldWorkspaceArchiveQuery } from '@work/application/queries/held-workspace-archive.query';
 import {
-  CONTINUING,
+  aHeldRun,
   holding,
   InMemoryArchiveStore,
   InMemoryArchives,
 } from '@work/application/services/workspace-archives.fake-spec';
+import type { Run } from '@work/domain/aggregates/run.aggregate';
 import {
   GRANTED_AT,
   SHA256,
   storedAs,
 } from '@work/domain/aggregates/workspace-archive.fake-spec';
+import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-workspace-archive.error';
 import { describe, expect, it } from 'vitest';
 
-const setUp = (
-  runs: Parameters<typeof holding>[0] = {
-    run_1: { runner: 'runner_1', continuity: CONTINUING },
-    run_2: { runner: 'runner_2', continuity: CONTINUING },
-  },
-) => {
-  const held = holding(runs);
+const setUp = (...runs: Run[]) => {
+  const held = holding(
+    ...(runs.length > 0
+      ? runs
+      : [aHeldRun(), aHeldRun({ id: 'run_2', runner: 'runner_2' })]),
+  );
   const archives = new InMemoryArchives();
   const store = new InMemoryArchiveStore();
   let issued = 0;
@@ -69,13 +70,10 @@ describe('keeping a workspace between runs', () => {
   });
 
   it('refuses work that does not carry on, and archives too large to keep', async () => {
-    const { grant } = setUp({
-      run_1: {
-        runner: 'runner_1',
-        continuity: { ...CONTINUING, continuity: null, holder: null },
-      },
-      run_2: { runner: 'runner_2', continuity: CONTINUING },
-    });
+    const { grant, archives } = setUp(
+      aHeldRun({ carriesOn: false }),
+      aHeldRun({ id: 'run_2', runner: 'runner_2' }),
+    );
 
     await expect(
       grant.execute(
@@ -92,6 +90,21 @@ describe('keeping a workspace between runs', () => {
         ),
       ),
     ).rejects.toThrow(UseCaseFault);
+    expect(archives.kept.size).toBe(0);
+  });
+
+  it('keeps no archive the store cannot take', async () => {
+    const { grant, archives, store } = setUp();
+    store.grantUpload = async () => {
+      throw new InvalidWorkspaceArchiveError('cannot be kept here');
+    };
+
+    await expect(
+      grant.execute(
+        new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      ),
+    ).rejects.toThrow(UseCaseFault);
+    expect(archives.kept.size).toBe(0);
   });
 
   it('seals an archive once storage holds it as granted, and the next run restores it', async () => {
@@ -164,12 +177,7 @@ describe('keeping a workspace between runs', () => {
   });
 
   it('restores nothing for a run that starts its conversation afresh, or one it does not hold', async () => {
-    const { read } = setUp({
-      run_1: {
-        runner: 'runner_1',
-        continuity: { ...CONTINUING, continuing: false },
-      },
-    });
+    const { read } = setUp(aHeldRun({ session: null }));
 
     await expect(
       read.execute(new HeldWorkspaceArchiveQuery('run_1', 'runner_1')),

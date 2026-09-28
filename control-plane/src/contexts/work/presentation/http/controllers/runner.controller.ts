@@ -35,6 +35,7 @@ import {
   ClaimRunCommand,
   CompleteRunCommand,
   RecordRunImageCommand,
+  RenewCheckLeaseCommand,
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
@@ -45,6 +46,7 @@ import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import type { AttachmentContent } from '@work/application/ports/attachment-store.port';
+import type { CheckLeaseRenewal } from '@work/application/ports/check-work.port';
 import { HarnessCatalogueQuery } from '@work/application/queries/list-harnesses.query';
 import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
@@ -64,6 +66,7 @@ import {
 import {
   ClaimedWorkResponseDto,
   PermissionAnswerResponseDto,
+  RenewCheckLeaseResponseDto,
   RenewLeaseResponseDto,
   ToolAnswerResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
@@ -258,6 +261,37 @@ export class RunnerController {
     );
 
     return new RenewLeaseResponseDto(stop);
+  }
+
+  @Post('runs/:runId/change-stack-checks/:stackId/lease')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'renewCheckLease',
+    summary: 'Say the check of a change stack is still being worked on',
+    description:
+      'The runner holding a check renews its lease while the check runs, ' +
+      'so a long check is not handed to a second runner. The answer ' +
+      'carries back whether the runner should stop checking.',
+  })
+  @ApiOkResponse({ type: RenewCheckLeaseResponseDto })
+  @ApiNotFoundResponse({
+    description:
+      'No such runner, or the check this runner holds is of another run',
+  })
+  @ApiConflictResponse({
+    description: 'The check kept moving on while it was renewed',
+  })
+  async renewCheckLease(
+    @Param('runId') runId: string,
+    @Param('stackId') stackId: string,
+    @CurrentRunner() runnerId: string,
+  ): Promise<RenewCheckLeaseResponseDto> {
+    const renewal = await this.commandBus.execute<
+      RenewCheckLeaseCommand,
+      CheckLeaseRenewal
+    >(new RenewCheckLeaseCommand(runId, stackId, runnerId));
+
+    return new RenewCheckLeaseResponseDto(renewal === 'stop');
   }
 
   @Post('runs/:runId/image')

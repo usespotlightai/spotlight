@@ -20,7 +20,11 @@ const access = (
       memberOf: async () =>
         over.member === false
           ? null
-          : { workspaceId: WORKSPACE, by: UserId.of('user_1') },
+          : {
+              workspaceId: WORKSPACE,
+              teamId: TeamId.of('team_1'),
+              by: UserId.of('user_1'),
+            },
     } as unknown as PeoplePort,
     {
       task: async (): Promise<ReviewedTask | null> =>
@@ -49,6 +53,7 @@ describe('who may see and dispute a task’s decisions', () => {
 
   it('is nobody when the task is in another team or workspace', async () => {
     expect(await access({ task: { teamId: TeamId.of('team_2') } })).toBeNull();
+    expect(await access({ task: { teamId: null } })).toBeNull();
     expect(
       await access({ task: { workspaceId: WorkspaceId.of('ws_2') } }),
     ).toBeNull();

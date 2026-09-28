@@ -1,24 +1,31 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
-import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
+import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
@@ -185,6 +192,18 @@ export class Run extends EventRecorder {
     return this.subject?.chatId ?? null;
   }
 
+  get continuity(): ContinuityKey | null {
+    return this.spec.continuity;
+  }
+
+  get archiveHolder(): ArchiveHolder | null {
+    return this.subject?.archiveHolder ?? null;
+  }
+
+  get restoresFrom(): ContinuityKey | null {
+    return this.spec.continuesASession ? this.spec.continuity : null;
+  }
+
   claim(by: RunnerId, now: Date): Run {
     if (this.state !== 'queued') {
       throw new InvalidRunTransitionError(
@@ -197,12 +216,33 @@ export class Run extends EventRecorder {
       );
     }
 
-    return this.with({
+    const claimed = this.with({
       state: 'claimed',
       claimedBy: by,
       leaseExpiresAt: this.leaseFrom(now),
       reservation: null,
     });
+
+    if (this.reservation && !this.reservation.heldFor(by)) {
+      claimed.recordReservationDropped(this.reservation.runner);
+    }
+
+    return claimed;
+  }
+
+  provisionRefusedBy(
+    runner: RunnerId,
+    harnesses: readonly HarnessId[],
+  ): ProvisionFailure | null {
+    if (
+      this.state !== 'queued' ||
+      !this.reservation?.heldFor(runner) ||
+      harnesses.some((each) => each.equals(this.harness))
+    ) {
+      return null;
+    }
+
+    return ProvisionFailure.harnessMissing(this.harness.value);
   }
 
   isReservedAt(now: Date): boolean {
@@ -221,12 +261,13 @@ export class Run extends EventRecorder {
     return (
       this.state === 'queued' &&
       this.reservation === null &&
+      !this.wearsSecrets &&
       this.provisioning.dueAt(now) &&
       this.handBacks.claimableAt(now)
     );
   }
 
-  reservedFor(runner: RunnerId, pool: string, now: Date): Run {
+  reservedFor(runner: RunnerId, pool: PoolId, now: Date): Run {
     if (this.wearsSecrets) {
       throw new InvalidRunTransitionError(
         'cannot be reserved for a runner a pool provisions while it wears secrets, which only the egress beside a host’s sandbox wears',
@@ -249,7 +290,10 @@ export class Run extends EventRecorder {
       return this;
     }
 
-    return this.with({ reservation: null });
+    const unreserved = this.with({ reservation: null });
+    unreserved.recordReservationDropped(runner);
+
+    return unreserved;
   }
 
   provisionFailed(runner: RunnerId, failure: ProvisionFailure, now: Date): Run {
@@ -260,7 +304,10 @@ export class Run extends EventRecorder {
     const provisioning = this.provisioning.failedAt(failure, now);
 
     if (!provisioning.exhausted) {
-      return this.with({ reservation: null, provisioning });
+      const retried = this.with({ reservation: null, provisioning });
+      retried.recordReservationDropped(runner);
+
+      return retried;
     }
 
     const outcome = RunOutcome.unprovisioned(failure, provisioning.failures);
@@ -271,6 +318,8 @@ export class Run extends EventRecorder {
       outcome,
     });
 
+    failed.recordReservationDropped(runner);
+
     failed.record(
       new RunCompleted(
         this.id,
@@ -280,6 +329,7 @@ export class Run extends EventRecorder {
         null,
         null,
         null,
+        this.attempt,
       ),
     );
 
@@ -293,11 +343,23 @@ export class Run extends EventRecorder {
       );
     }
 
-    if (LOST.exhaustedAfter(this.attempt)) {
-      return this.givenUp(RunOutcome.lost(this.attempt));
+    const next = LOST.exhaustedAfter(this.attempt)
+      ? this.givenUp(RunOutcome.lost(this.attempt))
+      : this.backOnTheQueue();
+
+    if (this.claimedBy) {
+      next.record(
+        new RunLapsed(
+          this.id,
+          this.workspaceId,
+          this.claimedBy,
+          now,
+          this.attempt,
+        ),
+      );
     }
 
-    return this.backOnTheQueue();
+    return next;
   }
 
   private givenUp(outcome: RunOutcome): Run {
@@ -328,14 +390,20 @@ export class Run extends EventRecorder {
     });
   }
 
-  release(): Run {
-    if (this.state !== 'claimed') {
+  unclaimedBy(by: RunnerId): Run {
+    this.requireHeldBy(by, 'unclaim');
+
+    if (this.ranIn) {
       throw new InvalidRunTransitionError(
-        `cannot be released while it is ${this.state}`,
+        'cannot be unclaimed once it has started',
       );
     }
 
-    return this.backOnTheQueue();
+    return this.with({
+      state: 'queued',
+      claimedBy: null,
+      leaseExpiresAt: null,
+    });
   }
 
   startedIn(by: RunnerId, image: RunnerImage): Run {
@@ -386,6 +454,7 @@ export class Run extends EventRecorder {
         by,
         said.declared ?? null,
         said.session ?? null,
+        this.attempt,
       ),
     );
 
@@ -399,7 +468,7 @@ export class Run extends EventRecorder {
       );
     }
 
-    const refused = this.with({ state: endingIn(outcome), outcome });
+    const refused = this.endedQueued(outcome);
 
     refused.record(
       new RunCompleted(
@@ -410,6 +479,7 @@ export class Run extends EventRecorder {
         null,
         null,
         null,
+        this.attempt,
       ),
     );
 
@@ -462,6 +532,7 @@ export class Run extends EventRecorder {
         null,
         null,
         null,
+        this.attempt,
       ),
     );
 
@@ -482,11 +553,27 @@ export class Run extends EventRecorder {
     }
 
     const outcome = RunOutcome.superseded(reason);
-    const withdrawn = this.with({ state: endingIn(outcome), outcome });
+    const withdrawn = this.endedQueued(outcome);
 
-    withdrawn.record(new RunWithdrawn(this.id, this.workspaceId, this.subject));
+    withdrawn.record(
+      new RunWithdrawn(this.id, this.workspaceId, this.subject, this.attempt),
+    );
 
     return withdrawn;
+  }
+
+  private endedQueued(outcome: RunOutcome): Run {
+    const ended = this.with({
+      state: endingIn(outcome),
+      outcome,
+      reservation: null,
+    });
+
+    if (this.reservation) {
+      ended.recordReservationDropped(this.reservation.runner);
+    }
+
+    return ended;
   }
 
   supersededByItsTask(): Run {
@@ -547,7 +634,17 @@ export class Run extends EventRecorder {
   journalFor(by: RunnerId): RunAttempt {
     this.requireHeldBy(by, 'journal');
 
+    return this.currentAttempt;
+  }
+
+  get currentAttempt(): RunAttempt {
     return RunAttempt.of(this.id, this.attempt);
+  }
+
+  assertStillOn(attempt: RunAttempt, by: RunnerId): void {
+    if (!this.isHeldBy(by) || !attempt.equals(this.currentAttempt)) {
+      throw new RunAttemptOverError(this.id.value, attempt.number);
+    }
   }
 
   get wearsSecrets(): boolean {
@@ -558,7 +655,7 @@ export class Run extends EventRecorder {
     return this.state === 'claimed' && this.wasWorkedBy(runner);
   }
 
-  secretsWornFor(runner: RunnerId): readonly string[] {
+  secretsWornFor(runner: RunnerId): readonly SecretName[] {
     return this.isHeldBy(runner) ? this.spec.wears : [];
   }
 
@@ -619,6 +716,10 @@ export class Run extends EventRecorder {
     next.inheritEvents(this);
 
     return next;
+  }
+
+  private recordReservationDropped(runner: RunnerId): void {
+    this.record(new RunReservationDropped(this.id, this.workspaceId, runner));
   }
 
   private leaseFrom(now: Date): Date {

@@ -1,4 +1,5 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { HeldLine } from '@work/application/contracts/held-line.contract';
 
 export const LINE_RESOURCES = Symbol('LINE_RESOURCES');
 
@@ -7,7 +8,7 @@ export interface KeptLine {
   readonly version: number;
   readonly teamId: TeamId;
   readonly key: string;
-  readonly definition: Readonly<Record<string, unknown>>;
+  readonly definition: HeldLine;
 }
 
 export interface LineResourcesPort {

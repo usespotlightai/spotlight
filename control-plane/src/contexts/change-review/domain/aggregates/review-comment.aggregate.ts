@@ -208,7 +208,11 @@ export class ReviewComment extends EventRecorder {
   }
 
   get answerable(): boolean {
-    return this.state !== 'draft' && this.state !== 'deleted';
+    return this.state === 'submitted' || this.state === 'posted';
+  }
+
+  get threadOnGitHub(): OnGitHub | null {
+    return this.state === 'posted' ? this.github : null;
   }
 
   replied(input: {
@@ -223,6 +227,11 @@ export class ReviewComment extends EventRecorder {
     if (this.state === 'draft') {
       throw new InvalidReviewError(
         'reply is to a comment that has been submitted',
+      );
+    }
+    if (!this.answerable) {
+      throw new InvalidReviewError(
+        'reply is to a comment that reached GitHub, or is on its way there',
       );
     }
     if (input.author.kind !== 'person') {

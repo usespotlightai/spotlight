@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -334,6 +335,54 @@ func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 	}
 }
 
+func TestRenewCheckLeaseReadsBackWhetherToStop(t *testing.T) {
+	var asked, method string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked, method = r.URL.EscapedPath(), r.Method
+		_, _ = w.Write([]byte(`{"stop":true}`))
+	})
+
+	stop, err := client.RenewCheckLease(context.Background(), "run_1", "stack/1")
+	if err != nil {
+		t.Fatalf("renew: %v", err)
+	}
+	if !stop {
+		t.Error("expected the renewal to say the check should stop")
+	}
+	if method != http.MethodPost || asked != "/api/runs/run_1/change-stack-checks/stack%2F1/lease" {
+		t.Errorf("asked %s %q", method, asked)
+	}
+}
+
+func TestRenewCheckLeaseCarriesOnWhileTheCheckIsHeld(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"stop":false}`))
+	})
+
+	stop, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1")
+	if err != nil {
+		t.Fatalf("renew: %v", err)
+	}
+	if stop {
+		t.Error("the check is still held, yet a stop was reported")
+	}
+}
+
+func TestRenewCheckLeaseRejectedWhenTheRunnerNoLongerHoldsIt(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/problem+json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"reason":"conflict","message":"Change stack stack_1 is not being checked by that runner"}`))
+	})
+
+	_, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1")
+
+	var rejection *control.Rejection
+	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
+		t.Fatalf("err %v", err)
+	}
+}
+
 func TestAskPermissionPostsWhatWasAskedAndReadsTheDecision(t *testing.T) {
 	var seenPath, seenMethod, carried string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
@@ -607,7 +656,8 @@ func TestAnswerCallTellsACallAlreadyAnswered(t *testing.T) {
 func TestRecallsByWordsAndByHandle(t *testing.T) {
 	var asked []string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		asked = append(asked, r.Method+" "+r.URL.RequestURI())
+		body, _ := io.ReadAll(r.Body)
+		asked = append(asked, strings.TrimSpace(r.Method+" "+r.URL.RequestURI()+" "+string(body)))
 		_, _ = w.Write([]byte(`[]`))
 	})
 
@@ -619,8 +669,8 @@ func TestRecallsByWordsAndByHandle(t *testing.T) {
 	}
 
 	want := []string{
-		"GET /api/runs/run_1/memories?q=upload+retries",
-		"GET /api/runs/run_1/memories/M-12",
+		`POST /api/runs/run_1/memories/recall {"words":"upload retries"}`,
+		"POST /api/runs/run_1/memories/M-12/recall",
 	}
 	if strings.Join(asked, "\n") != strings.Join(want, "\n") {
 		t.Errorf("asked %v", asked)

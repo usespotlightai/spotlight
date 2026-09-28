@@ -373,6 +373,13 @@ export type RenewLeaseResponseDto = {
   stop: boolean;
 };
 
+export type RenewCheckLeaseResponseDto = {
+  /**
+   * Whether the runner should stop checking: the check was forgotten with its task, settled, or waited too long to be recorded
+   */
+  stop: boolean;
+};
+
 export type RecordRunImageRequestDto = {
   /**
    * The image the sandbox started from, named by its digest
@@ -1630,7 +1637,7 @@ export type ChangedByResponseDto = {
   /**
    * For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust
    */
-  trustId: string | null;
+  trust: string | null;
 };
 
 export type ConfigurationChangeResponseDto = {
@@ -3316,6 +3323,13 @@ export type RunMemoriesResponseDto = {
   proposed: Array<RunProposalResponseDto>;
 };
 
+export type RecallMemoriesRequestDto = {
+  /**
+   * Words to look for
+   */
+  words: string;
+};
+
 export type RememberRequestDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
@@ -3970,6 +3984,37 @@ export type RenewLeaseResponses = {
 };
 
 export type RenewLeaseResponse = RenewLeaseResponses[keyof RenewLeaseResponses];
+
+export type RenewCheckLeaseData = {
+  body?: never;
+  path: {
+    runId: string;
+    stackId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/change-stack-checks/{stackId}/lease';
+};
+
+export type RenewCheckLeaseErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such runner, or the check this runner holds is of another run
+   */
+  404: unknown;
+  /**
+   * The check kept moving on while it was renewed
+   */
+  409: unknown;
+};
+
+export type RenewCheckLeaseResponses = {
+  200: RenewCheckLeaseResponseDto;
+};
+
+export type RenewCheckLeaseResponse = RenewCheckLeaseResponses[keyof RenewCheckLeaseResponses];
 
 export type RecordRunImageData = {
   body: RecordRunImageRequestDto;
@@ -9547,8 +9592,8 @@ export type ReadResourceHclResponse = ReadResourceHclResponses[keyof ReadResourc
 export type ListRunChangeStacksData = {
   body?: never;
   path: {
-    runId: string;
     teamId: string;
+    runId: string;
   };
   query?: never;
   url: '/teams/{teamId}/runs/{runId}/change-stacks';
@@ -9574,8 +9619,8 @@ export type ListRunChangeStacksResponse = ListRunChangeStacksResponses[keyof Lis
 export type ReadTaskChangeStackData = {
   body?: never;
   path: {
-    taskId: string;
     teamId: string;
+    taskId: string;
   };
   query?: never;
   url: '/teams/{teamId}/tasks/{taskId}/change-stack';
@@ -9742,6 +9787,10 @@ export type RecordChangeStackCheckErrors = {
    * Not a run this runner worked, or no such stack of it
    */
   404: unknown;
+  /**
+   * This runner does not hold the check of that stack
+   */
+  409: unknown;
   /**
    * The stack was already checked, or names steps it has not
    */
@@ -11038,17 +11087,12 @@ export type ReadRunMemoriesResponses = {
 export type ReadRunMemoriesResponse = ReadRunMemoriesResponses[keyof ReadRunMemoriesResponses];
 
 export type RecallMemoriesData = {
-  body?: never;
+  body: RecallMemoriesRequestDto;
   path: {
     runId: string;
   };
-  query: {
-    /**
-     * Words to look for
-     */
-    q: string;
-  };
-  url: '/runs/{runId}/memories';
+  query?: never;
+  url: '/runs/{runId}/memories/recall';
 };
 
 export type RecallMemoriesErrors = {
@@ -11071,6 +11115,37 @@ export type RecallMemoriesResponses = {
 };
 
 export type RecallMemoriesResponse = RecallMemoriesResponses[keyof RecallMemoriesResponses];
+
+export type RecallMemoryData = {
+  body?: never;
+  path: {
+    runId: string;
+    handle: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/memories/{handle}/recall';
+};
+
+export type RecallMemoryErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run held by this runner
+   */
+  404: unknown;
+  /**
+   * Not a handle like M-12
+   */
+  422: unknown;
+};
+
+export type RecallMemoryResponses = {
+  200: TeamMemoryDetailResponseDto;
+};
+
+export type RecallMemoryResponse = RecallMemoryResponses[keyof RecallMemoryResponses];
 
 export type RememberData = {
   body: RememberRequestDto;
@@ -11101,37 +11176,6 @@ export type RememberResponses = {
 };
 
 export type RememberResponse = RememberResponses[keyof RememberResponses];
-
-export type RecallMemoryData = {
-  body?: never;
-  path: {
-    runId: string;
-    handle: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/memories/{handle}';
-};
-
-export type RecallMemoryErrors = {
-  /**
-   * Missing, spent or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such run held by this runner
-   */
-  404: unknown;
-  /**
-   * Not a handle like M-12
-   */
-  422: unknown;
-};
-
-export type RecallMemoryResponses = {
-  200: TeamMemoryDetailResponseDto;
-};
-
-export type RecallMemoryResponse = RecallMemoryResponses[keyof RecallMemoryResponses];
 
 export type ReadMemoryFilesData = {
   body?: never;

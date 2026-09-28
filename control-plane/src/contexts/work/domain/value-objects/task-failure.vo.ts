@@ -1,14 +1,42 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { InvalidTaskFailureError } from '@work/domain/exceptions/invalid-task-failure.error';
+
+const RUN = 'run';
+const HOOK = 'hook:';
+
+export type TaskFailureSource = typeof RUN | `${typeof HOOK}${string}`;
+
+const blank = (text: string): boolean => text.trim().length === 0;
+
+const isSource = (source: string): source is TaskFailureSource =>
+  source === RUN ||
+  (source.startsWith(HOOK) && !blank(source.slice(HOOK.length)));
 
 export class TaskFailure {
   private constructor(
-    readonly source: string,
+    readonly source: TaskFailureSource,
     readonly code: string,
     readonly occurrences: number,
   ) {}
 
-  static of(input: { source: string; code: string }): TaskFailure {
-    return TaskFailure.rehydrate({ ...input, occurrences: 1 });
+  static fromRun(code: string): TaskFailure {
+    return TaskFailure.raised(RUN, code);
+  }
+
+  static fromHook(hook: string, code: string): TaskFailure {
+    if (blank(hook)) {
+      throw new InvalidTaskFailureError('from a hook names the hook');
+    }
+
+    return TaskFailure.raised(`${HOOK}${hook.trim()}`, code);
+  }
+
+  private static raised(source: TaskFailureSource, code: string): TaskFailure {
+    if (blank(code)) {
+      throw new InvalidTaskFailureError('says what went wrong');
+    }
+
+    return new TaskFailure(source, code, 1);
   }
 
   static rehydrate(input: {
@@ -16,7 +44,7 @@ export class TaskFailure {
     code: string;
     occurrences: number;
   }): TaskFailure {
-    if (!input.source.trim() || !input.code.trim()) {
+    if (!isSource(input.source) || blank(input.code)) {
       throw new InconsistentStateError(
         'task failure',
         'says nothing of where it came from or what it was',

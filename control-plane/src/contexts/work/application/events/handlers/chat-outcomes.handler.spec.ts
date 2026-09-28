@@ -16,6 +16,7 @@ import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-14T09:00:00.000Z');
@@ -57,6 +58,7 @@ const completed = (
     RunnerId.of('runner_1'),
     null,
     HarnessSession.of('session_1'),
+    1,
   );
 
 const settling = (chat: Chat | null) => {
@@ -137,6 +139,7 @@ describe('ChatOutcomes', () => {
           workedBy,
           null,
           null,
+          1,
         ),
       );
 
@@ -165,7 +168,7 @@ describe('ChatOutcomes', () => {
       completed(
         undefined,
         'run_1',
-        RunSubject.task(TaskId.of('task_1'), null, 0),
+        RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
       ),
     );
 

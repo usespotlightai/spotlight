@@ -1,12 +1,14 @@
-import type { MemoryReach } from '@memory/application/ports/known-memories.port';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
+import { rejectionsHeededAt } from '@memory/domain/services/rejections-heeded';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
-import { DrizzleKnownMemories } from '@memory/infrastructure/persistence/drizzle/repositories/known-memories.reader';
+import type { StationSite } from '@memory/domain/value-objects/run-site';
+import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
+import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -25,7 +27,7 @@ const SECOND = RunId.of('run_2');
 const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
-const REACH: MemoryReach = {
+const SITE: StationSite = {
   teamId: TEAM,
   lineId: 'line_1',
   stationId: 'station_1',
@@ -46,7 +48,8 @@ const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
 
 let held: TestDatabase;
 let drafts: DrizzleMemoryDraftRepository;
-let known: DrizzleKnownMemories;
+let memories: DrizzleMemoryRepository;
+let rejections: DrizzleRejectedMemories;
 let next = 0;
 
 const opened = () => {
@@ -70,12 +73,12 @@ const drafting = (
     evidence: DraftEvidence.of({
       taskId: draft.taskId,
       runId,
-      place: REACH,
+      site: SITE,
       steps: [{ index: 5, kind: 'said', text: 'Retrying in the request.' }],
       notes: [{ position: 4, by: 'person', text: 'Never retry on a 403.' }],
       notesRead: 0,
       changed: [{ repository: API, path: 'src/uploads.ts' }],
-      standing: [],
+      known: [],
       fromOutside: false,
     }),
     newId: () => {
@@ -98,7 +101,10 @@ beforeAll(async () => {
   drafts = new DrizzleMemoryDraftRepository(context, {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher);
-  known = new DrizzleKnownMemories(context);
+  memories = new DrizzleMemoryRepository(context, {
+    dispatch: async () => {},
+  } as unknown as DomainEventDispatcher);
+  rejections = new DrizzleRejectedMemories(context);
 }, 60_000);
 
 afterAll(async () => {
@@ -150,9 +156,9 @@ describe('storing a task’s memory draft', () => {
       ]),
     );
 
-    expect((await stored(draft)).proposals.map((each) => each.body)).toEqual([
-      'The upload test flakes.',
-    ]);
+    expect(
+      (await stored(draft)).proposals.map((each) => each.body.value),
+    ).toEqual(['The upload test flakes.']);
     const [{ n }] = (
       await held.db.execute(
         sql`select count(*)::int as n from memory_proposal where draft_id = ${draft.id.value}`,
@@ -259,9 +265,11 @@ describe('reading what the team already knows', () => {
     await keeping('other_repository', { repository: 'acme/web' });
     await keeping('retired', { standing: 'retired' });
 
-    const standing = await known.standingIn(REACH);
+    const standing = (await memories.mayReach(SITE)).filter((each) =>
+      each.appliesAt(SITE),
+    );
 
-    expect(standing.map((each) => each.id).sort()).toEqual([
+    expect(standing.map((each) => each.id.value).sort()).toEqual([
       'team_wide',
       'this_line',
       'this_repository',
@@ -287,7 +295,10 @@ describe('reading what the team already knows', () => {
       sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = '2026-01-01T00:00:00Z' where id = ${longAgo?.id.value ?? ''}`,
     );
 
-    const rejected = await known.rejectedIn(REACH, NOW);
+    const rejected = rejectionsHeededAt(
+      await rejections.rejectedOnTeam(TEAM, NOW),
+      SITE,
+    );
 
     expect(rejected.map((each) => each.body)).toEqual(['Turned down lately']);
   });

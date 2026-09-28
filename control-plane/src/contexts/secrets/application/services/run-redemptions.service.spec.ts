@@ -4,14 +4,20 @@ import type {
   SealedFor,
   SealingRecipient,
 } from '@secrets/application/ports/run-sealing.port';
+import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
+import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import { RunRedemptions } from '@secrets/application/services/run-redemptions.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
+import { RedemptionRecipientPinnedError } from '@secrets/domain/exceptions/redemption-recipient-pinned.error';
+import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
+import { RunHoldOverError } from '@secrets/domain/exceptions/run-hold-over.error';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import {
   BY,
+  clockAt,
   definition,
   InMemoryGrants,
   InMemorySecrets,
@@ -24,7 +30,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 class SealedInTheOpen implements RunSealingPort {
   recipientOf(written: string): SealingRecipient {
-    if (written !== 'recipient-key') {
+    if (!['recipient-key', 'another-key'].includes(written)) {
       throw new UnsealableRecipientError();
     }
 
@@ -39,6 +45,7 @@ class SealedInTheOpen implements RunSealingPort {
 const REDEEMING = {
   workspaceId: WORKSPACE.value,
   runId: 'run_1',
+  attempt: 1,
   recipient: 'recipient-key',
 };
 
@@ -81,7 +88,7 @@ const holding = async () => {
   return {
     redemptions: new RunRedemptions(
       secrets,
-      grants,
+      new RunGrantsKept(grants),
       new SecretSources(store, aws),
       new SealedInTheOpen(),
     ),
@@ -192,6 +199,83 @@ describe('RunRedemptions', () => {
         wears: ['SENTRY_TOKEN'],
       }),
     ).rejects.toThrow(UnsealableRecipientError);
+    expect(grants.all).toEqual([]);
+  });
+
+  it('pins the recipient it first sealed to, answering the same recipient again and refusing any other', async () => {
+    const { redemptions, grants } = await holding();
+    const redeeming = { ...REDEEMING, wears: ['LINEAR_API_KEY'] };
+
+    const first = await redemptions.redeem(redeeming);
+
+    await expect(redemptions.redeem(redeeming)).resolves.toEqual(first);
+    await expect(
+      redemptions.redeem({ ...redeeming, recipient: 'another-key' }),
+    ).rejects.toThrow(RedemptionRecipientPinnedError);
+    expect(grants.of('run_1')?.recipient?.key).toBe('recipient-key');
+  });
+
+  it('redeems afresh for a later attempt of the run, sealed to that attempt’s own recipient', async () => {
+    const { redemptions, grants } = await holding();
+    const redeeming = { ...REDEEMING, wears: ['LINEAR_API_KEY'] };
+
+    await redemptions.redeem(redeeming);
+
+    const again = await redemptions.redeem({
+      ...redeeming,
+      attempt: 2,
+      recipient: 'another-key',
+    });
+
+    expect(again.secrets.map((each) => each.sealed)).toEqual([
+      'sealed(lin_api_1|another-key|run_1|LINEAR_API_KEY)',
+    ]);
+    expect(grants.of('run_1')?.hold.attempt).toBe(2);
+    await expect(redemptions.redeem(redeeming)).rejects.toThrow(
+      RunHoldOverError,
+    );
+  });
+
+  it('lets a lost hold’s grants go, refusing that attempt but redeeming the next', async () => {
+    const { redemptions, grants } = await holding();
+    const redeeming = { ...REDEEMING, wears: ['LINEAR_API_KEY'] };
+    const endings = new RunGrantEndings(new RunGrantsKept(grants), clockAt());
+
+    await redemptions.redeem(redeeming);
+    await endings.holdLost({
+      workspaceId: WORKSPACE.value,
+      runId: 'run_1',
+      attempt: 1,
+    });
+
+    expect(grants.all).toEqual([]);
+    await expect(redemptions.redeem(redeeming)).rejects.toThrow(
+      RunHoldOverError,
+    );
+    await expect(
+      redemptions.redeem({
+        ...redeeming,
+        attempt: 2,
+        recipient: 'another-key',
+      }),
+    ).resolves.toMatchObject({ withheld: [] });
+    expect(grants.all.map((each) => each.host)).toEqual(['mcp.linear.app']);
+  });
+
+  it('redeems nothing once the run’s grants have ended', async () => {
+    const { redemptions, grants } = await holding();
+    const redeeming = { ...REDEEMING, wears: ['LINEAR_API_KEY'] };
+
+    await redemptions.redeem(redeeming);
+    await new RunGrantEndings(new RunGrantsKept(grants), clockAt()).endedFor({
+      workspaceId: WORKSPACE.value,
+      runId: 'run_1',
+      attempt: 1,
+    });
+
+    await expect(
+      redemptions.redeem({ ...redeeming, attempt: 2 }),
+    ).rejects.toThrow(RunGrantsEndedError);
     expect(grants.all).toEqual([]);
   });
 });

@@ -6,20 +6,20 @@ import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/
 
 export class MintedTokenDetail implements ChangeDetail {
   private constructor(
-    readonly trustId: string,
+    readonly mintedThrough: string,
     readonly subject: string,
     readonly scopes: readonly string[],
     readonly expiresAt: string,
   ) {}
 
   static of(minted: {
-    trustId: WorkspaceTokenTrustId;
+    mintedThrough: WorkspaceTokenTrustId;
     subject: string;
     scopes: readonly string[];
     expiresAt: Date;
   }): MintedTokenDetail {
     return new MintedTokenDetail(
-      minted.trustId.value,
+      minted.mintedThrough.value,
       minted.subject,
       [...minted.scopes],
       minted.expiresAt.toISOString(),
@@ -28,7 +28,7 @@ export class MintedTokenDetail implements ChangeDetail {
 
   recorded(): RecordedDetail {
     return {
-      trust: this.trustId,
+      trust: this.mintedThrough,
       subject: this.subject,
       scopes: this.scopes,
       expiresAt: this.expiresAt,

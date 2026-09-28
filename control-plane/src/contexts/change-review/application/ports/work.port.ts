@@ -1,24 +1,18 @@
+import type { CheckingPlan } from '@change-review/domain/value-objects/check-request.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const WORK = Symbol('WORK');
 
-export interface RunChecking {
-  readonly command: string;
-  readonly setups: ReadonlyMap<string, string>;
-  readonly placement: RunnerPlacement;
-}
-
 export interface ReviewedRun {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
-  readonly checking: RunChecking | null;
+  readonly checking: CheckingPlan | null;
   readonly ended: boolean;
   readonly completed: boolean;
   readonly decisions: boolean;

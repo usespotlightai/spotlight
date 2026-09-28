@@ -36,7 +36,6 @@ import { ReadDeliveryHandler } from '@integrations/application/commands/handlers
 import { UpdateIntegrationHandler } from '@integrations/application/commands/handlers/update-integration.handler';
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
 import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
-import { INTEGRATIONS_PUBLICATIONS } from '@integrations/application/integration-events/integrations.publications';
 import {
   CONFIGURED_SOURCES,
   ConfiguredSourcesPort,
@@ -54,7 +53,7 @@ import {
   DeliveryWorkPort,
 } from '@integrations/application/ports/delivery-work.port';
 import { EXPRESSION_CHECKS } from '@integrations/application/ports/expression-checks.port';
-import { HOOK_FIRINGS } from '@integrations/application/ports/hook-firings.port';
+import { HOOK_FIRING_HISTORY } from '@integrations/application/ports/hook-firing-history.port';
 import {
   INBOX_LINKS,
   type InboxLinksPort,
@@ -75,6 +74,10 @@ import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
 } from '@integrations/application/ports/integration-runtime.port';
+import {
+  LINKED_HOSTS,
+  type LinkedHostsPort,
+} from '@integrations/application/ports/linked-hosts.port';
 import {
   OAUTH2_CALLBACK_ROUTE,
   OAUTH2_LINKING,
@@ -136,6 +139,7 @@ import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outboun
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
 import { DrizzleIntegrationsHeld } from '@integrations/infrastructure/persistence/drizzle/readers/integrations-held.reader';
+import { DrizzleLinkedHosts } from '@integrations/infrastructure/persistence/drizzle/readers/linked-hosts.reader';
 import { DrizzleDeliveryInbox } from '@integrations/infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
 import { DrizzleHostConnections } from '@integrations/infrastructure/persistence/drizzle/repositories/host-connections.repository';
 import { DrizzleIntegrationCursors } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-cursors.repository';
@@ -163,7 +167,6 @@ import { publicUrlOf } from '@platform/config/env';
 import { type Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import {
@@ -196,7 +199,6 @@ import {
   LOGGER,
   LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
   GIVEN_AT_STATIONS,
@@ -229,27 +231,22 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     provide: INTEGRATIONS_EVENTS,
     inject: [
       EventTypes,
-      EventPublications,
       EventSubscribers,
       INTEGRATION_DEFINITIONS,
       HOOK_DEFINITIONS,
       HookedHappenings,
-      TRANSACTION,
     ],
     useFactory: (
       types: EventTypes,
-      publications: EventPublications,
       subscribers: EventSubscribers,
       definitions: IntegrationDefinitionRepository,
       hooks: HookDefinitionRepository,
       hooked: HookedHappenings,
-      transaction: TransactionPort,
     ) => {
       types.register('integrations', INTEGRATIONS_EVENT_TYPES);
-      publications.register(INTEGRATIONS_PUBLICATIONS);
       subscribers.register(
         integrationsSubscribers(
-          new AbandonTeamIntegrations(definitions, hooks, transaction),
+          new AbandonTeamIntegrations(definitions, hooks),
           hooked,
         ),
       );
@@ -259,6 +256,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   DrizzleDefinedIntegrations,
 
   { provide: DEFINED_INTEGRATIONS, useExisting: DrizzleDefinedIntegrations },
+
+  { provide: LINKED_HOSTS, useClass: DrizzleLinkedHosts },
 
   DrizzleIntegrationsHeld,
   {
@@ -581,9 +580,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INTEGRATION_READER,
-    inject: [DEFINED_INTEGRATIONS, IntegrationReader],
-    useFactory: (defined: DefinedIntegrationsPort, reader: IntegrationReader) =>
-      new IntegrationReadings(defined, reader),
+    inject: [DEFINED_INTEGRATIONS, LINKED_HOSTS, IntegrationReader],
+    useFactory: (
+      defined: DefinedIntegrationsPort,
+      linked: LinkedHostsPort,
+      reader: IntegrationReader,
+    ) => new IntegrationReadings(defined, linked, reader),
   },
 
   {
@@ -710,7 +712,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ReadDeliveryCommand, ReadDeliveryHandler, [
     SourceForDelivery,
     HAPPENING_REACTIONS,
-    HOOK_FIRINGS,
+    HOOK_FIRING_HISTORY,
     CAUSATION,
   ]),
 

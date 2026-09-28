@@ -10,6 +10,14 @@ export class RenewLeaseCommand {
   ) {}
 }
 
+export class RenewCheckLeaseCommand {
+  constructor(
+    readonly runId: string,
+    readonly stackId: string,
+    readonly runnerId: string,
+  ) {}
+}
+
 export class RecordRunImageCommand {
   constructor(
     readonly runId: string,

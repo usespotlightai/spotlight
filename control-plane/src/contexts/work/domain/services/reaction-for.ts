@@ -181,9 +181,7 @@ export const ReactionFor = {
     }
 
     const at = input.opens.at
-      ? (input.line.stations.find(
-          (station) => station.key.value === input.opens.at,
-        ) ?? input.line.entry)
+      ? (input.line.stationKeyed(input.opens.at) ?? input.line.entry)
       : input.line.entry;
 
     if (!at) {

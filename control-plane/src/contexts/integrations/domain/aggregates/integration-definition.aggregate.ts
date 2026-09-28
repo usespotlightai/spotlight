@@ -6,6 +6,7 @@ import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptio
 import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
+import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import type { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
@@ -13,7 +14,6 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import type { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 interface Kept {

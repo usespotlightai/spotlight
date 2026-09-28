@@ -7,12 +7,22 @@ import type {
   TeamMemoryDto,
 } from '@memory/application/dto/team-memory.dto';
 import { ProposedMemoryResponseDto } from '@memory/presentation/http/dto/memory-review.response.dto';
-import { RememberRequestDto } from '@memory/presentation/http/dto/runner-memory.request.dto';
+import {
+  RecallMemoriesRequestDto,
+  RememberRequestDto,
+} from '@memory/presentation/http/dto/runner-memory.request.dto';
 import {
   TeamMemoryDetailResponseDto,
   TeamMemoryResponseDto,
 } from '@memory/presentation/http/dto/team-memory.response.dto';
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
   ApiBody,
@@ -21,7 +31,6 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
-  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
@@ -46,32 +55,35 @@ const optional = (value: unknown): string | null =>
 export class RunnerMemoryController {
   constructor(private readonly commandBus: CommandBus) {}
 
-  @Get()
+  @Post('recall')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'recallMemories',
     summary:
-      'Search what the run’s team remembers, for an agent reaching past its briefing',
+      'Search what the run’s team remembers, for an agent reaching past its briefing, noting what it recalled',
   })
-  @ApiQuery({ name: 'q', type: String, description: 'Words to look for' })
+  @ApiBody({ type: RecallMemoriesRequestDto })
   @ApiOkResponse({ type: TeamMemoryResponseDto, isArray: true })
   @ApiUnprocessableEntityResponse({ description: 'Nothing to look for' })
   async recall(
     @Param('runId') runId: string,
-    @Query('q') words: unknown,
+    @Body() body: RecallMemoriesRequestDto | undefined,
     @CurrentRunner() runnerId: string,
   ): Promise<TeamMemoryResponseDto[]> {
     const recalled = await this.commandBus.execute<
       RecallMemoriesCommand,
       TeamMemoryDto[]
-    >(new RecallMemoriesCommand(runId, runnerId, text(words)));
+    >(new RecallMemoriesCommand(runId, runnerId, text(body?.words)));
 
     return recalled.map((each) => new TeamMemoryResponseDto(each));
   }
 
-  @Get(':handle')
+  @Post(':handle/recall')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'recallMemory',
-    summary: 'Read one of the team’s memories in full, by its handle',
+    summary:
+      'Read one of the team’s memories in full, by its handle, noting the run recalled it',
   })
   @ApiParam({ name: 'handle', type: String, example: 'M-12' })
   @ApiOkResponse({ type: TeamMemoryDetailResponseDto })

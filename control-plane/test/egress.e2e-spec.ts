@@ -204,6 +204,9 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
     await db.delete(schema.run).where(eq(schema.run.workspaceId, held));
     await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
     await db
+      .delete(schema.runGrants)
+      .where(eq(schema.runGrants.workspaceId, held));
+    await db
       .delete(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, held));
     await forgetRunnersOf(db, held);
@@ -280,6 +283,50 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
         .from(schema.secretGrant)
         .where(eq(schema.secretGrant.runId, runId)),
     ).resolves.toEqual([]);
+  });
+
+  it('seals a run’s secrets to the recipient it first redeemed for, again on a retry, and to no other', async () => {
+    await queue(['LINEAR_API_KEY']);
+    const work = await claimed();
+    const to = recipient();
+
+    await redeem(work.egressToken, to.written).expect(200);
+    const again = await redeem(work.egressToken, to.written).expect(200);
+
+    expect(again.body.secrets).toHaveLength(1);
+    await redeem(work.egressToken, recipient().written).expect(409);
+  });
+
+  it('redeems afresh for the run’s next attempt once its lease lapses, sealed to that attempt’s own egress alone', async () => {
+    const runId = await queue(['LINEAR_API_KEY']);
+    const first = await claimed();
+    await redeem(first.egressToken, recipient().written).expect(200);
+
+    await db
+      .update(schema.run)
+      .set({ leaseExpiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(schema.run.id, runId));
+
+    const second = await claimed();
+    const to = recipient();
+
+    expect(second.work.run.id).toBe(runId);
+
+    const redeemed = await redeem(second.egressToken, to.written).expect(200);
+
+    expect(redeemed.body.runId).toBe(runId);
+    expect(redeemed.body.secrets).toHaveLength(1);
+    expect(
+      opened(redeemed.body.secrets[0].sealed, to, runId, 'LINEAR_API_KEY'),
+    ).toBe(VALUE);
+    await redeem(second.egressToken, to.written).expect(200);
+    await redeem(second.egressToken, recipient().written).expect(409);
+
+    const [kept] = await db
+      .select({ attempt: schema.runGrants.attempt })
+      .from(schema.runGrants)
+      .where(eq(schema.runGrants.runId, runId));
+    expect(kept?.attempt).toBe(2);
   });
 
   it('refuses egress once its run has ended, and the run’s grants go with it', async () => {

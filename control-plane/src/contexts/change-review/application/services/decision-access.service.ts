@@ -3,6 +3,7 @@ import type {
   ReviewedTask,
   WorkPort,
 } from '@change-review/application/ports/work.port';
+import { ReviewClearance } from '@change-review/domain/services/review-clearance';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -25,11 +26,7 @@ export class DecisionAccess {
     const member = await this.people.memberOf(teamId, viewerId);
     const task = member ? await this.work.task(TaskId.of(taskId)) : null;
 
-    if (
-      !member ||
-      !task?.workspaceId.equals(member.workspaceId) ||
-      task.teamId?.value !== teamId
-    ) {
+    if (!member || !task || !ReviewClearance.of(member).reaches(task)) {
       return null;
     }
 

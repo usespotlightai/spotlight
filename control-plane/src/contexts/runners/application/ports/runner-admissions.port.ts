@@ -1,4 +1,3 @@
-import type { AdmissionKind } from '@runners/domain/value-objects/admission.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const RUNNER_ADMISSIONS = Symbol('RUNNER_ADMISSIONS');
@@ -8,8 +7,10 @@ export interface HostCredential {
   readonly trust: string | undefined;
 }
 
+export type WayInKind = 'pool' | 'trust';
+
 export interface AdmittedWay {
-  readonly kind: AdmissionKind;
+  readonly kind: WayInKind;
   readonly id: string;
 }
 

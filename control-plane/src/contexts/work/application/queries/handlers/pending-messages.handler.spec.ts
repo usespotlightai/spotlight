@@ -24,7 +24,6 @@ const reading = () =>
         : null,
     stopRequestedFor: async () => false,
     attachmentFor: async () => null,
-    continuityOf: async () => null,
   });
 
 describe('PendingMessagesHandler', () => {

@@ -8,7 +8,13 @@ export class SystemClock implements ClockPort {
     return new Date();
   }
 
-  sleep(ms: number): Promise<void> {
-    return sleep(ms);
+  async sleep(ms: number, cancelled?: AbortSignal): Promise<void> {
+    try {
+      await sleep(ms, undefined, { signal: cancelled });
+    } catch (error) {
+      if (!cancelled?.aborted) {
+        throw error;
+      }
+    }
   }
 }

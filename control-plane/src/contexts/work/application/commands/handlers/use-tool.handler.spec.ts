@@ -2,6 +2,7 @@ import type {
   CatalogRefusal,
   CatalogRefusalReason,
 } from '@catalog/application/contracts/catalog.contract';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -13,7 +14,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
-import type { HookedTaskDto } from '@work/application/ports/hooked-tasks.port';
+import type {
+  HookedTaskDto,
+  HookedTasksPort,
+} from '@work/application/ports/hooked-tasks.port';
 import type {
   IntegrationToolsPort,
   ReachableTool,
@@ -23,17 +27,21 @@ import type {
 import type {
   BeforeMoment,
   HookVerdict,
+  LifecycleHooksPort,
   ToolUsedMoment,
 } from '@work/application/ports/lifecycle-hooks.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { ToolSources } from '@work/application/services/tool-sources.service';
+import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import { ToolUsed } from '@work/domain/events/tool-used.event';
+import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -62,6 +70,7 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
@@ -179,7 +188,7 @@ const claimed = (
         : RunSubject.task(
             TaskId.of('task_1'),
             over.dispatchedAt ? StationId.of(over.dispatchedAt) : null,
-            0,
+            TaskRevision.of(0),
           ),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
@@ -227,9 +236,12 @@ const using = (
     task?: Task;
     approval?: ApprovalNeeded | null;
     failing?: boolean;
+    movedOnWhileCalling?: boolean;
     verdict?: HookVerdict;
     hooksDown?: boolean;
     afterFails?: boolean;
+    recordingFails?: boolean;
+    movedOnTo?: Run;
     withheld?: {
       readonly when: 'before' | 'during';
       readonly reason: CatalogRefusalReason;
@@ -327,6 +339,9 @@ const using = (
             defaultFor: (input) =>
               input.name === 'issue' ? 'ENG-12' : undefined,
             call: async (inputs) => {
+              if (over.movedOnWhileCalling) {
+                throw new RunAttemptOverError('run_1', 1);
+              }
               called.push({ tool: tool.value, context, inputs });
               if (over.failing) {
                 throw new UpstreamRefusedError('using linear.comment', 'down');
@@ -340,11 +355,39 @@ const using = (
   const lineAt = over.lineAt === undefined ? 'station_1' : over.lineAt;
 
   const hooked: Hooked = { before: [], after: [], asked: [] };
-  const warned: string[] = [];
+  const recorded: DomainEvent[] = [];
+  const hookedTasks: HookedTasksPort = {
+    of: async (taskId: string, runId: string | null) => {
+      hooked.asked.push({ taskId, runId });
+      return HOOKED;
+    },
+    ofPullRequest: async () => null,
+  };
+  const hooks: LifecycleHooksPort = {
+    listens: async () => true,
+    before: async (_task, moment) => {
+      if (over.hooksDown) {
+        throw new Error('the hooks are unreachable');
+      }
+      hooked.before.push(moment);
+      return over.verdict ?? { kind: 'allowed' };
+    },
+    after: async (_task, moment, occurrence) => {
+      if (over.afterFails) {
+        throw new Error('the hooks are down');
+      }
+      hooked.after.push({ moment, occurrence });
+    },
+  };
+  const afterwards = new ToolUsedHooks(hookedTasks, hooks);
 
+  const found = over.movedOnTo ? [run, over.movedOnTo] : [run];
   const handler = new UseToolHandler(
     new RunWorks(
-      { findById: async () => run } as unknown as RunRepository,
+      {
+        findById: async () =>
+          (found.length > 1 ? found.shift() : found[0]) ?? null,
+      } as unknown as RunRepository,
       tasks,
       { find: async () => chat() } as unknown as ChatRepository,
       {
@@ -355,44 +398,50 @@ const using = (
       { now: () => NOW, sleep: async () => {} },
     ),
     new ToolSources(builtIns, integrationTools, catalog),
-    {
-      of: async (taskId: string, runId: string | null) => {
-        hooked.asked.push({ taskId, runId });
-        return HOOKED;
-      },
-      ofPullRequest: async () => null,
-    },
-    {
-      listens: async () => true,
-      before: async (_task, moment) => {
-        if (over.hooksDown) {
-          throw new Error('the hooks are unreachable');
-        }
-        hooked.before.push(moment);
-        return over.verdict ?? { kind: 'allowed' };
-      },
-      after: async (_task, moment, occurrence) => {
-        if (over.afterFails) {
-          throw new Error('the hooks are down');
-        }
-        hooked.after.push({ moment, occurrence });
-      },
-    },
+    hookedTasks,
+    hooks,
     { generate: () => 'occurrence_1' },
     {
-      debug: () => {},
-      info: () => {},
-      warn: (_fields: unknown, message: string) => {
-        warned.push(message);
+      dispatch: async (events) => {
+        if (over.recordingFails) {
+          throw new Error('the outbox is unreachable');
+        }
+        recorded.push(...events);
       },
-      error: () => {},
     },
   );
 
-  const reach = (tool: string, input: unknown = { title: 'Fix the queue' }) =>
-    handler.execute(new UseToolCommand('run_1', 'runner_1', tool, input));
+  const delivered = async () => {
+    for (const event of recorded) {
+      if (event instanceof ToolUsed) {
+        await afterwards.on(event);
+      }
+    }
+  };
 
-  return { reach, called, standing: () => standing, hooked, warned };
+  const reach = async (
+    tool: string,
+    input: unknown = { title: 'Fix the queue' },
+  ) => {
+    try {
+      return await handler.execute(
+        new UseToolCommand('run_1', 'runner_1', tool, input),
+      );
+    } finally {
+      if (!over.afterFails) {
+        await delivered();
+      }
+    }
+  };
+
+  return {
+    reach,
+    called,
+    standing: () => standing,
+    hooked,
+    recorded,
+    delivered,
+  };
 };
 
 describe('UseToolHandler', () => {
@@ -680,6 +729,53 @@ describe('UseToolHandler', () => {
     ).toBe(true);
   });
 
+  it('keeps the approval spent, and reports no failure, where the call succeeded but could not be recorded', async () => {
+    const asked = task().clearFor(
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
+      ),
+      NEEDS_APPROVAL,
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+    ).task;
+    const granted = asked.answered(
+      NotePosition.of(asked.notes.length - 1),
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approved.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      'granted',
+    );
+
+    const { reach, called, standing, recorded } = using(
+      claimed(['linear.comment']),
+      {
+        approval: NEEDS_APPROVAL,
+        recordingFails: true,
+        task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
+      },
+    );
+
+    await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow(
+      'the outbox is unreachable',
+    );
+    expect(called).toHaveLength(1);
+    expect(recorded).toEqual([]);
+    const approval = standing().notes.find((note) => note.approval)?.approval;
+    expect(approval?.spent).toBe(true);
+    expect(approval?.grants).toBe(false);
+  });
+
   it('hands the approval back where the call it was spent on failed', async () => {
     const asked = task().clearFor(
       ApprovalSubject.toolCall(
@@ -860,7 +956,7 @@ describe('UseToolHandler', () => {
 
       await reach('linear.comment', { body: 'Fixed.' });
 
-      expect(hooked.asked).toEqual([{ taskId: 'task_1', runId: 'run_1' }]);
+      expect(hooked.asked[0]).toEqual({ taskId: 'task_1', runId: 'run_1' });
       expect(hooked.before).toEqual([
         {
           on: 'tool.using',
@@ -993,6 +1089,67 @@ describe('UseToolHandler', () => {
       expect(approval?.spent).toBe(false);
     });
 
+    it('calls nothing where the run moved on to another attempt while the hooks were asked', async () => {
+      const held = claimed(['linear.comment']);
+      const { reach, called, hooked } = using(held, {
+        movedOnTo: held
+          .requeue(held.leaseExpiresAt as Date)
+          .claim(RunnerId.of('runner_1'), NOW),
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({ kind: 'conflict' });
+      expect(hooked.before).toHaveLength(1);
+      expect(called).toEqual([]);
+      expect(hooked.after).toEqual([]);
+    });
+
+    it('hands the approval back and records no use where the run moved on as the tool was about to be called', async () => {
+      const asked = task().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(
+            Tool.of('linear.comment'),
+            ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+          ),
+        ),
+        NEEDS_APPROVAL,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+          voice: Voice.station(RunId.of('run_1')),
+        },
+        RunId.of('run_1'),
+      ).task;
+      const granted = asked.answered(
+        NotePosition.of(asked.notes.length - 1),
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approved.'),
+          at: NOW,
+          voice: Voice.person(UserId.of('user_1')),
+        },
+        'granted',
+      );
+      const { reach, called, recorded, standing } = using(
+        claimed(['linear.comment']),
+        {
+          approval: NEEDS_APPROVAL,
+          movedOnWhileCalling: true,
+          task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
+        },
+      );
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({ kind: 'conflict' });
+      expect(called).toEqual([]);
+      expect(recorded).toEqual([]);
+      const approval = standing().notes.find((note) => note.approval)?.approval;
+      expect(approval?.spent).toBe(false);
+    });
+
     it('tells the hooks a tool was used, with what it answered', async () => {
       const { reach, hooked } = using(claimed(['linear.comment']));
 
@@ -1012,6 +1169,16 @@ describe('UseToolHandler', () => {
       ]);
     });
 
+    it('carries what a tool answered as text, whatever its fields are called', async () => {
+      const { reach, recorded } = using(claimed(['linear.comment']));
+
+      await reach('linear.comment', { body: 'Fixed.' });
+
+      expect((recorded[0] as ToolUsed).output.json).toBe(
+        '"https://linear.app/acme/issue/ENG-12#comment-1"',
+      );
+    });
+
     it('tells the hooks a tool failed, and still answers with its failure', async () => {
       const { reach, hooked } = using(claimed(['linear.comment']), {
         failing: true,
@@ -1024,17 +1191,21 @@ describe('UseToolHandler', () => {
       expect(hooked.after[0]?.moment.output).toMatch(/down/);
     });
 
-    it('answers with the tool’s answer even when the hooks after it cannot be fired', async () => {
-      const { reach, warned } = using(claimed(['linear.comment']), {
-        afterFails: true,
-      });
+    it('answers with the tool’s answer, leaving the hooks after it to their own reaction', async () => {
+      const { reach, recorded, delivered } = using(
+        claimed(['linear.comment']),
+        {
+          afterFails: true,
+        },
+      );
 
       await expect(
         reach('linear.comment', { body: 'Fixed.' }),
       ).resolves.toEqual({
         output: 'https://linear.app/acme/issue/ENG-12#comment-1',
       });
-      expect(warned).toHaveLength(1);
+      expect(recorded).toEqual([expect.any(ToolUsed)]);
+      await expect(delivered()).rejects.toThrow('the hooks are down');
     });
 
     it('asks no hooks about a chat’s tool', async () => {

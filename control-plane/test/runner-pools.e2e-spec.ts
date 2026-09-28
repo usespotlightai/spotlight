@@ -9,18 +9,12 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
-import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
-import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
+import { DrizzleGivenPoolTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/given-pool-tokens.repository';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
-import { CREDENTIAL_SEALING } from '@secrets/application/ports/credential-sealing.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -512,28 +506,13 @@ describe('runner pools (e2e)', () => {
         tokenVersion: 2,
       }).expect(200);
       const context = new DrizzleContext(db);
-      const pools = new DrizzleRunnerPoolRepository(
-        context,
-        { dispatch: async () => undefined },
-        app.get(CREDENTIAL_SEALING, { strict: false }),
-      );
+      const given = new DrizzleGivenPoolTokensRepository(context);
 
       await expect(
         context.run(() =>
-          pools.add(
-            RunnerPool.define({
-              id: RunnerPoolId.of(randomUUID()),
-              workspaceId: WorkspaceId.of(held),
-              key: PoolKey.of('sandboxes'),
-              labels: RunnerLabels.of([]),
-              maxRuns: null,
-              access: {
-                mode: 'pull',
-                tokenHash: TokenHash.of(sha256Of(token)),
-                tokenVersion: null,
-              },
-              by: Attribution.spotlight(WorkspaceId.of(held)),
-            }),
+          given.give(
+            TokenHash.of(sha256Of(token)),
+            RunnerPoolId.of(randomUUID()),
           ),
         ),
       ).rejects.toBeInstanceOf(PoolTokenSpentError);
@@ -1011,10 +990,14 @@ describe('runner pools (e2e)', () => {
         return row?.state === 'failed' ? row : null;
       }, 25_000);
 
-      const steps = await db
-        .select()
-        .from(schema.runJournalEntry)
-        .where(eq(schema.runJournalEntry.runId, runId));
+      const steps = await eventually(async () => {
+        const written = await db
+          .select()
+          .from(schema.runJournalEntry)
+          .where(eq(schema.runJournalEntry.runId, runId));
+
+        return written.length === 5 ? written : null;
+      });
 
       expect(failed.message).toContain('unreachable');
       expect(failed.provisionFailures).toBe(5);

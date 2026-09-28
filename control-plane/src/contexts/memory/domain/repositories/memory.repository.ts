@@ -3,7 +3,7 @@ import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import type { MemoryStanding } from '@memory/domain/value-objects/memory-standing';
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunSite } from '@memory/domain/value-objects/run-site';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface MemoryCriteria {
@@ -31,25 +31,11 @@ export interface MemoryRepository {
     handles: readonly MemoryHandle[],
   ): Promise<readonly Memory[]>;
 
-  matching(
-    ids: readonly MemoryId[],
-    words: string,
-  ): Promise<ReadonlyMap<string, number>>;
-
-  recalled(
-    teamId: TeamId,
-    words: string,
-    most: number,
-  ): Promise<readonly Memory[]>;
+  successorsOf(ids: readonly MemoryId[]): Promise<readonly Memory[]>;
 
   nextHandle(): Promise<MemoryHandle>;
 
-  mayReach(place: {
-    teamId: TeamId;
-    lineId: string | null;
-    stationId: string | null;
-    repositories: readonly Repository[];
-  }): Promise<readonly Memory[]>;
+  mayReach(site: RunSite): Promise<readonly Memory[]>;
 
   ofTeam(teamId: TeamId, criteria: MemoryCriteria): Promise<readonly Memory[]>;
 }

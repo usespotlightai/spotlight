@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { CatalogGivings } from '@catalog/application/services/catalog-givings.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
-import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/repositories/metered-calls.repository';
-import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/repositories/workspace-plans.repository';
+import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
+import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -390,7 +390,9 @@ describe('a catalog call (e2e)', () => {
     const givings = new CatalogGivings(
       new SeededCatalog(CATALOG_ITEMS),
       new DrizzleWorkspacePlans(db),
-      new DrizzleMeteredCalls(db, { generate: () => randomUUID() }),
+      new DrizzleMeteredCalls(new DrizzleContext(db), {
+        generate: () => randomUUID(),
+      }),
       { call: async () => ['https://example.com'] },
       { now: () => new Date(), sleep: async () => {} },
     );

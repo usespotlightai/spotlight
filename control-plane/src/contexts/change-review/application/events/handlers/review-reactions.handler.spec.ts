@@ -1,10 +1,11 @@
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { ReviewOutboxPort } from '@change-review/application/ports/review-outbox.port';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
+import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
 import { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
 import { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
-import { ReviewNotPosted } from '@change-review/domain/events/review-not-posted.event';
 import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
@@ -58,7 +59,7 @@ describe('ReviewReactions', () => {
     const { reactions, enqueue } = reacting();
 
     await reactions.onPosted(
-      new ReviewPosted(REVIEW, WORKSPACE, TASK, [], [COMMENT]),
+      new ReviewPosted(REVIEW, WORKSPACE, TASK, [COMMENT]),
     );
 
     expect(enqueue).toHaveBeenCalledWith(
@@ -85,23 +86,17 @@ describe('ReviewReactions', () => {
     const elsewhere = draft('comment_2').submittedIn(ReviewId.of('review_2'));
     const { reactions, comments } = reacting([submitted, elsewhere]);
 
-    await reactions.onPosted(
-      new ReviewPosted(
-        REVIEW,
-        WORKSPACE,
-        TASK,
-        [
-          {
-            commentId: submitted.id,
-            github: { id: 101, url: 'https://github.com/c/101' },
-          },
-          {
-            commentId: elsewhere.id,
-            github: { id: 102, url: 'https://github.com/c/102' },
-          },
-        ],
-        [],
-      ),
+    await reactions.onCommentPlaced(
+      new ReviewCommentPlaced(REVIEW, submitted.id, {
+        id: 101,
+        url: 'https://github.com/c/101',
+      }),
+    );
+    await reactions.onCommentPlaced(
+      new ReviewCommentPlaced(REVIEW, elsewhere.id, {
+        id: 102,
+        url: 'https://github.com/c/102',
+      }),
     );
 
     expect(comments.get('comment_1')?.github?.id).toBe(101);
@@ -114,13 +109,11 @@ describe('ReviewReactions', () => {
     const elsewhere = draft('comment_3').submittedIn(ReviewId.of('review_2'));
     const { reactions, comments } = reacting([held, withdrawn, elsewhere]);
 
-    await reactions.onNotPosted(
-      new ReviewNotPosted(
-        REVIEW,
-        [held.id, withdrawn.id, elsewhere.id],
-        'failed',
-      ),
-    );
+    for (const each of [held, withdrawn, elsewhere]) {
+      await reactions.onCommentNotPosted(
+        new ReviewCommentNotPosted(REVIEW, each.id),
+      );
+    }
 
     expect(comments.get('comment_1')?.state).toBe('draft');
     expect(comments.get('comment_2')?.sending).toBe(false);
@@ -134,19 +127,11 @@ describe('ReviewReactions', () => {
     sending.pullEvents();
     const { reactions, comments } = reacting([sending]);
 
-    await reactions.onPosted(
-      new ReviewPosted(
-        REVIEW,
-        WORKSPACE,
-        TASK,
-        [
-          {
-            commentId: sending.id,
-            github: { id: 101, url: 'https://github.com/c/101' },
-          },
-        ],
-        [],
-      ),
+    await reactions.onCommentPlaced(
+      new ReviewCommentPlaced(REVIEW, sending.id, {
+        id: 101,
+        url: 'https://github.com/c/101',
+      }),
     );
 
     expect(comments.get('comment_1')?.pullEvents()).toEqual([

@@ -1,4 +1,5 @@
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
+import { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
 import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
@@ -29,6 +30,31 @@ describe('WorkspaceRunners', () => {
       'workspace-runners.redeclared',
       'workspace-runners.dropped',
     ]);
+  });
+
+  it('refuses to name a trust or a pool twice, pointing at the second', () => {
+    expect(() =>
+      WorkspaceRunners.declare({
+        id: WorkspaceRunnersId.of('declared_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        trusts: [TrustKey.of('production'), TrustKey.of('production')],
+        pools: [],
+        by: BY,
+      }),
+    ).toThrow('trusts[1] gives production a second time');
+    expect(() =>
+      declared().redeclaredAs(
+        {
+          trusts: [],
+          pools: [
+            PoolKey.of('ephemeral'),
+            PoolKey.of('burst'),
+            PoolKey.of('ephemeral'),
+          ],
+        },
+        BY,
+      ),
+    ).toThrow(InvalidWorkspaceRunnersError);
   });
 
   it('refuses a change to a version no longer current', () => {

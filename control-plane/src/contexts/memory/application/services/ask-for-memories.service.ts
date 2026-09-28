@@ -2,6 +2,7 @@ import type { MemoryDrafterPort } from '@memory/application/ports/memory-drafter
 import type { WorkPort } from '@memory/application/ports/work.port';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import { draftsMemoriesAfter } from '@memory/domain/services/memory-drafting-policy';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -26,7 +27,7 @@ export class AskForMemories {
 
     const run = await this.work.run(runId);
 
-    if (!run?.memories || !run.completed) {
+    if (!run || !draftsMemoriesAfter(run)) {
       return;
     }
 

@@ -17,10 +17,15 @@ import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
-import type { IntegrationTool } from '@work/application/ports/integration-tool-calls.port';
+import type {
+  IntegrationTool,
+  RunAttemptDto,
+} from '@work/application/ports/integration-tool-calls.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
+
+const ATTEMPT: RunAttemptDto = { runId: 'run_1', attempt: 2 };
 
 const runtimeWith = (
   outbound: unknown,
@@ -95,7 +100,7 @@ const using = (
   );
 
   const reaching = (tool: string, marked = true) =>
-    tools.reach(tool, task(marked), 'run_1');
+    tools.reach(tool, task(marked), ATTEMPT);
 
   const comment = async (inputs: ToolInputValues, marked = true) => {
     const reached = (await reaching(
@@ -198,7 +203,7 @@ describe('IntegrationToolCalls', () => {
         const reached = (await tools.reach(
           'linear.comment',
           task(),
-          'run_1',
+          ATTEMPT,
         )) as IntegrationTool;
 
         return reached.call({ issue: 'ENG-12', body: 'Fixed.' });
@@ -221,7 +226,7 @@ describe('IntegrationToolCalls', () => {
       expect(headersOf(fetch).authorization).toBe('lin_api_1');
     });
 
-    it('grants the run only the secrets the tool’s action wears', async () => {
+    it('grants the run’s current attempt only the secrets the tool’s action wears', async () => {
       const { comment, grant, forRun } = wearing({
         LINEAR_API_KEY: { host: 'api.linear.app', value: 'lin_api_1' },
       });
@@ -231,11 +236,13 @@ describe('IntegrationToolCalls', () => {
       expect(grant).toHaveBeenCalledWith({
         workspaceId: 'ws_1',
         runId: 'run_1',
+        attempt: 2,
         secrets: ['LINEAR_API_KEY'],
       });
       expect(forRun).toHaveBeenCalledWith({
         workspaceId: 'ws_1',
         runId: 'run_1',
+        attempt: 2,
         secrets: ['LINEAR_API_KEY'],
         url: 'https://api.linear.app/graphql',
       });

@@ -1,6 +1,5 @@
 import { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
 import { ExchangeWorkloadTokenHandler } from '@identity/application/commands/handlers/exchange-workload-token.handler';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
@@ -50,7 +49,6 @@ const exchanging = (
   over: {
     trust?: WorkspaceTokenTrust | null;
     claims?: WorkloadClaims | null;
-    open?: boolean;
     held?: WorkspaceTokenTrust | null;
     adding?: Error;
   } = {},
@@ -70,9 +68,6 @@ const exchanging = (
     } as unknown as WorkspaceTokenTrustRepository,
     { add } as unknown as WorkspaceTokenRepository,
     { verify } satisfies WorkloadTokensPort,
-    {
-      isOpen: vi.fn(async () => over.open ?? true),
-    } as unknown as WorkspaceReaderPort,
     { generate: () => 'token_1' },
     {
       mint: () => ({ token: 'minted-token', hash: 'c'.repeat(64) }),
@@ -92,7 +87,7 @@ const exchanging = (
 };
 
 describe('ExchangeWorkloadTokenHandler', () => {
-  it('verifies the workload against the trust’s issuer and audience, and mints a token for it', async () => {
+  it('verifies the workload against the trust’s issuer and audience, and mints a token for it that expires as the token itself does', async () => {
     const { exchange, verify, add } = exchanging();
 
     expect(await exchange()).toEqual({
@@ -127,13 +122,6 @@ describe('ExchangeWorkloadTokenHandler', () => {
     const { exchange, add } = exchanging({
       claims: { ...CLAIMS, subject: 'repo:acme/platform:pull_request' },
     });
-
-    expect(await exchange()).toBeNull();
-    expect(add).not.toHaveBeenCalled();
-  });
-
-  it('mints nothing into a closed workspace', async () => {
-    const { exchange, add } = exchanging({ open: false });
 
     expect(await exchange()).toBeNull();
     expect(add).not.toHaveBeenCalled();

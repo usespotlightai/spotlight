@@ -43,8 +43,8 @@ export interface HeldHook {
   readonly vars: Readonly<Record<string, string>>;
   readonly steps: readonly HeldHookStep[];
   readonly signing: HeldHookSigning | null;
-  readonly failure: string;
-  readonly timeoutSeconds: number;
+  readonly failure: string | null;
+  readonly timeoutSeconds: number | null;
 }
 
 export interface HeldHooksPort {

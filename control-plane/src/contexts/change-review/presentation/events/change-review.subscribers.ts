@@ -13,13 +13,16 @@ import type { ChangeStackChecked } from '@change-review/domain/events/change-sta
 import type { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
 import type { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
 import type { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import type { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import type { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import type { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
+import type { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import type { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import type { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
+import type { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
 import type { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
 import type { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
 import type { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
-import type { ReviewNotPosted } from '@change-review/domain/events/review-not-posted.event';
 import type { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import type { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import {
@@ -73,6 +76,16 @@ export const changeReviewSubscribers = (
     'change-review.release-runner-of-checked-stack',
     ['change-stack.checked', 'change-stack.layers-failed-check'],
     (event) => runners.released(event.stackId),
+  ),
+  subscribing<HeldCheckForgotten>(
+    'change-review.release-runner-of-forgotten-check',
+    ['change-stack.held-check-forgotten'],
+    (event) => runners.released(event.stackId),
+  ),
+  subscribing<CheckReservationDropped>(
+    'change-review.let-go-of-reserved-runner',
+    ['change-stack.check-reservation-dropped'],
+    (event) => runners.reservationDropped(event.runner),
   ),
   subscribing<ChangeStackSettled>(
     'change-review.begin-check',
@@ -168,14 +181,19 @@ export const changeReviewSubscribers = (
     (event) => reviews.onSubmitted(event),
   ),
   subscribing<ReviewPosted>(
-    'change-review.keep-posted-comments',
+    'change-review.post-file-comments',
     ['review.posted'],
     (event) => reviews.onPosted(event),
   ),
-  subscribing<ReviewNotPosted>(
-    'change-review.settle-unposted-comments',
-    ['review.not-posted'],
-    (event) => reviews.onNotPosted(event),
+  subscribing<ReviewCommentPlaced>(
+    'change-review.keep-posted-comment',
+    ['review.comment-placed'],
+    (event) => reviews.onCommentPlaced(event),
+  ),
+  subscribing<ReviewCommentNotPosted>(
+    'change-review.settle-unposted-comment',
+    ['review.comment-not-posted'],
+    (event) => reviews.onCommentNotPosted(event),
   ),
   subscribing<ReviewCommentReplied>(
     'change-review.post-reply',

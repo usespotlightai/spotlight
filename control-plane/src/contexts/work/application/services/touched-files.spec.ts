@@ -24,6 +24,7 @@ const touching = (input: {
   changes: RunChanges[];
   pullRequest?: PullRequestUrl | null;
   changedIn?: () => Promise<readonly string[]>;
+  sleep?: (ms: number, cancelled?: AbortSignal) => Promise<void>;
 }) => {
   const warn = vi.fn();
   const files = new TouchedFiles(
@@ -34,11 +35,15 @@ const touching = (input: {
       changedIn: input.changedIn ?? (async () => []),
     } as unknown as PullRequestPort,
     { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
+    {
+      now: () => new Date(),
+      sleep: input.sleep ?? (() => new Promise(() => {})),
+    },
   );
   const task = {
     id: TaskId.of('task_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    reviewed: null,
+    reviewedHead: null,
     pullRequest: input.pullRequest ?? null,
   } as unknown as Task;
   const line = { repositories: { all: [API, WEB] } } as unknown as Line;
@@ -99,6 +104,23 @@ describe('TouchedFiles', () => {
     expect(listed(await onTask())).toEqual(['acme/api:docs/retries.md']);
   });
 
+  it('stops waiting for GitHub once it has answered', async () => {
+    let waiting: AbortSignal | undefined;
+    const { onTask } = touching({
+      changes: [],
+      pullRequest: PULL,
+      changedIn: async () => ['docs/retries.md'],
+      sleep: (_ms, cancelled) => {
+        waiting = cancelled;
+        return new Promise(() => {});
+      },
+    });
+
+    await onTask();
+
+    expect(waiting?.aborted).toBe(true);
+  });
+
   it('goes on without the pull request’s files when GitHub does not give them', async () => {
     const { onTask, warn } = touching({
       changes: [changes('run_1', ['/runs/run_1/api/src/uploads.ts'])],
@@ -106,6 +128,18 @@ describe('TouchedFiles', () => {
       changedIn: async () => {
         throw new Error('GitHub is down');
       },
+    });
+
+    expect(listed(await onTask())).toEqual(['acme/api:src/uploads.ts']);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('goes on without the pull request’s files once GitHub keeps it waiting too long', async () => {
+    const { onTask, warn } = touching({
+      changes: [changes('run_1', ['/runs/run_1/api/src/uploads.ts'])],
+      pullRequest: PULL,
+      changedIn: () => new Promise(() => {}),
+      sleep: async () => {},
     });
 
     expect(listed(await onTask())).toEqual(['acme/api:src/uploads.ts']);

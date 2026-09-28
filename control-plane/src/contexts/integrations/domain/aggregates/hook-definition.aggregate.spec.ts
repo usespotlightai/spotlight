@@ -9,14 +9,15 @@ import { HookRetired } from '@integrations/domain/events/hook-retired.event';
 import { HookDefinitionMovedOnError } from '@integrations/domain/exceptions/hook-definition-moved-on.error';
 import { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -42,9 +43,13 @@ const hook = ({
   Hook.of({
     key: HookKey.of(key),
     event: HookEvent.of('tool.used'),
-    match: { tools, paths: [] },
+    match: { tools: tools.map((tool) => ToolName.of(tool)), paths: [] },
     steps: [
-      { name: 'notify', kind: 'call', tool: 'slack.post-message' },
+      {
+        name: 'notify',
+        kind: 'call',
+        tool: ToolName.of('slack.post-message'),
+      },
       {
         name: 'audit',
         kind: 'request',
@@ -92,7 +97,7 @@ const standing = (version = 3) =>
     key: HookKey.of('grafana-reads'),
     event: HookEvent.of('tool.used'),
     document: DefinitionDocument.of({ key: 'grafana-reads' }),
-    tools: ['grafana.search', 'slack.post-message'],
+    tools: [ToolName.of('grafana.search'), ToolName.of('slack.post-message')],
     signing: { version: 1 },
     version,
   });
@@ -107,7 +112,10 @@ describe('HookDefinition', () => {
   it('is defined with the tools it uses and its secret to seal', () => {
     const hook = defined();
 
-    expect(hook.tools).toEqual(['grafana.search', 'slack.post-message']);
+    expect(hook.tools.map((tool) => tool.value)).toEqual([
+      'grafana.search',
+      'slack.post-message',
+    ]);
     expect(hook.signing).toEqual({ version: 1 });
     expect(hook.givenSecret?.equals(secret('a'))).toBe(true);
     expect(hook.pullEvents()).toEqual([
@@ -275,5 +283,24 @@ describe('HookDefinition', () => {
       ),
     ]);
     expect(() => retired.retired(BY)).toThrow(InconsistentStateError);
+  });
+
+  it('blocks on failure only where it was written to', () => {
+    const written = (document: Record<string, unknown>) =>
+      HookDefinition.rehydrate({
+        id: ID,
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        key: HookKey.of('grafana-reads'),
+        event: HookEvent.of('tool.using'),
+        document: DefinitionDocument.of(document),
+        tools: [],
+        signing: null,
+        version: 1,
+      });
+
+    expect(written({ failure: 'block' }).blocks).toBe(true);
+    expect(written({ failure: 'continue' }).blocks).toBe(false);
+    expect(written({}).blocks).toBe(false);
   });
 });

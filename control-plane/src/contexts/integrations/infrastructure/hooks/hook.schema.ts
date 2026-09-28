@@ -1,3 +1,7 @@
+import {
+  HOOK_ON_FAILURES,
+  Hook,
+} from '@integrations/domain/entities/hook.entity';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import { WORDS } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { z } from 'zod';
@@ -137,8 +141,8 @@ export const hookSchema = z
       .default({}),
     steps: z.array(stepSchema),
     signing: signingSchema.nullable().default(null),
-    failure: z.enum(['continue', 'block']).default('continue'),
-    timeoutSeconds: z.number().default(10),
+    failure: z.enum(HOOK_ON_FAILURES).default(Hook.DEFAULTS.failure),
+    timeoutSeconds: z.number().default(Hook.DEFAULTS.timeoutSeconds),
   })
   .strict();
 

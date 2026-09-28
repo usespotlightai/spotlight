@@ -1,8 +1,8 @@
-import type { AdmissionKind } from '@runners/domain/value-objects/admission.vo';
+import type { WayInKind } from '@runners/application/ports/runner-admissions.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface AdmittedThrough {
-  readonly kind: AdmissionKind;
+  readonly kind: WayInKind;
   readonly key: string | null;
 }
 

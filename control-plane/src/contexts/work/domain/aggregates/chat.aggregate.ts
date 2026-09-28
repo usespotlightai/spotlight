@@ -34,6 +34,11 @@ import type { TaskDescription } from '@work/domain/value-objects/task-descriptio
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 
+export interface ChatAfterRun {
+  readonly chat: Chat;
+  readonly followsUp: boolean;
+}
+
 export class Chat extends EventRecorder {
   private constructor(
     readonly id: ChatId,
@@ -246,6 +251,30 @@ export class Chat extends EventRecorder {
         message.wasDeliveredTo(runId) ? message.takenBack() : message,
       ),
     });
+  }
+
+  runEnded(
+    runId: RunId,
+    ending: {
+      readonly session: HarnessSession | null;
+      readonly workedBy: RunnerId | null;
+      readonly stopped: boolean;
+    },
+  ): ChatAfterRun {
+    if (!this.heldBy(runId)) {
+      return { chat: this, followsUp: false };
+    }
+
+    if (!ending.session) {
+      return { chat: this.runKeptNothing(runId), followsUp: false };
+    }
+
+    const worked = this.endedRun(runId).workedIn(
+      ending.session,
+      ending.workedBy,
+    );
+
+    return { chat: worked, followsUp: !ending.stopped && worked.wantsFollowUp };
   }
 
   endedRun(runId: RunId): Chat {

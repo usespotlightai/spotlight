@@ -64,5 +64,7 @@ export interface RunnersPort {
 
   letGo(runnerId: RunnerId, at: Date): Promise<void>;
 
+  reservationDropped(runnerId: RunnerId, at: Date): Promise<void>;
+
   workEnded(work: HeldWork, at: Date): Promise<void>;
 }

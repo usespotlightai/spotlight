@@ -7,6 +7,7 @@ import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type {
   IntegrationTool,
   IntegrationToolCallsPort,
+  RunAttemptDto,
 } from '@work/application/ports/integration-tool-calls.port';
 
 export class IntegrationToolCalls implements IntegrationToolCallsPort {
@@ -19,7 +20,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
   async reach(
     tool: string,
     task: BoundTaskDto,
-    runId: string,
+    run: RunAttemptDto,
   ): Promise<IntegrationTool | null> {
     const teamId = TeamId.of(task.teamId);
     const definitions = await this.defined.ofTeam(teamId);
@@ -43,7 +44,8 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
             {
               teamId,
               workspaceId: task.workspaceId,
-              runId,
+              runId: run.runId,
+              attempt: run.attempt,
               wears: reachable.wears,
             },
             reachable.integration,

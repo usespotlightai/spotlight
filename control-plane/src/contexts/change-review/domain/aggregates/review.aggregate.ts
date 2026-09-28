@@ -1,9 +1,10 @@
-import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
-import { ReviewNotPosted } from '@change-review/domain/events/review-not-posted.event';
-import {
-  type PlacedComment,
-  ReviewPosted,
-} from '@change-review/domain/events/review-posted.event';
+import type {
+  OnGitHub,
+  ReviewComment,
+} from '@change-review/domain/aggregates/review-comment.aggregate';
+import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
+import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
+import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -13,6 +14,11 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export interface PlacedComment {
+  readonly commentId: ReviewCommentId;
+  readonly github: OnGitHub | null;
+}
 
 export const REVIEW_VERDICTS = [
   'comment',
@@ -196,8 +202,13 @@ export class Review extends EventRecorder {
     const posted = this.with('posted', githubId, now);
 
     posted.record(
-      new ReviewPosted(this.id, this.workspaceId, this.taskId, placed, onFiles),
+      new ReviewPosted(this.id, this.workspaceId, this.taskId, onFiles),
     );
+    for (const each of placed) {
+      posted.record(
+        new ReviewCommentPlaced(this.id, each.commentId, each.github),
+      );
+    }
 
     return posted;
   }
@@ -214,7 +225,7 @@ export class Review extends EventRecorder {
 
     const withdrawn = this.with('withdrawn', null, null);
 
-    withdrawn.record(new ReviewNotPosted(this.id, this.comments, 'withdrawn'));
+    withdrawn.handingBackComments();
 
     return withdrawn;
   }
@@ -226,9 +237,15 @@ export class Review extends EventRecorder {
 
     const failed = this.with('failed', null, null);
 
-    failed.record(new ReviewNotPosted(this.id, this.comments, 'failed'));
+    failed.handingBackComments();
 
     return failed;
+  }
+
+  private handingBackComments(): void {
+    for (const commentId of this.comments) {
+      this.record(new ReviewCommentNotPosted(this.id, commentId));
+    }
   }
 
   private with(
