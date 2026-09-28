@@ -1,6 +1,6 @@
 import { InvalidCallbackNoteError } from '@integrations/domain/exceptions/invalid-callback-note.error';
 
-export const LONGEST_CALLBACK_NOTE = 20_000;
+const LONGEST_CALLBACK_NOTE = 20_000;
 
 export class CallbackNote {
   private constructor(readonly body: string) {}

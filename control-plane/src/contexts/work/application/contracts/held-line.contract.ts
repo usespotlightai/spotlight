@@ -1,4 +1,4 @@
-export type HeldLineStationKind = 'backlog' | 'work' | 'completed';
+type HeldLineStationKind = 'backlog' | 'work' | 'completed';
 
 export type HeldLineStation = {
   readonly key: string;
@@ -34,7 +34,7 @@ export type HeldLineReaction = {
   readonly to: string;
 };
 
-export type HeldLineReviewSkips = {
+type HeldLineReviewSkips = {
   readonly spotlight?: boolean;
   readonly drafts?: boolean;
   readonly authors?: readonly string[];

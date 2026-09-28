@@ -14,7 +14,7 @@ export interface StationSite extends RunSite {
   readonly stationId: string;
 }
 
-export interface TouchedFile {
+interface TouchedFile {
   readonly repository: Repository;
   readonly path: MemoryPath;
 }

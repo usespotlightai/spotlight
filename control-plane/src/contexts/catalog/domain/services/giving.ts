@@ -9,24 +9,24 @@ import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 
-export type RefusalReason =
+type RefusalReason =
   | 'unknown'
   | 'wrong-kind'
   | 'not-entitled'
   | 'lapsed';
 
-export interface Refusal {
+interface Refusal {
   readonly id: string;
   readonly reason: RefusalReason;
   readonly because: string;
 }
 
-export interface Given<T extends CatalogItem> {
+interface Given<T extends CatalogItem> {
   readonly given: true;
   readonly item: T;
 }
 
-export interface Refused {
+interface Refused {
   readonly given: false;
   readonly refusal: Refusal;
 }
