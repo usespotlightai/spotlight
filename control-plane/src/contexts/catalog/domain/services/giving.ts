@@ -9,11 +9,7 @@ import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 
-type RefusalReason =
-  | 'unknown'
-  | 'wrong-kind'
-  | 'not-entitled'
-  | 'lapsed';
+type RefusalReason = 'unknown' | 'wrong-kind' | 'not-entitled' | 'lapsed';
 
 interface Refusal {
   readonly id: string;
