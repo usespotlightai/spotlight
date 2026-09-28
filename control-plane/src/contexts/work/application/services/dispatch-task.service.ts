@@ -34,10 +34,7 @@ import type { StationCatalog } from '@work/application/services/station-catalog.
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
-import {
-  repositoriesWorked,
-  type TouchedFiles,
-} from '@work/application/services/touched-files';
+import type { TouchedFiles } from '@work/application/services/touched-files';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -46,6 +43,7 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { describedTools } from '@work/domain/services/given-to-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, type RunOrder } from '@work/domain/services/run-order';
+import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
@@ -225,7 +223,7 @@ export class DispatchTask implements TaskDispatching {
           teamId: line.teamId,
           lineId: line.id.value,
           stationId: task.stationId.value,
-          repositories: repositoriesWorked(task, line),
+          repositories: repositoriesWorkedOn(task, line),
           about: taskWords(task),
           touched: () => this.touched.onTask(task, line),
         }),

@@ -207,6 +207,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
           [],
           [],
           [],
+          [],
           Holdings.none(),
           attributedIn(made.body.id),
         ) as Workspace,

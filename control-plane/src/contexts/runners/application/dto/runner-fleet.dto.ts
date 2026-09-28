@@ -1,7 +1,7 @@
-import type { AdmissionKind } from '@runners/domain/value-objects/admission.vo';
+import type { WayInKind } from '@runners/application/ports/runner-admissions.port';
 
 export interface AdmittedThroughDto {
-  readonly kind: AdmissionKind;
+  readonly kind: WayInKind;
   readonly key: string | null;
 }
 

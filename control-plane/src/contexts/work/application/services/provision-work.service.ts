@@ -9,6 +9,7 @@ import type {
 } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -20,7 +21,11 @@ import type { ProvisionFailures } from '@work/application/services/provision-fai
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { poolCouldTake } from '@work/domain/services/pool-fit';
+import {
+  type PoolOnOffer,
+  PoolRoom,
+  poolChoiceFor,
+} from '@work/domain/services/pool-choice';
 
 const MOST_AT_ONCE = 20;
 
@@ -30,6 +35,8 @@ const MOST_PAGES = 10;
 
 type Provisioned = 'settled' | 'try-another';
 
+type OfferedPool = PoolAtWork & PoolOnOffer;
+
 interface Then {
   readonly failed: (failure: ProvisionFailure) => Promise<unknown>;
   readonly unreserved: () => Promise<unknown>;
@@ -37,7 +44,7 @@ interface Then {
 
 interface Waiting {
   readonly placement: RunnerPlacement;
-  readonly on: (pool: PoolAtWork, last: boolean) => Promise<Provisioned>;
+  readonly on: (pool: OfferedPool, last: boolean) => Promise<Provisioned>;
 }
 
 const rethrown = (thrown: readonly unknown[]): void => {
@@ -103,38 +110,35 @@ export class ProvisionWork {
     );
   }
 
-  private async inWorkspace(pools: readonly PoolAtWork[]): Promise<void> {
+  private async inWorkspace(atWork: readonly PoolAtWork[]): Promise<void> {
+    const pools: readonly OfferedPool[] = atWork.map((each) => ({
+      ...each,
+      pool: PoolId.of(each.poolId),
+    }));
     const [first] = pools;
 
     if (!first) {
       return;
     }
 
-    const room = new Map(
+    let room = PoolRoom.told(
       await Promise.all(
         pools.map(
-          async (pool) =>
+          async (offered) =>
             [
-              pool.poolId,
-              pool.maxRuns === null
-                ? Number.POSITIVE_INFINITY
-                : pool.maxRuns -
-                  (await this.pools.running(pool.poolId, this.clock.now())),
+              offered.pool,
+              await this.pools.roomIn(offered.poolId, this.clock.now()),
             ] as const,
         ),
       ),
     );
-    const placed: { waiting: Waiting; fitting: readonly PoolAtWork[] }[] = [];
+    const placed: { waiting: Waiting; fitting: readonly OfferedPool[] }[] = [];
     const place = (waiting: Waiting): void => {
-      const fitting = pools.filter(
-        (each) =>
-          (room.get(each.poolId) ?? 0) > 0 &&
-          poolCouldTake(waiting.placement, each.labels),
-      );
+      const fitting = poolChoiceFor(waiting.placement, pools, room);
       const [chosen] = fitting;
 
       if (chosen && placed.length < MOST_AT_ONCE) {
-        room.set(chosen.poolId, (room.get(chosen.poolId) ?? 0) - 1);
+        room = room.afterTaking(chosen.pool);
         placed.push({ waiting, fitting });
       }
     };
@@ -154,9 +158,7 @@ export class ProvisionWork {
     ]) {
       for (
         let at = 0;
-        at < MOST_PAGES &&
-        placed.length < MOST_AT_ONCE &&
-        [...room.values()].some((left) => left > 0);
+        at < MOST_PAGES && placed.length < MOST_AT_ONCE && room.anyLeft;
         at++
       ) {
         const waiting = await page(at * PAGE);
@@ -204,7 +206,6 @@ export class ProvisionWork {
           ProvisionFailure.lapsed(reservation.until),
           now,
         );
-        await this.runners.letGo(reservation.runner, now);
       }
     }
 
@@ -215,7 +216,6 @@ export class ProvisionWork {
         ProvisionFailure.lapsed(check.until),
         now,
       );
-      await this.runners.letGo(check.runner, now);
     }
   }
 
@@ -235,7 +235,7 @@ export class ProvisionWork {
 
   private async runOn(
     queued: Run,
-    pool: PoolAtWork,
+    pool: OfferedPool,
     last: boolean,
   ): Promise<Provisioned> {
     const waiting = await this.runs.findById(queued.id);
@@ -245,11 +245,7 @@ export class ProvisionWork {
     }
 
     const runnerId = RunnerId.of(this.ids.generate());
-    const reserved = waiting.reservedFor(
-      runnerId,
-      pool.poolId,
-      this.clock.now(),
-    );
+    const reserved = waiting.reservedFor(runnerId, pool.pool, this.clock.now());
     const { reservation } = reserved;
 
     if (!reservation) {
@@ -291,14 +287,14 @@ export class ProvisionWork {
 
   private async checkOn(
     check: WaitingCheck,
-    pool: PoolAtWork,
+    pool: OfferedPool,
     last: boolean,
   ): Promise<Provisioned> {
     const runnerId = RunnerId.of(this.ids.generate());
     const until = await this.checks.reserve(
       check.stackId,
       runnerId,
-      pool.poolId,
+      pool.pool,
       this.clock.now(),
     );
 

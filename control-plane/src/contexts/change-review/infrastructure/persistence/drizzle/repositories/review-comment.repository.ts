@@ -1,5 +1,5 @@
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
-import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
+import { ReviewCommentMovedOnError } from '@change-review/domain/exceptions/review-comment-moved-on.error';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
@@ -129,7 +129,7 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
       .returning({ id: reviewComment.id });
 
     if (written.length === 0) {
-      throw new ChangedSinceReadError('review comment', id);
+      throw new ReviewCommentMovedOnError(id);
     }
   }
 

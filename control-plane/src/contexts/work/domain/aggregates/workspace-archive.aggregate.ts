@@ -2,6 +2,8 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-workspace-archive.error';
+import { InvalidWorkspaceArchiveTransitionError } from '@work/domain/exceptions/invalid-workspace-archive-transition.error';
 import { WorkspaceArchiveNotUploadedError } from '@work/domain/exceptions/workspace-archive-not-uploaded.error';
 import type { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import type {
@@ -19,6 +21,12 @@ const AWAITED_UNSEALED_MS = 24 * 60 * 60_000;
 export interface StoredArchive {
   readonly size: ArchiveSize;
   readonly digest: ArchiveDigest;
+}
+
+export interface ArchiveRemovalCutoffs {
+  readonly grantedUnsealedBy: Date;
+  readonly supersededBy: Date;
+  readonly letGoBy: Date;
 }
 
 export interface ArchiveFacts {
@@ -52,19 +60,27 @@ export class WorkspaceArchive extends EventRecorder {
   static granted(input: {
     id: WorkspaceArchiveId;
     workspaceId: WorkspaceId;
-    continuity: ContinuityKey;
-    holder: ArchiveHolder;
+    continuity: ContinuityKey | null;
+    holder: ArchiveHolder | null;
     run: RunId;
     size: ArchiveSize;
     digest: ArchiveDigest;
     at: Date;
   }): WorkspaceArchive {
+    const { continuity, holder } = input;
+
+    if (!continuity || !holder) {
+      throw new InvalidWorkspaceArchiveError(
+        'is kept only for work that carries on in a later run',
+      );
+    }
+
     return new WorkspaceArchive(
       {
         id: input.id,
         workspaceId: input.workspaceId,
-        continuity: input.continuity,
-        holder: input.holder,
+        continuity,
+        holder,
         grantedTo: input.run,
         size: input.size,
         digest: input.digest,
@@ -74,6 +90,16 @@ export class WorkspaceArchive extends EventRecorder {
       },
       false,
     );
+  }
+
+  static removalCutoffs(now: Date): ArchiveRemovalCutoffs {
+    const before = (ms: number): Date => new Date(now.getTime() - ms);
+
+    return {
+      grantedUnsealedBy: before(AWAITED_UNSEALED_MS),
+      supersededBy: before(KEPT_AFTER_SUPERSEDED_MS),
+      letGoBy: before(KEPT_AFTER_LET_GO_MS),
+    };
   }
 
   static rehydrate(state: State): WorkspaceArchive {
@@ -211,7 +237,13 @@ export class WorkspaceArchive extends EventRecorder {
     );
   }
 
-  removed(): WorkspaceArchive {
+  removed(now: Date, facts: ArchiveFacts): WorkspaceArchive {
+    if (!this.removableAt(now, facts)) {
+      throw new InvalidWorkspaceArchiveTransitionError(
+        'is removed only once no later run will restore it',
+      );
+    }
+
     const discarded = new WorkspaceArchive(this.state, true);
     discarded.inheritEvents(this);
 

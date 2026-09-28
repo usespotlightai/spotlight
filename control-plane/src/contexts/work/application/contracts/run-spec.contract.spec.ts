@@ -169,3 +169,24 @@ describe('RunSpecContract.continuityOf', () => {
     ).not.toHaveProperty('sessionId');
   });
 });
+
+describe('RunSpecContract.checkoutFoldersIn', () => {
+  it('reads the folders stored checkouts were laid out in', () => {
+    expect(
+      RunSpecContract.checkoutFoldersIn([
+        { remote: 'https://github.com/acme/api', path: 'api' },
+        { remote: 'https://github.com/acme/web' },
+      ]),
+    ).toEqual(['api']);
+    expect(RunSpecContract.checkoutFoldersIn(null)).toEqual([]);
+  });
+
+  it('refuses checkouts that are not what a run stores', () => {
+    expect(() => RunSpecContract.checkoutFoldersIn([{ path: 'api' }])).toThrow(
+      InvalidRunSpecError,
+    );
+    expect(() => RunSpecContract.checkoutFoldersIn('api')).toThrow(
+      InvalidRunSpecError,
+    );
+  });
+});

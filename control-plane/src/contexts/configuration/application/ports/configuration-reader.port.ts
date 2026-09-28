@@ -7,6 +7,8 @@ interface ReadIntegrationView {
   readonly name: string;
   readonly path: string;
   readonly connectable: boolean;
+  readonly linked: boolean;
+  readonly handle: string | null;
 }
 
 export interface ConfigurationView {

@@ -1,8 +1,6 @@
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import {
-  type MemoryPlace,
-  MemoryScope,
-} from '@memory/domain/value-objects/memory-scope.vo';
+import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import type { TouchedSite } from '@memory/domain/value-objects/run-site';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -10,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
-const place = (touched: string[] = []): MemoryPlace => ({
+const place = (touched: string[] = []): TouchedSite => ({
   teamId: TEAM,
   lineId: 'line_1',
   stationId: 'station_1',

@@ -5,15 +5,13 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
 import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
-import { InvalidTaskAsideError } from '@work/domain/exceptions/invalid-task-aside.error';
+import type { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import {
   type AsideForm,
   asideForm,
 } from '@work/domain/value-objects/aside-form';
 import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import type { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
-
-const MOST_ABOUT = 200;
 
 export interface AsideAttendance {
   readonly viewer: UserId;
@@ -27,7 +25,7 @@ export class TaskAside extends EventRecorder {
     readonly workspaceId: WorkspaceId,
     readonly taskId: TaskId,
     readonly form: AsideForm,
-    readonly about: string,
+    readonly about: AsideAbout,
     readonly raisedAt: Date,
     readonly reads: readonly AsideRead[],
     readonly settledAt: Date | null,
@@ -41,18 +39,11 @@ export class TaskAside extends EventRecorder {
     workspaceId: WorkspaceId;
     taskId: TaskId;
     form: string;
-    about: string;
+    about: AsideAbout;
     now: Date;
   }): TaskAside {
     const form = asideForm(input.form);
-    const about = input.about.trim();
-
-    if (!about || about.length > MOST_ABOUT) {
-      throw new InvalidTaskAsideError(
-        `says what it is about in at most ${MOST_ABOUT} characters`,
-      );
-    }
-
+    const { about } = input;
     const raised = new TaskAside(
       input.id,
       input.workspaceId,
@@ -73,7 +64,7 @@ export class TaskAside extends EventRecorder {
     workspaceId: WorkspaceId;
     taskId: TaskId;
     form: AsideForm;
-    about: string;
+    about: AsideAbout;
     raisedAt: Date;
     reads: readonly AsideRead[];
     settledAt: Date | null;

@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
+  ApiConflictResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOperation,
@@ -67,6 +68,9 @@ export class RunnerChangeStackController {
   @ApiNoContentResponse()
   @ApiNotFoundResponse({
     description: 'Not a run this runner worked, or no such stack of it',
+  })
+  @ApiConflictResponse({
+    description: 'This runner does not hold the check of that stack',
   })
   @ApiUnprocessableEntityResponse({
     description: 'The stack was already checked, or names steps it has not',

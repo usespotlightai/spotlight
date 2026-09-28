@@ -8,7 +8,9 @@ import type {
   RunnersPort,
 } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -25,9 +27,11 @@ import type {
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import { ProvisionWork } from '@work/application/services/provision-work.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOON = new Date('2026-09-24T12:00:00.000Z');
@@ -43,7 +47,7 @@ const waiting = (
     id: RunId.of(id),
     workspaceId: WorkspaceId.of(workspace),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(TaskId.of('task_1'), null, 0),
+    subject: RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
@@ -65,7 +69,9 @@ const aWaitingCheck = (
 
 const WIDGETS = RunnerImage.of('ghcr.io/acme/widgets:1');
 
-const aPool = (key: string, labels: string[] = []): PoolAtWork => ({
+type BoundedPool = PoolAtWork & { readonly maxRuns: number | null };
+
+const aPool = (key: string, labels: string[] = []): BoundedPool => ({
   poolId: `pool_${key}`,
   workspaceId: WorkspaceId.of('ws_1'),
   key,
@@ -75,7 +81,7 @@ const aPool = (key: string, labels: string[] = []): PoolAtWork => ({
 
 const provisioning = (
   queue: readonly Run[],
-  pools: readonly PoolAtWork[],
+  pools: readonly BoundedPool[],
   answers: Record<string, ProvisionedRunner> = {},
   now = NOON,
   running = 0,
@@ -99,9 +105,11 @@ const provisioning = (
         )
         .slice(page.skip, page.skip + page.most),
   );
+  const recorded: DomainEvent[] = [];
   const runs = {
     findById: async (id: RunId) => held.get(id.value) ?? null,
     save: async (run: Run) => {
+      recorded.push(...run.pullEvents());
       held.set(run.id.value, run);
     },
     awaitingProvision,
@@ -136,6 +144,7 @@ const provisioning = (
   return {
     provision,
     letGo,
+    recorded,
     checks,
     awaitingProvision,
     run: (id: string) => held.get(id) as Run,
@@ -144,7 +153,12 @@ const provisioning = (
       checks,
       {
         provisioning: async () => pools,
-        running: async () => running,
+        roomIn: async (poolId: string) => {
+          const maxRuns =
+            pools.find((each) => each.poolId === poolId)?.maxRuns ?? null;
+
+          return maxRuns === null ? null : Math.max(0, maxRuns - running);
+        },
       } as unknown as RunnerPoolsPort,
       { provision, letGo } as unknown as RunnersPort,
       failures,
@@ -179,7 +193,7 @@ describe('ProvisionWork', () => {
 
     expect(run('run_1').reservation).toBeNull();
     expect(run('run_1').provisioning.failures).toBe(0);
-    expect(run('run_2').reservation?.pool).toBe('pool_burst');
+    expect(run('run_2').reservation?.pool.value).toBe('pool_burst');
   });
 
   it('releases a check it reserved when provisioning throws', async () => {
@@ -313,7 +327,7 @@ describe('ProvisionWork', () => {
       NOON,
     );
     expect(run('run_1').reservation?.runner.value).toBe('pooled_1');
-    expect(run('run_1').reservation?.pool).toBe('pool_burst');
+    expect(run('run_1').reservation?.pool.value).toBe('pool_burst');
   });
 
   it('asks the pool to start its runner in the image the run is placed in', async () => {
@@ -369,7 +383,7 @@ describe('ProvisionWork', () => {
       'pool_a-dead',
       'pool_b-burst',
     ]);
-    expect(run('run_1').reservation?.pool).toBe('pool_b-burst');
+    expect(run('run_1').reservation?.pool.value).toBe('pool_b-burst');
     expect(run('run_1').provisioning.failures).toBe(0);
   });
 
@@ -414,7 +428,7 @@ describe('ProvisionWork', () => {
       'the provision secret does not open here',
     );
 
-    expect(run('run_1').reservation?.pool).toBe('pool_b-burst');
+    expect(run('run_1').reservation?.pool.value).toBe('pool_b-burst');
     expect(run('run_1').provisioning.failures).toBe(0);
   });
 
@@ -456,7 +470,7 @@ describe('ProvisionWork', () => {
       'pool_a-burst',
       'pool_b-spare',
     ]);
-    expect(run('run_1').reservation?.pool).toBe('pool_b-spare');
+    expect(run('run_1').reservation?.pool.value).toBe('pool_b-spare');
     expect(run('run_1').provisioning.failures).toBe(0);
   });
 
@@ -516,13 +530,13 @@ describe('ProvisionWork', () => {
     expect(provision).not.toHaveBeenCalled();
   });
 
-  it('fails a reservation nobody claimed in time and lets its runner go', async () => {
+  it('fails a reservation nobody claimed in time, saving that its runner is to be let go', async () => {
     const lapsing = waiting('run_1').reservedFor(
       RunnerId.of('pooled_9'),
-      'pool_burst',
+      PoolId.of('pool_burst'),
       NOON,
     );
-    const { provisioner, provision, letGo, run } = provisioning(
+    const { provisioner, provision, letGo, recorded, run } = provisioning(
       [lapsing],
       [],
       {},
@@ -533,7 +547,14 @@ describe('ProvisionWork', () => {
 
     expect(run('run_1').reservation).toBeNull();
     expect(run('run_1').provisioning.failures).toBe(1);
-    expect(letGo).toHaveBeenCalledWith(RunnerId.of('pooled_9'), LATER);
+    expect(recorded).toContainEqual(
+      new RunReservationDropped(
+        RunId.of('run_1'),
+        WorkspaceId.of('ws_1'),
+        RunnerId.of('pooled_9'),
+      ),
+    );
+    expect(letGo).not.toHaveBeenCalled();
     expect(provision).not.toHaveBeenCalled();
   });
 
@@ -542,7 +563,7 @@ describe('ProvisionWork', () => {
       [
         waiting('run_1').reservedFor(
           RunnerId.of('pooled_9'),
-          'pool_burst',
+          PoolId.of('pool_burst'),
           NOON,
         ),
       ],
@@ -571,7 +592,7 @@ describe('ProvisionWork', () => {
       expect(checks.reserve).toHaveBeenCalledWith(
         'stack_1',
         RunnerId.of('pooled_1'),
-        'pool_burst',
+        PoolId.of('pool_burst'),
         NOON,
       );
       expect(provision).toHaveBeenCalledWith(
@@ -795,13 +816,13 @@ describe('ProvisionWork', () => {
         RunnerId.of('pooled_1'),
       );
       expect(checks.reserve.mock.calls.map(([, , pool]) => pool)).toEqual([
-        'pool_a-burst',
-        'pool_b-spare',
+        PoolId.of('pool_a-burst'),
+        PoolId.of('pool_b-spare'),
       ]);
       expect(checks.failed).not.toHaveBeenCalled();
     });
 
-    it('fails a check reservation nobody claimed in time and lets its runner go', async () => {
+    it('fails a check reservation nobody claimed in time', async () => {
       const { provisioner, checks, letGo } = provisioning(
         [],
         [],
@@ -827,7 +848,7 @@ describe('ProvisionWork', () => {
         ProvisionFailure.lapsed(LATER),
         LATER,
       );
-      expect(letGo).toHaveBeenCalledWith(RunnerId.of('pooled_9'), LATER);
+      expect(letGo).not.toHaveBeenCalled();
     });
   });
 });

@@ -14,6 +14,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"net/http"
 	"os"
 	"slices"
 	"strings"
@@ -335,11 +336,13 @@ func (e *fakeEngine) pulled() []string {
 }
 
 type worker struct {
-	mu        sync.Mutex
-	renewed   []string
-	images    map[string]string
-	completed map[string]protocol.Completion
-	checked   map[string]protocol.StackChecked
+	mu         sync.Mutex
+	renewed    []string
+	checksGone bool
+	checkLost  error
+	images     map[string]string
+	completed  map[string]protocol.Completion
+	checked    map[string]protocol.StackChecked
 }
 
 func (w *worker) RenewLease(_ context.Context, runID string) (bool, error) {
@@ -347,6 +350,13 @@ func (w *worker) RenewLease(_ context.Context, runID string) (bool, error) {
 	defer w.mu.Unlock()
 	w.renewed = append(w.renewed, runID)
 	return false, nil
+}
+
+func (w *worker) RenewCheckLease(_ context.Context, _, stackID string) (bool, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.renewed = append(w.renewed, stackID)
+	return w.checksGone, w.checkLost
 }
 
 func (w *worker) RecordImage(_ context.Context, runID, image string) error {
@@ -1196,6 +1206,85 @@ func TestKeepsTheRunLeasedWhileItPullsAndStarts(t *testing.T) {
 	pool.worker.mu.Unlock()
 	if len(renewed) < 3 || !slices.Contains(renewed, "run-runner_1") {
 		t.Errorf("renewed %v while pulling for 200ms", renewed)
+	}
+}
+
+func TestKeepsTheCheckLeasedWhileItPullsAndStarts(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.LeaseEvery = 20 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	eventually(t, "the image served", func() bool {
+		_, ok := pool.reported("runner:1")
+		return ok
+	})
+	engine.set(func(e *fakeEngine) { e.pullTakes = 200 * time.Millisecond })
+
+	pool.work <- protocol.Handed{
+		RunnerID:    "runner_1",
+		Token:       "one-run",
+		EgressToken: "egress-runner_1",
+		Work: protocol.Claimed{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
+			StackID: "stack_1", RunID: "run_1",
+		}},
+	}
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+
+	pool.worker.mu.Lock()
+	renewed := slices.Clone(pool.worker.renewed)
+	pool.worker.mu.Unlock()
+	if len(renewed) < 3 || !slices.Contains(renewed, "stack_1") {
+		t.Errorf("renewed %v while pulling for 200ms", renewed)
+	}
+}
+
+func TestStartsNoSandboxForACheckItNoLongerHoldsWhileItPulls(t *testing.T) {
+	for name, gone := range map[string]func(w *worker){
+		"told to stop": func(w *worker) { w.checksGone = true },
+		"refused": func(w *worker) {
+			w.checkLost = &control.Rejection{Status: http.StatusNotFound, Err: errors.New("404 Not Found")}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			engine, pool := harnessed(), newPool()
+			opts := options(t)
+			opts.LeaseEvery = 20 * time.Millisecond
+			serving(t, opts, engine, pool)
+
+			eventually(t, "the image served", func() bool {
+				_, ok := pool.reported("runner:1")
+				return ok
+			})
+			engine.set(func(e *fakeEngine) { e.pullTakes = 200 * time.Millisecond })
+			pool.worker.mu.Lock()
+			gone(pool.worker)
+			pool.worker.mu.Unlock()
+
+			pool.work <- protocol.Handed{
+				RunnerID:    "runner_1",
+				Token:       "one-run",
+				EgressToken: "egress-runner_1",
+				Work: protocol.Claimed{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
+					StackID: "stack_1", RunID: "run_1",
+				}},
+			}
+			eventually(t, "the check renewed", func() bool {
+				pool.worker.mu.Lock()
+				defer pool.worker.mu.Unlock()
+				return slices.Contains(pool.worker.renewed, "stack_1")
+			})
+
+			time.Sleep(400 * time.Millisecond)
+			if started := engine.workSandboxes(); len(started) != 0 {
+				t.Errorf("started %v for a check it no longer holds", started)
+			}
+			pool.worker.mu.Lock()
+			defer pool.worker.mu.Unlock()
+			if len(pool.worker.checked) != 0 {
+				t.Errorf("reported %v for a check it no longer holds", pool.worker.checked)
+			}
+		})
 	}
 }
 

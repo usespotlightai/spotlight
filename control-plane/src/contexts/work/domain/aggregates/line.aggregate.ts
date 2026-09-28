@@ -418,10 +418,6 @@ export class Line extends EventRecorder {
     return this.repositories.all.some((each) => each.equals(repository));
   }
 
-  repositoryNamed(name: string): Repository | null {
-    return this.repositories.named(name);
-  }
-
   worksIn(repositories: readonly WorkedRepository[]): Line {
     return this.changed({ repositories });
   }
@@ -588,6 +584,10 @@ export class Line extends EventRecorder {
 
   stationAt(stationId: StationId): Station | null {
     return this.stations.find((each) => each.id.equals(stationId)) ?? null;
+  }
+
+  stationKeyed(key: StationKey): Station | null {
+    return this.stations.find((each) => each.key.equals(key)) ?? null;
   }
 
   holds(stationId: StationId): boolean {

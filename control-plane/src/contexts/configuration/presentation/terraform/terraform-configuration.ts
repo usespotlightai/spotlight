@@ -23,6 +23,12 @@ import {
 } from '@platform/ordering/code-point-order';
 import type { FieldSegment } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { isToolName } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import type {
+  HeldLineReaction,
+  HeldLineRepository,
+  HeldLineReviews,
+  HeldLineStation,
+} from '@work/application/contracts/held-line.contract';
 
 export interface TerraformFile {
   readonly path: string;
@@ -62,18 +68,6 @@ const PROVIDER_SOURCE = 'usespotlightai/spotlight';
 const MAIN = 'main.tf';
 
 const VARIABLES = 'variables.tf';
-
-const LINE_BLOCKS: Readonly<Record<string, string>> = {
-  repositories: 'repository',
-  stations: 'station',
-  reactions: 'reaction',
-  reviews: 'reviews',
-  skip: 'skip',
-};
-
-const HOOK_FAILURE = 'continue';
-
-const HOOK_TIMEOUT_SECONDS = 10;
 
 const HOOK_MATCHES: readonly (keyof HeldHookMatch)[] = [
   'tools',
@@ -143,9 +137,6 @@ const hclOf = (value: unknown): HclValue => {
     : null;
 };
 
-const snakeCase = (name: string): string =>
-  name.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-
 const nameOf = (...keys: readonly string[]): string => {
   const joined = keys.join('_');
 
@@ -160,11 +151,6 @@ const referenceTo = (
   name: string,
   field: string,
 ): HclExpression => HclExpression.traversal(typeOf(kind), name, field);
-
-const texts = (value: unknown): readonly string[] =>
-  Array.isArray(value)
-    ? value.filter((each): each is string => typeof each === 'string')
-    : [];
 
 const inTeam = (teamKey: string, key: string): string =>
   JSON.stringify([teamKey, key]);
@@ -310,34 +296,10 @@ const variable = (
     ],
   );
 
-const documentBody = (
-  document: Readonly<Record<string, unknown>>,
-): readonly HclItem[] => {
-  const attributes: HclItem[] = [];
-  const blocks: HclItem[] = [];
-
-  for (const [name, value] of Object.entries(document)) {
-    const type = LINE_BLOCKS[name];
-
-    if (value === undefined || value === null) {
-      continue;
-    }
-
-    if (type && Array.isArray(value)) {
-      blocks.push(
-        ...value
-          .filter(isRecord)
-          .map((each) => block(type, [], documentBody(each))),
-      );
-    } else if (type && isRecord(value)) {
-      blocks.push(block(type, [], documentBody(value)));
-    } else {
-      attributes.push(attribute(snakeCase(name), hclOf(value)));
-    }
-  }
-
-  return [...attributes, ...blocks];
-};
+const present = (
+  name: string,
+  value: HclValue | undefined,
+): readonly HclItem[] => (value === undefined ? [] : [attribute(name, value)]);
 
 const line = (
   held: HeldBy<'line'>,
@@ -345,45 +307,98 @@ const line = (
   refer: Referring,
 ): Rendered => {
   const files: TerraformFile[] = [];
-  const stations = Array.isArray(held.definition.stations)
-    ? held.definition.stations
-    : [];
+  const { definition } = held;
 
-  const written = stations.map((station: unknown) => {
-    if (!isRecord(station)) {
-      return station;
+  const station = (each: HeldLineStation): HclBlock => {
+    const path = `prompts/${held.teamKey}/${held.key}/${each.key}.md`;
+
+    if (each.prompt !== undefined) {
+      files.push({ path, content: each.prompt });
     }
 
-    const path = `prompts/${held.teamKey}/${held.key}/${String(station.key)}.md`;
+    return block(
+      'station',
+      [],
+      [
+        attribute('key', each.key),
+        attribute('name', each.name),
+        attribute('kind', each.kind),
+        ...present('color', each.color),
+        ...present('description', each.description),
+        ...present('harness', each.harness),
+        ...present('model', each.model),
+        ...present('effort', each.effort),
+        ...present(
+          'profile',
+          each.profile === undefined
+            ? undefined
+            : refer.profile(held.teamKey, each.profile),
+        ),
+        ...present(
+          'prompt',
+          each.prompt === undefined
+            ? undefined
+            : HclExpression.moduleFile(path),
+        ),
+        ...present('check', each.check),
+        ...present('runners', each.runners),
+        ...present('diffs', each.diffs),
+        ...present('decisions', each.decisions),
+        ...present('memories', each.memories),
+        attribute(
+          'tools',
+          each.tools.map((tool) => refer.tool(held.teamKey, tool)),
+        ),
+        attribute(
+          'skills',
+          each.skills.map((skill) => refer.skill(held.teamKey, skill)),
+        ),
+        attribute('passes_to', each.passesTo),
+        attribute('ends', each.ends),
+      ],
+    );
+  };
 
-    if (typeof station.prompt === 'string') {
-      files.push({ path, content: station.prompt });
-    }
+  const repository = (each: HeldLineRepository): HclBlock =>
+    block(
+      'repository',
+      [],
+      [
+        attribute('name', each.name),
+        ...present('image', each.image),
+        ...present('setup', each.setup),
+      ],
+    );
 
-    return {
-      ...station,
-      ...(Array.isArray(station.skills)
-        ? {
-            skills: texts(station.skills).map((each) =>
-              refer.skill(held.teamKey, each),
-            ),
-          }
-        : {}),
-      ...(Array.isArray(station.tools)
-        ? {
-            tools: texts(station.tools).map((each) =>
-              refer.tool(held.teamKey, each),
-            ),
-          }
-        : {}),
-      ...(typeof station.profile === 'string'
-        ? { profile: refer.profile(held.teamKey, station.profile) }
-        : {}),
-      ...(typeof station.prompt === 'string'
-        ? { prompt: HclExpression.moduleFile(path) }
-        : {}),
-    };
-  });
+  const reaction = (each: HeldLineReaction): HclBlock =>
+    block(
+      'reaction',
+      [],
+      [
+        attribute('happening', each.happening),
+        ...present('from', each.from),
+        attribute('to', each.to),
+      ],
+    );
+
+  const reviews = (policy: HeldLineReviews): HclBlock =>
+    block(
+      'reviews',
+      [],
+      [
+        ...present('start', policy.start),
+        ...present('mention', policy.mention),
+        block(
+          'skip',
+          [],
+          [
+            ...present('spotlight', policy.skip.spotlight),
+            ...present('drafts', policy.skip.drafts),
+            ...present('authors', policy.skip.authors),
+          ],
+        ),
+      ],
+    );
 
   return adopted(
     held,
@@ -391,10 +406,14 @@ const line = (
     importedAs,
     [
       ...refer.owner(held),
-      ...documentBody({
-        ...held.definition,
-        stations: written,
-      }),
+      attribute('key', definition.key),
+      attribute('name', definition.name),
+      ...present('role', definition.role),
+      ...present('runners', definition.runners),
+      ...definition.repositories.map(repository),
+      ...definition.stations.map(station),
+      ...definition.reactions.map(reaction),
+      ...(definition.reviews ? [reviews(definition.reviews)] : []),
     ],
     { files },
   );
@@ -585,10 +604,8 @@ const hook = (
                 : { oidc: { audience: signing.oidc.audience } },
             ),
           ]),
-      ...(held.failure === HOOK_FAILURE
-        ? []
-        : [attribute('failure', held.failure)]),
-      ...(held.timeoutSeconds === HOOK_TIMEOUT_SECONDS
+      ...(held.failure === null ? [] : [attribute('failure', held.failure)]),
+      ...(held.timeoutSeconds === null
         ? []
         : [attribute('timeout_seconds', held.timeoutSeconds)]),
       attribute(

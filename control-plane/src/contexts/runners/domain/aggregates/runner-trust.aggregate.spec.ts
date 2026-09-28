@@ -97,6 +97,12 @@ describe('RunnerTrust', () => {
     expect(() => withdrawn.withdrawn(BY)).toThrow(InconsistentStateError);
   });
 
+  it('lets runners start through it only by pulling, and only while it stands', () => {
+    expect(standing().startVerdict('pull')).toBe('open');
+    expect(standing().startVerdict('push')).toBe('gone');
+    expect(standing().withdrawn(BY).startVerdict('pull')).toBe('gone');
+  });
+
   it('takes another workload and labels under the same key', () => {
     const redefined = standing().redefinedAs(
       {

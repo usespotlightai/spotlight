@@ -2,7 +2,6 @@ import type {
   ConfigurationReaderPort,
   ConfigurationView,
 } from '@configuration/application/ports/configuration-reader.port';
-import type { IntegrationLink } from '@configuration/application/ports/integration-links.port';
 import type {
   TeamProfile,
   TeamsPort,
@@ -22,7 +21,7 @@ const asking = (
   over: {
     workspace?: null;
     applied?: boolean;
-    linked?: readonly IntegrationLink[];
+    handle?: string | null;
     connects?: boolean;
   } = {},
 ) =>
@@ -42,15 +41,13 @@ const asking = (
                     name: 'Linear',
                     path: 'integrations/linear',
                     connectable: over.connects ?? false,
+                    linked: over.handle !== undefined,
+                    handle: over.handle ?? null,
                   },
                 ],
         }),
       ),
     } satisfies ConfigurationReaderPort,
-    {
-      heldBy: vi.fn(async () => over.linked ?? []),
-      linked: vi.fn(async () => {}),
-    },
   );
 
 const query = () => new ConfigurationQuery('acme', 'user_1');
@@ -80,7 +77,7 @@ describe('ConfigurationHandler', () => {
   it('says a host is linked, and what it calls the team, once the team has authorized it', async () => {
     const read = await asking({
       connects: true,
-      linked: [{ source: 'linear', handle: 'Acme' }],
+      handle: 'Acme',
     }).execute(query());
 
     expect(read?.integrations[0]).toMatchObject({

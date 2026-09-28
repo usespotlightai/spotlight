@@ -2,6 +2,7 @@ import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
@@ -71,7 +72,7 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
   MemoryProposal.rehydrate({
     id: MemoryId.of(row.id),
     kind: row.kind,
-    body: row.body,
+    body: MemoryBody.of(row.body),
     scope: MemoryScope.of({
       teamId: TeamId.of(row.teamId),
       lineId: row.lineId,
@@ -134,7 +135,7 @@ const proposalRows = (draft: MemoryDraft) =>
     draftId: draft.id.value,
     position,
     kind: each.kind,
-    body: each.body,
+    body: each.body.value,
     teamId: each.scope.teamId.value,
     lineId: each.scope.lineId,
     stationId: each.scope.stationId,

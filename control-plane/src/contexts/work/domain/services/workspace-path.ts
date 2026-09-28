@@ -1,4 +1,16 @@
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+
 const SEPARATOR = '/';
+
+export interface ChangedPaths {
+  readonly checkouts: readonly string[];
+  readonly paths: readonly string[];
+}
+
+export interface RepositoryFile {
+  readonly repository: Repository;
+  readonly path: string;
+}
 
 export const workspacePath = (
   path: string,
@@ -19,3 +31,22 @@ export const workspacePath = (
 
   return null;
 };
+
+export const workspacePathsIn = (changed: ChangedPaths): string[] =>
+  changed.paths.flatMap((path) => {
+    const within = workspacePath(path, changed.checkouts);
+    return within ? [within] : [];
+  });
+
+export const filesChangedIn = (
+  changed: ChangedPaths,
+  repositories: readonly Repository[],
+): RepositoryFile[] =>
+  workspacePathsIn(changed).flatMap((within) => {
+    const [folder, ...rest] = within.split(SEPARATOR);
+    const repository = repositories.find((each) => each.name === folder);
+
+    return repository && rest.length > 0
+      ? [{ repository, path: rest.join(SEPARATOR) }]
+      : [];
+  });

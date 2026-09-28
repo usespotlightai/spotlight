@@ -31,16 +31,29 @@ type Rejection struct {
 
 func (r *Rejection) Error() string { return r.Err.Error() }
 
-func (r *Rejection) Refused() (string, bool) {
+func (r *Rejection) Refusal() bool {
 	switch r.Status {
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity:
-		return r.Message, r.Message != ""
+		return true
 	}
 
-	return "", false
+	return false
+}
+
+func (r *Rejection) Refused() (string, bool) {
+	if !r.Refusal() {
+		return "", false
+	}
+
+	return r.Message, r.Message != ""
 }
 
 func (r *Rejection) Unwrap() error { return r.Err }
+
+func CheckLeaseLost(err error) bool {
+	var rejection *Rejection
+	return errors.As(err, &rejection) && rejection.Refusal() && rejection.Status != http.StatusConflict
+}
 
 func Rejected(err error, reason string) bool {
 	var rejection *Rejection
@@ -171,9 +184,12 @@ func (c *Client) RecallMemories(
 	ctx context.Context, runID, words string,
 ) (json.RawMessage, error) {
 	var out json.RawMessage
-	path := fmt.Sprintf("/api/runs/%s/memories?q=%s", url.PathEscape(runID), url.QueryEscape(words))
+	path := fmt.Sprintf("/api/runs/%s/memories/recall", url.PathEscape(runID))
+	asked := struct {
+		Words string `json:"words"`
+	}{Words: words}
 
-	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, asked, &out); err != nil {
 		return nil, fmt.Errorf("recall: %w", err)
 	}
 
@@ -184,9 +200,9 @@ func (c *Client) RecallMemory(
 	ctx context.Context, runID, handle string,
 ) (json.RawMessage, error) {
 	var out json.RawMessage
-	path := fmt.Sprintf("/api/runs/%s/memories/%s", url.PathEscape(runID), url.PathEscape(handle))
+	path := fmt.Sprintf("/api/runs/%s/memories/%s/recall", url.PathEscape(runID), url.PathEscape(handle))
 
-	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, nil, &out); err != nil {
 		return nil, fmt.Errorf("recall %s: %w", handle, err)
 	}
 
@@ -424,6 +440,22 @@ func (c *Client) RecordChangeStackCheck(
 	}
 
 	return nil
+}
+
+func (c *Client) RenewCheckLease(ctx context.Context, runID, stackID string) (bool, error) {
+	path := fmt.Sprintf(
+		"/api/runs/%s/change-stack-checks/%s/lease",
+		url.PathEscape(runID), url.PathEscape(stackID),
+	)
+
+	var out struct {
+		Stop bool `json:"stop"`
+	}
+	if err := c.do(ctx, http.MethodPost, path, nil, &out); err != nil {
+		return false, fmt.Errorf("renew the lease of a change stack check: %w", err)
+	}
+
+	return out.Stop, nil
 }
 
 func (c *Client) RedeemEgress(ctx context.Context, recipient string) (protocol.EgressRedemption, error) {

@@ -21,6 +21,7 @@ import {
   driftBetween,
   type WaysIn,
 } from '@runners/domain/services/runner-drift';
+import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 
 export const RunnerResourceMapper = {
   trust(trust: KeptTrust): RunnerTrustResourceDto {
@@ -51,7 +52,7 @@ export const RunnerResourceMapper = {
       tokenVersion: pool.tokenVersion,
       provision: pool.provision,
       warnings:
-        pool.provision && !/^https:/i.test(pool.provision.url)
+        pool.provision && !ProvisionUrl.of(pool.provision.url).isSecure
           ? [RunnerProblems.provisionedInTheClear()]
           : [],
     };

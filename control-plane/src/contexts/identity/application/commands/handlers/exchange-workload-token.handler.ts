@@ -1,7 +1,7 @@
 import type { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
 import type { MintedTokenDto } from '@identity/application/dto/minted-token.dto';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
+import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -23,7 +23,6 @@ export class ExchangeWorkloadTokenHandler
     private readonly trusts: WorkspaceTokenTrustRepository,
     private readonly tokens: WorkspaceTokenRepository,
     private readonly workloads: WorkloadTokensPort,
-    private readonly workspaces: WorkspaceReaderPort,
     private readonly ids: IdGeneratorPort,
     private readonly mint: TokenMintPort,
     private readonly clock: ClockPort,
@@ -51,11 +50,7 @@ export class ExchangeWorkloadTokenHandler
         audience: trust.workload.audience,
       });
 
-      if (
-        !workload ||
-        !trust.admits(workload) ||
-        !(await this.workspaces.isOpen(trust.workspaceId.value))
-      ) {
+      if (!workload) {
         return null;
       }
 
@@ -64,7 +59,7 @@ export class ExchangeWorkloadTokenHandler
       const exchanged = await this.transaction.run(async () => {
         const held = await this.trusts.holding(trust.id);
 
-        if (!held?.admits(workload)) {
+        if (!held) {
           return null;
         }
 
@@ -77,20 +72,23 @@ export class ExchangeWorkloadTokenHandler
 
         await this.tokens.add(issued);
 
-        return { issued, expiresAt: held.lifetime.endingFrom(now) };
+        return issued;
       });
 
       return exchanged
         ? {
             token: minted.token,
-            tokenId: exchanged.issued.id.value,
-            workspaceId: exchanged.issued.workspaceId.value,
-            scopes: exchanged.issued.scopes.all.map((each) => each.value),
-            expiresAt: exchanged.expiresAt.toISOString(),
+            tokenId: exchanged.id.value,
+            workspaceId: exchanged.workspaceId.value,
+            scopes: exchanged.scopes.all.map((each) => each.value),
+            expiresAt: exchanged.expiry().toISOString(),
           }
         : null;
     } catch (error) {
-      if (error instanceof NoSuchWorkspaceError) {
+      if (
+        error instanceof WorkloadNotAdmittedError ||
+        error instanceof NoSuchWorkspaceError
+      ) {
         return null;
       }
 

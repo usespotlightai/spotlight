@@ -10,6 +10,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
@@ -90,13 +91,13 @@ const journalled = async (seq: number, update: Record<string, unknown>) => {
 
 const recall = (words: string, as = token) =>
   http()
-    .get(`/api/runs/${runId}/memories`)
-    .query({ q: words })
-    .set('Authorization', `Bearer ${as}`);
+    .post(`/api/runs/${runId}/memories/recall`)
+    .set('Authorization', `Bearer ${as}`)
+    .send({ words });
 
 const recallOne = (handle: string) =>
   http()
-    .get(`/api/runs/${runId}/memories/${handle}`)
+    .post(`/api/runs/${runId}/memories/${handle}/recall`)
     .set('Authorization', `Bearer ${token}`);
 
 const remember = (body: Record<string, unknown>) =>
@@ -278,7 +279,7 @@ describe('recalling what the team remembers from inside a run', () => {
           evidence: DraftEvidence.of({
             taskId: team.list.id,
             runId: proposedIn,
-            place: {
+            site: {
               teamId: TeamId.of(team.teamId.value),
               lineId: DELIVERY,
               stationId: BUILD,
@@ -288,7 +289,7 @@ describe('recalling what the team remembers from inside a run', () => {
             notes: [],
             notesRead: 0,
             changed: [],
-            standing: [],
+            known: [],
             fromOutside: false,
           }),
           newId: () => randomUUID(),
@@ -330,14 +331,54 @@ describe('recalling what the team remembers from inside a run', () => {
     expect((await recall('   ')).status).toBe(422);
   });
 
+  it('never offers a memory beside the correction replacing it, before the old one is retired', async () => {
+    const old = await writing(team.teamId.value, team.owner.value, {
+      body: 'Deploys wait for the canary.',
+    });
+    const [correction] = await db
+      .insert(schema.memory)
+      .values({
+        id: randomUUID(),
+        handle: sql`nextval('memory_handle_seq')`,
+        workspaceId: team.workspaceId.value,
+        kind: 'rationale',
+        body: 'Deploys wait for the canary to settle.',
+        teamId: team.teamId.value,
+        paths: [],
+        source: 'person',
+        supersedes: old.id,
+        approvedBy: team.owner.value,
+        approvedAt: new Date(),
+      })
+      .returning({ handle: schema.memory.handle });
+
+    expect(
+      ((await recall('canary')).body as Recalled[]).map((each) => each.body),
+    ).toEqual(['Deploys wait for the canary to settle.']);
+
+    const files = (
+      await http()
+        .get(`/api/runs/${runId}/memory-files`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+    ).body as { path: string }[];
+
+    expect(
+      files.some((each) => each.path.endsWith(`/M-${correction?.handle}.md`)),
+    ).toBe(true);
+    expect(files.some((each) => each.path.endsWith(`/${old.handle}.md`))).toBe(
+      false,
+    );
+  });
+
   it('answers only the runner holding the run', async () => {
     expect((await recall('upload', 'not-a-runner-token')).status).toBe(401);
     expect(
       (
         await http()
-          .get(`/api/runs/${randomUUID()}/memories`)
-          .query({ q: 'upload' })
+          .post(`/api/runs/${randomUUID()}/memories/recall`)
           .set('Authorization', `Bearer ${token}`)
+          .send({ words: 'upload' })
       ).status,
     ).toBe(404);
   });

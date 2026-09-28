@@ -197,7 +197,7 @@ beforeEach(() => {
 describe('MoveTaskHandler', () => {
   it('moves a task on from the revision it was seen at, and counts the move', async () => {
     await expect(move('station_1')).resolves.toMatchObject({ revision: 1 });
-    expect(saved?.revision).toBe(1);
+    expect(saved?.revision.value).toBe(1);
   });
 
   it('refuses a move based on a revision the task has moved on from', async () => {

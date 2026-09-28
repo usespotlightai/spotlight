@@ -69,8 +69,6 @@ interface ReviewComment {
   readonly created_at?: unknown;
 }
 
-const BELONGING: readonly unknown[] = ['OWNER', 'MEMBER', 'COLLABORATOR'];
-
 const REVIEW_COMMENT_ACTIONS = ['created', 'edited', 'deleted'] as const;
 
 const OPENING_ACTIONS: readonly unknown[] = [
@@ -126,7 +124,7 @@ const described = (pull: Described | undefined): PullRequestAbout | null => {
         title: title.trim(),
         body: text(pull.body)?.trim() ?? null,
         author: text(pull.user?.login),
-        authorOutside: !BELONGING.includes(pull.author_association),
+        authorAssociation: text(pull.author_association),
         draft: pull.draft === true,
       }
     : null;

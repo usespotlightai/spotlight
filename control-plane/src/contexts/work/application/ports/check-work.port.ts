@@ -1,3 +1,4 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
@@ -22,6 +23,8 @@ export interface ClaimedCheck {
   readonly steps: readonly ClaimedCheckStep[];
 }
 
+export type CheckLeaseRenewal = 'renewed' | 'stop';
+
 export interface CheckWorkPort {
   claimNext(
     workspaceId: WorkspaceId,
@@ -30,7 +33,20 @@ export interface CheckWorkPort {
     now: Date,
   ): Promise<ClaimedCheck | null>;
 
-  claimReserved(runner: RunnerId, now: Date): Promise<ClaimedCheck | null>;
+  claimReserved(
+    runner: RunnerId,
+    terms: RunnerTerms,
+    now: Date,
+  ): Promise<ClaimedCheck | null>;
+
+  unclaim(stackId: string, runner: RunnerId, now: Date): Promise<void>;
+
+  renewLease(
+    runId: RunId,
+    stackId: string,
+    runner: RunnerId,
+    now: Date,
+  ): Promise<CheckLeaseRenewal>;
 
   waitingPlacements(
     workspaceId: WorkspaceId,

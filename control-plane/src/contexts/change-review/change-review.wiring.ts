@@ -95,6 +95,7 @@ import { AgentReviews } from '@change-review/application/services/agent-reviews.
 import { AnnounceChangeStack } from '@change-review/application/services/announce-change-stack.service';
 import { AnnounceDecisions } from '@change-review/application/services/announce-decisions.service';
 import { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
+import { ChangeStackAccess } from '@change-review/application/services/change-stack-access.service';
 import { CheckAccess } from '@change-review/application/services/check-access.service';
 import { ClaimChangeStackCheck } from '@change-review/application/services/claim-change-stack-check.service';
 import { DecisionAccess } from '@change-review/application/services/decision-access.service';
@@ -503,7 +504,6 @@ const services: Provider[] = [
       WorkChangeStacks,
       WorkDecisionSets,
       DrizzleStackCheckRepository,
-      CHECK_RUNNERS,
       CLOCK,
       LOGGER,
     ],
@@ -511,16 +511,11 @@ const services: Provider[] = [
       stacks: WorkChangeStacks,
       decisions: WorkDecisionSets,
       checks: DrizzleStackCheckRepository,
-      runners: CheckRunnersPort,
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
       new OwedWorkWorker(
-        [
-          stacks,
-          decisions,
-          new SettleOverdueChecks(checks, runners, clock, logger),
-        ],
+        [stacks, decisions, new SettleOverdueChecks(checks, clock, logger)],
         logger,
       ),
   },
@@ -567,25 +562,31 @@ const services: Provider[] = [
       REVIEW_OUTBOX,
       DrizzleReviewCommentRepository,
       DrizzleReviewRepository,
+      DrizzleStackCheckRepository,
       DrizzleChangeStackRepository,
       DrizzleDecisionSetRepository,
       TRANSACTION,
+      CLOCK,
     ],
     useFactory: (
       outbox: ReviewOutboxPort,
       comments: DrizzleReviewCommentRepository,
       reviews: DrizzleReviewRepository,
+      checks: DrizzleStackCheckRepository,
       stacks: DrizzleChangeStackRepository,
       decisions: DrizzleDecisionSetRepository,
       transaction: TransactionPort,
+      clock: ClockPort,
     ) =>
       new ForgetTaskAcrossAggregates(
         outbox,
         comments,
         reviews,
+        checks,
         stacks,
         decisions,
         transaction,
+        clock,
       ),
   },
   {
@@ -593,6 +594,12 @@ const services: Provider[] = [
     inject: [PEOPLE, WORK],
     useFactory: (people: PeoplePort, work: WorkPort) =>
       new ReviewAccess(people, work),
+  },
+  {
+    provide: ChangeStackAccess,
+    inject: [PEOPLE, WORK],
+    useFactory: (people: PeoplePort, work: WorkPort) =>
+      new ChangeStackAccess(people, work),
   },
   {
     provide: DecisionAccess,
@@ -733,8 +740,7 @@ const handlers: Provider[] = [
     PEOPLE,
   ]),
   ...bindQueryHandler(ReadTaskChangeStackQuery, ReadTaskChangeStackHandler, [
-    WORK,
-    WORKSPACES,
+    ChangeStackAccess,
     CHANGE_STACK_READER,
     CLOCK,
   ]),
@@ -758,8 +764,7 @@ const handlers: Provider[] = [
     PEOPLE,
   ]),
   ...bindQueryHandler(ListRunChangeStacksQuery, ListRunChangeStacksHandler, [
-    WORK,
-    WORKSPACES,
+    ChangeStackAccess,
     CHANGE_STACK_READER,
     CLOCK,
   ]),

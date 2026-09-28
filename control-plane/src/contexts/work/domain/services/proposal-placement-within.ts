@@ -1,6 +1,7 @@
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { NowhereToProposeError } from '@work/domain/exceptions/nowhere-to-propose.error';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 const keysOf = (named: readonly { key: { value: string } }[]): string =>
   named.map((each) => each.key.value).join(', ') || 'none';
@@ -19,7 +20,8 @@ export const proposalPlacementWithin = (
     );
   }
 
-  const station = line.stations.find((each) => each.key.value === stationNamed);
+  const key = StationKey.parsed(stationNamed);
+  const station = key ? line.stationKeyed(key) : null;
 
   if (!station) {
     throw new NowhereToProposeError(

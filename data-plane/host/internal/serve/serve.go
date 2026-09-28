@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"usespotlight.ai/data-plane/control"
@@ -62,6 +63,7 @@ type Pool interface {
 
 type Worker interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
+	RenewCheckLease(ctx context.Context, runID, stackID string) (bool, error)
 	RecordImage(ctx context.Context, runID, image string) error
 	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	RecordChangeStackCheck(ctx context.Context, runID, stackID string, checked protocol.StackChecked) error
@@ -442,11 +444,15 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		return
 	}
 
-	held := h.holding(ctx, handed, worker, log)
+	held, told := h.holding(ctx, handed, worker, log)
 	defer held()
 
 	ready, ok := h.readied(ctx, image, handed, worker, log)
 	if !ok {
+		return
+	}
+	if told() {
+		log.Info("told to stop the work, so no sandbox starts")
 		return
 	}
 
@@ -466,6 +472,11 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	if err != nil {
 		log.Warn("gave up the work: its way out did not start", "error", err)
 		h.giveUp(ctx, handed, worker, fmt.Sprintf("The sandbox's egress did not start: %v", err), log)
+		return
+	}
+
+	if told() {
+		log.Info("told to stop the work, so no sandbox starts")
 		return
 	}
 
@@ -592,10 +603,12 @@ func (h *Host) readied(
 	return ready, true
 }
 
-func (h *Host) holding(ctx context.Context, handed protocol.Handed, worker Worker, log *slog.Logger) func() {
-	run := handed.Work.Run
-	if run == nil {
-		return func() {}
+func (h *Host) holding(
+	ctx context.Context, handed protocol.Handed, worker Worker, log *slog.Logger,
+) (release func(), told func() bool) {
+	renew := renewal(handed.Work, worker)
+	if renew == nil {
+		return func() {}, func() bool { return false }
 	}
 
 	every := h.opts.LeaseEvery
@@ -605,6 +618,7 @@ func (h *Host) holding(ctx context.Context, handed protocol.Handed, worker Worke
 
 	renewing, stop := context.WithCancel(context.WithoutCancel(ctx))
 	done := make(chan struct{})
+	var stopped atomic.Bool
 
 	go func() {
 		defer close(done)
@@ -616,17 +630,46 @@ func (h *Host) holding(ctx context.Context, handed protocol.Handed, worker Worke
 			case <-renewing.Done():
 				return
 			case <-ticker.C:
-				if _, err := worker.RenewLease(renewing, run.ID); err != nil && renewing.Err() == nil {
+				stop, err := renew(renewing)
+				switch {
+				case err == nil && stop:
+					log.Info("told to stop the work while the sandbox starts")
+					stopped.Store(true)
+					return
+				case err != nil && renewing.Err() == nil:
 					log.Warn("could not renew the lease while the sandbox starts", "error", err)
 				}
 			}
 		}
 	}()
 
-	return func() {
+	release = func() {
 		stop()
 		<-done
 	}
+
+	return release, stopped.Load
+}
+
+func renewal(work protocol.Claimed, worker Worker) func(context.Context) (bool, error) {
+	switch {
+	case work.Run != nil:
+		return func(ctx context.Context) (bool, error) {
+			// A run asked to stop still starts: only its runner can say it stopped.
+			_, err := worker.RenewLease(ctx, work.Run.ID)
+			return false, err
+		}
+	case work.Check != nil:
+		return func(ctx context.Context) (bool, error) {
+			stop, err := worker.RenewCheckLease(ctx, work.Check.RunID, work.Check.StackID)
+			if control.CheckLeaseLost(err) {
+				return true, nil
+			}
+			return stop, err
+		}
+	}
+
+	return nil
 }
 
 func (h *Host) giveUp(ctx context.Context, handed protocol.Handed, worker Worker, reason string, log *slog.Logger) {

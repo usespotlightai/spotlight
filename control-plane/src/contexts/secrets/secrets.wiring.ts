@@ -44,7 +44,9 @@ import { ImportSecretQuery } from '@secrets/application/queries/import-secret.qu
 import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
 import { AbandonWorkspaceSecrets } from '@secrets/application/services/abandon-workspace-secrets.service';
-import { RunGrants } from '@secrets/application/services/run-grants.service';
+import { ForgetRunGrants } from '@secrets/application/services/forget-run-grants.service';
+import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
+import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import { RunRedemptions } from '@secrets/application/services/run-redemptions.service';
 import { SecretConfiguration } from '@secrets/application/services/secret-configuration.service';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
@@ -52,13 +54,13 @@ import { SecretSources } from '@secrets/application/services/secret-sources.serv
 import { SecretUsesRegistry } from '@secrets/application/services/secret-uses-registry.service';
 import { SECRETS_EVENT_TYPES } from '@secrets/domain/event-types';
 import {
+  RUN_GRANTS_REPOSITORY,
+  type RunGrantsRepository,
+} from '@secrets/domain/repositories/run-grants.repository';
+import {
   SECRETS,
   type SecretRepository,
 } from '@secrets/domain/repositories/secret.repository';
-import {
-  SECRET_GRANTS,
-  type SecretGrantRepository,
-} from '@secrets/domain/repositories/secret-grant.repository';
 import { WorkspaceKeys } from '@secrets/infrastructure/crypto/workspace-keys';
 import { SecretDefinitions } from '@secrets/infrastructure/definitions/secret-definitions';
 import { AwsKeyManagement } from '@secrets/infrastructure/kms/aws-key-management';
@@ -68,7 +70,7 @@ import {
 } from '@secrets/infrastructure/kms/key-management';
 import { LocalKeyManagement } from '@secrets/infrastructure/kms/local-key-management';
 import { DrizzleSecretResources } from '@secrets/infrastructure/persistence/drizzle/readers/secret-resources.reader';
-import { DrizzleSecretGrants } from '@secrets/infrastructure/persistence/drizzle/repositories/secret-grants.repository';
+import { DrizzleRunGrants } from '@secrets/infrastructure/persistence/drizzle/repositories/run-grants.repository';
 import { DrizzleSecrets } from '@secrets/infrastructure/persistence/drizzle/repositories/secrets.repository';
 import { X25519RunSealing } from '@secrets/infrastructure/sealing/run-sealing';
 import { WorkspaceCredentialSealing } from '@secrets/infrastructure/sealing/workspace-credential-sealing';
@@ -76,13 +78,21 @@ import { AwsSecretsManagerSource } from '@secrets/infrastructure/sources/aws-sec
 import { BuiltInSecretStore } from '@secrets/infrastructure/sources/built-in-secret.store';
 import { secretsSubscribers } from '@secrets/presentation/events/secrets.subscribers';
 import { SecretResourceController } from '@secrets/presentation/http/controllers/secret-resource.controller';
-import { CLOCK } from '@shared-kernel/application/ports/clock.port';
+import { ForgottenRunGrantsWorker } from '@secrets/presentation/workers/forgotten-run-grants.worker';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -100,7 +110,33 @@ const keyManagementFor = (env: Env): KeyManagement =>
     : new LocalKeyManagement(env.SPOTLIGHT_SECRETS_KEY ?? '');
 
 export const SECRETS_PROVIDERS: readonly Provider[] = [
-  { provide: SECRET_GRANTS, useClass: DrizzleSecretGrants },
+  {
+    provide: RUN_GRANTS_REPOSITORY,
+    inject: [DrizzleContext, DOMAIN_EVENT_DISPATCHER],
+    useFactory: (context: DrizzleContext, events: DomainEventDispatcher) =>
+      new DrizzleRunGrants(context, events),
+  },
+  {
+    provide: RunGrantsKept,
+    inject: [RUN_GRANTS_REPOSITORY],
+    useFactory: (grants: RunGrantsRepository) => new RunGrantsKept(grants),
+  },
+  {
+    provide: ForgetRunGrants,
+    inject: [RUN_GRANTS_REPOSITORY, RunGrantsKept, CLOCK, LOGGER],
+    useFactory: (
+      grants: RunGrantsRepository,
+      kept: RunGrantsKept,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new ForgetRunGrants(grants, kept, clock, logger),
+  },
+  {
+    provide: ForgottenRunGrantsWorker,
+    inject: [ForgetRunGrants, LOGGER],
+    useFactory: (forgetting: ForgetRunGrants, logger: LoggerPort) =>
+      new ForgottenRunGrantsWorker(forgetting, logger),
+  },
   DrizzleSecretResources,
   { provide: SECRET_RESOURCES, useExisting: DrizzleSecretResources },
   { provide: DEFINED_SECRETS, useExisting: DrizzleSecretResources },
@@ -160,33 +196,42 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   { provide: RUN_SEALING, useClass: X25519RunSealing },
   {
     provide: RUN_REDEMPTIONS,
-    inject: [SECRETS, SECRET_GRANTS, SecretSources, RUN_SEALING],
+    inject: [SECRETS, RunGrantsKept, SecretSources, RUN_SEALING],
     useFactory: (
       secrets: SecretRepository,
-      grants: SecretGrantRepository,
+      kept: RunGrantsKept,
       sources: SecretSources,
       sealing: RunSealingPort,
-    ) => new RunRedemptions(secrets, grants, sources, sealing),
+    ) => new RunRedemptions(secrets, kept, sources, sealing),
   },
   { provide: SECRET_USES, useFactory: () => new SecretUsesRegistry() },
   {
     provide: SECRET_INJECTION,
-    inject: [SECRETS, SECRET_GRANTS, SecretSources],
+    inject: [SECRETS, RUN_GRANTS_REPOSITORY, RunGrantsKept, SecretSources],
     useFactory: (
       secrets: SecretRepository,
-      grants: SecretGrantRepository,
+      grants: RunGrantsRepository,
+      kept: RunGrantsKept,
       sources: SecretSources,
-    ) => new SecretInjection(secrets, grants, sources),
+    ) => new SecretInjection(secrets, grants, kept, sources),
   },
 
   {
     provide: SECRETS_EVENTS,
-    inject: [EventTypes, EventSubscribers, SECRETS, WorkspaceKeys, TRANSACTION],
+    inject: [
+      EventTypes,
+      EventSubscribers,
+      SECRETS,
+      WorkspaceKeys,
+      ForgetRunGrants,
+      TRANSACTION,
+    ],
     useFactory: (
       types: EventTypes,
       subscribers: EventSubscribers,
       secrets: SecretRepository,
       keys: WorkspaceKeys,
+      runGrants: ForgetRunGrants,
       transaction: TransactionPort,
     ) => {
       types.register('secrets', SECRETS_EVENT_TYPES);
@@ -194,6 +239,7 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
         secretsSubscribers({
           abandoning: new AbandonWorkspaceSecrets(secrets, transaction),
           keys,
+          runGrants,
         }),
       );
       return true;
@@ -212,8 +258,9 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RUN_GRANTS,
-    inject: [SECRET_GRANTS],
-    useFactory: (grants: SecretGrantRepository) => new RunGrants(grants),
+    inject: [RunGrantsKept, CLOCK],
+    useFactory: (kept: RunGrantsKept, clock: ClockPort) =>
+      new RunGrantEndings(kept, clock),
   },
 
   ...bindCommandHandler(CreateSecretCommand, CreateSecretHandler, [

@@ -5,6 +5,7 @@ import {
   type ToolInputType,
 } from '@work/domain/value-objects/declared-tool.vo';
 import {
+  checkoutFoldersOf,
   type RunAttachment,
   type RunCheckout,
   type RunCommand,
@@ -297,6 +298,14 @@ export const RunSpecContract = {
         sessionId: continuity?.sessionId,
       },
     });
+  },
+
+  checkoutFoldersIn(raw: unknown): readonly string[] {
+    return checkoutFoldersOf(
+      raw === null || raw === undefined
+        ? []
+        : listAt(raw, 'its checkouts', checkoutOf),
+    );
   },
 
   continuityOf(continuity: Continuity): RunContinuity {

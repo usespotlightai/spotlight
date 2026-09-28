@@ -5,14 +5,18 @@ import type { SecretInjectionPort } from '@secrets/application/ports/secret-inje
 export class RunCredentials implements Credentials {
   constructor(
     private readonly injection: SecretInjectionPort,
-    private readonly workspaceId: string,
-    private readonly runId: string,
+    private readonly run: {
+      readonly workspaceId: string;
+      readonly runId: string;
+      readonly attempt: number;
+    },
   ) {}
 
   wornToward(url: string, secrets: readonly string[]): Promise<WornSecrets> {
     return this.injection.forRun({
-      workspaceId: this.workspaceId,
-      runId: this.runId,
+      workspaceId: this.run.workspaceId,
+      runId: this.run.runId,
+      attempt: this.run.attempt,
       secrets,
       url,
     });

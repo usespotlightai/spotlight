@@ -119,6 +119,25 @@ describe('Review', () => {
     expect(posted.githubId).toBe(99);
   });
 
+  it('says where GitHub put each comment it placed, one by one', () => {
+    const review = submit({ drafts: [draftBy(ADA)] });
+    review.pullEvents();
+    const github = { id: 101, url: 'https://github.com/c/101' };
+
+    const posted = review.postedAs(99, NOW, [
+      { commentId: ReviewCommentId.of('comment_1'), github },
+    ]);
+
+    expect(posted.pullEvents()).toEqual([
+      expect.objectContaining({ kind: 'review.posted' }),
+      expect.objectContaining({
+        kind: 'review.comment-placed',
+        commentId: ReviewCommentId.of('comment_1'),
+        github,
+      }),
+    ]);
+  });
+
   it('fails to post once, handing its comments back', () => {
     const review = submit({ drafts: [draftBy(ADA)] });
     review.pullEvents();
@@ -127,9 +146,8 @@ describe('Review', () => {
     expect(failed.state).toBe('failed');
     expect(failed.pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review.not-posted',
-        outcome: 'failed',
-        comments: [ReviewCommentId.of('comment_1')],
+        kind: 'review.comment-not-posted',
+        commentId: ReviewCommentId.of('comment_1'),
       }),
     ]);
     expect(failed.failedToPost()).toBe(failed);
@@ -150,8 +168,8 @@ describe('Review', () => {
     expect(withdrawn.state).toBe('withdrawn');
     expect(withdrawn.pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review.not-posted',
-        outcome: 'withdrawn',
+        kind: 'review.comment-not-posted',
+        commentId: ReviewCommentId.of('comment_1'),
       }),
     ]);
     expect(

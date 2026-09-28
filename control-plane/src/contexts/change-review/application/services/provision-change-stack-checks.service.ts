@@ -1,7 +1,8 @@
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
+import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -33,7 +34,7 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
   async reserve(
     stackId: string,
     runner: RunnerId,
-    pool: string,
+    pool: PoolId,
     now: Date,
   ): Promise<Date | null> {
     try {
@@ -45,7 +46,7 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
 
       return reserved?.reservation?.until ?? null;
     } catch (error) {
-      if (error instanceof ChangedSinceReadError) {
+      if (error instanceof StackCheckMovedOnError) {
         return null;
       }
 
@@ -98,7 +99,7 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
         await this.checks.save(changed);
         return changed;
       } catch (error) {
-        if (!(error instanceof ChangedSinceReadError) || attempt >= ATTEMPTS) {
+        if (!(error instanceof StackCheckMovedOnError) || attempt >= ATTEMPTS) {
           throw error;
         }
       }

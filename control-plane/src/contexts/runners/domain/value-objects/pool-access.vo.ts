@@ -1,5 +1,5 @@
-import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import type { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export type PoolMode = 'pull' | 'push';
@@ -26,13 +26,13 @@ export class PushAccess {
 
   private constructor(
     readonly url: ProvisionUrl,
-    readonly secret: ProvisionSecret | null,
+    readonly secret: SealedProvisionSecret,
     readonly secretVersion: number | null,
   ) {}
 
   static of(
     url: ProvisionUrl,
-    secret: ProvisionSecret | null,
+    secret: SealedProvisionSecret,
     secretVersion: number | null,
   ): PushAccess {
     return new PushAccess(url, secret, secretVersion);

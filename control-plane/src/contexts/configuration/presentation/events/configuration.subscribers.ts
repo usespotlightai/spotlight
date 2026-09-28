@@ -1,10 +1,5 @@
-import type { IntegrationLinksPort } from '@configuration/application/ports/integration-links.port';
 import type { AbandonTeamProfiles } from '@configuration/application/services/abandon-team-profiles.service';
 import type { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
-import {
-  HOST_CONNECTED,
-  type HostConnectedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/host-connected.integration-event';
 import {
   TEAM_DISBANDED,
   type TeamDisbandedIntegrationEvent,
@@ -17,7 +12,6 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const configurationSubscribers = (
-  links: IntegrationLinksPort,
   abandoning: AbandonTeamSkills,
   abandoningProfiles: AbandonTeamProfiles,
 ): readonly DomainEventSubscriber[] => [
@@ -35,14 +29,5 @@ export const configurationSubscribers = (
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
-  ),
-  subscribing<HostConnectedIntegrationEvent>(
-    'configuration.track-integration-link',
-    [HOST_CONNECTED],
-    (event) =>
-      links.linked(TeamId.of(event.teamId), {
-        source: event.source,
-        handle: event.handle,
-      }),
   ),
 ];

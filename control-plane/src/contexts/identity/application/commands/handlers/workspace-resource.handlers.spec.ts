@@ -182,6 +182,7 @@ describe('DeleteWorkspaceHandler', () => {
       held?: boolean;
       issued?: boolean;
       trusted?: boolean;
+      minting?: boolean;
       holding?: readonly string[];
     } = {},
   ) => {
@@ -194,6 +195,7 @@ describe('DeleteWorkspaceHandler', () => {
         over.held ? ['core'] : [],
         over.issued ? ['ci'] : [],
         over.trusted ? ['github-main'] : [],
+        over.minting ? ['github-main'] : [],
       ),
       holdings,
       transaction,
@@ -239,6 +241,16 @@ describe('DeleteWorkspaceHandler', () => {
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
       reason: expect.stringContaining('token trust github-main'),
+    });
+    expect(kept.save).not.toHaveBeenCalled();
+  });
+
+  it('will not close a workspace that still holds tokens minted through a trust withdrawn a moment ago', async () => {
+    const { remove, kept } = deleting({ minting: true });
+
+    expect(await remove()).toMatchObject({
+      outcome: 'in-use',
+      reason: expect.stringContaining('tokens minted through github-main'),
     });
     expect(kept.save).not.toHaveBeenCalled();
   });

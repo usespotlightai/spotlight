@@ -1,3 +1,4 @@
+import type { HookFiringState } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import type { CauseLink } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import {
   boolean,
@@ -34,16 +35,6 @@ export const hookDefinition = pgTable(
   ],
 );
 
-export const HOOK_FIRING_STATES = [
-  'pending',
-  'working',
-  'done',
-  'failed',
-  'superseded',
-] as const;
-
-export type HookFiringState = (typeof HOOK_FIRING_STATES)[number];
-
 export const hookFiring = pgTable(
   'hook_firing',
   {
@@ -74,6 +65,7 @@ export const hookFiring = pgTable(
     failed: text('failed'),
     firedAt: timestamp('fired_at').defaultNow().notNull(),
     handledAt: timestamp('handled_at'),
+    version: integer('version').notNull().default(1),
   },
   (table) => [
     unique().on(table.hookId, table.occurrence),

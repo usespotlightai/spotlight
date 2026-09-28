@@ -100,6 +100,13 @@ describe('WorkspaceToken', () => {
     );
   });
 
+  it('names its expiry only when it has one', () => {
+    expect(kept().expiry()).toEqual(LATER);
+    expect(() => issued({ expiresAt: null }).expiry()).toThrow(
+      InconsistentStateError,
+    );
+  });
+
   it('takes a new description, and says so', () => {
     const redescribed = kept().redescribed(
       terms({ description: 'Applies from main' }),

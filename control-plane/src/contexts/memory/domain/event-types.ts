@@ -5,6 +5,7 @@ import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-fail
 import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
 import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
 import { MemoryStood } from '@memory/domain/events/memory-stood.event';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
@@ -15,6 +16,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
 
 export const MEMORY_EVENT_TYPES = [
   MemoryDraftId,
@@ -34,4 +36,6 @@ export const MEMORY_EVENT_TYPES = [
   MemoryDecision,
   MemoryRetirement,
   MemoryHandle,
+  MemoryBody,
+  RecallWords,
 ] as const;

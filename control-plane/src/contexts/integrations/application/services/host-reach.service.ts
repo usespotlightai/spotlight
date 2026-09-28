@@ -15,6 +15,7 @@ export interface RunReaching {
   readonly teamId: TeamId;
   readonly workspaceId: string;
   readonly runId: string;
+  readonly attempt: number;
   readonly wears: readonly string[];
 }
 
@@ -38,6 +39,7 @@ export class HostReach {
       await this.injection.grant({
         workspaceId: run.workspaceId,
         runId: run.runId,
+        attempt: run.attempt,
         secrets: run.wears,
       });
     }
@@ -45,7 +47,7 @@ export class HostReach {
     return this.reaching(
       run.teamId,
       integration,
-      new RunCredentials(this.injection, run.workspaceId, run.runId),
+      new RunCredentials(this.injection, run),
     );
   }
 

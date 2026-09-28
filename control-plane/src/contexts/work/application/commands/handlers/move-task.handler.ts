@@ -17,6 +17,7 @@ import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 export class MoveTaskHandler
@@ -56,7 +57,7 @@ export class MoveTaskHandler
         throw new UnknownTaskError(command.taskId);
       }
 
-      const task = found.expecting(command.expectedRevision);
+      const task = found.expecting(TaskRevision.of(command.expectedRevision));
 
       const station = line.stationAt(stationId);
 

@@ -37,6 +37,17 @@ export class StationKey {
     return new StationKey(named);
   }
 
+  static parsed(raw: string): StationKey | null {
+    try {
+      return StationKey.of(raw);
+    } catch (error) {
+      if (error instanceof InvalidIdentifierError) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   equals(other: StationKey): boolean {
     return this.kind === other.kind && this.value === other.value;
   }

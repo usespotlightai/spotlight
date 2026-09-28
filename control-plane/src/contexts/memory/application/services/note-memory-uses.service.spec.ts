@@ -1,15 +1,42 @@
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
+import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
+import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 const TEAM = TeamId.of('team_1');
+const ADA = UserId.of('user_ada');
+
+const held = (handle: MemoryHandle, stands: boolean, applies: boolean) => {
+  const memory = Memory.written({
+    id: MemoryId.of(`memory_${handle.number}`),
+    handle,
+    workspaceId: WorkspaceId.of('ws_1'),
+    kind: 'preference',
+    body: MemoryBody.of('Keep it simple.'),
+    scope: MemoryScope.of({
+      teamId: TEAM,
+      lineId: applies ? 'line_1' : 'line_other',
+    }),
+    grounds: null,
+    by: MemoryDecision.of({ by: ADA, at: NOW }),
+  });
+
+  return stands
+    ? memory
+    : memory.retired({ by: ADA, reason: 'Gone.', at: NOW });
+};
 
 const noting = (
   referenced: readonly string[] | null,
@@ -32,11 +59,9 @@ const noting = (
     {
       withHandles: async (teamId: TeamId, handles: MemoryHandle[]) => {
         asked.push({ teamId, handles: handles.map((each) => each.value) });
-        return handles.map((each) => ({
-          id: MemoryId.of(`memory_${each.number}`),
-          standing: standing(each.value) ? 'stands' : 'retired',
-          scope: { appliesAt: () => applies(each.value) },
-        }));
+        return handles.map((each) =>
+          held(each, standing(each.value), applies(each.value)),
+        );
       },
     } as unknown as MemoryRepository,
     { now: () => NOW, sleep: async () => undefined },

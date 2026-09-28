@@ -1,3 +1,7 @@
+import type {
+  RunSite,
+  StationSite,
+} from '@memory/domain/value-objects/run-site';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -7,13 +11,9 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const WORK = Symbol('WORK');
 
-export interface WorkedPlace {
-  readonly teamId: TeamId;
-  readonly lineId: string;
+export interface NamedStationSite extends StationSite {
   readonly lineName: string;
-  readonly stationId: string;
   readonly stationName: string;
-  readonly repositories: readonly Repository[];
 }
 
 export interface RememberedRun {
@@ -24,13 +24,6 @@ export interface RememberedRun {
   readonly memories: boolean;
   readonly briefed: readonly string[];
   readonly cut: readonly string[];
-}
-
-export interface RunSite {
-  readonly teamId: TeamId;
-  readonly lineId: string | null;
-  readonly stationId: string | null;
-  readonly repositories: readonly Repository[];
 }
 
 export interface HeldRun extends RunSite {
@@ -83,7 +76,7 @@ export interface WorkPort {
     file: RegExp,
   ): Promise<readonly string[] | null>;
 
-  placeOf(runId: RunId): Promise<WorkedPlace | null>;
+  stationSiteOf(runId: RunId): Promise<NamedStationSite | null>;
 
   linesOf(teamId: TeamId): Promise<readonly TeamLine[]>;
 

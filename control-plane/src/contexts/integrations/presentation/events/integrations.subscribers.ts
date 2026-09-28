@@ -1,5 +1,7 @@
 import type { AbandonTeamIntegrations } from '@integrations/application/services/abandon-team-integrations.service';
 import type { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
+import type { HookAbandonmentDue } from '@integrations/domain/events/hook-abandonment-due.event';
+import type { IntegrationAbandonmentDue } from '@integrations/domain/events/integration-abandonment-due.event';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
@@ -35,7 +37,20 @@ export const integrationsSubscribers = (
     'integrations.abandon-integrations-of-disbanded-team',
     [TEAM_DISBANDED],
     (event) =>
-      abandoning.of(TeamId.of(event.teamId), WorkspaceId.of(event.workspaceId)),
+      abandoning.owed(
+        TeamId.of(event.teamId),
+        WorkspaceId.of(event.workspaceId),
+      ),
+  ),
+  subscribing<HookAbandonmentDue>(
+    'integrations.abandon-hook-of-disbanded-team',
+    ['integrations.hook-abandonment-due'],
+    (event) => abandoning.hook(event.id, event.workspaceId),
+  ),
+  subscribing<IntegrationAbandonmentDue>(
+    'integrations.abandon-integration-of-disbanded-team',
+    ['integrations.integration-abandonment-due'],
+    (event) => abandoning.integration(event.id, event.workspaceId),
   ),
   subscribing<RunEndedIntegrationEvent>(
     'integrations.fire-hooks-when-a-run-ended',

@@ -1,0 +1,30 @@
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export interface TeamMember {
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+}
+
+export interface ReviewedWork {
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId | null;
+}
+
+export class ReviewClearance {
+  private constructor(
+    private readonly workspaceId: WorkspaceId,
+    private readonly teamId: TeamId,
+  ) {}
+
+  static of(member: TeamMember): ReviewClearance {
+    return new ReviewClearance(member.workspaceId, member.teamId);
+  }
+
+  reaches(work: ReviewedWork): boolean {
+    return (
+      work.workspaceId.equals(this.workspaceId) &&
+      (work.teamId?.equals(this.teamId) ?? false)
+    );
+  }
+}

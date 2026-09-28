@@ -10,6 +10,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
 import { TaskAsideMovedOnError } from '@work/domain/exceptions/task-aside-moved-on.error';
 import type { TaskAsideRepository } from '@work/domain/repositories/task-aside.repository';
+import { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import type { AsideForm } from '@work/domain/value-objects/aside-form';
 import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
@@ -28,7 +29,7 @@ const toAside = (row: Row, reads: readonly ReadRow[]): TaskAside =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     taskId: TaskId.of(row.taskId),
     form: row.form,
-    about: row.about,
+    about: AsideAbout.of(row.about),
     raisedAt: row.raisedAt,
     reads: reads.map((each) =>
       AsideRead.of({ by: UserId.of(each.userId), at: each.readAt }),
@@ -52,7 +53,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
         workspaceId: added.workspaceId.value,
         taskId: added.taskId.value,
         form: added.form,
-        about: added.about,
+        about: added.about.value,
         raisedAt: added.raisedAt,
         settledAt: added.settledAt,
         version: added.version,
@@ -124,7 +125,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
   async about(
     taskId: TaskId,
     form: AsideForm,
-    about: string,
+    about: AsideAbout,
   ): Promise<TaskAside | null> {
     const [row] = await this.context.db
       .select()
@@ -133,7 +134,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
         and(
           eq(taskAside.taskId, taskId.value),
           eq(taskAside.form, form),
-          eq(taskAside.about, about),
+          eq(taskAside.about, about.value),
         ),
       )
       .limit(1);

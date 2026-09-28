@@ -5,5 +5,4 @@ export const WORKSPACE_PLANS = Symbol('WORKSPACE_PLANS');
 
 export interface WorkspacePlansPort {
   of(workspaceId: WorkspaceId): Promise<WorkspacePlan>;
-  forget(workspaceId: WorkspaceId): Promise<void>;
 }

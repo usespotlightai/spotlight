@@ -27,7 +27,7 @@ const onSecondAttempt = () =>
     }),
   })
     .claim(RunnerId.of('runner_1'), NOW)
-    .release();
+    .requeue(new Date(NOW.getTime() + 60_000));
 
 const CALL: HookCallTrace = {
   hook: 'core/grafana-reads',

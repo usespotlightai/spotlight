@@ -7,7 +7,6 @@ import type {
 import type { RunJournalPort } from '@work/application/ports/run-journal.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
 const hookCalled = (call: HookCallTrace): string =>
   `Hook ${call.hook} · ${call.step} → ${call.target}`;
@@ -36,10 +35,10 @@ export class HookTraces implements HookTracesPort {
     };
     const at = new Date(call.startedAt.getTime() + call.ms);
 
-    const seq = await this.journal.appendAside(
-      RunAttempt.of(run.id, run.attempt),
-      { ...entry, at },
-    );
+    const seq = await this.journal.appendAside(run.currentAttempt, {
+      ...entry,
+      at,
+    });
     this.stream.publish(run.id.value, [
       { ...entry, seq, attempt: run.attempt, at: at.toISOString() },
     ]);

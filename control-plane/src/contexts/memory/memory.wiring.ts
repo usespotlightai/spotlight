@@ -24,18 +24,22 @@ import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.
 import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import {
-  KNOWN_MEMORIES,
-  type KnownMemoriesPort,
-} from '@memory/application/ports/known-memories.port';
-import {
   MEMORY_DRAFTER,
   type MemoryDrafterPort,
 } from '@memory/application/ports/memory-drafter.port';
+import {
+  MEMORY_RELEVANCE,
+  type MemoryRelevancePort,
+} from '@memory/application/ports/memory-relevance.port';
 import {
   MEMORY_USES,
   type MemoryUsesPort,
 } from '@memory/application/ports/memory-uses.port';
 import { PEOPLE, type PeoplePort } from '@memory/application/ports/people.port';
+import {
+  REJECTED_MEMORIES,
+  type RejectedMemoriesPort,
+} from '@memory/application/ports/rejected-memories.port';
 import {
   REVIEWS,
   type ReviewsPort,
@@ -54,6 +58,7 @@ import { ReadTeamMemoryQuery } from '@memory/application/queries/read-team-memor
 import { AskForMemories } from '@memory/application/services/ask-for-memories.service';
 import { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
+import { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
@@ -66,10 +71,11 @@ import { People } from '@memory/infrastructure/acl/people.adapter';
 import { Reviews } from '@memory/infrastructure/acl/reviews.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
 import { OpenRouterMemoryDrafter } from '@memory/infrastructure/drafting/openrouter-memory.drafter';
-import { DrizzleKnownMemories } from '@memory/infrastructure/persistence/drizzle/repositories/known-memories.reader';
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
+import { DrizzleMemoryRelevance } from '@memory/infrastructure/persistence/drizzle/repositories/memory-relevance.reader';
 import { DrizzleMemoryUses } from '@memory/infrastructure/persistence/drizzle/repositories/memory-uses.ledger';
+import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
 import { RunMemoriesController } from '@memory/presentation/http/controllers/run-memories.controller';
@@ -139,11 +145,23 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   DrizzleMemoryDraftRepository,
   DrizzleMemoryRepository,
+  { provide: MEMORY_RELEVANCE, useClass: DrizzleMemoryRelevance },
+  {
+    provide: MemoriesInReach,
+    inject: [DrizzleMemoryRepository, MEMORY_RELEVANCE],
+    useFactory: (
+      memories: DrizzleMemoryRepository,
+      relevance: MemoryRelevancePort,
+    ) => new MemoriesInReach(memories, relevance),
+  },
   {
     provide: TEAM_MEMORIES,
-    inject: [DrizzleMemoryRepository, MEMORY_USES],
-    useFactory: (memories: DrizzleMemoryRepository, uses: MemoryUsesPort) =>
-      new MemoriesForBriefing(memories, uses),
+    inject: [MemoriesInReach, MEMORY_RELEVANCE, MEMORY_USES],
+    useFactory: (
+      inReach: MemoriesInReach,
+      relevance: MemoryRelevancePort,
+      uses: MemoryUsesPort,
+    ) => new MemoriesForBriefing(inReach, relevance, uses),
   },
   {
     provide: MemoryAccess,
@@ -183,12 +201,9 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   {
     provide: TeamMemoryAtHand,
-    inject: [PEOPLE, DrizzleMemoryRepository, WORK],
-    useFactory: (
-      people: PeoplePort,
-      memories: DrizzleMemoryRepository,
-      work: WorkPort,
-    ) => new TeamMemoryAtHand(people, memories, work),
+    inject: [DrizzleMemoryRepository, WORK],
+    useFactory: (memories: DrizzleMemoryRepository, work: WorkPort) =>
+      new TeamMemoryAtHand(memories, work),
   },
   { provide: MEMORY_USES, useClass: DrizzleMemoryUses },
   {
@@ -213,11 +228,13 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   ...bindQueryHandler(ReadMemoryFilesQuery, ReadMemoryFilesHandler, [
     RunnerMemoryAtHand,
+    MemoriesInReach,
     DrizzleMemoryRepository,
     WORK,
     PEOPLE,
   ]),
   ...bindCommandHandler(WriteMemoryCommand, WriteMemoryHandler, [
+    MemoryAccess,
     TeamMemoryAtHand,
     DrizzleMemoryRepository,
     TeamMemoryViews,
@@ -225,14 +242,15 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
   ...bindCommandHandler(EditMemoryCommand, EditMemoryHandler, [
+    MemoryAccess,
     TeamMemoryAtHand,
     DrizzleMemoryRepository,
     TeamMemoryViews,
-    TRANSACTION,
     ID_GENERATOR,
     CLOCK,
   ]),
   ...bindCommandHandler(RetireMemoryCommand, RetireMemoryHandler, [
+    MemoryAccess,
     TeamMemoryAtHand,
     DrizzleMemoryRepository,
     TeamMemoryViews,
@@ -240,12 +258,12 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
   ...bindQueryHandler(ListTeamMemoriesQuery, ListTeamMemoriesHandler, [
-    TeamMemoryAtHand,
+    MemoryAccess,
     DrizzleMemoryRepository,
     TeamMemoryViews,
   ]),
   ...bindQueryHandler(ReadRunMemoriesQuery, ReadRunMemoriesHandler, [
-    TeamMemoryAtHand,
+    MemoryAccess,
     WORK,
     DrizzleMemoryRepository,
     DrizzleMemoryDraftRepository,
@@ -254,6 +272,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     TeamMemoryViews,
   ]),
   ...bindQueryHandler(ReadTeamMemoryQuery, ReadTeamMemoryHandler, [
+    MemoryAccess,
     TeamMemoryAtHand,
     TeamMemoryViews,
   ]),
@@ -269,7 +288,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   ...bindCommandHandler(RecallMemoriesCommand, RecallMemoriesHandler, [
     RunnerMemoryAtHand,
-    DrizzleMemoryRepository,
+    MemoriesInReach,
     TeamMemoryViews,
     MEMORY_USES,
     CLOCK,
@@ -291,7 +310,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     ID_GENERATOR,
     CLOCK,
   ]),
-  { provide: KNOWN_MEMORIES, useClass: DrizzleKnownMemories },
+  { provide: REJECTED_MEMORIES, useClass: DrizzleRejectedMemories },
   {
     provide: MEMORY_DRAFTER,
     inject: [ENV],
@@ -328,7 +347,8 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     inject: [
       DrizzleMemoryDraftRepository,
       WORK,
-      KNOWN_MEMORIES,
+      MemoriesInReach,
+      REJECTED_MEMORIES,
       MEMORY_DRAFTER,
       ID_GENERATOR,
       CLOCK,
@@ -338,7 +358,8 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     useFactory: (
       drafts: DrizzleMemoryDraftRepository,
       work: WorkPort,
-      known: KnownMemoriesPort,
+      inReach: MemoriesInReach,
+      rejections: RejectedMemoriesPort,
       drafter: MemoryDrafterPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
@@ -348,7 +369,8 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       new WorkMemoryDrafts(
         drafts,
         work,
-        known,
+        inReach,
+        rejections,
         drafter,
         ids,
         clock,

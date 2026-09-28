@@ -3,6 +3,11 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 
 export type PullRequestRelation = 'opened' | 'reviews';
 
+export interface ReviewedHead {
+  readonly repository: Repository;
+  readonly ref: string;
+}
+
 export class PullRequestLink {
   private constructor(
     readonly url: PullRequestUrl,
@@ -25,8 +30,11 @@ export class PullRequestLink {
     return this.relation === 'reviews';
   }
 
-  get reviewed(): Repository | null {
-    return this.reviews ? this.url.repository : null;
+  get reviewedHead(): ReviewedHead | null {
+    const repository = this.reviews ? this.url.repository : null;
+    const ref = this.url.headRef;
+
+    return repository && ref ? { repository, ref } : null;
   }
 
   equals(other: PullRequestLink): boolean {

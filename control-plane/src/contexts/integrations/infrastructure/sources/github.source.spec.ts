@@ -28,7 +28,7 @@ const OPENED: PullRequestActivity = {
     title: 'Retry uploads',
     body: 'They give up too soon.',
     author: 'octocat',
-    authorOutside: true,
+    authorAssociation: 'CONTRIBUTOR',
     draft: false,
   },
   remark: null,

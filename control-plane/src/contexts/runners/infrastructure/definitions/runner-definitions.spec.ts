@@ -36,12 +36,12 @@ describe('RunnerDefinitions', () => {
     ).toEqual(['key', 'issuer', 'subject', 'labels.0']);
   });
 
-  it('points at a trust the workspace declares twice', () => {
+  it('leaves a trust the workspace declares twice for the declaration to refuse', () => {
     expect(
       refusedAt(
         definitions.workspaceRunners({ trusts: ['production', 'production'] }),
       ),
-    ).toEqual(['trusts.1']);
+    ).toEqual([]);
   });
 
   it('points at a label a pool is given twice', () => {
@@ -67,14 +67,16 @@ describe('RunnerDefinitions', () => {
           compiled.key.value,
           compiled.labels.values,
           compiled.maxRuns?.value,
-          compiled.access,
+          compiled.access.mode === 'pull' && compiled.access.token?.revealed(),
+          compiled.access.mode === 'pull' && compiled.access.tokenVersion,
         ],
-      ).toEqual([
-        'ephemeral',
-        ['linux'],
-        4,
-        { mode: 'pull', token: 'x'.repeat(40), tokenVersion: 2 },
-      ]);
+      ).toEqual(['ephemeral', ['linux'], 4, 'x'.repeat(40), 2]);
+    });
+
+    it('points at a token too short or too strange to be generated', () => {
+      expect(
+        refusedAt(definitions.pool({ key: 'ephemeral', token: 'hunter2' })),
+      ).toEqual(['token']);
     });
 
     it('reads a pool with provision as pushed to, with its signing secret', () => {

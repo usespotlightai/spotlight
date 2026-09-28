@@ -10,6 +10,8 @@ interface IntegrationSummary {
   readonly path: string;
   readonly name: string;
   readonly connects: boolean;
+  readonly linked: boolean;
+  readonly handle: string | null;
   readonly credentials: readonly SecretName[];
   readonly offers: readonly ToolDeclaration[];
 }

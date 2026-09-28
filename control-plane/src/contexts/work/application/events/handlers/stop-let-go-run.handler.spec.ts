@@ -12,6 +12,7 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
@@ -28,7 +29,11 @@ const queued = () =>
       handover: { options: ['Spec'], noteLimit: 4_000 },
       continuity: { key: 'task_1-station_1' },
     }),
-    subject: RunSubject.task(TaskId.of('task_1'), StationId.of('station_1'), 0),
+    subject: RunSubject.task(
+      TaskId.of('task_1'),
+      StationId.of('station_1'),
+      TaskRevision.of(0),
+    ),
   });
 
 const claimed = () => queued().claim(RUNNER, NOW);

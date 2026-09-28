@@ -4,6 +4,7 @@ import type {
   WorkPort,
 } from '@memory/application/ports/work.port';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
+import { NotOnTeamError } from '@memory/domain/exceptions/not-on-team.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -36,11 +37,13 @@ const access = (input: {
 
 describe('MemoryAccess', () => {
   it('lets anyone on the task’s team review its memories', async () => {
-    expect((await access({}))?.by.value).toBe('user_ada');
+    expect((await access({}))?.clearance.by.value).toBe('user_ada');
   });
 
-  it('keeps out anyone not on the team', async () => {
-    expect(await access({ member: false })).toBeNull();
+  it('keeps out anyone not on the team, saying there is no such team for them', async () => {
+    await expect(access({ member: false })).rejects.toBeInstanceOf(
+      NotOnTeamError,
+    );
   });
 
   it('keeps out a task of another team or workspace, or none at all', async () => {

@@ -18,13 +18,16 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
 const REASON = 'The hook core/freeze refused: deploys are frozen.';
 
-const claimed = (subject = RunSubject.task(TaskId.of('task_1'), null, 0)) =>
+const claimed = (
+  subject = RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
+) =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -105,12 +108,11 @@ const starting = (
 
 describe('RunStartHooks', () => {
   it('lets a run start that no hook refuses, after asking about its task', async () => {
-    const { hooks, asked, of, runs } = starting();
+    const { hooks, asked, of } = starting();
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('starts');
     expect(of).toHaveBeenCalledWith('task_1', 'run_1');
     expect(asked).toEqual([{ on: 'run.starting' }]);
-    expect(runs.save).not.toHaveBeenCalled();
   });
 
   it('ends a run a hook refuses, saying why', async () => {

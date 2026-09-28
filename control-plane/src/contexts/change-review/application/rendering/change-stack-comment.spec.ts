@@ -12,6 +12,8 @@ import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -33,6 +35,8 @@ const changed = (path: string, at: number): DiffFile => ({
 });
 
 const NOW = new Date('2026-09-16T10:00:00Z');
+
+const CHECKER = RunnerId.of('checker_1');
 
 const checked = () =>
   ChangeStack.draft({
@@ -89,12 +93,15 @@ describe('ChangeStackComment', () => {
     const check = StackCheck.begin({
       stackId: stack.id,
       runId: stack.runId,
+      taskId: null,
       workspaceId: stack.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
       entries: stack.entries(),
       now: NOW,
     })
+      .claimedFor(CHECKER, RunnerTerms.none(), NOW)
       .recorded(
+        CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [
           { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },

@@ -1,5 +1,6 @@
 import { memoryFilesOf } from '@memory/application/rendering/memory-files';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -23,10 +24,9 @@ const old = Memory.written({
   handle: MemoryHandle.of(7),
   workspaceId: WorkspaceId.of('ws_1'),
   kind: 'rationale',
-  body: 'Uploads retry from a queue.',
+  body: MemoryBody.of('Uploads retry from a queue.'),
   scope: MemoryScope.of({ teamId: TEAM }),
   grounds: null,
-  supersedes: null,
   by: MemoryDecision.of({ by: ADA, at: AT }),
 });
 
@@ -35,7 +35,7 @@ const replacing = Memory.stood({
   handle: MemoryHandle.of(18),
   workspaceId: WorkspaceId.of('ws_1'),
   kind: 'rejected-approach',
-  body: 'Uploads retry in the request,\nnot from a queue.',
+  body: MemoryBody.of('Uploads retry in the request,\nnot from a queue.'),
   scope: MemoryScope.of({
     teamId: TEAM,
     lineId: 'line_1',
@@ -50,7 +50,7 @@ const replacing = Memory.stood({
     notes: [],
   }),
   source: 'run',
-  supersedes: old.id,
+  supersedes: old,
   approval: MemoryDecision.of({ by: ADA, at: AT }),
 });
 

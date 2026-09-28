@@ -1,13 +1,9 @@
-import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 export class RunLeases {
-  constructor(
-    private readonly runs: RunRepository,
-    private readonly runners: RunnersPort,
-  ) {}
+  constructor(private readonly runs: RunRepository) {}
 
   async requeueLapsed(now: Date): Promise<readonly Run[]> {
     const requeued: Run[] = [];
@@ -21,10 +17,6 @@ export class RunLeases {
 
       if (await this.saved(next)) {
         requeued.push(next);
-
-        if (lapsing.claimedBy) {
-          await this.runners.letGo(lapsing.claimedBy, now);
-        }
       }
     }
 

@@ -4,6 +4,7 @@ import type {
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-review.error';
+import { ReviewClearance } from '@change-review/domain/services/review-clearance';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -28,15 +29,10 @@ export class ReviewAccess {
   ): Promise<Reviewing> {
     const member = await this.people.memberOf(teamId, viewerId);
     const run = member ? await this.work.run(RunId.of(runId)) : null;
+    const task = run?.taskId ? await this.work.task(run.taskId) : null;
 
-    if (!member || !run?.workspaceId.equals(member.workspaceId)) {
+    if (!member || !task || !ReviewClearance.of(member).reaches(task)) {
       throw new UnknownReviewError('run');
-    }
-
-    const task = run.taskId ? await this.work.task(run.taskId) : null;
-
-    if (!task) {
-      throw new UnknownReviewError('task');
     }
 
     const person = await this.people.find(member.by);

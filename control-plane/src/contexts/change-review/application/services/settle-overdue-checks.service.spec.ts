@@ -1,15 +1,16 @@
 import { SettleOverdueChecks } from '@change-review/application/services/settle-overdue-checks.service';
-import {
-  StackCheck,
-  WAITING_LIMIT_MS,
-} from '@change-review/domain/aggregates/stack-check.aggregate';
-import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
+import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
+import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/stack-check.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -21,6 +22,7 @@ const waiting = (stack: string) =>
   StackCheck.begin({
     stackId: ChangeStackId.of(stack),
     runId: RunId.of(`run_of_${stack}`),
+    taskId: null,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
     entries: [],
@@ -34,26 +36,20 @@ const settling = (
   const saved: StackCheck[] = [];
   const save = vi.fn(async (check: StackCheck) => {
     if (conflicting.includes(check.stackId.value)) {
-      throw new ChangedSinceReadError(
-        'change stack check',
-        check.stackId.value,
-      );
+      throw new StackCheckMovedOnError(check.stackId.value);
     }
     saved.push(check);
   });
   const listed = vi.fn(async () => overdue);
-  const reservationDropped = vi.fn(async () => {});
   const logged = vi.fn();
 
   return {
     saved,
     save,
     listed,
-    reservationDropped,
     logged,
     settle: new SettleOverdueChecks(
       { overdue: listed, save } as unknown as StackCheckRepository,
-      { released: vi.fn(), reservationDropped },
       { now: () => NOW, sleep: async () => {} },
       { error: logged } as unknown as LoggerPort,
     ),
@@ -83,6 +79,7 @@ describe('SettleOverdueChecks', () => {
   it('leaves alone a check a runner took up since it was listed', async () => {
     const taken = waiting('stack_1').claimedFor(
       RunnerId.of('runner_1'),
+      RunnerTerms.none(),
       new Date(NOW.getTime() - 1_000),
     );
     const { settle, save } = settling([taken]);
@@ -92,13 +89,13 @@ describe('SettleOverdueChecks', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('carries on past a check that changed while it was being settled, letting go of nobody for it', async () => {
+  it('carries on past a check that changed while it was being settled', async () => {
     const reserved = waiting('stack_1').reservedFor(
       RunnerId.of('pooled_1'),
-      'pool_1',
+      PoolId.of('pool_1'),
       new Date(BEGAN.getTime() + WAITING_LIMIT_MS - 60_000),
     );
-    const { settle, saved, reservationDropped } = settling(
+    const { settle, saved } = settling(
       [reserved, waiting('stack_2')],
       ['stack_1'],
     );
@@ -106,20 +103,24 @@ describe('SettleOverdueChecks', () => {
     await settle.workDue();
 
     expect(saved.map((each) => each.stackId.value)).toEqual(['stack_2']);
-    expect(reservationDropped).not.toHaveBeenCalled();
   });
 
-  it('lets go of a runner provisioned for a check it settles', async () => {
+  it('saves the runner provisioned for a check it settles as let go, alongside the settling', async () => {
     const reserved = waiting('stack_1').reservedFor(
       RunnerId.of('pooled_1'),
-      'pool_1',
+      PoolId.of('pool_1'),
       new Date(BEGAN.getTime() + WAITING_LIMIT_MS - 60_000),
     );
-    const { settle, reservationDropped } = settling([reserved]);
+    const { settle, saved } = settling([reserved]);
 
     await settle.workDue();
 
-    expect(reservationDropped).toHaveBeenCalledWith(RunnerId.of('pooled_1'));
+    expect(saved[0]?.pullEvents()).toContainEqual(
+      new CheckReservationDropped(
+        ChangeStackId.of('stack_1'),
+        RunnerId.of('pooled_1'),
+      ),
+    );
   });
 
   it('logs any other failure and carries on with the rest', async () => {
@@ -135,7 +136,6 @@ describe('SettleOverdueChecks', () => {
           saved.push(check.stackId.value);
         },
       } as unknown as StackCheckRepository,
-      { released: vi.fn(), reservationDropped: vi.fn() },
       { now: () => NOW, sleep: async () => {} },
       { error: logged } as unknown as LoggerPort,
     );

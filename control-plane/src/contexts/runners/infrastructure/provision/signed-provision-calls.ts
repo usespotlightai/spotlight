@@ -15,7 +15,6 @@ const MOST_DETAIL = 500;
 export interface ProvisionSettings {
   readonly spotlightUrl: string;
   readonly hosts: OutboundHosts;
-  readonly insecureAllowed: boolean;
 }
 
 const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
@@ -58,14 +57,6 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
       return {
         outcome: 'not-allowed',
         detail: `${call.url.hostname} is not among the hosts this deployment allows outbound calls to`,
-      };
-    }
-
-    if (!call.url.isSecure && !this.settings.insecureAllowed) {
-      return {
-        outcome: 'not-allowed',
-        detail:
-          'the provision URL is not https, and a one-run token is never sent in the clear',
       };
     }
 

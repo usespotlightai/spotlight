@@ -1,5 +1,6 @@
 import type { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
 import type { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
+import type { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
 import type { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import type { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
 import type { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
@@ -33,7 +34,10 @@ export const IdentityProblems = {
   },
 
   tokenRefused(
-    error: InvalidWorkspaceTokenError | WorkspaceTokenTermsFixedError,
+    error:
+      | InvalidWorkspaceTokenError
+      | WorkspaceTokenTermsFixedError
+      | MintedTokenFixedError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: WORKSPACE_TOKEN,

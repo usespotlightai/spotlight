@@ -24,7 +24,6 @@ import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { SystemClock } from '@platform/time/system-clock';
 import { TokenMint } from '@platform/tokens/token-mint.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
-import { BACKGROUND } from '@shared-kernel/application/ports/background.port';
 import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -56,7 +55,6 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     DrizzleContext,
     { provide: TRANSACTION, useExisting: DrizzleContext },
     { provide: ISOLATION, useExisting: DrizzleContext },
-    { provide: BACKGROUND, useExisting: DrizzleContext },
     { provide: CAUSATION, useClass: AmbientCausation },
     {
       provide: EventTypes,
@@ -89,7 +87,6 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     DrizzleContext,
     TRANSACTION,
     ISOLATION,
-    BACKGROUND,
     CAUSATION,
     EventTypes,
     EventSubscribers,

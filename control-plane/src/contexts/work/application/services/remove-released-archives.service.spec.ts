@@ -4,7 +4,9 @@ import {
   InMemoryArchiveStore,
   InMemoryArchives,
 } from '@work/application/services/workspace-archives.fake-spec';
+import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import {
+  anArchive,
   aSealedArchive,
   later,
 } from '@work/domain/aggregates/workspace-archive.fake-spec';
@@ -33,8 +35,34 @@ const setUp = async (due: ArchiveStandingsPort['due']) => {
   return { archives, store, logger, service };
 };
 
+const sealedMeanwhile = (unsealed: WorkspaceArchive): WorkspaceArchive =>
+  WorkspaceArchive.rehydrate({
+    id: unsealed.id,
+    workspaceId: unsealed.workspaceId,
+    continuity: unsealed.continuity,
+    holder: unsealed.holder,
+    grantedTo: unsealed.grantedTo,
+    size: unsealed.size,
+    digest: unsealed.digest,
+    grantedAt: unsealed.grantedAt,
+    sealedAt: later(DAY - 1),
+    version: unsealed.version + 1,
+  });
+
 describe('RemoveReleasedArchives', () => {
-  it('removes each archive its rule lets go of, from storage and then the record', async () => {
+  it('asks for the archives due by the cutoffs the archive rules name', async () => {
+    const due = vi.fn(async () => []);
+    const { service } = await setUp(due);
+
+    await service.workDue();
+
+    expect(due).toHaveBeenCalledWith(
+      WorkspaceArchive.removalCutoffs(later(DAY)),
+      expect.any(Number),
+    );
+  });
+
+  it('removes each archive its rule lets go of, from the record and then storage', async () => {
     const { archives, store, service } = await setUp(async () => [
       {
         id: WorkspaceArchiveId.of('gone'),
@@ -60,8 +88,34 @@ describe('RemoveReleasedArchives', () => {
     expect([...archives.kept.keys()]).toEqual(['held']);
   });
 
-  it('keeps going past an archive it could not remove', async () => {
-    const { store, service, logger } = await setUp(async () => [
+  it('keeps the object of an archive sealed while it was being removed', async () => {
+    const { archives, store, logger, service } = await setUp(async () => [
+      {
+        id: WorkspaceArchiveId.of('late'),
+        facts: {
+          holder: {
+            stationId: StationId.of('station_1'),
+            conversing: true,
+            finished: false,
+            changedAt: later(0),
+          },
+          supersededAt: null,
+        },
+      },
+    ]);
+    const unsealed = anArchive({ id: 'late' });
+    await archives.add(sealedMeanwhile(unsealed));
+    archives.find = async () => unsealed;
+
+    await service.workDue();
+
+    expect(store.removed).toEqual([]);
+    expect(archives.kept.get('late')?.isSealed).toBe(true);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('forgets the archive and says so when storage could not let go of its object', async () => {
+    const { archives, store, service, logger } = await setUp(async () => [
       {
         id: WorkspaceArchiveId.of('gone'),
         facts: { holder: null, supersededAt: null },
@@ -82,6 +136,11 @@ describe('RemoveReleasedArchives', () => {
     await service.workDue();
 
     expect(store.removed).toEqual(['held']);
+    expect(archives.kept.size).toBe(0);
     expect(logger.error).toHaveBeenCalledOnce();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ archive: 'gone', workspaceId: 'ws_1' }),
+      'A removed workspace archive was left behind in storage',
+    );
   });
 });

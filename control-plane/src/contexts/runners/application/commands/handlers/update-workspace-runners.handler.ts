@@ -1,6 +1,8 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { UpdateWorkspaceRunnersCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
+import { RunnerProblems } from '@runners/application/rendering/runner-problems';
+import { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
 import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
@@ -71,6 +73,13 @@ export class UpdateWorkspaceRunnersHandler
         return current
           ? { outcome: 'moved-on', currentVersion: current.version }
           : null;
+      }
+
+      if (error instanceof InvalidWorkspaceRunnersError) {
+        return {
+          outcome: 'invalid',
+          problems: [RunnerProblems.declarationRefused(error)],
+        };
       }
 
       rethrowAsFault(error);

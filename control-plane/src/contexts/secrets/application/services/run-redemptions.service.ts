@@ -9,6 +9,7 @@ import type {
   RunSealingPort,
   SealingRecipient,
 } from '@secrets/application/ports/run-sealing.port';
+import type { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import type { SecretSources } from '@secrets/application/services/secret-sources.service';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
@@ -16,7 +17,8 @@ import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound
 import { SecretUnwearableError } from '@secrets/domain/exceptions/secret-unwearable.error';
 import { UnreadableSecretError } from '@secrets/domain/exceptions/unreadable-secret.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
-import type { SecretGrantRepository } from '@secrets/domain/repositories/secret-grant.repository';
+import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
+import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -37,10 +39,15 @@ const withheldFor = (secret: string, error: unknown): WithheldSecret => {
   throw error;
 };
 
+interface Granting {
+  readonly secret: Secret;
+  readonly grants: readonly SecretGrant[];
+}
+
 export class RunRedemptions implements RunRedemptionsPort {
   constructor(
     private readonly secrets: SecretRepository,
-    private readonly grants: SecretGrantRepository,
+    private readonly kept: RunGrantsKept,
     private readonly sources: SecretSources,
     private readonly sealing: RunSealingPort,
   ) {}
@@ -49,7 +56,8 @@ export class RunRedemptions implements RunRedemptionsPort {
     const recipient = this.sealing.recipientOf(redemption.recipient);
     const workspaceId = WorkspaceId.of(redemption.workspaceId);
     const runId = RunId.of(redemption.runId);
-    const secrets: RedeemedSecret[] = [];
+    const hold = RunHold.of(runId, redemption.attempt);
+    const granting: Granting[] = [];
     const withheld: WithheldSecret[] = [];
 
     for (const name of new Set(redemption.wears)) {
@@ -63,14 +71,34 @@ export class RunRedemptions implements RunRedemptionsPort {
           throw new NoSuchSecretError(name);
         }
 
-        const granted = secret.grantedTo(runId);
-        await this.grants.grant(granted);
-
-        for (const grant of granted) {
-          secrets.push(await this.redeemed(secret, grant, recipient, runId));
-        }
+        granting.push({ secret, grants: secret.grantedTo(runId) });
       } catch (error) {
         withheld.push(withheldFor(name, error));
+      }
+    }
+
+    await this.kept.changed({ hold, workspaceId }, (held) =>
+      held
+        .granted(
+          hold,
+          granting.flatMap((each) => each.grants),
+        )
+        .redeemedFor(hold, RedemptionRecipient.of(recipient.key)),
+    );
+
+    const secrets: RedeemedSecret[] = [];
+
+    for (const { secret, grants } of granting) {
+      try {
+        const sealed: RedeemedSecret[] = [];
+
+        for (const grant of grants) {
+          sealed.push(await this.redeemed(secret, grant, recipient, runId));
+        }
+
+        secrets.push(...sealed);
+      } catch (error) {
+        withheld.push(withheldFor(secret.name.value, error));
       }
     }
 

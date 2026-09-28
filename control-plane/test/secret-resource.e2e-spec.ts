@@ -315,25 +315,25 @@ describe('a secret, set through the resource API (e2e)', () => {
       [
         'secret',
         'created',
-        { kind: 'person', userId: fixture.admin, tokenId: null, trustId: null },
+        { kind: 'person', userId: fixture.admin, tokenId: null, trust: null },
         { valueVersion: 1, boundTo: ['api.linear.app'] },
       ],
       [
         'secret',
         'updated',
-        { kind: 'person', userId: fixture.admin, tokenId: null, trustId: null },
+        { kind: 'person', userId: fixture.admin, tokenId: null, trust: null },
         { boundTo: ['uploads.linear.app'] },
       ],
       [
         'secret',
         'updated',
-        { kind: 'person', userId: fixture.admin, tokenId: null, trustId: null },
+        { kind: 'person', userId: fixture.admin, tokenId: null, trust: null },
         { valueVersion: 2 },
       ],
       [
         'secret',
         'deleted',
-        { kind: 'person', userId: fixture.admin, tokenId: null, trustId: null },
+        { kind: 'person', userId: fixture.admin, tokenId: null, trust: null },
         {},
       ],
     ]);

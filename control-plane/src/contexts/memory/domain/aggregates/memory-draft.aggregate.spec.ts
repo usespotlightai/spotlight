@@ -13,6 +13,7 @@ import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-alre
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { Remembering } from '@memory/domain/services/remembering';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
@@ -46,7 +47,7 @@ const evidence = (
   DraftEvidence.of({
     taskId: TASK,
     runId,
-    place: {
+    site: {
       teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
@@ -56,7 +57,7 @@ const evidence = (
     notes: notes.map((each) => ({ ...each, text: 'Said so.' })),
     notesRead: 0,
     changed: [{ repository: API, path: 'src/uploads.ts' }],
-    standing: [],
+    known: [],
     fromOutside: false,
   });
 
@@ -103,7 +104,7 @@ const rejected = (id: string) =>
   MemoryProposal.rehydrate({
     id: MemoryId.of(id),
     kind: 'preference',
-    body: 'Name branches after the ticket.',
+    body: MemoryBody.of('Name branches after the ticket.'),
     scope: MemoryScope.of({ teamId: TEAM }),
     grounds: MemoryGrounds.of({
       taskId: TASK,
@@ -190,7 +191,7 @@ describe('MemoryDraft', () => {
         remembered({ kind: 'environment', body: 'CI has no network.' }),
       ]);
 
-      expect(second.proposals.map((each) => each.body)).toEqual([
+      expect(second.proposals.map((each) => each.body.value)).toEqual([
         'Name branches after the ticket.',
         'CI has no network.',
       ]);
@@ -208,7 +209,7 @@ describe('MemoryDraft', () => {
         evidence: DraftEvidence.of({
           taskId: TASK,
           runId: SECOND,
-          place: {
+          site: {
             teamId: TEAM,
             lineId: 'line_1',
             stationId: 'station_1',
@@ -218,7 +219,7 @@ describe('MemoryDraft', () => {
           notes: [],
           notesRead: 0,
           changed: [],
-          standing: [],
+          known: [],
           fromOutside: false,
         }),
         newId,
@@ -383,7 +384,7 @@ describe('MemoryDraft', () => {
           evidence: DraftEvidence.of({
             taskId: TASK,
             runId: FIRST,
-            place: {
+            site: {
               teamId: TEAM,
               lineId: 'line_1',
               stationId: 'station_1',
@@ -393,7 +394,7 @@ describe('MemoryDraft', () => {
             notes: [],
             notesRead: 0,
             changed: [{ repository: API, path: 'src/uploads.ts' }],
-            standing: [],
+            known: [],
             fromOutside: true,
           }),
           newId,
@@ -425,7 +426,7 @@ describe('MemoryDraft', () => {
         expect.objectContaining({
           constructor: MemoryApproved,
           memoryId: first?.id,
-          body: 'First.',
+          body: MemoryBody.of('First.'),
           decision: ADA,
         }),
       ]);
@@ -441,7 +442,7 @@ describe('MemoryDraft', () => {
         decision: ADA,
       });
 
-      expect(approved.proposals[0]?.body).toBe('Edited.');
+      expect(approved.proposals[0]?.body.value).toBe('Edited.');
       expect(
         before && approved.proposals[0]?.grounds.equals(before.grounds),
       ).toBe(true);
@@ -602,23 +603,28 @@ describe('MemoryDraft', () => {
       body = 'Uploads retry in the request, not from a queue.',
       id = 'memory_asked',
     ) =>
-      Remembering.of({
-        taskId: TASK,
-        runId,
-        place: {
-          teamId: TEAM,
-          lineId: 'line_1',
-          stationId: 'station_1',
-          repositories: [API],
+      Remembering.of({ taskId: TASK, runId }).proposalOf({
+        id: MemoryId.of(id),
+        remembered: {
+          kind: 'rationale',
+          body,
+          reach: null,
+          paths: [],
+          supersedes: null,
         },
-        steps: [{ index: 3, kind: 'remember' }],
-        cited: [],
-        fromOutside: false,
-      }).proposalOf(
-        MemoryId.of(id),
-        { kind: 'rationale', body, reach: null, paths: [], supersedes: null },
-        NOW,
-      );
+        at: {
+          site: {
+            teamId: TEAM,
+            lineId: 'line_1',
+            stationId: 'station_1',
+            repositories: [API],
+          },
+          steps: [{ index: 3, kind: 'remember' }],
+          cited: [],
+          fromOutside: false,
+        },
+        now: NOW,
+      });
 
     it('takes in what a run asked to remember and puts it to a person', () => {
       const draft = opened().remembered(asked(FIRST));
@@ -705,7 +711,7 @@ describe('MemoryDraft', () => {
       const other = MemoryProposal.of({
         id: MemoryId.of('memory_other'),
         kind: 'preference',
-        body: 'Name branches after the ticket.',
+        body: MemoryBody.of('Name branches after the ticket.'),
         scope: MemoryScope.of({ teamId: TEAM }),
         grounds: MemoryGrounds.of({
           taskId: TaskId.of('task_other'),

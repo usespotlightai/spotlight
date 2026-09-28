@@ -12,9 +12,11 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
@@ -32,7 +34,11 @@ const claimedRun = () =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
     spec,
-    subject: RunSubject.task(TaskId.of('task_1'), StationId.of('station_1'), 0),
+    subject: RunSubject.task(
+      TaskId.of('task_1'),
+      StationId.of('station_1'),
+      TaskRevision.of(0),
+    ),
   }).claim(RunnerId.of('runner_1'), NOW);
 
 const taskAssignedTo = (userId: string) =>
@@ -91,7 +97,10 @@ describe('StopRunHandler', () => {
   });
 
   it('refuses to stop a run that is no longer being worked', async () => {
-    const ended = claimedRun().release();
+    const ended = claimedRun().complete(
+      RunnerId.of('runner_1'),
+      RunOutcome.of({ exitCode: 0, failed: false }),
+    );
     const { handler, save } = stopping(ended, taskAssignedTo('user_1'));
 
     await expect(

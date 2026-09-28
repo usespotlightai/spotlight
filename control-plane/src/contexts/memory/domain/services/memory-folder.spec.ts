@@ -1,5 +1,10 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import { filesOf, handlesRead } from '@memory/domain/services/memory-folder';
+import {
+  filesOf,
+  handlesRead,
+  layoutAt,
+} from '@memory/domain/services/memory-folder';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -17,10 +22,9 @@ const kept = (scope: Parameters<typeof MemoryScope.of>[0]) =>
     handle: MemoryHandle.of(18),
     workspaceId: WorkspaceId.of('ws_1'),
     kind: 'rationale',
-    body: 'Uploads retry in the request.',
+    body: MemoryBody.of('Uploads retry in the request.'),
     scope: MemoryScope.of(scope),
     grounds: null,
-    supersedes: null,
     by: MemoryDecision.of({
       by: UserId.of('user_1'),
       at: new Date('2026-09-27T10:00:00.000Z'),
@@ -72,5 +76,24 @@ describe('the memory folder', () => {
     ]);
 
     expect(read.map((each) => each.value)).toEqual(['M-3', 'M-18']);
+  });
+
+  it('lays out a folder for each place a run works, and repositories only where it checked some out', () => {
+    const site = {
+      teamId: TEAM,
+      lineId: null,
+      stationId: null,
+      repositories: [],
+    };
+
+    expect(layoutAt(site).map((each) => each.holds)).toEqual(['team']);
+    expect(
+      layoutAt({
+        ...site,
+        lineId: 'line_1',
+        stationId: 'station_1',
+        repositories: [API],
+      }).map((each) => each.holds),
+    ).toEqual(['team', 'line', 'station', 'repository']);
   });
 });

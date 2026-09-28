@@ -27,7 +27,7 @@ export class MemoryReviews {
         async (proposal): Promise<ProposedMemoryDto> => ({
           id: proposal.id.value,
           kind: proposal.kind,
-          body: proposal.body,
+          body: proposal.body.value,
           source: proposal.source,
           origin: proposal.origin,
           state: proposal.state,

@@ -90,12 +90,31 @@ describe('compileHook', () => {
     expect(compiled.ok).toBe(true);
     if (!compiled.ok) return;
 
-    expect(compiled.ir.hook.tools).toEqual([
+    expect(compiled.ir.hook.tools.map((tool) => tool.value)).toEqual([
       'grafana.search',
       'slack.post-message',
     ]);
     expect(compiled.ir.signing).toEqual({ kind: 'hmac' });
     expect(compiled.document.fields.signing).toEqual({ secretVersion: 1 });
+  });
+
+  it('keeps in its document only the failure and timeout it was written with', () => {
+    const unwritten = compileHook(GRAFANA_READS, engine);
+    const written = compileHook(
+      { ...GRAFANA_READS, failure: 'continue', timeoutSeconds: 10 },
+      engine,
+    );
+
+    if (!unwritten.ok || !written.ok) throw new Error('did not compile');
+
+    expect(unwritten.ir.hook.failure).toBe('continue');
+    expect(unwritten.ir.hook.timeoutSeconds).toBe(10);
+    expect(unwritten.document.fields).not.toHaveProperty('failure');
+    expect(unwritten.document.fields).not.toHaveProperty('timeoutSeconds');
+    expect(written.document.fields).toMatchObject({
+      failure: 'continue',
+      timeoutSeconds: 10,
+    });
   });
 
   it('keeps the secret out of the document and hands it over apart', () => {

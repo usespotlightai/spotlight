@@ -1,5 +1,6 @@
 import type { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import type { TeamMemoryDetailDto } from '@memory/application/dto/team-memory.dto';
+import type { MemoryAccess } from '@memory/application/services/memory-access.service';
 import type { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
 import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
@@ -12,6 +13,7 @@ export class RetireMemoryHandler
   implements CommandHandlerPort<RetireMemoryCommand, TeamMemoryDetailDto>
 {
   constructor(
+    private readonly access: MemoryAccess,
     private readonly atHand: TeamMemoryAtHand,
     private readonly memories: MemoryRepository,
     private readonly views: TeamMemoryViews,
@@ -21,11 +23,14 @@ export class RetireMemoryHandler
 
   async execute(command: RetireMemoryCommand): Promise<TeamMemoryDetailDto> {
     try {
-      const member = await this.atHand.member(command.teamId, command.viewerId);
+      const clearance = await this.access.clearance(
+        command.teamId,
+        command.viewerId,
+      );
       const retired = await this.transaction.run(async () => {
-        const held = await this.atHand.memory(command.teamId, command.memoryId);
+        const held = await this.atHand.memory(clearance, command.memoryId);
         const next = held.retired({
-          by: member.by,
+          by: clearance.by,
           reason: command.reason,
           at: this.clock.now(),
         });

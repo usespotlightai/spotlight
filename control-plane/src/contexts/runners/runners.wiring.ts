@@ -51,6 +51,10 @@ import {
   PROVISION_CALLS,
   type ProvisionCallsPort,
 } from '@runners/application/ports/provision-calls.port';
+import {
+  PROVISION_SECRETS,
+  type ProvisionSecretsPort,
+} from '@runners/application/ports/provision-secrets.port';
 import { RUNNER_ADMISSIONS } from '@runners/application/ports/runner-admissions.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_DEFINITIONS } from '@runners/application/ports/runner-definitions.port';
@@ -100,11 +104,13 @@ import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-de
 import { InstallerAssets } from '@runners/infrastructure/installer/installer-assets';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleRunnerResources } from '@runners/infrastructure/persistence/drizzle/readers/runner-resources.reader';
+import { DrizzleGivenPoolTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/given-pool-tokens.repository';
 import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
 import { DrizzleRunnerHostRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-host.repository';
 import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
 import { DrizzleWorkspaceRunnersRepository } from '@runners/infrastructure/persistence/drizzle/repositories/workspace-runners.repository';
+import { SealedProvisionSecrets } from '@runners/infrastructure/provision/sealed-provision-secrets';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
 import { runnersSubscribers } from '@runners/presentation/events/runners.subscribers';
 import { HostController } from '@runners/presentation/http/controllers/host.controller';
@@ -277,9 +283,9 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       new SignedProvisionCalls({
         spotlightUrl: publicUrlOf(env),
         hosts: OutboundHosts.listed(env.OUTBOUND_ALLOWED_HOSTS),
-        insecureAllowed: env.NODE_ENV !== 'production',
       }),
   },
+  { provide: PROVISION_SECRETS, useClass: SealedProvisionSecrets },
   {
     provide: RUNNERS,
     inject: [
@@ -288,6 +294,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       DrizzleRunnerHostRepository,
       DrizzleRunnerRepository,
       PROVISION_CALLS,
+      PROVISION_SECRETS,
+      ENV,
       TOKEN_MINT,
       ID_GENERATOR,
       TRANSACTION,
@@ -299,6 +307,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       hosts: DrizzleRunnerHostRepository,
       runners: DrizzleRunnerRepository,
       calls: ProvisionCallsPort,
+      secrets: ProvisionSecretsPort,
+      env: Env,
       tokens: TokenMintPort,
       ids: IdGeneratorPort,
       transaction: TransactionPort,
@@ -310,6 +320,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
         hosts,
         runners,
         calls,
+        secrets,
+        { insecureAllowed: env.NODE_ENV !== 'production' },
         tokens,
         ids,
         transaction,
@@ -336,6 +348,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   DrizzleRunnerTrustRepository,
   DrizzleWorkspaceRunnersRepository,
   DrizzleRunnerPoolRepository,
+  DrizzleGivenPoolTokensRepository,
   DrizzleRunnerRepository,
   DrizzleRunnerHostRepository,
 
@@ -403,6 +416,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUNNER_DEFINITIONS,
     DrizzleRunnerPoolRepository,
+    DrizzleGivenPoolTokensRepository,
+    PROVISION_SECRETS,
     IDEMPOTENT_CREATES,
     ID_GENERATOR,
     TOKEN_MINT,
@@ -412,6 +427,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUNNER_DEFINITIONS,
     DrizzleRunnerPoolRepository,
+    DrizzleGivenPoolTokensRepository,
+    PROVISION_SECRETS,
     TOKEN_MINT,
     TRANSACTION,
   ]),

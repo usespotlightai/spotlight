@@ -12,6 +12,7 @@ export class RunWithdrawn implements DomainEvent {
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
     readonly subject: RunSubject | null,
+    readonly attempt: number,
   ) {}
 
   get taskId(): TaskId | null {

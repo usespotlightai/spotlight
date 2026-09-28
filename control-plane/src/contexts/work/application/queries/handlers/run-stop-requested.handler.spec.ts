@@ -8,7 +8,6 @@ const asking = (stopping: Record<string, string>) =>
     stopRequestedFor: async (runId, runnerId) =>
       stopping[runId.value] === runnerId.value,
     attachmentFor: async () => null,
-    continuityOf: async () => null,
   });
 
 describe('RunStopRequestedHandler', () => {

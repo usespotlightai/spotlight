@@ -1,8 +1,5 @@
-import {
-  StackCheck,
-  WAITING_LIMIT_MS,
-} from '@change-review/domain/aggregates/stack-check.aggregate';
-import { ChangedSinceReadError } from '@change-review/domain/exceptions/changed-since-read.error';
+import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
 import type {
   CheckClaimant,
   StackCheckRepository,
@@ -11,9 +8,13 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import {
   CheckClaim,
   MOST_CHECK_ATTEMPTS,
+  MOST_HOLD_MS,
 } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { keptSkipOf } from '@change-review/domain/value-objects/stack-check.vo';
+import {
+  keptSkipOf,
+  WAITING_LIMIT_MS,
+} from '@change-review/domain/value-objects/stack-check.vo';
 import {
   checkedStepOf,
   entryOf,
@@ -26,14 +27,16 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, gt, inArray, isNull, lt, lte, or } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, isNull, lt, lte, or } from 'drizzle-orm';
 
 type Row = typeof stackCheck.$inferSelect;
 
@@ -41,6 +44,7 @@ const toStackCheck = (row: Row): StackCheck =>
   StackCheck.rehydrate({
     stackId: ChangeStackId.of(row.stackId),
     runId: RunId.of(row.runId),
+    taskId: row.taskId ? TaskId.of(row.taskId) : null,
     workspaceId: WorkspaceId.of(row.workspaceId),
     request: CheckRequest.of(
       row.command,
@@ -66,13 +70,14 @@ const toStackCheck = (row: Row): StackCheck =>
       claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
       attempts: row.attempts,
       leaseExpiresAt: row.leaseExpiresAt,
+      claimedAt: row.claimedAt,
     }),
     waitingSince: row.waitingSince,
     reservation:
       row.reservedFor && row.reservedPool && row.reservedUntil
         ? RunnerReservation.of(
             RunnerId.of(row.reservedFor),
-            row.reservedPool,
+            PoolId.of(row.reservedPool),
             row.reservedUntil,
           )
         : null,
@@ -100,9 +105,10 @@ const valuesOf = (check: StackCheck) => ({
   claimedBy: check.claim.claimedBy?.value ?? null,
   attempts: check.claim.attempts,
   leaseExpiresAt: check.claim.leaseExpiresAt,
+  claimedAt: check.claim.claimedAt,
   waitingSince: check.waitingSince,
   reservedFor: check.reservation?.runner.value ?? null,
-  reservedPool: check.reservation?.pool ?? null,
+  reservedPool: check.reservation?.pool.value ?? null,
   reservedUntil: check.reservation?.until ?? null,
   provisionFailures: check.provisioning.failures,
   nextProvisionAt: check.provisioning.nextAt,
@@ -123,6 +129,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         .values({
           stackId: added.stackId.value,
           runId: added.runId.value,
+          taskId: added.taskId?.value ?? null,
           workspaceId: added.workspaceId.value,
           command: added.request.command,
           setup: added.request.setup,
@@ -151,10 +158,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         .returning({ stackId: stackCheck.stackId });
 
       if (written.length === 0) {
-        throw new ChangedSinceReadError(
-          'change stack check',
-          saved.stackId.value,
-        );
+        throw new StackCheckMovedOnError(saved.stackId.value);
       }
 
       await this.events.dispatch(saved.pullEvents());
@@ -171,6 +175,44 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     return row ? toStackCheck(row) : null;
   }
 
+  async ofRun(runId: RunId): Promise<readonly StackCheck[]> {
+    const rows = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(eq(stackCheck.runId, runId.value));
+
+    return rows.map(toStackCheck);
+  }
+
+  async ofTask(taskId: TaskId): Promise<readonly StackCheck[]> {
+    const rows = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(eq(stackCheck.taskId, taskId.value));
+
+    return rows.map(toStackCheck);
+  }
+
+  async remove(removed: StackCheck): Promise<void> {
+    await this.context.run(async () => {
+      const deleted = await this.context.db
+        .delete(stackCheck)
+        .where(
+          and(
+            eq(stackCheck.stackId, removed.stackId.value),
+            eq(stackCheck.version, removed.version),
+          ),
+        )
+        .returning({ stackId: stackCheck.stackId });
+
+      if (deleted.length === 0) {
+        throw new StackCheckMovedOnError(removed.stackId.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
+  }
+
   async dueForCheck(by: CheckClaimant, now: Date): Promise<StackCheck | null> {
     const [row] = await this.context.db
       .select()
@@ -179,7 +221,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         and(
           eq(stackCheck.workspaceId, by.workspaceId.value),
           eq(stackCheck.phase, 'waiting'),
-          gt(
+          gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
           ),
@@ -236,7 +278,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         and(
           eq(stackCheck.workspaceId, workspaceId.value),
           eq(stackCheck.phase, 'waiting'),
-          gt(
+          gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
           ),
@@ -273,6 +315,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           or(
             isNull(stackCheck.leaseExpiresAt),
             lte(stackCheck.leaseExpiresAt, now),
+            lte(stackCheck.claimedAt, new Date(now.getTime() - MOST_HOLD_MS)),
           ),
         ),
       )
@@ -307,7 +350,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         and(
           eq(stackCheck.workspaceId, workspaceId.value),
           eq(stackCheck.phase, 'waiting'),
-          gt(
+          gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
           ),
@@ -315,38 +358,5 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       );
 
     return rows.map(toStackCheck).filter((each) => each.claimableAt(now));
-  }
-
-  async isClaimedBy(
-    runId: string,
-    runner: RunnerId,
-    now: Date,
-  ): Promise<boolean> {
-    const [row] = await this.context.db
-      .select({ stackId: stackCheck.stackId })
-      .from(stackCheck)
-      .where(
-        and(
-          eq(stackCheck.runId, runId),
-          eq(stackCheck.claimedBy, runner.value),
-          gt(stackCheck.leaseExpiresAt, now),
-        ),
-      )
-      .limit(1);
-
-    return row !== undefined;
-  }
-
-  async removeForStacks(stackIds: readonly ChangeStackId[]): Promise<void> {
-    if (stackIds.length === 0) {
-      return;
-    }
-
-    await this.context.db.delete(stackCheck).where(
-      inArray(
-        stackCheck.stackId,
-        stackIds.map((each) => each.value),
-      ),
-    );
   }
 }

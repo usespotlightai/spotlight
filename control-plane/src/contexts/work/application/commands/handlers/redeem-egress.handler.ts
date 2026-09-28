@@ -10,6 +10,7 @@ import type { RedeemEgressCommand } from '@work/application/commands/egress.comm
 import type { EgressRedemptionDto } from '@work/application/dto/egress-redemption.dto';
 import type { SandboxReachPort } from '@work/application/ports/sandbox-reach.port';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
 export class RedeemEgressHandler
   implements CommandHandlerPort<RedeemEgressCommand, EgressRedemptionDto>
@@ -45,23 +46,27 @@ export class RedeemEgressHandler
 
       const runId = RunId.of(admitted.work.id);
       const runner = RunnerId.of(admitted.runnerId);
-      const wears = await this.wornBy(runId, runner, admitted.workspaceId);
+      const held = await this.holdOf(runId, runner, admitted.workspaceId);
 
-      if (wears.length === 0) {
+      if (!held || held.wears.length === 0) {
         return nothingWorn;
       }
 
       const redeemed = await this.redemptions.redeem({
         workspaceId: admitted.workspaceId,
         runId: runId.value,
-        wears,
+        attempt: held.attempt.number,
+        wears: held.wears,
         recipient: command.recipient,
       });
+      const still = await this.holdOf(runId, runner, admitted.workspaceId);
 
-      if (
-        (await this.wornBy(runId, runner, admitted.workspaceId)).length === 0
-      ) {
-        await this.grants.endedFor(runId.value);
+      if (!still?.attempt.equals(held.attempt)) {
+        await this.grants.holdLost({
+          workspaceId: admitted.workspaceId,
+          runId: runId.value,
+          attempt: held.attempt.number,
+        });
         return nothingWorn;
       }
 
@@ -71,15 +76,18 @@ export class RedeemEgressHandler
     }
   }
 
-  private async wornBy(
+  private async holdOf(
     runId: RunId,
     runner: RunnerId,
     workspaceId: string,
-  ): Promise<readonly string[]> {
+  ): Promise<{ attempt: RunAttempt; wears: readonly string[] } | null> {
     const run = await this.runs.findById(runId);
 
-    return run?.workspaceId.value === workspaceId
-      ? run.secretsWornFor(runner)
-      : [];
+    return run?.workspaceId.value === workspaceId && run.isHeldBy(runner)
+      ? {
+          attempt: run.currentAttempt,
+          wears: run.secretsWornFor(runner).map((each) => each.value),
+        }
+      : null;
   }
 }

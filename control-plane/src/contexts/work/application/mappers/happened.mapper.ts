@@ -14,8 +14,10 @@ import type { OpensWith } from '@work/domain/value-objects/opens-with';
 import {
   type ReviewRequest,
   reviewAsking,
+  reviewRequested,
 } from '@work/domain/value-objects/review-asked.vo';
 import { Said } from '@work/domain/value-objects/said.vo';
+import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 export interface Heard {
   readonly word: Word;
@@ -33,14 +35,14 @@ const reviewOf = (
     return null;
   }
 
-  return {
+  return reviewRequested({
     asking: reviewAsking(word.asking),
     pullRequest: PullRequestUrl.of(word.pullRequest),
     author: word.author?.trim() || null,
     outside: word.outside !== false,
     draft: word.draft,
     branch: word.branch ? Branch.of(word.branch) : null,
-  };
+  });
 };
 
 export const HappenedMapper = {
@@ -73,7 +75,7 @@ export const HappenedMapper = {
       opens: opens
         ? {
             onto: LineRole.of(opens.onto),
-            at: opens.at,
+            at: opens.at ? StationKey.parsed(opens.at) : null,
             title: opens.title,
             description: opens.description,
             assignEmail: opens.assignEmail,

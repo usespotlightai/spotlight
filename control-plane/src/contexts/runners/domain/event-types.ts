@@ -19,6 +19,7 @@ import {
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
 import { PoolTokenStanding } from '@runners/domain/value-objects/pool-token-standing.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -27,6 +28,7 @@ import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-poo
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
+import { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
@@ -40,6 +42,7 @@ export const RUNNERS_EVENT_TYPES = [
   InstalledHarness,
   MaxRuns,
   PoolKey,
+  PoolToken,
   PoolTokenStanding,
   RunnerWork,
   ProvisionSecret,
@@ -50,6 +53,7 @@ export const RUNNERS_EVENT_TYPES = [
   RunnerPoolId,
   RunnerLabels,
   RunnerTrustId,
+  SealedProvisionSecret,
   TrustKey,
   TrustedWorkload,
   WorkspaceRunnersId,

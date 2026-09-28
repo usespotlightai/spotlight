@@ -115,7 +115,7 @@ describe('HostReach', () => {
     ).rejects.toThrow(/which no workspace holds/);
   });
 
-  it('grants a run the secrets it wears before it reaches the host', async () => {
+  it('grants the run’s current attempt the secrets it wears before it reaches the host', async () => {
     const { reach, grant, forRun } = reaching(null);
 
     const reached = await reach.forRun(
@@ -123,6 +123,7 @@ describe('HostReach', () => {
         teamId: TEAM,
         workspaceId: 'ws_1',
         runId: 'run_1',
+        attempt: 2,
         wears: ['SLACK_BOT_TOKEN'],
       },
       integration(false),
@@ -134,11 +135,13 @@ describe('HostReach', () => {
     expect(grant).toHaveBeenCalledWith({
       workspaceId: 'ws_1',
       runId: 'run_1',
+      attempt: 2,
       secrets: ['SLACK_BOT_TOKEN'],
     });
     expect(forRun).toHaveBeenCalledWith({
       workspaceId: 'ws_1',
       runId: 'run_1',
+      attempt: 2,
       secrets: ['SLACK_BOT_TOKEN'],
       url: 'https://slack.com/api/x',
     });
@@ -148,7 +151,13 @@ describe('HostReach', () => {
     const { reach, grant } = reaching(null);
 
     await reach.forRun(
-      { teamId: TEAM, workspaceId: 'ws_1', runId: 'run_1', wears: [] },
+      {
+        teamId: TEAM,
+        workspaceId: 'ws_1',
+        runId: 'run_1',
+        attempt: 1,
+        wears: [],
+      },
       integration(false),
     );
 

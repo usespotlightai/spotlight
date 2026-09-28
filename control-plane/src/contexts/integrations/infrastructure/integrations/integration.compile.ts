@@ -15,6 +15,7 @@ import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
+import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import {
@@ -60,7 +61,6 @@ import type {
 import type { NamedType, SchemaFields } from '@platform/expressions/scope';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 

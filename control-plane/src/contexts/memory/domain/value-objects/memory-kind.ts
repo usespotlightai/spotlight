@@ -1,3 +1,5 @@
+import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+
 export const MEMORY_KINDS = [
   'rationale',
   'rejected-approach',
@@ -9,8 +11,17 @@ export const MEMORY_KINDS = [
 
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
-export const isMemoryKind = (raw: string): raw is MemoryKind =>
-  (MEMORY_KINDS as readonly string[]).includes(raw);
+export const parseMemoryKind = (raw: string): MemoryKind => {
+  const kind = MEMORY_KINDS.find((each) => each === raw.trim());
+
+  if (!kind) {
+    throw new InvalidMemoryError(
+      `is one of ${MEMORY_KINDS.join(', ')}, not ${raw}`,
+    );
+  }
+
+  return kind;
+};
 
 const WARNINGS: readonly MemoryKind[] = [
   'failure',

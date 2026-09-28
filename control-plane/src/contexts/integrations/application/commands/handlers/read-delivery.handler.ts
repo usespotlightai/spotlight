@@ -1,8 +1,8 @@
 import type { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
 import {
   CAUSE_HEADER,
-  type HookFiringsPort,
-} from '@integrations/application/ports/hook-firings.port';
+  type HookFiringHistoryPort,
+} from '@integrations/application/ports/hook-firing-history.port';
 import type { WebhookHeaders } from '@integrations/application/ports/webhook-source.port';
 import type { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -25,7 +25,7 @@ export class ReadDeliveryHandler
   constructor(
     private readonly sources: SourceForDelivery,
     private readonly reactions: HappeningReactionsPort,
-    private readonly firings: HookFiringsPort,
+    private readonly history: HookFiringHistoryPort,
     private readonly causation: CausationPort,
   ) {}
 
@@ -65,7 +65,7 @@ export class ReadDeliveryHandler
 
       const cause = causeIn(stored.headers);
       const fired = cause
-        ? await this.firings.chainOf(workspaceId.value, cause)
+        ? await this.history.chainOf(workspaceId.value, cause)
         : null;
 
       await this.causation.within(this.heardFrom(fired, stored.source), () =>

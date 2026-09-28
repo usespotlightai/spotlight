@@ -3,25 +3,32 @@ import type {
   SecretReference,
   SecretSourcePort,
 } from '@secrets/application/ports/secret-source.port';
+import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import {
   Secret,
   type SecretDefinition,
 } from '@secrets/domain/aggregates/secret.aggregate';
+import { RunGrantsMovedOnError } from '@secrets/domain/exceptions/run-grants-moved-on.error';
 import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-already-defined.error';
 import { SecretMovedOnError } from '@secrets/domain/exceptions/secret-moved-on.error';
 import { UnreadableSecretError } from '@secrets/domain/exceptions/unreadable-secret.error';
+import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
-import type { SecretGrantRepository } from '@secrets/domain/repositories/secret-grant.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import type { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type {
   IdempotentClaim,
   IdempotentCreate,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
+import type {
+  LogFields,
+  LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
@@ -87,6 +94,27 @@ export class InMemoryCreates implements IdempotentCreatesPort {
 }
 
 export const NOW = new Date('2026-09-23T12:00:00.000Z');
+
+export class RecordingLogger implements LoggerPort {
+  readonly warned: LogFields[] = [];
+
+  debug(): void {}
+
+  info(): void {}
+
+  warn(fields: LogFields): void {
+    this.warned.push(fields);
+  }
+
+  error(fields: LogFields): void {
+    this.warned.push(fields);
+  }
+}
+
+export const clockAt = (now: () => Date = () => NOW): ClockPort => ({
+  now,
+  sleep: async () => {},
+});
 
 export const definition = (
   over: Partial<{
@@ -186,34 +214,70 @@ export class InMemorySecrets implements SecretRepository {
   }
 }
 
-export class InMemoryGrants implements SecretGrantRepository {
-  readonly #held: SecretGrant[] = [];
+const keptCopy = (grants: RunGrants, version: number): RunGrants =>
+  RunGrants.rehydrate({
+    hold: grants.hold,
+    workspaceId: grants.workspaceId,
+    grants: grants.grants,
+    recipient: grants.recipient,
+    holdLost: grants.isHoldLost,
+    endedAt: grants.endedAt,
+    version,
+  });
 
-  async grant(grants: readonly SecretGrant[]): Promise<void> {
-    for (const each of grants) {
-      if (!this.#held.some((held) => held.equals(each))) {
-        this.#held.push(each);
-      }
-    }
+export class InMemoryGrants implements RunGrantsRepository {
+  readonly #kept = new Map<string, RunGrants>();
+
+  async find(runId: RunId): Promise<RunGrants | null> {
+    const kept = this.#kept.get(runId.value);
+
+    return kept ? keptCopy(kept, kept.version) : null;
   }
 
-  async holds(grant: SecretGrant): Promise<boolean> {
-    return this.#held.some(
-      (each) =>
-        each.equals(grant) && each.workspaceId.equals(grant.workspaceId),
-    );
+  async runsIn(workspaceId: WorkspaceId): Promise<readonly RunId[]> {
+    return [...this.#kept.values()]
+      .filter((each) => each.workspaceId.equals(workspaceId))
+      .map((each) => each.runId);
   }
 
-  async revokeFor(runId: RunId): Promise<void> {
-    for (let at = this.#held.length - 1; at >= 0; at -= 1) {
-      if (this.#held[at]?.runId.equals(runId)) {
-        this.#held.splice(at, 1);
-      }
+  async endedBy(
+    at: Date,
+    after: RunId | null,
+    most: number,
+  ): Promise<readonly RunId[]> {
+    return [...this.#kept.values()]
+      .filter(
+        (each) =>
+          each.endedAt !== null &&
+          each.endedAt.getTime() <= at.getTime() &&
+          (after === null || each.runId.value > after.value),
+      )
+      .map((each) => each.runId)
+      .sort((one, other) => (one.value < other.value ? -1 : 1))
+      .slice(0, most);
+  }
+
+  async save(grants: RunGrants): Promise<void> {
+    const kept = this.#kept.get(grants.runId.value);
+
+    if (grants.isNew ? kept : kept?.version !== grants.version) {
+      throw new RunGrantsMovedOnError(grants.runId.value);
     }
+
+    if (grants.isDiscarded) {
+      this.#kept.delete(grants.runId.value);
+      return;
+    }
+
+    this.#kept.set(grants.runId.value, keptCopy(grants, grants.version + 1));
+  }
+
+  of(runId: string): RunGrants | null {
+    return this.#kept.get(runId) ?? null;
   }
 
   get all(): readonly SecretGrant[] {
-    return this.#held;
+    return [...this.#kept.values()].flatMap((each) => each.grants);
   }
 }
 

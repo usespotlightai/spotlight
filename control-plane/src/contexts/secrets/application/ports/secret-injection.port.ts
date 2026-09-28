@@ -10,11 +10,13 @@ export interface SpotlightRequest {
 
 export interface RunRequest extends SpotlightRequest {
   readonly runId: string;
+  readonly attempt: number;
 }
 
 export interface RunGrant {
   readonly workspaceId: string;
   readonly runId: string;
+  readonly attempt: number;
   readonly secrets: readonly string[];
 }
 

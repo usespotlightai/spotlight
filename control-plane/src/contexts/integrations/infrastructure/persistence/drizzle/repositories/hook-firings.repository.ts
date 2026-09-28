@@ -1,87 +1,168 @@
-import type {
-  HookFiringsPort,
-  NewFiring,
-  StoredFiring,
-} from '@integrations/application/ports/hook-firings.port';
-import type { StepOutcome } from '@integrations/application/ports/hook-runtime.port';
+import {
+  HookFiring,
+  type HookFiringProgress,
+  type HookStepOutcome,
+} from '@integrations/domain/aggregates/hook-firing.aggregate';
+import { HookFiringMovedOnError } from '@integrations/domain/exceptions/hook-firing-moved-on.error';
+import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HOOK_FAILURES,
   HookFailure,
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
-import {
-  type HookFiringState,
-  hookFiring,
-} from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
-import { Injectable } from '@nestjs/common';
+import { hookFiring } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
+import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import {
-  and,
-  asc,
-  count,
-  eq,
-  gte,
-  inArray,
-  lt,
-  lte,
-  or,
-  sql,
-} from 'drizzle-orm';
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { and, asc, eq, inArray, lt, lte, or } from 'drizzle-orm';
 
-const REASON_LIMIT = 1_000;
-
-const FINISHED: HookFiringState[] = ['done', 'failed', 'superseded'];
-
-const held = (firing: StoredFiring) =>
-  and(eq(hookFiring.id, firing.id), eq(hookFiring.claimedAt, firing.claimedAt));
-
-const LEASE_MS = 10 * 60 * 1000;
+type Row = typeof hookFiring.$inferSelect;
 
 const isCode = (code: string): code is HookFailureCode =>
   Object.keys(HOOK_FAILURES).includes(code);
 
-const failureOf = (
-  code: string | null,
-  reason: string | null,
-): HookFailure | null =>
-  code && isCode(code) ? HookFailure.of(code, reason ?? '') : null;
+const failureOf = (row: Row): HookFailure | null =>
+  row.failure && isCode(row.failure)
+    ? HookFailure.of(row.failure, row.failed ?? '')
+    : null;
 
-@Injectable()
-export class DrizzleHookFirings implements HookFiringsPort {
-  constructor(private readonly context: DrizzleContext) {}
-
-  async fire(firing: NewFiring): Promise<boolean> {
-    const written = await this.context.db
-      .insert(hookFiring)
-      .values({
-        id: firing.id,
-        hookId: firing.hookId,
-        workspaceId: firing.workspaceId,
-        teamId: firing.teamId,
-        taskId: firing.taskId,
-        runId: firing.runId,
-        stationKey: firing.stationKey,
-        on: firing.on,
-        occurrence: firing.occurrence,
-        event: { ...firing.event },
-        matched: firing.matched,
-        cause: { ...firing.cause.stored },
-        link: { ...firing.link },
-        firedAt: firing.at,
-        dueAt: firing.at,
-      })
-      .onConflictDoNothing()
-      .returning({ id: hookFiring.id });
-
-    return written.length > 0;
+const progressOf = (row: Row): HookFiringProgress => {
+  if (row.state === 'pending') {
+    return { kind: 'pending', dueAt: row.dueAt };
   }
 
-  async claimNext(now: Date): Promise<StoredFiring | null> {
-    const found = await this.context.run(async () => {
-      const lapsed = new Date(now.getTime() - LEASE_MS);
-      const [waiting] = await this.context.db
+  if (row.state === 'working') {
+    if (!row.claimedAt) {
+      throw new InconsistentStateError(
+        'hook firing',
+        `is worked on by no one (${row.id})`,
+      );
+    }
+
+    return { kind: 'working', claimedAt: row.claimedAt };
+  }
+
+  if (!row.handledAt) {
+    throw new InconsistentStateError(
+      'hook firing',
+      `finished at no time (${row.id})`,
+    );
+  }
+
+  return { kind: row.state, at: row.handledAt };
+};
+
+const toFiring = (row: Row): HookFiring =>
+  HookFiring.rehydrate({
+    id: row.id,
+    hookId: row.hookId,
+    workspaceId: row.workspaceId,
+    teamId: row.teamId,
+    taskId: row.taskId,
+    runId: row.runId,
+    stationKey: row.stationKey,
+    on: row.on as HookEventName,
+    occurrence: row.occurrence,
+    firedAt: row.firedAt,
+    event: row.event,
+    matched: row.matched,
+    cause: CausalChain.read(row.cause),
+    link: row.link,
+    steps: row.steps as unknown as HookStepOutcome[],
+    progress: progressOf(row),
+    attempts: row.attempts,
+    failure: failureOf(row),
+    version: row.version,
+  });
+
+const progressColumns = (progress: HookFiringProgress) => {
+  if (progress.kind === 'pending') {
+    return {
+      state: progress.kind,
+      dueAt: progress.dueAt,
+      claimedAt: null,
+      handledAt: null,
+    };
+  }
+
+  if (progress.kind === 'working') {
+    return {
+      state: progress.kind,
+      claimedAt: progress.claimedAt,
+      handledAt: null,
+    };
+  }
+
+  return { state: progress.kind, handledAt: progress.at };
+};
+
+const columnsOf = (firing: HookFiring) => ({
+  event: { ...firing.event },
+  matched: firing.matched,
+  steps: firing.steps.map((each) => ({ ...each })),
+  attempts: firing.attempts,
+  failure: firing.failure?.code ?? null,
+  failed: firing.failure?.reason ?? null,
+  ...progressColumns(firing.progress),
+});
+
+@Injectable()
+export class DrizzleHookFirings implements HookFiringRepository {
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
+
+  async add(firing: HookFiring): Promise<boolean> {
+    return this.context.run(async () => {
+      const written = await this.context.db
+        .insert(hookFiring)
+        .values({
+          id: firing.id,
+          hookId: firing.hookId,
+          workspaceId: firing.workspaceId,
+          teamId: firing.teamId,
+          taskId: firing.taskId,
+          runId: firing.runId,
+          stationKey: firing.stationKey,
+          on: firing.on,
+          occurrence: firing.occurrence,
+          cause: { ...firing.cause.stored },
+          link: { ...firing.link },
+          firedAt: firing.firedAt,
+          ...columnsOf(firing),
+        })
+        .onConflictDoNothing()
+        .returning({ id: hookFiring.id });
+
+      if (written.length > 0) {
+        await this.events.dispatch(firing.pullEvents());
+      }
+
+      return written.length > 0;
+    });
+  }
+
+  async withId(id: string): Promise<HookFiring | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(hookFiring)
+      .where(eq(hookFiring.id, id))
+      .limit(1);
+
+    return row ? toFiring(row) : null;
+  }
+
+  async claimNext(now: Date): Promise<HookFiring | null> {
+    return this.context.run(async () => {
+      const [row] = await this.context.db
         .select()
         .from(hookFiring)
         .where(
@@ -89,7 +170,7 @@ export class DrizzleHookFirings implements HookFiringsPort {
             and(eq(hookFiring.state, 'pending'), lte(hookFiring.dueAt, now)),
             and(
               eq(hookFiring.state, 'working'),
-              lt(hookFiring.claimedAt, lapsed),
+              lt(hookFiring.claimedAt, HookFiring.leaseLapsedBefore(now)),
             ),
           ),
         )
@@ -97,190 +178,53 @@ export class DrizzleHookFirings implements HookFiringsPort {
         .limit(1)
         .for('update', { skipLocked: true });
 
-      if (waiting) {
-        await this.context.db
-          .update(hookFiring)
-          .set({ state: 'working', claimedAt: now })
-          .where(eq(hookFiring.id, waiting.id));
+      if (!row) {
+        return null;
       }
 
-      return waiting ? { ...waiting, claimedAt: now } : null;
+      await this.save(toFiring(row).claimed(now));
+
+      return this.withId(row.id);
     });
-
-    if (!found) {
-      return null;
-    }
-
-    return {
-      id: found.id,
-      hookId: found.hookId,
-      workspaceId: found.workspaceId,
-      teamId: found.teamId,
-      taskId: found.taskId,
-      runId: found.runId,
-      stationKey: found.stationKey,
-      on: found.on as HookEventName,
-      occurrence: found.occurrence,
-      at: found.firedAt,
-      event: found.event,
-      matched: found.matched,
-      cause: CausalChain.read(found.cause),
-      link: found.link,
-      failure: failureOf(found.failure, found.failed),
-      steps: found.steps as unknown as StepOutcome[],
-      attempts: found.attempts,
-      claimedAt: found.claimedAt,
-    };
   }
 
-  async stepped(
-    firing: StoredFiring,
-    steps: readonly StepOutcome[],
-  ): Promise<boolean> {
-    const written = await this.context.db
-      .update(hookFiring)
-      .set({ steps: steps.map((each) => ({ ...each })) })
-      .where(held(firing))
-      .returning({ id: hookFiring.id });
-
-    return written.length > 0;
-  }
-
-  async matched(
-    firing: StoredFiring,
-    event: Readonly<Record<string, unknown>>,
-  ): Promise<boolean> {
-    const written = await this.context.db
-      .update(hookFiring)
-      .set({ event: { ...event }, matched: true })
-      .where(held(firing))
-      .returning({ id: hookFiring.id });
-
-    return written.length > 0;
-  }
-
-  async worked(firing: StoredFiring, at: Date): Promise<void> {
-    await this.context.db
-      .update(hookFiring)
-      .set({
-        state: 'done',
-        handledAt: at,
-        attempts: sql`${hookFiring.attempts} + 1`,
-      })
-      .where(held(firing));
-  }
-
-  async waitAt(firing: StoredFiring, at: Date): Promise<void> {
-    await this.context.db
-      .update(hookFiring)
-      .set({ state: 'pending', dueAt: at, claimedAt: null })
-      .where(held(firing));
-  }
-
-  async stopping(firing: StoredFiring, failure: HookFailure): Promise<boolean> {
-    const written = await this.context.db
-      .update(hookFiring)
-      .set({
-        failure: failure.code,
-        failed: failure.reason.slice(0, REASON_LIMIT),
-      })
-      .where(held(firing))
-      .returning({ id: hookFiring.id });
-
-    return written.length > 0;
-  }
-
-  async retryAt(
-    firing: StoredFiring,
-    failure: HookFailure,
-    at: Date,
-  ): Promise<void> {
-    await this.context.db
-      .update(hookFiring)
-      .set({
-        state: 'pending',
-        dueAt: at,
-        claimedAt: null,
-        attempts: sql`${hookFiring.attempts} + 1`,
-        failure: failure.code,
-        failed: failure.reason.slice(0, REASON_LIMIT),
-      })
-      .where(held(firing));
-  }
-
-  async failed(
-    firing: StoredFiring,
-    failure: HookFailure,
-    at: Date,
-  ): Promise<void> {
-    await this.context.db
-      .update(hookFiring)
-      .set({
-        state: failure.code === 'superseded' ? 'superseded' : 'failed',
-        handledAt: at,
-        attempts: sql`${hookFiring.attempts} + 1`,
-        failure: failure.code,
-        failed: failure.reason.slice(0, REASON_LIMIT),
-      })
-      .where(held(firing));
-  }
-
-  async recentRepeats(firing: StoredFiring, since: Date): Promise<number> {
-    const [row] = await this.context.db
-      .select({ repeats: count() })
-      .from(hookFiring)
-      .where(
-        and(
-          eq(hookFiring.hookId, firing.hookId),
-          eq(hookFiring.taskId, firing.taskId),
-          gte(hookFiring.firedAt, since),
-          or(
-            lt(hookFiring.firedAt, firing.at),
-            and(
-              eq(hookFiring.firedAt, firing.at),
-              lt(hookFiring.id, firing.id),
-            ),
-          ),
-          sql`${hookFiring.link}->>'key' = ${firing.link.key}`,
-        ),
+  async save(firing: HookFiring): Promise<void> {
+    await this.context.run(async () => {
+      const matching = and(
+        eq(hookFiring.id, firing.id),
+        eq(hookFiring.version, firing.version),
       );
+      const written = firing.isDiscarded
+        ? await this.context.db
+            .delete(hookFiring)
+            .where(matching)
+            .returning({ id: hookFiring.id })
+        : await this.context.db
+            .update(hookFiring)
+            .set({ ...columnsOf(firing), version: firing.version + 1 })
+            .where(matching)
+            .returning({ id: hookFiring.id });
 
-    return row?.repeats ?? 0;
+      if (written.length === 0) {
+        throw new HookFiringMovedOnError(firing.id);
+      }
+
+      await this.events.dispatch(firing.pullEvents());
+    });
   }
 
-  async chainOf(
-    workspaceId: string,
-    firingId: string,
-  ): Promise<CausalChain | null> {
-    const [row] = await this.context.db
-      .select({ cause: hookFiring.cause, link: hookFiring.link })
+  async finishedBefore(at: Date, most: number): Promise<readonly HookFiring[]> {
+    const rows = await this.context.db
+      .select()
       .from(hookFiring)
       .where(
         and(
-          eq(hookFiring.id, firingId),
-          eq(hookFiring.workspaceId, workspaceId),
-        ),
-      );
-
-    return row ? CausalChain.read(row.cause).followedBy(row.link) : null;
-  }
-
-  async forgetFinished(before: Date, most: number): Promise<number> {
-    const doomed = this.context.db
-      .select({ id: hookFiring.id })
-      .from(hookFiring)
-      .where(
-        and(
-          inArray(hookFiring.state, FINISHED),
-          lt(hookFiring.handledAt, before),
+          inArray(hookFiring.state, ['done', 'failed', 'superseded']),
+          lt(hookFiring.handledAt, at),
         ),
       )
       .limit(most);
-    const forgotten = await this.context.db
-      .delete(hookFiring)
-      .where(inArray(hookFiring.id, doomed))
-      .returning({ id: hookFiring.id });
 
-    return forgotten.length;
+    return rows.map(toFiring);
   }
 }

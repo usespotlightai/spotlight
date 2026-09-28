@@ -27,6 +27,8 @@ const HOLDS_UNSEEN_MS: Readonly<Record<RunnerWorkKind, number>> = {
 
 const LONGEST_HOLD_UNSEEN_MS = Math.max(...Object.values(HOLDS_UNSEEN_MS));
 
+const REMEMBERED_AFTER_ENDING_MS = 24 * 60 * 60_000;
+
 interface State {
   readonly id: RunnerId;
   readonly workspaceId: WorkspaceId;
@@ -209,6 +211,10 @@ export class Runner extends EventRecorder {
     return new Date(now.getTime() - LONGEST_HOLD_UNSEEN_MS);
   }
 
+  static rememberedEndingSince(now: Date): Date {
+    return new Date(now.getTime() - REMEMBERED_AFTER_ENDING_MS);
+  }
+
   workEgressActsFor(now: Date): RunnerWork | null {
     return this.state.egressTokenHash !== null && this.standsAt(now)
       ? this.state.work
@@ -262,6 +268,10 @@ export class Runner extends EventRecorder {
     discarded.inheritEvents(this);
 
     return discarded;
+  }
+
+  reservationDropped(at: Date): Runner {
+    return this.state.work === null ? this.letGo(at) : this;
   }
 
   private refuseEnded(): void {

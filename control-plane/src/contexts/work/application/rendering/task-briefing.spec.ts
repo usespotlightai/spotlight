@@ -1,4 +1,6 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -30,14 +32,16 @@ import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
   Task.rehydrate({
-    revision: 0,
+    revision: TaskRevision.first(),
     id: task.id,
     workspaceId: task.workspaceId,
     stationId: task.stationId,
@@ -509,6 +513,48 @@ describe('TaskBriefing', () => {
 
       expect(briefing).not.toContain('The rest of what the team remembers');
       expect(briefing).toContain('## Remembering');
+    });
+  });
+  describe('the workspace', () => {
+    const inBoth = () =>
+      held(triage(), at('station_2', 'Spec', 1)).worksIn(
+        ['acme/api', 'acme/web'].map((name) =>
+          WorkedRepository.of(Repository.of(name)),
+        ),
+      );
+
+    const briefed = (worked: Task) =>
+      TaskBriefing.brief({
+        task: worked,
+        line: inBoth(),
+        skills: shipped,
+        listedIn: null,
+        decisions: [],
+        memories: [],
+        memoryFolder: null,
+      });
+
+    it('lists every repository the line works in, side by side', () => {
+      const briefing = briefed(task('station_1'));
+
+      expect(briefing).toContain(
+        'These repositories are checked out side by side',
+      );
+      expect(briefing).toContain('- `api/` — acme/api');
+      expect(briefing).toContain('- `web/` — acme/web');
+    });
+
+    it('lists only the reviewed repository for a review', () => {
+      const reviewing = task('station_1').reviews(
+        PullRequestUrl.of('https://github.com/acme/web/pull/7'),
+        { outside: false },
+      );
+
+      const briefing = briefed(reviewing);
+
+      expect(briefing).toContain('The repository is checked out in:');
+      expect(briefing).toContain('- `web/` — acme/web');
+      expect(briefing).not.toContain('acme/api');
     });
   });
 });

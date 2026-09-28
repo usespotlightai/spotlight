@@ -419,7 +419,6 @@ const handlers: Provider[] = [
       DrizzleWorkspaceTokenTrustRepository,
       DrizzleWorkspaceTokenRepository,
       WORKLOAD_TOKENS,
-      WORKSPACE_READER,
       ID_GENERATOR,
       TOKEN_MINT,
       CLOCK,

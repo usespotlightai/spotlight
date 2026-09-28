@@ -2,10 +2,11 @@ import type {
   ReviewOutboxPort,
   ReviewSyncKind,
 } from '@change-review/application/ports/review-outbox.port';
+import type { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
+import type { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
 import type { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
 import type { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
 import type { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
-import type { ReviewNotPosted } from '@change-review/domain/events/review-not-posted.event';
 import type { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import type { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
@@ -27,26 +28,24 @@ export class ReviewReactions {
   }
 
   async onPosted(event: ReviewPosted): Promise<void> {
-    for (const { commentId, github } of event.placed) {
-      const comment = await this.comments.find(commentId);
-
-      if (comment?.heldBy(event.reviewId)) {
-        await this.comments.save(comment.postedAs(github));
-      }
-    }
-
     for (const commentId of event.onFiles) {
       await this.sync(event, 'file', commentId.value);
     }
   }
 
-  async onNotPosted(event: ReviewNotPosted): Promise<void> {
-    for (const commentId of event.comments) {
-      const comment = await this.comments.find(commentId);
+  async onCommentPlaced(event: ReviewCommentPlaced): Promise<void> {
+    const comment = await this.comments.find(event.commentId);
 
-      if (comment?.heldBy(event.reviewId)) {
-        await this.comments.save(comment.notPosted());
-      }
+    if (comment?.heldBy(event.reviewId)) {
+      await this.comments.save(comment.postedAs(event.github));
+    }
+  }
+
+  async onCommentNotPosted(event: ReviewCommentNotPosted): Promise<void> {
+    const comment = await this.comments.find(event.commentId);
+
+    if (comment?.heldBy(event.reviewId)) {
+      await this.comments.save(comment.notPosted());
     }
   }
 

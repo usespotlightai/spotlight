@@ -1,18 +1,20 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { CreateRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerPoolCreatedDto } from '@runners/application/dto/runner-resource.dto';
+import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
+import { givePoolToken } from '@runners/application/services/give-pool-token';
 import {
   givenAccess,
   issuedTo,
 } from '@runners/application/services/pool-access-given';
-import { refuseRegivenToken } from '@runners/application/services/refuse-regiven-token';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
+import type { GivenPoolTokensRepository } from '@runners/domain/repositories/given-pool-tokens.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -38,6 +40,8 @@ export class CreateRunnerPoolHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly pools: RunnerPoolRepository,
+    private readonly given: GivenPoolTokensRepository,
+    private readonly secrets: ProvisionSecretsPort,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
     private readonly tokens: TokenMintPort,
@@ -70,12 +74,9 @@ export class CreateRunnerPoolHandler
         };
       }
 
-      const supplied = givenAccess(compiled.access, this.tokens);
+      const supplied = compiled.access;
       const minted =
-        supplied.mode === 'pull' && !supplied.tokenHash
-          ? this.tokens.mint()
-          : null;
-      const given = minted ? issuedTo(supplied, minted) : supplied;
+        supplied.mode === 'pull' && !supplied.token ? this.tokens.mint() : null;
 
       const create: IdempotentCreate = {
         by: command.actor.principal.toString(),
@@ -87,8 +88,8 @@ export class CreateRunnerPoolHandler
           labels: compiled.labels.values,
           maxRuns: compiled.maxRuns?.value ?? null,
           token:
-            supplied.mode === 'pull'
-              ? (supplied.tokenHash?.value ?? null)
+            supplied.mode === 'pull' && supplied.token
+              ? this.tokens.hash(supplied.token.revealed())
               : null,
           tokenVersion: supplied.mode === 'pull' ? supplied.tokenVersion : null,
           provision:
@@ -107,18 +108,25 @@ export class CreateRunnerPoolHandler
       try {
         const created = await this.transaction.run(() =>
           createdOnce(this.creates, create, async () => {
+            const id = RunnerPoolId.of(this.ids.generate());
+            const given = await givenAccess(
+              supplied,
+              { id, workspaceId: cleared.workspaceId },
+              this.tokens,
+              this.secrets,
+            );
             const defined = RunnerPool.define({
-              id: RunnerPoolId.of(this.ids.generate()),
+              id,
               workspaceId: cleared.workspaceId,
               by: Attribution.of(command.actor, cleared.workspaceId),
               key: compiled.key,
               labels: compiled.labels,
               maxRuns: compiled.maxRuns,
-              access: given,
+              access: minted ? issuedTo(given, minted) : given,
             });
 
-            await refuseRegivenToken(this.pools, defined);
             await this.pools.add(defined);
+            await givePoolToken(this.given, this.pools, defined, null);
 
             return defined.id.value;
           }),

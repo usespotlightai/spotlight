@@ -3,13 +3,16 @@ import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.
 import { HookAlreadyDefinedError } from '@integrations/domain/exceptions/hook-already-defined.error';
 import { HookDefinitionMovedOnError } from '@integrations/domain/exceptions/hook-definition-moved-on.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
+import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { Credential } from '@secrets/application/contracts/credential.contract';
 import {
   CREDENTIAL_SEALING,
   type CredentialSealingPort,
@@ -18,7 +21,6 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
@@ -50,7 +52,7 @@ const rehydrated = (row: Row): HookDefinition =>
     key: HookKey.of(row.key),
     event: HookEvent.of(row.on),
     document: DefinitionDocument.of(row.definition),
-    tools: row.tools,
+    tools: row.tools.map((tool) => ToolName.of(tool)),
     signing:
       row.signingSecretVersion === null
         ? null
@@ -112,11 +114,13 @@ export class DrizzleHookDefinitions
     }
 
     return HookSigningSecret.of(
-      await this.sealing.open(
-        found.workspaceId,
-        secretLabel(found.id),
-        found.signingSecret,
-      ),
+      (
+        await this.sealing.open(
+          found.workspaceId,
+          secretLabel(found.id),
+          found.signingSecret,
+        )
+      ).revealed(),
     );
   }
 
@@ -132,7 +136,7 @@ export class DrizzleHookDefinitions
           signingSecret: await this.sealing.seal(
             definition.workspaceId.value,
             secretLabel(definition.id.value),
-            given.revealed(),
+            Credential.of(given.revealed()),
           ),
           signingSecretVersion: definition.signing.version,
         }
@@ -143,7 +147,7 @@ export class DrizzleHookDefinitions
     const written = {
       on: definition.event.name,
       definition: { ...definition.document.fields },
-      tools: [...definition.tools],
+      tools: definition.tools.map((tool) => tool.value),
       ...(await this.sealed(definition)),
     };
 

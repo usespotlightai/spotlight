@@ -517,7 +517,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes no match, condition, vars, signing, failure or timeout a hook holds only by default', () => {
+  it('writes no match, condition, vars, signing, failure or timeout the hook was not written with', () => {
     expect(
       blockOf(mainOf(HELD), 'resource "spotlight_hook" "core_merged"'),
     ).toBe(
@@ -538,6 +538,18 @@ describe('workspaceTerraform', () => {
         '  ]',
         '}',
       ].join('\n'),
+    );
+  });
+
+  it('writes a failure and timeout the hook was written with, even where they say what it would do anyway', () => {
+    const hook: HeldBy<'hook'> = {
+      ...heldAs('hook', 'core/merged'),
+      failure: 'continue',
+      timeoutSeconds: 10,
+    };
+
+    expect(resourceHcl(HELD, hook).hcl).toContain(
+      ['  failure         = "continue"', '  timeout_seconds = 10'].join('\n'),
     );
   });
 

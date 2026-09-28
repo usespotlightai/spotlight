@@ -16,6 +16,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
 import type { ClaimedCheck } from '@work/application/ports/check-work.port';
+import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type {
   RunStart,
@@ -59,6 +60,7 @@ const pulling = (
     run?: Run | null;
     check?: ClaimedCheck | null;
     starts?: RunStart;
+    tookRefuses?: boolean;
   } = {},
 ) => {
   let now = NOW;
@@ -81,7 +83,11 @@ const pulling = (
       async (): Promise<StartedRunner> =>
         (answers.length > 1 ? answers.shift() : answers[0]) as StartedRunner,
     ),
-    took: vi.fn(async () => {}),
+    took: vi.fn(async () => {
+      if (over.tookRefuses) {
+        throw new Error('pooled_1 is spent');
+      }
+    }),
     letGo: vi.fn(async () => {}),
   };
   const claimNext = vi.fn(async () =>
@@ -109,22 +115,49 @@ const pulling = (
       claims: 'reserved' as const,
     })),
   };
+  const saved: Run[] = [];
+  const runs = {
+    claimNext,
+    findById: vi.fn(async () => over.run ?? null),
+    save: vi.fn(async (run: Run) => {
+      saved.push(run);
+    }),
+  } as unknown as RunRepository;
+  const unclaim = vi.fn(async () => {});
+  const checks = {
+    claimNext: claimCheck,
+    claimReserved: vi.fn(async () => null),
+    unclaim,
+    renewLease: vi.fn(async () => 'renewed' as const),
+    waitingPlacements: vi.fn(async () => []),
+  };
   const handler = new ClaimHostWorkHandler(
     admissions as RunnerAdmissionsPort,
     runners as unknown as RunnersPort,
     presence as RunnerPresencePort,
-    { claimNext } as unknown as RunRepository,
+    runs,
     { requeueLapsed: vi.fn(async () => []) } as unknown as RunLeases,
-    {
-      claimNext: claimCheck,
-      claimReserved: vi.fn(async () => null),
-      waitingPlacements: vi.fn(async () => []),
-    },
+    checks,
     clock,
     { mayStart: mayStart } as unknown as RunStartHooks,
+    new ClaimsTaken(runs, checks, runners as unknown as RunnersPort, clock, {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }),
   );
 
-  return { handler, admissions, runners, claimNext, claimCheck, mayStart };
+  return {
+    handler,
+    admissions,
+    runners,
+    claimNext,
+    claimCheck,
+    mayStart,
+    saved,
+    unclaim,
+  };
 };
 
 const HOST = '01J8ZQ4Y7N3K5V2W9X6RTBHCDE';
@@ -231,7 +264,7 @@ describe('ClaimHostWorkHandler', () => {
     );
   });
 
-  it('hands over a run with the runner it started and its one-run token', async () => {
+  it('hands over a run with the runner it started and its one-run token, leaving the runner’s record to the run it took', async () => {
     const { handler, runners, claimNext } = pulling({ run: taken() });
 
     const claimed = await handler.execute(pull());
@@ -269,6 +302,30 @@ describe('ClaimHostWorkHandler', () => {
       { kind: 'check', id: 'stack_1' },
       NOW,
     );
+  });
+
+  it('puts the run back on the queue, uncounted, and lets the runner go, when the runner cannot take it', async () => {
+    const { handler, runners, saved } = pulling({
+      run: taken(),
+      tookRefuses: true,
+    });
+
+    await expect(handler.execute(pull())).rejects.toThrow('pooled_1 is spent');
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.state).toBe('queued');
+    expect(saved[0]?.claimedBy).toBeNull();
+    expect(saved[0]?.attempt).toBe(taken().attempt);
+    expect(runners.letGo).toHaveBeenCalledWith(POOLED, NOW);
+  });
+
+  it('puts the check back, uncounted, when the runner cannot take it', async () => {
+    const { handler, unclaim } = pulling({
+      check: aCheck,
+      tookRefuses: true,
+    });
+
+    await expect(handler.execute(pull())).rejects.toThrow('pooled_1 is spent');
+    expect(unclaim).toHaveBeenCalledWith('stack_1', POOLED, NOW);
   });
 
   it('lets the runner go when nothing turned up while it waited', async () => {

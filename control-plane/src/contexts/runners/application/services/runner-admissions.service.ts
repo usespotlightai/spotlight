@@ -26,12 +26,13 @@ export class RunnerAdmissions implements RunnerAdmissionsPort {
   async admit(credential: HostCredential): Promise<AdmittedHost | null> {
     const admitted = await this.through(credential);
 
-    return admitted
-      ? {
-          way: Admission.through(admitted.id),
-          workspaceId: admitted.workspaceId,
-        }
-      : null;
+    if (!admitted) {
+      return null;
+    }
+
+    const { kind, id } = Admission.through(admitted.id);
+
+    return { way: { kind, id }, workspaceId: admitted.workspaceId };
   }
 
   private async through(

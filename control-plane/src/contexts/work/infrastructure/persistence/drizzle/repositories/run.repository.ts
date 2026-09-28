@@ -7,6 +7,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -32,6 +33,7 @@ import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { and, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
@@ -61,7 +63,7 @@ export class DrizzleRunRepository implements RunRepository {
       taskId: added.taskId?.value ?? null,
       stationId: added.stationId?.value ?? null,
       chatId: added.chatId?.value ?? null,
-      taskRevision: added.subject?.revision ?? null,
+      taskRevision: added.subject?.revision?.value ?? null,
       state: added.state,
       spec: RunSpecContract.toWire(added.spec),
       exitCode: added.outcome?.exitCode ?? null,
@@ -83,36 +85,8 @@ export class DrizzleRunRepository implements RunRepository {
     const named = by.harnesses.map((harness) => harness.value);
 
     return this.context.run(async () => {
-      const locked = await this.context.db.execute<Row>(sql`
-        SELECT
-          id,
-          workspace_id      AS "workspaceId",
-          harness,
-          priority,
-          task_id           AS "taskId",
-          station_id        AS "stationId",
-          chat_id           AS "chatId",
-          state,
-          spec,
-          placement,
-          placement_image   AS "placementImage",
-          ran_in            AS "ranIn",
-          claimed_by        AS "claimedBy",
-          lease_expires_at  AS "leaseExpiresAt",
-          stop_requested_at AS "stopRequestedAt",
-          reserved_for      AS "reservedFor",
-          reserved_pool     AS "reservedPool",
-          reserved_until    AS "reservedUntil",
-          provision_failures AS "provisionFailures",
-          next_provision_at AS "nextProvisionAt",
-          hand_backs        AS "handBacks",
-          briefed_memories  AS "briefedMemories",
-          claimable_from    AS "claimableFrom",
-          exit_code         AS "exitCode",
-          message,
-          stopped,
-          attempt,
-          version
+      const locked = await this.context.db.execute<{ id: string }>(sql`
+        SELECT id
         FROM ${run}
         WHERE ${inArray(run.harness, named)}
           AND state = 'queued'
@@ -124,14 +98,13 @@ export class DrizzleRunRepository implements RunRepository {
           }
           AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
           AND ${placementMet(run.placement, run.placementImage, by.terms)}
-        -- ClaimOrder.next, said in SQL because the claim must be one statement.
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1
       `);
 
       const [row] = locked.rows;
-      const found = row ? toRun(row) : null;
+      const found = row ? await this.findById(RunId.of(row.id)) : null;
 
       if (!found || !ClaimOrder.takeable(found, by, now)) {
         return null;
@@ -249,20 +222,6 @@ export class DrizzleRunRepository implements RunRepository {
   }
 }
 
-const ZONED = /(Z|[+-]\d{2}(:?\d{2})?)$/;
-
-// Raw sql returns timestamps as zone-less strings in UTC; the typed query path returns Dates.
-const asDate = (value: Date | string | null): Date | null => {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (value instanceof Date) {
-    return value;
-  }
-  const iso = value.replace(' ', 'T');
-  return new Date(ZONED.test(iso) ? iso : `${iso}Z`);
-};
-
 const specOf = (row: Row): RunSpec => {
   const spec = RunSpecContract.from(row.spec);
 
@@ -278,7 +237,7 @@ const specOf = (row: Row): RunSpec => {
 
 const reservationOf = (held: Run) => ({
   reservedFor: held.reservation?.runner.value ?? null,
-  reservedPool: held.reservation?.pool ?? null,
+  reservedPool: held.reservation?.pool.value ?? null,
   reservedUntil: held.reservation?.until ?? null,
   provisionFailures: held.provisioning.failures,
   nextProvisionAt: held.provisioning.nextAt,
@@ -286,17 +245,14 @@ const reservationOf = (held: Run) => ({
   claimableFrom: held.handBacks.claimableFrom,
 });
 
-const reservationFrom = (row: Row): RunnerReservation | null => {
-  const until = asDate(row.reservedUntil);
-
-  return row.reservedFor && row.reservedPool && until
+const reservationFrom = (row: Row): RunnerReservation | null =>
+  row.reservedFor && row.reservedPool && row.reservedUntil
     ? RunnerReservation.of(
         RunnerId.of(row.reservedFor),
-        row.reservedPool,
-        until,
+        PoolId.of(row.reservedPool),
+        row.reservedUntil,
       )
     : null;
-};
 
 const toRun = (row: Row): Run =>
   Run.rehydrate({
@@ -308,7 +264,8 @@ const toRun = (row: Row): Run =>
       taskId: row.taskId ? TaskId.of(row.taskId) : null,
       stationId: row.stationId ? StationId.of(row.stationId) : null,
       chatId: row.chatId ? ChatId.of(row.chatId) : null,
-      revision: row.taskRevision,
+      revision:
+        row.taskRevision === null ? null : TaskRevision.of(row.taskRevision),
     }),
     spec: specOf(row),
     placement: RunnerPlacement.ofClauses(
@@ -317,12 +274,12 @@ const toRun = (row: Row): Run =>
     ),
     state: row.state,
     claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
-    leaseExpiresAt: asDate(row.leaseExpiresAt),
-    stopRequestedAt: asDate(row.stopRequestedAt),
+    leaseExpiresAt: row.leaseExpiresAt,
+    stopRequestedAt: row.stopRequestedAt,
     reservation: reservationFrom(row),
     provisioning: Provisioning.rehydrate(
       row.provisionFailures ?? 0,
-      asDate(row.nextProvisionAt),
+      row.nextProvisionAt,
     ),
     outcome:
       row.exitCode === null
@@ -334,10 +291,7 @@ const toRun = (row: Row): Run =>
             stopped: row.stopped,
           }),
     attempt: row.attempt ?? 1,
-    handBacks: HandBacks.rehydrate(
-      row.handBacks ?? 0,
-      asDate(row.claimableFrom),
-    ),
+    handBacks: HandBacks.rehydrate(row.handBacks ?? 0, row.claimableFrom),
     ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
     briefedWith: row.briefedMemories
       ? BriefedMemories.of(row.briefedMemories)

@@ -1,3 +1,7 @@
+import {
+  SECRET,
+  type Secret,
+} from '@shared-kernel/domain/value-objects/secret';
 import { InvalidNetworkCallError } from '@work/domain/exceptions/invalid-network-call.error';
 
 const METHOD = /^[A-Z]{1,16}$/;
@@ -6,14 +10,42 @@ const MOST_TIMEOUT_MS = 60_000;
 
 const MOST_BODY_BYTES = 1024 * 1024;
 
-export class NetworkRequest {
+const sameHeaders = (
+  one: Readonly<Record<string, string>>,
+  other: Readonly<Record<string, string>>,
+): boolean => {
+  const names = Object.keys(one);
+
+  return (
+    names.length === Object.keys(other).length &&
+    names.every((name) => one[name] === other[name])
+  );
+};
+
+const sameBytes = (one: Uint8Array, other: Uint8Array): boolean =>
+  one.byteLength === other.byteLength &&
+  one.every((byte, at) => byte === other[at]);
+
+export class NetworkRequest implements Secret {
   private constructor(
     readonly method: string,
     readonly url: string,
-    readonly headers: Readonly<Record<string, string>>,
-    readonly body: Uint8Array,
+    private readonly signed: Readonly<Record<string, string>>,
+    private readonly bytes: Uint8Array,
     readonly timeoutMs: number,
   ) {}
+
+  get [SECRET](): true {
+    return true;
+  }
+
+  get headers(): Readonly<Record<string, string>> {
+    return { ...this.signed };
+  }
+
+  get body(): Uint8Array {
+    return this.bytes.slice();
+  }
 
   static of(input: {
     method: string;
@@ -51,14 +83,14 @@ export class NetworkRequest {
     return new NetworkRequest(
       method,
       input.url,
-      { ...input.headers },
-      input.body,
+      Object.freeze({ ...input.headers }),
+      input.body.slice(),
       input.timeoutMs,
     );
   }
 
   get isSpent(): boolean {
-    return Object.keys(this.headers).length === 0 && this.body.byteLength === 0;
+    return Object.keys(this.signed).length === 0 && this.bytes.byteLength === 0;
   }
 
   spent(): NetworkRequest {
@@ -68,6 +100,16 @@ export class NetworkRequest {
       {},
       new Uint8Array(),
       this.timeoutMs,
+    );
+  }
+
+  equals(other: NetworkRequest): boolean {
+    return (
+      this.method === other.method &&
+      this.url === other.url &&
+      this.timeoutMs === other.timeoutMs &&
+      sameHeaders(this.signed, other.signed) &&
+      sameBytes(this.bytes, other.bytes)
     );
   }
 }

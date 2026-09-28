@@ -5,25 +5,25 @@ import type {
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import type { ReadRunMemoriesQuery } from '@memory/application/queries/read-run-memories.query';
+import type { MemoryAccess } from '@memory/application/services/memory-access.service';
 import type { MemoryReviews } from '@memory/application/services/memory-reviews.service';
-import type { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
 import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import type { MemoryClearance } from '@memory/domain/services/memory-clearance';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class ReadRunMemoriesHandler
   implements QueryHandlerPort<ReadRunMemoriesQuery, RunMemoriesDto>
 {
   constructor(
-    private readonly atHand: TeamMemoryAtHand,
+    private readonly access: MemoryAccess,
     private readonly work: WorkPort,
     private readonly memories: MemoryRepository,
     private readonly drafts: MemoryDraftRepository,
@@ -34,15 +34,17 @@ export class ReadRunMemoriesHandler
 
   async execute(query: ReadRunMemoriesQuery): Promise<RunMemoriesDto> {
     try {
-      await this.atHand.member(query.teamId, query.viewerId);
+      const clearance = await this.access.clearance(
+        query.teamId,
+        query.viewerId,
+      );
       const runId = RunId.of(query.runId);
       const [run, site] = await Promise.all([
         this.work.run(runId),
         this.work.siteOfRun(runId),
       ]);
-      const teamId = site?.teamId;
 
-      if (!run || !teamId || teamId.value !== query.teamId) {
+      if (!run || !site || !clearance.sees(site)) {
         throw new UnknownRunError(query.runId);
       }
 
@@ -50,9 +52,9 @@ export class ReadRunMemoriesHandler
         .filter((each) => each.way === 'recalled')
         .map((each) => each.memoryId.value);
       const [briefed, cut, remembered, proposed] = await Promise.all([
-        this.held(teamId, run.briefed),
-        this.held(teamId, run.cut),
-        this.held(teamId, recalled),
+        this.held(clearance, run.briefed),
+        this.held(clearance, run.cut),
+        this.held(clearance, recalled),
         run.taskId ? this.proposedIn(run.taskId, runId) : [],
       ]);
 
@@ -68,14 +70,14 @@ export class ReadRunMemoriesHandler
   }
 
   private async held(
-    teamId: TeamId,
+    clearance: MemoryClearance,
     ids: readonly string[],
   ): Promise<readonly Memory[]> {
     const found = await this.memories.findAll(
       [...new Set(ids)].map((each) => MemoryId.of(each)),
     );
 
-    return found.filter((each) => each.scope.teamId.equals(teamId));
+    return found.filter((each) => clearance.holds(each));
   }
 
   private async proposedIn(

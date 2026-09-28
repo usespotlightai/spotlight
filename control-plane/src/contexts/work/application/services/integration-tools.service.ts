@@ -5,9 +5,11 @@ import type {
   ReachableTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
+import type { RunWorks } from '@work/application/services/run-works.service';
 import type { TaskBindings } from '@work/application/services/task-bindings.service';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
 export class IntegrationTools implements IntegrationToolsPort {
@@ -16,9 +18,15 @@ export class IntegrationTools implements IntegrationToolsPort {
     private readonly lines: LineRepository,
     private readonly bindings: TaskBindings,
     private readonly calls: IntegrationToolCallsPort,
+    private readonly works: RunWorks,
   ) {}
 
-  async reach(tool: Tool, context: ToolContext): Promise<ReachableTool | null> {
+  async reach(
+    tool: Tool,
+    context: ToolContext,
+    attempt: RunAttempt,
+    runnerId: string,
+  ): Promise<ReachableTool | null> {
     if (context.kind !== 'task') {
       return null;
     }
@@ -29,14 +37,20 @@ export class IntegrationTools implements IntegrationToolsPort {
     ]);
     const bound = task && line ? await this.bindings.of(task, line) : null;
     const found = bound
-      ? await this.calls.reach(tool.value, bound, context.runId.value)
+      ? await this.calls.reach(tool.value, bound, {
+          runId: attempt.runId.value,
+          attempt: attempt.number,
+        })
       : null;
 
     return found
       ? {
           declared: ToolDeclarationMapper.toDeclared(found.declared),
           defaultFor: (input) => found.defaultFor(input),
-          call: (inputs) => found.call(inputs.values),
+          call: async (inputs) => {
+            await this.works.stillOn(attempt, runnerId);
+            return found.call(inputs.values);
+          },
         }
       : null;
   }

@@ -10,6 +10,7 @@ import { Learned } from '@work/application/rendering/learned';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { OpenRemark, Task } from '@work/domain/aggregates/task.aggregate';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
+import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
 import { RemarkHandle } from '@work/domain/value-objects/remark-handle.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -127,8 +128,8 @@ const SAYING_DECISIONS = [
   'Routine choices anyone would make need no mention. Name them again in your handover note.',
 ].join('\n\n');
 
-const workspaceOf = (line: Line): string | null => {
-  const repositories = line.repositories.all;
+const workspaceOf = (task: Task, line: Line): string | null => {
+  const repositories = repositoriesWorkedOn(task, line);
 
   if (repositories.length === 0) {
     return null;
@@ -181,7 +182,7 @@ export const TaskBriefing = {
       }),
       Learned.remembering(),
       station?.decisions ? SAYING_DECISIONS : null,
-      workspaceOf(input.line),
+      workspaceOf(input.task, input.line),
       listing(input.skills, input.listedIn),
       answering(input.task),
       closing(input.line, input.task.stationId),

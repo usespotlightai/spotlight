@@ -20,6 +20,7 @@ export class RunCompleted implements DomainEvent {
     readonly workedBy: RunnerId | null,
     readonly declared: Declaration | null,
     readonly session: HarnessSession | null,
+    readonly attempt: number,
   ) {}
 
   get taskId(): TaskId | null {

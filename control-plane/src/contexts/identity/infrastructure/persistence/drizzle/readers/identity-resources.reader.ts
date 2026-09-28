@@ -19,7 +19,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
-import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
 
 const KEPT_WORKSPACE = {
   id: workspace.id,
@@ -159,6 +159,23 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     ).map((each) => each.name);
   }
 
+  async mintingTrustKeysIn(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly string[]> {
+    return (
+      await this.context.db
+        .selectDistinct({ name: workspaceToken.name })
+        .from(workspaceToken)
+        .where(
+          and(
+            eq(workspaceToken.workspaceId, workspaceId.value),
+            isNotNull(workspaceToken.mintedThrough),
+          ),
+        )
+        .orderBy(asc(workspaceToken.name))
+    ).map((each) => each.name);
+  }
+
   async tokensIn(
     workspaceId: WorkspaceId,
   ): Promise<readonly KeptWorkspaceToken[]> {
@@ -184,6 +201,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
       and(
         eq(workspaceToken.workspaceId, workspaceId.value),
         eq(workspaceToken.name, name),
+        issuedByHand,
       ),
     );
   }
@@ -194,7 +212,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     const [found] = await this.context.db
       .select(KEPT_TOKEN)
       .from(workspaceToken)
-      .where(and(where, issuedByHand))
+      .where(where)
       .limit(1);
 
     return found ? keptToken(found) : null;

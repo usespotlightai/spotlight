@@ -10,6 +10,7 @@ import type { HostClaimDto } from '@work/application/dto/host.dto';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
 import { claimedRun } from '@work/application/services/claimed-work';
+import type { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { longPolled, pollDeadline } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
@@ -32,6 +33,7 @@ export class ClaimHostWorkHandler
     private readonly checks: CheckWorkPort,
     private readonly clock: ClockPort,
     private readonly starting: RunStartHooks,
+    private readonly taken: ClaimsTaken,
   ) {}
 
   async execute(command: ClaimHostWorkCommand): Promise<HostClaimDto> {
@@ -128,11 +130,7 @@ export class ClaimHostWorkHandler
         }
 
         if (run && start === 'starts') {
-          await this.runners.took(
-            runner,
-            { kind: 'run', id: run.id.value },
-            this.clock.now(),
-          );
+          await this.taken.run(run, runner);
 
           return claimedRun(run);
         }
@@ -144,17 +142,13 @@ export class ClaimHostWorkHandler
           this.clock.now(),
         );
 
-        if (check) {
-          await this.runners.took(
-            runner,
-            { kind: 'check', id: check.stackId },
-            this.clock.now(),
-          );
-
-          return { kind: 'check', check };
+        if (!check) {
+          return null;
         }
 
-        return null;
+        await this.taken.check(check, runner);
+
+        return { kind: 'check', check };
       },
       until,
     );

@@ -1,11 +1,11 @@
 import { DraftRunChangeStackCommand } from '@change-review/application/commands/draft-run-change-stack.command';
 import { DraftRunChangeStackHandler } from '@change-review/application/commands/handlers/draft-run-change-stack.handler';
-import type {
-  RunChecking,
-  WorkPort,
-} from '@change-review/application/ports/work.port';
+import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
-import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import {
+  type CheckingPlan,
+  CheckRequest,
+} from '@change-review/domain/value-objects/check-request.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -17,7 +17,7 @@ import { describe, expect, it, vi } from 'vitest';
 const RUN = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 
 const drafting = (
-  over: { worked?: boolean; checking?: RunChecking | null } = {},
+  over: { worked?: boolean; checking?: CheckingPlan | null } = {},
 ) => {
   const begin = vi.fn(async () => ({}) as never);
 
@@ -58,7 +58,7 @@ const placement = RunnerPlacement.anywhere().in(
   RunnerImage.of('ghcr.io/acme/widgets:1'),
 );
 
-const checking: RunChecking = {
+const checking: CheckingPlan = {
   command: 'npm test',
   setups: new Map([
     ['widgets', 'npm ci'],
@@ -116,6 +116,19 @@ describe('DraftRunChangeStackHandler', () => {
 
   it('asks for no check when the station has none', async () => {
     const { handler, begin } = drafting({ checking: null });
+
+    await handler.execute(handed());
+
+    expect(begin).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ request: null }),
+    );
+  });
+
+  it('asks for no check when the station’s check command is blank', async () => {
+    const { handler, begin } = drafting({
+      checking: { ...checking, command: '   ' },
+    });
 
     await handler.execute(handed());
 

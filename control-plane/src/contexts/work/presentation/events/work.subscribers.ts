@@ -1,4 +1,7 @@
-import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
+import type {
+  RunGrantsPort,
+  RunHoldDto,
+} from '@secrets/application/ports/run-grants.port';
 import {
   RUNNER_WAY_IN_OPENED,
   type RunnerWayInOpenedIntegrationEvent,
@@ -19,6 +22,7 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -32,25 +36,39 @@ import type {
   ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
 import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
-import type { EndRunners } from '@work/application/services/end-runners.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
+import type { RunnerHolds } from '@work/application/services/runner-holds.service';
 import type { SettleSetup } from '@work/application/services/settle-setup.service';
+import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import type { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
+import type { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import type { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
+import type { ToolUsed } from '@work/domain/events/tool-used.event';
 
 const newTeam = (event: TeamCreatedIntegrationEvent): NewTeam => ({
   workspaceId: WorkspaceId.of(event.workspaceId),
   teamId: TeamId.of(event.teamId),
   owner: UserId.of(event.ownerId),
+});
+
+const holdOf = (event: {
+  readonly runId: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly attempt: number;
+}): RunHoldDto => ({
+  workspaceId: event.workspaceId.value,
+  runId: event.runId.value,
+  attempt: event.attempt,
 });
 
 const signedUp = (event: TeamCreatedIntegrationEvent): boolean =>
@@ -81,17 +99,38 @@ export const workSubscribers = (reactions: {
   setup: SettleSetup;
   abandoning: AbandonTeamLines;
   runGrants: RunGrantsPort;
-  runners: EndRunners;
+  runners: RunnerHolds;
+  toolUsedHooks: ToolUsedHooks;
 }): readonly DomainEventSubscriber[] => [
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.end-secret-grants-of-ended-run',
     ['run.completed', 'run.abandoned', 'run.withdrawn'],
-    (event) => reactions.runGrants.endedFor(event.runId.value),
+    (event) => reactions.runGrants.endedFor(holdOf(event)),
+  ),
+  subscribing<RunLapsed>(
+    'work.lose-secret-hold-of-ended-attempt',
+    ['run.lapsed'],
+    (event) => reactions.runGrants.holdLost(holdOf(event)),
   ),
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.end-runner-of-ended-run',
     ['run.completed', 'run.abandoned', 'run.withdrawn'],
     (event) => reactions.runners.runEnded(event.runId),
+  ),
+  subscribing<ToolUsed>(
+    'work.fire-hooks-after-tool-used',
+    ['run.tool-used'],
+    (event) => reactions.toolUsedHooks.on(event),
+  ),
+  subscribing<RunLapsed>(
+    'work.let-go-of-runner-of-lapsed-run',
+    ['run.lapsed'],
+    (event) => reactions.runners.runLapsed(event.runner, event.at),
+  ),
+  subscribing<RunReservationDropped>(
+    'work.let-go-of-reserved-runner',
+    ['run.reservation-dropped'],
+    (event) => reactions.runners.reservationDropped(event.runner.value),
   ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'work.abandon-lines-of-disbanded-team',

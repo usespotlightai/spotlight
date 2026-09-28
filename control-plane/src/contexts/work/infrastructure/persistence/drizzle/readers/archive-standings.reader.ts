@@ -5,6 +5,7 @@ import type {
   ArchiveDue,
   ArchiveStandingsPort,
 } from '@work/application/ports/archive-standings.port';
+import type { ArchiveRemovalCutoffs } from '@work/domain/aggregates/workspace-archive.aggregate';
 import type { HolderState } from '@work/domain/value-objects/archive-holder.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
@@ -26,9 +27,6 @@ import {
   sql,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-
-const HOUR_MS = 60 * 60_000;
-const DAY_MS = 24 * HOUR_MS;
 
 const newer = alias(workspaceArchive, 'newer');
 
@@ -82,11 +80,10 @@ const holderOf = (row: HolderRow): HolderState | null => {
 export class DrizzleArchiveStandings implements ArchiveStandingsPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async due(now: Date, limit: number): Promise<readonly ArchiveDue[]> {
-    const hourAgo = new Date(now.getTime() - HOUR_MS);
-    const dayAgo = new Date(now.getTime() - DAY_MS);
-    const weekAgo = new Date(now.getTime() - 7 * DAY_MS);
-
+  async due(
+    { grantedUnsealedBy, supersededBy, letGoBy }: ArchiveRemovalCutoffs,
+    limit: number,
+  ): Promise<readonly ArchiveDue[]> {
     const rows = await this.db
       .select({
         id: workspaceArchive.id,
@@ -111,7 +108,7 @@ export class DrizzleArchiveStandings implements ArchiveStandingsPort {
         or(
           and(
             isNull(workspaceArchive.sealedAt),
-            lte(workspaceArchive.grantedAt, dayAgo),
+            lte(workspaceArchive.grantedAt, grantedUnsealedBy),
           ),
           and(
             isNotNull(workspaceArchive.sealedAt),
@@ -120,21 +117,23 @@ export class DrizzleArchiveStandings implements ArchiveStandingsPort {
                 this.db
                   .select({ one: sql`1` })
                   .from(newer)
-                  .where(and(sameContinuity, lte(newer.sealedAt, hourAgo))),
+                  .where(
+                    and(sameContinuity, lte(newer.sealedAt, supersededBy)),
+                  ),
               ),
               and(isNotNull(workspaceArchive.taskId), isNull(task.id)),
               and(isNotNull(workspaceArchive.chatId), isNull(chat.id)),
               and(
                 isNotNull(task.id),
                 taskLetGo,
-                lte(task.updatedAt, weekAgo),
-                lte(workspaceArchive.sealedAt, weekAgo),
+                lte(task.updatedAt, letGoBy),
+                lte(workspaceArchive.sealedAt, letGoBy),
               ),
               and(
                 isNotNull(chat.id),
                 isNull(chat.sessionId),
-                lte(chat.updatedAt, weekAgo),
-                lte(workspaceArchive.sealedAt, weekAgo),
+                lte(chat.updatedAt, letGoBy),
+                lte(workspaceArchive.sealedAt, letGoBy),
               ),
             ),
           ),

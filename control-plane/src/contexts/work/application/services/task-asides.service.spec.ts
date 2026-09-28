@@ -5,6 +5,7 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { TaskAsideRepository } from '@work/domain/repositories/task-aside.repository';
+import type { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
@@ -26,12 +27,12 @@ const asiding = (input: { task?: boolean } = {}) => {
           aside,
         );
       },
-      about: async (taskId: TaskId, form: string, about: string) =>
+      about: async (taskId: TaskId, form: string, about: AsideAbout) =>
         held.find(
           (each) =>
             each.taskId.equals(taskId) &&
             each.form === form &&
-            each.about === about,
+            each.about.equals(about),
         ) ?? null,
     } as unknown as TaskAsideRepository,
     {
@@ -74,7 +75,7 @@ describe('TaskAsides', () => {
 
     await asides.settle(MEMORIES);
 
-    expect(held.find((each) => each.about === 'run_1')?.open).toBe(false);
+    expect(held.find((each) => each.about.value === 'run_1')?.open).toBe(false);
   });
 
   it('keeps an aside settled when its settling arrives before its raising', async () => {

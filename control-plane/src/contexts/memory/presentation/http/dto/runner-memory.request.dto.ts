@@ -35,3 +35,8 @@ export class RememberRequestDto {
   })
   readonly supersedes?: string | null;
 }
+
+export class RecallMemoriesRequestDto {
+  @ApiProperty({ example: 'upload retries', description: 'Words to look for' })
+  readonly words!: string;
+}

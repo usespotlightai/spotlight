@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
@@ -18,7 +17,6 @@ import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
-import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -39,7 +37,6 @@ let held: TestDatabase;
 let db: DrizzleDatabase;
 let archives: DrizzleWorkspaceArchiveRepository;
 let standings: DrizzleArchiveStandings;
-let runs: DrizzleHeldRunReader;
 let stationId: string;
 let otherStationId: string;
 
@@ -50,7 +47,6 @@ beforeAll(async () => {
     dispatch: async () => {},
   });
   standings = new DrizzleArchiveStandings(db);
-  runs = new DrizzleHeldRunReader(db);
 
   const lineId = randomUUID();
   stationId = randomUUID();
@@ -153,7 +149,9 @@ const kept = async (
 
 const dueNow = async () =>
   new Map(
-    (await standings.due(NOW, 500)).map((each) => [each.id.value, each.facts]),
+    (await standings.due(WorkspaceArchive.removalCutoffs(NOW), 500)).map(
+      (each) => [each.id.value, each.facts],
+    ),
   );
 
 describe('keeping workspace archives', () => {
@@ -190,7 +188,9 @@ describe('keeping workspace archives', () => {
     );
 
     const sealed = (await archives.find(granted.id)) as WorkspaceArchive;
-    await archives.save(sealed.removed());
+    await archives.save(
+      sealed.removed(NOW, { holder: null, supersededAt: null }),
+    );
 
     await expect(archives.find(granted.id)).resolves.toBeNull();
   });
@@ -320,50 +320,5 @@ describe('keeping workspace archives', () => {
     expect(due.get(superseded.id.value)?.supersededAt).toEqual(ago(2 * HOUR));
     expect(due.has(current.id.value)).toBe(false);
     expect(due.has(justSuperseded.id.value)).toBe(false);
-  });
-});
-
-describe('the continuity of a held run', () => {
-  const aRun = async (claimedBy: string, spec: unknown, taskId?: string) => {
-    const id = randomUUID();
-
-    await db.insert(schema.run).values({
-      id,
-      workspaceId: 'ws_1',
-      harness: 'dev',
-      taskId: taskId ?? null,
-      stationId: taskId ? stationId : null,
-      state: 'claimed',
-      claimedBy,
-      spec,
-    });
-
-    return RunId.of(id);
-  };
-
-  it('tells the runner holding a run which work it carries on, and whether its conversation does', async () => {
-    const taskId = await aTask();
-    const key = ContinuityKey.for({ taskId, stationId }).value;
-    const continuing = await aRun(
-      'runner_1',
-      { continuity: { key, sessionId: 'session_1' } },
-      taskId,
-    );
-    const afresh = await aRun('runner_1', { continuity: { key } }, taskId);
-
-    await expect(
-      runs.continuityOf(continuing, RunnerId.of('runner_1')),
-    ).resolves.toEqual({
-      workspaceId: WorkspaceId.of('ws_1'),
-      continuity: ContinuityKey.of(key),
-      holder: forTask(taskId),
-      continuing: true,
-    });
-    await expect(
-      runs.continuityOf(afresh, RunnerId.of('runner_1')),
-    ).resolves.toMatchObject({ continuing: false });
-    await expect(
-      runs.continuityOf(continuing, RunnerId.of('runner_2')),
-    ).resolves.toBeNull();
   });
 });

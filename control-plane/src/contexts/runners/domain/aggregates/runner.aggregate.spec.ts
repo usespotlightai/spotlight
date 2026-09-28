@@ -1,3 +1,4 @@
+import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import {
   aPullPool,
   aRunner,
@@ -105,6 +106,14 @@ describe('Runner', () => {
     expect(working.hasEnded).toBe(true);
   });
 
+  it('is discarded when a reservation it never took up is dropped, but keeps the work it took instead', () => {
+    expect(aRunner().reservationDropped(later(1)).isDiscarded).toBe(true);
+
+    const working = aRunner().took(RUN, later(1));
+
+    expect(working.reservationDropped(later(2))).toBe(working);
+  });
+
   it('lets its egress act only for the work it holds, while it stands', () => {
     const waiting = aRunner();
     const working = waiting.took(RUN, later(1));
@@ -157,5 +166,11 @@ describe('Runner', () => {
       aRunner({ through: aTrust().withdrawn(attributedIn()) }),
     ).toThrow(InconsistentStateError);
     expect(() => aRunner({ claimWithinMs: 0 })).toThrow(InconsistentStateError);
+  });
+
+  it('is remembered for a day after it ended', () => {
+    const DAY = 24 * 60 * 60_000;
+
+    expect(Runner.rememberedEndingSince(later(DAY))).toEqual(STARTED_AT);
   });
 });

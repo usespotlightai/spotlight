@@ -8,6 +8,7 @@ import {
   CONFIGURED_RESOURCES,
   type ConfiguredResource,
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { HeldLine } from '@work/application/contracts/held-line.contract';
 
 export type HeldKind = Exclude<ConfiguredResource, 'workspace-token'>;
 
@@ -93,7 +94,7 @@ export type HeldResourceDto =
   | (HeldByTeam & {
       readonly kind: 'line';
       readonly key: string;
-      readonly definition: Readonly<Record<string, unknown>>;
+      readonly definition: HeldLine;
     })
   | (HeldByTeam & {
       readonly kind: 'skill';
@@ -115,8 +116,8 @@ export type HeldResourceDto =
       readonly vars: Readonly<Record<string, string>>;
       readonly steps: readonly HeldHookStep[];
       readonly signing: HeldHookSigning | null;
-      readonly failure: string;
-      readonly timeoutSeconds: number;
+      readonly failure: string | null;
+      readonly timeoutSeconds: number | null;
     })
   | (HeldByTeam & {
       readonly kind: 'harness-profile';

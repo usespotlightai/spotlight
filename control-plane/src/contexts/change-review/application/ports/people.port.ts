@@ -1,3 +1,4 @@
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -10,6 +11,7 @@ export interface Person {
 
 export interface Membership {
   readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
   readonly by: UserId;
 }
 

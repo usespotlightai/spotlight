@@ -30,7 +30,6 @@ export class ListRunnersHandler
       }
 
       const now = this.clock.now();
-      const answering = RunnerHost.answeringSince(now);
       const [hosts, runners] = await Promise.all([
         this.runners.hostsIn(
           membership.workspaceId,
@@ -41,7 +40,10 @@ export class ListRunnersHandler
 
       return {
         hosts: hosts.map((host) =>
-          RunnerFleetMapper.host(host, host.lastSeenAt > answering),
+          RunnerFleetMapper.host(
+            host,
+            RunnerHost.answering(host.lastSeenAt, now),
+          ),
         ),
         runners: runners.map(RunnerFleetMapper.runner),
       };

@@ -1,6 +1,5 @@
 import type { ConfigurationDto } from '@configuration/application/dto/configuration.dto';
 import type { ConfigurationReaderPort } from '@configuration/application/ports/configuration-reader.port';
-import type { IntegrationLinksPort } from '@configuration/application/ports/integration-links.port';
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import { standingOf } from '@configuration/domain/services/integration-standing';
@@ -14,7 +13,6 @@ export class ConfigurationHandler
   constructor(
     private readonly teams: TeamsPort,
     private readonly configurations: ConfigurationReaderPort,
-    private readonly connections: IntegrationLinksPort,
   ) {}
 
   async execute(query: ConfigurationQuery): Promise<ConfigurationDto | null> {
@@ -28,24 +26,16 @@ export class ConfigurationHandler
         return null;
       }
 
-      const [view, links] = await Promise.all([
-        this.configurations.of(team.teamId),
-        this.connections.heldBy(team.teamId),
-      ]);
-      const linked = new Map(links.map((each) => [each.source, each]));
+      const view = await this.configurations.of(team.teamId);
 
       return {
-        integrations: view.integrations.map((each) => {
-          const link = linked.get(each.source);
-
-          return {
-            source: each.source,
-            path: each.path,
-            name: each.name,
-            standing: standingOf(each.connectable, link !== undefined),
-            handle: link?.handle ?? null,
-          };
-        }),
+        integrations: view.integrations.map((each) => ({
+          source: each.source,
+          path: each.path,
+          name: each.name,
+          standing: standingOf(each.connectable, each.linked),
+          handle: each.handle,
+        })),
       };
     } catch (error) {
       rethrowAsFault(error);

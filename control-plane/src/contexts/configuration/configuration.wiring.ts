@@ -40,10 +40,6 @@ import {
   type HeldSecretsPort,
 } from '@configuration/application/ports/held-secrets.port';
 import {
-  INTEGRATION_LINKS,
-  type IntegrationLinksPort,
-} from '@configuration/application/ports/integration-links.port';
-import {
   INTEGRATION_READER,
   type IntegrationReaderPort,
 } from '@configuration/application/ports/integration-reader.port';
@@ -104,7 +100,6 @@ import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-se
 import { DrizzleAppliedSkills } from '@configuration/infrastructure/persistence/drizzle/readers/applied-skills.reader';
 import { DrizzleHarnessProfileResources } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-resources.reader';
 import { DrizzleHarnessProfilesHeld } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profiles-held.reader';
-import { DrizzleIntegrationLinks } from '@configuration/infrastructure/persistence/drizzle/readers/integration-links.reader';
 import { DrizzleSkillResources } from '@configuration/infrastructure/persistence/drizzle/readers/skill-resources.reader';
 import { DrizzleSkillsHeld } from '@configuration/infrastructure/persistence/drizzle/readers/skills-held.reader';
 import { DrizzleHarnessProfiles } from '@configuration/infrastructure/persistence/drizzle/repositories/harness-profiles.repository';
@@ -222,7 +217,6 @@ const adapters: Provider[] = [
     useFactory: (reader: IntegrationReaderPort) =>
       new DefinedConfiguration(reader),
   },
-  { provide: INTEGRATION_LINKS, useClass: DrizzleIntegrationLinks },
   { provide: SKILL_COMPILER, useClass: SkillCompiler },
   { provide: SKILL_DEFINITIONS, useClass: DrizzleSkillDefinitions },
   { provide: SKILL_RESOURCES, useClass: DrizzleSkillResources },
@@ -307,7 +301,6 @@ const handlers: Provider[] = [
   ...bindQueryHandler(ConfigurationQuery, ConfigurationHandler, [
     TEAMS,
     CONFIGURATION_READER,
-    INTEGRATION_LINKS,
   ]),
   ...bindQueryHandler(TeamSkillsQuery, TeamSkillsHandler, [
     TEAMS,
@@ -482,7 +475,6 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
     inject: [
       EventTypes,
       EventSubscribers,
-      INTEGRATION_LINKS,
       SKILL_DEFINITIONS,
       HARNESS_PROFILES,
       TRANSACTION,
@@ -490,7 +482,6 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
     useFactory: (
       types: EventTypes,
       subscribers: EventSubscribers,
-      links: IntegrationLinksPort,
       skills: SkillDefinitionRepository,
       profiles: HarnessProfileRepository,
       transaction: TransactionPort,
@@ -498,7 +489,6 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
       types.register('configuration', CONFIGURATION_EVENT_TYPES);
       subscribers.register(
         configurationSubscribers(
-          links,
           new AbandonTeamSkills(skills, transaction),
           new AbandonTeamProfiles(profiles, transaction),
         ),

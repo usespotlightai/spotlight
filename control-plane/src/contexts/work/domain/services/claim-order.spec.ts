@@ -1,4 +1,5 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -61,7 +62,7 @@ const reservedFor = (
   at = NOW,
 ) => ({
   ...entry,
-  run: entry.run.reservedFor(RunnerId.of(runner), 'burst', at),
+  run: entry.run.reservedFor(RunnerId.of(runner), PoolId.of('burst'), at),
 });
 
 describe('ClaimOrder', () => {

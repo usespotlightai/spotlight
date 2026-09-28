@@ -12,9 +12,9 @@ import { TouchedFiles } from '@work/application/services/touched-files';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
+import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { journalsOfTask } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
-import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/repositories/run-journal.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -264,11 +264,12 @@ describe('reading what a task’s runs changed', () => {
       reader,
       { changedIn: async () => [] } as unknown as PullRequestPort,
       { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      { now: () => new Date(), sleep: () => new Promise(() => {}) },
     ).onTask(
       {
         id: TaskId.of(taskId),
         workspaceId: WorkspaceId.of('ws_1'),
-        reviewed: null,
+        reviewedHead: null,
         pullRequest: null,
       } as unknown as Task,
       { repositories: { all: [API, WEB] } } as unknown as Line,

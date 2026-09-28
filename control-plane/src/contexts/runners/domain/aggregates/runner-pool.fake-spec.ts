@@ -15,6 +15,7 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
+import { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
@@ -43,10 +44,15 @@ export const secretOf = (character: string): ProvisionSecret =>
   );
 
 export const aPullPool = (
-  input: { maxRuns?: number; labels?: string[]; tokenVersion?: number } = {},
+  input: {
+    id?: RunnerPoolId;
+    maxRuns?: number;
+    labels?: string[];
+    tokenVersion?: number;
+  } = {},
 ): RunnerPool =>
   RunnerPool.define({
-    id: POOL_ID,
+    id: input.id ?? POOL_ID,
     workspaceId: POOL_WORKSPACE,
     key: PoolKey.of('ephemeral'),
     labels: RunnerLabels.of(input.labels ?? ['linux']),
@@ -59,8 +65,11 @@ export const aPullPool = (
     by: attributedIn(),
   });
 
+export const sealedOf = (character: string): SealedProvisionSecret =>
+  SealedProvisionSecret.of(`sealed:${character}`);
+
 export const aPushPool = (
-  input: { maxRuns?: number; labels?: string[] } = {},
+  input: { maxRuns?: number; labels?: string[]; url?: string } = {},
 ): RunnerPool =>
   RunnerPool.define({
     id: POOL_ID,
@@ -70,8 +79,8 @@ export const aPushPool = (
     maxRuns: input.maxRuns ? MaxRuns.of(input.maxRuns) : null,
     access: {
       mode: 'push',
-      url: ProvisionUrl.of('https://provision.example.com/runs'),
-      secret: secretOf('s'),
+      url: ProvisionUrl.of(input.url ?? 'https://provision.example.com/runs'),
+      secret: sealedOf('s'),
       secretVersion: 1,
     },
     by: attributedIn(),
@@ -178,14 +187,15 @@ export const heldHosts = (...known: RunnerHost[]) => {
       );
     }),
     remove: vi.fn(async (host: RunnerHost) => {
-      if (held.get(host.id.value)?.version === host.version) {
-        held.delete(host.id.value);
+      if (held.get(host.id.value)?.version !== host.version) {
+        throw new RunnerHostMovedOnError(host.id.value);
       }
+      held.delete(host.id.value);
     }),
     removeUnseenSince: vi.fn(async (since: Date) => {
       let removed = 0;
       for (const [id, host] of held) {
-        if (host.lastSeenAt < since) {
+        if (host.lastSeenAt <= since) {
           held.delete(id);
           removed++;
         }

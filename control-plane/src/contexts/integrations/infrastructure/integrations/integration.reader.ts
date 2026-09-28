@@ -5,10 +5,20 @@ import { compileIntegration } from '@integrations/infrastructure/integrations/in
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
+type ReadIntegration = Omit<
+  ReadIntegrations['integrations'][number],
+  'linked' | 'handle'
+>;
+
+export interface ReadDefinitions {
+  readonly integrations: readonly ReadIntegration[];
+  readonly problems: readonly ConfigurationProblem[];
+}
+
 export class IntegrationReader {
   constructor(private readonly expressions: ExpressionEnginePort) {}
 
-  read(definitions: readonly DefinedIntegration[]): ReadIntegrations {
+  read(definitions: readonly DefinedIntegration[]): ReadDefinitions {
     const readable = this.readable(definitions);
 
     return {

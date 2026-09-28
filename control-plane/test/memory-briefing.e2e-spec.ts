@@ -19,6 +19,7 @@ import { Run } from '@work/domain/aggregates/run.aggregate';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -184,7 +185,11 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('codex'),
-        subject: RunSubject.task(team.list.id, team.stationId, 0),
+        subject: RunSubject.task(
+          team.list.id,
+          team.stationId,
+          TaskRevision.of(0),
+        ),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'codex-acp', args: [] },
@@ -255,7 +260,7 @@ describe('briefing runs with what the team remembers', () => {
           evidence: DraftEvidence.of({
             taskId: team.list.id,
             runId,
-            place: {
+            site: {
               teamId: TeamId.of(team.teamId.value),
               lineId: DELIVERY,
               stationId: BUILD,
@@ -265,7 +270,7 @@ describe('briefing runs with what the team remembers', () => {
             notes: [],
             notesRead: 0,
             changed: [],
-            standing: [],
+            known: [],
             fromOutside: false,
           }),
           newId: () => randomUUID(),
@@ -287,7 +292,11 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('claude-code'),
-        subject: RunSubject.task(team.list.id, team.stationId, 0),
+        subject: RunSubject.task(
+          team.list.id,
+          team.stationId,
+          TaskRevision.of(0),
+        ),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'claude-agent-acp', args: [] },

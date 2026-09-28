@@ -1,61 +1,62 @@
 import type { NoteByCallbackCommand } from '@integrations/application/commands/note-by-callback.command';
-import type { HookCallbacksPort } from '@integrations/application/ports/hook-callbacks.port';
-import type { HookFiringsPort } from '@integrations/application/ports/hook-firings.port';
+import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
+import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
+import { InvalidCallbackNoteError } from '@integrations/domain/exceptions/invalid-callback-note.error';
+import { CallbackNote } from '@integrations/domain/value-objects/callback-note.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TaskNotesFromHooksPort } from '@work/application/ports/task-notes-from-hooks.port';
 
 export type NotedByCallback = 'noted' | 'refused' | 'empty';
 
-const LONGEST_NOTE = 20_000;
+const noteIn = (body: string): CallbackNote | null => {
+  try {
+    return CallbackNote.of(body);
+  } catch (error) {
+    if (error instanceof InvalidCallbackNoteError) {
+      return null;
+    }
+
+    throw error;
+  }
+};
 
 export class NoteByCallbackHandler
   implements CommandHandlerPort<NoteByCallbackCommand, NotedByCallback>
 {
   constructor(
-    private readonly callbacks: HookCallbacksPort,
+    private readonly grants: HookCallbackGrants,
     private readonly notes: TaskNotesFromHooksPort,
-    private readonly firings: HookFiringsPort,
+    private readonly history: HookFiringHistoryPort,
     private readonly causation: CausationPort,
-    private readonly clock: ClockPort,
   ) {}
 
   async execute(command: NoteByCallbackCommand): Promise<NotedByCallback> {
     try {
-      const body = command.body.trim();
+      const note = noteIn(command.body);
 
-      if (!body || body.length > LONGEST_NOTE) {
+      if (!note) {
         return 'empty';
       }
 
-      const holder = await this.callbacks.heldBy(
-        command.token,
-        this.clock.now(),
-      );
+      const grant = await this.grants.heldBy(command.token);
 
-      if (!holder) {
+      if (!grant) {
         return 'refused';
       }
 
-      const fired = holder.firing
-        ? await this.firings.chainOf(holder.workspaceId, holder.firing)
+      const fired = grant.firing
+        ? await this.history.chainOf(grant.workspaceId.value, grant.firing)
         : null;
       const noted = await this.causation.within(
-        (fired ?? this.causation.current()).followedBy({
-          kind: 'callback',
-          key: `callback:${holder.hook}:${holder.taskId}`,
-          saying: `a note by callback from the hook ${holder.hook}`,
-        }),
+        (fired ?? this.causation.current()).followedBy(grant.causeLink),
         () =>
           this.notes.noted(
-            holder.taskId,
-            body,
-            holder.hook,
-            command.idempotencyKey
-              ? `callback:${holder.taskId}:${holder.firing ?? holder.hook}:${command.idempotencyKey}`
-              : null,
+            grant.taskId.value,
+            note.body,
+            grant.hook,
+            grant.noteHeardAs(command.idempotencyKey),
           ),
       );
 

@@ -4,8 +4,8 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { SealWorkspaceArchiveCommand } from '@work/application/commands/workspace-archive.commands';
-import type { HeldRunReaderPort } from '@work/application/ports/held-run-reader.port';
 import type { WorkspaceArchiveStorePort } from '@work/application/ports/workspace-archive-store.port';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
@@ -13,7 +13,7 @@ export class SealWorkspaceArchiveHandler
   implements CommandHandlerPort<SealWorkspaceArchiveCommand, boolean>
 {
   constructor(
-    private readonly held: HeldRunReaderPort,
+    private readonly runs: RunRepository,
     private readonly archives: WorkspaceArchiveRepository,
     private readonly store: WorkspaceArchiveStorePort,
     private readonly clock: ClockPort,
@@ -21,16 +21,12 @@ export class SealWorkspaceArchiveHandler
 
   async execute(command: SealWorkspaceArchiveCommand): Promise<boolean> {
     try {
-      const run = RunId.of(command.runId);
-      const found = await this.held.continuityOf(
-        run,
-        RunnerId.of(command.runnerId),
-      );
-      const archive = found
+      const run = await this.runs.findById(RunId.of(command.runId));
+      const archive = run?.isHeldBy(RunnerId.of(command.runnerId))
         ? await this.archives.find(WorkspaceArchiveId.of(command.archiveId))
         : null;
 
-      if (!archive?.grantedFor(run)) {
+      if (!run || !archive?.grantedFor(run.id)) {
         return false;
       }
 

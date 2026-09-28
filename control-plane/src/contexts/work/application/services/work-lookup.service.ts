@@ -25,12 +25,7 @@ import type {
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
 import { referencesUnder } from '@work/application/services/journal-references';
-import {
-  distinctFiles,
-  filesChangedIn,
-  repositoriesWorked,
-  workspacePathsIn,
-} from '@work/application/services/touched-files';
+import { distinctFiles } from '@work/application/services/touched-files';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -40,6 +35,11 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
+import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
+import {
+  filesChangedIn,
+  workspacePathsIn,
+} from '@work/domain/services/workspace-path';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 
@@ -177,7 +177,7 @@ export class WorkLookup implements WorkLookupPort {
   private async worked(run: Run, line: Line): Promise<readonly Repository[]> {
     const task = run.taskId ? await this.tasks.find(run.taskId) : null;
 
-    return repositoriesWorked(task, line);
+    return repositoriesWorkedOn(task, line);
   }
 
   async wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {

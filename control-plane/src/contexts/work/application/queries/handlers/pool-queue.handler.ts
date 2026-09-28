@@ -20,17 +20,18 @@ export class PoolQueueHandler
 
   async execute(query: PoolQueueQuery): Promise<PoolQueueDto | null> {
     try {
-      const pool = await this.pools.pulledWith(query.token);
+      const pool = await this.pools.pulledWith(query.token, query.poolId);
 
-      if (!pool || pool.poolId !== query.poolId) {
+      if (!pool) {
         return null;
       }
 
       const now = this.clock.now();
-      const [runs, checks, running] = await Promise.all([
+      const [runs, checks, running, room] = await Promise.all([
         this.queued.unclaimedIn(pool.workspaceId, now),
         this.checks.waitingPlacements(pool.workspaceId, now),
         this.pools.running(pool.poolId, now),
+        this.pools.roomIn(pool.poolId, now),
       ]);
       const takeable = [...runs, ...checks].filter((each) =>
         poolCouldTake(each, pool.labels),
@@ -39,8 +40,7 @@ export class PoolQueueHandler
       return {
         pending: takeable.length,
         running,
-        capacity:
-          pool.maxRuns === null ? null : Math.max(0, pool.maxRuns - running),
+        capacity: room,
         labels: Object.fromEntries(
           pool.labels.values.map((label) => [
             label,

@@ -1,9 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import {
+  HOOK_FIRING_HISTORY,
+  type HookFiringHistoryPort,
+} from '@integrations/application/ports/hook-firing-history.port';
+import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
+import { HookFiringMovedOnError } from '@integrations/domain/exceptions/hook-firing-moved-on.error';
+import {
   HOOK_FIRINGS,
-  type HookFiringsPort,
-  type NewFiring,
-} from '@integrations/application/ports/hook-firings.port';
+  type HookFiringRepository,
+} from '@integrations/domain/repositories/hook-firing.repository';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -30,36 +35,60 @@ const OPENED = {
 
 describe('hook firings, kept in the database (e2e)', () => {
   let app: INestApplication;
-  let firings: HookFiringsPort;
+  let firings: HookFiringRepository;
+  let history: HookFiringHistoryPort;
   let db: DrizzleDatabase;
   let hookId: string;
 
   const NOW = new Date('2126-09-26T10:00:00.000Z');
 
-  const firing = (occurrence: string): NewFiring => ({
-    id: randomUUID(),
-    hookId,
-    workspaceId: 'workspace_1',
-    teamId: 'team_1',
-    taskId: 'task_1',
-    runId: null,
-    stationKey: 'triage',
-    on: 'task.opened',
-    occurrence,
-    at: NOW,
-    event: {},
-    matched: true,
-    cause: CausalChain.none().followedBy(OPENED),
-    link: {
-      kind: 'hook',
-      key: `hook:${hookId}:${OPENED.key}`,
-      saying: 'the hook opened',
-    },
-  });
+  const at = (seconds: number) => new Date(NOW.getTime() + seconds * 1000);
+
+  const firing = (occurrence: string, firedAt: Date = NOW): HookFiring =>
+    HookFiring.fired({
+      id: randomUUID(),
+      hookId,
+      workspaceId: 'workspace_1',
+      teamId: 'team_1',
+      taskId: 'task_1',
+      runId: null,
+      stationKey: 'triage',
+      on: 'task.opened',
+      occurrence,
+      firedAt,
+      event: {},
+      matched: true,
+      cause: CausalChain.none().followedBy(OPENED),
+      link: {
+        kind: 'hook',
+        key: `hook:${hookId}:${OPENED.key}`,
+        saying: 'the hook opened',
+      },
+    });
+
+  const claimed = async (now: Date = NOW): Promise<HookFiring> => {
+    const next = await firings.claimNext(now);
+
+    if (!next) {
+      throw new Error('nothing was due');
+    }
+
+    return next;
+  };
+
+  const stateOf = async (id: string) => {
+    const [row] = await db
+      .select()
+      .from(schema.hookFiring)
+      .where(eq(schema.hookFiring.id, id));
+
+    return row?.state;
+  };
 
   beforeAll(async () => {
     app = await openApp();
-    firings = app.get<HookFiringsPort>(HOOK_FIRINGS);
+    firings = app.get<HookFiringRepository>(HOOK_FIRINGS);
+    history = app.get<HookFiringHistoryPort>(HOOK_FIRING_HISTORY);
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
 
@@ -87,45 +116,48 @@ describe('hook firings, kept in the database (e2e)', () => {
   });
 
   it('fires each hook once per occurrence', async () => {
-    await expect(firings.fire(firing('occurrence_1'))).resolves.toBe(true);
-    await expect(firings.fire(firing('occurrence_1'))).resolves.toBe(false);
+    await expect(firings.add(firing('occurrence_1'))).resolves.toBe(true);
+    await expect(firings.add(firing('occurrence_1'))).resolves.toBe(false);
   });
 
   it('lets only the worker that holds a firing write to it', async () => {
-    await firings.fire(firing('occurrence_2'));
-    const first = await firings.claimNext(NOW);
-    const later = new Date(NOW.getTime() + 11 * 60 * 1000);
-    const second = await firings.claimNext(later);
+    await firings.add(firing('occurrence_2'));
+    const first = await claimed();
+    const later = at(11 * 60);
+    const second = await claimed(later);
 
-    expect(first?.id).toBe(second?.id);
+    expect(first.id).toBe(second.id);
 
-    await firings.worked(first as NonNullable<typeof first>, later);
-    const [kept] = await db
-      .select()
-      .from(schema.hookFiring)
-      .where(eq(schema.hookFiring.id, first?.id ?? ''));
+    await expect(firings.save(first.worked(later))).rejects.toBeInstanceOf(
+      HookFiringMovedOnError,
+    );
+    await expect(stateOf(first.id)).resolves.toBe('working');
 
-    expect(kept?.state).toBe('working');
+    await firings.save(second.worked(later));
 
-    await firings.worked(second as NonNullable<typeof second>, later);
-    const [done] = await db
-      .select()
-      .from(schema.hookFiring)
-      .where(eq(schema.hookFiring.id, first?.id ?? ''));
-
-    expect(done?.state).toBe('done');
+    await expect(stateOf(first.id)).resolves.toBe('done');
+    await expect(firings.withId(first.id)).resolves.toMatchObject({
+      attempts: 1,
+      progress: { kind: 'done', at: later },
+    });
   });
 
   it('forgets finished firings once they are old, and nothing still owed', async () => {
-    await firings.fire(firing('occurrence_3'));
-    await firings.fire(firing('occurrence_4'));
-    const finished = await firings.claimNext(NOW);
+    await firings.add(firing('occurrence_3'));
+    await firings.add(firing('occurrence_4'));
+    const finished = await claimed();
 
-    await firings.worked(finished as NonNullable<typeof finished>, NOW);
+    await firings.save(finished.worked(NOW));
 
-    await expect(
-      firings.forgetFinished(new Date(NOW.getTime() + 1), 10),
-    ).resolves.toBeGreaterThanOrEqual(1);
+    const old = (await firings.finishedBefore(at(1), 1_000)).filter(
+      (each) => each.hookId === hookId,
+    );
+
+    expect(old.map((each) => each.id)).toEqual([finished.id]);
+
+    for (const each of old) {
+      await firings.save(each.forgotten(at(31 * 86_400)));
+    }
 
     const left = await db
       .select()
@@ -137,61 +169,54 @@ describe('hook firings, kept in the database (e2e)', () => {
 
   it('keeps the chain of causes a firing came from, and hands it on with the firing itself', async () => {
     const fired = firing('occurrence_5');
-    await firings.fire(fired);
+    await firings.add(fired);
 
-    const claimed = await firings.claimNext(NOW);
+    const next = await claimed();
 
-    expect(claimed?.cause.saying).toBe(OPENED.saying);
-    expect(claimed?.link.key).toBe(`hook:${hookId}:${OPENED.key}`);
+    expect(next.cause.saying).toBe(OPENED.saying);
+    expect(next.link.key).toBe(`hook:${hookId}:${OPENED.key}`);
     await expect(
-      firings.chainOf('workspace_1', fired.id).then((chain) => chain?.saying),
+      history.chainOf('workspace_1', fired.id).then((chain) => chain?.saying),
     ).resolves.toBe(`${OPENED.saying} → the hook opened`);
-    await expect(firings.chainOf('workspace_2', fired.id)).resolves.toBeNull();
+    await expect(history.chainOf('workspace_2', fired.id)).resolves.toBeNull();
   });
 
-  it('counts the earlier firings of a hook for the same change since a moment, never later ones', async () => {
-    const at = (seconds: number) => new Date(NOW.getTime() + seconds * 1000);
-    await firings.fire({ ...firing('occurrence_6'), at: at(-30) });
-    await firings.fire({ ...firing('occurrence_7'), at: at(-20) });
-    await firings.fire({ ...firing('occurrence_8'), at: at(-10) });
-    await firings.fire({ ...firing('occurrence_8b'), at: at(0) });
-    const first = await firings.claimNext(NOW);
-    const second = await firings.claimNext(NOW);
-    const third = await firings.claimNext(NOW);
+  it('counts the earlier firings of a hook for the same change in the last ten minutes, never later ones', async () => {
+    await firings.add(firing('occurrence_6a', at(-11 * 60)));
+    await firings.add(firing('occurrence_6', at(-30)));
+    await firings.add(firing('occurrence_7', at(-20)));
+    await firings.add(firing('occurrence_8', at(-10)));
+    await firings.add(firing('occurrence_8b', at(0)));
+    const oldest = await claimed();
+    const first = await claimed();
+    const second = await claimed();
+    const third = await claimed();
 
-    await expect(
-      firings.recentRepeats(
-        third as NonNullable<typeof third>,
-        new Date(NOW.getTime() - 60_000),
-      ),
-    ).resolves.toBe(2);
-    await expect(
-      firings.recentRepeats(third as NonNullable<typeof third>, at(-25)),
-    ).resolves.toBe(1);
-    await expect(
-      firings.recentRepeats(
-        first as NonNullable<typeof first>,
-        new Date(NOW.getTime() - 60_000),
-      ),
-    ).resolves.toBe(0);
-    expect(second?.occurrence).toBe('occurrence_7');
+    expect(oldest.occurrence).toBe('occurrence_6a');
+    expect(second.occurrence).toBe('occurrence_7');
+    await expect(history.recentRepeats(third)).resolves.toBe(2);
+    await expect(history.recentRepeats(first)).resolves.toBe(0);
   });
 
   it('keeps what kind of failure ended a firing, and a superseded one apart from a failed one', async () => {
-    await firings.fire(firing('occurrence_9'));
-    await firings.fire(firing('occurrence_10'));
-    const first = await firings.claimNext(NOW);
-    const second = await firings.claimNext(NOW);
+    await firings.add(firing('occurrence_9'));
+    await firings.add(firing('occurrence_10'));
+    const first = await claimed();
+    const second = await claimed();
 
-    await firings.failed(
-      first as NonNullable<typeof first>,
-      HookFailure.of('rejected', 'was answered 404'),
-      NOW,
+    await firings.save(
+      first.failedWith(
+        HookFailure.of('rejected', 'was answered 404'),
+        NOW,
+        false,
+      ),
     );
-    await firings.failed(
-      second as NonNullable<typeof second>,
-      HookFailure.of('superseded', 'its task moved on'),
-      NOW,
+    await firings.save(
+      second.failedWith(
+        HookFailure.of('rejected', 'was answered 404'),
+        NOW,
+        true,
+      ),
     );
 
     const ended = await db
@@ -203,5 +228,15 @@ describe('hook firings, kept in the database (e2e)', () => {
       ['failed', 'rejected'],
       ['superseded', 'superseded'],
     ]);
+  });
+
+  it('keeps a firing waiting until it is due again', async () => {
+    await firings.add(firing('occurrence_11'));
+    const working = await claimed();
+
+    await firings.save(working.waitUntil(at(2)));
+
+    await expect(firings.claimNext(at(1))).resolves.toBeNull();
+    await expect(claimed(at(2))).resolves.toMatchObject({ id: working.id });
   });
 });

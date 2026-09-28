@@ -1,5 +1,6 @@
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
+import { BearerAdmission } from '@identity/domain/services/bearer-admission';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
 import type { WorkspaceTokenIdentityPort } from '@shared-kernel/application/ports/workspace-token-identity.port';
@@ -19,16 +20,16 @@ export class TokenBearers implements WorkspaceTokenIdentityPort {
       TokenHash.of(this.mint.hash(bearer)),
     );
 
-    if (!token?.admitsAt(this.clock.now())) {
+    if (!token) {
       return null;
     }
 
-    if (!token.mintedThrough) {
-      return token.principal;
-    }
+    const mintedThrough = token.mintedThrough
+      ? await this.trusts.find(token.mintedThrough)
+      : null;
 
-    const trust = await this.trusts.find(token.mintedThrough);
-
-    return trust?.stillGrants(token) ? token.principal : null;
+    return BearerAdmission.admits(token, mintedThrough, this.clock.now())
+      ? token.principal
+      : null;
   }
 }

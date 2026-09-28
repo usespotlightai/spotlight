@@ -1,0 +1,41 @@
+import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
+import { describe, expect, it } from 'vitest';
+
+describe('ToolOutput', () => {
+  it('holds what a tool answered as JSON text, and reads it back', () => {
+    const output = ToolOutput.answered({ pages: 3, $type: 'Task' });
+
+    expect(output.json).toBe('{"pages":3,"$type":"Task"}');
+    expect(output.answer).toEqual({ pages: 3, $type: 'Task' });
+  });
+
+  it('holds nothing answered as null', () => {
+    expect(ToolOutput.answered(undefined).answer).toBeNull();
+  });
+
+  it('holds an answer that cannot be written as JSON as null', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    expect(ToolOutput.answered(10n).answer).toBeNull();
+    expect(ToolOutput.answered(() => 'called').answer).toBeNull();
+    expect(ToolOutput.answered(Symbol('answer')).answer).toBeNull();
+    expect(ToolOutput.answered(circular).answer).toBeNull();
+  });
+
+  it('holds an answer too large to carry as null, and one just small enough whole', () => {
+    expect(ToolOutput.answered('x'.repeat(16_000)).answer).toBeNull();
+    expect(ToolOutput.answered('x'.repeat(15_998)).answer).toBe(
+      'x'.repeat(15_998),
+    );
+  });
+
+  it('keeps no hold on what it was given', () => {
+    const given = { pages: [1] };
+    const output = ToolOutput.answered(given);
+
+    given.pages.push(2);
+
+    expect(output.answer).toEqual({ pages: [1] });
+  });
+});

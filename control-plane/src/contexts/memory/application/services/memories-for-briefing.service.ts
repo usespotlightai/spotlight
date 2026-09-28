@@ -1,13 +1,15 @@
+import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
+import { folderLayoutAt } from '@memory/application/rendering/memory-folder-layout';
+import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
-import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { selectForBriefing } from '@memory/domain/services/briefing-selection';
 import {
-  layoutAt,
   MEMORY_FOLDER,
   mirroringAt,
 } from '@memory/domain/services/memory-folder';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import type { RunSite } from '@memory/domain/value-objects/run-site';
 import type {
   BriefingPlace,
   BriefingSelection,
@@ -28,34 +30,36 @@ const pathOf = (raw: string): MemoryPath | null => {
 
 export class MemoriesForBriefing implements TeamMemoriesPort {
   constructor(
-    private readonly memories: MemoryRepository,
+    private readonly inReach: MemoriesInReach,
+    private readonly relevance: MemoryRelevancePort,
     private readonly uses: MemoryUsesPort,
   ) {}
 
   async forBriefing(place: BriefingPlace): Promise<BriefingSelection> {
-    const applying = (await this.memories.mayReach(place)).filter(
-      (each) => each.standing === 'stands' && each.scope.appliesAt(place),
-    );
+    const site: RunSite = {
+      teamId: place.teamId,
+      lineId: place.lineId,
+      stationId: place.stationId,
+      repositories: place.repositories,
+    };
+    const applying = await this.inReach.at(site);
     const ids = applying.map((each) => each.id);
-    const [touched, matches, recalled] = await Promise.all([
+    const [touched, ranks, recalled] = await Promise.all([
       applying.some((each) => each.scope.paths.length > 0)
         ? place.touched()
         : ([] as readonly TouchedFile[]),
-      this.memories.matching(ids, place.about),
+      this.relevance.rank(ids, place.about),
       this.uses.runsUsing(ids, 'recalled'),
     ]);
 
     const chosen = selectForBriefing(
       applying.map((memory) => ({
         memory,
-        match: matches.get(memory.id.value) ?? 0,
+        rank: ranks.get(memory.id.value) ?? 0,
         recalled: recalled.get(memory.id.value) ?? 0,
       })),
       {
-        teamId: place.teamId,
-        lineId: place.lineId,
-        stationId: place.stationId,
-        repositories: place.repositories,
+        ...site,
         touched: touched.flatMap((each) => {
           const path = pathOf(each.path);
           return path ? [{ repository: each.repository, path }] : [];
@@ -68,7 +72,7 @@ export class MemoriesForBriefing implements TeamMemoriesPort {
         id: each.id.value,
         handle: each.handle.value,
         kind: each.kind,
-        body: each.body,
+        body: each.body.value,
       })),
       cut: chosen.cut.map((each) => ({
         id: each.id.value,
@@ -78,8 +82,8 @@ export class MemoriesForBriefing implements TeamMemoriesPort {
         applying.length > 0
           ? {
               path: MEMORY_FOLDER,
-              layout: layoutAt(place),
-              mirroring: mirroringAt(place),
+              layout: folderLayoutAt(site),
+              mirroring: mirroringAt(site),
             }
           : null,
     };

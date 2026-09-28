@@ -8,6 +8,8 @@ import type { ReceiveReviewComment } from '@change-review/application/services/r
 import type { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
+import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
+import { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
@@ -18,6 +20,7 @@ import type { TaskHandedToRunIntegrationEvent } from '@shared-kernel/application
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -303,5 +306,74 @@ describe('change review hearing a stack’s check end', () => {
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
+  });
+});
+
+describe('change review hearing a check forgotten while a runner held it', () => {
+  it('releases the runner that was checking it', async () => {
+    const released = vi.fn(async () => {});
+    const subscriber = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      {} as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { released } as unknown as CheckRunnersPort,
+    ).find(
+      (each) => each.name === 'change-review.release-runner-of-forgotten-check',
+    );
+
+    if (!subscriber) {
+      throw new Error('nobody releases the runner of a forgotten check');
+    }
+
+    await subscriber.handle(
+      new HeldCheckForgotten(ChangeStackId.of('stack_1')),
+    );
+
+    expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
+  });
+});
+
+describe('change review hearing a check let go of the runner reserved for it', () => {
+  const lettingGo = () => {
+    const reservationDropped = vi.fn(async () => {});
+    const subscriber = changeReviewSubscribers(
+      {} as unknown as ChangeStackReactions,
+      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as ReviewReactions,
+      {} as unknown as ReceiveReviewComment,
+      {} as unknown as SignalReviewing,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { reservationDropped } as unknown as CheckRunnersPort,
+    ).find((each) => each.name === 'change-review.let-go-of-reserved-runner');
+
+    if (!subscriber) {
+      throw new Error('nobody lets go of a runner a check no longer holds');
+    }
+
+    return { subscriber, reservationDropped };
+  };
+
+  it('lets go of the runner provisioned for it', async () => {
+    const { subscriber, reservationDropped } = lettingGo();
+
+    await subscriber.handle(
+      new CheckReservationDropped(
+        ChangeStackId.of('stack_1'),
+        RunnerId.of('pooled_1'),
+      ),
+    );
+
+    expect(reservationDropped).toHaveBeenCalledWith(RunnerId.of('pooled_1'));
   });
 });

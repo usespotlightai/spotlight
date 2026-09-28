@@ -3,12 +3,13 @@ import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import { ReadRunMemoriesHandler } from '@memory/application/queries/handlers/read-run-memories.handler';
 import { ReadRunMemoriesQuery } from '@memory/application/queries/read-run-memories.query';
+import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
-import { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -30,10 +31,9 @@ const kept = (body: string, teamId = TEAM) => {
     handle: MemoryHandle.of(made),
     workspaceId: WORKSPACE,
     kind: 'preference',
-    body,
+    body: MemoryBody.of(body),
     scope: MemoryScope.of({ teamId }),
     grounds: null,
-    supersedes: null,
     by: MemoryDecision.of({
       by: UserId.of('user_1'),
       at: new Date('2026-09-27T10:00:00.000Z'),
@@ -87,7 +87,7 @@ const reading = (input: {
   } as unknown as MemoryUsesPort;
 
   return new ReadRunMemoriesHandler(
-    new TeamMemoryAtHand(people, memories, work),
+    new MemoryAccess(people, work),
     work,
     memories,
     {} as MemoryDraftRepository,

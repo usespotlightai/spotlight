@@ -31,4 +31,12 @@ describe('StationKey', () => {
     expect(StationKey.of('spec').equals(StationKey.of('spec'))).toBe(true);
     expect(StationKey.of('spec').equals(StationKey.of('triage'))).toBe(false);
   });
+
+  it('reads a key someone named, or nothing when it could never be a station', () => {
+    expect(StationKey.parsed(' spec ')?.equals(StationKey.of('spec'))).toBe(
+      true,
+    );
+    expect(StationKey.parsed('Not A Key')).toBeNull();
+    expect(StationKey.parsed('review')).toBeNull();
+  });
 });

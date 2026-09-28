@@ -92,7 +92,11 @@ export class RunnerHost {
   }
 
   answersAt(now: Date): boolean {
-    return this.state.lastSeenAt > RunnerHost.answeringSince(now);
+    return RunnerHost.answering(this.state.lastSeenAt, now);
+  }
+
+  static answering(lastSeenAt: Date, now: Date): boolean {
+    return lastSeenAt > RunnerHost.answeringSince(now);
   }
 
   static answeringSince(now: Date): Date {

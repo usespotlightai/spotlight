@@ -1,4 +1,6 @@
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
+import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { ToolInputType } from '@work/domain/value-objects/declared-tool.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 
@@ -85,6 +87,14 @@ const outside = (path: string): boolean =>
   path.startsWith('/') || path.includes('..');
 
 const blank = (text: string): boolean => text.trim().length === 0;
+
+const isSecretName = (worn: string): boolean => {
+  try {
+    return SecretName.of(worn).value === worn;
+  } catch {
+    return false;
+  }
+};
 
 export const checkoutFoldersOf = (
   checkouts: readonly RunCheckout[],
@@ -237,6 +247,12 @@ export class RunSpec {
       }
     }
 
+    for (const worn of parts.wears ?? []) {
+      if (!isSecretName(worn)) {
+        throw new InvalidRunSpecError('must name each secret it wears');
+      }
+    }
+
     for (const attachment of parts.attachments ?? []) {
       if (!attachment.path || outside(attachment.path)) {
         throw new InvalidRunSpecError(
@@ -264,8 +280,18 @@ export class RunSpec {
     );
   }
 
-  get wears(): readonly string[] {
-    return this.parts.wears ?? [];
+  get continuity(): ContinuityKey | null {
+    return blank(this.parts.continuity.key)
+      ? null
+      : ContinuityKey.of(this.parts.continuity.key);
+  }
+
+  get continuesASession(): boolean {
+    return Boolean(this.parts.continuity.sessionId);
+  }
+
+  get wears(): readonly SecretName[] {
+    return (this.parts.wears ?? []).map((each) => SecretName.of(each));
   }
 
   get checkoutSetups(): ReadonlyMap<string, string> {

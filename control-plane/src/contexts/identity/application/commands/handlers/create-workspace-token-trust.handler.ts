@@ -6,6 +6,7 @@ import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-worksp
 import { TokenTrustAlreadyDefinedError } from '@identity/domain/exceptions/token-trust-already-defined.error';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
+import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import {
   forbiddenTo,
   type ResourceCreated,
@@ -79,7 +80,7 @@ export class CreateWorkspaceTokenTrustHandler
               id: WorkspaceTokenTrustId.of(this.ids.generate()),
               workspaceId: cleared.workspaceId,
               definedBy: principal.userId,
-              grantor: principal.kind === 'token' ? principal.scopes : null,
+              grantor: Grantor.of(principal),
               by: Attribution.of(command.actor, cleared.workspaceId),
             });
 

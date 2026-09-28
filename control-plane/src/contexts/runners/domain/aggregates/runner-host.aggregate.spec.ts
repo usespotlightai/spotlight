@@ -148,6 +148,17 @@ describe('RunnerHost', () => {
     ).toBe(true);
   });
 
+  it('is remembered for a day after it last reported', () => {
+    const DAY = 24 * 60 * 60_000;
+
+    expect(RunnerHost.rememberedSince(later(DAY))).toEqual(FIRST_SEEN);
+  });
+
+  it('tells whether a host last seen at a moment answers now, by the same rule as a host it holds', () => {
+    expect(RunnerHost.answering(FIRST_SEEN, later(89_999))).toBe(true);
+    expect(RunnerHost.answering(FIRST_SEEN, later(90_000))).toBe(false);
+  });
+
   it('serves only through the way it first came in', () => {
     const host = present();
 

@@ -49,13 +49,19 @@ const heldRun = (workspace = 'ws_1', by = RUNNER) =>
     }),
   }).claim(RunnerId.of(by), NOW);
 
+const lapsedRun = () => {
+  const held = heldRun();
+
+  return held.requeue(held.leaseExpiresAt as Date);
+};
+
 const redeeming = (
   admitted: EgressFor | null,
   run: Run | null = heldRun(),
   after: Run | null = run,
 ) => {
   const asked: RunRedemption[] = [];
-  const revoked: string[] = [];
+  const lost: string[] = [];
   const found = [run, after];
   const handler = new RedeemEgressHandler(
     {
@@ -72,15 +78,16 @@ const redeeming = (
       },
     } as RunRedemptionsPort,
     {
-      endedFor: async (runId: string) => {
-        revoked.push(runId);
+      holdLost: async (hold) => {
+        lost.push(`${hold.workspaceId}/${hold.runId}#${hold.attempt}`);
       },
+      endedFor: async () => undefined,
     },
     { hosts: () => ['storage.example.com'] },
     { now: () => NOW } as ClockPort,
   );
 
-  return { handler, asked, revoked };
+  return { handler, asked, lost };
 };
 
 const HOLDING_RUN: EgressFor = {
@@ -105,6 +112,7 @@ describe('RedeemEgressHandler', () => {
       {
         workspaceId: 'ws_1',
         runId: 'run_1',
+        attempt: 1,
         wears: ['LINEAR_API_KEY', 'GONE'],
         recipient: 'recipient-key',
       },
@@ -151,21 +159,38 @@ describe('RedeemEgressHandler', () => {
     }
   });
 
-  it('takes back what it granted when the run ends while it redeems', async () => {
+  it('redeems for the attempt that holds the run, once it is held again', async () => {
+    const again = lapsedRun().claim(RunnerId.of(RUNNER), NOW);
+    const { handler, asked } = redeeming(HOLDING_RUN, again);
+
+    await expect(
+      handler.execute(new RedeemEgressCommand('egress-token', 'recipient-key')),
+    ).resolves.toMatchObject({ outcome: 'redeemed', runId: 'run_1' });
+    expect(asked.map((each) => each.attempt)).toEqual([2]);
+  });
+
+  it('lets the hold’s grants go when the run ends or is let go while it redeems', async () => {
     const ended = heldRun().complete(
       RunnerId.of(RUNNER),
       RunOutcome.of({ exitCode: 0, failed: false }),
     );
-    const { handler, asked, revoked } = redeeming(
-      HOLDING_RUN,
-      heldRun(),
-      ended,
-    );
+    const lapsed = lapsedRun();
+    const reclaimed = lapsedRun().claim(RunnerId.of(RUNNER), NOW);
 
-    await expect(
-      handler.execute(new RedeemEgressCommand('egress-token', 'recipient-key')),
-    ).resolves.toMatchObject({ outcome: 'redeemed', runId: null, secrets: [] });
-    expect(asked).toHaveLength(1);
-    expect(revoked).toEqual(['run_1']);
+    for (const after of [ended, lapsed, reclaimed]) {
+      const { handler, asked, lost } = redeeming(HOLDING_RUN, heldRun(), after);
+
+      await expect(
+        handler.execute(
+          new RedeemEgressCommand('egress-token', 'recipient-key'),
+        ),
+      ).resolves.toMatchObject({
+        outcome: 'redeemed',
+        runId: null,
+        secrets: [],
+      });
+      expect(asked).toHaveLength(1);
+      expect(lost).toEqual(['ws_1/run_1#1']);
+    }
   });
 });

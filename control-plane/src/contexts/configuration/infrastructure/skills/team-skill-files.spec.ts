@@ -1,6 +1,6 @@
+import { ConfigurationFile } from '@configuration/domain/value-objects/configuration-file.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-files';
-import { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
 

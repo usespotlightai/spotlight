@@ -91,6 +91,10 @@ export class RunOutcome {
     return new RunOutcome(-1, RunFailure.of(code), message);
   }
 
+  get handsOver(): boolean {
+    return !this.failed && !this.stopped;
+  }
+
   get failed(): boolean {
     return this.failure !== null;
   }

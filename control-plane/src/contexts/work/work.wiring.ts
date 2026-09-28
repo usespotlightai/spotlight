@@ -73,6 +73,7 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import {
   ID_GENERATOR,
   type IdGeneratorPort,
@@ -133,6 +134,7 @@ import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
+import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
 import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
@@ -156,6 +158,7 @@ import {
   CompleteRunCommand,
   EnqueueRunCommand,
   RecordRunImageCommand,
+  RenewCheckLeaseCommand,
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
 import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
@@ -199,7 +202,10 @@ import {
   CHECK_PROVISIONING,
   type CheckProvisioningPort,
 } from '@work/application/ports/check-provisioning.port';
-import { CHECK_WORK } from '@work/application/ports/check-work.port';
+import {
+  CHECK_WORK,
+  type CheckWorkPort,
+} from '@work/application/ports/check-work.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
 import { GIVEN_AT_STATIONS } from '@work/application/ports/given-at-stations.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
@@ -386,10 +392,10 @@ import {
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
 import { ChatAtHand } from '@work/application/services/chat-at-hand.service';
 import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
+import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
-import { EndRunners } from '@work/application/services/end-runners.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
@@ -413,6 +419,7 @@ import { RunAtHand } from '@work/application/services/run-at-hand.service';
 import { RunLeases } from '@work/application/services/run-leases.service';
 import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { RunWorks } from '@work/application/services/run-works.service';
+import { RunnerHolds } from '@work/application/services/runner-holds.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { StationSkills } from '@work/application/services/station-skills.service';
@@ -424,6 +431,7 @@ import {
 } from '@work/application/services/task-dispatch';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { ToolSources } from '@work/application/services/tool-sources.service';
+import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { TouchedFiles } from '@work/application/services/touched-files';
 import { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
@@ -435,6 +443,9 @@ import {
   DEFAULT_HARNESS,
 } from '@work/infrastructure/harnesses/built-in-harnesses';
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
+import { DrizzleHeardHappenings } from '@work/infrastructure/persistence/drizzle/ledgers/heard-happenings.ledger';
+import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
+import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
@@ -457,12 +468,9 @@ import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleTeamTraceReader } from '@work/infrastructure/persistence/drizzle/readers/team-trace.reader';
 import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
-import { DrizzleHeardHappenings } from '@work/infrastructure/persistence/drizzle/repositories/heard-happenings.repository';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
-import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/repositories/run-digest.repository';
-import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/repositories/run-journal.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleTaskAsideRepository } from '@work/infrastructure/persistence/drizzle/repositories/task-aside.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
@@ -695,6 +703,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ) => new RunStartHooks(runs, hookedTasks, hooks, clock, logger),
   },
 
+  {
+    provide: ClaimsTaken,
+    inject: [DrizzleRunRepository, CHECK_WORK, RUNNERS, CLOCK, LOGGER],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      checks: CheckWorkPort,
+      runners: RunnersPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new ClaimsTaken(runs, checks, runners, clock, logger),
+  },
+
   { provide: ARCHIVE_STANDINGS, useClass: DrizzleArchiveStandings },
 
   { provide: CHAT_READER, useClass: DrizzleChatReader },
@@ -760,9 +780,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RunLeases,
-    inject: [DrizzleRunRepository, RUNNERS],
-    useFactory: (runs: DrizzleRunRepository, runners: RunnersPort) =>
-      new RunLeases(runs, runners),
+    inject: [DrizzleRunRepository],
+    useFactory: (runs: DrizzleRunRepository) => new RunLeases(runs),
   },
 
   { provide: RUN_JOURNAL, useClass: DrizzleRunJournal },
@@ -1075,12 +1094,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: TouchedFiles,
-    inject: [RUN_JOURNAL_READER, PULL_REQUESTS, LOGGER],
+    inject: [RUN_JOURNAL_READER, PULL_REQUESTS, LOGGER, CLOCK],
     useFactory: (
       journals: RunJournalReaderPort,
       pullRequests: PullRequestPort,
       logger: LoggerPort,
-    ) => new TouchedFiles(journals, pullRequests, logger),
+      clock: ClockPort,
+    ) => new TouchedFiles(journals, pullRequests, logger, clock),
   },
 
   {
@@ -1130,7 +1150,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       STATION_TALLIES,
       LOGGER,
       RUN_GRANTS,
-      EndRunners,
+      RunnerHolds,
+      ToolUsedHooks,
     ],
     useFactory: (
       types: EventTypes,
@@ -1154,7 +1175,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tallies: StationTalliesPort,
       logger: LoggerPort,
       runGrants: RunGrantsPort,
-      ending: EndRunners,
+      ending: RunnerHolds,
+      toolUsedHooks: ToolUsedHooks,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -1186,6 +1208,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           abandoning: new AbandonTeamLines(lines, tallies, transaction, logger),
           runGrants,
           runners: ending,
+          toolUsedHooks,
         }),
       ]);
       return true;
@@ -1222,7 +1245,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   ...bindQueryHandler(HeldWorkspaceArchiveQuery, HeldWorkspaceArchiveHandler, [
-    HELD_RUN_READER,
+    DrizzleRunRepository,
     DrizzleWorkspaceArchiveRepository,
     WORKSPACE_ARCHIVE_STORE,
   ]),
@@ -1231,7 +1254,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     GrantWorkspaceArchiveCommand,
     GrantWorkspaceArchiveHandler,
     [
-      HELD_RUN_READER,
+      DrizzleRunRepository,
       DrizzleWorkspaceArchiveRepository,
       WORKSPACE_ARCHIVE_STORE,
       ID_GENERATOR,
@@ -1243,7 +1266,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     SealWorkspaceArchiveCommand,
     SealWorkspaceArchiveHandler,
     [
-      HELD_RUN_READER,
+      DrizzleRunRepository,
       DrizzleWorkspaceArchiveRepository,
       WORKSPACE_ARCHIVE_STORE,
       CLOCK,
@@ -1320,13 +1343,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: QUEUED_PLACEMENTS, useClass: DrizzleQueuedPlacements },
 
   {
-    provide: EndRunners,
+    provide: RunnerHolds,
     inject: [RUNNERS, CLOCK],
     useFactory: (runners: RunnersPort, clock: ClockPort) =>
-      new EndRunners(runners, clock),
+      new RunnerHolds(runners, clock),
   },
 
-  { provide: CHECK_ENDINGS, useExisting: EndRunners },
+  { provide: CHECK_ENDINGS, useExisting: RunnerHolds },
 
   {
     provide: ProvisionFailures,
@@ -1553,13 +1576,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       TaskBindings,
       INTEGRATION_TOOL_CALLS,
+      RunWorks,
     ],
     useFactory: (
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
       bindings: TaskBindings,
       calls: IntegrationToolCallsPort,
-    ) => new IntegrationTools(tasks, lines, bindings, calls),
+      works: RunWorks,
+    ) => new IntegrationTools(tasks, lines, bindings, calls, works),
   },
 
   ...bindCommandHandler(UseToolCommand, UseToolHandler, [
@@ -1568,8 +1593,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     HOOKED_TASKS,
     LIFECYCLE_HOOKS,
     ID_GENERATOR,
-    LOGGER,
+    DOMAIN_EVENT_DISPATCHER,
   ]),
+
+  {
+    provide: ToolUsedHooks,
+    inject: [HOOKED_TASKS, LIFECYCLE_HOOKS],
+    useFactory: (hookedTasks: HookedTasksPort, hooks: LifecycleHooksPort) =>
+      new ToolUsedHooks(hookedTasks, hooks),
+  },
 
   ...bindCommandHandler(AskPermissionCommand, AskPermissionHandler, [RunWorks]),
 
@@ -1663,7 +1695,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUNNER_PRESENCE,
     CLOCK,
     CHECK_WORK,
-    RUNNERS,
+    ClaimsTaken,
     ProvisionFailures,
     RunStartHooks,
   ]),
@@ -1677,6 +1709,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CHECK_WORK,
     CLOCK,
     RunStartHooks,
+    ClaimsTaken,
   ]),
 
   ...bindCommandHandler(ClaimHostCallCommand, ClaimHostCallHandler, [
@@ -1703,6 +1736,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
     DrizzleRunRepository,
+    RUNNER_PRESENCE,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(RenewCheckLeaseCommand, RenewCheckLeaseHandler, [
+    CHECK_WORK,
     RUNNER_PRESENCE,
     CLOCK,
   ]),

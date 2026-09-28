@@ -8,11 +8,13 @@ import {
   type HookStep,
 } from '@integrations/domain/entities/hook.entity';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import {
   HookEvent,
   type HookEventName,
 } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   type HookFile,
   type HookStepFile,
@@ -39,7 +41,6 @@ import type {
 } from '@platform/expressions/expression-engine.port';
 import type { Scope } from '@platform/expressions/scope';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { DefinitionDocument } from '@shared-kernel/domain/value-objects/definition-document.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export type Returns = 'bool' | null;
@@ -186,14 +187,22 @@ const staticUrl = (held: string): URL | null => {
   }
 };
 
-const documented = (file: HookFile): DefinitionDocument =>
-  DefinitionDocument.of({
-    ...file,
+const wrote = (held: unknown, field: string): boolean =>
+  typeof held === 'object' && held !== null && field in held;
+
+const documented = (file: HookFile, held: unknown): DefinitionDocument => {
+  const { failure, timeoutSeconds, ...rest } = file;
+
+  return DefinitionDocument.of({
+    ...rest,
+    ...(wrote(held, 'failure') ? { failure } : {}),
+    ...(wrote(held, 'timeoutSeconds') ? { timeoutSeconds } : {}),
     signing:
       file.signing && 'secretVersion' in file.signing
         ? { secretVersion: file.signing.secretVersion }
         : file.signing,
   });
+};
 
 const signingOf = (file: HookFile): HookSigningIR | null => {
   if (!file.signing) {
@@ -403,7 +412,7 @@ export const checkedAgainst = (
 
 const domainStep = (step: HookStepFile): HookStep =>
   step.call !== undefined
-    ? { name: step.name, kind: 'call', tool: step.call }
+    ? { name: step.name, kind: 'call', tool: ToolName.of(step.call) }
     : {
         name: step.name,
         kind: 'request',
@@ -444,7 +453,10 @@ export const compileHook = (
     hook = Hook.of({
       key: HookKey.of(file.key),
       event,
-      match: { tools: file.match.tools, paths: file.match.paths },
+      match: {
+        tools: file.match.tools.map((tool) => ToolName.of(tool)),
+        paths: file.match.paths,
+      },
       steps: file.steps.map(domainStep),
       signing: signingKind(file),
       failure: file.failure,
@@ -491,7 +503,7 @@ export const compileHook = (
       steps,
       signing: signingOf(file),
     },
-    document: documented(file),
+    document: documented(file, held),
     places: compiler.places,
   };
 };

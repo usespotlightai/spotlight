@@ -1,7 +1,10 @@
+import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
+import { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -22,14 +25,13 @@ const kept = (id: number, paths: string[] = []) =>
     handle: MemoryHandle.of(id),
     workspaceId: WorkspaceId.of('ws_1'),
     kind: 'preference',
-    body: `Memory ${id}.`,
+    body: MemoryBody.of(`Memory ${id}.`),
     scope: MemoryScope.of({
       teamId: TEAM,
       repository: paths.length > 0 ? API : null,
       paths: paths.map(MemoryPath.of),
     }),
     grounds: null,
-    supersedes: null,
     by: MemoryDecision.of({
       by: UserId.of('user_1'),
       at: new Date('2026-09-27T10:00:00.000Z'),
@@ -38,24 +40,29 @@ const kept = (id: number, paths: string[] = []) =>
 
 const briefing = (
   held: Memory[],
-  matches: ReadonlyMap<string, number> = new Map(),
+  ranks: ReadonlyMap<string, number> = new Map(),
   touching: readonly { repository: Repository; path: string }[] = [
     { repository: API, path: 'src/uploads/retry.ts' },
   ],
 ) => {
   const touched = vi.fn(async () => touching);
-  const matching = vi.fn(async () => matches);
+  const rank = vi.fn(async () => ranks);
+  const relevance = { rank } as unknown as MemoryRelevancePort;
   const memories = new MemoriesForBriefing(
-    {
-      mayReach: async () => held,
-      matching,
-    } as unknown as MemoryRepository,
+    new MemoriesInReach(
+      {
+        mayReach: async () => held,
+        successorsOf: async () => [],
+      } as unknown as MemoryRepository,
+      relevance,
+    ),
+    relevance,
     { runsUsing: async () => new Map() } as unknown as MemoryUsesPort,
   );
 
   return {
     touched,
-    matching,
+    rank,
     brief: () =>
       memories.forBriefing({
         teamId: TEAM,
@@ -88,16 +95,16 @@ describe('MemoriesForBriefing', () => {
 
   it('briefs a memory about paths the task has not touched when its words match the task', async () => {
     const aboutUploads = kept(3, ['src/uploads']);
-    const { brief, matching } = briefing(
+    const { brief, rank } = briefing(
       [kept(1), aboutUploads],
-      new Map([[aboutUploads.id.value, 0.2]]),
+      new Map([[aboutUploads.id.value, 0.02]]),
       [],
     );
 
     const chosen = await brief();
 
     expect(chosen.briefed.map((each) => each.handle)).toEqual(['M-3', 'M-1']);
-    expect(matching).toHaveBeenCalledWith(
+    expect(rank).toHaveBeenCalledWith(
       [MemoryId.of('memory_1'), aboutUploads.id],
       'Fix upload retries',
     );

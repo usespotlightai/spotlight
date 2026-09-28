@@ -1,4 +1,4 @@
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 const CLAIM_WITHIN_MS = 5 * 60_000;
@@ -6,11 +6,11 @@ const CLAIM_WITHIN_MS = 5 * 60_000;
 export class RunnerReservation {
   private constructor(
     readonly runner: RunnerId,
-    readonly pool: string,
+    readonly pool: PoolId,
     readonly until: Date,
   ) {}
 
-  static from(runner: RunnerId, pool: string, now: Date): RunnerReservation {
+  static from(runner: RunnerId, pool: PoolId, now: Date): RunnerReservation {
     return RunnerReservation.of(
       runner,
       pool,
@@ -18,14 +18,7 @@ export class RunnerReservation {
     );
   }
 
-  static of(runner: RunnerId, pool: string, until: Date): RunnerReservation {
-    if (pool.trim().length === 0) {
-      throw new InconsistentStateError(
-        'runner reservation',
-        'names no pool that provisions its runner',
-      );
-    }
-
+  static of(runner: RunnerId, pool: PoolId, until: Date): RunnerReservation {
     return new RunnerReservation(runner, pool, until);
   }
 
@@ -40,7 +33,7 @@ export class RunnerReservation {
   equals(other: RunnerReservation): boolean {
     return (
       this.runner.equals(other.runner) &&
-      this.pool === other.pool &&
+      this.pool.equals(other.pool) &&
       this.until.getTime() === other.until.getTime()
     );
   }

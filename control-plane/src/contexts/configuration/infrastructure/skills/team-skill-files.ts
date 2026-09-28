@@ -6,11 +6,11 @@ import type {
   SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
+import type { ConfigurationFile } from '@configuration/domain/value-objects/configuration-file.vo';
 import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { SKILLS_UNDER } from '@configuration/infrastructure/configuration-files';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import type { ConfigurationFile } from '@shared-kernel/domain/value-objects/configuration-file.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';

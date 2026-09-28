@@ -8,6 +8,10 @@ import {
   type CatalogServicePort,
 } from '@catalog/application/ports/catalog-service.port';
 import {
+  WORKSPACE_PLAN_FORGETTING,
+  type WorkspacePlanForgettingPort,
+} from '@catalog/application/ports/workspace-plan-forgetting.port';
+import {
   WORKSPACE_PLANS,
   type WorkspacePlansPort,
 } from '@catalog/application/ports/workspace-plans.port';
@@ -16,8 +20,9 @@ import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-ca
 import { CatalogGivings } from '@catalog/application/services/catalog-givings.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
-import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/repositories/metered-calls.repository';
-import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/repositories/workspace-plans.repository';
+import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
+import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
+import { DrizzleWorkspacePlanForgetting } from '@catalog/infrastructure/persistence/drizzle/workspace-plan-forgetting';
 import { AlwaysAllowedCatalogService } from '@catalog/infrastructure/service/always-allowed-catalog-service';
 import { catalogSubscribers } from '@catalog/presentation/events/catalog.subscribers';
 import { CatalogController } from '@catalog/presentation/http/controllers/catalog.controller';
@@ -40,6 +45,11 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   { provide: SeededCatalog, useValue: new SeededCatalog(CATALOG_ITEMS) },
 
   { provide: WORKSPACE_PLANS, useClass: DrizzleWorkspacePlans },
+
+  {
+    provide: WORKSPACE_PLAN_FORGETTING,
+    useClass: DrizzleWorkspacePlanForgetting,
+  },
 
   { provide: CALL_METER, useClass: DrizzleMeteredCalls },
 
@@ -73,10 +83,10 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   {
     provide: CATALOG_EVENTS,
-    inject: [EventSubscribers, WORKSPACE_PLANS, CALL_METER],
+    inject: [EventSubscribers, WORKSPACE_PLAN_FORGETTING, CALL_METER],
     useFactory: (
       subscribers: EventSubscribers,
-      plans: WorkspacePlansPort,
+      plans: WorkspacePlanForgettingPort,
       meter: CallMeterPort,
     ) => {
       subscribers.register(catalogSubscribers({ plans, meter }));

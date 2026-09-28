@@ -16,6 +16,7 @@ import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -77,6 +78,7 @@ const checkFor = (stack: ChangeStack) =>
   StackCheck.begin({
     stackId: stack.id,
     runId: stack.runId,
+    taskId: null,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),
     entries: stack.entries(),
@@ -100,14 +102,15 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
       saved.push(each);
     },
     find: async () => check,
+    ofRun: async () => [],
+    ofTask: async () => [],
+    remove: async () => undefined,
     dueForCheck: async () => null,
     reservedTo: async () => null,
     overdue: async () => [],
     awaitingProvision: async () => [],
     withLapsedReservations: async () => [],
     waitingIn: async () => [],
-    isClaimedBy: async () => false,
-    removeForStacks: async () => undefined,
   };
 
   return {
@@ -127,7 +130,11 @@ const reported = (runner: string) =>
 describe('RecordChangeStackCheckHandler', () => {
   it('takes what the runner holding the check found', async () => {
     const stack = ready();
-    const held = checkFor(stack).claimedFor(RunnerId.of('runner_1'), LATER);
+    const held = checkFor(stack).claimedFor(
+      RunnerId.of('runner_1'),
+      RunnerTerms.none(),
+      LATER,
+    );
     const { handler, saved } = recording(stack, held);
 
     await handler.execute(reported('runner_1'));
@@ -136,14 +143,18 @@ describe('RecordChangeStackCheckHandler', () => {
     expect(saved[0]?.stateAt(LATER)).toBe('checked');
   });
 
-  it('turns away a runner that does not hold the check', async () => {
+  it('turns away a runner that does not hold the check as a conflict', async () => {
     const stack = ready();
-    const held = checkFor(stack).claimedFor(RunnerId.of('runner_1'), LATER);
+    const held = checkFor(stack).claimedFor(
+      RunnerId.of('runner_1'),
+      RunnerTerms.none(),
+      LATER,
+    );
     const { handler, saved } = recording(stack, held);
 
-    await expect(handler.execute(reported('runner_2'))).rejects.toThrow(
-      UseCaseFault,
-    );
+    await expect(handler.execute(reported('runner_2'))).rejects.toMatchObject({
+      kind: 'conflict',
+    });
     expect(saved).toEqual([]);
   });
 

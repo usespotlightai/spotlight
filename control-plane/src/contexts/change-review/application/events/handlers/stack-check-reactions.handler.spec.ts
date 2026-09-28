@@ -14,6 +14,9 @@ import type { ProposedCohort } from '@change-review/domain/value-objects/stack-c
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -21,7 +24,11 @@ const NOW = new Date('2026-09-16T10:00:00Z');
 
 const LATER = new Date(NOW.getTime() + 60_000);
 
+const CHECKER = RunnerId.of('checker_1');
+
 const STACK = ChangeStackId.of('stack-1');
+
+const TASK = TaskId.of('task-1');
 
 const changed = (path: string, at: number): DiffFile => ({
   path,
@@ -62,7 +69,7 @@ const stackWith = (request: CheckRequest | null) =>
   ChangeStack.draft({
     id: STACK,
     runId: RunId.of('run-1'),
-    taskId: null,
+    taskId: TASK,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -109,6 +116,7 @@ const checkFor = (stack: ChangeStack) =>
   StackCheck.begin({
     stackId: stack.id,
     runId: stack.runId,
+    taskId: stack.taskId,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),
     entries: stack.entries(),
@@ -124,6 +132,7 @@ describe('StackCheckReactions', () => {
 
     expect(added).toHaveLength(1);
     expect(added[0]?.request.setup).toBe('npm ci');
+    expect(added[0]?.taskId).toEqual(TASK);
     expect(added[0]?.stateAt(LATER)).toBe('waiting');
   });
 
@@ -147,14 +156,17 @@ describe('StackCheckReactions', () => {
 
   it('hands the reordered layers to the check', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
-    const reordering = checkFor(stack).recorded(
-      { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
-      [
-        { step: 'whole', passed: true, output: '', tookMs: 1 },
-        { step: stack.layers()[0], passed: false, output: 'no', tookMs: 1 },
-      ],
-      LATER,
-    );
+    const reordering = checkFor(stack)
+      .claimedFor(CHECKER, RunnerTerms.none(), LATER)
+      .recorded(
+        CHECKER,
+        { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
+        [
+          { step: 'whole', passed: true, output: '', tookMs: 1 },
+          { step: stack.layers()[0], passed: false, output: 'no', tookMs: 1 },
+        ],
+        LATER,
+      );
     const { reactions, saved } = reacting(stack, reordering);
 
     await reactions.onReordered(STACK);
@@ -165,14 +177,17 @@ describe('StackCheckReactions', () => {
 
   it('keeps the checked layers once reordering ends', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
-    const reordering = checkFor(stack).recorded(
-      { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
-      [
-        { step: 'whole', passed: true, output: '', tookMs: 1 },
-        { step: stack.layers()[0], passed: false, output: 'no', tookMs: 1 },
-      ],
-      LATER,
-    );
+    const reordering = checkFor(stack)
+      .claimedFor(CHECKER, RunnerTerms.none(), LATER)
+      .recorded(
+        CHECKER,
+        { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
+        [
+          { step: 'whole', passed: true, output: '', tookMs: 1 },
+          { step: stack.layers()[0], passed: false, output: 'no', tookMs: 1 },
+        ],
+        LATER,
+      );
     const { reactions, saved } = reacting(stack, reordering);
 
     await reactions.onReorderingEnded(STACK);

@@ -1,11 +1,13 @@
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { type GivenToRun, givenAt } from '@work/domain/services/given-to-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
-import type { Branch } from '@work/domain/value-objects/branch.vo';
+import {
+  checkoutsOf,
+  type TaskCheckout,
+} from '@work/domain/services/task-checkouts';
 import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import type { Continuity } from '@work/domain/value-objects/continuity.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
@@ -13,45 +15,9 @@ import type { HandoverOption } from '@work/domain/value-objects/handover-option.
 import type { Harness } from '@work/domain/value-objects/harness.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
-import type { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
-
-type CheckoutDiff = 'worktree' | 'commits';
-
-interface OrderedCheckout {
-  readonly repository: Repository;
-  readonly branch: Branch | null;
-  readonly ref: string | null;
-  readonly diffOf: CheckoutDiff;
-  readonly setup: RepositorySetup | null;
-}
-
-const checkoutsFor = (task: Task, line: Line): readonly OrderedCheckout[] => {
-  const reviewed = task.reviewed;
-  const ref = task.pullRequest?.headRef ?? null;
-
-  if (reviewed && ref) {
-    return [
-      {
-        repository: reviewed,
-        branch: null,
-        ref,
-        diffOf: 'commits',
-        setup: line.repositories.setupOf(reviewed),
-      },
-    ];
-  }
-
-  return line.repositories.entries.map(({ repository, setup }) => ({
-    repository,
-    branch: task.branch,
-    ref: null,
-    diffOf: 'worktree',
-    setup,
-  }));
-};
 
 export interface RunOrder {
   readonly harness: Harness;
@@ -63,7 +29,7 @@ export interface RunOrder {
   readonly options: readonly HandoverOption[];
   readonly noteLimit: number;
   readonly continuity: Continuity;
-  readonly checkouts: readonly OrderedCheckout[];
+  readonly checkouts: readonly TaskCheckout[];
   readonly given: GivenToRun;
   readonly diffs: boolean;
   readonly refusal: RunOutcome | null;
@@ -110,7 +76,7 @@ export const orderFor = ({
     options: line.optionsFrom(station.id),
     noteLimit: 0,
     continuity,
-    checkouts: checkoutsFor(task, line),
+    checkouts: checkoutsOf(task, line),
     given,
     diffs: station.diffs,
     refusal: refusals.length > 0 ? RunOutcome.refused(refusals) : null,

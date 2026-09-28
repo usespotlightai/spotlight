@@ -1,14 +1,16 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { UpdateRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
+import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
+import { givePoolToken } from '@runners/application/services/give-pool-token';
 import { givenAccess } from '@runners/application/services/pool-access-given';
-import { refuseRegivenToken } from '@runners/application/services/refuse-regiven-token';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
+import type { GivenPoolTokensRepository } from '@runners/domain/repositories/given-pool-tokens.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import {
@@ -28,6 +30,8 @@ export class UpdateRunnerPoolHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly pools: RunnerPoolRepository,
+    private readonly given: GivenPoolTokensRepository,
+    private readonly secrets: ProvisionSecretsPort,
     private readonly tokens: TokenMintPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -64,13 +68,13 @@ export class UpdateRunnerPoolHandler
 
       const redefined = standing.redefinedAs(
         compiled,
-        givenAccess(compiled.access, this.tokens),
+        await givenAccess(compiled.access, standing, this.tokens, this.secrets),
         Attribution.of(command.actor, cleared.workspaceId),
       );
 
       await this.transaction.run(async () => {
-        await refuseRegivenToken(this.pools, redefined);
         await this.pools.save(redefined);
+        await givePoolToken(this.given, this.pools, redefined, standing);
       });
 
       return { outcome: 'updated', id: id.value };

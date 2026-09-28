@@ -39,13 +39,14 @@ export class ChangeStackController {
   @ApiOkResponse({ type: RunChangeStacksResponseDto })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   async changeStacks(
+    @Param('teamId') teamId: string,
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunChangeStacksResponseDto> {
     const found = await this.queryBus.execute<
       ListRunChangeStacksQuery,
       RunChangeStacksDto | null
-    >(new ListRunChangeStacksQuery(runId, user.id));
+    >(new ListRunChangeStacksQuery(teamId, runId, user.id));
 
     if (!found) {
       throw new NotFoundException();
@@ -62,13 +63,14 @@ export class ChangeStackController {
   @ApiParam({ name: 'taskId', type: String })
   @ApiOkResponse({ type: NewestChangeStackResponseDto })
   async taskChangeStack(
+    @Param('teamId') teamId: string,
     @Param('taskId') taskId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<NewestChangeStackResponseDto> {
     const latest = await this.queryBus.execute<
       ReadTaskChangeStackQuery,
       LatestChangeStackDto | null
-    >(new ReadTaskChangeStackQuery(taskId, user.id));
+    >(new ReadTaskChangeStackQuery(teamId, taskId, user.id));
 
     return new NewestChangeStackResponseDto(
       latest &&

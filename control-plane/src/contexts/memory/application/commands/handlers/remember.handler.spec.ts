@@ -41,7 +41,7 @@ const remembering = (held: HeldRun | null = HELD) => {
       teamId: TEAM,
       fromOutside: false,
     }),
-    placeOf: async () => ({
+    stationSiteOf: async () => ({
       teamId: TEAM,
       lineId: 'line_1',
       lineName: 'Delivery',

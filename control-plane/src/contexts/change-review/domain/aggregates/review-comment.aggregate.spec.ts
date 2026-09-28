@@ -362,6 +362,42 @@ describe('ReviewComment', () => {
     expect(withdrawn.sending).toBe(false);
   });
 
+  it('refuses a reply to a comment that never reached GitHub', () => {
+    const failed = drafted()
+      .submittedIn(ReviewId.of('review_1'))
+      .postedAs({ id: 42, url: 'https://github.com/c/42' })
+      .replied({
+        id: ReviewCommentId.of('comment_2'),
+        body: 'Yes',
+        author: ReviewAuthor.person(BOB, AuthorName.of('Bob')),
+        now: NOW,
+      })
+      .notPosted();
+
+    expect(failed.answerable).toBe(false);
+    expect(() =>
+      failed.replied({
+        id: ReviewCommentId.of('comment_3'),
+        body: 'Still?',
+        author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+        now: NOW,
+      }),
+    ).toThrow(InvalidReviewError);
+  });
+
+  it('is a thread on GitHub only once posted there', () => {
+    const submitted = drafted().submittedIn(ReviewId.of('review_1'));
+    const posted = submitted.postedAs({
+      id: 42,
+      url: 'https://github.com/c/42',
+    });
+
+    expect(drafted().threadOnGitHub).toBeNull();
+    expect(submitted.threadOnGitHub).toBeNull();
+    expect(posted.threadOnGitHub?.id).toBe(42);
+    expect(posted.removed(ADA).threadOnGitHub).toBeNull();
+  });
+
   it('fails a reply that never reached GitHub', () => {
     const reply = drafted()
       .submittedIn(ReviewId.of('review_1'))

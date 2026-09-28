@@ -4,6 +4,7 @@ import type {
   MemoryCriteria,
   MemoryRepository,
 } from '@memory/domain/repositories/memory.repository';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -11,6 +12,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import type { RunSite } from '@memory/domain/value-objects/run-site';
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -30,8 +32,6 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 type Row = typeof memory.$inferSelect;
 
 const MOST_LISTED = 500;
-
-const STRONG_MATCH = 0.1;
 
 const groundsOf = (row: Row): MemoryGrounds | null => {
   const { taskId, runId, steps, notes } = row;
@@ -68,7 +68,7 @@ const toMemory = (row: Row): Memory => {
     handle: MemoryHandle.of(row.handle),
     workspaceId: WorkspaceId.of(row.workspaceId),
     kind: row.kind,
-    body: row.body,
+    body: MemoryBody.of(row.body),
     scope: MemoryScope.of({
       teamId: TeamId.of(row.teamId),
       lineId: row.lineId,
@@ -113,28 +113,37 @@ export class DrizzleMemoryRepository implements MemoryRepository {
 
   async add(added: Memory): Promise<void> {
     await this.context.run(async () => {
-      await this.context.db.insert(memory).values({
-        id: added.id.value,
-        handle: added.handle.number,
-        workspaceId: added.workspaceId.value,
-        kind: added.kind,
-        body: added.body,
-        teamId: added.scope.teamId.value,
-        lineId: added.scope.lineId,
-        stationId: added.scope.stationId,
-        repository: added.scope.repository?.value ?? null,
-        paths: added.scope.paths.map((each) => each.value),
-        taskId: added.grounds?.taskId.value ?? null,
-        runId: added.grounds?.runId.value ?? null,
-        steps: added.grounds ? [...added.grounds.steps] : null,
-        notes: added.grounds ? [...added.grounds.notes] : null,
-        source: added.source,
-        supersedes: added.supersedes?.value ?? null,
-        approvedBy: added.approval.by.value,
-        approvedAt: added.approval.at,
-        version: added.version,
-        ...changedColumnsOf(added),
-      });
+      const written = await this.context.db
+        .insert(memory)
+        .values({
+          id: added.id.value,
+          handle: added.handle.number,
+          workspaceId: added.workspaceId.value,
+          kind: added.kind,
+          body: added.body.value,
+          teamId: added.scope.teamId.value,
+          lineId: added.scope.lineId,
+          stationId: added.scope.stationId,
+          repository: added.scope.repository?.value ?? null,
+          paths: added.scope.paths.map((each) => each.value),
+          taskId: added.grounds?.taskId.value ?? null,
+          runId: added.grounds?.runId.value ?? null,
+          steps: added.grounds ? [...added.grounds.steps] : null,
+          notes: added.grounds ? [...added.grounds.notes] : null,
+          source: added.source,
+          supersedes: added.supersedes?.value ?? null,
+          approvedBy: added.approval.by.value,
+          approvedAt: added.approval.at,
+          version: added.version,
+          ...changedColumnsOf(added),
+        })
+        .onConflictDoNothing({ target: memory.supersedes })
+        .returning({ id: memory.id });
+
+      if (written.length === 0) {
+        throw new MemoryMovedOnError(added.supersedes?.value ?? added.id.value);
+      }
+
       await this.events.dispatch(added.pullEvents());
     });
   }
@@ -205,28 +214,20 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     return MemoryHandle.of(Number(row.next));
   }
 
-  async mayReach(place: {
-    teamId: TeamId;
-    lineId: string | null;
-    stationId: string | null;
-    repositories: readonly Repository[];
-  }): Promise<readonly Memory[]> {
-    const repositories = place.repositories.map((each) => each.value);
+  async mayReach(site: RunSite): Promise<readonly Memory[]> {
+    const repositories = site.repositories.map((each) => each.value);
     const rows = await this.context.db
       .select()
       .from(memory)
       .where(
         and(
-          eq(memory.teamId, place.teamId.value),
+          eq(memory.teamId, site.teamId.value),
           eq(memory.standing, 'stands'),
-          place.lineId
-            ? or(isNull(memory.lineId), eq(memory.lineId, place.lineId))
+          site.lineId
+            ? or(isNull(memory.lineId), eq(memory.lineId, site.lineId))
             : isNull(memory.lineId),
-          place.stationId
-            ? or(
-                isNull(memory.stationId),
-                eq(memory.stationId, place.stationId),
-              )
+          site.stationId
+            ? or(isNull(memory.stationId), eq(memory.stationId, site.stationId))
             : isNull(memory.stationId),
           repositories.length > 0
             ? or(
@@ -279,57 +280,20 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     return rows.map(toMemory);
   }
 
-  async matching(
-    ids: readonly MemoryId[],
-    words: string,
-  ): Promise<ReadonlyMap<string, number>> {
-    if (ids.length === 0 || !words.trim()) {
-      return new Map();
+  async successorsOf(ids: readonly MemoryId[]): Promise<readonly Memory[]> {
+    if (ids.length === 0) {
+      return [];
     }
 
-    const document = sql`to_tsvector('english', ${memory.body})`;
-    const anyOf = sql`nullif(replace(plainto_tsquery('english', ${words})::text, '&', '|'), '')::tsquery`;
-    const rows = await this.context.db
-      .select({
-        id: memory.id,
-        match: sql<number>`least(1, ts_rank(${document}, ${anyOf}) / ${STRONG_MATCH})`,
-      })
-      .from(memory)
-      .where(
-        and(
-          inArray(
-            memory.id,
-            ids.map((each) => each.value),
-          ),
-          sql`${document} @@ ${anyOf}`,
-        ),
-      );
-
-    return new Map(rows.map((row) => [row.id, Number(row.match)]));
-  }
-
-  async recalled(
-    teamId: TeamId,
-    words: string,
-    most: number,
-  ): Promise<readonly Memory[]> {
-    const document = sql`to_tsvector('english', ${memory.body})`;
-    const asked = sql`websearch_to_tsquery('english', ${words})`;
     const rows = await this.context.db
       .select()
       .from(memory)
       .where(
-        and(
-          eq(memory.teamId, teamId.value),
-          eq(memory.standing, 'stands'),
-          sql`${document} @@ ${asked}`,
+        inArray(
+          memory.supersedes,
+          ids.map((each) => each.value),
         ),
-      )
-      .orderBy(
-        desc(sql`ts_rank(${document}, ${asked})`),
-        desc(memory.approvedAt),
-      )
-      .limit(most);
+      );
 
     return rows.map(toMemory);
   }

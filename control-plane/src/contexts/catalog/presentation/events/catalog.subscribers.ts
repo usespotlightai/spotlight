@@ -1,5 +1,5 @@
 import type { CallMeterPort } from '@catalog/application/ports/call-meter.port';
-import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
+import type { WorkspacePlanForgettingPort } from '@catalog/application/ports/workspace-plan-forgetting.port';
 import {
   WORKSPACE_CLOSED,
   type WorkspaceClosedIntegrationEvent,
@@ -11,7 +11,7 @@ import {
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const catalogSubscribers = (reactions: {
-  plans: WorkspacePlansPort;
+  plans: WorkspacePlanForgettingPort;
   meter: CallMeterPort;
 }): readonly DomainEventSubscriber[] => [
   subscribing<WorkspaceClosedIntegrationEvent>(

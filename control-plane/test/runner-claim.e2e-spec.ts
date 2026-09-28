@@ -1,10 +1,19 @@
 import { randomUUID } from 'node:crypto';
+import { CheckAccess } from '@change-review/application/services/check-access.service';
+import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
+import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { eq } from 'drizzle-orm';
@@ -273,5 +282,108 @@ describe('claiming a check reserved for a provisioned runner', () => {
     expect(
       (await checks.dueForCheck(by(workspaceId), LATER))?.stackId.value,
     ).toBe(stackId);
+  });
+});
+describe('forgetting the checks of a deleted task', () => {
+  const dispatched: DomainEvent[] = [];
+  const forgetting = () =>
+    new DrizzleStackCheckRepository(new DrizzleContext(db), {
+      dispatch: async (events) => {
+        dispatched.push(...events);
+      },
+    });
+
+  const begun = (taskId: TaskId) =>
+    StackCheck.begin({
+      stackId: ChangeStackId.of(randomUUID()),
+      runId: RunId.of(randomUUID()),
+      taskId,
+      workspaceId: WorkspaceId.of(randomUUID()),
+      request: CheckRequest.of('npm test', null),
+      entries: [],
+      now: NOW,
+    });
+
+  it('finds every check of the task and removes each, letting go of its reserved runner', async () => {
+    const repository = forgetting();
+    const task = TaskId.of(randomUUID());
+    const runner = RunnerId.of(randomUUID());
+    const reserved = begun(task).reservedFor(runner, PoolId.of('pool_1'), NOW);
+    const other = begun(TaskId.of(randomUUID()));
+    await repository.add(reserved);
+    await repository.add(other);
+
+    const found = await repository.ofTask(task);
+    const [check] = found;
+
+    expect(found).toHaveLength(1);
+    if (!check) {
+      throw new Error('the task’s check was not found');
+    }
+    expect(check.stackId).toEqual(reserved.stackId);
+    expect(check.taskId).toEqual(task);
+
+    await repository.remove(check.forgotten(NOW));
+
+    await expect(repository.ofTask(task)).resolves.toEqual([]);
+    await expect(repository.find(other.stackId)).resolves.not.toBeNull();
+    expect(dispatched.map((each) => each.kind)).toContain(
+      'change-stack.check-reservation-dropped',
+    );
+  });
+
+  it('refuses to remove a check that changed since it was read', async () => {
+    const repository = forgetting();
+    const task = TaskId.of(randomUUID());
+    await repository.add(begun(task));
+    const [stale] = await repository.ofTask(task);
+    if (!stale) {
+      throw new Error('the task’s check was not found');
+    }
+    await repository.save(
+      stale.reservedFor(RunnerId.of(randomUUID()), PoolId.of('pool_1'), NOW),
+    );
+
+    await expect(repository.remove(stale.forgotten(NOW))).rejects.toThrow(
+      StackCheckMovedOnError,
+    );
+  });
+});
+
+describe('a runner reaching git for a run whose check it holds', () => {
+  const checkOf = (runId: RunId) =>
+    StackCheck.begin({
+      stackId: ChangeStackId.of(randomUUID()),
+      runId,
+      taskId: null,
+      workspaceId: WorkspaceId.of(randomUUID()),
+      request: CheckRequest.of('npm test', null),
+      entries: [],
+      now: NOW,
+    });
+
+  it('holds the check only while its lease runs and only for the runner that took it', async () => {
+    const runId = RunId.of(randomUUID());
+    const runner = RunnerId.of(randomUUID());
+    const waiting = checkOf(runId);
+    await checks.add(waiting);
+    await checks.add(checkOf(RunId.of(randomUUID())));
+    const claimed = waiting.claimedFor(runner, RunnerTerms.none(), NOW);
+    await checks.save(claimed);
+    const access = new CheckAccess(checks);
+    const lapsed = new Date((claimed.claim.leaseExpiresAt?.getTime() ?? 0) + 1);
+
+    await expect(access.holdsCheckOfRun(runId, runner, NOW)).resolves.toBe(
+      true,
+    );
+    await expect(
+      access.holdsCheckOfRun(runId, RunnerId.of(randomUUID()), NOW),
+    ).resolves.toBe(false);
+    await expect(
+      access.holdsCheckOfRun(RunId.of(randomUUID()), runner, NOW),
+    ).resolves.toBe(false);
+    await expect(access.holdsCheckOfRun(runId, runner, lapsed)).resolves.toBe(
+      false,
+    );
   });
 });
