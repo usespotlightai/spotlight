@@ -31,15 +31,15 @@
     "@lexical/markdown": "^0.51.0",
     "@lexical/react": "^0.51.0",
     "@lexical/rich-text": "^0.51.0",
-    "@pierre/diffs": "^1.4.3",
+    "@pierre/diffs": "^1.5.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.103.2",
-    "better-auth": "^1.7.5",
+    "better-auth": "^1.7.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "fflate": "^0.8.3",
     "lexical": "^0.51.0",
-    "lucide-react": "^1.47.0",
+    "lucide-react": "^1.48.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.4.0",
@@ -65,7 +65,7 @@
     "knip": "^6.38.0",
     "storybook": "10.6.0",
     "typescript": "~7.0.2",
-    "vite": "^8.3.0",
+    "vite": "^8.3.1",
     "vitest": "^5.0.1"
   }
 }
