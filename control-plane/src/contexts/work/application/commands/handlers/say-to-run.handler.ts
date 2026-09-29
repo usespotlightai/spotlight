@@ -42,7 +42,8 @@ export class SayToRunHandler
       );
 
       await this.tasks.save(
-        task.heard(
+        task.spokenTo(
+          run.id,
           {
             station: station?.name ?? StationName.unknown(),
             body: TaskNoteBody.given(command.body, attachments),

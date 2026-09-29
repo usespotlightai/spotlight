@@ -124,7 +124,7 @@ describe('WORK_PUBLICATIONS', () => {
         ),
       ),
     ).toBe('completed');
-    expect(ended(new RunAbandoned(RUN, WORKSPACE, SUBJECT, 3))).toBe(
+    expect(ended(new RunAbandoned(RUN, WORKSPACE, SUBJECT, 3, 3))).toBe(
       'abandoned',
     );
     expect(ended(new RunWithdrawn(RUN, WORKSPACE, SUBJECT, 1))).toBe(

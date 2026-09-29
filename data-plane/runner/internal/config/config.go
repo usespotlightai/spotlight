@@ -7,17 +7,20 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/prepare"
 )
 
 type Config struct {
-	URL       string
-	Token     string
-	Handed    string
-	Workspace string
-	AgentUser string
-	Author    prepare.Author
+	URL        string
+	Token      string
+	Handed     string
+	Workspace  string
+	AgentUser  string
+	Author     prepare.Author
+	AnswerWait time.Duration
 }
 
 func (c Config) WasHanded() bool { return c.Handed != "" }
@@ -38,6 +41,7 @@ const (
 	envAgentUser   = "SPOTLIGHT_AGENT_USER"
 	envAuthorName  = "SPOTLIGHT_GIT_AUTHOR_NAME"
 	envAuthorEmail = "SPOTLIGHT_GIT_AUTHOR_EMAIL"
+	envAnswerWait  = protocol.AnswerWaitVar
 )
 
 func Load(args []string) (Config, error) {
@@ -83,6 +87,15 @@ func Load(args []string) (Config, error) {
 	}
 
 	cfg.Workspace = or(cfg.Workspace, DefaultWorkspace)
+
+	if raw := get(envAnswerWait); raw != "" {
+		wait, err := time.ParseDuration(raw)
+		if err != nil || wait < 0 {
+			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to park at once", envAnswerWait, raw))
+		} else {
+			cfg.AnswerWait = wait
+		}
+	}
 
 	return cfg, errors.Join(problems...)
 }

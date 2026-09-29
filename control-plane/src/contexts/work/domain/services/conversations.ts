@@ -116,16 +116,18 @@ export const owedIn = <T extends { kind: TaskNoteKind }>(
 export const turnOf = <T extends { runId: string | null }>(
   notes: readonly T[],
   runId: string,
+  holding = false,
 ): T[] => {
-  const spoke = notes.findIndex((note) => note.runId === runId);
-  const ends = spoke === -1 ? notes.length - 1 : spoke;
+  const first = notes.findIndex((note) => note.runId === runId);
+  const last = notes.map((note) => note.runId).lastIndexOf(runId);
+  const ends = holding || last === -1 ? notes.length - 1 : last;
 
   if (ends < 0) {
     return [];
   }
 
   let opens = 0;
-  for (let at = ends; at >= 0; at--) {
+  for (let at = first === -1 ? ends : first; at >= 0; at--) {
     if (notes[at]?.runId != null && notes[at]?.runId !== runId) {
       opens = at + 1;
       break;

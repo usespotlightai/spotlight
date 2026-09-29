@@ -57,6 +57,7 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 vi.mock('@/hooks/api/useRunMemories', () => ({
+  runMemoryKeys: { forRun: () => ['run-memories'] },
   useRunMemories: () => ({
     data: { briefed: [], cut: [], recalled: [], proposed: [] },
     isPending: false,
@@ -160,9 +161,9 @@ const step = {
   change: null,
 };
 
-const renderRun = () =>
+const renderRun = (client = new QueryClient()) =>
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/w/acme/team/team_1/runs/run_1']}>
         <Routes>
           <Route path="/w/:slug/team/:teamId/runs/:runId" element={<Run />} />
@@ -347,6 +348,188 @@ describe('Run', () => {
       expect(
         screen.queryByText(/before any work was done/),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('while it waits on a person', () => {
+    const OWED = { state: 'owed', conversationId: 'task_1:0' };
+
+    it('says it is waiting for you where it paused, and leads to where to answer', () => {
+      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+
+      const { container } = renderRun();
+
+      expect(
+        container.querySelector('[data-slot="run-waiting"]'),
+      ).toHaveTextContent('Waiting for you');
+      expect(
+        screen.getByRole('link', { name: 'Answer in the inbox' }),
+      ).toHaveAttribute('href', '/w/acme/inbox/task_1%3A0?run=run_1');
+    });
+
+    it('does not claim the agent is working, nor offer to stop it', () => {
+      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+
+      renderRun();
+
+      expect(
+        screen.queryByText('Implementation is working…'),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Stop' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('offers to answer the question right here, so the run carries on', () => {
+      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Answer Implementation' }),
+      ).toHaveAttribute(
+        'placeholder',
+        'Answer the question, and the run carries on…',
+      );
+    });
+
+    it('leaves an approval to be decided in the inbox, rather than answered here', () => {
+      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      const approval = said().notes.map((note) => ({
+        ...note,
+        form: 'approval',
+      }));
+      conversation.mockReturnValue(said({ notes: approval }));
+
+      renderRun();
+
+      expect(
+        screen.getByRole('link', { name: 'Approve or deny in the inbox' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('textbox', {
+          name: 'Say something to Implementation',
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('still waits for you once it is parked, pointing at the inbox without a conversation to name', () => {
+      runs.mockReturnValue([run({ state: 'parked' })]);
+
+      const { container } = renderRun();
+
+      expect(
+        container.querySelector('[data-slot="run-waiting"]'),
+      ).toHaveTextContent('Waiting for you');
+      expect(
+        screen.getByRole('link', { name: 'Answer in the inbox' }),
+      ).toHaveAttribute('href', '/w/acme/inbox');
+    });
+
+    it('does not call a run that asked before doing anything empty', () => {
+      runs.mockReturnValue([run({ state: 'waiting' })]);
+      conversation.mockReturnValue(said({ notes: [] }));
+
+      renderRun();
+
+      expect(
+        screen.queryByText(/before any work was done/),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('Waiting for you')).toBeInTheDocument();
+    });
+
+    it('catches up on its work once it goes back to it', () => {
+      const client = new QueryClient();
+      const invalidated = vi.spyOn(client, 'invalidateQueries');
+      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+
+      const { rerender } = renderRun(client);
+      invalidated.mockClear();
+
+      runs.mockReturnValue([run({ state: 'claimed', review: OWED })]);
+      rerender(
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/w/acme/team/team_1/runs/run_1']}>
+            <Routes>
+              <Route
+                path="/w/:slug/team/:teamId/runs/:runId"
+                element={<Run />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+
+      expect(invalidated).toHaveBeenCalledWith({ queryKey: ['journal'] });
+    });
+  });
+
+  describe('once the person answered', () => {
+    const asked = said().notes[0];
+    const answered = {
+      ...asked,
+      position: 1,
+      kind: 'answered',
+      voice: 'person',
+      runId: null,
+      body: 'Drain webhook-retries first.',
+      at: '2026-08-29T12:10:00.000Z',
+      author: { id: 'user_1', name: 'Maya Chen', image: null },
+    };
+    const before = { ...step, text: 'queue-stats --all' };
+    const after = {
+      ...step,
+      text: 'queue-drain webhook-retries',
+      startedAt: '2026-08-29T12:15:00.000Z',
+    };
+
+    it('shows one run: its work before the question, the answer, then it carrying on', () => {
+      runs.mockReturnValue([run({ state: 'claimed', attempt: 2 })]);
+      conversation.mockReturnValue(
+        said({ working: true, notes: [asked, answered] }),
+      );
+      journal.mockReturnValue([
+        {
+          runId: 'run_1',
+          attempt: 1,
+          steps: [before],
+          spans: [],
+          marks: { startedAt: '2026-08-29T09:02:00.000Z' },
+        },
+        {
+          runId: 'run_1',
+          attempt: 2,
+          steps: [after],
+          spans: [],
+          marks: { startedAt: '2026-08-29T12:11:00.000Z' },
+        },
+      ]);
+
+      renderRun();
+
+      const question = screen.getByText('Which queue should I drain?');
+      const answer = screen.getByText('Drain webhook-retries first.');
+      const carrying = screen.getByText('queue-drain webhook-retries');
+
+      expect(
+        question.compareDocumentPosition(answer) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        answer.compareDocumentPosition(carrying) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(screen.getAllByText('queue-drain webhook-retries')).toHaveLength(
+        1,
+      );
+      expect(screen.getAllByText('queue-stats --all')).toHaveLength(1);
+      expect(
+        screen.getByRole('button', { name: 'Worked · 1 step' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Implementation is working…'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
     });
   });
 });

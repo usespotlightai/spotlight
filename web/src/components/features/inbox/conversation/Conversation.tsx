@@ -10,6 +10,7 @@ import {
   type InboxMessage as Message,
   openedAt,
   type RunJournal,
+  workedOn,
 } from '@/lib/inbox';
 
 interface Turn {
@@ -237,8 +238,11 @@ export function Conversation({
                           about={item.about}
                           resolved={item.resolved}
                           deciding={deciding}
-                          worked={worked.filter(
-                            (each) => each.runId === note.runId,
+                          worked={workedOn(
+                            worked,
+                            item.notes,
+                            note.runId,
+                            note.at,
                           )}
                         />
                       </Fragment>

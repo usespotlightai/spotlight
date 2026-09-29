@@ -9,7 +9,10 @@ import {
   rememberedFailedRun,
   rememberingRun,
   SLUG,
+  seedCarryingOnRun,
+  seedParkedRun,
   seedRun,
+  seedWaitingRun,
   TEAM_ID,
 } from '@/stories/fixtures/run';
 import { StoryPage } from '@/stories/StoryPage';
@@ -81,6 +84,32 @@ export const RememberedFailed: Story = {
 export const RememberedLoading: Story = {
   render: () => (
     <StoryPage at={at} seed={rememberingRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const WaitingForYou: Story = {
+  name: 'Waiting for you',
+  render: () => (
+    <StoryPage at={at} seed={seedWaitingRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Parked: Story = {
+  render: () => (
+    <StoryPage at={at} seed={seedParkedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const CarryingOn: Story = {
+  name: 'Carrying on after the answer',
+  render: () => (
+    <StoryPage at={at} seed={seedCarryingOnRun}>
       {routes}
     </StoryPage>
   ),

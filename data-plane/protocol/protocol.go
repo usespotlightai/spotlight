@@ -133,6 +133,7 @@ type SkillFile struct {
 type Continuity struct {
 	Key       string `json:"key,omitempty"`
 	SessionID string `json:"sessionId,omitempty"`
+	Resumes   bool   `json:"resumes,omitempty"`
 }
 
 type Run struct {
@@ -177,6 +178,23 @@ type Completion struct {
 	Message   string   `json:"message,omitempty"`
 	Outcome   *Outcome `json:"outcome,omitempty"`
 	SessionID string   `json:"sessionId,omitempty"`
+	Kept      bool     `json:"kept,omitempty"`
+}
+
+type TurnAsks struct {
+	Asks bool `json:"asks"`
+}
+
+type Completed struct {
+	Waiting bool `json:"waiting"`
+}
+
+type ParkRequest struct {
+	Cold bool `json:"cold,omitempty"`
+}
+
+type Parking struct {
+	Parked bool `json:"parked"`
 }
 
 type HeldArchive struct {

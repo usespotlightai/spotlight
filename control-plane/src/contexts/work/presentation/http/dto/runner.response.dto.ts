@@ -176,6 +176,45 @@ export class RenewLeaseResponseDto {
   }
 }
 
+export class RunCompletionResponseDto {
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then parks the run.',
+  })
+  readonly waiting: boolean;
+
+  constructor(waiting: boolean) {
+    this.waiting = waiting;
+  }
+}
+
+export class TurnAsksAPersonResponseDto {
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether this turn, reported as given, would put the run to a person, so the runner keeps its harness running while it keeps the workspace. Otherwise the runner closes the harness first, as the run ends.',
+  })
+  readonly asks: boolean;
+
+  constructor(asks: boolean) {
+    this.asks = asks;
+  }
+}
+
+export class RunParkingResponseDto {
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether the run is parked (or, if a stop was asked for, ended) and no longer held by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
+  })
+  readonly parked: boolean;
+
+  constructor(parked: boolean) {
+    this.parked = parked;
+  }
+}
+
 export class RenewCheckLeaseResponseDto {
   @ApiProperty({
     example: false,

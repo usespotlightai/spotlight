@@ -21,9 +21,15 @@ import {
   inArray,
   isNotNull,
   isNull,
+  or,
   type SQL,
   sql,
 } from 'drizzle-orm';
+
+const keptAttempt = or(
+  eq(run.attempt, runJournalEntry.attempt),
+  sql`${runJournalEntry.attempt} = any(${run.parkedAttempts})`,
+);
 
 export function journalsOfTask(
   db: DrizzleDatabase,
@@ -46,13 +52,7 @@ export async function changesOfTask(
   const spoken = await db
     .select({ runId: runJournalEntry.runId, data: runJournalEntry.data })
     .from(runJournalEntry)
-    .innerJoin(
-      run,
-      and(
-        eq(run.id, runJournalEntry.runId),
-        eq(run.attempt, runJournalEntry.attempt),
-      ),
-    )
+    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), keptAttempt))
     .where(
       and(
         eq(run.taskId, taskId.value),
@@ -61,7 +61,12 @@ export async function changesOfTask(
         isNotNull(runJournalEntry.data),
       ),
     )
-    .orderBy(asc(run.createdAt), asc(run.id), asc(runJournalEntry.seq));
+    .orderBy(
+      asc(run.createdAt),
+      asc(run.id),
+      asc(runJournalEntry.attempt),
+      asc(runJournalEntry.seq),
+    );
 
   const changed = new Map<string, ChangedPaths>();
 
@@ -138,20 +143,18 @@ async function journalsOf(
       data: runJournalEntry.data,
     })
     .from(runJournalEntry)
-    .innerJoin(
-      run,
-      and(
-        eq(run.id, runJournalEntry.runId),
-        eq(run.attempt, runJournalEntry.attempt),
-      ),
-    )
+    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), keptAttempt))
     .where(
       inArray(
         runJournalEntry.runId,
         runs.map((each) => each.id),
       ),
     )
-    .orderBy(asc(runJournalEntry.runId), asc(runJournalEntry.seq));
+    .orderBy(
+      asc(runJournalEntry.runId),
+      asc(runJournalEntry.attempt),
+      asc(runJournalEntry.seq),
+    );
 
   const began = new Map(runs.map((each) => [each.id, each.createdAt]));
   const journals = new Map<string, { told: Told; reported: Reported }>();

@@ -13,6 +13,7 @@ export class RunAbandoned implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly subject: RunSubject | null,
     readonly attempt: number,
+    readonly lapses: number,
   ) {}
 
   get taskId(): TaskId | null {

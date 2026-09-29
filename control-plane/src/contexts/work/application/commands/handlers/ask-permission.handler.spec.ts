@@ -183,7 +183,7 @@ const asking = (start: Task, subject?: RunSubject) => {
 };
 
 describe('AskPermissionHandler', () => {
-  it('puts what the harness asks to a person, and lets the run go carrying its session', async () => {
+  it('puts what the harness asks to a person, the run keeping the task while it waits and carrying its session', async () => {
     const { ask, standing } = asking(heldBy('run_1'));
 
     await expect(ask()).resolves.toBe('asked');
@@ -194,7 +194,7 @@ describe('AskPermissionHandler', () => {
     expect(asked?.approval?.subject.name).toBe('claude-code execute');
     expect(asked?.approval?.because).toContain('careful');
     expect(asked?.body.value).toContain('git push origin main');
-    expect(standing().currentRunId).toBeNull();
+    expect(standing().currentRunId).toEqual(RunId.of('run_1'));
     expect(standing().sessionId?.value).toBe('sess_1');
   });
 

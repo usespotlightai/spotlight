@@ -7,6 +7,7 @@ import {
   inRunFilter,
   type Run,
   standing,
+  waitsOnPerson,
   working,
 } from '@/lib/run';
 
@@ -112,6 +113,31 @@ describe('working', () => {
     expect(working(run('completed', 0))).toBe(false);
     expect(working(run('failed'))).toBe(false);
   });
+
+  it('does not while it waits on a person, warm or parked', () => {
+    expect(working(run('waiting'))).toBe(false);
+    expect(working(run('parked'))).toBe(false);
+  });
+});
+
+describe('waitsOnPerson', () => {
+  const run = (state: Run['state']) => ({ state }) as Run;
+
+  it('holds while the run keeps its sandbox warm for an answer', () => {
+    expect(waitsOnPerson(run('waiting'))).toBe(true);
+  });
+
+  it('holds once nobody answered in time and the run was parked', () => {
+    expect(waitsOnPerson(run('parked'))).toBe(true);
+  });
+
+  it('does not for a run at work, waiting for a runner, or over', () => {
+    expect(waitsOnPerson(run('claimed'))).toBe(false);
+    expect(waitsOnPerson(run('queued'))).toBe(false);
+    expect(waitsOnPerson(run('completed'))).toBe(false);
+    expect(waitsOnPerson(run('failed'))).toBe(false);
+    expect(waitsOnPerson(run('superseded'))).toBe(false);
+  });
 });
 
 describe('standing', () => {
@@ -124,6 +150,11 @@ describe('standing', () => {
 
   it('reads a queued run as queued', () => {
     expect(standing(run('queued'))).toBe('Queued');
+  });
+
+  it('reads a run that asked a person as waiting for you, parked or not', () => {
+    expect(standing(run('waiting'))).toBe('Waiting for you');
+    expect(standing(run('parked'))).toBe('Waiting for you');
   });
 
   it('reads a superseded run as superseded', () => {

@@ -124,11 +124,13 @@ func (s *Server) Spoken() <-chan struct{} {
 	return s.spoken
 }
 
-func (s *Server) Declared() *protocol.Outcome {
+func (s *Server) Take() *protocol.Outcome {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.declared
+	declared := s.declared
+	s.declared = nil
+	return declared
 }
 
 func (s *Server) Close() error {

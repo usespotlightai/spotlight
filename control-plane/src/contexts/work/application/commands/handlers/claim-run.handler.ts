@@ -62,15 +62,15 @@ export class ClaimRunHandler
   }
 
   private async reserved(claimant: Claimant): Promise<ClaimedWorkDto | null> {
-    const waiting = await this.runs.waitingFor(claimant.runner);
-    const refusal = waiting?.provisionRefusedBy(
+    const reservedRun = await this.runs.reservedFor(claimant.runner);
+    const refusal = reservedRun?.provisionRefusedBy(
       claimant.runner,
       claimant.harnesses,
     );
 
-    if (waiting && refusal) {
+    if (reservedRun && refusal) {
       await this.failures.failed(
-        waiting.id,
+        reservedRun.id,
         claimant.runner,
         refusal,
         this.clock.now(),

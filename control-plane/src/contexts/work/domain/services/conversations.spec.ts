@@ -242,4 +242,41 @@ describe('turnOf', () => {
   it('finds nothing in an empty trail', () => {
     expect(turnOf([], 'run_1')).toEqual([]);
   });
+
+  describe('a run that paused for a person', () => {
+    const paused = [
+      { runId: 'run_1', body: 'triage said' },
+      { runId: null, body: 'typed at implementation' },
+      { runId: 'run_2', body: 'which queue should I drain?' },
+      { runId: null, body: 'the default one' },
+      { runId: 'run_2', body: 'drained it, ready for review' },
+      { runId: null, body: 'thanks' },
+      { runId: 'run_3', body: 'code review said' },
+    ];
+
+    it('runs from before its question to what it said after the answer', () => {
+      expect(turnOf(paused, 'run_2').map((each) => each.body)).toEqual([
+        'typed at implementation',
+        'which queue should I drain?',
+        'the default one',
+        'drained it, ready for review',
+      ]);
+    });
+
+    it('takes the answer it was given while it still holds the task', () => {
+      expect(
+        turnOf(paused.slice(0, 4), 'run_2', true).map((each) => each.body),
+      ).toEqual([
+        'typed at implementation',
+        'which queue should I drain?',
+        'the default one',
+      ]);
+    });
+
+    it('leaves an answer to the next run once it no longer holds the task', () => {
+      expect(
+        turnOf(paused.slice(0, 4), 'run_2').map((each) => each.body),
+      ).not.toContain('the default one');
+    });
+  });
 });

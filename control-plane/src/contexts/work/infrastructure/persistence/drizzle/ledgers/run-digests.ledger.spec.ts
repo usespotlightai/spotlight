@@ -1,5 +1,9 @@
 import { Money } from '@work/domain/value-objects/money.vo';
-import { digestOf } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
+import { Told } from '@work/infrastructure/acp/told';
+import {
+  digestOf,
+  spentAcross,
+} from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { describe, expect, it } from 'vitest';
 
 describe('digestOf', () => {
@@ -33,5 +37,43 @@ describe('digestOf', () => {
       size: null,
       cost: null,
     });
+  });
+});
+
+describe('spentAcross', () => {
+  const reported = (session: string, used: number, amount: number) => {
+    const told = new Told();
+    told.take({
+      type: 'output',
+      at: new Date('2026-09-29T09:00:00.000Z'),
+      message: null,
+      data: Buffer.from(
+        JSON.stringify({
+          sessionId: session,
+          update: {
+            sessionUpdate: 'usage_update',
+            used,
+            size: 200_000,
+            cost: { amount, currency: 'USD' },
+          },
+        }),
+      ).toString('base64'),
+    });
+    return told;
+  };
+
+  it('adds up what each conversation cost, taking each at its latest report', () => {
+    const spent = spentAcross([
+      reported('session_1', 10, 0.5),
+      reported('session_1', 20, 1.25),
+      reported('session_2', 5, 0.25),
+    ]);
+
+    expect(spent?.cost).toEqual(Money.of(1.5, 'USD'));
+    expect(spent?.used).toBe(5);
+  });
+
+  it('spent nothing where nothing was reported', () => {
+    expect(spentAcross([new Told()])).toBeNull();
   });
 });

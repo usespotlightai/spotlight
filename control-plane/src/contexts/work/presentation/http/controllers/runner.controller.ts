@@ -34,6 +34,7 @@ import {
   AppendRunJournalCommand,
   ClaimRunCommand,
   CompleteRunCommand,
+  ParkRunCommand,
   RecordRunImageCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
@@ -43,6 +44,10 @@ import type { HarnessDto } from '@work/application/dto/harness.dto';
 import type { PendingMessageDto } from '@work/application/dto/pending-message.dto';
 import type { PermissionAnswerDto } from '@work/application/dto/permission-answer.dto';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
+import type {
+  RunCompletionDto,
+  RunParkingDto,
+} from '@work/application/dto/run-completion.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import type { AttachmentContent } from '@work/application/ports/attachment-store.port';
@@ -52,6 +57,7 @@ import { PendingMessagesQuery } from '@work/application/queries/pending-messages
 import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
+import { TurnAsksAPersonQuery } from '@work/application/queries/turn-asks-a-person.query';
 import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
 import {
   AnswerRemarkRequestDto,
@@ -59,6 +65,7 @@ import {
   AskPermissionRequestDto,
   CompleteRunRequestDto,
   DeliverSaidRequestDto,
+  ParkRunRequestDto,
   PendingMessageResponseDto,
   RecordRunImageRequestDto,
   RunAttachmentResponseDto,
@@ -68,7 +75,10 @@ import {
   PermissionAnswerResponseDto,
   RenewCheckLeaseResponseDto,
   RenewLeaseResponseDto,
+  RunCompletionResponseDto,
+  RunParkingResponseDto,
   ToolAnswerResponseDto,
+  TurnAsksAPersonResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 import { ClaimedWorkHttpMapper } from '@work/presentation/http/mappers/claimed-work.http.mapper';
@@ -250,6 +260,14 @@ export class RunnerController {
       'so the heartbeat doubles as how a stop reaches the runner.',
   })
   @ApiOkResponse({ type: RenewLeaseResponseDto })
+  @ApiNotFoundResponse({
+    description:
+      'The run is no longer held by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.',
+  })
+  @ApiConflictResponse({
+    description:
+      'The run kept changing while its lease was renewed; renew again on the next heartbeat.',
+  })
   async renewLease(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -384,7 +402,7 @@ export class RunnerController {
     description:
       'Only for a run whose station names a harness profile. An approval the ' +
       'task already holds for this exact call is spent on it; otherwise a ' +
-      'person is asked in their inbox and the run lets the task go.',
+      'person is asked in their inbox, and the run waits for their answer once its turn ends.',
   })
   @ApiOkResponse({ type: PermissionAnswerResponseDto })
   @ApiConflictResponse({ description: 'The run is not held by this runner' })
@@ -435,18 +453,23 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/completion')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'completeRun',
-    summary: 'Report what the run produced',
+    summary: 'Report how the agent’s turn ended',
+    description:
+      'When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run waits for their answer instead of ending, and the answer says so.',
   })
-  @ApiNoContentResponse()
+  @ApiOkResponse({ type: RunCompletionResponseDto })
   async complete(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
     @Body() body: CompleteRunRequestDto,
-  ): Promise<void> {
-    await this.commandBus.execute(
+  ): Promise<RunCompletionResponseDto> {
+    const completed = await this.commandBus.execute<
+      CompleteRunCommand,
+      RunCompletionDto
+    >(
       new CompleteRunCommand(
         runId,
         runnerId,
@@ -456,7 +479,62 @@ export class RunnerController {
         body.outcome ?? null,
         body.sessionId ?? null,
         body.stopped ?? false,
+        body.kept ?? false,
       ),
     );
+
+    return new RunCompletionResponseDto(completed.waiting);
+  }
+
+  @Post('runs/:runId/completion/asks')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'turnAsksAPerson',
+    summary: 'Whether a turn reported like this would wait for a person',
+    description:
+      'Asked before the runner keeps the workspace at the end of a turn. Nothing changes: the completion decides.',
+  })
+  @ApiOkResponse({ type: TurnAsksAPersonResponseDto })
+  @ApiNotFoundResponse({ description: 'No such run held by this runner' })
+  async asks(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: CompleteRunRequestDto,
+  ): Promise<TurnAsksAPersonResponseDto> {
+    const asks = await this.queryBus.execute<TurnAsksAPersonQuery, boolean>(
+      new TurnAsksAPersonQuery(
+        runId,
+        runnerId,
+        body.exitCode,
+        body.failed,
+        body.stopped ?? false,
+        body.outcome ?? null,
+      ),
+    );
+
+    return new TurnAsksAPersonResponseDto(asks);
+  }
+
+  @Post('runs/:runId/parked')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'parkRun',
+    summary: 'Park a run whose person did not answer within the grace period',
+    description:
+      'The runner has sealed the workspace archive and lets its sandbox go. A later answer requeues the same run, and any runner takes it up from the archive. If the answer arrived first, the run is not parked: it is working again, and the runner delivers the answer to the live session.',
+  })
+  @ApiOkResponse({ type: RunParkingResponseDto })
+  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  async park(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: ParkRunRequestDto,
+  ): Promise<RunParkingResponseDto> {
+    const parking = await this.commandBus.execute<
+      ParkRunCommand,
+      RunParkingDto
+    >(new ParkRunCommand(runId, runnerId, body?.cold ?? false));
+
+    return new RunParkingResponseDto(parking.parked);
   }
 }

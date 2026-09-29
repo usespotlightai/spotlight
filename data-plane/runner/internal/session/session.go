@@ -29,7 +29,9 @@ import (
 type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) (bool, error)
-	Complete(ctx context.Context, runID string, done protocol.Completion) error
+	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error)
+	Asks(ctx context.Context, runID string, turn protocol.Completion) (bool, error)
+	Park(ctx context.Context, runID string, cold bool) (protocol.Parking, error)
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
 	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
@@ -54,8 +56,7 @@ const (
 
 const (
 	flushEvery = 200 * time.Millisecond
-	renewEvery = 2 * time.Second
-	steerEvery = 2 * time.Second
+	heartbeat  = 2 * time.Second
 )
 
 type Options struct {
@@ -68,6 +69,8 @@ type Options struct {
 	ControlPlane string
 	Token        string
 	SetupTimeout time.Duration
+	AnswerWait   time.Duration
+	Heartbeat    time.Duration
 }
 
 func Execute(ctx context.Context, run protocol.Run, opts Options) error {
@@ -238,51 +241,54 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	attached := func(ctx context.Context, attachment protocol.Attachment) error {
-		return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
+	talk := &conversation{
+		run:       run,
+		harness:   harness,
+		sessionID: sessionID,
+		journal:   journal,
+		control:   opts.Journal,
+		keeper:    keeper,
+		lifecycle: lifecycle,
+		declared: func() *protocol.Outcome {
+			if declared := channel.Take(); declared != nil {
+				return declared
+			}
+			return space.TakeOutcome()
+		},
+		attached: func(ctx context.Context, attachment protocol.Attachment) error {
+			return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
+		},
+		putToPerson: &putToPerson,
+		heartbeat:   opts.heartbeat(),
+		answerWait:  opts.AnswerWait,
+		log:         log,
+		stopped:     make(chan struct{}),
+		lost:        make(chan struct{}),
 	}
 
-	exitCode, stopped := work(ctx, harness, sessionID, run, journal, opts.Journal, attached, &putToPerson, log)
-
-	if err := lifecycle.reach(AgentExited); err != nil {
-		leave()
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	parked, err := talk.work(ctx, talk.opening(ctx))
+	_ = harness.Close()
+	if parked {
+		log.Info("run parked", "state", lifecycle.state)
+		return nil
+	}
+	if err != nil {
+		return err
 	}
 
+	lifecycle.note(AgentExited, log)
 	opts.draftStacks(ctx, run, space.Dir, bases, log)
+	lifecycle.note(Drained, log)
 
-	declared := channel.Declared()
-	if declared == nil {
-		declared = space.Outcome()
+	log.Info("run finished", "state", lifecycle.state)
+	return nil
+}
+
+func (o Options) heartbeat() time.Duration {
+	if o.Heartbeat > 0 {
+		return o.Heartbeat
 	}
-
-	leave()
-
-	journal.flush(ctx)
-	if err := lifecycle.reach(Drained); err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
-	}
-
-	log.Info("run finished", "state", lifecycle.state, "exitCode", exitCode, "stopped", stopped)
-
-	if stopped {
-		return opts.Journal.Complete(ctx, run.ID, protocol.Completion{
-			ExitCode:  exitCode,
-			Failed:    false,
-			Stopped:   true,
-			Outcome:   declared,
-			SessionID: sessionID,
-		})
-	}
-
-	completed := opts.Journal.Complete(ctx, run.ID, protocol.Completion{
-		ExitCode:  exitCode,
-		Failed:    exitCode != 0,
-		Outcome:   declared,
-		SessionID: sessionID,
-	})
-
-	return completed
+	return heartbeat
 }
 
 func (o Options) draftStacks(
@@ -339,94 +345,6 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 	return sessionID, nil
 }
 
-func work(
-	ctx context.Context,
-	harness *acp.Client,
-	sessionID string,
-	run protocol.Run,
-	journal *journalWriter,
-	lease Journal,
-	attached func(context.Context, protocol.Attachment) error,
-	putToPerson *atomic.Bool,
-	log *slog.Logger,
-) (int, bool) {
-	renewing, stopRenewing := context.WithCancel(ctx)
-	defer stopRenewing()
-
-	var stopped atomic.Bool
-	go renew(renewing, lease, run.ID, log, func() {
-		stopped.Store(true)
-		_ = harness.Close()
-	})
-
-	flushing, stopFlushing := context.WithCancel(ctx)
-	defer stopFlushing()
-	go stream(flushing, journal)
-
-	prompt := run.Spec.Briefing
-	steered, resaid := false, false
-
-	for {
-		turn, endTurn := context.WithCancel(ctx)
-		go steer(turn, harness, lease, sessionID, run.ID, log)
-
-		heard := 0
-		result, err := harness.Prompt(ctx, sessionID, prompt, func(update acp.Update) {
-			heard++
-			journal.append(protocol.Event{
-				Type: protocol.EventOutput,
-				Data: update.Raw,
-			})
-		})
-		endTurn()
-
-		journal.flush(ctx)
-
-		if stopped.Load() {
-			return 0, true
-		}
-
-		if putToPerson.Load() {
-			log.Info("a person was asked for permission; letting the run go")
-			return 0, false
-		}
-
-		if err != nil {
-			log.Warn("the agent stopped short", "error", err)
-			return -1, false
-		}
-
-		log.Info("turn finished", "stopReason", result.StopReason)
-
-		// A harness can end the turn right after a cancel without reading the prompt at all.
-		if steered && !resaid && heard == 0 && result.StopReason == "end_turn" {
-			log.Info("the harness let what was said go unread; saying it again")
-			resaid = true
-			continue
-		}
-		steered, resaid = result.StopReason == "cancelled", false
-
-		if result.StopReason != "end_turn" &&
-			result.StopReason != "max_tokens" &&
-			result.StopReason != "cancelled" {
-			return 1, false
-		}
-
-		said, upTo := waiting(ctx, lease, run.ID, attached, log)
-		if said == "" {
-			return 0, false
-		}
-
-		if err := lease.Delivered(ctx, run.ID, upTo); err != nil {
-			log.Warn("could not mark what was said delivered", "error", err)
-			return 0, false
-		}
-
-		log.Info("a person said something", "upTo", upTo)
-		prompt = said
-	}
-}
-
 func answering(
 	run protocol.Run, lease Journal, putToPerson *atomic.Bool, log *slog.Logger,
 ) acp.Permission {
@@ -476,68 +394,6 @@ func serversOf(given []protocol.McpServer) []acp.McpServer {
 		})
 	}
 	return servers
-}
-
-func steer(
-	ctx context.Context,
-	harness *acp.Client,
-	lease Journal,
-	sessionID, runID string,
-	log *slog.Logger,
-) {
-	ticker := time.NewTicker(steerEvery)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			said, err := lease.Said(ctx, runID)
-			if err != nil {
-				if ctx.Err() == nil {
-					log.Warn("could not look for anything said", "error", err)
-				}
-				continue
-			}
-			if len(said) > 0 {
-				log.Info("a person spoke mid-turn; steering")
-				if err := harness.Cancel(sessionID); err != nil {
-					log.Warn("could not cancel the turn", "error", err)
-				}
-				return
-			}
-		}
-	}
-}
-
-func waiting(
-	ctx context.Context,
-	lease Journal,
-	runID string,
-	attached func(context.Context, protocol.Attachment) error,
-	log *slog.Logger,
-) (string, int) {
-	said, err := lease.Said(ctx, runID)
-	if err != nil {
-		log.Warn("could not read what was said", "error", err)
-		return "", 0
-	}
-	if len(said) == 0 {
-		return "", 0
-	}
-
-	bodies := make([]string, 0, len(said))
-	for _, each := range said {
-		for _, attachment := range each.Attachments {
-			if err := attached(ctx, attachment); err != nil {
-				log.Warn("could not fetch what was attached", "error", err)
-			}
-		}
-		bodies = append(bodies, each.Body)
-	}
-
-	return strings.Join(bodies, "\n\n"), said[len(said)-1].Position
 }
 
 func fetch(
@@ -661,49 +517,6 @@ func writing(text string) func(io.Writer) error {
 	}
 }
 
-func renew(
-	ctx context.Context,
-	lease Journal,
-	runID string,
-	log *slog.Logger,
-	onStop func(),
-) {
-	ticker := time.NewTicker(renewEvery)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			stop, err := lease.RenewLease(ctx, runID)
-			if err != nil {
-				log.Warn("could not renew lease", "error", err)
-				continue
-			}
-			if stop {
-				log.Info("a person asked the run to stop")
-				onStop()
-				return
-			}
-		}
-	}
-}
-
-func stream(ctx context.Context, journal *journalWriter) {
-	ticker := time.NewTicker(flushEvery)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			journal.flush(ctx)
-		}
-	}
-}
-
 func finish(
 	ctx context.Context,
 	runID string,
@@ -723,7 +536,7 @@ func finish(
 	})
 	journal.flush(ctx)
 
-	if err := reporter.Complete(ctx, runID, protocol.Completion{
+	if _, err := reporter.Complete(ctx, runID, protocol.Completion{
 		ExitCode: -1,
 		Failed:   true,
 		Message:  cause.Error(),
@@ -745,6 +558,12 @@ func (p *progress) reach(trigger Trigger) error {
 	}
 	p.state = next
 	return nil
+}
+
+func (p *progress) note(trigger Trigger, log *slog.Logger) {
+	if err := p.reach(trigger); err != nil {
+		log.Warn("the run's lifecycle went astray", "error", err)
+	}
 }
 
 func (o Options) prepare(ctx context.Context, dir string, run protocol.Run, journal *journalWriter) error {

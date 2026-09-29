@@ -10,11 +10,14 @@ import (
 
 const OutcomePath = ".spotlight/outcome.json"
 
-func (w *Workspace) Outcome() *protocol.Outcome {
-	raw, err := os.ReadFile(filepath.Join(w.Dir, OutcomePath))
+func (w *Workspace) TakeOutcome() *protocol.Outcome {
+	path := filepath.Join(w.Dir, OutcomePath)
+
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
+	_ = os.Remove(path)
 
 	var spoken protocol.Outcome
 	if err := json.Unmarshal(raw, &spoken); err != nil {

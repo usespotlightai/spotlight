@@ -2,6 +2,8 @@ package protocol
 
 const TrustHeader = "Spotlight-Trust"
 
+const AnswerWaitVar = "SPOTLIGHT_ANSWER_WAIT"
+
 type HostRequirements struct {
 	Runner    RunnerRequirement `json:"runner"`
 	Harnesses []Installable     `json:"harnesses"`

@@ -366,11 +366,11 @@ func (w *worker) RecordImage(_ context.Context, runID, image string) error {
 	return nil
 }
 
-func (w *worker) Complete(_ context.Context, runID string, done protocol.Completion) error {
+func (w *worker) Complete(_ context.Context, runID string, done protocol.Completion) (protocol.Completed, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.completed[runID] = done
-	return nil
+	return protocol.Completed{}, nil
 }
 
 func (w *worker) RecordChangeStackCheck(_ context.Context, _, stackID string, checked protocol.StackChecked) error {
@@ -707,6 +707,24 @@ func TestEveryPieceOfWorkGetsAFreshSandboxThatIsDestroyedAfterwards(t *testing.T
 	eventually(t, "both destroyed", func() bool {
 		return engine.wasDestroyed(ids[0]) && engine.wasDestroyed(ids[1])
 	})
+}
+
+func TestEverySandboxIsToldHowLongToWaitWarmForAnAnswer(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.AnswerWait = 90 * time.Second
+	serving(t, opts, engine, pool)
+
+	pool.work <- handed("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+
+	id := engine.workSandboxes()[0]
+	if spec := engine.sandbox(id); !slices.Contains(spec.Env, "SPOTLIGHT_ANSWER_WAIT=1m30s") {
+		t.Errorf("the sandbox was not told how long to wait: %v", spec.Env)
+	}
+
+	engine.finish(id)
+	eventually(t, "destroyed", func() bool { return engine.wasDestroyed(id) })
 }
 
 func TestTakesNoMoreWorkThanItsCapacity(t *testing.T) {

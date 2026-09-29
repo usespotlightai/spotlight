@@ -1,6 +1,6 @@
 import type { Server } from 'node:http';
 import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import {
   type AuthenticatedUser,
   SESSION_READER,
@@ -22,11 +22,16 @@ const sessionsFromHeader: SessionReaderPort = {
   },
 };
 
-export const openApp = async (): Promise<INestApplication> => {
-  const compiled = await Test.createTestingModule({ imports: [AppModule] })
-    .overrideProvider(SESSION_READER)
-    .useValue(sessionsFromHeader)
-    .compile();
+export const openApp = async (
+  overriding: (module: TestingModuleBuilder) => TestingModuleBuilder = (
+    module,
+  ) => module,
+): Promise<INestApplication> => {
+  const compiled = await overriding(
+    Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(SESSION_READER)
+      .useValue(sessionsFromHeader),
+  ).compile();
   const app = configureApp(compiled.createNestApplication());
 
   await app.listen(0, '127.0.0.1');

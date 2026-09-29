@@ -47,7 +47,7 @@ func post(t *testing.T, server *declare.Server, token, body string) (int, string
 }
 
 func TestNothingSaidIsNoDeclaration(t *testing.T) {
-	if declared := serve(t).Declared(); declared != nil {
+	if declared := serve(t).Take(); declared != nil {
 		t.Fatalf("expected silence, got %+v", declared)
 	}
 }
@@ -60,7 +60,7 @@ func TestRecordsWhatTheAgentSaid(t *testing.T) {
 		t.Fatalf("status %d: %s", status, said)
 	}
 
-	declared := server.Declared()
+	declared := server.Take()
 	if declared == nil || declared.Next != "spec" || declared.Note != "needs a spec" {
 		t.Fatalf("got %+v", declared)
 	}
@@ -73,7 +73,7 @@ func TestAnswersInTheSpellingTheControlPlaneGave(t *testing.T) {
 		t.Fatalf("status %d: %s", status, said)
 	}
 
-	if declared := server.Declared(); declared.Next != "code-review" {
+	if declared := server.Take(); declared.Next != "code-review" {
 		t.Fatalf("got %q", declared.Next)
 	}
 }
@@ -92,7 +92,7 @@ func TestRefusesAWordThatIsNotOnOffer(t *testing.T) {
 		}
 	}
 
-	if declared := server.Declared(); declared != nil {
+	if declared := server.Take(); declared != nil {
 		t.Fatalf("refused but recorded %+v", declared)
 	}
 }
@@ -103,8 +103,26 @@ func TestLastWordStands(t *testing.T) {
 	post(t, server, server.Token(), `{"next":"spec","note":"first"}`)
 	post(t, server, server.Token(), `{"next":"review","note":"second"}`)
 
-	if declared := server.Declared(); declared.Next != "review" || declared.Note != "second" {
+	if declared := server.Take(); declared.Next != "review" || declared.Note != "second" {
 		t.Fatalf("got %+v", declared)
+	}
+}
+
+func TestADeclarationIsTakenOncePerTurn(t *testing.T) {
+	server := serve(t)
+
+	post(t, server, server.Token(), `{"next":"review","note":"is this right?"}`)
+
+	if declared := server.Take(); declared == nil || declared.Next != "review" {
+		t.Fatalf("got %+v", declared)
+	}
+	if again := server.Take(); again != nil {
+		t.Fatalf("the next turn would say %+v again", again)
+	}
+
+	post(t, server, server.Token(), `{"next":"spec"}`)
+	if declared := server.Take(); declared == nil || declared.Next != "spec" {
+		t.Fatalf("the next turn's declaration was %+v", declared)
 	}
 }
 
@@ -116,7 +134,7 @@ func TestAnotherRunsTokenSpeaksForNothing(t *testing.T) {
 		t.Fatalf("status %d", status)
 	}
 
-	if declared := server.Declared(); declared != nil {
+	if declared := server.Take(); declared != nil {
 		t.Fatalf("recorded %+v", declared)
 	}
 }
@@ -385,7 +403,7 @@ func TestRefusesAToolRequestNamingNoTool(t *testing.T) {
 	if status != http.StatusNotFound || !strings.Contains(said, "name the tool") {
 		t.Fatalf("status = %d, said %q, want it to ask which tool", status, said)
 	}
-	if declared := server.Declared(); declared != nil {
+	if declared := server.Take(); declared != nil {
 		t.Fatalf("recorded a handover %+v", declared)
 	}
 }

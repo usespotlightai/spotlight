@@ -2,6 +2,7 @@ import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { ToolInputType } from '@work/domain/value-objects/declared-tool.vo';
+import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 
 export interface RunCheckout {
@@ -27,6 +28,7 @@ interface RunHandover {
 export interface RunContinuity {
   readonly key: string;
   readonly sessionId?: string;
+  readonly resumes?: boolean;
 }
 
 export interface RunToolInput {
@@ -145,6 +147,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ...(parts.continuity.sessionId !== undefined
       ? { sessionId: parts.continuity.sessionId }
       : {}),
+    ...(parts.continuity.resumes ? { resumes: true } : {}),
   },
   ...(parts.skills
     ? { skills: parts.skills.map(({ path, text }) => ({ path, text })) }
@@ -288,6 +291,27 @@ export class RunSpec {
 
   get continuesASession(): boolean {
     return Boolean(this.parts.continuity.sessionId);
+  }
+
+  get resumes(): boolean {
+    return this.parts.continuity.resumes === true;
+  }
+
+  resumingIn(session: HarnessSession | null): RunSpec {
+    return new RunSpec(
+      copied({
+        ...this.parts,
+        continuity: {
+          key: this.parts.continuity.key,
+          ...(session
+            ? { sessionId: session.value }
+            : this.parts.continuity.sessionId !== undefined
+              ? { sessionId: this.parts.continuity.sessionId }
+              : {}),
+          resumes: true,
+        },
+      }),
+    );
   }
 
   get wears(): readonly SecretName[] {

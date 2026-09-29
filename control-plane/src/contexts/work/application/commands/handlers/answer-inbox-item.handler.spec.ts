@@ -2,6 +2,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -15,6 +16,7 @@ import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -245,7 +247,7 @@ describe('AnswerInboxItem', () => {
     expect(saved).toBeUndefined();
   });
 
-  it('grants the approval a person gives, and puts the task back to work', async () => {
+  it('grants the approval a person gives, leaving the task to the run that asked', async () => {
     await answer(
       asking(),
       new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted'),
@@ -255,7 +257,7 @@ describe('AnswerInboxItem', () => {
     expect(decided?.standing).toBe('granted');
     expect(decided?.decided?.by.value).toBe('user_1');
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Approved.');
-    expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
+    expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
   });
 
   it('records a refusal in the person’s own words', async () => {
@@ -294,7 +296,34 @@ describe('AnswerInboxItem', () => {
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
       'Mention the ticket too.',
     );
-    expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
+    expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+  });
+
+  describe('answering a run that waits for the person', () => {
+    it('says the task was answered for its run, leaving the answer for that run to be given', async () => {
+      await answer(asking());
+
+      expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+      expect(saved?.undelivered.map((each) => each.body.value)).toEqual([
+        'Cap it at 500.',
+      ]);
+      expect(saved?.pullEvents()).toContainEqual(
+        new TaskAnswered(
+          TaskId.of('task_1'),
+          WorkspaceId.of('ws_1'),
+          RunId.of('run_1'),
+        ),
+      );
+    });
+
+    it('hands the answer to a new run in its briefing, so it is never delivered twice', async () => {
+      await answer(waiting());
+
+      expect(saved?.undelivered).toEqual([]);
+      expect(
+        saved?.pullEvents().some((each) => each instanceof TaskAnswered),
+      ).toBe(false);
+    });
   });
 
   it('refuses a decision where nothing was put up to be approved', async () => {

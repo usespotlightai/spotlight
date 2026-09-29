@@ -27,7 +27,7 @@ export interface RunRepository {
 
   claimedBy(runner: RunnerId): Promise<readonly Run[]>;
 
-  waitingFor(runner: RunnerId): Promise<Run | null>;
+  reservedFor(runner: RunnerId): Promise<Run | null>;
 
   awaitingProvision(
     workspaceId: WorkspaceId,

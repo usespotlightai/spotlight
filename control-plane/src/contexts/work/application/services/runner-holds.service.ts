@@ -10,7 +10,7 @@ export class RunnerHolds implements CheckEndingsPort {
     private readonly clock: ClockPort,
   ) {}
 
-  runLapsed(runner: RunnerId, at: Date): Promise<void> {
+  runLeft(runner: RunnerId, at: Date): Promise<void> {
     return this.runners.letGo(runner, at);
   }
 

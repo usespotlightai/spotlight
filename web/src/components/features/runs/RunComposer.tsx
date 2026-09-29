@@ -11,6 +11,7 @@ type RunComposerProps = {
   taskId: string | undefined;
   station: string;
   running: boolean;
+  answering: boolean;
 };
 
 export function RunComposer({
@@ -20,6 +21,7 @@ export function RunComposer({
   taskId,
   station,
   running,
+  answering,
 }: RunComposerProps) {
   const say = useSayToRun();
   const stop = useStopRun();
@@ -28,8 +30,12 @@ export function RunComposer({
   return (
     <Composer
       slug={slug}
-      label={`Say something to ${station}`}
-      placeholder="Say something…"
+      label={answering ? `Answer ${station}` : `Say something to ${station}`}
+      placeholder={
+        answering
+          ? 'Answer the question, and the run carries on…'
+          : 'Say something…'
+      }
       pending={say.isPending}
       running={running}
       context={

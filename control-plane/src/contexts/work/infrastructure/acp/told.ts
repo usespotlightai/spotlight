@@ -2,6 +2,7 @@ import {
   HOOK_CALLED,
   type JournalStep,
   PROVISION_FAILED,
+  RUN_PAUSED,
   type RunMarks,
   type RunSpent,
   type StepChange,
@@ -18,6 +19,7 @@ import {
 const DETAIL_LIMIT = 4_000;
 
 interface Spoken {
+  sessionId?: string;
   update?: {
     sessionUpdate?: string;
     toolCallId?: string;
@@ -169,8 +171,11 @@ export class Told {
   #tools = new Map<string, number>();
   #saying: Building | null = null;
   #spent: RunSpent | null = null;
+  #spentBySession = new Map<string, RunSpent>();
   #first: Date | null = null;
   #last: Date | null = null;
+  #spokenAt: Date[] = [];
+  #pausedAt: Date[] = [];
   #opened: Date | null = null;
   #ready: Date | null = null;
   #closed: Date | null = null;
@@ -199,6 +204,9 @@ export class Told {
         break;
       case PROVISION_FAILED:
         this.failedToProvision(event);
+        break;
+      case RUN_PAUSED:
+        this.#pausedAt.push(event.at);
         break;
       default:
         break;
@@ -234,6 +242,7 @@ export class Told {
 
     this.#first = this.#first ?? at;
     this.#last = at;
+    this.#spokenAt.push(at);
 
     switch (update.sessionUpdate) {
       case 'agent_message_chunk':
@@ -252,7 +261,7 @@ export class Told {
         this.means(update, at);
         break;
       case 'usage_update':
-        this.cost(update);
+        this.cost(update, sent.sessionId ?? '');
         break;
       default:
         break;
@@ -328,10 +337,29 @@ export class Told {
   }
 
   ms(): number | null {
-    if (!this.#first || !this.#last) {
+    if (this.#spokenAt.length === 0) {
       return null;
     }
-    return this.#last.getTime() - this.#first.getTime();
+
+    const pauses = this.#pausedAt
+      .map((at) => at.getTime())
+      .sort((a, b) => a - b);
+    const turns = new Map<number, { from: number; to: number }>();
+
+    for (const at of this.#spokenAt.map((each) => each.getTime())) {
+      const turn = pauses.filter((pause) => pause < at).length;
+      const span = turns.get(turn);
+
+      turns.set(turn, {
+        from: Math.min(span?.from ?? at, at),
+        to: Math.max(span?.to ?? at, at),
+      });
+    }
+
+    return [...turns.values()].reduce(
+      (sum, span) => sum + span.to - span.from,
+      0,
+    );
   }
 
   marks(): RunMarks {
@@ -348,7 +376,11 @@ export class Told {
     return this.#spent;
   }
 
-  private cost(update: NonNullable<Spoken['update']>): void {
+  spentBySession(): ReadonlyMap<string, RunSpent> {
+    return this.#spentBySession;
+  }
+
+  private cost(update: NonNullable<Spoken['update']>, session: string): void {
     if (update.used === undefined || update.size === undefined) {
       return;
     }
@@ -358,6 +390,7 @@ export class Told {
       size: update.size,
       cost: Money.maybe(update.cost?.amount, update.cost?.currency),
     };
+    this.#spentBySession.set(session, this.#spent);
   }
 
   private means(update: NonNullable<Spoken['update']>, at: Date): void {

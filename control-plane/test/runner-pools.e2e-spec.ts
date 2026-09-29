@@ -363,7 +363,7 @@ describe('runner pools (e2e)', () => {
       expect(rotated.body).toMatchObject({ id: made.body.id, tokenVersion: 2 });
       await claimWith(old).expect(401);
       await runnerCall(claimed.body.token).renew(runId).expect(201);
-      await runnerCall(claimed.body.token).complete(runId).expect(204);
+      await runnerCall(claimed.body.token).complete(runId).expect(200);
       await eventually(
         async () =>
           (await runnerCall(claimed.body.token).renew(runId)).status === 401,

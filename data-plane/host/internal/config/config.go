@@ -19,6 +19,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/trust"
+	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
 )
 
@@ -31,6 +32,7 @@ type Config struct {
 	Images     images.Allowed
 	Registry   string
 	RunTimeout time.Duration
+	AnswerWait time.Duration
 	SandboxEnv []string
 	Egress     Egress
 	Network    string
@@ -59,6 +61,7 @@ const (
 	envImage      = "SPOTLIGHT_RUNNER_IMAGE"
 	envRegistry   = "SPOTLIGHT_REGISTRY_CONFIG"
 	envRunTimeout = "SPOTLIGHT_RUN_TIMEOUT"
+	envAnswerWait = protocol.AnswerWaitVar
 	envSandboxURL = "SPOTLIGHT_SANDBOX_URL"
 	envSandboxEnv = "SPOTLIGHT_SANDBOX_ENV"
 	envPass       = "SPOTLIGHT_SANDBOX_PASS"
@@ -77,10 +80,11 @@ const (
 
 const (
 	defaultRunTimeout = 6 * time.Hour
+	defaultAnswerWait = 5 * time.Minute
 	Image             = "ghcr.io/usespotlightai/spotlight-runner"
 )
 
-var hostOnly = []string{envURL, envToken, envTrust, envTokenFile, "SPOTLIGHT_HANDED"}
+var hostOnly = []string{envURL, envToken, envTrust, envTokenFile, "SPOTLIGHT_HANDED", envAnswerWait}
 
 func Path() string {
 	if path := strings.TrimSpace(os.Getenv(EnvConfig)); path != "" {
@@ -167,6 +171,14 @@ func Load(version string) (Config, error) {
 		cfg.RunTimeout, err = time.ParseDuration(raw)
 		if err != nil || cfg.RunTimeout <= 0 {
 			note(fmt.Errorf("%s: %q is not a duration such as 6h", envRunTimeout, raw))
+		}
+	}
+
+	cfg.AnswerWait = defaultAnswerWait
+	if raw := get(envAnswerWait); raw != "" {
+		cfg.AnswerWait, err = time.ParseDuration(raw)
+		if err != nil || cfg.AnswerWait < 0 {
+			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to park at once", envAnswerWait, raw))
 		}
 	}
 

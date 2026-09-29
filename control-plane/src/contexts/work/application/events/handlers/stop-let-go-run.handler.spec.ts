@@ -8,6 +8,7 @@ import { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -37,6 +38,14 @@ const queued = () =>
   });
 
 const claimed = () => queued().claim(RUNNER, NOW);
+
+const waitingForAPerson = () =>
+  claimed().paused(
+    RUNNER,
+    RunOutcome.of({ exitCode: 0, failed: false }),
+    HandoverReport.none(),
+    NOW,
+  );
 
 const letGo = new TaskLetGoOfRun(
   TaskId.of('task_1'),
@@ -71,6 +80,25 @@ describe('StopLetGoRun', () => {
 
     expect(save).toHaveBeenCalledTimes(1);
     expect(save.mock.calls[0]?.[0].state).toBe('superseded');
+  });
+
+  it('ends a run waiting warm for a person as its turn ended, so its runner lets the sandbox go', async () => {
+    const { handler, save } = stopping(waitingForAPerson());
+
+    await handler.on(letGo);
+
+    expect(save.mock.calls[0]?.[0].state).toBe('completed');
+    expect(save.mock.calls[0]?.[0].outcome?.stopped).toBe(false);
+    expect(save.mock.calls[0]?.[0].outcome?.failed).toBe(false);
+  });
+
+  it('ends a parked run as its turn ended, since no runner holds it', async () => {
+    const { handler, save } = stopping(waitingForAPerson().park(RUNNER, NOW));
+
+    await handler.on(letGo);
+
+    expect(save.mock.calls[0]?.[0].state).toBe('completed');
+    expect(save.mock.calls[0]?.[0].outcome?.exitCode).toBe(0);
   });
 
   it('leaves a run that has already ended', async () => {

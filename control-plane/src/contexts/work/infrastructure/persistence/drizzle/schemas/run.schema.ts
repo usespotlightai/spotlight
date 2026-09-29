@@ -1,6 +1,7 @@
 import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
 import { RUN_STATES } from '@work/domain/value-objects/run-state';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   doublePrecision,
@@ -47,6 +48,10 @@ export const run = pgTable(
     provisionFailures: integer('provision_failures').notNull().default(0),
     nextProvisionAt: timestamp('next_provision_at'),
     handBacks: integer('hand_backs').notNull().default(0),
+    parkedAttempts: integer('parked_attempts')
+      .array()
+      .notNull()
+      .default(sql`'{}'::integer[]`),
     briefedMemories: jsonb('briefed_memories')
       .$type<BriefedMemoriesParts>()
       .notNull()

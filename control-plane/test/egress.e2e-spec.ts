@@ -338,7 +338,7 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
       .post(`/api/runs/${runId}/completion`)
       .set('Authorization', `Bearer ${work.token}`)
       .send({ exitCode: 0, failed: false })
-      .expect(204);
+      .expect(200);
 
     await eventually(async () => {
       const answer = await redeem(work.egressToken, recipient().written);

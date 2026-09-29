@@ -1,9 +1,9 @@
-import { Inbox } from 'lucide-react';
+import { CirclePause, Inbox } from 'lucide-react';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { InProgress } from '@/components/shared/InProgress';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type Run, reviewInk, standing } from '@/lib/run';
+import { type Run, reviewInk, standing, waitsOnPerson } from '@/lib/run';
 import { since } from '@/lib/runner';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,23 @@ export function RunRow({
   inTrail,
   gutter,
 }: RunRowProps) {
+  const waits = waitsOnPerson(run);
+  const stands = standing(run);
+  const leadsToReview = Boolean(run.review) && !inTrail;
+
+  const marker = waits ? (
+    <Pill lead={<CirclePause className="size-3.5 shrink-0" aria-hidden />}>
+      {stands}
+    </Pill>
+  ) : run.review && leadsToReview ? (
+    <Pill
+      lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}
+      className={reviewInk(run.review)}
+    >
+      Awaiting review
+    </Pill>
+  ) : null;
+
   return (
     <li
       className={cn(
@@ -57,21 +74,22 @@ export function RunRow({
       )}
 
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        {run.review && !inTrail && (
-          <TrailLink to={reviewTo ?? ''} className="relative z-10 outline-none">
-            <Pill
-              lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}
-              className={reviewInk(run.review)}
+        {marker &&
+          (leadsToReview ? (
+            <TrailLink
+              to={reviewTo ?? ''}
+              className="relative z-10 outline-none"
             >
-              Awaiting review
-            </Pill>
-          </TrailLink>
-        )}
+              {marker}
+            </TrailLink>
+          ) : (
+            marker
+          ))}
 
         {run.state === 'claimed' && <InProgress />}
 
-        {standing(run) && (
-          <span className="text-muted-foreground text-xs">{standing(run)}</span>
+        {stands && !waits && (
+          <span className="text-muted-foreground text-xs">{stands}</span>
         )}
 
         <span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">

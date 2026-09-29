@@ -22,7 +22,7 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
-import { turnOf } from '@work/domain/services/conversations';
+import { awaitsAPerson, turnOf } from '@work/domain/services/conversations';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -213,7 +213,8 @@ export class DrizzleRunReader implements RunReaderPort {
     const attached = await attachmentsFor(this.db, [found.taskId]);
     const held = await stationsPerLine(this.db, [found.stationLineId ?? '']);
     const told = trail ?? [];
-    const said = turnOf(told, runId.value);
+    const holding = found.workingRunId === found.runId;
+    const said = turnOf(told, runId.value, holding);
     const spec = RunSpecContract.from(found.spec);
 
     return {
@@ -225,7 +226,7 @@ export class DrizzleRunReader implements RunReaderPort {
       station: worked({ ...found }, held),
       createdAt: found.createdAt,
       briefing: spec?.briefing ?? null,
-      working: found.workingRunId === found.runId,
+      working: holding && !awaitsAPerson(told),
       notes: said,
     };
   }

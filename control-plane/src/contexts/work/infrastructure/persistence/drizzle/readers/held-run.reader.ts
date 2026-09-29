@@ -10,6 +10,7 @@ import type {
   PendingSaying,
 } from '@work/application/ports/held-run-reader.port';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { HELD_RUN_STATES } from '@work/domain/value-objects/run-state';
 import {
   chatAttachment,
   chatMessage,
@@ -20,7 +21,7 @@ import {
   taskAttachment,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, asc, eq, isNull, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
 
 interface AttachedRow {
   readonly at: number | null;
@@ -107,7 +108,7 @@ export class DrizzleHeldRunReader implements HeldRunReaderPort {
         and(
           eq(run.id, runId.value),
           eq(run.claimedBy, runnerId.value),
-          eq(run.state, 'claimed'),
+          inArray(run.state, [...HELD_RUN_STATES]),
         ),
       )
       .limit(1);
@@ -170,7 +171,7 @@ export class DrizzleHeldRunReader implements HeldRunReaderPort {
         .where(
           and(
             eq(taskNote.taskId, taskId),
-            eq(taskNote.kind, 'said'),
+            inArray(taskNote.kind, ['said', 'answered']),
             ne(taskNote.voice, 'station'),
             isNull(taskNote.deliveredAt),
           ),

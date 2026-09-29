@@ -727,3 +727,123 @@ func TestReadsTheMemoryFilesOfARun(t *testing.T) {
 		t.Errorf("asked %s, got %+v", asked, files)
 	}
 }
+
+func TestCompleteHearsWhetherTheRunNowWaitsForAPerson(t *testing.T) {
+	var asked string
+	var told protocol.Completion
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = r.Method + " " + r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&told)
+		_, _ = w.Write([]byte(`{"waiting":true}`))
+	})
+
+	completed, err := client.Complete(context.Background(), "run_1", protocol.Completion{SessionID: "session_1"})
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if !completed.Waiting {
+		t.Error("the run waits for a person, yet the runner heard it ended")
+	}
+	if asked != "POST /api/runs/run_1/completion" || told.SessionID != "session_1" {
+		t.Errorf("asked %q with %+v", asked, told)
+	}
+}
+
+func TestCompleteHearsThatTheRunEnded(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"waiting":false}`))
+	})
+
+	completed, err := client.Complete(context.Background(), "run_1", protocol.Completion{})
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if completed.Waiting {
+		t.Error("the run ended, yet the runner heard it waits")
+	}
+}
+
+func TestParkHearsWhetherTheRunWasLetGo(t *testing.T) {
+	for _, answer := range []bool{true, false} {
+		var asked string
+		client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+			asked = r.Method + " " + r.URL.Path
+			_ = json.NewEncoder(w).Encode(protocol.Parking{Parked: answer})
+		})
+
+		parking, err := client.Park(context.Background(), "run_1", false)
+		if err != nil {
+			t.Fatalf("park: %v", err)
+		}
+		if parking.Parked != answer {
+			t.Errorf("the control plane said parked %t, the runner heard %t", answer, parking.Parked)
+		}
+		if asked != "POST /api/runs/run_1/parked" {
+			t.Errorf("asked %q", asked)
+		}
+	}
+}
+
+func TestParkSaysWhyItCouldNotPark(t *testing.T) {
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "run is not waiting", http.StatusConflict)
+	})
+
+	if _, err := client.Park(context.Background(), "run_1", false); err == nil || !strings.Contains(err.Error(), "409") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestAsksHearsWhetherTheTurnWouldWaitForAPerson(t *testing.T) {
+	for _, answer := range []bool{true, false} {
+		var asked string
+		var sent protocol.Completion
+		client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+			asked = r.Method + " " + r.URL.Path
+			_ = json.NewDecoder(r.Body).Decode(&sent)
+			_ = json.NewEncoder(w).Encode(protocol.TurnAsks{Asks: answer})
+		})
+
+		asks, err := client.Asks(context.Background(), "run_1", protocol.Completion{
+			Outcome: &protocol.Outcome{Next: "review"},
+		})
+		if err != nil {
+			t.Fatalf("asks: %v", err)
+		}
+		if asks != answer {
+			t.Errorf("the control plane said %t, the runner heard %t", answer, asks)
+		}
+		if asked != "POST /api/runs/run_1/completion/asks" || sent.Outcome == nil || sent.Outcome.Next != "review" {
+			t.Errorf("asked %q with %+v", asked, sent)
+		}
+	}
+}
+
+func TestParkColdAsksForTheRunToGoBackOnTheQueue(t *testing.T) {
+	var sent protocol.ParkRequest
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&sent)
+		_ = json.NewEncoder(w).Encode(protocol.Parking{Parked: true})
+	})
+
+	if _, err := client.Park(context.Background(), "run_1", true); err != nil {
+		t.Fatalf("park: %v", err)
+	}
+	if !sent.Cold {
+		t.Errorf("asked to park %+v", sent)
+	}
+}
+
+func TestOnlyAMissingRunIsGone(t *testing.T) {
+	for status, want := range map[int]bool{http.StatusNotFound: true, http.StatusConflict: false} {
+		client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "no", status)
+		})
+
+		_, err := client.RenewLease(context.Background(), "run_1")
+		var rejection *control.Rejection
+		if !errors.As(err, &rejection) || rejection.Gone() != want {
+			t.Errorf("a %d renewal was gone %v, wanted %v", status, rejection != nil && rejection.Gone(), want)
+		}
+	}
+}

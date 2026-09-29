@@ -646,7 +646,7 @@ describe('UseToolHandler', () => {
     });
   });
 
-  it('puts a tool that needs approving to a person instead of calling it', async () => {
+  it('puts a tool that needs approving to a person instead of calling it, the run waiting on their answer', async () => {
     const { reach, called, standing } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
     });
@@ -670,7 +670,8 @@ describe('UseToolHandler', () => {
     expect(asked?.approval?.at.value).toBe('station_1');
     expect(asked?.body.value).toContain('It posts publicly');
     expect(asked?.body.value).toContain('Fixed.');
-    expect(standing().running).toBe(false);
+    expect(standing().running).toBe(true);
+    expect(standing().working).toBe(false);
   });
 
   it('asks once while a person still owes an answer', async () => {
