@@ -17,5 +17,13 @@ export function messageOf(
     }
   }
 
+  if (typeof thrown === 'object' && thrown !== null && 'detail' in thrown) {
+    const detail = (thrown as { detail: unknown }).detail;
+
+    if (typeof detail === 'string' && detail.length > 0) {
+      return detail;
+    }
+  }
+
   return fallback;
 }

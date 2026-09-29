@@ -9,6 +9,7 @@ import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRunners } from '@/hooks/api/useRunners';
+import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { failed, loading } from '@/lib/query';
 import { harnessesOf } from '@/lib/runner';
 
@@ -21,6 +22,8 @@ export function Runners() {
   const { slug } = useParams();
   const fleet = useRunners(slug);
   const { data: harnesses } = useHarnesses();
+  const workspaceQuery = useWorkspace(slug);
+  const workspace = workspaceQuery.data;
 
   if (!slug) {
     return null;
@@ -40,7 +43,8 @@ export function Runners() {
         <section className="flex flex-col gap-2">
           <h2 className={HEADING}>Hosts</h2>
 
-          {loading(fleet) && (
+          {(loading(fleet) ||
+            (hosts.length === 0 && loading(workspaceQuery))) && (
             <ul role="status" aria-label="Loading the hosts" className={FLEET}>
               <HostCardSkeleton />
             </ul>
@@ -55,7 +59,9 @@ export function Runners() {
             />
           )}
 
-          {fleet.data && hosts.length === 0 && <HostInstall />}
+          {fleet.data && workspace && hosts.length === 0 && (
+            <HostInstall workspace={workspace} />
+          )}
 
           {hosts.length > 0 && (
             <ul className={FLEET}>

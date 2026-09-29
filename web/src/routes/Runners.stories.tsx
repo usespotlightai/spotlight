@@ -2,8 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Route } from 'react-router';
 import { runnersPath } from '@/lib/runner';
 import { Runners } from '@/routes/Runners';
+import { failMutations } from '@/stories/failMutations';
 import {
   emptyRunners,
+  emptyRunnersForMember,
   failRunners,
   SLUG,
   seedRunners,
@@ -30,6 +32,35 @@ export const Empty: Story = {
       {routes}
     </StoryPage>
   ),
+};
+
+export const EmptyForMember: Story = {
+  name: 'Empty, as a member',
+  render: () => (
+    <StoryPage at={runnersPath(SLUG)} seed={emptyRunnersForMember}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const CouldNotCreatePool: Story = {
+  name: 'Could not create a pool',
+  render: () => (
+    <StoryPage
+      at={runnersPath(SLUG)}
+      seed={(client) => {
+        emptyRunners(client);
+        failMutations(client);
+      }}
+    >
+      {routes}
+    </StoryPage>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      await canvas.findByRole('button', { name: 'Create pool' }),
+    );
+  },
 };
 
 export const Failed: Story = {
