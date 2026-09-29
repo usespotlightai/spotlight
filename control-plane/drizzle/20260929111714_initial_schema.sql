@@ -939,6 +939,7 @@ CREATE TABLE "task_note" (
 	"said" jsonb,
 	"approval" jsonb,
 	"failure" jsonb,
+	"held_back" jsonb,
 	"answered_at" timestamp,
 	"read_at" timestamp,
 	"delivered_at" timestamp,

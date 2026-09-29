@@ -5,6 +5,7 @@ import type {
   Decided,
 } from '@work/domain/value-objects/approval.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { Remark } from '@work/domain/value-objects/remark.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
@@ -43,6 +44,7 @@ export class TaskNote {
     readonly attachments: readonly Attachment[],
     readonly approval: Approval | null,
     readonly failure: TaskFailure | null,
+    readonly heldBack: HeldBack | null,
   ) {}
 
   static of(input: {
@@ -60,6 +62,7 @@ export class TaskNote {
     attachments?: readonly Attachment[];
     approval?: Approval | null;
     failure?: TaskFailure | null;
+    heldBack?: HeldBack | null;
   }): TaskNote {
     return new TaskNote(
       input.position,
@@ -76,6 +79,7 @@ export class TaskNote {
       input.attachments ?? [],
       input.approval ?? null,
       input.failure ?? null,
+      input.heldBack ?? null,
     );
   }
 
@@ -142,6 +146,7 @@ export class TaskNote {
           this.attachments,
           this.approval,
           this.failure.again(),
+          this.heldBack,
         )
       : this;
   }
@@ -175,6 +180,7 @@ export class TaskNote {
       this.attachments,
       part.approval ?? this.approval,
       this.failure,
+      this.heldBack,
     );
   }
 }

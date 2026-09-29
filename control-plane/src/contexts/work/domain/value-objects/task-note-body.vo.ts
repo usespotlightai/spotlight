@@ -22,6 +22,52 @@ export class TaskNoteBody {
     return TaskNoteBody.of(spoken || told);
   }
 
+  static heldBack(
+    told: string,
+    said: Said | null,
+    to: StationName,
+  ): TaskNoteBody {
+    return TaskNoteBody.of(
+      `Heard while a run held the task. It moves to ${to.value} when the run ends, unless the run passes it on:\n\n${TaskNoteBody.heard(told, said).value}`,
+    );
+  }
+
+  static movedAsHeldBack(
+    to: StationName,
+    account: TaskNoteBody | null,
+  ): TaskNoteBody {
+    const moved = `Moved to ${to.value} when the run ended, because of an event that arrived while it worked.`;
+
+    return TaskNoteBody.of(account ? `${moved}\n\n${account.value}` : moved);
+  }
+
+  static interrupted(told: string, working: StationName | null): TaskNoteBody {
+    return TaskNoteBody.happenedWhile(told, working, 'was working');
+  }
+
+  static interruptedWhileWaiting(
+    told: string,
+    waiting: StationName | null,
+  ): TaskNoteBody {
+    return TaskNoteBody.happenedWhile(
+      told,
+      waiting,
+      'was waiting for an answer',
+    );
+  }
+
+  private static happenedWhile(
+    told: string,
+    station: StationName | null,
+    doing: string,
+  ): TaskNoteBody {
+    const happened = TaskNoteBody.of(told).value.replace(/\.$/, '');
+
+    return TaskNoteBody.of(
+      `${happened} while ${station?.value ?? 'its station'} ${doing}. Close the task, or reply to carry on.`,
+    );
+  }
+
   static given(
     raw: string,
     attachments: readonly Attachment[] = [],

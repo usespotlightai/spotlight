@@ -197,7 +197,7 @@ describe('turnEnded', () => {
   describe('whether a turn waits, asked before the runner keeps its workspace', () => {
     const turn = (
       declared: { next: string } | null,
-      over: { ran?: Run; mayBeHeldBack?: boolean; outcome?: RunOutcome } = {},
+      over: { ran?: Run; mayBeWithheld?: boolean; outcome?: RunOutcome } = {},
     ) => ({
       run: over.ran ?? run(),
       by: RUNNER,
@@ -205,7 +205,7 @@ describe('turnEnded', () => {
       line,
       outcome: over.outcome ?? CLEAN,
       declared: declared ? Declaration.of(declared) : null,
-      mayBeHeldBack: over.mayBeHeldBack ?? false,
+      mayBeWithheld: over.mayBeWithheld ?? false,
     });
 
     it('waits for the same turns it pauses', () => {
@@ -215,7 +215,7 @@ describe('turnEnded', () => {
     });
 
     it('may wait where a hook could hold back the task being passed on', () => {
-      expect(turnWaits(turn({ next: 'ship' }, { mayBeHeldBack: true }))).toBe(
+      expect(turnWaits(turn({ next: 'ship' }, { mayBeWithheld: true }))).toBe(
         true,
       );
     });

@@ -8,6 +8,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { heardInMemory } from '@work/application/ports/heard-happenings.fake-spec';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
+import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
@@ -87,6 +88,15 @@ const working = () =>
     .handedTo(RUN, DELIVERY)
     .openedAt(RUN, PullRequestUrl.of(PULL));
 
+const dispatched: Task[] = [];
+
+const dispatch: TaskDispatching = {
+  runIdFor: async ({ task }) => {
+    dispatched.push(task);
+    return RunId.of('run_2');
+  },
+};
+
 const hooking = (
   over: { task?: Task | null; slug?: string | null; clashes?: number } = {},
 ) => {
@@ -119,6 +129,8 @@ const hooking = (
         slugOf: async () => (over.slug === undefined ? 'acme' : over.slug),
       } as unknown as WorkspaceReaderPort,
       heardInMemory(),
+      { placementsAt: async () => [] },
+      dispatch,
       { run: (work) => work() },
       { now: () => NOW, sleep: async () => {} },
       'https://spotlight.acme.dev/',
@@ -283,6 +295,37 @@ describe('HookedTasks', () => {
       heardAs: 'loop:firing_1',
     };
 
+    it('moves the task where a move was held back to, as the run it ends would, instead of asking a person', async () => {
+      dispatched.length = 0;
+      const heldBack = working().heldBack(DELIVERY, StationId.of('station_0'), {
+        station: StationName.of('Implementation'),
+        body: TaskNoteBody.of('Changes were requested on the pull request.'),
+        at: NOW,
+        voice: Voice.world(),
+      });
+      heldBack.pullEvents();
+      const { hooked, standing } = hooking({ task: heldBack });
+
+      await expect(hooked.failed(LOOPED)).resolves.toBe('reported');
+
+      const moved = standing() as Task;
+      expect(moved.stationId).toEqual(StationId.of('station_0'));
+      expect(moved.running).toBe(false);
+      expect(moved.awaitingReview).toBe(false);
+      expect(moved.notes[1]?.kind).toBe('passed');
+      expect(moved.notes[1]?.body.value).toBe(
+        'Moved to Backlog when the run ended, because of an event that arrived while it worked.\n\nFrom the hook core/notify:\n\nThe hook core/notify was stopped: task.moved → the hook core/notify',
+      );
+      expect(moved.notes[1]?.failure).toMatchObject({
+        source: 'hook:core/notify',
+        code: 'loop',
+      });
+      expect(moved.pullEvents().map((each) => each.kind)).toContain(
+        'task.let-go-of-run',
+      );
+      expect(dispatched).toEqual([]);
+    });
+
     it('asks a person about the task, naming the hook and what it said', async () => {
       const { hooked, standing } = hooking();
 
@@ -315,7 +358,7 @@ describe('HookedTasks', () => {
       await hooked.failed(LOOPED);
       const told = standing() as Task;
       tasks.find.mockResolvedValue(
-        told.moveTo(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
+        told.reactedTo(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
           station: StationName.of('Implementation'),
           body: TaskNoteBody.of('Back to the backlog.'),
           at: NOW,
@@ -368,6 +411,7 @@ describe('HookedTasks', () => {
           at: NOW,
           voice: Voice.station(),
         },
+        { mover: UserId.of('user_1') },
       );
       const { hooked, tasks } = hooking({ task: finished });
 

@@ -19,12 +19,15 @@ import { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -36,6 +39,9 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -57,6 +63,7 @@ const at = (
   position: number,
   harness?: HarnessId,
   ends = false,
+  passesTo: readonly string[] = [],
 ) =>
   Station.of({
     id: StationId.of(id),
@@ -65,7 +72,7 @@ const at = (
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
-    wayOut: WayOut.of({ ends }),
+    wayOut: WayOut.of({ ends, stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
@@ -79,9 +86,10 @@ const line = () =>
     name: LineName.of('Default'),
     stations: [
       at('station_0', 'Backlog', 0),
-      at('station_1', 'Triage', 1, HarnessId.of('dev'), true),
+      at('station_1', 'Triage', 1, HarnessId.of('dev'), true, ['station_2']),
       at('station_2', 'Spec', 2, HarnessId.of('dev')),
-      at('station_3', 'Completed', 3),
+      at('station_4', 'Build', 3, HarnessId.of('dev')),
+      at('station_3', 'Completed', 4),
     ],
   });
 
@@ -388,11 +396,203 @@ describe('HandOver', () => {
       expect(saved?.awaitingReview).toBe(true);
     });
 
+    const heldBackWhileAsked = () =>
+      asked().heldBack(line(), StationId.of('station_4'), {
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('The checks failed on the pull request.'),
+        at: NOW,
+        voice: Voice.world(),
+      });
+
+    it.each([
+      ['is stopped', stoppedRun],
+      [
+        'says it is done',
+        () =>
+          run(
+            false,
+            HandoverReport.of({
+              declared: Declaration.of({ next: 'done', note: 'Done.' }),
+            }),
+          ),
+      ],
+      ['fails', () => run(true)],
+    ])(
+      'moves the task where a move was held back to while it waited, when the waiting run %s',
+      async (_, ending) => {
+        await handOver(ending(), tasks(heldBackWhileAsked()));
+
+        expect(saved?.stationId).toEqual(StationId.of('station_4'));
+        expect(saved?.awaitingReview).toBe(false);
+        expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
+        expect(saved?.notes[2]?.body.value).toMatch(
+          /^Moved to Build when the run ended, because of an event that arrived while it worked\./,
+        );
+      },
+    );
+
     it('adds a failure to the open question, letting go of the task', async () => {
       await handOver(run(true), tasks(asked()));
 
       expect(saved?.currentRunId).toBeNull();
       expect(saved?.notes[1]?.form).toBe('failure');
+    });
+  });
+
+  describe('a move held back while the run worked', () => {
+    const heldBack = (to = 'station_4') =>
+      task().heldBack(line(), StationId.of(to), {
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('The checks failed on the pull request.'),
+        at: NOW,
+        voice: Voice.world(),
+      });
+
+    const declaring = (next: string) =>
+      run(
+        false,
+        HandoverReport.of({
+          declared: Declaration.of({ next, note: 'Over to you.' }),
+        }),
+      );
+
+    const endings: readonly [string, () => Run, string][] = [
+      ['says nothing', () => run(false), 'words'],
+      ['asks a person', () => declaring('review'), 'words'],
+      ['says the work is done', () => declaring('done'), 'words'],
+      ['fails', () => run(true), 'failure'],
+      ['is stopped', stoppedRun, 'words'],
+      ['is never finished', givenUp, 'failure'],
+    ];
+
+    const MOVED =
+      'Moved to Build when the run ended, because of an event that arrived while it worked.';
+
+    it.each(endings)(
+      'moves the task where it was held back from when the run %s',
+      async (_, ending, form) => {
+        await handOver(ending(), tasks(heldBack()));
+
+        expect(saved?.stationId).toEqual(StationId.of('station_4'));
+        expect(saved?.awaitingReview).toBe(false);
+        expect(saved?.finished).toBe(false);
+        expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
+        expect(saved?.notes.map((each) => [each.kind, each.form])).toEqual([
+          ['said', 'words'],
+          ['passed', form],
+        ]);
+        expect(saved?.notes[1]?.body.value).toMatch(new RegExp(`^${MOVED}`));
+        expect(saved?.heldBackTo).toBeNull();
+      },
+    );
+
+    it.each(endings)(
+      'leaves the task where it stands when the run %s with nothing held back',
+      async (_, ending) => {
+        await handOver(ending());
+
+        expect(saved?.stationId).toEqual(StationId.of('station_1'));
+        expect(saved?.currentRunId).toBeNull();
+      },
+    );
+
+    const approvedMidRun = () => {
+      const asked = heldBack().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+        ),
+        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+        {
+          station: StationName.of('Triage'),
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+          voice: Voice.station(RunId.of('run_1')),
+        },
+        RunId.of('run_1'),
+      ).task;
+
+      return asked.answered(
+        NotePosition.of(1),
+        {
+          station: StationName.of('Triage'),
+          body: TaskNoteBody.of('Approved.'),
+          at: NOW,
+          voice: Voice.person(UserId.of('user_1')),
+        },
+        'granted',
+      );
+    };
+
+    it.each([
+      ['says the work is done', () => declaring('done')],
+      ['asks a person', () => declaring('review')],
+    ])(
+      'moves the task where it was held back to across a tool approval granted mid-run, when the run %s',
+      async (_, ending) => {
+        await handOver(ending(), tasks(approvedMidRun()));
+
+        expect(saved?.stationId).toEqual(StationId.of('station_4'));
+        expect(saved?.awaitingReview).toBe(false);
+        expect(saved?.notes[3]?.body.value).toMatch(new RegExp(`^${MOVED}`));
+      },
+    );
+
+    it('drops the held-back move when the run passes the task on', async () => {
+      await handOver(declaring('spec'), tasks(heldBack()));
+
+      expect(saved?.stationId).toEqual(StationId.of('station_2'));
+      expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
+      expect(saved?.heldBackTo).toBeNull();
+    });
+
+    it('passes the task on as before with nothing held back', async () => {
+      await handOver(declaring('spec'));
+
+      expect(saved?.stationId).toEqual(StationId.of('station_2'));
+      expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
+    });
+
+    it('keeps the run’s own words on the task when a held-back move takes it on', async () => {
+      await handOver(declaring('review'), tasks(heldBack()));
+
+      expect(saved?.notes[1]?.body.value).toBe(`${MOVED}\n\nOver to you.`);
+      expect(saved?.notes[1]?.voice.run).toEqual(RunId.of('run_1'));
+    });
+
+    it('tells nobody it is back with them when a held-back move takes a stopped run’s task on', async () => {
+      await handOver(stoppedRun(), tasks(heldBack()));
+
+      expect(saved?.notes[1]?.body.value).toBe(
+        `${MOVED}\n\nThe run was stopped from the console.`,
+      );
+    });
+
+    it('keeps a failed run’s failure where a held-back move takes its task on', async () => {
+      await handOver(run(true), tasks(heldBack()));
+
+      expect(saved?.notes[1]?.failure).toMatchObject({
+        source: 'run',
+        code: 'exited',
+      });
+      expect(saved?.notes[1]?.body.value).toContain('The run failed');
+    });
+
+    it.each(endings)(
+      'ends as the run said where the station held back to has left the line, when the run %s',
+      async (_, ending) => {
+        await handOver(ending(), tasks(heldBack('station_gone')));
+
+        expect(saved?.stationId).toEqual(StationId.of('station_1'));
+        expect(saved?.currentRunId).toBeNull();
+        expect(saved?.notes[1]?.kind).not.toBe('said');
+      },
+    );
+
+    it('finishes the task the run said was done where the station held back to has left the line', async () => {
+      await handOver(declaring('done'), tasks(heldBack('station_gone')));
+
+      expect(saved?.finished).toBe(true);
+      expect(saved?.notes[1]?.body.value).toBe('Over to you.');
     });
   });
 });

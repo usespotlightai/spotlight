@@ -26,6 +26,7 @@ import { Approval } from '@work/domain/value-objects/approval.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
@@ -50,6 +51,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
   type ApprovalRow,
+  type HeldBackRow,
   task,
   taskAttachment,
   taskMark,
@@ -98,6 +100,14 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
   spent: approval.spent,
 });
 
+const toHeldBack = (row: HeldBackRow): HeldBack =>
+  row.kind === 'moves'
+    ? HeldBack.moveTo(StationId.of(row.to))
+    : HeldBack.cleared();
+
+const toHeldBackRow = (held: HeldBack): HeldBackRow =>
+  held.to ? { kind: 'moves', to: held.to.value } : { kind: 'cleared' };
+
 const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
   TaskNote.of({
     position: NotePosition.of(row.position),
@@ -114,6 +124,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     form: row.form,
     approval: row.approval ? toApproval(row.approval) : null,
     failure: row.failure ? TaskFailure.rehydrate(row.failure) : null,
+    heldBack: row.heldBack ? toHeldBack(row.heldBack) : null,
   });
 
 const toTask = (
@@ -591,6 +602,7 @@ export class DrizzleTaskRepository implements TaskRepository {
                 occurrences: note.failure.occurrences,
               }
             : null,
+          heldBack: note.heldBack ? toHeldBackRow(note.heldBack) : null,
         })),
       )
       .onConflictDoUpdate({

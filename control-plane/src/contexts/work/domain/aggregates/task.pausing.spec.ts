@@ -243,9 +243,10 @@ describe('a task put to a person by the run that holds it', () => {
     expect(
       answered.moveTo(
         line,
-        SHIP,
+        StationId.of('station_backlog'),
         TaskRank.of('j'),
         said('Moved on.', Voice.person(UserId.of('user_1'))),
+        { mover: UserId.of('user_1') },
       ).undelivered,
     ).toEqual([]);
     expect(

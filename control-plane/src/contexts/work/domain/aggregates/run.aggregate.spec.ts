@@ -157,6 +157,22 @@ describe('Run', () => {
     expect(again.attempt).toBe(2);
   });
 
+  it('ends as stopped instead of going back on the queue when its runner was lost after it was asked to stop', () => {
+    const stopping = claimed().requestStop(noon);
+    stopping.pullEvents();
+
+    const ended = stopping.requeue(stopping.leaseExpiresAt as Date);
+
+    expect(ended.hasEnded).toBe(true);
+    expect(ended.state).not.toBe('queued');
+    expect(ended.outcome?.stopped).toBe(true);
+    expect(ended.outcome?.exitCode).toBe(-1);
+    expect(ended.attempt).toBe(1);
+    expect(
+      ended.pullEvents().some((each) => each instanceof RunCompleted),
+    ).toBe(true);
+  });
+
   it('refuses to be requeued while its lease still holds', () => {
     const run = claimed();
 

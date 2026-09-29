@@ -41,7 +41,7 @@ export class TurnAsksAPersonHandler
         by: runner,
         task,
         line,
-        mayBeHeldBack: line
+        mayBeWithheld: line
           ? await this.hooks.listens(line.teamId.value, 'handover.giving')
           : false,
         outcome: query.stopped

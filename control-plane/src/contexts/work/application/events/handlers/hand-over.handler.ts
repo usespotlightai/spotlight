@@ -137,7 +137,7 @@ export class HandOver implements RunOutcomes {
     run: RunId,
   ): Promise<Task> {
     const saying = this.sayingOf(handover, task, line, run);
-    const routing = routeAfterRun(handover, line, task.awaitingReview);
+    const routing = routeAfterRun(handover, line, task);
 
     if (routing.kind === 'finish') {
       return task.finishedHere(run, routing.line, saying);
@@ -155,22 +155,30 @@ export class HandOver implements RunOutcomes {
         : task.askedAbout(saying, run);
     }
 
-    const passed = task.passedOn(
-      run,
-      routing.line,
-      routing.to.id,
-      Placement.atTheBack(
-        (await this.placements.placementsAt(routing.to.id)).map(
-          (each) => each.rank,
-        ),
-      ),
-      saying,
+    const ranks = (await this.placements.placementsAt(routing.to.id)).map(
+      (each) => each.rank,
     );
+    const moved =
+      routing.kind === 'advance'
+        ? task.passedOn(
+            run,
+            routing.line,
+            routing.to.id,
+            Placement.atTheBack(ranks),
+            saying,
+          )
+        : task.movedAsHeldBack(
+            run,
+            routing.line,
+            routing.to.id,
+            Placement.atTheTop(ranks),
+            { saying, handover },
+          );
 
-    const runId = passed.wantsRun(routing.line)
-      ? await this.dispatch.runIdFor({ task: passed, line: routing.line })
+    const runId = moved.wantsRun(routing.line)
+      ? await this.dispatch.runIdFor({ task: moved, line: routing.line })
       : null;
 
-    return runId ? passed.handedTo(runId, routing.line) : passed;
+    return runId ? moved.handedTo(runId, routing.line) : moved;
   }
 }

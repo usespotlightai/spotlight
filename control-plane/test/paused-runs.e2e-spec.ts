@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
@@ -664,5 +667,71 @@ describe('a message in a run chat', () => {
 
     expect(refused.body.message).toContain('has moved on from there');
     expect((await taskRow(taskId))?.currentRunId).toBeNull();
+  });
+});
+
+describe('a run queued at a station its task’s earlier run still holds', () => {
+  const claimsNext = async (): Promise<string[]> => {
+    const claimed: string[] = [];
+    const runs = app.get(DrizzleRunRepository);
+
+    for (let taken = 0; taken < 5; taken++) {
+      const next = await runs.claimNext(
+        {
+          runner: RunnerId.of(`runner-${randomUUID()}`),
+          workspaceId: team.workspaceId,
+          harnesses: [HarnessId.of('dev')],
+          terms: RunnerTerms.of(['linux']),
+          claims: 'any',
+        },
+        new Date(),
+      );
+
+      if (!next) {
+        return claimed;
+      }
+
+      claimed.push(next.id.value);
+    }
+
+    return claimed;
+  };
+
+  it('is claimed only once the earlier run has ended, so the two never share the station’s session', async () => {
+    const { taskId, runId } = await aHeldTask();
+    const token = await claimed(runId);
+    const next = randomUUID();
+    const [earlier] = await db
+      .select()
+      .from(schema.run)
+      .where(eq(schema.run.id, runId));
+    await db.insert(schema.run).values({
+      ...(earlier as typeof schema.run.$inferInsert),
+      id: next,
+      state: 'queued',
+      claimedBy: null,
+      leaseExpiresAt: null,
+      attempt: 1,
+      version: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db
+      .update(schema.task)
+      .set({ currentRunId: next })
+      .where(eq(schema.task.id, taskId));
+
+    expect(await claimsNext()).not.toContain(next);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, {
+        exitCode: 0,
+        failed: false,
+        stopped: true,
+      })
+      .expect(200);
+    expect((await runRow(runId))?.state).not.toBe('claimed');
+
+    expect(await claimsNext()).toContain(next);
   });
 });

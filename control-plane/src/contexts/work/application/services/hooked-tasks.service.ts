@@ -14,12 +14,15 @@ import type {
   HookFailureReport,
   TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
+import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { Placing, Task } from '@work/domain/aggregates/task.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { Placement } from '@work/domain/services/placement';
 import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
@@ -45,6 +48,8 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
     private readonly lines: LineRepository,
     private readonly workspaces: WorkspaceReaderPort,
     private readonly heard: HeardHappeningsPort,
+    private readonly placements: TaskPlacementsPort,
+    private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
     base: string,
@@ -144,21 +149,38 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
         return 'reported';
       }
 
-      await this.tasks.save(
-        task.failed(
-          TaskFailure.fromHook(report.hook, report.code),
-          {
-            station: firedAt.name,
-            body: TaskNoteBody.fromHook(report.hook, report.saying),
-            at: this.clock.now(),
-            voice: Voice.station(),
-          },
-          null,
-        ),
+      const failed = task.failed(
+        TaskFailure.fromHook(report.hook, report.code),
+        {
+          station: firedAt.name,
+          body: TaskNoteBody.fromHook(report.hook, report.saying),
+          at: this.clock.now(),
+          voice: Voice.station(),
+        },
+        null,
+        await this.heldBackOnto(task, line),
       );
+      const runId = failed.wantsRun(line)
+        ? await this.dispatch.runIdFor({ task: failed, line })
+        : null;
+
+      await this.tasks.save(runId ? failed.handedTo(runId, line) : failed);
 
       return 'reported';
     });
+  }
+
+  private async heldBackOnto(task: Task, line: Line): Promise<Placing | null> {
+    const to = task.heldBackTo;
+
+    return to
+      ? {
+          line,
+          rank: Placement.atTheTop(
+            (await this.placements.placementsAt(to)).map((each) => each.rank),
+          ),
+        }
+      : null;
   }
 
   async movedOn(taskId: string, stationKey: string): Promise<boolean> {

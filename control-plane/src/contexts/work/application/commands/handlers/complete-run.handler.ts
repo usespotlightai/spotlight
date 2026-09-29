@@ -149,7 +149,7 @@ export class CompleteRunHandler
     });
 
     return verdict.kind === 'refused'
-      ? declared.heldBack(verdict.reason)
+      ? declared.withheld(verdict.reason)
       : declared;
   }
 }

@@ -10,6 +10,9 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 const spoken = (declaration: Declaration, fallback: string) =>
   TaskNoteBody.of(declaration.note === '' ? fallback : declaration.note);
 
+const ownWords = (declaration: Declaration): TaskNoteBody | null =>
+  declaration.note === '' ? null : TaskNoteBody.of(declaration.note);
+
 const REFUSED: Record<PassRefusal, (key: string) => string> = {
   'standing-there': (key) =>
     `The run asked for "${key}", where the task already stands.`,
@@ -45,16 +48,21 @@ export const HandoverFor = {
     if (declaration.asksForReview()) {
       return Handover.review(
         spoken(declaration, 'The run asked for someone to look at this.'),
+        ownWords(declaration),
       );
     }
 
     if (declaration.saysItIsDone()) {
       return line?.endsAt(standingAt)
-        ? Handover.done(spoken(declaration, 'The work is done.'))
+        ? Handover.done(
+            spoken(declaration, 'The work is done.'),
+            ownWords(declaration),
+          )
         : Handover.review(
             TaskNoteBody.of(
               'The run said the work is done, and the line does not end where the task stands.',
             ),
+            ownWords(declaration),
           );
     }
 
@@ -65,6 +73,7 @@ export const HandoverFor = {
         TaskNoteBody.of(
           `The run asked for "${declaration.next}", which is not a station on this line.`,
         ),
+        ownWords(declaration),
       );
     }
 
@@ -73,6 +82,7 @@ export const HandoverFor = {
     if (refused) {
       return Handover.review(
         TaskNoteBody.of(REFUSED[refused](named.key.value)),
+        ownWords(declaration),
       );
     }
 
@@ -84,9 +94,11 @@ export const HandoverFor = {
 
   outcome(outcome: RunOutcome | null): Handover {
     if (!outcome) {
-      return Handover.review(
-        TaskNoteBody.of('The run ended without reporting an outcome.'),
+      const unreported = TaskNoteBody.of(
+        'The run ended without reporting an outcome.',
       );
+
+      return Handover.review(unreported, unreported);
     }
 
     if (outcome.failure) {
@@ -117,6 +129,7 @@ export const HandoverFor = {
   stopped(): Handover {
     return Handover.review(
       TaskNoteBody.of('Stopped from the console. It is back with you.'),
+      TaskNoteBody.of('The run was stopped from the console.'),
     );
   },
 };

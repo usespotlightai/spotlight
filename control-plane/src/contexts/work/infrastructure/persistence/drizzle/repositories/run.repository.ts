@@ -38,6 +38,17 @@ import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { and, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
+const noEarlierRunStillHeld = sql`NOT EXISTS (
+  SELECT 1 FROM ${run} AS earlier
+  WHERE earlier.task_id = ${run.taskId}
+    AND earlier.station_id = ${run.stationId}
+    AND earlier.id <> ${run.id}
+    AND earlier.state IN (${sql.join(
+      HELD_RUN_STATES.map((each) => sql`${each}`),
+      sql`, `,
+    )})
+)`;
+
 type Row = typeof run.$inferSelect;
 
 @Injectable()
@@ -99,6 +110,7 @@ export class DrizzleRunRepository implements RunRepository {
           }
           AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
           AND ${placementMet(run.placement, run.placementImage, by.terms)}
+          AND ${noEarlierRunStillHeld}
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1
@@ -202,6 +214,7 @@ export class DrizzleRunRepository implements RunRepository {
           sql`coalesce(jsonb_array_length(${run.spec} -> 'wears'), 0) = 0`,
           or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
+          noEarlierRunStillHeld,
         ),
       )
       .orderBy(desc(run.priority), run.createdAt, run.id)
