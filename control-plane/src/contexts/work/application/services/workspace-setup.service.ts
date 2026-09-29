@@ -12,7 +12,7 @@ export class WorkspaceSetup {
   async stateOf(workspaceId: WorkspaceId): Promise<SetupState> {
     const [connectedToGitHub, hasHarness] = await Promise.all([
       this.connections.isConnected(workspaceId),
-      this.runners.anyOffersWork(workspaceId),
+      this.runners.readyToRun(workspaceId),
     ]);
 
     return { connectedToGitHub, hasHarness };

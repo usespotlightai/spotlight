@@ -586,7 +586,7 @@ describe('runner pools (e2e)', () => {
         .expect(401);
     });
 
-    it('settles the Setup list once it is defined, in a workspace already connected to GitHub', async () => {
+    it('settles the Setup list once a host reports in through it, in a workspace already connected to GitHub', async () => {
       const { list } = await listSetUp(
         db,
         new DrizzleTaskRepository(new DrizzleContext(db), {
@@ -610,9 +610,12 @@ describe('runner pools (e2e)', () => {
             ),
           );
 
+      const token = tokenOf('v');
+      await define({ key: 'ephemeral', token }).expect(201);
+
       expect(await settledNotes()).toEqual([]);
 
-      await define({ key: 'ephemeral', token: tokenOf('v') }).expect(201);
+      await report(token).expect(200);
 
       expect(
         await eventually(async () => {

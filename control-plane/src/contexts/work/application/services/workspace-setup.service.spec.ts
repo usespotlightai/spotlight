@@ -17,7 +17,7 @@ const read = (given: Given = {}) => {
   } as unknown as WorkspaceConnectionsPort;
 
   const runners = {
-    anyOffersWork: vi.fn().mockResolvedValue(given.harness ?? false),
+    readyToRun: vi.fn().mockResolvedValue(given.harness ?? false),
   } as unknown as RunnerReaderPort;
 
   return new WorkspaceSetup(connections, runners).stateOf(WORKSPACE);
@@ -38,7 +38,7 @@ describe('WorkspaceSetup', () => {
     });
   });
 
-  it('has no harness where no runner offers work', async () => {
+  it('has no harness where nothing is ready to run', async () => {
     await expect(
       read({ connected: true, harness: false }),
     ).resolves.toMatchObject({ hasHarness: false });

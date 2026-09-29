@@ -80,7 +80,7 @@ const listing = (
     {
       inWorkspace,
       hostsIn,
-      anyOffersWork: vi.fn(),
+      readyToRun: vi.fn(),
       advertisedModels: vi.fn(),
     } as RunnerReaderPort,
     clock(),

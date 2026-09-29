@@ -9,6 +9,7 @@ import type {
 } from '@runners/application/ports/runner-reader.port';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
+import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import {
   runner,
   runnerHost,
@@ -38,20 +39,43 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
-  async anyOffersWork(workspaceId: WorkspaceId): Promise<boolean> {
-    const [way] = await this.db
+  async readyToRun(workspaceId: WorkspaceId): Promise<boolean> {
+    const [pushed] = await this.db
       .select({ id: runnerPool.id })
       .from(runnerPool)
-      .where(eq(runnerPool.workspaceId, workspaceId.value))
-      .union(
-        this.db
-          .select({ id: runnerTrust.id })
-          .from(runnerTrust)
-          .where(eq(runnerTrust.workspaceId, workspaceId.value)),
+      .where(
+        and(
+          eq(runnerPool.workspaceId, workspaceId.value),
+          isNotNull(runnerPool.provisionUrl),
+        ),
       )
       .limit(1);
 
-    return way !== undefined;
+    if (pushed) {
+      return true;
+    }
+
+    const hosts = await this.db
+      .select({
+        name: runnerHost.name,
+        release: runnerHost.release,
+        executor: runnerHost.executor,
+        capacity: runnerHost.capacity,
+        running: runnerHost.running,
+        images: runnerHost.images,
+      })
+      .from(runnerHost)
+      .where(
+        and(
+          eq(runnerHost.workspaceId, workspaceId.value),
+          gt(
+            runnerHost.lastSeenAt,
+            RunnerHost.rememberedSince(this.clock.now()),
+          ),
+        ),
+      );
+
+    return hosts.some((row) => HostReport.of(row).servesAHarness);
   }
 
   async advertisedModels(
