@@ -1,7 +1,12 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { runnerKeys } from '@/hooks/api/useRunners';
-import type { HarnessResponseDto, HostImageResponseDto } from '@/lib/api';
+import { workspaceKeys } from '@/hooks/api/useWorkspaces';
+import type {
+  HarnessResponseDto,
+  HostImageResponseDto,
+  WorkspaceResponseDto,
+} from '@/lib/api';
 import type { Fleet } from '@/lib/runner';
 import { failQuery } from '@/stories/failQuery';
 
@@ -143,13 +148,25 @@ export const seedRunners = (client: QueryClient) => {
   client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
 };
 
-export const emptyRunners = (client: QueryClient) => {
-  client.setQueryData(runnerKeys.forWorkspace(SLUG), {
-    hosts: [],
-    provisioned: [],
-  } satisfies Fleet);
-  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
-};
+const emptyAs =
+  (role: WorkspaceResponseDto['role']) => (client: QueryClient) => {
+    client.setQueryData(runnerKeys.forWorkspace(SLUG), {
+      hosts: [],
+      provisioned: [],
+    } satisfies Fleet);
+    client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
+    client.setQueryData(workspaceKeys.detail(SLUG), {
+      id: 'workspace_acme',
+      name: 'Acme',
+      slug: SLUG,
+      role,
+      teams: [],
+    } satisfies WorkspaceResponseDto);
+  };
+
+export const emptyRunners = emptyAs('owner');
+
+export const emptyRunnersForMember = emptyAs('member');
 
 export const failRunners = (client: QueryClient) =>
   failQuery(client, runnerKeys.forWorkspace(SLUG));

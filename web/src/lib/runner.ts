@@ -44,6 +44,9 @@ export const withActivity = (
 
 export const runnersPath = (slug: string) => `/w/${slug}/runners`;
 
+export const installCommand = (token: string) =>
+  `curl -fsSL ${window.location.origin}/api/install.sh | SPOTLIGHT_TOKEN=${token} sh`;
+
 export const answeringCount = (fleet: Fleet) =>
   fleet.hosts.filter((host) => host.answering).length;
 

@@ -2,11 +2,15 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RunnerPoolNameTakenError } from '@/hooks/api/useCreateRunnerPool';
 import { Runners } from '@/routes/Runners';
 
 const fleet = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
+const role = vi.fn();
+const creating = vi.fn();
+const create = vi.fn();
 
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: {
@@ -19,6 +23,21 @@ vi.mock('@/hooks/api/useRunners', () => ({
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
     refetch,
+  }),
+}));
+
+vi.mock('@/hooks/api/useWorkspace', () => ({
+  useWorkspace: () => ({ data: { id: 'workspace_acme', role: role() } }),
+}));
+
+vi.mock('@/hooks/api/useCreateRunnerPool', async (actual) => ({
+  ...(await actual<typeof import('@/hooks/api/useCreateRunnerPool')>()),
+  useCreateRunnerPool: () => ({
+    mutate: create,
+    reset: vi.fn(),
+    isPending: false,
+    error: null,
+    ...creating(),
   }),
 }));
 
@@ -88,6 +107,9 @@ describe('Runners', () => {
   beforeEach(() => {
     failing.mockReturnValue(false);
     refetch.mockClear();
+    role.mockReturnValue('owner');
+    creating.mockReturnValue({});
+    create.mockClear();
   });
 
   it('holds the shape of a host while they load, keeping what never changes', () => {
@@ -99,7 +121,7 @@ describe('Runners', () => {
       screen.getByRole('status', { name: 'Loading the hosts' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Hosts' })).toBeInTheDocument();
-    expect(screen.queryByText(/No host is serving/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No host serves/)).not.toBeInTheDocument();
   });
 
   it('says the runners could not be loaded, and tries again when asked', async () => {
@@ -113,7 +135,7 @@ describe('Runners', () => {
       'Runners could not be loaded.',
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.queryByText(/No host is serving/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No host serves/)).not.toBeInTheDocument();
 
     await person.click(screen.getByRole('button', { name: 'Try again' }));
 
@@ -240,13 +262,102 @@ describe('Runners', () => {
     expect(screen.getByText(/^Last seen/)).toBeInTheDocument();
   });
 
-  it('shows how to install a host when none serves the workspace', () => {
+  it('offers to create a pool when no host serves the workspace', async () => {
+    const person = userEvent.setup();
     holding([]);
 
     renderPage();
 
-    expect(screen.getByText(/No host is serving/)).toBeInTheDocument();
-    expect(screen.getByText(/install\.sh/)).toBeInTheDocument();
+    expect(screen.getByText(/No host serves/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Pool name')).toHaveValue('my-computer');
+
+    await person.click(screen.getByRole('button', { name: 'Create pool' }));
+
+    expect(create).toHaveBeenCalledWith('my-computer');
+  });
+
+  it('keeps a pool name to lowercase words joined by dashes', async () => {
+    const person = userEvent.setup();
+    holding([]);
+
+    renderPage();
+
+    const name = screen.getByLabelText('Pool name');
+    await person.clear(name);
+    await person.type(name, 'Build Box 2');
+    await person.click(screen.getByRole('button', { name: 'Create pool' }));
+
+    expect(create).toHaveBeenCalledWith('build-box-2');
+  });
+
+  it('still shows the install command for a token someone already has', () => {
+    holding([]);
+
+    renderPage();
+
+    expect(
+      screen.getByText(/SPOTLIGHT_TOKEN=<pool token>/),
+    ).toBeInTheDocument();
+  });
+
+  it('says a taken pool name is taken, and asks for another', () => {
+    holding([]);
+    creating.mockReturnValue({
+      error: new RunnerPoolNameTakenError('my-computer'),
+    });
+
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'A pool named my-computer already exists. Choose another name.',
+    );
+    expect(screen.getByLabelText('Pool name')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+  });
+
+  it('says why a pool could not be created otherwise', () => {
+    holding([]);
+    creating.mockReturnValue({
+      error: new Error('You may not do that to the runner-pool'),
+    });
+
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'You may not do that to the runner-pool',
+    );
+  });
+
+  it('gives the install command with the new pool’s token, once', () => {
+    holding([]);
+    creating.mockReturnValue({
+      data: { key: 'my-computer', token: 'spt_pool_secret' },
+    });
+
+    renderPage();
+
+    expect(
+      screen.getByText(/SPOTLIGHT_TOKEN=spt_pool_secret/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/shown only this once/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copy command' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Pool name')).not.toBeInTheDocument();
+  });
+
+  it('tells a member who can add a computer, offering no pool', () => {
+    holding([]);
+    role.mockReturnValue('member');
+
+    renderPage();
+
+    expect(screen.getByText(/An owner or admin/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Create pool' }),
+    ).not.toBeInTheDocument();
   });
 
   it('lists runners a push pool provisioned, apart from hosts', () => {
