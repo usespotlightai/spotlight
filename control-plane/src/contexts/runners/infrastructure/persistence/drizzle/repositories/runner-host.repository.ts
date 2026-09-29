@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   UNIQUE_VIOLATION,
@@ -14,6 +14,10 @@ import {
   type HeldImage,
   runnerHost,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, lte } from 'drizzle-orm';
@@ -81,7 +85,11 @@ const heldOf = (host: RunnerHost) => ({
 
 @Injectable()
 export class DrizzleRunnerHostRepository implements RunnerHostRepository {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
 
   async find(id: HostId): Promise<RunnerHost | null> {
     const [found] = await this.context.db
@@ -94,34 +102,44 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   }
 
   async add(host: RunnerHost): Promise<void> {
-    try {
-      await this.context.db
-        .insert(runnerHost)
-        .values({ id: host.id.value, ...heldOf(host), version: host.version });
-    } catch (error) {
-      if (violates(error, UNIQUE_VIOLATION, 'runner_host_pkey')) {
-        throw new RunnerHostMovedOnError(host.id.value);
+    await this.context.run(async () => {
+      try {
+        await this.context.db.insert(runnerHost).values({
+          id: host.id.value,
+          ...heldOf(host),
+          version: host.version,
+        });
+      } catch (error) {
+        if (violates(error, UNIQUE_VIOLATION, 'runner_host_pkey')) {
+          throw new RunnerHostMovedOnError(host.id.value);
+        }
+
+        throw error;
       }
 
-      throw error;
-    }
+      await this.events.dispatch(host.pullEvents());
+    });
   }
 
   async save(host: RunnerHost): Promise<void> {
-    const written = await this.context.db
-      .update(runnerHost)
-      .set({ ...heldOf(host), version: host.version + 1 })
-      .where(
-        and(
-          eq(runnerHost.id, host.id.value),
-          eq(runnerHost.version, host.version),
-        ),
-      )
-      .returning({ id: runnerHost.id });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .update(runnerHost)
+        .set({ ...heldOf(host), version: host.version + 1 })
+        .where(
+          and(
+            eq(runnerHost.id, host.id.value),
+            eq(runnerHost.version, host.version),
+          ),
+        )
+        .returning({ id: runnerHost.id });
 
-    if (written.length === 0) {
-      throw new RunnerHostMovedOnError(host.id.value);
-    }
+      if (written.length === 0) {
+        throw new RunnerHostMovedOnError(host.id.value);
+      }
+
+      await this.events.dispatch(host.pullEvents());
+    });
   }
 
   async remove(host: RunnerHost): Promise<void> {

@@ -18,7 +18,7 @@ const WORDING: Record<SetupStepKey, Wording> = {
   },
   harness: {
     title: 'Run a harness',
-    says: 'Start a runner with an agent harness installed, such as Claude Code. Spotlight’s built-in lines start working as soon as one reports in.',
+    says: 'Connect a computer that runs agents with a harness such as Claude Code, from the Runners page. Spotlight’s built-in lines start working as soon as it reports in.',
   },
 };
 

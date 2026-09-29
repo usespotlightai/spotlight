@@ -1,3 +1,4 @@
+import { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
 import { RunnerPoolDefined } from '@runners/domain/events/runner-pool-defined.event';
 import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefined.event';
 import { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
@@ -57,6 +58,7 @@ export const RUNNERS_EVENT_TYPES = [
   TrustKey,
   TrustedWorkload,
   WorkspaceRunnersId,
+  RunnerHostStartedServing,
   RunnerPoolDefined,
   RunnerPoolRedefined,
   RunnerPoolRetired,

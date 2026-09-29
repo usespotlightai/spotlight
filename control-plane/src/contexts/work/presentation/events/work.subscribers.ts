@@ -3,6 +3,10 @@ import type {
   RunHoldDto,
 } from '@secrets/application/ports/run-grants.port';
 import {
+  RUNNER_HOST_STARTED_SERVING,
+  type RunnerHostStartedServingIntegrationEvent,
+} from '@shared-kernel/application/integration-events/runner-host-started-serving.integration-event';
+import {
   RUNNER_WAY_IN_OPENED,
   type RunnerWayInOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/runner-way-in-opened.integration-event';
@@ -190,6 +194,11 @@ export const workSubscribers = (reactions: {
   subscribing<RunnerWayInOpenedIntegrationEvent>(
     'work.settle-on-way-in',
     [RUNNER_WAY_IN_OPENED],
+    (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
+  ),
+  subscribing<RunnerHostStartedServingIntegrationEvent>(
+    'work.settle-on-host-serving',
+    [RUNNER_HOST_STARTED_SERVING],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

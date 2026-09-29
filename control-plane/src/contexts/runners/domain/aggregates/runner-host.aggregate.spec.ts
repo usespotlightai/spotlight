@@ -17,24 +17,39 @@ const THROUGH_POOL = Admission.of('pool', 'pool_1');
 
 const THROUGH_TRUST = Admission.of('trust', 'trust_1');
 
-const reportOf = (running: string[] = []) =>
+const CLAUDE_CODE = { id: 'claude-code', models: [] };
+
+const SERVING = [
+  {
+    image: 'ghcr.io/usespotlightai/spotlight-runner:1.0.0',
+    usual: true,
+    harnesses: [CLAUDE_CODE],
+  },
+];
+
+type Images = Parameters<typeof HostReport.of>[0]['images'];
+
+const reportOf = (running: string[] = [], images: Images = []) =>
   HostReport.of({
     name: 'build-box',
     release: '0.9.0',
     executor: 'docker',
     capacity: 4,
     running,
-    images: [],
+    images,
   });
 
-const present = () =>
+const present = (images: Images = []) =>
   RunnerHost.present({
     id: HOST,
     workspaceId: WorkspaceId.of('ws_1'),
     admission: THROUGH_POOL,
-    report: reportOf(),
+    report: reportOf([], images),
     at: FIRST_SEEN,
   });
+
+const kindsOf = (host: RunnerHost) =>
+  host.pullEvents().map((each) => each.kind);
 
 const rehydrated = (over: { version?: number; firstSeenAt?: Date } = {}) =>
   RunnerHost.rehydrate({
@@ -53,13 +68,17 @@ const reportedThrough = (
   at: Date,
   running: string[] = [],
   workspaceId = WorkspaceId.of('ws_1'),
+  images: Images = [],
 ) =>
   host.reportedThrough({
     admission,
     workspaceId,
-    report: reportOf(running),
+    report: reportOf(running, images),
     at,
   });
+
+const reportedServing = (host: RunnerHost, admission: Admission, at: Date) =>
+  reportedThrough(host, admission, at, [], WorkspaceId.of('ws_1'), SERVING);
 
 describe('RunnerHost', () => {
   it('is first and last seen when it first reports, at its first version', () => {
@@ -165,6 +184,53 @@ describe('RunnerHost', () => {
     expect(host.servesThrough(Admission.of('pool', 'pool_1'))).toBe(true);
     expect(host.servesThrough(Admission.of('pool', 'pool_2'))).toBe(false);
     expect(host.servesThrough(Admission.of('trust', 'pool_1'))).toBe(false);
+  });
+
+  it('starts serving when it first reports an image with a harness', () => {
+    const host = present(SERVING);
+
+    expect(host.servesAHarness).toBe(true);
+    expect(kindsOf(host)).toEqual(['runner-host.started-serving']);
+  });
+
+  it('does not serve on a report with no image, a refused image or an image without a harness', () => {
+    for (const images of [
+      [],
+      [{ ...SERVING[0], refused: 'pull access denied' }],
+      [{ ...SERVING[0], harnesses: [] }],
+    ] as Images[]) {
+      const host = present(images);
+
+      expect(host.servesAHarness).toBe(false);
+      expect(kindsOf(host)).toEqual([]);
+    }
+  });
+
+  it('starts serving on the first later report that offers a harness', () => {
+    const host = present();
+    kindsOf(host);
+
+    expect(kindsOf(reportedServing(host, THROUGH_POOL, later(30_000)))).toEqual(
+      ['runner-host.started-serving'],
+    );
+  });
+
+  it('does not start serving again while it keeps serving', () => {
+    const host = present(SERVING);
+    kindsOf(host);
+
+    expect(kindsOf(reportedServing(host, THROUGH_POOL, later(30_000)))).toEqual(
+      [],
+    );
+  });
+
+  it('starts serving again once re-homed through another way in', () => {
+    const host = present(SERVING);
+    kindsOf(host);
+
+    expect(
+      kindsOf(reportedServing(host, THROUGH_TRUST, later(90_000))),
+    ).toEqual(['runner-host.started-serving']);
   });
 
   it('is not read back last seen before it was first seen', () => {

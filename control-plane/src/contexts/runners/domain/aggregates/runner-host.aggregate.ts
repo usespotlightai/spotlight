@@ -1,8 +1,10 @@
+import { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
 import { HostTakenError } from '@runners/domain/exceptions/host-taken.error';
 import type { Admission } from '@runners/domain/value-objects/admission.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -21,8 +23,10 @@ interface State {
   readonly version: number;
 }
 
-export class RunnerHost {
-  private constructor(private readonly state: State) {}
+export class RunnerHost extends EventRecorder {
+  private constructor(private readonly state: State) {
+    super();
+  }
 
   static present(input: {
     id: HostId;
@@ -39,7 +43,7 @@ export class RunnerHost {
       firstSeenAt: input.at,
       lastSeenAt: input.at,
       version: 0,
-    });
+    }).noticingItStartedServing(null);
   }
 
   static rehydrate(state: State): RunnerHost {
@@ -123,7 +127,7 @@ export class RunnerHost {
         report: input.report,
         lastSeenAt:
           input.at > this.state.lastSeenAt ? input.at : this.state.lastSeenAt,
-      });
+      }).noticingItStartedServing(this);
     }
 
     if (
@@ -140,6 +144,20 @@ export class RunnerHost {
       report: input.report,
       firstSeenAt: input.at,
       lastSeenAt: input.at,
-    });
+    }).noticingItStartedServing(null);
+  }
+
+  get servesAHarness(): boolean {
+    return this.state.report.servesAHarness;
+  }
+
+  private noticingItStartedServing(before: RunnerHost | null): RunnerHost {
+    if (this.servesAHarness && !before?.servesAHarness) {
+      this.record(
+        new RunnerHostStartedServing(this.state.id, this.state.workspaceId),
+      );
+    }
+
+    return this;
   }
 }

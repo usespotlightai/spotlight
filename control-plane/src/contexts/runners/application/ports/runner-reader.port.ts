@@ -50,7 +50,7 @@ export interface RunnerReaderPort {
 
   hostsIn(workspaceId: WorkspaceId, since: Date): Promise<HostSummary[]>;
 
-  anyOffersWork(workspaceId: WorkspaceId): Promise<boolean>;
+  readyToRun(workspaceId: WorkspaceId): Promise<boolean>;
 
   advertisedModels(
     workspaceId: WorkspaceId,

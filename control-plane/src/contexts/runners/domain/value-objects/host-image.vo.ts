@@ -73,6 +73,10 @@ export class HostImage {
     return this.refused === null;
   }
 
+  get servesAHarness(): boolean {
+    return this.isServed && this.harnesses.length > 0;
+  }
+
   get running(): RunningImage {
     return RunningImage.of(this.image, this.usual);
   }

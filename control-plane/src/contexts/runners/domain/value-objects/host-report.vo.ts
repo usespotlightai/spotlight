@@ -92,6 +92,10 @@ export class HostReport {
     );
   }
 
+  get servesAHarness(): boolean {
+    return this.images.some((each) => each.servesAHarness);
+  }
+
   offering(image: RunnerImage): HostImage | null {
     return (
       this.images.find((each) => each.isServed && each.image.equals(image)) ??

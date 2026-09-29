@@ -184,16 +184,18 @@ describe('the inbox item a setup list stands as', () => {
   });
 });
 
-describe('whether a workspace has a way in for runners to offer work', () => {
+describe('whether a workspace is ready to run', () => {
   const runners = () =>
     new DrizzleRunnerReader(db, {
-      now: () => new Date(),
+      now: () => NOW,
       sleep: async () => {},
     });
 
-  const pooled = (workspaceId: WorkspaceId, mode: 'pull' | 'push') =>
-    db.insert(schema.runnerPool).values({
-      id: randomUUID(),
+  const pooled = async (workspaceId: WorkspaceId, mode: 'pull' | 'push') => {
+    const id = randomUUID();
+
+    await db.insert(schema.runnerPool).values({
+      id,
       workspaceId: workspaceId.value,
       key: `pool-${randomUUID().slice(0, 8)}`,
       ...(mode === 'pull'
@@ -203,6 +205,9 @@ describe('whether a workspace has a way in for runners to offer work', () => {
             provisionSecret: 'sealed',
           }),
     });
+
+    return id;
+  };
 
   const trusted = (workspaceId: WorkspaceId) =>
     db.insert(schema.runnerTrust).values({
@@ -214,38 +219,104 @@ describe('whether a workspace has a way in for runners to offer work', () => {
       audience: 'spotlight',
     });
 
-  const ways: Record<string, (workspace: WorkspaceId) => Promise<unknown>> = {
-    'a pull pool': (workspace) => pooled(workspace, 'pull'),
-    'a push pool': (workspace) => pooled(workspace, 'push'),
-    'a runner trust': (workspace) => trusted(workspace),
+  const SERVING = {
+    image: 'ghcr.io/usespotlightai/spotlight-runner:1.0.0',
+    usual: true,
+    harnesses: [{ id: 'claude-code', models: [] }],
   };
 
+  const hosted = async (
+    workspaceId: WorkspaceId,
+    over: {
+      images?: (typeof schema.runnerHost.$inferInsert)['images'];
+      lastSeenAt?: Date;
+    } = {},
+  ) =>
+    db.insert(schema.runnerHost).values({
+      id: randomUUID(),
+      workspaceId: workspaceId.value,
+      poolId: await pooled(workspaceId, 'pull'),
+      name: 'build-box',
+      release: '1.0.0',
+      executor: 'docker',
+      capacity: 1,
+      images: over.images ?? [SERVING],
+      firstSeenAt: over.lastSeenAt ?? NOW,
+      lastSeenAt: over.lastSeenAt ?? NOW,
+    });
+
   afterEach(async () => {
+    await db.delete(schema.runnerHost);
     await db.delete(schema.runnerPool);
     await db.delete(schema.runnerTrust);
   });
 
-  it('finds none in a workspace with neither pool nor trust', async () => {
+  it('is not ready with neither a pool, a trust nor a host', async () => {
     await expect(
-      runners().anyOffersWork(WorkspaceId.of(randomUUID())),
+      runners().readyToRun(WorkspaceId.of(randomUUID())),
     ).resolves.toBe(false);
   });
 
-  it.each(Object.keys(ways))('finds one through %s', async (way) => {
+  it('is not ready with only a pull pool or a runner trust, before any host reports in', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
-    await ways[way]?.(workspace);
+    await pooled(workspace, 'pull');
+    await trusted(workspace);
 
-    await expect(runners().anyOffersWork(workspace)).resolves.toBe(true);
+    await expect(runners().readyToRun(workspace)).resolves.toBe(false);
   });
 
-  it('does not count a pool or trust in another workspace', async () => {
+  it('is ready with a push pool, which starts its runners on demand', async () => {
+    const workspace = WorkspaceId.of(randomUUID());
+
+    await pooled(workspace, 'push');
+
+    await expect(runners().readyToRun(workspace)).resolves.toBe(true);
+  });
+
+  it('is ready once a host reports in serving a harness', async () => {
+    const workspace = WorkspaceId.of(randomUUID());
+
+    await hosted(workspace);
+
+    await expect(runners().readyToRun(workspace)).resolves.toBe(true);
+  });
+
+  it('is not ready with a host whose images serve no harness', async () => {
+    const workspace = WorkspaceId.of(randomUUID());
+
+    await hosted(workspace, {
+      images: [
+        { ...SERVING, refused: 'pull access denied' },
+        {
+          ...SERVING,
+          image: 'ghcr.io/acme/bare:1',
+          usual: false,
+          harnesses: [],
+        },
+      ],
+    });
+
+    await expect(runners().readyToRun(workspace)).resolves.toBe(false);
+  });
+
+  it('is not ready with a host last seen more than a day ago', async () => {
+    const workspace = WorkspaceId.of(randomUUID());
+
+    await hosted(workspace, {
+      lastSeenAt: new Date(NOW.getTime() - 24 * 60 * 60_000),
+    });
+
+    await expect(runners().readyToRun(workspace)).resolves.toBe(false);
+  });
+
+  it('does not count a host or push pool in another workspace', async () => {
     const mine = WorkspaceId.of(randomUUID());
     const theirs = WorkspaceId.of(randomUUID());
 
-    await pooled(theirs, 'pull');
-    await trusted(theirs);
+    await hosted(theirs);
+    await pooled(theirs, 'push');
 
-    await expect(runners().anyOffersWork(mine)).resolves.toBe(false);
+    await expect(runners().readyToRun(mine)).resolves.toBe(false);
   });
 });
