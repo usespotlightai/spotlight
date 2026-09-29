@@ -364,9 +364,11 @@ export class Run extends EventRecorder {
     const next =
       this.state === 'waiting'
         ? this.leftWaiting(null)
-        : LOST.exhaustedAfter(this.lapses)
-          ? this.givenUp(RunOutcome.lost(this.lapses))
-          : this.backOnTheQueue();
+        : this.stopRequested
+          ? this.endedAsStopped(null)
+          : LOST.exhaustedAfter(this.lapses)
+            ? this.givenUp(RunOutcome.lost(this.lapses))
+            : this.backOnTheQueue();
 
     if (this.claimedBy) {
       next.record(
@@ -619,27 +621,7 @@ export class Run extends EventRecorder {
 
   private leftWaiting(by: RunnerId | null): Run {
     if (this.stopRequested) {
-      const outcome = RunOutcome.stopped(by ? 0 : -1);
-      const ended = this.with({
-        state: endingIn(outcome),
-        leaseExpiresAt: null,
-        outcome,
-      });
-
-      ended.record(
-        new RunCompleted(
-          this.id,
-          this.workspaceId,
-          this.subject,
-          outcome,
-          by,
-          null,
-          null,
-          this.attempt,
-        ),
-      );
-
-      return ended;
+      return this.endedAsStopped(by);
     }
 
     return this.with({
@@ -648,6 +630,30 @@ export class Run extends EventRecorder {
       leaseExpiresAt: null,
       parkedAttempts: [...this.parkedAttempts, this.attempt],
     });
+  }
+
+  private endedAsStopped(by: RunnerId | null): Run {
+    const outcome = RunOutcome.stopped(by ? 0 : -1);
+    const ended = this.with({
+      state: endingIn(outcome),
+      leaseExpiresAt: null,
+      outcome,
+    });
+
+    ended.record(
+      new RunCompleted(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        outcome,
+        by,
+        null,
+        null,
+        this.attempt,
+      ),
+    );
+
+    return ended;
   }
 
   refused(outcome: RunOutcome): Run {

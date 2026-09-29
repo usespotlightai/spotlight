@@ -8,11 +8,12 @@ export function useTaskStation(
   const { data: tasks } = useTasks(teamId);
   const { data: lines } = useLines(teamId);
 
-  const stationId = tasks?.find((each) => each.id === taskId)?.stationId;
+  const task = tasks?.find((each) => each.id === taskId);
+  const stationId = task?.stationId;
   const line = lines?.find((each) =>
     each.stations.some((station) => station.id === stationId),
   );
   const station = line?.stations.find((each) => each.id === stationId);
 
-  return { line, station };
+  return { line, station, task };
 }

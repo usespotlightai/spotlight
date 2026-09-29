@@ -14,7 +14,7 @@ export class Declaration {
     );
   }
 
-  heldBack(reason: string): Declaration {
+  withheld(reason: string): Declaration {
     return new Declaration(
       REVIEW,
       [reason.trim(), this.note === '' ? '' : `The run said: ${this.note}`]

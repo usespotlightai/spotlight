@@ -370,8 +370,8 @@ describe('Line', () => {
       expect(named('Backlog')).toEqual(['Triage']);
       expect(named('Triage')).toEqual(['Spec', 'Implementation']);
       expect(named('Spec')).toEqual(['Implementation']);
-      expect(named('Implementation')).toEqual(['Code Review']);
-      expect(named('Code Review')).toEqual(['Implementation']);
+      expect(named('Implementation')).toEqual(['Code Review', 'Spec']);
+      expect(named('Code Review')).toEqual(['Spec', 'Implementation']);
     });
 
     it('lets one station end the line, and no other', () => {
@@ -698,6 +698,46 @@ describe('Line, where work may be handed on to', () => {
     ).toBe('no-way');
   });
 
+  it('lets a person start work from the backlog, park it back there, or close it from anywhere', () => {
+    const line = running();
+    const moves = [
+      ['backlog', 'spec'],
+      ['backlog', 'completed'],
+      ['implementation', 'backlog'],
+      ['code-review', 'completed'],
+      ['triage', 'triage'],
+      ['completed', 'completed'],
+    ] as const;
+
+    expect(
+      moves.map(([from, to]) =>
+        line.refusalToMove(keyed(line, from), keyed(line, to)),
+      ),
+    ).toEqual([null, null, null, null, null, null]);
+  });
+
+  it('refuses a person moving work between work stations, which runs pass it along', () => {
+    const line = running();
+
+    expect(line.refusalToMove(keyed(line, 'triage'), keyed(line, 'spec'))).toBe(
+      'between-work-stations',
+    );
+    expect(
+      line.refusalToMove(keyed(line, 'code-review'), keyed(line, 'spec')),
+    ).toBe('between-work-stations');
+  });
+
+  it('refuses a person moving work out of completed', () => {
+    const line = running();
+
+    expect(
+      line.refusalToMove(keyed(line, 'completed'), keyed(line, 'backlog')),
+    ).toBe('out-of-completed');
+    expect(
+      line.refusalToMove(keyed(line, 'completed'), keyed(line, 'spec')),
+    ).toBe('out-of-completed');
+  });
+
   it('offers the stations work passes to, then a person', () => {
     const line = running();
 
@@ -711,7 +751,7 @@ describe('Line, where work may be handed on to', () => {
 
     expect(
       line.optionsFrom(keyed(line, 'code-review').id).map((each) => each.word),
-    ).toEqual(['implementation', 'review', 'done']);
+    ).toEqual(['spec', 'implementation', 'review', 'done']);
   });
 
   it('offers only a person from a station it does not hold', () => {

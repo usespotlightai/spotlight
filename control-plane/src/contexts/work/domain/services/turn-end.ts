@@ -34,7 +34,7 @@ const asksAPerson = (turn: Turn): boolean => {
     return false;
   }
 
-  const routing = routeAfterRun(handoverOf(task, turn), line);
+  const routing = routeAfterRun(handoverOf(task, turn), line, task);
 
   return (
     task.awaitingReview || (routing.kind === 'ask' && routing.failure === null)
@@ -42,18 +42,18 @@ const asksAPerson = (turn: Turn): boolean => {
 };
 
 export const turnWaits = (
-  turn: Turn & { readonly by: RunnerId; readonly mayBeHeldBack: boolean },
+  turn: Turn & { readonly by: RunnerId; readonly mayBeWithheld: boolean },
 ): boolean => {
   if (turn.run.pausedBy(turn.by)) {
     return !turn.outcome.stopped;
   }
 
-  const heldBack =
-    turn.mayBeHeldBack && turn.declared
-      ? { ...turn, declared: turn.declared.heldBack('') }
+  const withheld =
+    turn.mayBeWithheld && turn.declared
+      ? { ...turn, declared: turn.declared.withheld('') }
       : null;
 
-  return asksAPerson(turn) || (heldBack !== null && asksAPerson(heldBack));
+  return asksAPerson(turn) || (withheld !== null && asksAPerson(withheld));
 };
 
 export const turnEnded = (turn: {
@@ -69,7 +69,7 @@ export const turnEnded = (turn: {
   const { run, by, task, line, outcome, report, kept, now } = turn;
 
   const asked = { run, task, line, outcome, declared: report.declared };
-  const waits = turnWaits({ ...asked, by, mayBeHeldBack: false });
+  const waits = turnWaits({ ...asked, by, mayBeWithheld: false });
 
   if (waits && run.pausedBy(by)) {
     return { waiting: true, run, task: null };

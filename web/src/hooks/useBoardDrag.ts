@@ -13,8 +13,9 @@ import {
 import { useState } from 'react';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useDragGuard } from '@/hooks/useDragGuard';
+import type { StationResponseDto } from '@/lib/api';
 import { type Landing, landingFor } from '@/lib/dragging';
-import type { Task } from '@/lib/task';
+import { mayLand, type Task } from '@/lib/task';
 
 const HOLD = 6;
 
@@ -33,6 +34,7 @@ type Board = {
   readonly teamId: string | undefined;
   readonly lineId: string;
   readonly tasks: readonly Task[];
+  readonly stations: readonly StationResponseDto[];
 };
 
 export function useBoardDrag(board: Board) {
@@ -51,21 +53,29 @@ export function useBoardDrag(board: Board) {
     setLanding(null);
   };
 
-  const landingOver = (activeId: string, over: DragOverEvent['over']) =>
-    over &&
-    landingFor(board.tasks, activeId, {
-      kind: over.data.current?.kind === 'task' ? 'task' : 'station',
-      id: String(over.id),
-      stationId: String(over.data.current?.stationId ?? over.id),
-    });
+  const landingOver = (moving: Task, over: DragOverEvent['over']) => {
+    const held =
+      over &&
+      landingFor(board.tasks, moving.id, {
+        kind: over.data.current?.kind === 'task' ? 'task' : 'station',
+        id: String(over.id),
+        stationId: String(over.data.current?.stationId ?? over.id),
+      });
+
+    return held && mayLand(board.stations, moving, held.stationId)
+      ? held
+      : null;
+  };
 
   const onDragOver = ({ active, over }: DragOverEvent) => {
-    if (!over || active.data.current?.kind !== 'task') {
+    const moving = board.tasks.find((each) => each.id === active.id);
+
+    if (!over || !moving || active.data.current?.kind !== 'task') {
       setLanding(null);
       return;
     }
 
-    setLanding(landingOver(String(active.id), over) ?? null);
+    setLanding(landingOver(moving, over));
   };
 
   const settle = ({ active, over }: DragEndEvent) => {
@@ -79,7 +89,7 @@ export function useBoardDrag(board: Board) {
     }
 
     const moving = board.tasks.find((each) => each.id === active.id);
-    const held = landingOver(String(active.id), over);
+    const held = moving ? landingOver(moving, over) : null;
 
     if (moving && held) {
       moveTask.mutate({

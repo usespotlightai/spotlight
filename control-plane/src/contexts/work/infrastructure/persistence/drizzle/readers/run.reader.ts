@@ -42,6 +42,7 @@ import { alias } from 'drizzle-orm/pg-core';
 export const ranAt = alias(station, 'ran_at');
 
 export type StationRow = {
+  stationId: string | null;
   stationName: string | null;
   stationColor: string | null;
   stationPosition: number | null;
@@ -52,11 +53,13 @@ export const worked = (
   row: StationRow,
   held: Map<string, number>,
 ): RunStationSummary | null =>
+  row.stationId === null ||
   row.stationName === null ||
   row.stationColor === null ||
   row.stationPosition === null
     ? null
     : {
+        id: row.stationId,
         name: row.stationName,
         color: row.stationColor,
         position: row.stationPosition,
@@ -97,6 +100,7 @@ export class DrizzleRunReader implements RunReaderPort {
         updatedAt: run.updatedAt,
         harness: run.harness,
         image: run.ranIn,
+        stationId: ranAt.id,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
@@ -141,6 +145,7 @@ export class DrizzleRunReader implements RunReaderPort {
         taskId: run.taskId,
         taskTitle: task.title,
         taskDescription: task.description,
+        stationId: ranAt.id,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
@@ -188,6 +193,7 @@ export class DrizzleRunReader implements RunReaderPort {
         workingRunId: task.currentRunId,
         createdAt: task.createdAt,
         spec: run.spec,
+        stationId: ranAt.id,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,

@@ -49,6 +49,10 @@ export interface ApprovalRow {
   readonly spent: boolean;
 }
 
+export type HeldBackRow =
+  | { readonly kind: 'moves'; readonly to: string }
+  | { readonly kind: 'cleared' };
+
 export interface FailureRow {
   readonly source: string;
   readonly code: string;
@@ -111,6 +115,7 @@ export const taskNote = pgTable(
     said: jsonb('said').$type<SaidRow>(),
     approval: jsonb('approval').$type<ApprovalRow>(),
     failure: jsonb('failure').$type<FailureRow>(),
+    heldBack: jsonb('held_back').$type<HeldBackRow>(),
     answeredAt: timestamp('answered_at'),
     readAt: timestamp('read_at'),
     deliveredAt: timestamp('delivered_at'),

@@ -190,6 +190,7 @@ export class TaskController {
       found.attachments.map(AttachmentHttpMapper.toResponse),
       found.station
         ? new RunStationResponseDto(
+            found.station.id,
             found.station.name,
             found.station.color,
             found.station.position,
@@ -234,9 +235,12 @@ export class TaskController {
     summary: 'Say something to the agent working a run',
   })
   @ApiParam({ name: 'runId', type: String })
-  @ApiNoContentResponse({ description: 'It joined the task’s trail' })
+  @ApiNoContentResponse({
+    description:
+      'It joined the task’s trail, and starts the station again if the task stood idle there',
+  })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
-  @ApiUnprocessableEntityResponse({
+  @ApiConflictResponse({
     description: 'The task has moved on from that station',
   })
   async say(
@@ -385,6 +389,10 @@ export class TaskController {
   @ApiOkResponse({ type: TaskResponseDto })
   @ApiNotFoundResponse({
     description: 'No such task or station for this caller',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'A person may only start a task from the backlog, park it back there, or close it',
   })
   @HttpCode(HttpStatus.OK)
   async move(

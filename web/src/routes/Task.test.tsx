@@ -54,8 +54,15 @@ vi.mock('@/hooks/api/useLines', () => ({
         id: 'line_1',
         name: 'Default',
         stations: [
-          { id: 'station_0', name: 'Backlog', position: 0 },
-          { id: 'station_1', name: 'Triage', position: 1 },
+          { id: 'station_0', name: 'Backlog', position: 0, kind: 'backlog' },
+          { id: 'station_1', name: 'Triage', position: 1, kind: 'work' },
+          { id: 'station_2', name: 'Spec', position: 2, kind: 'work' },
+          {
+            id: 'station_3',
+            name: 'Completed',
+            position: 3,
+            kind: 'completed',
+          },
         ],
       },
     ],
@@ -276,6 +283,31 @@ describe('Task', () => {
       stationId: 'station_0',
       afterTaskId: null,
     });
+  });
+
+  it('offers only the backlog, completed and where it stands to a task at a work station', async () => {
+    const user = userEvent.setup();
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    await screen.findByRole('menu');
+
+    expect(
+      screen.getAllByRole('menuitemradio').map((each) => each.textContent),
+    ).toEqual(['Backlog', 'Triage', 'Completed']);
+  });
+
+  it('offers nothing to move to once a task is completed', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([{ ...task, stationId: 'station_3' }]);
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    await screen.findByRole('menu');
+
+    expect(
+      screen.getAllByRole('menuitemradio').map((each) => each.textContent),
+    ).toEqual(['Completed']);
   });
 
   it('asks before taking a task away', async () => {

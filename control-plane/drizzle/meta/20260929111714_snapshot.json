@@ -1,5 +1,5 @@
 {
-  "id": "d230f849-921e-4779-8644-0e6f8008cef9",
+  "id": "d68b9461-a39e-44ee-9af4-f8ef5b98077c",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -8078,6 +8078,12 @@
         },
         "failure": {
           "name": "failure",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "held_back": {
+          "name": "held_back",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false

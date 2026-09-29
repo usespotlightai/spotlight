@@ -10,7 +10,7 @@ import type {
   ReviewRequest,
 } from '@work/domain/value-objects/review-asked.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
-import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -24,6 +24,8 @@ interface Told {
 export type Outcome =
   | { readonly kind: 'nothing' }
   | (Told & { readonly kind: 'stays' })
+  | (Told & { readonly kind: 'heldBack'; readonly to: Station })
+  | (Told & { readonly kind: 'interrupts' })
   | (Told & { readonly kind: 'answers'; readonly to: NotePosition })
   | (Told & { readonly kind: 'moves'; readonly to: Station });
 
@@ -65,11 +67,10 @@ export const ReactionFor = {
     );
     const here = input.line.stationAt(input.task.stationId);
 
-    const note = (station: StationName): Told => ({
-      station,
-      body: TaskNoteBody.heard(input.word.told, input.said),
-      said: input.said,
-    });
+    const note = (
+      station: StationName,
+      body = TaskNoteBody.heard(input.word.told, input.said),
+    ): Told => ({ station, body, said: input.said });
 
     if (rule) {
       const destination = input.line.stationAt(rule.to);
@@ -79,11 +80,40 @@ export const ReactionFor = {
       }
 
       if (!destination.id.equals(input.task.stationId)) {
-        return {
-          kind: 'moves',
-          to: destination,
-          ...note(here?.name ?? destination.name),
-        };
+        const station = here?.name ?? StationName.unknown();
+
+        if (!input.task.running) {
+          return { kind: 'moves', to: destination, ...note(station) };
+        }
+
+        return input.line.completed.id.equals(destination.id)
+          ? {
+              kind: 'interrupts',
+              ...note(
+                station,
+                input.task.awaitsAnAnswer
+                  ? TaskNoteBody.interruptedWhileWaiting(
+                      input.word.told,
+                      here?.name ?? null,
+                    )
+                  : TaskNoteBody.interrupted(
+                      input.word.told,
+                      here?.name ?? null,
+                    ),
+              ),
+            }
+          : {
+              kind: 'heldBack',
+              to: destination,
+              ...note(
+                station,
+                TaskNoteBody.heldBack(
+                  input.word.told,
+                  input.said,
+                  destination.name,
+                ),
+              ),
+            };
       }
     }
 

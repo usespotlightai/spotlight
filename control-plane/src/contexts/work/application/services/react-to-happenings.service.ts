@@ -368,11 +368,19 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return task.heard(saying);
     }
 
+    if (reaction.kind === 'heldBack') {
+      return task.heldBack(line, reaction.to.id, saying);
+    }
+
+    if (reaction.kind === 'interrupts') {
+      return task.interrupted(saying);
+    }
+
     if (reaction.kind === 'answers') {
       return task.answered(reaction.to, saying);
     }
 
-    return task.moveTo(
+    return task.reactedTo(
       line,
       reaction.to.id,
       Placement.atTheTop(

@@ -13,6 +13,7 @@ export interface RunReview {
 }
 
 export interface RunStationSummary {
+  readonly id: string;
   readonly name: string;
   readonly color: string;
   readonly position: number;

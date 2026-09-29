@@ -10,6 +10,7 @@ interface RunReviewDto {
 export const RUN_STATE_NAMES = RUN_STATES;
 
 export interface RunStationDto {
+  readonly id: string;
   readonly name: string;
   readonly color: string;
   readonly position: number;

@@ -1085,6 +1085,7 @@ export type TaskResponseDto = {
 };
 
 export type RunStationResponseDto = {
+  id: string;
   name: string;
   color: string;
   position: number;
@@ -4924,12 +4925,12 @@ export type SayToRunErrors = {
   /**
    * The task has moved on from that station
    */
-  422: unknown;
+  409: unknown;
 };
 
 export type SayToRunResponses = {
   /**
-   * It joined the task’s trail
+   * It joined the task’s trail, and starts the station again if the task stood idle there
    */
   204: void;
 };
@@ -5102,6 +5103,10 @@ export type MoveTaskErrors = {
    * No such task or station for this caller
    */
   404: unknown;
+  /**
+   * A person may only start a task from the backlog, park it back there, or close it
+   */
+  422: unknown;
 };
 
 export type MoveTaskResponses = {

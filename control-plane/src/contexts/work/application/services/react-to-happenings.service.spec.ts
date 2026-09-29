@@ -21,6 +21,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
+import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
@@ -643,6 +644,164 @@ describe('ReactToHappenings', () => {
 
     expect(dispatched).toHaveLength(0);
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+  });
+
+  describe('a happening that would move a task a run holds', () => {
+    const held = (stationId: string) => {
+      const task = standing(stationId).handedTo(RunId.of('run_1'), line());
+      task.pullEvents();
+      return task;
+    };
+
+    const paused = (stationId: string) => {
+      const task = standing(stationId)
+        .handedTo(RunId.of('run_1'), line())
+        .putToAPersonBy(RunId.of('run_1'), {
+          station: StationName.of('Implementation'),
+          body: TaskNoteBody.of('Which queue should I drain?'),
+          at: NOW,
+          voice: Voice.station(RunId.of('run_1')),
+        });
+      task.pullEvents();
+      return task;
+    };
+
+    it('leaves the task where it stands and the run holding it', async () => {
+      await heard(COMMENTED, held('station_1'), 'This retries forever.');
+
+      expect(saved?.stationId).toEqual(StationId.of('station_1'));
+      expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+      expect(saved?.pullEvents().map((each) => each.kind)).toEqual([]);
+      expect(dispatched).toHaveLength(0);
+    });
+
+    it('holds the move back on a note, for the run to be told', async () => {
+      await heard(COMMENTED, held('station_1'), 'This retries forever.');
+
+      expect(saved?.notes.map((each) => each.body.value)).toEqual([
+        'Heard while a run held the task. It moves to Code Review when the run ends, unless the run passes it on:\n\ncompose.yml:22\nThis retries forever.',
+      ]);
+      expect(saved?.notes[0]?.station).toEqual(
+        StationName.of('Implementation'),
+      );
+      expect(saved?.notes[0]?.remark?.value).toBe('PRRC_kwDO');
+      expect(saved?.undelivered).toHaveLength(1);
+      expect(saved?.heldBackTo).toEqual(StationId.of('station_2'));
+    });
+
+    it('holds back a spoken word with nothing said as what happened', async () => {
+      await heard(COMMENTED, held('station_1'), null);
+
+      expect(saved?.stationId).toEqual(StationId.of('station_1'));
+      expect(saved?.notes[0]?.body.value).toContain(
+        'unless the run passes it on:\n\nThe pull request was commented.',
+      );
+      expect(saved?.heldBackTo).toEqual(StationId.of('station_2'));
+      expect(dispatched).toHaveLength(0);
+    });
+
+    it('holds the move back while the run holding the task waits on a person', async () => {
+      await heard(COMMENTED, paused('station_1'), 'This retries forever.');
+
+      expect(saved?.stationId).toEqual(StationId.of('station_1'));
+      expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+      expect(saved?.awaitingReview).toBe(true);
+      expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'said']);
+      expect(saved?.heldBackTo).toEqual(StationId.of('station_2'));
+      expect(saved?.pullEvents()).toEqual([]);
+      expect(dispatched).toHaveLength(0);
+    });
+
+    it('keeps a held-back move when a later happening leaves the task where it stands', async () => {
+      await heard(COMMENTED, held('station_1'), 'This retries forever.');
+      const noted = saved as Task;
+
+      await heard(CHANGES_REQUESTED, noted, 'Handle the empty case.');
+
+      expect(saved?.stationId).toEqual(StationId.of('station_1'));
+      expect(saved?.notes.map((each) => each.kind)).toEqual(['said', 'said']);
+      expect(saved?.heldBackTo).toEqual(StationId.of('station_2'));
+    });
+
+    it('moves the same task once no run holds it', async () => {
+      await heard(COMMENTED, standing('station_1'), 'This retries forever.');
+
+      expect(saved?.stationId).toEqual(StationId.of('station_2'));
+      expect(saved?.notes[0]?.body.value).toBe(
+        'compose.yml:22\nThis retries forever.',
+      );
+      expect(saved?.heldBackTo).toBeNull();
+      expect(dispatched).toHaveLength(1);
+    });
+
+    describe('when the pull request merges', () => {
+      it('stops the run and keeps the task where it stands', async () => {
+        await heard(MERGED, held('station_2'));
+
+        expect(saved?.stationId).toEqual(StationId.of('station_2'));
+        expect(saved?.currentRunId).toBeNull();
+        expect(saved?.finished).toBe(false);
+        expect(
+          saved
+            ?.pullEvents()
+            .filter((each) => each.kind === 'task.let-go-of-run')
+            .map((each) => (each as TaskLetGoOfRun).runId),
+        ).toEqual([RunId.of('run_1')]);
+        expect(dispatched).toHaveLength(0);
+      });
+
+      it('asks whoever raised the task whether to close it or carry on', async () => {
+        await heard(MERGED, held('station_2'));
+
+        expect(saved?.awaitingReview).toBe(true);
+        expect(saved?.assignee).toEqual(UserId.of('user_1'));
+        expect(
+          saved?.notes.map((each) => [each.kind, each.body.value]),
+        ).toEqual([
+          [
+            'asked',
+            'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
+          ],
+        ]);
+      });
+
+      it('adds to the question the paused run put to a person, asking nothing again and leaving the run alone', async () => {
+        await heard(MERGED, paused('station_2'));
+
+        expect(saved?.stationId).toEqual(StationId.of('station_2'));
+        expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+        expect(saved?.awaitingReview).toBe(true);
+        expect(
+          saved?.notes.map((each) => [each.kind, each.body.value]),
+        ).toEqual([
+          ['asked', 'Which queue should I drain?'],
+          [
+            'said',
+            'The pull request was merged while Code Review was waiting for an answer. Close the task, or reply to carry on.',
+          ],
+        ]);
+        expect(saved?.pullEvents()).toEqual([]);
+        expect(dispatched).toHaveLength(0);
+      });
+
+      it('drops the moves held back before it once the paused run’s question is open, leaving the person to decide', async () => {
+        await heard(COMMENTED, paused('station_1'), 'This retries forever.');
+        expect(saved?.heldBackTo).toEqual(StationId.of('station_2'));
+
+        await heard(MERGED, saved as Task);
+
+        expect(saved?.heldBackTo).toBeNull();
+        expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
+        expect(saved?.awaitingReview).toBe(true);
+      });
+
+      it('finishes a task no run holds, as before', async () => {
+        await heard(MERGED, standing('station_1'));
+
+        expect(saved?.stationId).toEqual(StationId.of('station_3'));
+        expect(saved?.finished).toBe(true);
+      });
+    });
   });
 
   it('looks for the task only in the workspace the word came from', async () => {

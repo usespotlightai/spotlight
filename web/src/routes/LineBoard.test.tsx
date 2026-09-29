@@ -347,6 +347,31 @@ describe('LineBoard', () => {
     ).toBeInTheDocument();
   });
 
+  it('offers no move for a task that is completed', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([
+      ...standing,
+      {
+        id: 'task_5',
+        stationId: 'station_5',
+        title: 'Ship the fix',
+        description: null,
+        createdAt: '2026-08-08T09:15:00.000Z',
+      },
+    ]);
+    renderAt('line_1');
+
+    await user.click(screen.getByRole('button', { name: 'Completed' }));
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Select Ship the fix' }),
+    );
+
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Move to/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it('moves every task that was picked', async () => {
     const user = userEvent.setup();
     renderAt('line_1');

@@ -66,6 +66,7 @@ import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -154,6 +155,7 @@ export const WORK_EVENT_TYPES = [
   HarnessCommand,
   HarnessName,
   HarnessSession,
+  HeldBack,
   LineId,
   LineKey,
   LineName,

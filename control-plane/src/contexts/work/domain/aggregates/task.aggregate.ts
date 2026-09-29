@@ -26,6 +26,7 @@ import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
+import { MoveRefusedError } from '@work/domain/exceptions/move-refused.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -46,7 +47,9 @@ import { Branch } from '@work/domain/value-objects/branch.vo';
 import type { Clearance } from '@work/domain/value-objects/clearance';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
@@ -60,7 +63,7 @@ import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
-import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -88,6 +91,11 @@ export interface Saying {
   readonly attachments?: readonly Attachment[];
   readonly approval?: Approval | null;
   readonly failure?: TaskFailure | null;
+}
+
+export interface Placing {
+  readonly line: Line;
+  readonly rank: TaskRank;
 }
 
 export interface StandingApproval {
@@ -261,11 +269,113 @@ export class Task extends EventRecorder {
     to: StationId,
     rank: TaskRank,
     saying: Saying,
-    handMove: { mover: UserId } | null = null,
+    handMove: { mover: UserId },
   ): Task {
+    this.refuseHandMove(line, to);
+
     return this.relocated(line, to, rank, saying, handMove).lettingGoOf(
       this.currentRunId,
     );
+  }
+
+  reactedTo(line: Line, to: StationId, rank: TaskRank, saying: Saying): Task {
+    if (this.running) {
+      throw new InvalidTaskTransitionError(
+        'is being worked by a run, so a happening cannot move it',
+      );
+    }
+
+    return this.relocated(line, to, rank, saying, null);
+  }
+
+  heldBack(line: Line, to: StationId, saying: Saying): Task {
+    if (!this.running) {
+      throw new InvalidTaskTransitionError(
+        'is not being worked by a run, so there is nothing to hold a move back for',
+      );
+    }
+
+    if (this.stationId.equals(to)) {
+      throw new InvalidTaskTransitionError(
+        'cannot hold back a move to the station it already stands at',
+      );
+    }
+
+    if (line.completed.id.equals(to)) {
+      throw new InvalidTaskTransitionError(
+        'cannot hold back a move to the end of its line, which interrupts its run instead',
+      );
+    }
+
+    return this.with(this.spoke(saying, 'said', HeldBack.moveTo(to)));
+  }
+
+  get heldBackTo(): StationId | null {
+    for (const note of [...this.notes].reverse()) {
+      if (note.heldBack) {
+        return note.heldBack.to;
+      }
+
+      if (
+        note.kind === 'passed' ||
+        (note.kind === 'asked' && note.approval === null)
+      ) {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  movedAsHeldBack(
+    by: RunId,
+    line: Line,
+    to: StationId,
+    rank: TaskRank,
+    ending: { saying: Saying; handover: Handover },
+  ): Task {
+    this.refuseAnotherRun(by, 'move it where it was held back to');
+
+    if (!this.heldBackTo?.equals(to)) {
+      throw new InvalidTaskTransitionError(
+        'has no move held back to there, so it cannot be moved there for one',
+      );
+    }
+
+    const failure =
+      ending.handover.kind === 'review' ? ending.handover.failure : null;
+
+    return this.relocated(
+      line,
+      to,
+      rank,
+      {
+        ...ending.saying,
+        body: TaskNoteBody.movedAsHeldBack(
+          Task.stationOn(line, to).name,
+          ending.handover.account,
+        ),
+        form: failure ? 'failure' : 'words',
+        failure,
+      },
+      null,
+    );
+  }
+
+  interrupted(saying: Saying): Task {
+    if (!this.running) {
+      throw new InvalidTaskTransitionError(
+        'is not being worked by a run, so there is no run to interrupt',
+      );
+    }
+
+    if (this.awaitsAnAnswer) {
+      return this.with(this.spoke(saying, 'said', HeldBack.cleared()));
+    }
+
+    return this.stopped(saying.at).asked(saying, null, null, {
+      overAnApproval: true,
+    });
   }
 
   private relocated(
@@ -436,11 +546,18 @@ export class Task extends EventRecorder {
   }
 
   spokenTo(by: RunId, saying: Saying, at: StationId | null): Task {
-    const owed = this.heldBy(by) ? this.owedConversation : null;
+    const answering =
+      this.heldBy(by) ||
+      (!this.running && at !== null && this.stationId.equals(at));
+    const owed = answering ? this.owedConversation : null;
 
     return owed && !this.owesADecision
       ? this.answered(NotePosition.of(owed.from), saying)
       : this.heard(saying, at);
+  }
+
+  get awaitsAnAnswer(): boolean {
+    return this.running && this.awaitingReview && !this.owesADecision;
   }
 
   get owesADecision(): boolean {
@@ -699,10 +816,15 @@ export class Task extends EventRecorder {
     return this.asked(saying, by, by);
   }
 
-  private asked(saying: Saying, by: RunId | null, waiting: RunId | null): Task {
+  private asked(
+    saying: Saying,
+    by: RunId | null,
+    waiting: RunId | null,
+    { overAnApproval } = { overAnApproval: false },
+  ): Task {
     this.refuseAnotherRun(by, 'put it to a person');
 
-    if (this.awaitingReview) {
+    if (this.awaitingReview && !(overAnApproval && this.owesADecision)) {
       throw new InvalidTaskTransitionError(
         'is already waiting on a person, so it cannot be put to one again',
       );
@@ -734,7 +856,12 @@ export class Task extends EventRecorder {
     );
   }
 
-  failed(failure: TaskFailure, saying: Saying, by: RunId | null): Task {
+  failed(
+    failure: TaskFailure,
+    saying: Saying,
+    by: RunId | null,
+    heldBackOnto: Placing | null = null,
+  ): Task {
     if (this.finished) {
       throw new InvalidTaskTransitionError(
         'has finished, so no failure on it is put to anyone',
@@ -743,6 +870,26 @@ export class Task extends EventRecorder {
 
     if (by) {
       this.refuseAnotherRun(by, 'report a failure of it');
+    }
+
+    const heldBackTo = by || !this.running ? null : this.heldBackTo;
+
+    if (heldBackTo && heldBackOnto?.line.stationAt(heldBackTo)) {
+      return this.relocated(
+        heldBackOnto.line,
+        heldBackTo,
+        heldBackOnto.rank,
+        {
+          ...saying,
+          body: TaskNoteBody.movedAsHeldBack(
+            Task.stationOn(heldBackOnto.line, heldBackTo).name,
+            saying.body,
+          ),
+          form: 'failure',
+          failure,
+        },
+        null,
+      ).lettingGoOf(this.currentRunId);
     }
 
     const free = by ? this : this.stopped(saying.at);
@@ -929,6 +1076,16 @@ export class Task extends EventRecorder {
     return station;
   }
 
+  private refuseHandMove(line: Line, to: StationId): void {
+    const from = Task.stationOn(line, this.stationId);
+    const into = Task.stationOn(line, to);
+    const refused = line.refusalToMove(from, into);
+
+    if (refused) {
+      throw new MoveRefusedError(refused, from.name.value, into.name.value);
+    }
+  }
+
   private refuseStandingStill(stationId: StationId, doing: string): void {
     if (this.stationId.equals(stationId)) {
       throw new InvalidTaskTransitionError(
@@ -940,6 +1097,7 @@ export class Task extends EventRecorder {
   private spoke(
     saying: Saying,
     kind: TaskNoteKind,
+    heldBack: HeldBack | null = null,
   ): { notes: readonly TaskNote[]; finishedAt?: null } {
     return {
       notes: [
@@ -948,6 +1106,7 @@ export class Task extends EventRecorder {
           ...saying,
           kind,
           position: NotePosition.of(this.notes.length),
+          heldBack,
         }),
       ],
       ...(saying.voice.isStation ? {} : { finishedAt: null }),
