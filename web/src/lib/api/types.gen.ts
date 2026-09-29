@@ -478,6 +478,38 @@ export type CompleteRunRequestDto = {
    * A person stopped the run rather than the agent finishing it.
    */
   stopped?: boolean;
+  /**
+   * The workspace archive is sealed as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.
+   */
+  kept?: boolean;
+};
+
+export type RunCompletionResponseDto = {
+  /**
+   * Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then parks the run.
+   */
+  waiting: boolean;
+};
+
+export type TurnAsksAPersonResponseDto = {
+  /**
+   * Whether this turn, reported as given, would put the run to a person, so the runner keeps its harness running while it keeps the workspace. Otherwise the runner closes the harness first, as the run ends.
+   */
+  asks: boolean;
+};
+
+export type ParkRunRequestDto = {
+  /**
+   * The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner.
+   */
+  cold?: boolean;
+};
+
+export type RunParkingResponseDto = {
+  /**
+   * Whether the run is parked (or, if a stop was asked for, ended) and no longer held by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.
+   */
+  parked: boolean;
 };
 
 export type HeldArchiveResponseDto = {
@@ -1072,7 +1104,7 @@ export type RunReviewResponseDto = {
 
 export type TeamRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1117,7 +1149,7 @@ export type TeamTraceResponseDto = {
    */
   stations: Array<TraceStationResponseDto>;
   harness: string;
-  state: 'queued' | 'claimed' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
   startedAt: string;
   /**
    * How many runs worked the task
@@ -1173,7 +1205,7 @@ export type SayToRunRequestDto = {
 
 export type TaskRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -3977,6 +4009,14 @@ export type RenewLeaseErrors = {
    * Missing, spent or wrong runner token
    */
   401: unknown;
+  /**
+   * The run is no longer held by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.
+   */
+  404: unknown;
+  /**
+   * The run kept changing while its lease was renewed; renew again on the next heartbeat.
+   */
+  409: unknown;
 };
 
 export type RenewLeaseResponses = {
@@ -4178,10 +4218,62 @@ export type CompleteRunErrors = {
 };
 
 export type CompleteRunResponses = {
-  204: void;
+  200: RunCompletionResponseDto;
 };
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
+
+export type TurnAsksAPersonData = {
+  body: CompleteRunRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/completion/asks';
+};
+
+export type TurnAsksAPersonErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run held by this runner
+   */
+  404: unknown;
+};
+
+export type TurnAsksAPersonResponses = {
+  200: TurnAsksAPersonResponseDto;
+};
+
+export type TurnAsksAPersonResponse = TurnAsksAPersonResponses[keyof TurnAsksAPersonResponses];
+
+export type ParkRunData = {
+  body: ParkRunRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/parked';
+};
+
+export type ParkRunErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The run is not held by this runner
+   */
+  409: unknown;
+};
+
+export type ParkRunResponses = {
+  200: RunParkingResponseDto;
+};
+
+export type ParkRunResponse = ParkRunResponses[keyof ParkRunResponses];
 
 export type ReadWorkspaceArchiveData = {
   body?: never;

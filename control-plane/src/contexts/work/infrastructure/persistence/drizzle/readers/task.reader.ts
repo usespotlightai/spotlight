@@ -107,7 +107,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
     return rows.map(({ currentRunId, raisedById, assigneeId, ...rest }) => ({
       ...rest,
       attachments: attachmentsOf(attached, rest.id).own,
-      running: currentRunId !== null,
+      running: currentRunId !== null && !awaited.has(rest.id),
       awaitingReview: awaited.has(rest.id)
         ? { conversationId: awaited.get(rest.id) as string }
         : null,

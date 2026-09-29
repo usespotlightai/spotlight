@@ -11,12 +11,16 @@ import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import { RunParked } from '@work/domain/events/run-parked.event';
+import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
+import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
+import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
 import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
@@ -220,10 +224,14 @@ export const WORK_EVENT_TYPES = [
   RunSuperseded,
   RunCompleted,
   RunLapsed,
+  RunParked,
+  RunPaused,
+  RunResumed,
   RunReservationDropped,
   RunStopRequested,
   StationHarnessChanged,
   StationRenamed,
+  TaskAnswered,
   TaskAsked,
   TaskAsideRaised,
   TaskAsideSettled,

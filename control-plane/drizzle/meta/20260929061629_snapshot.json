@@ -1,5 +1,5 @@
 {
-  "id": "68653170-625a-4316-a64f-1ccf142a11ca",
+  "id": "d230f849-921e-4779-8644-0e6f8008cef9",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -7067,6 +7067,13 @@
           "notNull": true,
           "default": 0
         },
+        "parked_attempts": {
+          "name": "parked_attempts",
+          "type": "integer[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::integer[]"
+        },
         "briefed_memories": {
           "name": "briefed_memories",
           "type": "jsonb",
@@ -8480,6 +8487,8 @@
       "values": [
         "queued",
         "claimed",
+        "waiting",
+        "parked",
         "completed",
         "failed",
         "superseded"

@@ -61,7 +61,7 @@ export const TaskMapper = {
         size: each.size,
       })),
       createdAt: task.createdAt.toISOString(),
-      running: task.running,
+      running: task.working,
       awaitingReview: TaskMapper.awaited(task),
       pullRequest: task.pullRequest?.value ?? null,
       raisedBy,

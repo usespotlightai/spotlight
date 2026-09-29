@@ -179,7 +179,13 @@ describe('ChatOutcomes', () => {
     const { outcomes, save, takenUp } = settling(handedAgain());
 
     await outcomes.onRunAbandoned(
-      new RunAbandoned(RunId.of('run_2'), WorkspaceId.of('ws_1'), IN_CHAT, 3),
+      new RunAbandoned(
+        RunId.of('run_2'),
+        WorkspaceId.of('ws_1'),
+        IN_CHAT,
+        3,
+        3,
+      ),
     );
 
     const saved = save.mock.calls[0]?.[0];

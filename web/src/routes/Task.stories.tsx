@@ -7,6 +7,7 @@ import {
   MISSING_TASK_ID,
   SLUG,
   seedBoard,
+  seedWaitingTask,
   seedWorkspace,
   TASK_ID,
   TEAM_ID,
@@ -54,6 +55,15 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={taskPath(SLUG, TEAM_ID, TASK_ID)} seed={seedBoard}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const WaitingForYou: Story = {
+  name: 'Waiting for you',
+  render: () => (
+    <StoryPage at={taskPath(SLUG, TEAM_ID, TASK_ID)} seed={seedWaitingTask}>
       {routes}
     </StoryPage>
   ),

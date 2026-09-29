@@ -42,7 +42,7 @@ interface Then {
   readonly unreserved: () => Promise<unknown>;
 }
 
-interface Waiting {
+interface Provisionable {
   readonly placement: RunnerPlacement;
   readonly on: (pool: OfferedPool, last: boolean) => Promise<Provisioned>;
 }
@@ -132,14 +132,17 @@ export class ProvisionWork {
         ),
       ),
     );
-    const placed: { waiting: Waiting; fitting: readonly OfferedPool[] }[] = [];
-    const place = (waiting: Waiting): void => {
-      const fitting = poolChoiceFor(waiting.placement, pools, room);
+    const placed: {
+      provisionable: Provisionable;
+      fitting: readonly OfferedPool[];
+    }[] = [];
+    const place = (provisionable: Provisionable): void => {
+      const fitting = poolChoiceFor(provisionable.placement, pools, room);
       const [chosen] = fitting;
 
       if (chosen && placed.length < MOST_AT_ONCE) {
         room = room.afterTaking(chosen.pool);
-        placed.push({ waiting, fitting });
+        placed.push({ provisionable, fitting });
       }
     };
 
@@ -150,35 +153,37 @@ export class ProvisionWork {
             skip,
             most: PAGE,
           })
-          .then((runs) => runs.map((run) => this.waitingRun(run))),
+          .then((runs) => runs.map((run) => this.provisionableRun(run))),
       (skip: number) =>
         this.checks
           .awaiting(first.workspaceId, this.clock.now(), { skip, most: PAGE })
-          .then((checks) => checks.map((check) => this.waitingCheck(check))),
+          .then((checks) =>
+            checks.map((check) => this.provisionableCheck(check)),
+          ),
     ]) {
       for (
         let at = 0;
         at < MOST_PAGES && placed.length < MOST_AT_ONCE && room.anyLeft;
         at++
       ) {
-        const waiting = await page(at * PAGE);
+        const found = await page(at * PAGE);
 
-        waiting.forEach(place);
+        found.forEach(place);
 
-        if (waiting.length < PAGE) {
+        if (found.length < PAGE) {
           break;
         }
       }
     }
 
     await everySettled(
-      placed.map(async ({ waiting, fitting }) => {
+      placed.map(async ({ provisionable, fitting }) => {
         const thrown: unknown[] = [];
 
         for (const [at, pool] of fitting.entries()) {
           try {
             if (
-              (await waiting.on(pool, at === fitting.length - 1)) !==
+              (await provisionable.on(pool, at === fitting.length - 1)) !==
               'try-another'
             ) {
               break;
@@ -219,14 +224,14 @@ export class ProvisionWork {
     }
   }
 
-  private waitingRun(queued: Run): Waiting {
+  private provisionableRun(queued: Run): Provisionable {
     return {
       placement: queued.placement,
       on: (pool, last) => this.runOn(queued, pool, last),
     };
   }
 
-  private waitingCheck(check: WaitingCheck): Waiting {
+  private provisionableCheck(check: WaitingCheck): Provisionable {
     return {
       placement: check.placement,
       on: (pool, last) => this.checkOn(check, pool, last),
@@ -238,14 +243,14 @@ export class ProvisionWork {
     pool: OfferedPool,
     last: boolean,
   ): Promise<Provisioned> {
-    const waiting = await this.runs.findById(queued.id);
+    const current = await this.runs.findById(queued.id);
 
-    if (!waiting?.provisionableAt(this.clock.now())) {
+    if (!current?.provisionableAt(this.clock.now())) {
       return 'settled';
     }
 
     const runnerId = RunnerId.of(this.ids.generate());
-    const reserved = waiting.reservedFor(runnerId, pool.pool, this.clock.now());
+    const reserved = current.reservedFor(runnerId, pool.pool, this.clock.now());
     const { reservation } = reserved;
 
     if (!reservation) {

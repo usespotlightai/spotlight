@@ -76,6 +76,21 @@ describe('Told', () => {
     ]);
   });
 
+  it('leaves the time the run waited for a person out of how long it took', () => {
+    const told = new Told();
+    told.take({ type: 'run.paused', at: clock(5), message: null, data: null });
+    for (const at of [0, 2, 60, 63]) {
+      told.take({
+        type: 'output',
+        at: clock(at),
+        message: null,
+        data: chunk('agent_message_chunk', 'Working.'),
+      });
+    }
+
+    expect(told.ms()).toBe(5_000);
+  });
+
   it('has nothing to say about the length of a run that said nothing', () => {
     expect(new Told().ms()).toBeNull();
   });

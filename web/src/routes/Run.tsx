@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
@@ -9,6 +9,7 @@ import { RunComposer } from '@/components/features/runs/RunComposer';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
 import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
+import { RunWaiting } from '@/components/features/runs/RunWaiting';
 import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -28,8 +29,9 @@ import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys, useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { decisionOwed, workedOn } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
-import { working } from '@/lib/run';
+import { waitsOnPerson, working } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -67,6 +69,16 @@ export function Run() {
   }, [queryClient, said?.taskId, runId, teamId]);
 
   useRunStream(runId, run?.state === 'claimed', bump);
+
+  const state = run?.state;
+  const stood = useRef(state);
+
+  useEffect(() => {
+    if (stood.current && state && stood.current !== state) {
+      bump();
+    }
+    stood.current = state;
+  }, [state, bump]);
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
@@ -135,6 +147,7 @@ export function Run() {
   }
 
   const here = run.station?.name === said?.station?.name;
+  const deciding = decisionOwed(said?.notes ?? []);
 
   const item = said && {
     id: said.runId,
@@ -158,6 +171,7 @@ export function Run() {
       taskId={said?.taskId}
       station={run.station?.name ?? 'the agent'}
       running={run.state === 'claimed'}
+      answering={waitsOnPerson(run) && !deciding}
     />
   ) : (
     <p className="text-center text-muted-foreground text-xs">
@@ -165,10 +179,15 @@ export function Run() {
     </p>
   );
 
-  const ran = (worked ?? []).filter((each) => each.runId === run.id);
+  const ran = workedOn(worked ?? [], said?.notes ?? [], run.id);
+
+  const waiting = waitsOnPerson(run) ? (
+    <RunWaiting slug={slug} run={run} deciding={deciding} />
+  ) : undefined;
 
   const quiet =
     !working(run) &&
+    !waiting &&
     !failed(journal) &&
     ran.every((each) => each.steps.length === 0);
 
@@ -203,7 +222,7 @@ export function Run() {
                   remembered
                 )
               }
-              live={run.state === 'claimed' ? activity : undefined}
+              live={run.state === 'claimed' ? activity : waiting}
               footer={footer}
             />
           ) : (
@@ -217,7 +236,10 @@ export function Run() {
                   quiet ? (
                     <RunEmpty slug={slug} teamId={teamId} run={run} />
                   ) : (
-                    activity
+                    <>
+                      {activity}
+                      {waiting}
+                    </>
                   )
                 }
               />

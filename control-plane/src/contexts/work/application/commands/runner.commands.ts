@@ -52,6 +52,7 @@ export class CompleteRunCommand {
     readonly declared?: { next?: string; note?: string } | null,
     readonly sessionId?: string | null,
     readonly stopped: boolean = false,
+    readonly kept: boolean = false,
   ) {}
 }
 
@@ -69,5 +70,13 @@ export class ClaimHostWorkCommand {
     readonly credential: HostCredential,
     readonly host: string,
     readonly image: string,
+  ) {}
+}
+
+export class ParkRunCommand {
+  constructor(
+    readonly runId: string,
+    readonly runnerId: string,
+    readonly cold: boolean = false,
   ) {}
 }

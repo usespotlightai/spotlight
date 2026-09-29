@@ -210,9 +210,15 @@ const continuityOf = (raw: unknown): RunContinuity => {
     'which conversation to carry on',
   );
 
+  const resumes =
+    given.resumes === undefined
+      ? false
+      : booleanAt(given.resumes, 'whether it takes up a paused conversation');
+
   return {
     key: stringAt(given.key, 'where to carry on'),
     ...(sessionId !== undefined ? { sessionId } : {}),
+    ...(resumes ? { resumes } : {}),
   };
 };
 

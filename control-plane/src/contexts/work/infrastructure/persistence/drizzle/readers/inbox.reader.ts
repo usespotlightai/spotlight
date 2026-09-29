@@ -22,6 +22,7 @@ import type {
 } from '@work/application/ports/inbox-reader.port';
 import { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
 import {
+  awaitsAPerson,
   conversationsOf,
   notesIn,
   stillOpen,
@@ -182,7 +183,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
           createdAt: row.createdAt,
           askedAt: last?.at ?? note.at,
           resolved: !stillOpen(conversation),
-          working: stillOpen(conversation) && row.working !== null,
+          working:
+            stillOpen(conversation) &&
+            row.working !== null &&
+            !awaitsAPerson(notes),
           runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
           briefing: (note.runId && given.get(note.runId)) || null,

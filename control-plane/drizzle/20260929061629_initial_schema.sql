@@ -17,7 +17,7 @@ CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'approved', 're
 CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> statement-breakpoint
 CREATE TYPE "public"."memory_standing" AS ENUM('stands', 'retired');--> statement-breakpoint
 CREATE TYPE "public"."memory_use_way" AS ENUM('briefed', 'recalled');--> statement-breakpoint
-CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'completed', 'failed', 'superseded');--> statement-breakpoint
+CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'parked', 'completed', 'failed', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."aside_form" AS ENUM('memories');--> statement-breakpoint
 CREATE SEQUENCE "public"."memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
 CREATE TABLE "event_delivery" (
@@ -828,6 +828,7 @@ CREATE TABLE "run" (
 	"provision_failures" integer DEFAULT 0 NOT NULL,
 	"next_provision_at" timestamp,
 	"hand_backs" integer DEFAULT 0 NOT NULL,
+	"parked_attempts" integer[] DEFAULT '{}'::integer[] NOT NULL,
 	"briefed_memories" jsonb DEFAULT '{"briefed":[],"cut":[]}'::jsonb NOT NULL,
 	"claimable_from" timestamp,
 	"exit_code" integer,

@@ -6,6 +6,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -19,6 +20,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
+import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
@@ -394,6 +396,61 @@ describe('ReactToHappenings', () => {
     expect(saved?.notes[1]?.body.value).not.toContain('mentioned Spotlight');
     expect(saved?.awaitingReview).toBe(false);
     expect(dispatched).toHaveLength(1);
+  });
+
+  it('takes a Slack thread reply as the answer a paused run waits for, so that same run is taken up', async () => {
+    const paused = standing()
+      .handedTo(RunId.of('run_1'), line())
+      .putToAPersonBy(RunId.of('run_1'), {
+        voice: Voice.station(RunId.of('run_1')),
+        station: StationName.of('Code Review'),
+        body: TaskNoteBody.of('Which repository should this live in?'),
+        at: NOW,
+      });
+    paused.pullEvents();
+
+    await new ReactToHappenings(
+      tasks(paused),
+      tasks(paused),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      members,
+      files,
+      heardInMemory(),
+      logger,
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [
+        {
+          happening: 'slack.app_mention',
+          told: 'Somebody mentioned Spotlight in Slack.',
+          spoken: true,
+          state: 'raised',
+          concerns: {
+            branch: null,
+            marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
+          },
+          said: { body: 'In the example repository, please.' },
+          ourOwn: false,
+          opens: null,
+        },
+      ],
+      'heard-as',
+    );
+
+    expect(saved?.heldBy(RunId.of('run_1'))).toBe(true);
+    expect(saved?.pullEvents()).toContainEqual(
+      new TaskAnswered(
+        saved?.id as TaskId,
+        saved?.workspaceId as WorkspaceId,
+        RunId.of('run_1'),
+      ),
+    );
+    expect(dispatched).toHaveLength(0);
   });
 
   describe('a word carrying files', () => {

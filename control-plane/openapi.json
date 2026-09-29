@@ -1236,6 +1236,12 @@
           },
           "401": {
             "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "The run is no longer held by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go."
+          },
+          "409": {
+            "description": "The run kept changing while its lease was renewed; renew again on the next heartbeat."
           }
         },
         "summary": "Say the run is still being worked on",
@@ -1450,7 +1456,7 @@
     },
     "/runs/{runId}/permissions": {
       "post": {
-        "description": "Only for a run whose station names a harness profile. An approval the task already holds for this exact call is spent on it; otherwise a person is asked in their inbox and the run lets the task go.",
+        "description": "Only for a run whose station names a harness profile. An approval the task already holds for this exact call is spent on it; otherwise a person is asked in their inbox, and the run waits for their answer once its turn ends.",
         "operationId": "askPermission",
         "parameters": [
           {
@@ -1536,6 +1542,7 @@
     },
     "/runs/{runId}/completion": {
       "post": {
+        "description": "When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run waits for their answer instead of ending, and the answer says so.",
         "operationId": "completeRun",
         "parameters": [
           {
@@ -1558,14 +1565,117 @@
           }
         },
         "responses": {
-          "204": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunCompletionResponseDto"
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing, spent or wrong runner token"
           }
         },
-        "summary": "Report what the run produced",
+        "summary": "Report how the agent’s turn ended",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/completion/asks": {
+      "post": {
+        "description": "Asked before the runner keeps the workspace at the end of a turn. Nothing changes: the completion decides.",
+        "operationId": "turnAsksAPerson",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteRunRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnAsksAPersonResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "No such run held by this runner"
+          }
+        },
+        "summary": "Whether a turn reported like this would wait for a person",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/parked": {
+      "post": {
+        "description": "The runner has sealed the workspace archive and lets its sandbox go. A later answer requeues the same run, and any runner takes it up from the archive. If the answer arrived first, the run is not parked: it is working again, and the runner delivers the answer to the live session.",
+        "operationId": "parkRun",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParkRunRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunParkingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "409": {
+            "description": "The run is not held by this runner"
+          }
+        },
+        "summary": "Park a run whose person did not answer within the grace period",
         "tags": [
           "runners"
         ]
@@ -17561,11 +17671,65 @@
             "type": "boolean",
             "example": false,
             "description": "A person stopped the run rather than the agent finishing it."
+          },
+          "kept": {
+            "type": "boolean",
+            "example": true,
+            "description": "The workspace archive is sealed as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there."
           }
         },
         "required": [
           "exitCode",
           "failed"
+        ]
+      },
+      "RunCompletionResponseDto": {
+        "type": "object",
+        "properties": {
+          "waiting": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then parks the run."
+          }
+        },
+        "required": [
+          "waiting"
+        ]
+      },
+      "TurnAsksAPersonResponseDto": {
+        "type": "object",
+        "properties": {
+          "asks": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether this turn, reported as given, would put the run to a person, so the runner keeps its harness running while it keeps the workspace. Otherwise the runner closes the harness first, as the run ends."
+          }
+        },
+        "required": [
+          "asks"
+        ]
+      },
+      "ParkRunRequestDto": {
+        "type": "object",
+        "properties": {
+          "cold": {
+            "type": "boolean",
+            "example": false,
+            "description": "The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner."
+          }
+        }
+      },
+      "RunParkingResponseDto": {
+        "type": "object",
+        "properties": {
+          "parked": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the run is parked (or, if a stop was asked for, ended) and no longer held by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages."
+          }
+        },
+        "required": [
+          "parked"
         ]
       },
       "HeldArchiveResponseDto": {
@@ -18983,6 +19147,8 @@
             "enum": [
               "queued",
               "claimed",
+              "waiting",
+              "parked",
               "completed",
               "failed",
               "superseded"
@@ -19131,6 +19297,8 @@
             "enum": [
               "queued",
               "claimed",
+              "waiting",
+              "parked",
               "completed",
               "failed",
               "superseded"
@@ -19299,6 +19467,8 @@
             "enum": [
               "queued",
               "claimed",
+              "waiting",
+              "parked",
               "completed",
               "failed",
               "superseded"

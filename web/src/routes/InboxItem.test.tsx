@@ -42,6 +42,8 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
+
 vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
 }));
@@ -530,6 +532,84 @@ describe('InboxItem', () => {
     renderItem();
 
     expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+  });
+
+  describe('when the run asked and holds its place for the answer', () => {
+    const step = (text: string, startedAt: string) => ({
+      kind: 'tool',
+      text,
+      status: 'completed',
+      tool: 'execute',
+      detail: null,
+      ms: 1_000,
+      startedAt,
+      locations: [],
+      given: null,
+      returned: null,
+      change: null,
+    });
+
+    const answered = message({
+      position: 1,
+      kind: 'answered',
+      voice: 'person',
+      runId: null,
+      body: 'Drain webhook-retries first.',
+      at: '2026-08-29T12:10:00.000Z',
+      author: { id: 'user_2', name: 'Maya Chen', image: null },
+    });
+
+    it('says nothing about working while it waits on you, nor offers to stop it', () => {
+      const [only] = item([message()]);
+      waiting.mockReturnValue([{ ...only, runId: 'run_1', working: false }]);
+
+      renderItem();
+
+      expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Stop' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows the same run carrying on after the answer, without repeating what it did before', () => {
+      const [only] = item([message(), answered]);
+      waiting.mockReturnValue([{ ...only, runId: 'run_1', working: true }]);
+      journal.mockReturnValue([
+        {
+          runId: 'run_1',
+          attempt: 1,
+          steps: [step('queue-stats --all', '2026-08-29T10:00:00.000Z')],
+          spans: [],
+          marks: { startedAt: '2026-08-29T09:02:00.000Z' },
+        },
+        {
+          runId: 'run_1',
+          attempt: 2,
+          steps: [
+            step('queue-drain webhook-retries', '2026-08-29T12:15:00.000Z'),
+          ],
+          spans: [],
+          marks: { startedAt: '2026-08-29T12:11:00.000Z' },
+        },
+      ]);
+
+      renderItem();
+
+      expect(screen.getAllByText('queue-stats --all')).toHaveLength(1);
+      expect(screen.getAllByText('queue-drain webhook-retries')).toHaveLength(
+        1,
+      );
+      expect(
+        screen
+          .getByText('Drain webhook-retries first.')
+          .compareDocumentPosition(
+            screen.getByText('queue-drain webhook-retries'),
+          ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        screen.getByText('Implementation is working…'),
+      ).toBeInTheDocument();
+    });
   });
 
   it('marks what was put to you as read on opening it', () => {

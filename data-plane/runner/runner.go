@@ -117,6 +117,7 @@ func (r runner) serve(ctx context.Context, client *control.Client, work protocol
 			Mirrors:      os.Getenv("SPOTLIGHT_MIRRORS"),
 			ControlPlane: r.cfg.URL,
 			Token:        client.Token(),
+			AnswerWait:   r.cfg.AnswerWait,
 		}); err != nil {
 			r.log.Error("run failed", "run", work.Run.ID, "error", err)
 		}

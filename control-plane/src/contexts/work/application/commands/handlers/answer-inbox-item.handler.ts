@@ -7,10 +7,13 @@ import type { AnswerInboxItemCommand } from '@work/application/commands/answer-i
 import type { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+
+const ATTEMPTS = 3;
 
 const wordsFor = (decision: ApprovalDecision | null): string =>
   decision === 'granted'
@@ -33,44 +36,55 @@ export class AnswerInboxItemHandler
 
   async execute(command: AnswerInboxItemCommand): Promise<void> {
     try {
-      await this.transaction.run(async () => {
-        const { item, task, line, station } = await this.conversations.putTo(
-          command.itemId,
-          command.answeredBy,
-        );
-
-        const answeredBy = UserId.of(command.answeredBy);
-        const attachments = await this.files.handedOver(
-          task.workspaceId,
-          command.attachments,
-        );
-
-        const answered = task.answered(
-          item.from,
-          {
-            station,
-            body: TaskNoteBody.given(
-              command.body || wordsFor(command.decision),
-              attachments,
-            ),
-            at: this.clock.now(),
-            voice: Voice.person(answeredBy),
-            attachments,
-          },
-          command.decision,
-        );
-
-        const runId =
-          line && answered.wantsRun(line)
-            ? await this.dispatch.runIdFor({ task: answered, line })
-            : null;
-
-        await this.tasks.save(
-          runId && line ? answered.handedTo(runId, line) : answered,
-        );
-      });
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await this.transaction.run(() => this.answer(command));
+          return;
+        } catch (error) {
+          if (!(error instanceof TaskMovedOnError) || attempt >= ATTEMPTS) {
+            throw error;
+          }
+        }
+      }
     } catch (error) {
       rethrowAsFault(error);
     }
+  }
+
+  private async answer(command: AnswerInboxItemCommand): Promise<void> {
+    const { item, task, line, station } = await this.conversations.putTo(
+      command.itemId,
+      command.answeredBy,
+    );
+
+    const answeredBy = UserId.of(command.answeredBy);
+    const attachments = await this.files.handedOver(
+      task.workspaceId,
+      command.attachments,
+    );
+
+    const answered = task.answered(
+      item.from,
+      {
+        station,
+        body: TaskNoteBody.given(
+          command.body || wordsFor(command.decision),
+          attachments,
+        ),
+        at: this.clock.now(),
+        voice: Voice.person(answeredBy),
+        attachments,
+      },
+      command.decision,
+    );
+
+    const runId =
+      line && answered.wantsRun(line)
+        ? await this.dispatch.runIdFor({ task: answered, line })
+        : null;
+
+    await this.tasks.save(
+      runId && line ? answered.handedTo(runId, line) : answered,
+    );
   }
 }

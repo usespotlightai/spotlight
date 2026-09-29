@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"sync"
 	"time"
 
 	"usespotlight.ai/data-plane/protocol"
@@ -28,7 +27,6 @@ type keeper struct {
 
 	restoredFrom string
 	baseline     string
-	once         sync.Once
 }
 
 func newKeeper(run protocol.Run, space *workspace.Workspace, journal *journalWriter, control Journal, log *slog.Logger) *keeper {
@@ -105,28 +103,35 @@ func (k *keeper) settled() {
 	k.baseline = fingerprint
 }
 
-func (k *keeper) keep(ctx context.Context) {
-	k.once.Do(func() {
-		if k.carriesOn() {
-			k.leased(ctx, func(ctx context.Context) {
-				k.say(keepStep, "%s", k.kept(ctx))
-			})
-		}
+func (k *keeper) keep(ctx context.Context) bool {
+	if !k.carriesOn() {
+		return false
+	}
+
+	var sealed bool
+	k.leased(ctx, func(ctx context.Context) {
+		var said string
+		said, sealed = k.kept(ctx)
+		k.say(keepStep, "%s", said)
 	})
+
+	return sealed
 }
 
-func (k *keeper) kept(ctx context.Context) string {
+func (k *keeper) kept(ctx context.Context) (string, bool) {
 	leaveOut := k.rebuilt(ctx)
 
-	if k.baseline != "" {
-		if now, err := archive.Fingerprint(k.space.Dir, leaveOut); err == nil && now == k.baseline {
-			return "Coalesced: nothing changed since the workspace was restored"
-		}
+	now, err := archive.Fingerprint(k.space.Dir, leaveOut)
+	if err != nil {
+		k.log.Warn("could not take the workspace's fingerprint", "error", err)
+	}
+	if now != "" && now == k.baseline {
+		return "Coalesced: nothing changed since the workspace was last restored or kept", true
 	}
 
 	packed, err := archive.Pack(k.space.Dir, k.scratch, leaveOut)
 	if err != nil {
-		return "Skipped: " + err.Error()
+		return "Skipped: " + err.Error(), false
 	}
 	defer func() {
 		if err := packed.Remove(); err != nil {
@@ -136,18 +141,19 @@ func (k *keeper) kept(ctx context.Context) string {
 
 	grant, err := k.control.GrantArchive(ctx, k.run.ID, packed.Size, packed.SHA256)
 	if err != nil {
-		return "Skipped: " + err.Error()
+		return "Skipped: " + err.Error(), false
 	}
 
 	if err := archive.Upload(ctx, grant, packed); err != nil {
-		return "Skipped: " + err.Error()
+		return "Skipped: " + err.Error(), false
 	}
 
 	if err := k.control.SealArchive(ctx, k.run.ID, grant.ID); err != nil {
-		return "Skipped: " + err.Error()
+		return "Skipped: " + err.Error(), false
 	}
+	k.baseline = now
 
-	return fmt.Sprintf("Captured the workspace for the next run (%s)", sized(packed.Size))
+	return fmt.Sprintf("Captured the workspace for the next run (%s)", sized(packed.Size)), true
 }
 
 // Renews even once a person has asked the run to stop: the run is ending, and must stay held until it has.
@@ -156,7 +162,7 @@ func (k *keeper) leased(ctx context.Context, do func(context.Context)) {
 	defer stop()
 
 	go func() {
-		ticker := time.NewTicker(renewEvery)
+		ticker := time.NewTicker(heartbeat)
 		defer ticker.Stop()
 
 		for {

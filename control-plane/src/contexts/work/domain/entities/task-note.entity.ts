@@ -89,7 +89,9 @@ export class TaskNote {
 
   get undelivered(): boolean {
     return (
-      this.kind === 'said' && !this.voice.isStation && this.deliveredAt === null
+      (this.kind === 'said' || this.kind === 'answered') &&
+      !this.voice.isStation &&
+      this.deliveredAt === null
     );
   }
 

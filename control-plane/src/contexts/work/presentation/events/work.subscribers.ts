@@ -40,6 +40,8 @@ import type {
   ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
 import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
+import type { PauseMarks } from '@work/application/services/pause-marks.service';
+import type { PausedRuns } from '@work/application/services/paused-runs.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { RunnerHolds } from '@work/application/services/runner-holds.service';
@@ -51,8 +53,11 @@ import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import type { RunParked } from '@work/domain/events/run-parked.event';
+import type { RunPaused } from '@work/domain/events/run-paused.event';
 import type { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
@@ -92,6 +97,8 @@ const reactingToOutcomes = (
 
 export const workSubscribers = (reactions: {
   handOver: RunOutcomes;
+  pausedRuns: PausedRuns;
+  pauseMarks: PauseMarks;
   chatOutcomes: RunOutcomes;
   digests: RunOutcomes;
   provisioning: ProvisionTeam;
@@ -111,9 +118,9 @@ export const workSubscribers = (reactions: {
     ['run.completed', 'run.abandoned', 'run.withdrawn'],
     (event) => reactions.runGrants.endedFor(holdOf(event)),
   ),
-  subscribing<RunLapsed>(
+  subscribing<RunLapsed | RunParked>(
     'work.lose-secret-hold-of-ended-attempt',
-    ['run.lapsed'],
+    ['run.lapsed', 'run.parked'],
     (event) => reactions.runGrants.holdLost(holdOf(event)),
   ),
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
@@ -126,10 +133,20 @@ export const workSubscribers = (reactions: {
     ['run.tool-used'],
     (event) => reactions.toolUsedHooks.on(event),
   ),
-  subscribing<RunLapsed>(
-    'work.let-go-of-runner-of-lapsed-run',
-    ['run.lapsed'],
-    (event) => reactions.runners.runLapsed(event.runner, event.at),
+  subscribing<RunLapsed | RunParked>(
+    'work.let-go-of-runner-that-left-its-run',
+    ['run.lapsed', 'run.parked'],
+    (event) => reactions.runners.runLeft(event.runner, event.at),
+  ),
+  subscribing<RunPaused>(
+    'work.journal-when-a-run-paused',
+    ['run.paused'],
+    (event) => reactions.pauseMarks.onRunPaused(event),
+  ),
+  subscribing<TaskAnswered>(
+    'work.take-up-the-run-a-person-answered',
+    ['task.answered'],
+    (event) => reactions.pausedRuns.onTaskAnswered(event),
   ),
   subscribing<RunReservationDropped>(
     'work.let-go-of-reserved-runner',

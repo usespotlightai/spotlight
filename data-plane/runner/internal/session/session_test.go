@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
@@ -26,21 +27,34 @@ type drafted struct {
 }
 
 type journal struct {
-	mu         sync.Mutex
-	events     []protocol.Event
-	renewals   int
-	done       *protocol.Completion
-	stopAfter  int
-	said       [][]protocol.Said
-	delivered  []int
-	files      map[string]string
-	drafted    []drafted
-	decision   string
-	asked      []protocol.PermissionAsked
-	archives   *keptArchives
-	remembered []remembered
-	memory     []protocol.MemoryFile
-	memoryErr  error
+	mu               sync.Mutex
+	events           []protocol.Event
+	renewals         int
+	done             *protocol.Completion
+	completions      []protocol.Completion
+	sealedBy         []int
+	waits            []bool
+	calls            []string
+	lostWhileWaiting bool
+	conflictsWaiting int
+	coldParks        int
+	saysNoWait       bool
+	paused           bool
+	answers          [][]protocol.Said
+	parking          []bool
+	parks            int
+	stopAfter        int
+	stopWhileWaiting bool
+	said             [][]protocol.Said
+	delivered        []int
+	files            map[string]string
+	drafted          []drafted
+	decision         string
+	asked            []protocol.PermissionAsked
+	archives         *keptArchives
+	remembered       []remembered
+	memory           []protocol.MemoryFile
+	memoryErr        error
 }
 
 type remembered struct {
@@ -59,17 +73,72 @@ func (j *journal) RenewLease(context.Context, string) (bool, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.renewals++
+	if j.lostWhileWaiting && j.paused {
+		return false, gone{}
+	}
+	if j.conflictsWaiting > 0 && j.paused {
+		j.conflictsWaiting--
+		return false, conflict{}
+	}
 	if j.archives != nil {
 		j.archives.renewed()
 	}
-	return j.stopAfter > 0 && j.renewals >= j.stopAfter, nil
+	return (j.stopAfter > 0 && j.renewals >= j.stopAfter) || (j.stopWhileWaiting && j.paused), nil
 }
 
-func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion) error {
+func (j *journal) Asks(_ context.Context, _ string, _ protocol.Completion) (bool, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	j.calls = append(j.calls, "asks")
+	return !j.saysNoWait && len(j.waits) > 0 && j.waits[0], nil
+}
+
+type gone struct{}
+
+func (gone) Error() string {
+	return "409 Conflict: a run cannot renew the lease on a run that is completed"
+}
+
+func (gone) Gone() bool { return true }
+
+type conflict struct{}
+
+func (conflict) Error() string { return "409 Conflict: the run moved on while its lease was renewed" }
+
+func (conflict) Gone() bool { return false }
+
+func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion) (protocol.Completed, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.calls = append(j.calls, "complete")
 	j.done = &done
-	return nil
+	j.completions = append(j.completions, done)
+	if j.archives != nil {
+		j.sealedBy = append(j.sealedBy, j.archives.count())
+	}
+
+	waiting := len(j.waits) > 0 && j.waits[0]
+	if len(j.waits) > 0 {
+		j.waits = j.waits[1:]
+	}
+	j.paused = waiting && !done.Stopped
+	return protocol.Completed{Waiting: j.paused}, nil
+}
+
+func (j *journal) Park(_ context.Context, _ string, cold bool) (protocol.Parking, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.parks++
+	if cold {
+		j.coldParks++
+		return protocol.Parking{Parked: true}, nil
+	}
+
+	parked := len(j.parking) == 0 || j.parking[0]
+	if len(j.parking) > 0 {
+		j.parking = j.parking[1:]
+	}
+	return protocol.Parking{Parked: parked}, nil
 }
 
 func (j *journal) UseTool(
@@ -128,6 +197,16 @@ func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
+	if j.paused {
+		if len(j.answers) == 0 {
+			return nil, nil
+		}
+		answer := j.answers[0]
+		j.answers = j.answers[1:]
+		j.paused = len(answer) == 0
+		return answer, nil
+	}
+
 	if len(j.said) == 0 {
 		return nil, nil
 	}
@@ -178,6 +257,9 @@ func (j *journal) WorkspaceArchive(_ context.Context, _ string) (*protocol.HeldA
 func (j *journal) GrantArchive(
 	_ context.Context, _ string, size int64, sha256 string,
 ) (protocol.ArchiveGrant, error) {
+	j.mu.Lock()
+	j.calls = append(j.calls, "archive")
+	j.mu.Unlock()
 	if j.archives == nil {
 		return protocol.ArchiveGrant{}, errors.New("422 Unprocessable Entity: nowhere to keep one")
 	}
@@ -287,6 +369,15 @@ process.stdin.on("data", (chunk) => {
 
 type runOptions struct {
 	said        [][]protocol.Said
+	waits       []bool
+	answers     [][]protocol.Said
+	parking     []bool
+	answerWait  time.Duration
+	heartbeat   time.Duration
+	stopWaiting bool
+	lostWaiting bool
+	conflicts   int
+	saysNoWait  bool
 	briefing    string
 	handover    []string
 	agentUser   *account.User
@@ -313,13 +404,20 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	}
 
 	written := &journal{
-		said:      settings.said,
-		stopAfter: settings.stopAfter,
-		files:     settings.files,
-		decision:  settings.decision,
-		archives:  settings.archives,
-		memory:    settings.memory,
-		memoryErr: settings.memoryErr,
+		said:             settings.said,
+		waits:            settings.waits,
+		answers:          settings.answers,
+		parking:          settings.parking,
+		stopWhileWaiting: settings.stopWaiting,
+		lostWhileWaiting: settings.lostWaiting,
+		conflictsWaiting: settings.conflicts,
+		saysNoWait:       settings.saysNoWait,
+		stopAfter:        settings.stopAfter,
+		files:            settings.files,
+		decision:         settings.decision,
+		archives:         settings.archives,
+		memory:           settings.memory,
+		memoryErr:        settings.memoryErr,
 	}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
@@ -333,10 +431,12 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			HarnessSetup: settings.setup,
 		},
 	}, session.Options{
-		Workspace: settings.root,
-		Journal:   written,
-		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
-		AgentUser: settings.agentUser,
+		Workspace:  settings.root,
+		Journal:    written,
+		Log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
+		AgentUser:  settings.agentUser,
+		AnswerWait: settings.answerWait,
+		Heartbeat:  settings.heartbeat,
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -1078,11 +1178,10 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 	}
 }
 
-func TestAPermissionPutToAPersonLetsTheRunGo(t *testing.T) {
+func TestAPermissionPutToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testing.T) {
 	written := run(t, permitting(t), func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
 		o.decision = protocol.PermissionPutToPerson
-		o.said = [][]protocol.Said{{{Position: 1, Body: "not yet"}}}
 	})
 
 	if heard := said(t, written); heard != "cancelled" {

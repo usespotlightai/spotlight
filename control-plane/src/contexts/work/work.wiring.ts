@@ -130,6 +130,7 @@ import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-r
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
+import { ParkRunHandler } from '@work/application/commands/handlers/park-run.handler';
 import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-inbox-aside.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
@@ -157,6 +158,7 @@ import {
   ClaimRunCommand,
   CompleteRunCommand,
   EnqueueRunCommand,
+  ParkRunCommand,
   RecordRunImageCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
@@ -353,6 +355,7 @@ import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-
 import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-task-journal.handler';
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
+import { TurnAsksAPersonHandler } from '@work/application/queries/handlers/turn-asks-a-person.handler';
 import { WatchRunHandler } from '@work/application/queries/handlers/watch-run.handler';
 import { HeldWorkspaceArchiveQuery } from '@work/application/queries/held-workspace-archive.query';
 import { HostRequirementsQuery } from '@work/application/queries/host.queries';
@@ -381,6 +384,7 @@ import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trac
 import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
+import { TurnAsksAPersonQuery } from '@work/application/queries/turn-asks-a-person.query';
 import { WatchRunQuery } from '@work/application/queries/watch-run.query';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
 import { AsideAtHand } from '@work/application/services/aside-at-hand.service';
@@ -406,6 +410,8 @@ import { LineViews } from '@work/application/services/line-views.service';
 import { NetworkCalls } from '@work/application/services/network-calls.service';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
+import { PauseMarks } from '@work/application/services/pause-marks.service';
+import { PausedRuns } from '@work/application/services/paused-runs.service';
 import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import { ProvisionWork } from '@work/application/services/provision-work.service';
@@ -1152,6 +1158,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUN_GRANTS,
       RunnerHolds,
       ToolUsedHooks,
+      RUN_JOURNAL,
     ],
     useFactory: (
       types: EventTypes,
@@ -1177,6 +1184,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       runGrants: RunGrantsPort,
       ending: RunnerHolds,
       toolUsedHooks: ToolUsedHooks,
+      journal: RunJournalPort,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -1190,6 +1198,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             taskDispatch,
             clock,
           ),
+          pausedRuns: new PausedRuns(tasks, runs),
+          pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
           digests: new DigestRun(digests),
           provisioning: new ProvisionTeam(
@@ -1299,6 +1309,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   ...bindQueryHandler(PendingMessagesQuery, PendingMessagesHandler, [
+    DrizzleRunRepository,
     HELD_RUN_READER,
   ]),
 
@@ -1315,6 +1326,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(RunStopRequestedQuery, RunStopRequestedHandler, [
     HELD_RUN_READER,
+  ]),
+
+  ...bindQueryHandler(TurnAsksAPersonQuery, TurnAsksAPersonHandler, [
+    DrizzleRunRepository,
+    DrizzleTaskRepository,
+    DrizzleLineRepository,
+    LIFECYCLE_HOOKS,
   ]),
 
   ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler, [
@@ -1740,6 +1758,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
 
+  ...bindCommandHandler(ParkRunCommand, ParkRunHandler, [
+    DrizzleRunRepository,
+    TRANSACTION,
+    CLOCK,
+  ]),
+
   ...bindCommandHandler(RenewCheckLeaseCommand, RenewCheckLeaseHandler, [
     CHECK_WORK,
     RUNNER_PRESENCE,
@@ -1760,9 +1784,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
     DrizzleRunRepository,
+    DrizzleTaskRepository,
+    DrizzleLineRepository,
     TRANSACTION,
     HOOKED_TASKS,
     LIFECYCLE_HOOKS,
+    CLOCK,
   ]),
 
   ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [

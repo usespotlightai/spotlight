@@ -8,6 +8,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type { TaskRunSummary } from '@work/application/ports/run-reader.port';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
+import { HELD_RUN_STATES } from '@work/domain/value-objects/run-state';
 import {
   ranAt,
   worked,
@@ -24,7 +25,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
@@ -47,7 +48,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
         and(
           eq(run.id, runId.value),
           eq(run.claimedBy, runnerId.value),
-          eq(run.state, 'claimed'),
+          inArray(run.state, [...HELD_RUN_STATES]),
         ),
       )
       .limit(1);

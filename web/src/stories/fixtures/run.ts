@@ -230,6 +230,94 @@ export const seedRun = (client: QueryClient) => {
   seedRunMemories(client, TEAM_ID, RUN_ID);
 };
 
+const OWED = { state: 'owed', conversationId: `${TASK_ID}:0` } as const;
+
+const seedPausedRun = (
+  client: QueryClient,
+  state: 'waiting' | 'parked',
+  updatedAt: string,
+) => {
+  seedAround(client);
+  client.setQueryData(teamRunKeys.forTeam(TEAM_ID), [
+    { ...RUN, state, exitCode: null, updatedAt, review: OWED },
+  ]);
+  client.setQueryData(runConversationKeys.forRun(RUN_ID), CONVERSATION);
+  client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
+  seedRunMemories(client, TEAM_ID, RUN_ID);
+};
+
+export const seedWaitingRun = (client: QueryClient) =>
+  seedPausedRun(client, 'waiting', minutesAgo(22));
+
+export const seedParkedRun = (client: QueryClient) =>
+  seedPausedRun(client, 'parked', minutesAgo(7));
+
+const ANSWER = {
+  position: 1,
+  kind: 'answered',
+  form: 'words',
+  voice: 'person',
+  station: IMPLEMENTATION.name,
+  stationColor: IMPLEMENTATION.color,
+  stationPosition: IMPLEMENTATION.position,
+  runId: null,
+  body: 'Yes, open it. Leave the billing queue alone for now.',
+  attachments: [],
+  approval: null,
+  failure: null,
+  at: minutesAgo(6),
+  author: { id: 'user_maya', name: 'Maya Chen', image: null },
+} as const satisfies RunConversationResponseDto['notes'][number];
+
+const CARRIED_ON: RunJournalResponseDto = {
+  runId: RUN_ID,
+  attempt: 2,
+  ms: null,
+  spans: [],
+  marks: {
+    startedAt: minutesAgo(5),
+    readyAt: null,
+    spokeFrom: null,
+    spokeTo: null,
+    endedAt: null,
+  },
+  spent: null,
+  steps: [
+    step({
+      tool: 'edit',
+      text: 'services/worker/retry.ts',
+      startedAt: minutesAgo(4),
+    }),
+    step({
+      tool: 'execute',
+      text: 'npm test -- retry',
+      startedAt: minutesAgo(2),
+      status: 'running',
+    }),
+  ],
+};
+
+export const seedCarryingOnRun = (client: QueryClient) => {
+  seedAround(client);
+  client.setQueryData(teamRunKeys.forTeam(TEAM_ID), [
+    {
+      ...RUN,
+      state: 'claimed',
+      attempt: 2,
+      exitCode: null,
+      updatedAt: minutesAgo(5),
+      review: { ...OWED, state: 'settled' },
+    },
+  ]);
+  client.setQueryData(runConversationKeys.forRun(RUN_ID), {
+    ...CONVERSATION,
+    working: true,
+    notes: [...CONVERSATION.notes, ANSWER],
+  });
+  client.setQueryData(journalKeys.forTask(TASK_ID), [...JOURNAL, CARRIED_ON]);
+  seedRunMemories(client, TEAM_ID, RUN_ID);
+};
+
 export const rememberingRun = (client: QueryClient) => {
   seedRun(client);
   client.removeQueries({ queryKey: runMemoryKeys.forRun(TEAM_ID, RUN_ID) });

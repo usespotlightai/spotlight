@@ -31,6 +31,7 @@ import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { HELD_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -149,6 +150,8 @@ export class DrizzleRunRepository implements RunRepository {
         failure: saved.outcome?.failure?.code ?? null,
         stopped: saved.outcome?.stopped ?? false,
         ranIn: saved.ranIn?.value ?? null,
+        spec: RunSpecContract.toWire(saved.spec),
+        parkedAttempts: [...saved.parkedAttempts],
         ...reservationOf(saved),
       })
       .where(and(eq(run.id, saved.id.value), eq(run.version, saved.version)))
@@ -163,12 +166,17 @@ export class DrizzleRunRepository implements RunRepository {
     const rows = await this.context.db
       .select()
       .from(run)
-      .where(and(eq(run.state, 'claimed'), lte(run.leaseExpiresAt, now)));
+      .where(
+        and(
+          inArray(run.state, [...HELD_RUN_STATES]),
+          lte(run.leaseExpiresAt, now),
+        ),
+      );
 
     return rows.map(toRun);
   }
 
-  async waitingFor(runner: RunnerId): Promise<Run | null> {
+  async reservedFor(runner: RunnerId): Promise<Run | null> {
     const [found] = await this.context.db
       .select()
       .from(run)
@@ -296,5 +304,6 @@ const toRun = (row: Row): Run =>
     briefedWith: row.briefedMemories
       ? BriefedMemories.of(row.briefedMemories)
       : BriefedMemories.none(),
+    parkedAttempts: row.parkedAttempts,
     version: row.version,
   });

@@ -16,7 +16,10 @@ import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import { RunParked } from '@work/domain/events/run-parked.event';
+import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
+import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
@@ -34,6 +37,7 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import {
+  HELD_RUN_STATES,
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
@@ -45,8 +49,13 @@ const LEASE_DURATION_MS = 60_000;
 
 const LOST = RunFailure.of('runner-lost').retry;
 
+const LET_GO_QUEUED = 'Its task moved on before a runner took it up.';
+
 const endingIn = (outcome: RunOutcome): RunState =>
   outcome.superseded ? 'superseded' : outcome.failed ? 'failed' : 'completed';
+
+const isHeld = (state: RunState): boolean =>
+  (HELD_RUN_STATES as readonly RunState[]).includes(state);
 
 export class Run extends EventRecorder {
   private constructor(
@@ -68,6 +77,7 @@ export class Run extends EventRecorder {
     readonly ranIn: RunnerImage | null,
     readonly handBacks: HandBacks,
     readonly briefedWith: BriefedMemories = BriefedMemories.none(),
+    readonly parkedAttempts: readonly number[] = [],
     readonly version: number = 0,
   ) {
     super();
@@ -130,6 +140,7 @@ export class Run extends EventRecorder {
     ranIn?: RunnerImage | null;
     handBacks?: HandBacks;
     briefedWith?: BriefedMemories;
+    parkedAttempts?: readonly number[];
     version?: number;
   }): Run {
     Run.guardReconstituted(input);
@@ -153,6 +164,7 @@ export class Run extends EventRecorder {
       input.ranIn ?? null,
       input.handBacks ?? HandBacks.none(),
       input.briefedWith ?? BriefedMemories.none(),
+      [...(input.parkedAttempts ?? [])],
       input.version ?? 0,
     );
   }
@@ -166,16 +178,22 @@ export class Run extends EventRecorder {
     if (input.attempt < 1) {
       throw new InconsistentStateError('run', 'has no attempt to its name');
     }
-    if (input.state === 'claimed' && !input.claimedBy) {
-      throw new InconsistentStateError('run', 'is claimed by nobody');
+    if (isHeld(input.state) && !input.claimedBy) {
+      throw new InconsistentStateError('run', `is ${input.state} by nobody`);
     }
-    if (input.state === 'claimed' && !input.leaseExpiresAt) {
-      throw new InconsistentStateError('run', 'is claimed with no lease');
-    }
-    if (input.state === 'queued' && (input.claimedBy || input.leaseExpiresAt)) {
+    if (isHeld(input.state) && !input.leaseExpiresAt) {
       throw new InconsistentStateError(
         'run',
-        'is queued yet still held by a runner',
+        `is ${input.state} with no lease`,
+      );
+    }
+    if (
+      (input.state === 'queued' || input.state === 'parked') &&
+      (input.claimedBy || input.leaseExpiresAt)
+    ) {
+      throw new InconsistentStateError(
+        'run',
+        `is ${input.state} yet still held by a runner`,
       );
     }
   }
@@ -343,9 +361,12 @@ export class Run extends EventRecorder {
       );
     }
 
-    const next = LOST.exhaustedAfter(this.attempt)
-      ? this.givenUp(RunOutcome.lost(this.attempt))
-      : this.backOnTheQueue();
+    const next =
+      this.state === 'waiting'
+        ? this.leftWaiting(null)
+        : LOST.exhaustedAfter(this.lapses)
+          ? this.givenUp(RunOutcome.lost(this.lapses))
+          : this.backOnTheQueue();
 
     if (this.claimedBy) {
       next.record(
@@ -362,6 +383,10 @@ export class Run extends EventRecorder {
     return next;
   }
 
+  private get lapses(): number {
+    return this.attempt - this.parkedAttempts.length;
+  }
+
   private givenUp(outcome: RunOutcome): Run {
     const abandoned = this.with({
       state: endingIn(outcome),
@@ -371,7 +396,13 @@ export class Run extends EventRecorder {
     });
 
     abandoned.record(
-      new RunAbandoned(this.id, this.workspaceId, this.subject, this.attempt),
+      new RunAbandoned(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        this.attempt,
+        this.lapses,
+      ),
     );
 
     return abandoned;
@@ -380,6 +411,7 @@ export class Run extends EventRecorder {
   private backOnTheQueue(): Run {
     return this.with({
       state: 'queued',
+      outcome: null,
       claimedBy: null,
       leaseExpiresAt: null,
       attempt: this.attempt + 1,
@@ -391,7 +423,7 @@ export class Run extends EventRecorder {
   }
 
   unclaimedBy(by: RunnerId): Run {
-    this.requireHeldBy(by, 'unclaim');
+    this.requireWorkedBy(by, 'unclaim');
 
     if (this.ranIn) {
       throw new InvalidRunTransitionError(
@@ -407,7 +439,7 @@ export class Run extends EventRecorder {
   }
 
   startedIn(by: RunnerId, image: RunnerImage): Run {
-    this.requireHeldBy(by, 'start');
+    this.requireWorkedBy(by, 'start');
 
     if (!image.isPinned) {
       throw new InvalidRunTransitionError(
@@ -461,6 +493,163 @@ export class Run extends EventRecorder {
     return ended;
   }
 
+  paused(
+    by: RunnerId,
+    outcome: RunOutcome,
+    said: HandoverReport,
+    now: Date,
+  ): Run {
+    this.requireWorkedBy(by, 'pause');
+
+    if (!outcome.handsOver) {
+      throw new InvalidRunTransitionError(
+        'cannot wait for a person on a turn that failed or was stopped',
+      );
+    }
+
+    if (this.stopRequested) {
+      throw new InvalidRunTransitionError(
+        'cannot wait for a person once it has been asked to stop',
+      );
+    }
+
+    const waiting = this.with({
+      state: 'waiting',
+      leaseExpiresAt: this.leaseFrom(now),
+      spec: this.spec.resumingIn(said.session),
+      outcome,
+    });
+
+    waiting.record(
+      new RunPaused(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        by,
+        outcome,
+        said.declared,
+        said.session,
+        this.attempt,
+        now,
+      ),
+    );
+
+    return waiting;
+  }
+
+  get waitsForAPerson(): boolean {
+    return this.state === 'waiting' || this.state === 'parked';
+  }
+
+  pausedBy(runner: RunnerId): boolean {
+    return this.state === 'waiting' && this.wasWorkedBy(runner);
+  }
+
+  get resumable(): boolean {
+    return (
+      this.state === 'parked' ||
+      (this.state === 'waiting' && !this.stopRequested)
+    );
+  }
+
+  resumed(): Run {
+    if (!this.resumable) {
+      throw new InvalidRunTransitionError(
+        `cannot be taken up again while it is ${this.state}${this.stopRequested ? ' and asked to stop' : ''}`,
+      );
+    }
+
+    const warm = this.state === 'waiting';
+    const resumed = warm
+      ? this.with({ state: 'claimed', outcome: null })
+      : this.backOnTheQueue();
+
+    resumed.record(
+      new RunResumed(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        resumed.attempt,
+        warm,
+      ),
+    );
+
+    return resumed;
+  }
+
+  park(by: RunnerId, now: Date, cold = false): Run {
+    this.requireHeldBy(by, 'park');
+
+    if (this.state !== 'waiting') {
+      return cold ? this.parkedCold(by, now) : this;
+    }
+
+    const parked = this.leftWaiting(by);
+
+    if (parked.state === 'parked') {
+      parked.record(
+        new RunParked(this.id, this.workspaceId, by, now, this.attempt),
+      );
+    }
+
+    return parked;
+  }
+
+  private parkedCold(by: RunnerId, now: Date): Run {
+    if (this.state !== 'claimed' || !this.spec.resumes) {
+      throw new InvalidRunTransitionError(
+        'is parked cold only once a person’s answer has taken it up from a pause',
+      );
+    }
+
+    if (this.stopRequested) {
+      return this.leftWaiting(by);
+    }
+
+    const requeued = this.with({
+      parkedAttempts: [...this.parkedAttempts, this.attempt],
+    }).backOnTheQueue();
+
+    requeued.record(
+      new RunParked(this.id, this.workspaceId, by, now, this.attempt),
+    );
+
+    return requeued;
+  }
+
+  private leftWaiting(by: RunnerId | null): Run {
+    if (this.stopRequested) {
+      const outcome = RunOutcome.stopped(by ? 0 : -1);
+      const ended = this.with({
+        state: endingIn(outcome),
+        leaseExpiresAt: null,
+        outcome,
+      });
+
+      ended.record(
+        new RunCompleted(
+          this.id,
+          this.workspaceId,
+          this.subject,
+          outcome,
+          by,
+          null,
+          null,
+          this.attempt,
+        ),
+      );
+
+      return ended;
+    }
+
+    return this.with({
+      state: 'parked',
+      claimedBy: null,
+      leaseExpiresAt: null,
+      parkedAttempts: [...this.parkedAttempts, this.attempt],
+    });
+  }
+
   refused(outcome: RunOutcome): Run {
     if (this.state !== 'queued') {
       throw new InvalidRunTransitionError(
@@ -491,7 +680,7 @@ export class Run extends EventRecorder {
   }
 
   handedBack(by: RunnerId, now: Date, because: string): Run {
-    this.requireHeldBy(by, 'hand back');
+    this.requireWorkedBy(by, 'hand back');
 
     if (this.stopRequested) {
       return this.endedUnstarted(RunOutcome.stopped(-1));
@@ -540,9 +729,48 @@ export class Run extends EventRecorder {
   }
 
   refusedToStart(by: RunnerId, reason: string): Run {
-    this.requireHeldBy(by, 'refuse to start');
+    this.requireWorkedBy(by, 'refuse to start');
 
     return this.endedUnstarted(RunOutcome.refused([{ saying: reason }]));
+  }
+
+  letGo(now: Date): Run {
+    switch (this.state) {
+      case 'queued':
+        return this.withdrawn(LET_GO_QUEUED);
+      case 'claimed':
+        return this.requestStop(now);
+      case 'waiting':
+      case 'parked':
+        return this.endedAsItPaused();
+      default:
+        return this;
+    }
+  }
+
+  private endedAsItPaused(): Run {
+    const outcome =
+      this.outcome ?? RunOutcome.of({ exitCode: 0, failed: false });
+    const ended = this.with({
+      state: endingIn(outcome),
+      leaseExpiresAt: null,
+      outcome,
+    });
+
+    ended.record(
+      new RunCompleted(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        outcome,
+        this.claimedBy,
+        null,
+        null,
+        this.attempt,
+      ),
+    );
+
+    return ended;
   }
 
   withdrawn(reason: string): Run {
@@ -594,7 +822,11 @@ export class Run extends EventRecorder {
   }
 
   requestStop(now: Date): Run {
-    if (this.state !== 'claimed') {
+    if (this.state === 'parked') {
+      return this.endedUnstarted(RunOutcome.stopped(-1));
+    }
+
+    if (!isHeld(this.state)) {
       throw new InvalidRunTransitionError(
         `cannot be stopped while it is ${this.state}`,
       );
@@ -652,7 +884,7 @@ export class Run extends EventRecorder {
   }
 
   isHeldBy(runner: RunnerId): boolean {
-    return this.state === 'claimed' && this.wasWorkedBy(runner);
+    return isHeld(this.state) && this.wasWorkedBy(runner);
   }
 
   secretsWornFor(runner: RunnerId): readonly SecretName[] {
@@ -669,7 +901,7 @@ export class Run extends EventRecorder {
 
   lapsed(now: Date): boolean {
     return (
-      this.state === 'claimed' &&
+      isHeld(this.state) &&
       this.leaseExpiresAt !== null &&
       this.leaseExpiresAt.getTime() <= now.getTime()
     );
@@ -686,6 +918,8 @@ export class Run extends EventRecorder {
     provisioning?: Provisioning;
     ranIn?: RunnerImage | null;
     handBacks?: HandBacks;
+    spec?: RunSpec;
+    parkedAttempts?: readonly number[];
   }): Run {
     const next = new Run(
       this.id,
@@ -693,7 +927,7 @@ export class Run extends EventRecorder {
       this.harness,
       this.priority,
       this.subject,
-      this.spec,
+      part.spec ?? this.spec,
       this.placement,
       part.state ?? this.state,
       part.claimedBy !== undefined ? part.claimedBy : this.claimedBy,
@@ -710,6 +944,7 @@ export class Run extends EventRecorder {
       part.ranIn !== undefined ? part.ranIn : this.ranIn,
       part.handBacks ?? this.handBacks,
       this.briefedWith,
+      part.parkedAttempts ?? this.parkedAttempts,
       this.version,
     );
 
@@ -726,8 +961,18 @@ export class Run extends EventRecorder {
     return new Date(now.getTime() + LEASE_DURATION_MS);
   }
 
-  private requireHeldBy(by: RunnerId, action: string): void {
+  private requireWorkedBy(by: RunnerId, action: string): void {
     if (this.state !== 'claimed') {
+      throw new InvalidRunTransitionError(
+        `cannot ${action} a run that is ${this.state}`,
+      );
+    }
+
+    this.requireHeldBy(by, action);
+  }
+
+  private requireHeldBy(by: RunnerId, action: string): void {
+    if (!isHeld(this.state)) {
       throw new InvalidRunTransitionError(
         `cannot ${action} a run that is ${this.state}`,
       );

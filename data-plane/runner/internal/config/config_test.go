@@ -3,6 +3,7 @@ package config_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"usespotlight.ai/data-plane/runner/internal/config"
 )
@@ -12,7 +13,7 @@ func setRequired(t *testing.T) {
 
 	for _, name := range []string{
 		"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_HANDED", "SPOTLIGHT_WORKSPACE",
-		"SPOTLIGHT_AGENT_USER", "SPOTLIGHT_GIT_AUTHOR_NAME", "SPOTLIGHT_GIT_AUTHOR_EMAIL",
+		"SPOTLIGHT_AGENT_USER", "SPOTLIGHT_GIT_AUTHOR_NAME", "SPOTLIGHT_GIT_AUTHOR_EMAIL", "SPOTLIGHT_ANSWER_WAIT",
 	} {
 		t.Setenv(name, "")
 	}
@@ -99,5 +100,33 @@ func TestLoadWorksInTheSamePlaceEveryTime(t *testing.T) {
 	}
 	if cfg.Author.Name != "Spotlight" || cfg.Author.Email != "noreply@usespotlight.ai" {
 		t.Errorf("author %+v", cfg.Author)
+	}
+	if cfg.AnswerWait != 0 {
+		t.Errorf("a runner no host started waits %v for an answer, rather than parking at once", cfg.AnswerWait)
+	}
+}
+
+func TestLoadReadsHowLongToWaitWarmForAnAnswer(t *testing.T) {
+	setRequired(t)
+	t.Setenv("SPOTLIGHT_ANSWER_WAIT", "90s")
+
+	cfg, err := config.Load(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.AnswerWait != 90*time.Second {
+		t.Errorf("answer wait %v", cfg.AnswerWait)
+	}
+}
+
+func TestLoadRefusesAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
+	for _, raw := range []string{"soon", "90", "-1s"} {
+		setRequired(t)
+		t.Setenv("SPOTLIGHT_ANSWER_WAIT", raw)
+
+		if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_ANSWER_WAIT") {
+			t.Errorf("%q: expected a refusal, got %v", raw, err)
+		}
 	}
 }

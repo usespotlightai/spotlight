@@ -1,9 +1,12 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import { RunParked } from '@work/domain/events/run-parked.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -52,15 +55,26 @@ describe('workSubscribers', () => {
       ),
     );
 
-    expect(losing?.kinds).toEqual(['run.lapsed']);
+    await losing?.handle(
+      new RunParked(
+        run,
+        workspace,
+        RunnerId.of('runner_1'),
+        new Date('2026-09-27T09:05:00.000Z'),
+        2,
+      ),
+    );
+
+    expect(losing?.kinds).toEqual(['run.lapsed', 'run.parked']);
     expect(holdLost.mock.calls).toEqual([
       [{ workspaceId: 'ws_1', runId: 'run_1', attempt: 1 }],
+      [{ workspaceId: 'ws_1', runId: 'run_1', attempt: 2 }],
     ]);
   });
 
-  it('tells Runners of the runner a run lapsed on, or no longer waits for', async () => {
+  it('tells Runners of the runner a run lapsed on, parked from, or no longer waits for', async () => {
     const runners = {
-      runLapsed: vi.fn(async () => {}),
+      runLeft: vi.fn(async () => {}),
       reservationDropped: vi.fn(async () => {}),
     };
     const subscribers = workSubscribers({
@@ -73,14 +87,37 @@ describe('workSubscribers', () => {
     const runner = RunnerId.of('runner_1');
     const at = new Date('2026-09-27T09:00:00.000Z');
 
-    await named('work.let-go-of-runner-of-lapsed-run')?.handle(
+    await named('work.let-go-of-runner-that-left-its-run')?.handle(
       new RunLapsed(run, workspace, runner, at, 1),
+    );
+    await named('work.let-go-of-runner-that-left-its-run')?.handle(
+      new RunParked(run, workspace, RunnerId.of('runner_2'), at, 2),
     );
     await named('work.let-go-of-reserved-runner')?.handle(
       new RunReservationDropped(run, workspace, runner),
     );
 
-    expect(runners.runLapsed).toHaveBeenCalledWith(runner, at);
+    expect(runners.runLeft).toHaveBeenCalledWith(runner, at);
+    expect(runners.runLeft).toHaveBeenCalledWith(RunnerId.of('runner_2'), at);
     expect(runners.reservationDropped).toHaveBeenCalledWith('runner_1');
+  });
+
+  it('takes up the run a person answered, whichever way the answer came', async () => {
+    const pausedRuns = { onTaskAnswered: vi.fn(async () => {}) };
+    const taking = workSubscribers({
+      pausedRuns,
+    } as unknown as Parameters<typeof workSubscribers>[0]).find(
+      (each) => each.name === 'work.take-up-the-run-a-person-answered',
+    );
+    const answered = new TaskAnswered(
+      TaskId.of('task_1'),
+      WorkspaceId.of('ws_1'),
+      RunId.of('run_1'),
+    );
+
+    await taking?.handle(answered);
+
+    expect(taking?.kinds).toEqual(['task.answered']);
+    expect(pausedRuns.onTaskAnswered).toHaveBeenCalledWith(answered);
   });
 });

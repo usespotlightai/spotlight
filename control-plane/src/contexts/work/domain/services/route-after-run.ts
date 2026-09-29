@@ -6,16 +6,25 @@ import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 export type RunRouting =
   | { readonly kind: 'finish'; readonly line: Line }
   | { readonly kind: 'ask'; readonly failure: TaskFailure | null }
+  | { readonly kind: 'let-go'; readonly failure: TaskFailure | null }
   | {
       readonly kind: 'advance';
       readonly to: Station;
       readonly line: Line;
     };
 
+const failureOf = (handover: Handover): TaskFailure | null =>
+  handover.kind === 'review' ? handover.failure : null;
+
 export const routeAfterRun = (
   handover: Handover,
   line: Line | null,
+  awaitingAPerson = false,
 ): RunRouting => {
+  if (awaitingAPerson) {
+    return { kind: 'let-go', failure: failureOf(handover) };
+  }
+
   if (handover.kind === 'done' && line) {
     return { kind: 'finish', line };
   }

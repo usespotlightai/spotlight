@@ -24,7 +24,7 @@ import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { shownAt } from '@/lib/inbox';
+import { shownAt, workedOn } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
@@ -182,9 +182,7 @@ export function InboxItem() {
           live={
             item.runId && item.working ? (
               <RunActivity
-                journals={(worked ?? []).filter(
-                  (each) => each.runId === item.runId,
-                )}
+                journals={workedOn(worked ?? [], item.notes, item.runId)}
                 working={item.working}
                 station={{
                   name: item.station,

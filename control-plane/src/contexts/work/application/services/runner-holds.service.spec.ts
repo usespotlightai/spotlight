@@ -60,7 +60,7 @@ describe('RunnerHolds', () => {
     const { endings, letGo } = ending();
     const lapsedAt = new Date('2026-09-24T11:59:00.000Z');
 
-    await endings.runLapsed(RunnerId.of('runner_1'), lapsedAt);
+    await endings.runLeft(RunnerId.of('runner_1'), lapsedAt);
 
     expect(letGo).toHaveBeenCalledWith(RunnerId.of('runner_1'), lapsedAt);
   });

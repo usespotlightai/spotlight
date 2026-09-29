@@ -12,7 +12,13 @@ export const reviewInk = (review: Review): string =>
 export const working = (run: Run): boolean =>
   run.state === 'claimed' || run.state === 'queued';
 
+export const waitsOnPerson = (run: Run): boolean =>
+  run.state === 'waiting' || run.state === 'parked';
+
 export const standing = (run: Run): string | null => {
+  if (waitsOnPerson(run)) {
+    return 'Waiting for you';
+  }
   if (run.state === 'queued') {
     return 'Queued';
   }

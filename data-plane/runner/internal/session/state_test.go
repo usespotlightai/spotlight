@@ -33,8 +33,54 @@ func TestNextFollowsTheHappyPath(t *testing.T) {
 	}
 }
 
+func walk(t *testing.T, from session.State, triggers ...session.Trigger) session.State {
+	t.Helper()
+
+	state := from
+	for _, trigger := range triggers {
+		next, err := session.Next(state, trigger)
+		if err != nil {
+			t.Fatalf("%s while %s: %v", trigger, state, err)
+		}
+		state = next
+	}
+	return state
+}
+
+func TestARunPutToAPersonWaitsAndRunsAgainOnceAnswered(t *testing.T) {
+	state := walk(t, session.Running, session.PersonAsked)
+	if state != session.Waiting {
+		t.Fatalf("a run put to a person is %s", state)
+	}
+
+	state = walk(t, state, session.PersonAnswered, session.PersonAsked, session.PersonAnswered,
+		session.AgentExited, session.Drained)
+	if state != session.Completed {
+		t.Errorf("a run answered twice then finished is %s", state)
+	}
+}
+
+func TestAWaitingRunNobodyAnsweredIsParkedAndOver(t *testing.T) {
+	state := walk(t, session.Running, session.PersonAsked, session.RunParked)
+	if state != session.Parked {
+		t.Fatalf("a run let go while waiting is %s", state)
+	}
+
+	for _, trigger := range []session.Trigger{session.PersonAnswered, session.AgentExited, session.WentWrong} {
+		if _, err := session.Next(state, trigger); err == nil {
+			t.Errorf("a parked run could still be %s", trigger)
+		}
+	}
+}
+
+func TestAWaitingRunStoppedDrainsLikeAnyOther(t *testing.T) {
+	if state := walk(t, session.Running, session.PersonAsked, session.AgentExited, session.Drained); state != session.Completed {
+		t.Errorf("a run stopped while it waited is %s", state)
+	}
+}
+
 func TestAnythingCanGoWrongUntilItIsOver(t *testing.T) {
-	for _, from := range []session.State{session.Preparing, session.Running, session.Draining} {
+	for _, from := range []session.State{session.Preparing, session.Running, session.Waiting, session.Draining} {
 		next, err := session.Next(from, session.WentWrong)
 		if err != nil {
 			t.Fatalf("failing while %s: %v", from, err)
@@ -54,6 +100,11 @@ func TestNextRefusesWhatCannotHappen(t *testing.T) {
 		{session.Preparing, session.Drained},
 		{session.Running, session.AgentStarted},
 		{session.Running, session.Drained},
+		{session.Running, session.PersonAnswered},
+		{session.Running, session.RunParked},
+		{session.Preparing, session.PersonAsked},
+		{session.Waiting, session.PersonAsked},
+		{session.Waiting, session.Drained},
 		{session.Draining, session.AgentExited},
 		{session.Completed, session.Drained},
 		{session.Failed, session.WentWrong},

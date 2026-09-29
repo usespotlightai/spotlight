@@ -50,6 +50,8 @@ func (r *Rejection) Refused() (string, bool) {
 
 func (r *Rejection) Unwrap() error { return r.Err }
 
+func (r *Rejection) Gone() bool { return r.Status == http.StatusNotFound }
+
 func CheckLeaseLost(err error) bool {
 	var rejection *Rejection
 	return errors.As(err, &rejection) && rejection.Refusal() && rejection.Status != http.StatusConflict
@@ -341,12 +343,37 @@ func (c *Client) RecordImage(ctx context.Context, runID, image string) error {
 	return nil
 }
 
-func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) error {
+func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error) {
 	path := fmt.Sprintf("/api/runs/%s/completion", url.PathEscape(runID))
-	if err := c.do(ctx, http.MethodPost, path, done, nil); err != nil {
-		return fmt.Errorf("complete: %w", err)
+
+	var completed protocol.Completed
+	if err := c.do(ctx, http.MethodPost, path, done, &completed); err != nil {
+		return protocol.Completed{}, fmt.Errorf("complete: %w", err)
 	}
-	return nil
+
+	return completed, nil
+}
+
+func (c *Client) Asks(ctx context.Context, runID string, turn protocol.Completion) (bool, error) {
+	path := fmt.Sprintf("/api/runs/%s/completion/asks", url.PathEscape(runID))
+
+	var asks protocol.TurnAsks
+	if err := c.do(ctx, http.MethodPost, path, turn, &asks); err != nil {
+		return false, fmt.Errorf("ask whether the turn waits: %w", err)
+	}
+
+	return asks.Asks, nil
+}
+
+func (c *Client) Park(ctx context.Context, runID string, cold bool) (protocol.Parking, error) {
+	path := fmt.Sprintf("/api/runs/%s/parked", url.PathEscape(runID))
+
+	var parking protocol.Parking
+	if err := c.do(ctx, http.MethodPost, path, protocol.ParkRequest{Cold: cold}, &parking); err != nil {
+		return protocol.Parking{}, fmt.Errorf("park: %w", err)
+	}
+
+	return parking, nil
 }
 
 func (c *Client) Attachment(

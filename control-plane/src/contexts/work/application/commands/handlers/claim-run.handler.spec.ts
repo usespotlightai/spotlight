@@ -112,7 +112,7 @@ const claiming = (
   } as ClockPort;
   const runs = {
     claimNext,
-    waitingFor: vi.fn(async () => over.reservedFor ?? null),
+    reservedFor: vi.fn(async () => over.reservedFor ?? null),
     findById: vi.fn(async () => queued()),
     save: vi.fn(async (run: Run) => {
       saved.push(run);

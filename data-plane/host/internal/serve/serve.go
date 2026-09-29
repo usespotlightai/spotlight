@@ -65,7 +65,7 @@ type Worker interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	RenewCheckLease(ctx context.Context, runID, stackID string) (bool, error)
 	RecordImage(ctx context.Context, runID, image string) error
-	Complete(ctx context.Context, runID string, done protocol.Completion) error
+	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error)
 	RecordChangeStackCheck(ctx context.Context, runID, stackID string, checked protocol.StackChecked) error
 }
 
@@ -84,6 +84,7 @@ type Options struct {
 	EgressWait   time.Duration
 	Capacity     int
 	RunTimeout   time.Duration
+	AnswerWait   time.Duration
 	ControlURL   string
 	SandboxURL   string
 	SandboxEnv   []string
@@ -484,6 +485,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	env = append(env,
 		"SPOTLIGHT_URL="+h.opts.SandboxURL,
 		"SPOTLIGHT_HANDED="+HandedPath,
+		protocol.AnswerWaitVar+"="+h.opts.AnswerWait.String(),
 	)
 	if len(mounts) > 0 {
 		env = append(env, "SPOTLIGHT_MIRRORS="+MirrorRoot)
@@ -679,7 +681,7 @@ func (h *Host) giveUp(ctx context.Context, handed protocol.Handed, worker Worker
 	var err error
 	switch work := handed.Work; {
 	case work.Run != nil:
-		err = worker.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, Message: reason})
+		_, err = worker.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, Message: reason})
 	case work.Check != nil:
 		err = worker.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, protocol.StackChecked{
 			Skipped: &protocol.SkippedCheck{Code: protocol.SkipNoImage, Detail: reason},

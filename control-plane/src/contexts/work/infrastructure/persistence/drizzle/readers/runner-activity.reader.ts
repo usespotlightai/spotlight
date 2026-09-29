@@ -6,8 +6,9 @@ import type {
   HeldRun,
   RunnerActivityReaderPort,
 } from '@work/application/ports/runner-activity-reader.port';
+import { HELD_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
@@ -20,7 +21,7 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
-          eq(run.state, 'claimed'),
+          inArray(run.state, [...HELD_RUN_STATES]),
           isNotNull(run.claimedBy),
         ),
       );

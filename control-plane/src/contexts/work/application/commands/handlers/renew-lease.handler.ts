@@ -6,9 +6,12 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RenewLeaseCommand } from '@work/application/commands/runner.commands';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import { UnknownRunnerError } from '@work/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+
+const ATTEMPTS = 3;
 
 export class RenewLeaseHandler
   implements CommandHandlerPort<RenewLeaseCommand, void>
@@ -28,9 +31,24 @@ export class RenewLeaseHandler
         throw new UnknownRunnerError(command.runnerId);
       }
 
-      await this.runs.save(
-        (await this.load(command.runId)).renewLease(renewing, at),
-      );
+      for (let attempt = 1; ; attempt++) {
+        const run = await this.load(command.runId);
+
+        if (!run.isHeldBy(renewing)) {
+          throw new UnknownRunError(
+            `runner ${command.runnerId} holds no run ${command.runId}`,
+          );
+        }
+
+        try {
+          await this.runs.save(run.renewLease(renewing, at));
+          return;
+        } catch (error) {
+          if (!(error instanceof RunMovedOnError) || attempt >= ATTEMPTS) {
+            throw error;
+          }
+        }
+      }
     } catch (error) {
       rethrowAsFault(error);
     }

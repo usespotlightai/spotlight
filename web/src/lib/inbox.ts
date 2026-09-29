@@ -29,6 +29,81 @@ export type Conversing = {
 
 export type RunJournal = RunJournalResponseDto;
 
+export const decisionOwed = (notes: readonly InboxMessage[]): boolean =>
+  notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
+
+const answersTo = (notes: readonly InboxMessage[], runId: string): number[] => {
+  const answers: number[] = [];
+  let asked = false;
+
+  for (const note of notes) {
+    if (note.kind === 'answered' || note.voice === 'person') {
+      if (asked) {
+        answers.push(Date.parse(note.at));
+      }
+      asked = false;
+    } else if (note.runId === runId) {
+      asked = true;
+    }
+  }
+
+  return answers;
+};
+
+const spanOf = (steps: readonly JournalStep[]): number => {
+  const first = steps[0];
+  const last = steps[steps.length - 1];
+
+  return first && last
+    ? Date.parse(last.startedAt) + last.ms - Date.parse(first.startedAt)
+    : 0;
+};
+
+export const workedOn = (
+  worked: readonly RunJournal[],
+  notes: readonly InboxMessage[],
+  runId: string | null,
+  at: string | null = null,
+): RunJournal[] => {
+  const ran = worked.filter((each) => each.runId === runId);
+  const answers = runId ? answersTo(notes, runId) : [];
+
+  if (answers.length === 0) {
+    return ran;
+  }
+
+  const when = at === null ? Number.POSITIVE_INFINITY : Date.parse(at);
+  const from =
+    answers.findLast((answer) => answer <= when) ?? Number.NEGATIVE_INFINITY;
+  const until =
+    answers.find((answer) => answer > when) ?? Number.POSITIVE_INFINITY;
+  const inside = (moment: number) => moment >= from && moment < until;
+
+  return ran.flatMap((journal) => {
+    if (journal.steps.length === 0) {
+      const began = journal.marks.startedAt;
+
+      return (
+        began
+          ? inside(Date.parse(began))
+          : until === Number.POSITIVE_INFINITY
+      )
+        ? [journal]
+        : [];
+    }
+
+    const steps = journal.steps.filter((step) =>
+      inside(Date.parse(step.startedAt)),
+    );
+
+    if (steps.length === journal.steps.length) {
+      return [journal];
+    }
+
+    return steps.length === 0 ? [] : [{ ...journal, steps, ms: spanOf(steps) }];
+  });
+};
+
 export const took = (ms: number): string => {
   if (ms < 1_000) {
     return `${ms}ms`;

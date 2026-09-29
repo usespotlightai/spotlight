@@ -90,6 +90,7 @@ func run(version string) error {
 		Registry:   registry.From(cfg.Registry),
 		Capacity:   cfg.Capacity,
 		RunTimeout: cfg.RunTimeout,
+		AnswerWait: cfg.AnswerWait,
 		ControlURL: cfg.URL,
 		SandboxURL: cfg.SandboxURL,
 		SandboxEnv: cfg.SandboxEnv,

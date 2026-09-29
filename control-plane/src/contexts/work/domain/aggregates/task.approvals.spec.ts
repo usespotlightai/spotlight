@@ -123,7 +123,7 @@ const decided = (
 const kindOf = (clearance: Clearance) => clearance.kind;
 
 describe('clearing a tool call that needs approval', () => {
-  it('asks the person, at the station the run stands at, and lets go of the run', () => {
+  it('asks the person, at the station the run stands at, the run keeping the task while it waits', () => {
     const { task, clearance } = clear(working());
     const standing = task.approvalFor(CALL);
 
@@ -131,7 +131,20 @@ describe('clearing a tool call that needs approval', () => {
     expect(standing?.approval.open).toBe(true);
     expect(standing?.approval.at.equals(IMPLEMENTATION)).toBe(true);
     expect(task.awaitingReview).toBe(true);
-    expect(task.running).toBe(false);
+    expect(task.heldBy(RUN)).toBe(true);
+    expect(task.working).toBe(false);
+  });
+
+  it('asks nothing more while a person still owes an answer, so the run waits for it', () => {
+    const { asked } = askedOnce();
+    const other = ApprovalSubject.toolCall(
+      ToolCall.of(Tool.of('linear.close'), ToolInputs.of({ issue: 'ENG-12' })),
+    );
+
+    const again = clear(asked, other);
+
+    expect(kindOf(again.clearance)).toBe('asked');
+    expect(again.task.notes).toHaveLength(asked.notes.length);
   });
 
   it('claims a grant as it gives it, so a second call finds nothing to use', () => {
@@ -231,7 +244,7 @@ describe('clearing a tool call that needs approval', () => {
   it('refuses a run that does not hold the task', () => {
     const { task } = decided('granted');
 
-    expect(() => clear(task)).toThrow();
+    expect(() => clear(task.leftBy(RUN, NOW))).toThrow();
   });
 });
 

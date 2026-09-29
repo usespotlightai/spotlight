@@ -236,6 +236,34 @@ export const seedBoard = (client: QueryClient) => {
   });
 };
 
+export const seedWaitingTask = (client: QueryClient) => {
+  seedBoard(client);
+  client.setQueryData(
+    taskKeys.forTeam(TEAM_ID),
+    TASKS.map((each) =>
+      each.id === TASK_ID
+        ? {
+            ...each,
+            running: false,
+            awaitingReview: { conversationId: `${TASK_ID}:1` },
+          }
+        : each,
+    ),
+  );
+  client.setQueryData(
+    taskRunKeys.forTask(TASK_ID),
+    RUNS.map((each, at) =>
+      at === 0
+        ? {
+            ...each,
+            state: 'waiting',
+            review: { state: 'owed', conversationId: `${TASK_ID}:1` },
+          }
+        : each,
+    ),
+  );
+};
+
 export const emptyBoard = (client: QueryClient) => {
   seedWorkspace(client);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);

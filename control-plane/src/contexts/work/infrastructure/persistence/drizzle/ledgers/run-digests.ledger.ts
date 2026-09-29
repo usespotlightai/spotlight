@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunSpent } from '@work/application/contracts/run-journal.contract';
 import type {
   RunDigest,
   RunDigestReaderPort,
@@ -27,6 +28,37 @@ interface Worked {
   readonly size: number | null;
   readonly cost: Money | null;
 }
+
+export const spentAcross = (readings: readonly Told[]): RunSpent | null => {
+  const latest =
+    readings
+      .map((reading) => reading.spent())
+      .filter((each) => each !== null)
+      .pop() ?? null;
+  const bySession = new Map<string, RunSpent>();
+
+  for (const reading of readings) {
+    for (const [session, spent] of reading.spentBySession()) {
+      bySession.set(session, spent);
+    }
+  }
+
+  const costs = [...bySession.values()].flatMap((each) =>
+    each.cost && each.cost.currency === latest?.cost?.currency
+      ? [each.cost]
+      : [],
+  );
+
+  return latest
+    ? {
+        ...latest,
+        cost: costs.reduce<Money | null>(
+          (sum, cost) => (sum ? sum.plus(cost) : cost),
+          null,
+        ),
+      }
+    : null;
+};
 
 export const digestOf = (worked: Worked): RunDigest => ({
   ms: worked.ms,
@@ -69,7 +101,11 @@ export class DrizzleRunDigests
 
   private async write(only?: SQL): Promise<void> {
     const owed = await this.db
-      .select({ id: run.id, attempt: run.attempt })
+      .select({
+        id: run.id,
+        attempt: run.attempt,
+        parked: run.parkedAttempts,
+      })
       .from(run)
       .leftJoin(
         runDigest,
@@ -89,7 +125,11 @@ export class DrizzleRunDigests
   }
 
   private async digest(
-    owed: readonly { id: string; attempt: number }[],
+    owed: readonly {
+      id: string;
+      attempt: number;
+      parked: readonly number[];
+    }[],
   ): Promise<void> {
     const told = await this.db
       .select({
@@ -103,10 +143,10 @@ export class DrizzleRunDigests
       .from(runJournalEntry)
       .where(
         or(
-          ...owed.map(({ id, attempt }) =>
+          ...owed.map(({ id, attempt, parked }) =>
             and(
               eq(runJournalEntry.runId, id),
-              eq(runJournalEntry.attempt, attempt),
+              inArray(runJournalEntry.attempt, [...parked, attempt]),
             ),
           ),
         ),
@@ -124,13 +164,20 @@ export class DrizzleRunDigests
       readings.set(`${row.runId}:${row.attempt}`, reading);
     }
 
-    const rows = owed.map(({ id, attempt }) => {
-      const reading = readings.get(`${id}:${attempt}`) ?? new Told();
-      const spent = reading.spent();
+    const rows = owed.map(({ id, attempt, parked }) => {
+      const kept = [...parked, attempt]
+        .sort((one, other) => one - other)
+        .map((each) => readings.get(`${id}:${each}`) ?? new Told());
+      const spent = spentAcross(kept);
+      const took = kept
+        .map((reading) => reading.ms())
+        .filter((each) => each !== null);
 
       const digest = digestOf({
-        ms: reading.ms(),
-        statuses: reading.steps().map((step) => step.status),
+        ms: took.length > 0 ? took.reduce((sum, ms) => sum + ms, 0) : null,
+        statuses: kept.flatMap((reading) =>
+          reading.steps().map((step) => step.status),
+        ),
         used: spent?.used ?? null,
         size: spent?.size ?? null,
         cost: spent?.cost ?? null,

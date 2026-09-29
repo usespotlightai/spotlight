@@ -353,4 +353,46 @@ describe('HandOver', () => {
 
     expect(saved?.sessionId).toBeNull();
   });
+
+  describe('a run that ends while its task waits on a person', () => {
+    const asked = () =>
+      task().putToAPersonBy(RunId.of('run_1'), {
+        station: StationName.of('Triage'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      });
+
+    it('lets go of the task, still asked, when the waiting run is stopped', async () => {
+      await handOver(stoppedRun(), tasks(asked()));
+
+      expect(saved?.currentRunId).toBeNull();
+      expect(saved?.awaitingReview).toBe(true);
+      expect(saved?.notes).toHaveLength(1);
+    });
+
+    it('never finishes or passes on a task whose question is still open', async () => {
+      await handOver(
+        run(
+          false,
+          HandoverReport.of({
+            declared: Declaration.of({ next: 'done', note: 'Done.' }),
+          }),
+        ),
+        tasks(asked()),
+      );
+
+      expect(saved?.finished).toBe(false);
+      expect(saved?.stationId).toEqual(StationId.of('station_1'));
+      expect(saved?.currentRunId).toBeNull();
+      expect(saved?.awaitingReview).toBe(true);
+    });
+
+    it('adds a failure to the open question, letting go of the task', async () => {
+      await handOver(run(true), tasks(asked()));
+
+      expect(saved?.currentRunId).toBeNull();
+      expect(saved?.notes[1]?.form).toBe('failure');
+    });
+  });
 });

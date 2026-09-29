@@ -76,6 +76,7 @@ runner trust instead: `SPOTLIGHT_TRUST=<trust id>` and
 | `SPOTLIGHT_SANDBOX_ENV` | `sandbox.env` beside `host.env` | variables every sandbox gets. Harness keys set here (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `OPENAI_API_KEY`, `CODEX_API_KEY`) go to egress instead, and the sandbox gets a stand-in |
 | `SPOTLIGHT_SANDBOX_PASS` | unset | names of the host's own variables to pass into sandboxes |
 | `SPOTLIGHT_RUN_TIMEOUT` | `6h` | a sandbox running longer is stopped and destroyed |
+| `SPOTLIGHT_ANSWER_WAIT` | `5m` | how long a sandbox whose run asked a person stays up for the answer, still holding its slot, before the run is parked; `0` parks at once |
 | `SPOTLIGHT_SANDBOX_NETWORK`, `SPOTLIGHT_SANDBOX_HOSTS`, `SPOTLIGHT_SANDBOX_URL` | unset | the network egress joins beside each sandbox's own, egress's extra hosts entries, and the control plane's address as egress reaches it |
 | `SPOTLIGHT_EGRESS_ALLOW` | unset: any public host | the hosts sandboxes may reach, comma-separated: `api.anthropic.com`, or `*.acme.internal` for its subdomains. A host that resolves to a private address is reached only when an entry names it. Secrets are worn only toward hosts the list admits; the control plane and its storage are always reached |
 | `SPOTLIGHT_EGRESS_READS` | unset: none | the AWS Secrets Manager secrets egress may read as the host, comma-separated: names or ARNs, or prefixes ending in `*` |

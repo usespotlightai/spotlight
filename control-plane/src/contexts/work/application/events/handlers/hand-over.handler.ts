@@ -6,7 +6,7 @@ import type { TaskPlacementsPort } from '@work/application/ports/task-placements
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { Saying, Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -66,7 +66,7 @@ export class HandOver implements RunOutcomes {
 
     await this.saved(
       await this.applied(
-        HandoverFor.exhausted(event.attempt),
+        HandoverFor.exhausted(event.lapses),
         standing.task,
         standing.line,
         event.runId,
@@ -116,25 +116,37 @@ export class HandOver implements RunOutcomes {
     return { task, line: await this.lines.holding(task.stationId) };
   }
 
+  private sayingOf(
+    handover: Handover,
+    task: Task,
+    line: Line | null,
+    run: RunId,
+  ): Saying {
+    return {
+      station: line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
+      body: handover.body,
+      at: this.clock.now(),
+      voice: Voice.station(run),
+    };
+  }
+
   private async applied(
     handover: Handover,
     task: Task,
     line: Line | null,
     run: RunId,
   ): Promise<Task> {
-    const standing = line?.stationAt(task.stationId);
-
-    const saying = {
-      station: standing?.name ?? StationName.unknown(),
-      body: handover.body,
-      at: this.clock.now(),
-      voice: Voice.station(run),
-    };
-
-    const routing = routeAfterRun(handover, line);
+    const saying = this.sayingOf(handover, task, line, run);
+    const routing = routeAfterRun(handover, line, task.awaitingReview);
 
     if (routing.kind === 'finish') {
       return task.finishedHere(run, routing.line, saying);
+    }
+
+    if (routing.kind === 'let-go') {
+      return (
+        routing.failure ? task.failed(routing.failure, saying, run) : task
+      ).leftBy(run, saying.at);
     }
 
     if (routing.kind === 'ask') {
