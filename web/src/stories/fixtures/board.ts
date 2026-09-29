@@ -163,6 +163,7 @@ const at = (key: string): RunStationResponseDto => {
   const found = STATIONS.find((each) => each.key === key) ?? STATIONS[0];
 
   return {
+    id: found?.id ?? '',
     name: found?.name ?? '',
     color: found?.color ?? '',
     position: found?.position ?? 0,
@@ -259,6 +260,18 @@ export const seedWaitingTask = (client: QueryClient) => {
             state: 'waiting',
             review: { state: 'owed', conversationId: `${TASK_ID}:1` },
           }
+        : each,
+    ),
+  );
+};
+
+export const seedCompletedTask = (client: QueryClient) => {
+  seedBoard(client);
+  client.setQueryData(
+    taskKeys.forTeam(TEAM_ID),
+    TASKS.map((each) =>
+      each.id === TASK_ID
+        ? { ...each, stationId: 'station_completed', running: false }
         : each,
     ),
   );

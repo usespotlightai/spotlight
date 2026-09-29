@@ -22,6 +22,7 @@ export const TaskRunHttpMapper = {
       dto.image,
       dto.station
         ? new RunStationResponseDto(
+            dto.station.id,
             dto.station.name,
             dto.station.color,
             dto.station.position,

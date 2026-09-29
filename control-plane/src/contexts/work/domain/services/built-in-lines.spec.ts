@@ -37,3 +37,34 @@ describe('what the built-in line tells its agents', () => {
     }
   });
 });
+
+describe('the built-in Delivery line', () => {
+  const delivery = BUILT_IN_LINES.find((line) => line.key.value === 'delivery');
+  const opening = (key: string) =>
+    delivery?.stations.find((each) => each.key.value === key);
+  const passes = (key: string) =>
+    opening(key)?.passesTo.map((each) => each.value);
+
+  it('lets code review send work back to spec or to implementation', () => {
+    expect(passes('code-review')).toEqual(['spec', 'implementation']);
+  });
+
+  it('lets implementation pass work on to code review, or back to spec', () => {
+    expect(passes('implementation')).toEqual(['code-review', 'spec']);
+  });
+
+  it('tells implementation and code review when the fault is the spec’s to fix', () => {
+    for (const key of ['implementation', 'code-review']) {
+      expect(opening(key)?.agentPrompt?.value).toMatch(
+        /spec turns out to be wrong|fault is in the plan/,
+      );
+      expect(opening(key)?.agentPrompt?.value).toContain('back to Spec');
+    }
+  });
+
+  it('tells spec to revise its plan against the note work comes back with', () => {
+    expect(opening('spec')?.agentPrompt?.value).toContain(
+      'comes back from Implementation or Code Review',
+    );
+  });
+});

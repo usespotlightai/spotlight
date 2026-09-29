@@ -7,12 +7,15 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import type { StationResponseDto } from '@/lib/api';
 import { stationShare } from '@/lib/station';
+import { movableByHand } from '@/lib/task';
 
 type Station = {
   readonly id: string;
   readonly name: string;
   readonly color: string;
+  readonly kind: StationResponseDto['kind'];
 };
 
 type StationSelectProps = {
@@ -33,6 +36,9 @@ export function StationSelect({
     );
 
   const standing = stations.find((each) => each.id === value);
+  const offered = standing
+    ? stations.filter((each) => movableByHand(standing, each))
+    : [];
 
   return (
     <DropdownMenu>
@@ -57,7 +63,7 @@ export function StationSelect({
           value={value}
           onValueChange={(next) => onChange(String(next))}
         >
-          {stations.map((station) => (
+          {offered.map((station) => (
             <DropdownMenuRadioItem
               key={station.id}
               value={station.id}

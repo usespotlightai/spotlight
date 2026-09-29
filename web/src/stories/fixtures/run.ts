@@ -37,6 +37,7 @@ const minutesAgo = (minutes: number): string =>
   new Date(Date.now() - minutes * 60_000).toISOString();
 
 const IMPLEMENTATION: RunStationResponseDto = {
+  id: 'station_implementation',
   name: 'Implementation',
   color: '#5c66d9',
   position: 2,
@@ -211,9 +212,15 @@ const WORKSPACE: WorkspaceResponseDto = {
   teams: [{ id: TEAM_ID, name: 'Platform' }],
 };
 
-const seedAround = (client: QueryClient) => {
+const seedAround = (
+  client: QueryClient,
+  standing: Partial<TaskResponseDto> = {},
+) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
-  client.setQueryData(taskKeys.forTeam(TEAM_ID), TASKS);
+  client.setQueryData(
+    taskKeys.forTeam(TEAM_ID),
+    TASKS.map((each) => ({ ...each, ...standing })),
+  );
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
   client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
   client.setQueryData(repositoryKeys.forWorkspace(SLUG), [
@@ -237,7 +244,10 @@ const seedPausedRun = (
   state: 'waiting' | 'parked',
   updatedAt: string,
 ) => {
-  seedAround(client);
+  seedAround(client, {
+    running: true,
+    awaitingReview: { conversationId: OWED.conversationId },
+  });
   client.setQueryData(teamRunKeys.forTeam(TEAM_ID), [
     { ...RUN, state, exitCode: null, updatedAt, review: OWED },
   ]);
@@ -298,7 +308,7 @@ const CARRIED_ON: RunJournalResponseDto = {
 };
 
 export const seedCarryingOnRun = (client: QueryClient) => {
-  seedAround(client);
+  seedAround(client, { running: true });
   client.setQueryData(teamRunKeys.forTeam(TEAM_ID), [
     {
       ...RUN,

@@ -76,6 +76,7 @@ export function LineBoard() {
     teamId,
     lineId: line?.id ?? '',
     tasks: standing,
+    stations: line?.stations ?? [],
   });
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);

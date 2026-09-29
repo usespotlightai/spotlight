@@ -16,6 +16,7 @@ const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
   harness: 'claude-code',
   image: null,
   station: {
+    id: 'station_3',
     name: 'Implementation',
     color: '#edc12b',
     position: 3,
@@ -45,6 +46,7 @@ describe('ListTaskRunsHandler', () => {
     );
 
     expect(only?.station).toEqual({
+      id: 'station_3',
       name: 'Implementation',
       color: '#edc12b',
       position: 3,

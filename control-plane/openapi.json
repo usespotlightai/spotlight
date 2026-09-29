@@ -2715,7 +2715,7 @@
         },
         "responses": {
           "204": {
-            "description": "It joined the task’s trail"
+            "description": "It joined the task’s trail, and starts the station again if the task stood idle there"
           },
           "401": {
             "description": "No valid session"
@@ -2723,7 +2723,7 @@
           "404": {
             "description": "No such run for this caller"
           },
-          "422": {
+          "409": {
             "description": "The task has moved on from that station"
           }
         },
@@ -3034,6 +3034,9 @@
           },
           "404": {
             "description": "No such task or station for this caller"
+          },
+          "422": {
+            "description": "A person may only start a task from the backlog, park it back there, or close it"
           }
         },
         "summary": "Move a task to another station on the same line",
@@ -19088,6 +19091,10 @@
       "RunStationResponseDto": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
           "name": {
             "type": "string",
             "example": "Implementation"
@@ -19107,6 +19114,7 @@
           }
         },
         "required": [
+          "id",
           "name",
           "color",
           "position",

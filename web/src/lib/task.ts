@@ -1,4 +1,4 @@
-import type { TaskResponseDto } from '@/lib/api';
+import type { StationResponseDto, TaskResponseDto } from '@/lib/api';
 import { stationShare } from '@/lib/station';
 import { teamPath, teamSectionPath } from '@/lib/team';
 
@@ -39,7 +39,45 @@ export const raisedOn = (createdAt: string): string => {
   });
 };
 
-type Station = { readonly id: string; readonly name: string };
+export const startsAgainWhenTold = (
+  task: Task | undefined,
+  standing:
+    | { readonly id: string; readonly harness: string | null }
+    | undefined,
+  ranAt: string | undefined,
+): boolean =>
+  Boolean(
+    task &&
+      standing?.harness &&
+      standing.id === ranAt &&
+      !task.running &&
+      !task.awaitingReview,
+  );
+
+type Placed = {
+  readonly id: string;
+  readonly kind: StationResponseDto['kind'];
+};
+
+export const movableByHand = (from: Placed, to: Placed): boolean =>
+  from.id === to.id ||
+  (from.kind !== 'completed' &&
+    (to.kind === 'completed' ||
+      (from.kind === 'backlog' && to.kind === 'work') ||
+      (from.kind === 'work' && to.kind === 'backlog')));
+
+export const mayLand = (
+  stations: readonly Placed[],
+  task: Task,
+  stationId: string,
+): boolean => {
+  const from = stations.find((each) => each.id === task.stationId);
+  const to = stations.find((each) => each.id === stationId);
+
+  return Boolean(from && to && movableByHand(from, to));
+};
+
+type Station = Placed & { readonly name: string };
 
 export type MoveTarget = Station & { readonly share: number };
 
@@ -48,15 +86,20 @@ export const moveTargetFor = (
   tasks: readonly Task[],
   selected: readonly string[],
 ): MoveTarget | null => {
-  const [first, second] = stations;
+  const backlog = stations.find((each) => each.kind === 'backlog');
+  const start = stations.find((each) => each.kind === 'work');
+  const picked = tasks.filter((each) => selected.includes(each.id));
 
-  if (!first || !second || selected.length === 0) {
+  if (!backlog || !start || picked.length === 0) {
     return null;
   }
 
-  const standing = tasks.filter((each) => selected.includes(each.id));
-  const allAtFirst = standing.every((each) => each.stationId === first.id);
-  const station = allAtFirst ? second : first;
+  const waiting = picked.every((each) => each.stationId === backlog.id);
+  const station = waiting ? start : backlog;
+
+  if (!picked.every((each) => mayLand(stations, each, station.id))) {
+    return null;
+  }
 
   return {
     ...station,

@@ -26,6 +26,7 @@ import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
+import { MoveRefusedError } from '@work/domain/exceptions/move-refused.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -263,6 +264,10 @@ export class Task extends EventRecorder {
     saying: Saying,
     handMove: { mover: UserId } | null = null,
   ): Task {
+    if (handMove) {
+      this.refuseHandMove(line, to);
+    }
+
     return this.relocated(line, to, rank, saying, handMove).lettingGoOf(
       this.currentRunId,
     );
@@ -927,6 +932,16 @@ export class Task extends EventRecorder {
     }
 
     return station;
+  }
+
+  private refuseHandMove(line: Line, to: StationId): void {
+    const from = Task.stationOn(line, this.stationId);
+    const into = Task.stationOn(line, to);
+    const refused = line.refusalToMove(from, into);
+
+    if (refused) {
+      throw new MoveRefusedError(refused, from.name.value, into.name.value);
+    }
   }
 
   private refuseStandingStill(stationId: StationId, doing: string): void {

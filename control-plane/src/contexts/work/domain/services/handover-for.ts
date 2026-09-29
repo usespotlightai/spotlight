@@ -1,6 +1,7 @@
-import type { Line, PassRefusal } from '@work/domain/aggregates/line.aggregate';
+import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
+import type { PassRefusal } from '@work/domain/value-objects/line-refusal';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';

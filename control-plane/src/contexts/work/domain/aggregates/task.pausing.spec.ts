@@ -254,13 +254,13 @@ describe('a task put to a person by the run that holds it', () => {
     ).toEqual([]);
   });
 
-  it('lets go of its waiting run when a person moves it on, so the run ends', () => {
+  it('lets go of its waiting run when a person parks it in the backlog, so the run ends', () => {
     const task = paused();
     task.pullEvents();
 
     const moved = task.moveTo(
       line,
-      SHIP,
+      StationId.of('station_backlog'),
       TaskRank.of('j'),
       said('Moved on.', Voice.person(UserId.of('user_1'))),
       { mover: UserId.of('user_1') },

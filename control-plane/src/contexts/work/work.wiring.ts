@@ -1675,6 +1675,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleRunRepository,
     DrizzleTaskRepository,
     DrizzleLineRepository,
+    TRANSACTION,
+    TASK_DISPATCH,
     CLOCK,
     FilesAtHand,
   ]),

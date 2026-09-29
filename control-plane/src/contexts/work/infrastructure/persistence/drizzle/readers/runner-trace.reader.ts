@@ -79,6 +79,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
         updatedAt: run.updatedAt,
         harness: run.harness,
         image: run.ranIn,
+        stationId: ranAt.id,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,

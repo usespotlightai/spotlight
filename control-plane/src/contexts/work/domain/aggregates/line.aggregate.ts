@@ -40,6 +40,10 @@ import type { Happening } from '@work/domain/value-objects/happening.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LineName } from '@work/domain/value-objects/line-name.vo';
+import type {
+  MoveRefusal,
+  PassRefusal,
+} from '@work/domain/value-objects/line-refusal';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
@@ -56,8 +60,6 @@ import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
-
-export type PassRefusal = 'standing-there' | 'nothing-runs' | 'no-way';
 
 export interface LineLayout {
   readonly key: LineKey;
@@ -619,6 +621,20 @@ export class Line extends EventRecorder {
       return 'no-way';
     }
     return null;
+  }
+
+  refusalToMove(from: Station, to: Station): MoveRefusal | null {
+    if (from.id.equals(to.id)) {
+      return null;
+    }
+    if (from.isCompleted) {
+      return 'out-of-completed';
+    }
+
+    const starts = from.isBacklog && to.isWorked;
+    const parks = from.isWorked && to.isBacklog;
+
+    return starts || parks || to.isCompleted ? null : 'between-work-stations';
   }
 
   endsAt(stationId: StationId): boolean {

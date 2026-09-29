@@ -55,7 +55,8 @@ const line = () =>
     stations: [
       at('station_1', 'Backlog', 0),
       at('station_2', 'Triage', 1, HarnessId.of('dev')),
-      at('station_3', 'Completed', 2),
+      at('station_4', 'Spec', 2, HarnessId.of('dev')),
+      at('station_3', 'Completed', 3),
     ],
   });
 
@@ -278,6 +279,30 @@ describe('MoveTaskHandler', () => {
 
     expect(dispatched).toEqual([]);
     expect(saved?.currentRunId).toBeNull();
+  });
+
+  it('refuses a person moving work between work stations, and saves nothing', async () => {
+    await expect(
+      move('station_4', lines(), tasks(standing('station_2'))),
+    ).rejects.toMatchObject({
+      kind: 'invalid-input',
+      message: expect.stringContaining('from Triage to Spec'),
+    });
+    expect(saved).toBeUndefined();
+    expect(dispatched).toEqual([]);
+  });
+
+  it('refuses a person moving a completed task back out', async () => {
+    await expect(
+      move('station_1', lines(), tasks(standing('station_3'))),
+    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    expect(saved).toBeUndefined();
+  });
+
+  it('lets a person close a task from the backlog', async () => {
+    await expect(
+      move('station_3', lines(), tasks(standing('station_1'))),
+    ).resolves.toMatchObject({ stationId: 'station_3' });
   });
 
   it('refuses a station that is not on this line', async () => {

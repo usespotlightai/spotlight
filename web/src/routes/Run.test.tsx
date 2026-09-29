@@ -71,8 +71,10 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   useRunChangeStacks: () => ({ data: undefined }),
 }));
 
+const standing = vi.fn((): Record<string, unknown> => ({}));
+
 vi.mock('@/hooks/api/useTaskStation', () => ({
-  useTaskStation: () => ({ line: undefined, station: undefined }),
+  useTaskStation: () => standing(),
 }));
 
 vi.mock('@/hooks/api/useSayToRun', () => ({
@@ -96,6 +98,7 @@ vi.mock('@/hooks/api/useUploadAttachment', () => ({
 }));
 
 const STATION = {
+  id: 'station_3',
   name: 'Implementation',
   color: '#5c66d9',
   position: 2,
@@ -174,6 +177,7 @@ const renderRun = (client = new QueryClient()) =>
 
 describe('Run', () => {
   beforeEach(() => {
+    standing.mockReturnValue({});
     runs.mockReturnValue([run()]);
     runsFailing.mockReturnValue(false);
     refetchRuns.mockReset();
@@ -348,6 +352,58 @@ describe('Run', () => {
       expect(
         screen.queryByText(/before any work was done/),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('once the task stands idle at the station', () => {
+    const idle = {
+      station: { id: 'station_3', harness: 'claude-code', kind: 'work' },
+      task: { id: 'task_1', running: false, awaitingReview: null },
+    };
+
+    it('offers to send the work back to the station, which starts it again', () => {
+      standing.mockReturnValue(idle);
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', {
+          name: 'Send it back to Implementation',
+        }),
+      ).toHaveAttribute(
+        'placeholder',
+        'Say what to change, and Implementation starts again…',
+      );
+    });
+
+    it('does not offer to send work back from a run at a station the task has left', () => {
+      standing.mockReturnValue({
+        ...idle,
+        station: { ...idle.station, id: 'station_4' },
+      });
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', {
+          name: 'Say something to Implementation',
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('only says something to the station while a run still works the task', () => {
+      standing.mockReturnValue({
+        ...idle,
+        task: { ...idle.task, running: true },
+      });
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', {
+          name: 'Say something to Implementation',
+        }),
+      ).toBeInTheDocument();
     });
   });
 

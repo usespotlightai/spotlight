@@ -170,6 +170,7 @@ export function Run() {
       runId={run.id}
       taskId={said?.taskId}
       station={run.station?.name ?? 'the agent'}
+      stationId={run.station?.id}
       running={run.state === 'claimed'}
       answering={waitsOnPerson(run) && !deciding}
     />

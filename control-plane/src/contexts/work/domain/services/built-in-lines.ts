@@ -108,7 +108,11 @@ not placeholders.
 
 Do not write the implementation. If the plan needs a decision that is not
 yours to make — a product call, a schema change, anything hard to undo — put
-that to a person instead of choosing.`;
+that to a person instead of choosing.
+
+If the task comes back from Implementation or Code Review, the note it returns
+with says what the plan got wrong or missed: revise the plan against that note
+rather than starting over.`;
 
 const IMPLEMENTATION = `## Implementation
 
@@ -124,9 +128,12 @@ task belongs to, so push that branch and nothing else:
     git push -u origin HEAD
 
 Say in your note: what you changed, what you tested, and anything you found
-that the spec did not anticipate. If the spec turns out to be wrong or cannot
-be followed as written, stop and put that to a person rather than improvising
-a different change.`;
+that the spec did not anticipate.
+
+If the spec turns out to be wrong, or leaves out something the change depends
+on, do not improvise a different change: hand the task back to Spec, and say
+in your note what the plan got wrong or missed, so that run can put it right.
+A problem in your own code is not the spec's to fix; that stays yours.`;
 
 const CODE_REVIEW = `## Code review
 
@@ -141,9 +148,12 @@ Say in your note what you found, most serious first, and be specific — the
 file, the line, and what goes wrong. Anything you are unsure about is worth a
 person's eyes.
 
-If anything needs changing, hand the task back to implementation. Your note is
-what that run works from, so it has to be enough to act on without reading the
-diff again.
+If the code needs changing, hand the task back to implementation. If the
+fault is in the plan rather than the code — the spec asked for the wrong
+thing, or left out something the change needs — hand it back to Spec instead:
+rewriting the code against the same plan would only repeat the mistake.
+Either way, your note is what that run works from, so it has to be enough to
+act on without reading the diff again.
 
 If it is sound, say so plainly and say what you checked, then open a pull
 request and give its address in your note.
@@ -230,7 +240,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     name: 'Implementation',
     color: '#edc12b',
     prompt: IMPLEMENTATION,
-    passesTo: ['code-review'],
+    passesTo: ['code-review', 'spec'],
     decisions: true,
   }),
   opening({
@@ -238,7 +248,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     name: 'Code Review',
     color: '#56b98d',
     prompt: CODE_REVIEW,
-    passesTo: ['implementation'],
+    passesTo: ['spec', 'implementation'],
     ends: true,
     tools: [PULL_REQUEST],
   }),

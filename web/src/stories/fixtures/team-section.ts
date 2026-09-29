@@ -30,15 +30,34 @@ const HOUR = 60;
 const DAY = 24 * HOUR;
 
 const STATIONS = {
-  triage: { name: 'Triage', color: '#edc12b', position: 0, count: 4 },
-  spec: { name: 'Spec', color: '#b36ae2', position: 1, count: 4 },
+  triage: {
+    id: 'station_triage',
+    name: 'Triage',
+    color: '#edc12b',
+    position: 0,
+    count: 4,
+  },
+  spec: {
+    id: 'station_spec',
+    name: 'Spec',
+    color: '#b36ae2',
+    position: 1,
+    count: 4,
+  },
   implementation: {
+    id: 'station_implementation',
     name: 'Implementation',
     color: '#5c66d9',
     position: 2,
     count: 4,
   },
-  review: { name: 'Code Review', color: '#56b98d', position: 3, count: 4 },
+  review: {
+    id: 'station_review',
+    name: 'Code Review',
+    color: '#56b98d',
+    position: 3,
+    count: 4,
+  },
 } satisfies Record<string, RunStationResponseDto>;
 
 const WORKSPACE: WorkspaceResponseDto = {

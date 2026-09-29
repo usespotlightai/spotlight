@@ -7,6 +7,9 @@ import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.re
 import { InboxMessageResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 
 export class RunStationResponseDto {
+  @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
+  readonly id: string;
+
   @ApiProperty({ example: 'Implementation' })
   readonly name: string;
 
@@ -19,7 +22,14 @@ export class RunStationResponseDto {
   @ApiProperty({ example: 5, description: 'How many stations the line holds' })
   readonly count: number;
 
-  constructor(name: string, color: string, position: number, count: number) {
+  constructor(
+    id: string,
+    name: string,
+    color: string,
+    position: number,
+    count: number,
+  ) {
+    this.id = id;
     this.name = name;
     this.color = color;
     this.position = position;
