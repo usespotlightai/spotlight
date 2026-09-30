@@ -127,6 +127,102 @@ vi.mock('@/hooks/api/useStationOutcomes', () => ({
   }),
 }));
 
+const judged = vi.fn();
+const judgeFailing = vi.fn();
+const judgeError = vi.fn();
+const refetchJudge = vi.fn();
+
+vi.mock('@/hooks/api/useStationJudge', () => ({
+  useStationJudge: () => ({
+    data: judged(),
+    isPending: judged() === undefined,
+    errorUpdateCount: judgeFailing() ? 1 : 0,
+    error: judgeError(),
+    isFetching: false,
+    refetch: refetchJudge,
+  }),
+}));
+
+const TRUSTED = {
+  trusted: true,
+  measure: 'kappa',
+  agreement: 0.71,
+  pairs: 24,
+  trust: 0.6,
+  hiddenBecause: null,
+};
+
+const AGREEMENT = {
+  stationId: 'station_2',
+  judge: {
+    rubricVersion: 'c'.repeat(64),
+    kind: 'yes-no',
+    sample: 0.2,
+    trust: 0.6,
+  },
+  standing: TRUSTED,
+  coverage: { runs: 50, both: 24, judgeOnly: 6, peopleOnly: 14, neither: 6 },
+  versions: [
+    {
+      rubricVersion: 'c'.repeat(64),
+      kind: 'yes-no',
+      current: true,
+      judged: 30,
+      agreement: {
+        pairs: 24,
+        observed: 0.875,
+        kappa: 0.71,
+        spearman: null,
+        mae: null,
+      },
+      confusion: {
+        labels: ['no', 'yes'],
+        cells: [
+          [6, 2],
+          [1, 15],
+        ],
+      },
+      trend: [
+        {
+          day: '2026-09-29',
+          judged: 4,
+          judge: 0.75,
+          labelled: 3,
+          people: 0.67,
+        },
+      ],
+      firstAt: '2026-09-29T09:00:00.000Z',
+      lastAt: '2026-09-29T09:00:00.000Z',
+    },
+    {
+      rubricVersion: 'd'.repeat(64),
+      kind: 'number',
+      current: false,
+      judged: 12,
+      agreement: {
+        pairs: 9,
+        observed: 0.33,
+        kappa: null,
+        spearman: 0.42,
+        mae: 1.1,
+      },
+      confusion: {
+        labels: ['1', '2', '3', '4', '5'],
+        cells: [
+          [1, 0, 0, 0, 0],
+          [0, 1, 1, 0, 0],
+          [0, 1, 0, 1, 0],
+          [0, 0, 1, 1, 1],
+          [0, 0, 0, 1, 0],
+        ],
+      },
+      trend: [],
+      firstAt: '2026-09-20T09:00:00.000Z',
+      lastAt: '2026-09-21T09:00:00.000Z',
+    },
+  ],
+};
+
 function HandedOver() {
   const { state } = useLocation();
 
@@ -154,6 +250,10 @@ beforeEach(() => {
   lines.mockReturnValue([line]);
   failing.mockReturnValue(false);
   refetch.mockClear();
+  judged.mockReturnValue(AGREEMENT);
+  judgeFailing.mockReturnValue(false);
+  judgeError.mockReturnValue(null);
+  refetchJudge.mockClear();
   localStorage.clear();
 });
 
@@ -289,7 +389,7 @@ describe('Station', () => {
     expect(screen.getByRole('heading', { name: 'Judge' })).toBeInTheDocument();
     expect(screen.getByText('20% of runs')).toBeInTheDocument();
     expect(
-      screen.getByText('agreeing with people 60% of the time'),
+      screen.getByText('agreement with people of 0.60 or more'),
     ).toBeInTheDocument();
   });
 
@@ -439,5 +539,115 @@ describe('Station', () => {
     expect(
       screen.getByRole('heading', { name: 'Station not found' }),
     ).toBeInTheDocument();
+  });
+
+  describe('its judge', () => {
+    it('says the judge is trusted, and how often it agrees with people', () => {
+      renderAt('station_2');
+
+      expect(
+        document.querySelector('[data-slot="judge-standing"]'),
+      ).toHaveTextContent('Trusted: Cohen’s kappa is 0.71 over 24 runs');
+    });
+
+    it('says why the judge’s scores are hidden when it agrees too seldom', () => {
+      judged.mockReturnValue({
+        ...AGREEMENT,
+        standing: {
+          ...TRUSTED,
+          trusted: false,
+          agreement: 0.38,
+          hiddenBecause: 'below-trust',
+        },
+      });
+
+      renderAt('station_2');
+
+      expect(
+        document.querySelector('[data-slot="judge-standing"]'),
+      ).toHaveTextContent(
+        'Hidden: Cohen’s kappa is 0.38, below the 0.60 it needs.',
+      );
+    });
+
+    it('lays out agreement rubric by rubric, the current one first', () => {
+      renderAt('station_2');
+
+      const versions = within(
+        screen.getByRole('list', { name: 'Agreement by rubric' }),
+      ).getAllByRole('listitem');
+      expect(versions).toHaveLength(2);
+      expect(versions[0]).toHaveTextContent('Current');
+      expect(versions[0]).toHaveTextContent('Agreed88%');
+      expect(versions[1]).toHaveTextContent('Spearman’s ρ0.42');
+      expect(versions[1]).toHaveTextContent('Mean error1.10');
+    });
+
+    it('counts runs in a confusion matrix, the judge down and people across', () => {
+      renderAt('station_2');
+
+      const [matrix] = screen.getAllByRole('table');
+      expect(
+        within(matrix as HTMLElement)
+          .getAllByRole('cell')
+          .map((each) => each.textContent),
+      ).toEqual(['6', '2', '1', '15']);
+    });
+
+    it('counts the runs with both scores and those with only one', () => {
+      renderAt('station_2');
+
+      expect(
+        document.querySelector('[data-slot="judge-coverage"]'),
+      ).toHaveTextContent('Both scores24Judge only6People only14Neither6');
+    });
+
+    it('holds the judge’s place while its agreement loads', () => {
+      judged.mockReturnValue(undefined);
+
+      renderAt('station_2');
+
+      expect(
+        screen.getByRole('status', {
+          name: 'Loading how the judge agrees with people',
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('offers to try again when its agreement could not load', async () => {
+      judged.mockReturnValue(undefined);
+      judgeFailing.mockReturnValue(true);
+
+      renderAt('station_2');
+      await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+      expect(refetchJudge).toHaveBeenCalled();
+    });
+
+    it('tells someone off the team that only its members can see how the judge agrees', () => {
+      judged.mockReturnValue(undefined);
+      judgeFailing.mockReturnValue(true);
+      judgeError.mockReturnValue({ statusCode: 404 });
+
+      renderAt('station_2');
+
+      expect(
+        screen.getByText(
+          'Only the team’s members can see how the judge agrees with people',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('says no run is judged yet, and offers to create a task', () => {
+      judged.mockReturnValue({ ...AGREEMENT, versions: [] });
+
+      renderAt('station_2');
+
+      const empty = screen.getByText('No judged runs yet').closest('div')
+        ?.parentElement as HTMLElement;
+      expect(
+        within(empty).getByRole('link', { name: 'Create a task' }),
+      ).toBeInTheDocument();
+    });
   });
 });

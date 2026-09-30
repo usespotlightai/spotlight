@@ -156,7 +156,13 @@ export function Station() {
             <StationSkills skills={station.skills} />
 
             {station.judge && (
-              <StationJudge stationId={station.id} judge={station.judge} />
+              <StationJudge
+                slug={slug}
+                teamId={teamId}
+                lineId={line.id}
+                stationId={station.id}
+                judge={station.judge}
+              />
             )}
 
             {station.alerts.length > 0 && (

@@ -252,7 +252,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(dropped.body.definition.stations[1].alerts).toEqual([]);
   });
 
-  it('refuses a wrong alert at its field, an alert repeating one before it, and a judge or alerts where nothing runs', async () => {
+  it('refuses a wrong alert at its field, an alert repeating one before it, a rubric whose scale it cannot read, and a judge or alerts where nothing runs', async () => {
     const wrongAlert = await create(
       judged(JUDGE, [
         ALERTS[0] as object,
@@ -276,6 +276,9 @@ describe('a line, created through the resource API (e2e)', () => {
       ]),
     );
     const atBacklog = await create(judged(JUDGE, [], 0));
+    const unknownScale = await create(
+      judged({ ...JUDGE, rubric: 'scores: 1-10\nHow good is it?' }, []),
+    );
     const atCompleted = await create(
       judged(undefined, ALERTS, DELIVERY.stations.length - 1),
     );
@@ -286,6 +289,7 @@ describe('a line, created through the resource API (e2e)', () => {
       [several, 'stations[1].alerts[1]'],
       [twice, 'stations[1].alerts[2]'],
       [atBacklog, 'stations[0].judge'],
+      [unknownScale, 'stations[1].judge.rubric'],
       [atCompleted, `stations[${DELIVERY.stations.length - 1}].alerts`],
     ] as const) {
       expect(refused.status).toBe(422);

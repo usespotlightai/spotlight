@@ -23,7 +23,7 @@ const preview: Preview = {
             'Tokens',
           ],
           'Inbox',
-          ['Items', 'Setup steps', 'Proposed memories'],
+          ['Items', 'Setup steps', 'Proposed memories', 'Grade a run'],
           'Team',
           [
             'Landing',

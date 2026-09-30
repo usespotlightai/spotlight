@@ -1,3 +1,5 @@
+import { InvalidRubricScaleError } from '@shared-kernel/domain/exceptions/invalid-rubric-scale.error';
+import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
 import { InvalidStationJudgeError } from '@work/domain/exceptions/invalid-station-judge.error';
 import { WrittenText } from '@work/domain/value-objects/written-text';
 
@@ -29,6 +31,17 @@ export class StationJudge {
       MOST_RUBRIC_LENGTH,
       InvalidRubricError,
     );
+
+    try {
+      RubricScale.of(rubric);
+    } catch (error) {
+      if (error instanceof InvalidRubricScaleError) {
+        throw new InvalidRubricError(
+          'names its scale as "scores: yes-no" or "scores: 1-5" on its first line',
+        );
+      }
+      throw error;
+    }
 
     if (!isShare(input.sample)) {
       throw new InvalidStationJudgeError(

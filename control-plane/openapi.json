@@ -16684,6 +16684,165 @@
           "outcomes"
         ]
       }
+    },
+    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/judge": {
+      "get": {
+        "operationId": "readStationJudge",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationJudgeAgreementResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "How often the station’s judge agrees with people, under each of its rubrics",
+        "tags": [
+          "outcomes"
+        ]
+      }
+    },
+    "/teams/{teamId}/runs/{runId}/scores": {
+      "get": {
+        "operationId": "readRunScores",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunScoresResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          }
+        },
+        "summary": "The judge’s score for a run, with the reasons it cites, and the grades people gave it",
+        "tags": [
+          "outcomes"
+        ]
+      }
+    },
+    "/teams/{teamId}/runs/{runId}/grades": {
+      "post": {
+        "operationId": "gradeRun",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GradeRunRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunScoresResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          },
+          "409": {
+            "description": "The grade changed meanwhile"
+          },
+          "422": {
+            "description": "No grade, or one off the run’s scale"
+          }
+        },
+        "summary": "Grade a run; a later grade by the same person replaces theirs, and nothing waits on it",
+        "tags": [
+          "outcomes"
+        ]
+      }
     }
   },
   "info": {
@@ -19107,15 +19266,16 @@
           "form": {
             "type": "string",
             "enum": [
-              "memories"
+              "memories",
+              "grade"
             ],
             "example": "memories",
-            "description": "What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject"
+            "description": "What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run"
           },
           "about": {
             "type": "string",
             "example": "run_1",
-            "description": "What it is about: for memories, the run that proposed them"
+            "description": "What it is about: for memories, the run that proposed them; for grade, the run to grade"
           }
         },
         "required": [
@@ -26131,6 +26291,619 @@
         "required": [
           "stationId",
           "groups"
+        ]
+      },
+      "StationJudgeSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "rubricVersion": {
+            "type": "string",
+            "description": "The SHA-256 of the station’s current rubric"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "yes-no",
+              "number",
+              null
+            ],
+            "nullable": true,
+            "description": "The scale its rubric scores on; none where it cannot be read"
+          },
+          "sample": {
+            "type": "number",
+            "example": 0.2
+          },
+          "trust": {
+            "type": "number",
+            "example": 0.6
+          }
+        },
+        "required": [
+          "rubricVersion",
+          "kind",
+          "sample",
+          "trust"
+        ]
+      },
+      "JudgeStandingResponseDto": {
+        "type": "object",
+        "properties": {
+          "trusted": {
+            "type": "boolean",
+            "description": "Whether the judge agrees with people often enough for its scores to count"
+          },
+          "measure": {
+            "type": "string",
+            "enum": [
+              "kappa",
+              "spearman",
+              null
+            ],
+            "nullable": true,
+            "description": "How agreement is measured: Cohen’s kappa for yes or no scores, Spearman’s correlation for numbers"
+          },
+          "agreement": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.71
+          },
+          "pairs": {
+            "type": "number",
+            "example": 24,
+            "description": "Runs of the current rubric with both a judge score and people’s"
+          },
+          "trust": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.6
+          },
+          "hiddenBecause": {
+            "type": "string",
+            "enum": [
+              "no-judge",
+              "unreadable-rubric",
+              "too-few-pairs",
+              "no-agreement",
+              "below-trust",
+              null
+            ],
+            "nullable": true,
+            "description": "Why the judge’s scores are hidden, where they are"
+          }
+        },
+        "required": [
+          "trusted",
+          "measure",
+          "agreement",
+          "pairs",
+          "trust",
+          "hiddenBecause"
+        ]
+      },
+      "AgreementResponseDto": {
+        "type": "object",
+        "properties": {
+          "pairs": {
+            "type": "number",
+            "example": 24
+          },
+          "observed": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.83,
+            "description": "The share of pairs where the judge and people gave the same score"
+          },
+          "kappa": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.62
+          },
+          "spearman": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.58
+          },
+          "mae": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.7,
+            "description": "The mean absolute difference between the two scores"
+          }
+        },
+        "required": [
+          "pairs",
+          "observed",
+          "kappa",
+          "spearman",
+          "mae"
+        ]
+      },
+      "ConfusionResponseDto": {
+        "type": "object",
+        "properties": {
+          "labels": {
+            "example": [
+              "no",
+              "yes"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "example": [
+              [
+                5,
+                2
+              ],
+              [
+                1,
+                16
+              ]
+            ],
+            "description": "Counts of runs, a row for each judge score and a column for each score people gave"
+          }
+        },
+        "required": [
+          "labels",
+          "cells"
+        ]
+      },
+      "TrendPointResponseDto": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "example": "2026-09-30"
+          },
+          "judged": {
+            "type": "number",
+            "example": 4
+          },
+          "judge": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.75,
+            "description": "The judge’s mean score, or null while this rubric version is not the current trusted one"
+          },
+          "labelled": {
+            "type": "number",
+            "example": 3
+          },
+          "people": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.67,
+            "description": "The mean of people’s scores for the same runs"
+          }
+        },
+        "required": [
+          "day",
+          "judged",
+          "judge",
+          "labelled",
+          "people"
+        ]
+      },
+      "RubricVersionResponseDto": {
+        "type": "object",
+        "properties": {
+          "rubricVersion": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "yes-no",
+              "number"
+            ]
+          },
+          "current": {
+            "type": "boolean",
+            "description": "Whether this is the station’s rubric now"
+          },
+          "judged": {
+            "type": "number",
+            "example": 30
+          },
+          "agreement": {
+            "$ref": "#/components/schemas/AgreementResponseDto"
+          },
+          "confusion": {
+            "$ref": "#/components/schemas/ConfusionResponseDto"
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendPointResponseDto"
+            }
+          },
+          "firstAt": {
+            "type": "string",
+            "example": "2026-09-20T10:00:00.000Z"
+          },
+          "lastAt": {
+            "type": "string",
+            "example": "2026-09-30T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "rubricVersion",
+          "kind",
+          "current",
+          "judged",
+          "agreement",
+          "confusion",
+          "trend",
+          "firstAt",
+          "lastAt"
+        ]
+      },
+      "JudgeCoverageResponseDto": {
+        "type": "object",
+        "properties": {
+          "runs": {
+            "type": "number",
+            "example": 50,
+            "description": "The station’s latest runs that ran"
+          },
+          "both": {
+            "type": "number",
+            "example": 12
+          },
+          "judgeOnly": {
+            "type": "number",
+            "example": 6
+          },
+          "peopleOnly": {
+            "type": "number",
+            "example": 20
+          },
+          "neither": {
+            "type": "number",
+            "example": 12
+          }
+        },
+        "required": [
+          "runs",
+          "both",
+          "judgeOnly",
+          "peopleOnly",
+          "neither"
+        ]
+      },
+      "StationJudgeAgreementResponseDto": {
+        "type": "object",
+        "properties": {
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "judge": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StationJudgeSettingsResponseDto"
+              }
+            ]
+          },
+          "standing": {
+            "$ref": "#/components/schemas/JudgeStandingResponseDto"
+          },
+          "versions": {
+            "description": "How the judge agreed with people under each rubric, the latest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RubricVersionResponseDto"
+            }
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/JudgeCoverageResponseDto"
+          }
+        },
+        "required": [
+          "stationId",
+          "judge",
+          "standing",
+          "versions",
+          "coverage"
+        ]
+      },
+      "CitedStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "example": 12,
+            "description": "Where the step sits in the run’s journal"
+          },
+          "kind": {
+            "type": "string",
+            "nullable": true,
+            "example": "tool"
+          },
+          "tool": {
+            "type": "string",
+            "nullable": true,
+            "example": "edit"
+          },
+          "text": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the step says, as the judge read it; none once it is gone"
+          }
+        },
+        "required": [
+          "index",
+          "kind",
+          "tool",
+          "text"
+        ]
+      },
+      "CitedHunkResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "api/src/uploads.ts#2"
+          },
+          "path": {
+            "type": "string",
+            "nullable": true,
+            "example": "api/src/uploads.ts"
+          },
+          "header": {
+            "type": "string",
+            "nullable": true,
+            "example": "@@ -10,6 +10,8 @@"
+          },
+          "lines": {
+            "example": [
+              "+retry(3)"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "header",
+          "lines"
+        ]
+      },
+      "CitationResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "step",
+              "hunk"
+            ]
+          },
+          "step": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CitedStepResponseDto"
+              }
+            ]
+          },
+          "hunk": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CitedHunkResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "step",
+          "hunk"
+        ]
+      },
+      "JudgeReasonResponseDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "example": "It retried the upload inside the request."
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CitationResponseDto"
+            }
+          }
+        },
+        "required": [
+          "text",
+          "citations"
+        ]
+      },
+      "JudgeScoreResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "yes-no",
+              "number"
+            ]
+          },
+          "value": {
+            "type": "number",
+            "example": 1,
+            "description": "1 for yes and 0 for no, or a whole number from 1 to 5"
+          },
+          "label": {
+            "type": "string",
+            "example": "yes"
+          },
+          "rubricVersion": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "example": "google/gemini-3.8-flash"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-09-30T10:05:00.000Z"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JudgeReasonResponseDto"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "label",
+          "rubricVersion",
+          "model",
+          "at",
+          "reasons"
+        ]
+      },
+      "GradeResponseDto": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "type": "string",
+            "example": "user_ada"
+          },
+          "mine": {
+            "type": "boolean",
+            "description": "Whether the caller gave this grade"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "yes-no",
+              "number"
+            ]
+          },
+          "value": {
+            "type": "number",
+            "example": 1
+          },
+          "label": {
+            "type": "string",
+            "example": "yes"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-09-30T11:00:00.000Z"
+          }
+        },
+        "required": [
+          "by",
+          "mine",
+          "kind",
+          "value",
+          "label",
+          "at"
+        ]
+      },
+      "RunScoresResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "example": "4e1e84a2-0c39-406d-bbbb-559f29e450be"
+          },
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "yes-no",
+              "number"
+            ],
+            "description": "The scale the run is graded on: its judge’s, else its station’s rubric’s, else yes or no"
+          },
+          "judged": {
+            "type": "boolean",
+            "description": "Whether the judge scored the run"
+          },
+          "judge": {
+            "nullable": true,
+            "description": "The judge’s score and its reasons; none where it did not score the run, or where its scores are hidden",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JudgeScoreResponseDto"
+              }
+            ]
+          },
+          "standing": {
+            "$ref": "#/components/schemas/JudgeStandingResponseDto"
+          },
+          "grades": {
+            "description": "What people graded the run, the latest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GradeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "runId",
+          "taskId",
+          "stationId",
+          "kind",
+          "judged",
+          "judge",
+          "standing",
+          "grades"
+        ]
+      },
+      "GradeRunRequestDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              }
+            ],
+            "example": true,
+            "description": "Yes or no, or a whole number from 1 to 5, on the run’s scale"
+          }
+        },
+        "required": [
+          "value"
         ]
       }
     }

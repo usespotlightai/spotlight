@@ -19,6 +19,12 @@ describe('StationJudge', () => {
     expect(StationJudge.of(JUDGE)).toMatchObject(JUDGE);
   });
 
+  it('takes a rubric scored yes or no, or from 1 to 5', () => {
+    expect(() =>
+      StationJudge.of({ ...JUDGE, rubric: 'scores: 1-5\nHow well?' }),
+    ).not.toThrow();
+  });
+
   it('takes a sample and trust anywhere from 0 to 1', () => {
     expect(() =>
       StationJudge.of({ ...JUDGE, sample: 0, trust: 1 }),
@@ -35,6 +41,8 @@ describe('StationJudge', () => {
     ['sample', { sample: -0.1 }],
     ['sample', { sample: Number.NaN }],
     ['trust', { trust: 2 }],
+    ['rubric', { rubric: 'scores: 1-10\nHow well?' }],
+    ['rubric', { rubric: 'scores: constructor\nHow well?' }],
   ] as const)('refuses a %s out of bounds, naming it', (field, over) => {
     const error = refusal(over);
 

@@ -15,6 +15,8 @@ export interface RunJournalReaderPort {
 
   ofRun(runId: RunId): Promise<RunJournal | null>;
 
+  attemptsOfRun(runId: RunId): Promise<RunJournal[]>;
+
   changesOfTask(taskId: TaskId): Promise<RunChanges[]>;
 
   listForChat(

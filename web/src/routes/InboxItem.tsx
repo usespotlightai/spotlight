@@ -5,6 +5,7 @@ import { Conversation } from '@/components/features/inbox/conversation/Conversat
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
 import { FailureCount } from '@/components/features/inbox/FailureCount';
+import { GradeRun } from '@/components/features/inbox/grades/GradeRun';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { MemoryReview } from '@/components/features/inbox/memories/MemoryReview';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
@@ -134,6 +135,29 @@ export function InboxItem() {
             />
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (item.aside?.form === 'grade') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PageHeader title={<Breadcrumbs segments={trail} />} />
+
+        <ChangesPanel>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
+              <GradeRun
+                slug={slug}
+                teamId={item.teamId}
+                taskId={item.taskId}
+                runId={item.aside.about}
+                title={item.title}
+                description={item.description}
+              />
+            </div>
+          </div>
+        </ChangesPanel>
       </div>
     );
   }

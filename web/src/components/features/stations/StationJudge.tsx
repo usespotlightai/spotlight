@@ -1,16 +1,26 @@
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
 import { StationSection } from '@/components/features/stations/StationSection';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { type JudgeSettings, sharePercent } from '@/lib/station-watch';
 import { cn } from '@/lib/utils';
 
 type StationJudgeProps = {
+  slug: string;
+  teamId: string;
+  lineId: string;
   stationId: string;
   judge: JudgeSettings;
 };
 
-export function StationJudge({ stationId, judge }: StationJudgeProps) {
+export function StationJudge({
+  slug,
+  teamId,
+  lineId,
+  stationId,
+  judge,
+}: StationJudgeProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -20,9 +30,9 @@ export function StationJudge({ stationId, judge }: StationJudgeProps) {
         <dd className="text-foreground">
           {sharePercent(judge.sample)} of runs
         </dd>
-        <dt className="text-muted-foreground">Trusted after</dt>
+        <dt className="text-muted-foreground">Trusted from</dt>
         <dd className="text-foreground">
-          agreeing with people {sharePercent(judge.trust)} of the time
+          agreement with people of {judge.trust.toFixed(2)} or more
         </dd>
       </dl>
 
@@ -52,6 +62,13 @@ export function StationJudge({ stationId, judge }: StationJudgeProps) {
           className="bg-card"
         />
       )}
+
+      <JudgeAgreement
+        slug={slug}
+        teamId={teamId}
+        lineId={lineId}
+        stationId={stationId}
+      />
     </StationSection>
   );
 }

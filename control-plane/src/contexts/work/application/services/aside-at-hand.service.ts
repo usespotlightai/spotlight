@@ -1,4 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
 import { UnknownTaskAsideError } from '@work/domain/exceptions/unknown-task-aside.error';
@@ -26,10 +27,18 @@ export class AsideAtHand {
       !task ||
       !line ||
       !TaskAside.attendedBy({
+        form: aside.form,
         viewer,
         assignee: task.assignee,
         seesTeam:
+          TaskAside.standingToAttend(aside.form) === 'seesTeam' &&
           (await this.access.onTeam(line.teamId.value, viewer)) !== null,
+        readsTeamOutcomes:
+          TaskAside.standingToAttend(aside.form) === 'readsTeamOutcomes' &&
+          (await this.access.clearanceAsTeamReader(
+            line.teamId.value,
+            PersonPrincipal.of(viewer),
+          )) !== null,
       })
     ) {
       throw new UnknownTaskAsideError(asideId);

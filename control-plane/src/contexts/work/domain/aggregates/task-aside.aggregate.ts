@@ -13,10 +13,14 @@ import {
 import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import type { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
 
+export type AsideStanding = 'seesTeam' | 'readsTeamOutcomes';
+
 export interface AsideAttendance {
+  readonly form: AsideForm;
   readonly viewer: UserId;
   readonly assignee: UserId | null;
   readonly seesTeam: boolean;
+  readonly readsTeamOutcomes: boolean;
 }
 
 export class TaskAside extends EventRecorder {
@@ -107,7 +111,20 @@ export class TaskAside extends EventRecorder {
     );
   }
 
+  static standingToAttend(form: AsideForm): AsideStanding {
+    switch (form) {
+      case 'memories':
+        return 'seesTeam';
+      case 'grade':
+        return 'readsTeamOutcomes';
+    }
+  }
+
   static attendedBy(attendance: AsideAttendance): boolean {
+    if (TaskAside.standingToAttend(attendance.form) === 'readsTeamOutcomes') {
+      return attendance.readsTeamOutcomes;
+    }
+
     return attendance.assignee
       ? attendance.assignee.equals(attendance.viewer)
       : attendance.seesTeam;

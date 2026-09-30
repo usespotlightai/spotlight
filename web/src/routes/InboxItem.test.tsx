@@ -64,6 +64,14 @@ vi.mock('@/components/features/inbox/memories/MemoryReview', () => ({
   ),
 }));
 
+vi.mock('@/components/features/inbox/grades/GradeRun', () => ({
+  GradeRun: ({ runId, title }: { runId: string; title: string }) => (
+    <p>
+      Grade run {runId} of {title}
+    </p>
+  ),
+}));
+
 const message = (over: Record<string, unknown> = {}) => ({
   position: 0,
   kind: 'asked',
@@ -195,6 +203,25 @@ describe('InboxItem', () => {
         asideId: 'aside_1',
       });
       expect(read).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('when it asks a person to grade a judged run', () => {
+    it('shows the run to grade, without waiting on the conversation', () => {
+      waiting.mockReturnValue([
+        {
+          ...item([])[0],
+          id: 'aside_2',
+          unread: false,
+          aside: { form: 'grade', about: 'run_9' },
+        },
+      ]);
+      journal.mockReturnValue(undefined);
+
+      renderItem('aside_2');
+
+      expect(screen.getByText(/Grade run run_9 of/)).toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
   });
 

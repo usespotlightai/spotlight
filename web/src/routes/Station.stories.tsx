@@ -4,12 +4,17 @@ import { stationPath } from '@/lib/station';
 import { Station } from '@/routes/Station';
 import {
   failStation,
+  failStationJudge,
   failStationOutcomes,
   LINE_ID,
+  refuseStationJudge,
   refuseStationOutcomes,
   STATION_ID,
   seedStation,
   seedStationAwaitingOutcomes,
+  seedStationJudgeAwaiting,
+  seedStationJudgeEmpty,
+  seedStationJudgeHidden,
   seedStationWithoutRuns,
 } from '@/stories/fixtures/station';
 import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
@@ -84,6 +89,51 @@ export const RunsMembersOnly: Story = {
   name: 'Runs members only',
   render: () => (
     <StoryPage at={at} seed={refuseStationOutcomes}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeLoading: Story = {
+  name: 'Judge loading',
+  render: () => (
+    <StoryPage at={at} seed={seedStationJudgeAwaiting}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeEmpty: Story = {
+  name: 'Judge empty',
+  render: () => (
+    <StoryPage at={at} seed={seedStationJudgeEmpty}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeFailed: Story = {
+  name: 'Judge error',
+  render: () => (
+    <StoryPage at={at} seed={failStationJudge}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeMembersOnly: Story = {
+  name: 'Judge members only',
+  render: () => (
+    <StoryPage at={at} seed={refuseStationJudge}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeHidden: Story = {
+  name: 'Judge hidden',
+  render: () => (
+    <StoryPage at={at} seed={seedStationJudgeHidden}>
       {routes}
     </StoryPage>
   ),

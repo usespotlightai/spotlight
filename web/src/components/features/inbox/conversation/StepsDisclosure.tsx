@@ -1,8 +1,9 @@
 import { ChevronRight } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
 import { FadingScroll } from '@/components/shared/FadingScroll';
 import type { JournalStep } from '@/lib/inbox';
+import { useStepAnchors } from '@/lib/step-anchors';
 import { cn } from '@/lib/utils';
 
 type StepsDisclosureProps = {
@@ -19,6 +20,17 @@ export function StepsDisclosure({
   children,
 }: StepsDisclosureProps) {
   const [open, setOpen] = useState(false);
+  const anchors = useStepAnchors();
+  const holdsFocus = steps.some(
+    (step) =>
+      anchors.focused !== null && anchors.anchorOf(step) === anchors.focused,
+  );
+
+  useEffect(() => {
+    if (holdsFocus) {
+      setOpen(true);
+    }
+  }, [holdsFocus]);
 
   return (
     <div className="py-1.5">

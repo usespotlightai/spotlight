@@ -3,6 +3,10 @@ import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import {
+  JudgingsInMemory,
+  ScoresInMemory,
+} from '@outcomes/domain/judging.fake-spec';
+import {
   endedRecord,
   inTransaction,
   RunRecordsInMemory,
@@ -88,7 +92,13 @@ describe('forgetting outcomes', () => {
     await records.add(endedRecord('run_1'));
     await records.add(endedRecord('run_2', { taskId: 'task_2' }));
     await noted.opened();
-    const forgetting = new ForgetOutcomes(records, noted.deliveries);
+    const forgetting = new ForgetOutcomes(
+      records,
+      noted.deliveries,
+      new JudgingsInMemory(),
+      new ScoresInMemory(),
+      inTransaction,
+    );
 
     await forgetting.runsOfTask(TASK);
     await forgetting.deliveryOfTask(TASK);
@@ -104,9 +114,13 @@ describe('forgetting outcomes', () => {
       RunRecord.heardOf(RunId.of('run_1'), WORKSPACE, TASK).checked('passed'),
     );
 
-    await new ForgetOutcomes(records, new TaskDeliveriesInMemory()).runsOfTask(
-      TASK,
-    );
+    await new ForgetOutcomes(
+      records,
+      new TaskDeliveriesInMemory(),
+      new JudgingsInMemory(),
+      new ScoresInMemory(),
+      inTransaction,
+    ).runsOfTask(TASK);
 
     expect(records.held.size).toBe(0);
   });
@@ -116,7 +130,13 @@ describe('forgetting outcomes', () => {
     const noted = delivering();
     await records.add(endedRecord('run_1'));
     await noted.opened();
-    const forgetting = new ForgetOutcomes(records, noted.deliveries);
+    const forgetting = new ForgetOutcomes(
+      records,
+      noted.deliveries,
+      new JudgingsInMemory(),
+      new ScoresInMemory(),
+      inTransaction,
+    );
 
     await forgetting.runsOfWorkspace(WORKSPACE);
     await forgetting.deliveriesOfWorkspace(WORKSPACE);

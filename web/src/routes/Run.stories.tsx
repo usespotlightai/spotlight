@@ -5,12 +5,15 @@ import { Run } from '@/routes/Run';
 import {
   emptyRun,
   failRun,
+  judgingFailedRun,
   RUN_ID,
   rememberedFailedRun,
   rememberingRun,
   SLUG,
   seedCarryingOnRun,
   seedChangedConfigRun,
+  seedJudgedRun,
+  seedJudgeHiddenRun,
   seedParkedRun,
   seedPartlyReportedRun,
   seedRun,
@@ -130,6 +133,33 @@ export const CarryingOn: Story = {
   name: 'Carrying on after the answer',
   render: () => (
     <StoryPage at={at} seed={seedCarryingOnRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Judged: Story = {
+  name: 'Judged',
+  render: () => (
+    <StoryPage at={at} seed={seedJudgedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeHidden: Story = {
+  name: 'Judge score hidden',
+  render: () => (
+    <StoryPage at={at} seed={seedJudgeHiddenRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeFailed: Story = {
+  name: 'Judge score error',
+  render: () => (
+    <StoryPage at={at} seed={judgingFailedRun}>
       {routes}
     </StoryPage>
   ),

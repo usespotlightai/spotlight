@@ -5,7 +5,9 @@ import type {
 } from '@outcomes/application/ports/work.port';
 import { ListStationOutcomesHandler } from '@outcomes/application/queries/handlers/list-station-outcomes.handler';
 import { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
+import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
@@ -13,10 +15,13 @@ import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
+import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
+import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
 import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subscribers';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -26,6 +31,7 @@ import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-even
 import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
+import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -155,6 +161,11 @@ beforeAll(async () => {
   const context = new DrizzleContext(held.db);
   records = new DrizzleRunRecordRepository(context);
   deliveries = new DrizzleTaskDeliveryRepository(context);
+  const quiet = {
+    dispatch: async () => {},
+  } as unknown as DomainEventDispatcher;
+  const judgings = new DrizzleJudgingRepository(context, quiet);
+  const scores = new DrizzleScoreRepository(context, quiet);
   subscribers = outcomesSubscribers({
     ending: new NoteRunEnded(work, records, context),
     superseding: new NoteRunSuperseded(records, context),
@@ -162,7 +173,36 @@ beforeAll(async () => {
     acting: new NotePersonAct(records, context),
     opening: new NotePullRequestOpened(deliveries, context),
     closing: new NotePullRequestClosed(deliveries, context),
-    forgetting: new ForgetOutcomes(records, deliveries),
+    forgetting: new ForgetOutcomes(
+      records,
+      deliveries,
+      judgings,
+      scores,
+      context,
+    ),
+    judging: new AskForJudging(
+      work,
+      {
+        holds: async () => true,
+        of: async () => null,
+        judgeAt: async () => null,
+      },
+      {
+        available: false,
+        model: 'some/model',
+        judge: async () => ({ value: true, reasons: [] }),
+      },
+      judgings,
+      context,
+      { now: () => new Date(), sleep: async () => {} },
+    ),
+    scoring: new RecordJudgeScore(judgings, scores, context, {
+      generate: () => 'id',
+    }),
+    grading: new GradeAsides({
+      ask: async () => {},
+      settle: async () => {},
+    }),
   });
   listing = new ListStationOutcomesHandler(
     new OutcomesAccess({

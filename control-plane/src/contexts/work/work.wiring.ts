@@ -266,6 +266,7 @@ import {
   type RunDigestWriterPort,
 } from '@work/application/ports/run-digest-writer.port';
 import { RUN_EVENT_READER } from '@work/application/ports/run-event-reader.port';
+import { RUN_EVIDENCE } from '@work/application/ports/run-evidence.port';
 import type { RunJournalPort } from '@work/application/ports/run-journal.port';
 import { RUN_JOURNAL } from '@work/application/ports/run-journal.port';
 import {
@@ -439,6 +440,7 @@ import { RemoveReleasedArchives } from '@work/application/services/remove-releas
 import { ReviewToolUse } from '@work/application/services/review.tool-use';
 import { ReviewCommentToolUse } from '@work/application/services/review-comment.tool-use';
 import { RunAtHand } from '@work/application/services/run-at-hand.service';
+import { RunEvidences } from '@work/application/services/run-evidences.service';
 import { RunLeases } from '@work/application/services/run-leases.service';
 import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { RunWorks } from '@work/application/services/run-works.service';
@@ -580,6 +582,24 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       chats: DrizzleChatRepository,
       journals: RunJournalReaderPort,
     ) => new WorkLookup(runs, tasks, lines, chats, journals),
+  },
+
+  {
+    provide: RUN_EVIDENCE,
+    inject: [
+      DrizzleRunRepository,
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+      RUN_JOURNAL_READER,
+      CONTENT_DIGEST,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      tasks: DrizzleTaskRepository,
+      lines: DrizzleLineRepository,
+      journals: RunJournalReaderPort,
+      digest: ContentDigestPort,
+    ) => new RunEvidences(runs, tasks, lines, journals, digest),
   },
 
   DrizzleRunRepository,

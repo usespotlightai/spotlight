@@ -17,12 +17,15 @@ CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'approved', 're
 CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> statement-breakpoint
 CREATE TYPE "public"."memory_standing" AS ENUM('stands', 'retired');--> statement-breakpoint
 CREATE TYPE "public"."memory_use_way" AS ENUM('briefed', 'recalled');--> statement-breakpoint
+CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'ungrounded', 'errored', 'interrupted');--> statement-breakpoint
 CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'approved', 'refused', 'sent-back');--> statement-breakpoint
 CREATE TYPE "public"."run_record_checks" AS ENUM('passed', 'failed', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped', 'abandoned', 'withdrawn', 'superseded');--> statement-breakpoint
+CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number');--> statement-breakpoint
+CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
 CREATE TYPE "public"."task_delivery_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'parked', 'completed', 'failed', 'superseded');--> statement-breakpoint
-CREATE TYPE "public"."aside_form" AS ENUM('memories');--> statement-breakpoint
+CREATE TYPE "public"."aside_form" AS ENUM('memories', 'grade');--> statement-breakpoint
 CREATE SEQUENCE "public"."memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,
@@ -523,6 +526,26 @@ CREATE TABLE "memory_use" (
 	CONSTRAINT "memory_use_memory_id_run_id_way_pk" PRIMARY KEY("memory_id","run_id","way")
 );
 --> statement-breakpoint
+CREATE TABLE "judging" (
+	"run_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"fingerprint" text,
+	"rubric" text NOT NULL,
+	"rubric_version" text NOT NULL,
+	"asked_at" timestamp NOT NULL,
+	"owed" boolean NOT NULL,
+	"work_attempts" integer DEFAULT 0 NOT NULL,
+	"work_due_at" timestamp,
+	"judged_at" timestamp,
+	"failure" "judging_failure",
+	"failed_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "run_record" (
 	"run_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -539,6 +562,27 @@ CREATE TABLE "run_record" (
 	"checks" "run_record_checks",
 	"next_act" "run_record_act",
 	"next_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "score" (
+	"id" text PRIMARY KEY NOT NULL,
+	"run_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"fingerprint" text,
+	"source" "score_source" NOT NULL,
+	"kind" "score_kind" NOT NULL,
+	"value" integer NOT NULL,
+	"rubric_version" text,
+	"model" text,
+	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"seen" jsonb DEFAULT '{"steps":[],"hunks":[]}'::jsonb NOT NULL,
+	"by" text,
+	"at" timestamp NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1091,9 +1135,17 @@ CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("draftin
 CREATE UNIQUE INDEX "memory_proposal_position_idx" ON "memory_proposal" USING btree ("draft_id","position");--> statement-breakpoint
 CREATE INDEX "memory_proposal_decided_idx" ON "memory_proposal" USING btree ("team_id","state","decided_at");--> statement-breakpoint
 CREATE INDEX "memory_use_run_idx" ON "memory_use" USING btree ("run_id","at");--> statement-breakpoint
+CREATE INDEX "judging_owed_idx" ON "judging" USING btree ("asked_at") WHERE "judging"."owed";--> statement-breakpoint
+CREATE INDEX "judging_task_idx" ON "judging" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "judging_workspace_idx" ON "judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "run_record_station_idx" ON "run_record" USING btree ("station_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_task_idx" ON "run_record" USING btree ("task_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_workspace_idx" ON "run_record" USING btree ("workspace_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "score_judge_idx" ON "score" USING btree ("run_id","rubric_version") WHERE "score"."source" = 'judge';--> statement-breakpoint
+CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","by") WHERE "score"."source" = 'person';--> statement-breakpoint
+CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> statement-breakpoint
+CREATE INDEX "score_task_idx" ON "score" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "task_delivery_pull_request_idx" ON "task_delivery" USING btree ("workspace_id","pull_request");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint

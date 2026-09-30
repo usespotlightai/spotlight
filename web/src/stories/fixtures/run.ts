@@ -28,6 +28,12 @@ import {
   seedNoRunMemories,
   seedRunMemories,
 } from '@/stories/fixtures/run-memories';
+import {
+  failRunScores,
+  seedHiddenRunScores,
+  seedNoRunScores,
+  seedRunScores,
+} from '@/stories/fixtures/run-scores';
 
 export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
@@ -262,6 +268,7 @@ const seedAround = (
     { fullName: 'acme/api' },
     { fullName: 'acme/worker' },
   ]);
+  seedNoRunScores(client, RUN_ID, TASK_ID);
 };
 
 export const seedRun = (client: QueryClient) => {
@@ -451,4 +458,38 @@ export const emptyRun = (client: QueryClient) => {
 export const failRun = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   failQuery(client, teamRunKeys.forTeam(TEAM_ID));
+};
+
+const EDITED: RunJournalResponseDto[] = JOURNAL.map((journal) => ({
+  ...journal,
+  steps: [
+    ...journal.steps,
+    step({
+      tool: 'edit',
+      text: 'services/worker/retry.ts',
+      change: {
+        path: '/workspace/worker/services/retry.ts',
+        before:
+          'export const retry = async (job: Job) => {\n  await deliver(job);\n};\n',
+        after:
+          'export const retry = async (job: Job) => {\n  const answer = await deliver(job);\n  if (!answer.ok) await later(job);\n};\n',
+      },
+    }),
+  ],
+}));
+
+export const seedJudgedRun = (client: QueryClient) => {
+  seedRun(client);
+  client.setQueryData(journalKeys.forTask(TASK_ID), EDITED);
+  seedRunScores(client, RUN_ID, TASK_ID);
+};
+
+export const seedJudgeHiddenRun = (client: QueryClient) => {
+  seedJudgedRun(client);
+  seedHiddenRunScores(client, RUN_ID, TASK_ID);
+};
+
+export const judgingFailedRun = (client: QueryClient) => {
+  seedRun(client);
+  failRunScores(client, RUN_ID);
 };

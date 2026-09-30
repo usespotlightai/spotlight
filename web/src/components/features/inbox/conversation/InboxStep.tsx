@@ -1,8 +1,9 @@
 import { ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import type { JournalStep } from '@/lib/inbox';
+import { useStepAnchors } from '@/lib/step-anchors';
 import { cn } from '@/lib/utils';
 
 const verbFor = (step: JournalStep): string => {
@@ -49,10 +50,25 @@ export function InboxStep({
   live?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const anchors = useStepAnchors();
+  const anchor = anchors.anchorOf(step);
+  const focused = anchor !== null && anchors.focused === anchor;
+
+  useEffect(() => {
+    if (focused) {
+      setOpen(true);
+    }
+  }, [focused]);
+
+  const place = {
+    id: anchor ?? undefined,
+    'data-focused': focused || undefined,
+    className: cn('scroll-mt-16 rounded-md', focused && 'bg-accent/60'),
+  };
 
   if (step.kind === 'said') {
     return (
-      <li className="px-1 py-0.5">
+      <li {...place} className={cn(place.className, 'px-1 py-0.5')}>
         <MarkdownEditor
           readOnly
           initialValue={step.text}
@@ -126,7 +142,7 @@ export function InboxStep({
     'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-xs leading-6';
 
   return (
-    <li>
+    <li {...place}>
       {expandable ? (
         <button
           type="button"

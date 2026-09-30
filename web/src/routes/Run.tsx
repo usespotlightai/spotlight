@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
+import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunComposer } from '@/components/features/runs/RunComposer';
@@ -13,6 +14,7 @@ import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
 import { RunSpend } from '@/components/features/runs/RunSpend';
 import { RunWaiting } from '@/components/features/runs/RunWaiting';
 import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
+import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -28,10 +30,12 @@ import {
   useRunConversation,
 } from '@/hooks/api/useRunConversation';
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
+import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys, useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { changesOf } from '@/lib/changes';
 import { decisionOwed, workedOn } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import { waitsOnPerson, working } from '@/lib/run';
@@ -82,9 +86,12 @@ export function Run() {
   useEffect(() => {
     if (stood.current && state && stood.current !== state) {
       bump();
+      void queryClient.invalidateQueries({
+        queryKey: runScoreKeys.forRun(runId),
+      });
     }
     stood.current = state;
-  }, [state, bump]);
+  }, [state, bump, queryClient, runId]);
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
@@ -202,6 +209,7 @@ export function Run() {
     <div className="flex flex-col gap-3">
       <RunConfig slug={slug} teamId={teamId} runId={run.id} />
       <RunSpend spend={said?.spend ?? null} />
+      <RunJudgeScore teamId={teamId} runId={run.id} files={changesOf(ran)} />
       <RunRemembered slug={slug} teamId={teamId} runId={run.id} />
     </div>
   );
@@ -216,48 +224,50 @@ export function Run() {
         <PageHeader title={<Breadcrumbs segments={trail} />} />
 
         <ChangesPanel>
-          {item && item.notes.length > 0 ? (
-            <Conversation
-              item={item}
-              worked={worked ?? []}
-              opening={
-                said?.briefing ? (
-                  <div className="flex flex-col gap-3">
-                    <RunBriefing
-                      briefing={said.briefing}
-                      attachments={said.attachments}
-                    />
-                    {remembered}
-                  </div>
-                ) : (
-                  remembered
-                )
-              }
-              live={run.state === 'claimed' ? activity : waiting}
-              footer={footer}
-            />
-          ) : (
-            <>
-              <RunOpening
-                run={run}
-                briefing={said?.briefing ?? null}
-                attachments={said?.attachments ?? []}
-                remembered={remembered}
-                activity={
-                  quiet ? (
-                    <RunEmpty slug={slug} teamId={teamId} run={run} />
+          <StepAnchorsProvider runId={run.id} journals={worked ?? []}>
+            {item && item.notes.length > 0 ? (
+              <Conversation
+                item={item}
+                worked={worked ?? []}
+                opening={
+                  said?.briefing ? (
+                    <div className="flex flex-col gap-3">
+                      <RunBriefing
+                        briefing={said.briefing}
+                        attachments={said.attachments}
+                      />
+                      {remembered}
+                    </div>
                   ) : (
-                    <>
-                      {activity}
-                      {waiting}
-                    </>
+                    remembered
                   )
                 }
+                live={run.state === 'claimed' ? activity : waiting}
+                footer={footer}
               />
+            ) : (
+              <>
+                <RunOpening
+                  run={run}
+                  briefing={said?.briefing ?? null}
+                  attachments={said?.attachments ?? []}
+                  remembered={remembered}
+                  activity={
+                    quiet ? (
+                      <RunEmpty slug={slug} teamId={teamId} run={run} />
+                    ) : (
+                      <>
+                        {activity}
+                        {waiting}
+                      </>
+                    )
+                  }
+                />
 
-              <ComposerFooter>{footer}</ComposerFooter>
-            </>
-          )}
+                <ComposerFooter>{footer}</ComposerFooter>
+              </>
+            )}
+          </StepAnchorsProvider>
         </ChangesPanel>
       </div>
     </TrailContext>

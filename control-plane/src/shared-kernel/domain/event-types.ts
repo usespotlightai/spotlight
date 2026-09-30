@@ -19,6 +19,7 @@ import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.v
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
+import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -39,6 +40,7 @@ import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-
 import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
 export const SHARED_KERNEL_EVENT_TYPES = [
+  RubricScale,
   Actor,
   Attribution,
   Client,

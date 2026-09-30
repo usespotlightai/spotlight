@@ -1,5 +1,6 @@
 import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
+import { JUDGE_STANDING } from '@outcomes/application/ports/judge-standing.port';
 import {
   OUTCOMES_CONTROLLERS,
   OUTCOMES_PROVIDERS,
@@ -11,6 +12,6 @@ import { WorkModule } from '@work/work.module';
   imports: [IdentityModule, WorkModule],
   controllers: [...OUTCOMES_CONTROLLERS],
   providers: [...OUTCOMES_PROVIDERS],
-  exports: [RUN_OUTCOMES],
+  exports: [RUN_OUTCOMES, JUDGE_STANDING],
 })
 export class OutcomesModule {}

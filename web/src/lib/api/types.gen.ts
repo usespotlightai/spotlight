@@ -965,11 +965,11 @@ export type InboxFailureResponseDto = {
 
 export type InboxAsideResponseDto = {
   /**
-   * What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject
+   * What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
    */
-  form: 'memories';
+  form: 'memories' | 'grade';
   /**
-   * What it is about: for memories, the run that proposed them
+   * What it is about: for memories, the run that proposed them; for grade, the run to grade
    */
   about: string;
 };
@@ -3732,6 +3732,199 @@ export type StationOutcomesResponseDto = {
    * The station’s latest runs, in runs of the same config, the newest first
    */
   groups: Array<FingerprintGroupResponseDto>;
+};
+
+export type StationJudgeSettingsResponseDto = {
+  /**
+   * The SHA-256 of the station’s current rubric
+   */
+  rubricVersion: string;
+  /**
+   * The scale its rubric scores on; none where it cannot be read
+   */
+  kind: 'yes-no' | 'number' | null;
+  sample: number;
+  trust: number;
+};
+
+export type JudgeStandingResponseDto = {
+  /**
+   * Whether the judge agrees with people often enough for its scores to count
+   */
+  trusted: boolean;
+  /**
+   * How agreement is measured: Cohen’s kappa for yes or no scores, Spearman’s correlation for numbers
+   */
+  measure: 'kappa' | 'spearman' | null;
+  agreement: number | null;
+  /**
+   * Runs of the current rubric with both a judge score and people’s
+   */
+  pairs: number;
+  trust: number | null;
+  /**
+   * Why the judge’s scores are hidden, where they are
+   */
+  hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
+};
+
+export type AgreementResponseDto = {
+  pairs: number;
+  /**
+   * The share of pairs where the judge and people gave the same score
+   */
+  observed: number | null;
+  kappa: number | null;
+  spearman: number | null;
+  /**
+   * The mean absolute difference between the two scores
+   */
+  mae: number | null;
+};
+
+export type ConfusionResponseDto = {
+  labels: Array<string>;
+  /**
+   * Counts of runs, a row for each judge score and a column for each score people gave
+   */
+  cells: Array<Array<number>>;
+};
+
+export type TrendPointResponseDto = {
+  day: string;
+  judged: number;
+  /**
+   * The judge’s mean score, or null while this rubric version is not the current trusted one
+   */
+  judge: number | null;
+  labelled: number;
+  /**
+   * The mean of people’s scores for the same runs
+   */
+  people: number | null;
+};
+
+export type RubricVersionResponseDto = {
+  rubricVersion: string;
+  kind: 'yes-no' | 'number';
+  /**
+   * Whether this is the station’s rubric now
+   */
+  current: boolean;
+  judged: number;
+  agreement: AgreementResponseDto;
+  confusion: ConfusionResponseDto;
+  trend: Array<TrendPointResponseDto>;
+  firstAt: string;
+  lastAt: string;
+};
+
+export type JudgeCoverageResponseDto = {
+  /**
+   * The station’s latest runs that ran
+   */
+  runs: number;
+  both: number;
+  judgeOnly: number;
+  peopleOnly: number;
+  neither: number;
+};
+
+export type StationJudgeAgreementResponseDto = {
+  stationId: string;
+  judge: StationJudgeSettingsResponseDto | null;
+  standing: JudgeStandingResponseDto;
+  /**
+   * How the judge agreed with people under each rubric, the latest first
+   */
+  versions: Array<RubricVersionResponseDto>;
+  coverage: JudgeCoverageResponseDto;
+};
+
+export type CitedStepResponseDto = {
+  /**
+   * Where the step sits in the run’s journal
+   */
+  index: number;
+  kind: string | null;
+  tool: string | null;
+  /**
+   * What the step says, as the judge read it; none once it is gone
+   */
+  text: string | null;
+};
+
+export type CitedHunkResponseDto = {
+  id: string;
+  path: string | null;
+  header: string | null;
+  lines: Array<string>;
+};
+
+export type CitationResponseDto = {
+  kind: 'step' | 'hunk';
+  step: CitedStepResponseDto | null;
+  hunk: CitedHunkResponseDto | null;
+};
+
+export type JudgeReasonResponseDto = {
+  text: string;
+  citations: Array<CitationResponseDto>;
+};
+
+export type JudgeScoreResponseDto = {
+  kind: 'yes-no' | 'number';
+  /**
+   * 1 for yes and 0 for no, or a whole number from 1 to 5
+   */
+  value: number;
+  label: string;
+  rubricVersion: string;
+  model: string;
+  at: string;
+  reasons: Array<JudgeReasonResponseDto>;
+};
+
+export type GradeResponseDto = {
+  by: string;
+  /**
+   * Whether the caller gave this grade
+   */
+  mine: boolean;
+  kind: 'yes-no' | 'number';
+  value: number;
+  label: string;
+  at: string;
+};
+
+export type RunScoresResponseDto = {
+  runId: string;
+  taskId: string;
+  stationId: string;
+  /**
+   * The scale the run is graded on: its judge’s, else its station’s rubric’s, else yes or no
+   */
+  kind: 'yes-no' | 'number';
+  /**
+   * Whether the judge scored the run
+   */
+  judged: boolean;
+  /**
+   * The judge’s score and its reasons; none where it did not score the run, or where its scores are hidden
+   */
+  judge: JudgeScoreResponseDto | null;
+  standing: JudgeStandingResponseDto;
+  /**
+   * What people graded the run, the latest first
+   */
+  grades: Array<GradeResponseDto>;
+};
+
+export type GradeRunRequestDto = {
+  /**
+   * Yes or no, or a whole number from 1 to 5, on the run’s scale
+   */
+  value: boolean | number;
 };
 
 export type HookSigningRequestDtoWritable = {
@@ -11742,3 +11935,93 @@ export type ListStationOutcomesResponses = {
 };
 
 export type ListStationOutcomesResponse = ListStationOutcomesResponses[keyof ListStationOutcomesResponses];
+
+export type ReadStationJudgeData = {
+  body?: never;
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/judge';
+};
+
+export type ReadStationJudgeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadStationJudgeResponses = {
+  200: StationJudgeAgreementResponseDto;
+};
+
+export type ReadStationJudgeResponse = ReadStationJudgeResponses[keyof ReadStationJudgeResponses];
+
+export type ReadRunScoresData = {
+  body?: never;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/scores';
+};
+
+export type ReadRunScoresErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadRunScoresResponses = {
+  200: RunScoresResponseDto;
+};
+
+export type ReadRunScoresResponse = ReadRunScoresResponses[keyof ReadRunScoresResponses];
+
+export type GradeRunData = {
+  body: GradeRunRequestDto;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/grades';
+};
+
+export type GradeRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+  /**
+   * The grade changed meanwhile
+   */
+  409: unknown;
+  /**
+   * No grade, or one off the run’s scale
+   */
+  422: unknown;
+};
+
+export type GradeRunResponses = {
+  200: RunScoresResponseDto;
+};
+
+export type GradeRunResponse = GradeRunResponses[keyof GradeRunResponses];

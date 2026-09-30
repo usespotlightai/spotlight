@@ -1,10 +1,15 @@
+import type { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import type { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import type { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import type { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import type { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import type { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import type { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
 import type { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import type { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
+import type { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
+import type { RunJudged } from '@outcomes/domain/events/run-judged.event';
+import type { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -59,6 +64,9 @@ export interface OutcomesReactions {
   readonly opening: NotePullRequestOpened;
   readonly closing: NotePullRequestClosed;
   readonly forgetting: ForgetOutcomes;
+  readonly judging: AskForJudging;
+  readonly scoring: RecordJudgeScore;
+  readonly grading: GradeAsides;
 }
 
 export const outcomesSubscribers = (
@@ -71,6 +79,24 @@ export const outcomesSubscribers = (
       event.taskId && event.stationId
         ? reactions.ending.ended(event)
         : Promise.resolve(),
+  ),
+  subscribing<RunEndedIntegrationEvent>(
+    'outcomes.judge-ended-run',
+    [RUN_ENDED],
+    (event) =>
+      event.taskId && event.stationId
+        ? reactions.judging.runEnded(event)
+        : Promise.resolve(),
+  ),
+  subscribing<RunJudged>(
+    'outcomes.record-judge-score',
+    ['judging.judged'],
+    (event) => reactions.scoring.judged(event),
+  ),
+  subscribing<ScoreRecorded>(
+    'outcomes.ask-or-settle-grade',
+    ['score.recorded'],
+    (event) => reactions.grading.recorded(event),
   ),
   subscribing<RunSupersededIntegrationEvent>(
     'outcomes.record-superseded-run',
@@ -131,6 +157,21 @@ export const outcomesSubscribers = (
     [TASK_DELETED],
     (event) => reactions.forgetting.deliveryOfTask(TaskId.of(event.taskId)),
   ),
+  subscribing<TaskDeletedIntegrationEvent>(
+    'outcomes.forget-judgings-and-scores-of-deleted-task',
+    [TASK_DELETED],
+    (event) =>
+      reactions.forgetting.judgingsAndScoresOfTask(TaskId.of(event.taskId)),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'outcomes.forget-judgings-and-scores-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.forgetting.judgingsAndScoresOfTeam(
+        WorkspaceId.of(event.workspaceId),
+        TeamId.of(event.teamId),
+      ),
+  ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'outcomes.forget-runs-of-disbanded-team',
     [TEAM_DISBANDED],
@@ -151,6 +192,14 @@ export const outcomesSubscribers = (
     [WORKSPACE_CLOSED],
     (event) =>
       reactions.forgetting.deliveriesOfWorkspace(
+        WorkspaceId.of(event.workspaceId),
+      ),
+  ),
+  subscribing<WorkspaceClosedIntegrationEvent>(
+    'outcomes.forget-judgings-and-scores-of-closed-workspace',
+    [WORKSPACE_CLOSED],
+    (event) =>
+      reactions.forgetting.judgingsAndScoresOfWorkspace(
         WorkspaceId.of(event.workspaceId),
       ),
   ),

@@ -191,6 +191,12 @@ export const previewOf = (item: InboxItem): string => {
       : 'A run proposed memories for the team to keep.';
   }
 
+  if (item.aside?.form === 'grade') {
+    return item.resolved
+      ? 'This run is graded.'
+      : 'Grade a judged run, so the team can check its judge.';
+  }
+
   const asked = item.notes[item.notes.length - 1];
 
   if (!asked) {
