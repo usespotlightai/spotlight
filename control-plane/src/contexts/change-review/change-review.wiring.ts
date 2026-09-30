@@ -16,6 +16,7 @@ import { ChangeStackReactions } from '@change-review/application/events/handlers
 import { DecisionReactions } from '@change-review/application/events/handlers/decision-reactions.handler';
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
+import { CHANGE_REVIEW_PUBLICATIONS } from '@change-review/application/integration-events/change-review.publications';
 import {
   CHANGE_STACK_ANNOUNCER,
   type ChangeStackAnnouncerPort,
@@ -175,6 +176,7 @@ import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
+import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
@@ -775,6 +777,7 @@ const published: Provider[] = [
     provide: CHANGE_REVIEW_EVENTS,
     inject: [
       EventTypes,
+      EventPublications,
       EventSubscribers,
       ChangeStackReactions,
       CHANGE_STACK_ANNOUNCER,
@@ -793,6 +796,7 @@ const published: Provider[] = [
     ],
     useFactory: (
       types: EventTypes,
+      publications: EventPublications,
       subscribers: EventSubscribers,
       reactions: ChangeStackReactions,
       announcer: ChangeStackAnnouncerPort,
@@ -810,6 +814,7 @@ const published: Provider[] = [
       runners: CheckRunnersPort,
     ) => {
       types.register('change-review', CHANGE_REVIEW_EVENT_TYPES);
+      publications.register(CHANGE_REVIEW_PUBLICATIONS);
       subscribers.register(
         changeReviewSubscribers(
           reactions,

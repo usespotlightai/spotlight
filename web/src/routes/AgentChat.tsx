@@ -20,6 +20,7 @@ import { useRunStream } from '@/hooks/api/useRunStream';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useLingering } from '@/hooks/useLingering';
 import { newlyProposed } from '@/lib/chat';
+import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import { teamPath, teamSectionPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -107,7 +108,7 @@ export function AgentChat() {
   if (failed(thread)) {
     return (
       <PageNotice>
-        {missing(thread.error) ? (
+        {notFound(thread.error) ? (
           <p className="text-muted-foreground text-sm">
             There is no such chat for this team.
           </p>
@@ -161,6 +162,3 @@ export function AgentChat() {
     </TrailContext>
   );
 }
-
-const missing = (error: unknown): boolean =>
-  (error as { statusCode?: unknown } | null)?.statusCode === 404;

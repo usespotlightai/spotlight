@@ -168,6 +168,12 @@ func (j *journal) Trace(
 	return nil, nil
 }
 
+func (j *journal) History(
+	_ context.Context, _ string, _ protocol.HistoryRequest,
+) (json.RawMessage, error) {
+	return nil, nil
+}
+
 func (j *journal) RecallMemories(
 	_ context.Context, _ string, words string,
 ) (json.RawMessage, error) {

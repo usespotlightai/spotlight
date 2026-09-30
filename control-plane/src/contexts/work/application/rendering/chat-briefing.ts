@@ -3,6 +3,7 @@ import type {
   MemoryFolder,
 } from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
+import { Improving } from '@work/application/rendering/improving';
 import { Learned } from '@work/application/rendering/learned';
 import { Traced } from '@work/application/rendering/traced';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -110,6 +111,9 @@ export const ChatBriefing = {
       opening(input.team),
       linesOf(input.lines),
       workspaceOf(input.chat),
+      input.chat.improving
+        ? Improving.section(input.chat.improving, input.lines)
+        : null,
       Learned.section(input.memories),
       Learned.rest({
         folder: input.memoryFolder,

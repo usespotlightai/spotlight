@@ -31,12 +31,27 @@ import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { HELD_RUN_STATES } from '@work/domain/value-objects/run-state';
+import {
+  HELD_RUN_STATES,
+  type RunState,
+  TERMINAL_RUN_STATES,
+} from '@work/domain/value-objects/run-state';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { and, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  lte,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 const noEarlierRunStillHeld = sql`NOT EXISTS (
   SELECT 1 FROM ${run} AS earlier
@@ -84,6 +99,9 @@ export class DrizzleRunRepository implements RunRepository {
       placement: added.placement.clauses,
       placementImage: added.placement.image?.value ?? null,
       briefedMemories: added.briefedWith.value,
+      endedAt: endedAtFor(added.state, sql`now()`),
+      stationFingerprint: added.configuredAs?.fingerprint ?? null,
+      stationConfig: added.configuredAs?.parts ?? null,
       ...reservationOf(added),
     });
   }
@@ -161,6 +179,7 @@ export class DrizzleRunRepository implements RunRepository {
         failure: saved.outcome?.failure?.code ?? null,
         stopped: saved.outcome?.stopped ?? false,
         ranIn: saved.ranIn?.value ?? null,
+        endedAt: endedAtFor(saved.state, sql`coalesce(${run.endedAt}, now())`),
         spec: RunSpecContract.toWire(saved.spec),
         parkedAttempts: [...saved.parkedAttempts],
         ...reservationOf(saved),
@@ -274,6 +293,9 @@ const reservationFrom = (row: Row): RunnerReservation | null =>
       )
     : null;
 
+const endedAtFor = (state: RunState, ended: SQL) =>
+  (TERMINAL_RUN_STATES as readonly RunState[]).includes(state) ? ended : null;
+
 const toRun = (row: Row): Run =>
   Run.rehydrate({
     id: RunId.of(row.id),
@@ -317,5 +339,9 @@ const toRun = (row: Row): Run =>
       ? BriefedMemories.of(row.briefedMemories)
       : BriefedMemories.none(),
     parkedAttempts: row.parkedAttempts,
+    configuredAs:
+      row.stationConfig && row.stationFingerprint
+        ? StationConfig.rehydrate(row.stationConfig, row.stationFingerprint)
+        : null,
     version: row.version,
   });

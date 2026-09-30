@@ -2,15 +2,18 @@ import type { QueryClient } from '@tanstack/react-query';
 import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { lineKeys } from '@/hooks/api/useLines';
 import { repositoryKeys } from '@/hooks/api/useRepositories';
+import { stationOutcomeKeys } from '@/hooks/api/useStationOutcomes';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type {
   HarnessResponseDto,
   LineResponseDto,
   RepositoryResponseDto,
+  StationOutcomesResponseDto,
   StationResponseDto,
+  StationRunOutcomeResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
-import { SLUG, TEAM_ID, WORKSPACE } from '@/stories/fixtures/team';
+import { NOT_ON_TEAM, SLUG, TEAM_ID, WORKSPACE } from '@/stories/fixtures/team';
 
 export const LINE_ID = 'line_default';
 export const STATION_ID = 'station_implementation';
@@ -104,11 +107,168 @@ const REPOSITORIES: RepositoryResponseDto[] = [
   { fullName: 'acme/docs' },
 ];
 
-export const seedStation = (client: QueryClient) => {
+const hoursAgo = (hours: number): string =>
+  new Date(Date.now() - hours * 3_600_000).toISOString();
+
+const outcome = (
+  over: Partial<StationRunOutcomeResponseDto> & { runId: string },
+): StationRunOutcomeResponseDto => ({
+  taskId: `task_${over.runId}`,
+  endedAt: hoursAgo(2),
+  ending: 'completed',
+  failure: null,
+  round: 1,
+  cost: {
+    ms: 312_000,
+    steps: 48,
+    faults: 0,
+    used: 61_000,
+    cost: 0.84,
+    currency: 'USD',
+  },
+  checks: 'passed',
+  next: { act: 'approved', at: hoursAgo(1) },
+  delivery: 'merged',
+  ...over,
+});
+
+const OUTCOMES: StationOutcomesResponseDto = {
+  stationId: STATION_ID,
+  groups: [
+    {
+      fingerprint:
+        'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
+      config: null,
+      changes: [
+        {
+          part: 'prompt',
+          name: null,
+          kind: 'changed',
+          was: null,
+          now: null,
+        },
+        {
+          part: 'effort',
+          name: null,
+          kind: 'changed',
+          was: 'high',
+          now: 'xhigh',
+        },
+        {
+          part: 'skill',
+          name: 'reviewing',
+          kind: 'added',
+          was: null,
+          now: null,
+        },
+      ],
+      tally: {
+        runs: 3,
+        failed: 0,
+        stopped: 0,
+        checksPassed: 3,
+        checksFailed: 0,
+        accepted: 2,
+        sentBack: 0,
+        withdrawn: 0,
+        merged: 2,
+        cost: { amount: 2.71, currency: 'USD' },
+        medianMs: 312_000,
+      },
+      runs: [
+        outcome({ runId: 'run_retries_3', endedAt: hoursAgo(0.3) }),
+        outcome({
+          runId: 'run_checks_2',
+          round: 2,
+          endedAt: hoursAgo(5),
+          delivery: 'open',
+          next: { act: 'closed', at: hoursAgo(4) },
+        }),
+        outcome({ runId: 'run_docs_1', endedAt: hoursAgo(26) }),
+      ],
+    },
+    {
+      fingerprint:
+        '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
+      config: null,
+      changes: [],
+      tally: {
+        runs: 3,
+        failed: 1,
+        stopped: 1,
+        checksPassed: 1,
+        checksFailed: 1,
+        accepted: 0,
+        sentBack: 1,
+        withdrawn: 0,
+        merged: 0,
+        cost: { amount: 1.93, currency: 'USD' },
+        medianMs: 541_000,
+      },
+      runs: [
+        outcome({
+          runId: 'run_retries_2',
+          endedAt: hoursAgo(50),
+          checks: 'failed',
+          next: { act: 'sent-back', at: hoursAgo(49) },
+          delivery: 'open',
+        }),
+        outcome({
+          runId: 'run_retries_1',
+          ending: 'failed',
+          failure: 'The agent stopped answering',
+          endedAt: hoursAgo(74),
+          next: null,
+          cost: {
+            ms: 541_000,
+            steps: 80,
+            faults: 3,
+            used: 120_000,
+            cost: 1.12,
+            currency: 'USD',
+          },
+        }),
+        outcome({
+          runId: 'run_queue_1',
+          ending: 'stopped',
+          endedAt: hoursAgo(98),
+          next: { act: 'parked', at: hoursAgo(97) },
+        }),
+      ],
+    },
+  ],
+};
+
+const seedAround = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
   client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
   client.setQueryData(repositoryKeys.forWorkspace(SLUG), REPOSITORIES);
+};
+
+export const seedStation = (client: QueryClient) => {
+  seedAround(client);
+  client.setQueryData(stationOutcomeKeys.forStation(STATION_ID), OUTCOMES);
+};
+
+export const seedStationAwaitingOutcomes = seedAround;
+
+export const seedStationWithoutRuns = (client: QueryClient) => {
+  seedAround(client);
+  client.setQueryData(stationOutcomeKeys.forStation(STATION_ID), {
+    stationId: STATION_ID,
+    groups: [],
+  } satisfies StationOutcomesResponseDto);
+};
+
+export const failStationOutcomes = (client: QueryClient) => {
+  seedAround(client);
+  failQuery(client, stationOutcomeKeys.forStation(STATION_ID));
+};
+
+export const refuseStationOutcomes = (client: QueryClient) => {
+  seedAround(client);
+  failQuery(client, stationOutcomeKeys.forStation(STATION_ID), NOT_ON_TEAM);
 };
 
 export const failStation = (client: QueryClient) => {

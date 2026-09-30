@@ -304,6 +304,7 @@ describe('a team, created through the resource API (e2e)', () => {
       'configuration.abandon-harness-profiles-of-disbanded-team',
       'configuration.abandon-skills-of-disbanded-team',
       'integrations.abandon-integrations-of-disbanded-team',
+      'outcomes.forget-runs-of-disbanded-team',
       'work.abandon-lines-of-disbanded-team',
     ]);
     expect(await heldBy(teamId)).toEqual([]);

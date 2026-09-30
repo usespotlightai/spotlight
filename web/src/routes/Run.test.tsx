@@ -66,6 +66,21 @@ vi.mock('@/hooks/api/useRunMemories', () => ({
   }),
 }));
 
+const config = vi.fn((): unknown => ({
+  fingerprint: null,
+  config: null,
+  changedSince: null,
+}));
+
+vi.mock('@/hooks/api/useRunConfig', () => ({
+  runConfigKeys: { forRun: () => ['run-config'] },
+  useRunConfig: () => ({
+    data: config(),
+    isPending: false,
+    errorUpdateCount: 0,
+  }),
+}));
+
 vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   changeStackKeys: { forRun: () => ['change-stacks'] },
   useRunChangeStacks: () => ({ data: undefined }),
@@ -287,6 +302,92 @@ describe('Run', () => {
 
       expect(
         screen.queryByText(/before any work was done/),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('the config it ran with', () => {
+    beforeEach(() => {
+      config.mockReturnValue({
+        fingerprint:
+          '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
+        config: null,
+        changedSince: {
+          runId: 'run_0',
+          taskId: 'task_0',
+          fingerprint: 'aa11bb22cc33dd44',
+          changes: [
+            {
+              part: 'prompt',
+              name: null,
+              kind: 'changed',
+              was: null,
+              now: null,
+            },
+            {
+              part: 'effort',
+              name: null,
+              kind: 'changed',
+              was: 'high',
+              now: 'xhigh',
+            },
+          ],
+        },
+      });
+    });
+
+    it('names the config by the start of its fingerprint, keeping the whole of it to hand', () => {
+      renderRun();
+
+      const fingerprint = document.querySelector(
+        '[data-slot="run-config"] [data-slot="fingerprint"]',
+      );
+      expect(fingerprint).toHaveTextContent('3f2a9c1e');
+      expect(fingerprint).toHaveAttribute(
+        'title',
+        '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
+      );
+    });
+
+    it('says what changed since the station’s previous run, and leads to it', () => {
+      renderRun();
+
+      expect(
+        screen.getByRole('link', { name: 'the station’s previous run' }),
+      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_0');
+      expect(
+        screen.getByRole('list', { name: 'What changed' }),
+      ).toHaveTextContent('Prompt changed·Effort high → xhigh');
+    });
+
+    it('says nothing changed where the run is the first with its config', () => {
+      config.mockReturnValue({
+        fingerprint: '3f2a9c1e5b7d',
+        config: null,
+        changedSince: null,
+      });
+
+      renderRun();
+
+      expect(
+        document.querySelector('[data-slot="run-config"]'),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('list', { name: 'What changed' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows nothing of a config where the run kept none', () => {
+      config.mockReturnValue({
+        fingerprint: null,
+        config: null,
+        changedSince: null,
+      });
+
+      renderRun();
+
+      expect(
+        document.querySelector('[data-slot="run-config"]'),
       ).not.toBeInTheDocument();
     });
   });

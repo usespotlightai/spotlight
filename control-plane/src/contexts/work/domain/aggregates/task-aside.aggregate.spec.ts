@@ -111,19 +111,19 @@ describe('TaskAside', () => {
   describe('who attends to it', () => {
     it('is the task’s assignee, and nobody else, while the task has one', () => {
       expect(
-        TaskAside.attendedBy({ viewer: ADA, assignee: ADA, onTeam: true }),
+        TaskAside.attendedBy({ viewer: ADA, assignee: ADA, seesTeam: true }),
       ).toBe(true);
       expect(
-        TaskAside.attendedBy({ viewer: BEA, assignee: ADA, onTeam: true }),
+        TaskAside.attendedBy({ viewer: BEA, assignee: ADA, seesTeam: true }),
       ).toBe(false);
     });
 
-    it('is anyone on the task’s team while nobody is assigned', () => {
+    it('is anyone who sees the task’s team while nobody is assigned', () => {
       expect(
-        TaskAside.attendedBy({ viewer: BEA, assignee: null, onTeam: true }),
+        TaskAside.attendedBy({ viewer: BEA, assignee: null, seesTeam: true }),
       ).toBe(true);
       expect(
-        TaskAside.attendedBy({ viewer: BEA, assignee: null, onTeam: false }),
+        TaskAside.attendedBy({ viewer: BEA, assignee: null, seesTeam: false }),
       ).toBe(false);
     });
   });

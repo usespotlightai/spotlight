@@ -7,7 +7,7 @@ import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useChats } from '@/hooks/api/useChats';
-import { chatPath, tracesHandedOver } from '@/lib/chat';
+import { chatPath, improvingHandedOver, tracesHandedOver } from '@/lib/chat';
 import { failed, loading } from '@/lib/query';
 import { useForwardTrail } from '@/lib/trail';
 
@@ -79,6 +79,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
           slug={slug}
           teamId={teamId}
           traces={tracesHandedOver(location.state)}
+          improving={improvingHandedOver(location.state)}
           onStarted={started}
         />
       </ComposerFooter>

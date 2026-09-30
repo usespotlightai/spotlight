@@ -9,6 +9,7 @@ export class StartChatCommand {
     readonly body: string,
     readonly attachments: readonly string[] = [],
     readonly traces: readonly string[] = [],
+    readonly improving: string | null = null,
   ) {}
 }
 

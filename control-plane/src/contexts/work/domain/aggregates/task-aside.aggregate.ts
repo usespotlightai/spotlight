@@ -16,7 +16,7 @@ import type { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
 export interface AsideAttendance {
   readonly viewer: UserId;
   readonly assignee: UserId | null;
-  readonly onTeam: boolean;
+  readonly seesTeam: boolean;
 }
 
 export class TaskAside extends EventRecorder {
@@ -110,7 +110,7 @@ export class TaskAside extends EventRecorder {
   static attendedBy(attendance: AsideAttendance): boolean {
     return attendance.assignee
       ? attendance.assignee.equals(attendance.viewer)
-      : attendance.onTeam;
+      : attendance.seesTeam;
   }
 
   get open(): boolean {

@@ -499,12 +499,14 @@ const published: Provider[] = [
       DrizzleViewableWorkspaces,
       DrizzleWorkspaceRepository,
       IDENTITY_RESOURCES,
+      DrizzleTeamRepository,
     ],
     useFactory: (
       visibility: DrizzleViewableWorkspaces,
       workspaces: DrizzleWorkspaceRepository,
       resources: IdentityResourcesPort,
-    ) => new WorkspaceAccess(visibility, workspaces, resources),
+      teams: DrizzleTeamRepository,
+    ) => new WorkspaceAccess(visibility, workspaces, resources, teams),
   },
   {
     provide: WORKSPACE_TOKEN_IDENTITY,

@@ -12,6 +12,7 @@ export * from '@integrations/infrastructure/persistence/drizzle/schemas/delivery
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 export * from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
+export * from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
 export * from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';

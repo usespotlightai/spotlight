@@ -14,8 +14,10 @@ import {
 import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
+import { StationConfigMapper } from '@work/application/mappers/station-config.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
+import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
 import type {
   HarnessLaunchPort,
   PreparedHarness,
@@ -111,6 +113,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly touched: TouchedFiles,
     private readonly logger: LoggerPort,
     private readonly isolation: IsolationPort,
+    private readonly digest: ContentDigestPort,
   ) {}
 
   private async profilesAt(
@@ -260,6 +263,22 @@ export class DispatchTask implements TaskDispatching {
         briefed: memories.briefed,
         cut: memories.cut,
       }),
+      configuredAs: station
+        ? StationConfigMapper.configuredAs(
+            {
+              station,
+              line,
+              order,
+              folders: folders.filter(
+                (each) =>
+                  !order.given.builtInSkills.some(
+                    (key) => key.value === each.skill.key,
+                  ),
+              ),
+            },
+            this.digest,
+          )
+        : null,
       spec: written(
         order,
         task,

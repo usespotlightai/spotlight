@@ -10,6 +10,7 @@ import {
   rememberingRun,
   SLUG,
   seedCarryingOnRun,
+  seedChangedConfigRun,
   seedParkedRun,
   seedRun,
   seedWaitingRun,
@@ -55,6 +56,15 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ConfigChanged: Story = {
+  name: 'Config changed since the previous run',
+  render: () => (
+    <StoryPage at={at} seed={seedChangedConfigRun}>
       {routes}
     </StoryPage>
   ),

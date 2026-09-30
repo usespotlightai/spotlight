@@ -1,12 +1,15 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -139,7 +142,71 @@ describe('WORK_PUBLICATIONS', () => {
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: null,
+        stationId: null,
         outcome: 'withdrawn',
+        failure: null,
+        stopped: false,
+      },
+    ]);
+  });
+
+  it('says which station a run worked at, which failure ended it and whether a person stopped it', () => {
+    const fields = (event: DomainEvent) => {
+      const [ended] = published(event);
+      return {
+        stationId: ended?.stationId,
+        failure: ended?.failure,
+        stopped: ended?.stopped,
+      };
+    };
+    const completed = (outcome: RunOutcome) =>
+      new RunCompleted(RUN, WORKSPACE, SUBJECT, outcome, null, null, null, 1);
+
+    expect(fields(completed(RunOutcome.stopped(130)))).toEqual({
+      stationId: 'station_1',
+      failure: null,
+      stopped: true,
+    });
+    expect(fields(completed(RunOutcome.lost(3)))).toEqual({
+      stationId: 'station_1',
+      failure: 'runner-lost',
+      stopped: false,
+    });
+  });
+
+  it('publishes a run its task superseded', () => {
+    expect(published(new RunSuperseded(RUN, WORKSPACE, SUBJECT))).toEqual([
+      {
+        kind: 'work.run-superseded.v1',
+        runId: 'run_1',
+        workspaceId: 'ws_1',
+        taskId: 'task_1',
+      },
+    ]);
+  });
+
+  it('publishes what a person did to a task, and after which run', () => {
+    expect(
+      published(
+        new TaskActedOn(
+          TASK,
+          WORKSPACE,
+          StationId.of('station_1'),
+          'sent-back',
+          UserId.of('user_1'),
+          RUN,
+          new Date('2026-09-26T09:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.task-acted-on.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        stationId: 'station_1',
+        act: 'sent-back',
+        after: 'run_1',
+        at: '2026-09-26T09:00:00.000Z',
       },
     ]);
   });

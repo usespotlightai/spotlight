@@ -62,6 +62,7 @@ const connecting = (
       ),
       clearanceIn: vi.fn(),
       clearanceOnTeam: vi.fn(),
+      clearanceAsTeamReader: vi.fn(),
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
     {

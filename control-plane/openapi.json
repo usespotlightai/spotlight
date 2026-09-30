@@ -1169,6 +1169,94 @@
         ]
       }
     },
+    "/runs/{runId}/history": {
+      "get": {
+        "operationId": "readRunHistory",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "last",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "outcome",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fingerprint",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "line",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "station",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunnerHistoryResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "No such run, or no such station in its team"
+          },
+          "409": {
+            "description": "Several of the team’s lines have a station by that key"
+          }
+        },
+        "summary": "Read a station's recent runs, their configs, journals, changes and outcomes, for an agent studying its own team",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/messages/delivered": {
       "post": {
         "operationId": "deliverSaid",
@@ -2630,6 +2718,52 @@
           }
         },
         "summary": "Every task the team has worked, as one trace each",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/runs/{runId}/config": {
+      "get": {
+        "operationId": "readRunConfig",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunConfigResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          }
+        },
+        "summary": "The station config a run ran with, and what changed since the station’s run before it",
         "tags": [
           "tasks"
         ]
@@ -16488,6 +16622,68 @@
           "runners"
         ]
       }
+    },
+    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/outcomes": {
+      "get": {
+        "operationId": "listStationOutcomes",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "last",
+            "required": false,
+            "in": "query",
+            "description": "How many of the latest runs to look at: 50 unless asked, 200 at most",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationOutcomesResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "How the station’s latest runs turned out, in runs of the same config",
+        "tags": [
+          "outcomes"
+        ]
+      }
     }
   },
   "info": {
@@ -17432,6 +17628,421 @@
           "rows",
           "faults",
           "roots"
+        ]
+      },
+      "HistoryPlaceResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "implementation"
+          },
+          "name": {
+            "type": "string",
+            "example": "Implementation"
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ]
+      },
+      "ConfiguredProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "careful"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The permissions, MCP servers and native settings it held"
+          }
+        },
+        "required": [
+          "key",
+          "settings"
+        ]
+      },
+      "ConfiguredRepositoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "api"
+          },
+          "setup": {
+            "type": "string",
+            "nullable": true,
+            "example": "npm ci"
+          }
+        },
+        "required": [
+          "name",
+          "setup"
+        ]
+      },
+      "ConfiguredSkillResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "reviewing"
+          },
+          "digest": {
+            "type": "string",
+            "description": "The SHA-256 of the skill's files"
+          }
+        },
+        "required": [
+          "key",
+          "digest"
+        ]
+      },
+      "StationConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "nullable": true
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-opus-5-5"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
+          "profile": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredProfileResponseDto"
+              }
+            ]
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "ghcr.io/acme/api:1"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredRepositoryResponseDto"
+            }
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredSkillResponseDto"
+            }
+          },
+          "tools": {
+            "example": [
+              "pull-request"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "decisions": {
+            "type": "boolean"
+          },
+          "memories": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prompt",
+          "harness",
+          "model",
+          "effort",
+          "profile",
+          "image",
+          "repositories",
+          "skills",
+          "tools",
+          "decisions",
+          "memories"
+        ]
+      },
+      "HistoryConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "description": "The SHA-256 naming this station config"
+          },
+          "config": {
+            "$ref": "#/components/schemas/StationConfigResponseDto"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "config"
+        ]
+      },
+      "RunCostResponseDto": {
+        "type": "object",
+        "properties": {
+          "ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "steps": {
+            "type": "number"
+          },
+          "faults": {
+            "type": "number"
+          },
+          "used": {
+            "type": "number",
+            "nullable": true
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "ms",
+          "steps",
+          "faults",
+          "used",
+          "cost",
+          "currency"
+        ]
+      },
+      "PersonActResponseDto": {
+        "type": "object",
+        "properties": {
+          "act": {
+            "type": "string",
+            "enum": [
+              "started",
+              "parked",
+              "closed",
+              "answered",
+              "approved",
+              "refused",
+              "sent-back"
+            ]
+          },
+          "at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "act",
+          "at"
+        ]
+      },
+      "RunTurnedOutResponseDto": {
+        "type": "object",
+        "properties": {
+          "ending": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "stopped",
+              "abandoned",
+              "withdrawn",
+              "superseded"
+            ]
+          },
+          "failure": {
+            "type": "string",
+            "nullable": true,
+            "example": "exited"
+          },
+          "round": {
+            "type": "number",
+            "description": "How many runs this station has taken on the task, this one included"
+          },
+          "cost": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunCostResponseDto"
+              }
+            ]
+          },
+          "checks": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "passed",
+              "failed",
+              "skipped",
+              null
+            ]
+          },
+          "next": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonActResponseDto"
+              }
+            ]
+          },
+          "delivery": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "open",
+              "merged",
+              "closed",
+              null
+            ]
+          }
+        },
+        "required": [
+          "ending",
+          "failure",
+          "round",
+          "cost",
+          "checks",
+          "next",
+          "delivery"
+        ]
+      },
+      "FileChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "src/queue.ts"
+          },
+          "before": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          },
+          "omitted": {
+            "type": "boolean",
+            "description": "The file was too large to send whole; before and after are empty"
+          }
+        },
+        "required": [
+          "path",
+          "before",
+          "after",
+          "omitted"
+        ]
+      },
+      "HistoryRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "example": "completed"
+          },
+          "attempt": {
+            "type": "number"
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": "string"
+          },
+          "outcome": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunTurnedOutResponseDto"
+              }
+            ]
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileChangeResponseDto"
+            }
+          },
+          "trace": {
+            "$ref": "#/components/schemas/TaskTraceResponseDto"
+          }
+        },
+        "required": [
+          "runId",
+          "taskId",
+          "title",
+          "fingerprint",
+          "state",
+          "attempt",
+          "harness",
+          "startedAt",
+          "endedAt",
+          "outcome",
+          "changes",
+          "trace"
+        ]
+      },
+      "RunnerHistoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "line": {
+            "$ref": "#/components/schemas/HistoryPlaceResponseDto"
+          },
+          "station": {
+            "$ref": "#/components/schemas/HistoryPlaceResponseDto"
+          },
+          "configs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryConfigResponseDto"
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryRunResponseDto"
+            }
+          }
+        },
+        "required": [
+          "line",
+          "station",
+          "configs",
+          "runs"
         ]
       },
       "DeliverSaidRequestDto": {
@@ -19373,6 +19984,119 @@
           "currency"
         ]
       },
+      "ConfigChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string",
+            "enum": [
+              "prompt",
+              "harness",
+              "model",
+              "effort",
+              "profile",
+              "image",
+              "repository",
+              "skill",
+              "tool",
+              "decisions",
+              "memories"
+            ],
+            "example": "effort"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "The repository, skill or tool changed, where the part has several"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "changed"
+            ],
+            "example": "changed"
+          },
+          "was": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
+          "now": {
+            "type": "string",
+            "nullable": true,
+            "example": "xhigh"
+          }
+        },
+        "required": [
+          "part",
+          "name",
+          "kind",
+          "was",
+          "now"
+        ]
+      },
+      "ConfigChangedSinceResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "description": "The station’s previous run, which ran another config"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigChangeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "runId",
+          "taskId",
+          "fingerprint",
+          "changes"
+        ]
+      },
+      "RunConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "nullable": true,
+            "description": "The SHA-256 naming the station config the run ran with"
+          },
+          "config": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StationConfigResponseDto"
+              }
+            ]
+          },
+          "changedSince": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigChangedSinceResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "fingerprint",
+          "config",
+          "changedSince"
+        ]
+      },
       "RunConversationResponseDto": {
         "type": "object",
         "properties": {
@@ -19609,6 +20333,41 @@
           "assigneeId"
         ]
       },
+      "ChatImprovingResponseDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string"
+          },
+          "lineKey": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "lineName": {
+            "type": "string",
+            "example": "Delivery"
+          },
+          "stationId": {
+            "type": "string"
+          },
+          "stationKey": {
+            "type": "string",
+            "example": "implementation"
+          },
+          "stationName": {
+            "type": "string",
+            "example": "Implementation"
+          }
+        },
+        "required": [
+          "lineId",
+          "lineKey",
+          "lineName",
+          "stationId",
+          "stationKey",
+          "stationName"
+        ]
+      },
       "ChatSummaryResponseDto": {
         "type": "object",
         "properties": {
@@ -19643,6 +20402,16 @@
               "type": "string"
             }
           },
+          "improving": {
+            "nullable": true,
+            "description": "The station the chat is about improving, if any",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatImprovingResponseDto"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "example": "2026-09-14T09:00:00.000Z"
@@ -19664,6 +20433,7 @@
           "model",
           "effort",
           "repositories",
+          "improving",
           "createdAt",
           "updatedAt",
           "working"
@@ -19717,6 +20487,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "improving": {
+            "type": "string",
+            "description": "A station the chat is about improving, by its id; the agent is briefed to study its recent runs"
           }
         },
         "required": [
@@ -19909,6 +20683,16 @@
               "type": "string"
             }
           },
+          "improving": {
+            "nullable": true,
+            "description": "The station the chat is about improving, if any",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatImprovingResponseDto"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "example": "2026-09-14T09:00:00.000Z"
@@ -19941,6 +20725,7 @@
           "model",
           "effort",
           "repositories",
+          "improving",
           "createdAt",
           "updatedAt",
           "working",
@@ -24881,6 +25666,279 @@
         "required": [
           "path",
           "body"
+        ]
+      },
+      "NextActResponseDto": {
+        "type": "object",
+        "properties": {
+          "act": {
+            "type": "string",
+            "enum": [
+              "started",
+              "parked",
+              "closed",
+              "answered",
+              "approved",
+              "refused",
+              "sent-back"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-09-30T10:05:00.000Z"
+          }
+        },
+        "required": [
+          "act",
+          "at"
+        ]
+      },
+      "StationRunOutcomeResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "example": "4e1e84a2-0c39-406d-bbbb-559f29e450be"
+          },
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "endedAt": {
+            "type": "string",
+            "example": "2026-09-30T10:00:00.000Z"
+          },
+          "ending": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "stopped",
+              "abandoned",
+              "withdrawn",
+              "superseded"
+            ]
+          },
+          "failure": {
+            "type": "string",
+            "nullable": true,
+            "example": "exited",
+            "description": "Why it failed, where it did"
+          },
+          "round": {
+            "type": "number",
+            "example": 2,
+            "description": "How many runs this station has taken on the task, this one included"
+          },
+          "cost": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunCostResponseDto"
+              }
+            ]
+          },
+          "checks": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "skipped",
+              null
+            ],
+            "nullable": true,
+            "description": "How its change fared when checked, if it was"
+          },
+          "next": {
+            "nullable": true,
+            "description": "The first thing a person did with the task after the run",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NextActResponseDto"
+              }
+            ]
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "open",
+              "merged",
+              "closed",
+              null
+            ],
+            "nullable": true,
+            "description": "Where the task’s pull request stands, if it opened one"
+          }
+        },
+        "required": [
+          "runId",
+          "taskId",
+          "endedAt",
+          "ending",
+          "failure",
+          "round",
+          "cost",
+          "checks",
+          "next",
+          "delivery"
+        ]
+      },
+      "SpendResponseDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": 3.2
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ]
+      },
+      "StationTallyResponseDto": {
+        "type": "object",
+        "properties": {
+          "runs": {
+            "type": "number",
+            "example": 12,
+            "description": "Runs that ran; the rest of the tally counts only these"
+          },
+          "withdrawn": {
+            "type": "number",
+            "example": 1,
+            "description": "Runs withdrawn from the queue before they ran"
+          },
+          "failed": {
+            "type": "number",
+            "example": 2
+          },
+          "stopped": {
+            "type": "number",
+            "example": 1,
+            "description": "Runs a person stopped"
+          },
+          "checksPassed": {
+            "type": "number",
+            "example": 8
+          },
+          "checksFailed": {
+            "type": "number",
+            "example": 1
+          },
+          "accepted": {
+            "type": "number",
+            "example": 6,
+            "description": "Runs a person next closed or approved"
+          },
+          "sentBack": {
+            "type": "number",
+            "example": 3,
+            "description": "Runs a person next sent back or refused"
+          },
+          "merged": {
+            "type": "number",
+            "example": 4,
+            "description": "Tasks among these runs whose pull request merged"
+          },
+          "cost": {
+            "nullable": true,
+            "description": "What the runs cost together, where they cost one currency",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpendResponseDto"
+              }
+            ]
+          },
+          "medianMs": {
+            "type": "number",
+            "nullable": true,
+            "example": 184000
+          }
+        },
+        "required": [
+          "runs",
+          "withdrawn",
+          "failed",
+          "stopped",
+          "checksPassed",
+          "checksFailed",
+          "accepted",
+          "sentBack",
+          "merged",
+          "cost",
+          "medianMs"
+        ]
+      },
+      "FingerprintGroupResponseDto": {
+        "type": "object",
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "nullable": true,
+            "example": "a3f9…",
+            "description": "The station config these runs ran with; none for runs from before configs were fingerprinted"
+          },
+          "config": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StationConfigResponseDto"
+              }
+            ]
+          },
+          "changes": {
+            "description": "How the config differs from the one before it",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigChangeResponseDto"
+            }
+          },
+          "runs": {
+            "description": "Its runs, the newest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StationRunOutcomeResponseDto"
+            }
+          },
+          "tally": {
+            "$ref": "#/components/schemas/StationTallyResponseDto"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "config",
+          "changes",
+          "runs",
+          "tally"
+        ]
+      },
+      "StationOutcomesResponseDto": {
+        "type": "object",
+        "properties": {
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "groups": {
+            "description": "The station’s latest runs, in runs of the same config, the newest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FingerprintGroupResponseDto"
+            }
+          }
+        },
+        "required": [
+          "stationId",
+          "groups"
         ]
       }
     }

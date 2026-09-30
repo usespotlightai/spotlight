@@ -1,5 +1,6 @@
 import type { ChatDto, ChatSummaryDto } from '@work/application/dto/chat.dto';
 import {
+  ChatImprovingResponseDto,
   ChatMessageResponseDto,
   ChatProposalResponseDto,
   ChatResponseDto,
@@ -18,6 +19,7 @@ export const ChatHttpMapper = {
       dto.model,
       dto.effort,
       dto.repositories,
+      dto.improving ? new ChatImprovingResponseDto(dto.improving) : null,
       dto.createdAt,
       dto.updatedAt,
       dto.working,

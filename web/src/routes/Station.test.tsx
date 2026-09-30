@@ -1,11 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Station } from '@/routes/Station';
 
 const line = {
   id: 'line_1',
+  key: 'default',
   name: 'Default',
   stations: [
     {
@@ -27,6 +28,7 @@ const line = {
     },
     {
       id: 'station_2',
+      key: 'spec',
       name: 'Spec',
       position: 2,
       color: '#5c66d9',
@@ -81,6 +83,22 @@ vi.mock('@/hooks/api/useRepositories', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useStationOutcomes', () => ({
+  useStationOutcomes: () => ({
+    data: { stationId: 'station_2', groups: [] },
+    isPending: false,
+    errorUpdateCount: 0,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
+function HandedOver() {
+  const { state } = useLocation();
+
+  return <pre data-slot="handed-over">{JSON.stringify(state?.improving)}</pre>;
+}
+
 const renderAt = (stationId: string) =>
   render(
     <MemoryRouter
@@ -93,6 +111,7 @@ const renderAt = (stationId: string) =>
           path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId"
           element={<Station />}
         />
+        <Route path="/w/:slug/team/:teamId/agent" element={<HandedOver />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -276,6 +295,52 @@ describe('Station', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it('lists how the station’s runs turned out below what it is told', () => {
+    renderAt('station_2');
+
+    expect(
+      screen.getByRole('heading', { name: 'How its runs turned out' }),
+    ).toBeInTheDocument();
+  });
+
+  it('lists no runs where nothing runs', () => {
+    renderAt('station_0');
+
+    expect(
+      screen.queryByRole('heading', { name: 'How its runs turned out' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('hands the station to the agent to improve', async () => {
+    const user = userEvent.setup();
+    renderAt('station_2');
+
+    await user.click(
+      screen.getByRole('link', { name: 'Improve this station' }),
+    );
+
+    expect(
+      JSON.parse(
+        document.querySelector('[data-slot="handed-over"]')?.textContent ?? '',
+      ),
+    ).toEqual({
+      lineId: 'line_1',
+      lineKey: 'default',
+      lineName: 'Default',
+      stationId: 'station_2',
+      stationKey: 'spec',
+      stationName: 'Spec',
+    });
+  });
+
+  it('offers nothing to improve where nothing runs', () => {
+    renderAt('station_3');
+
+    expect(
+      screen.queryByRole('link', { name: 'Improve this station' }),
+    ).not.toBeInTheDocument();
   });
 
   it('says so when there is no station at that address', () => {

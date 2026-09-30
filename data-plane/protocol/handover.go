@@ -11,6 +11,7 @@ const (
 	HandoverTracePath    = "/trace"
 	HandoverRecallPath   = "/recall"
 	HandoverRememberPath = "/remember"
+	HandoverHistoryPath  = "/history"
 )
 
 const (

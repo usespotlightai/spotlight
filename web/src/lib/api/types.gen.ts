@@ -359,6 +359,115 @@ export type TaskTraceResponseDto = {
   roots: Array<TraceNodeResponseDto>;
 };
 
+export type HistoryPlaceResponseDto = {
+  key: string;
+  name: string;
+};
+
+export type ConfiguredProfileResponseDto = {
+  key: string;
+  /**
+   * The permissions, MCP servers and native settings it held
+   */
+  settings: {
+    [key: string]: unknown;
+  };
+};
+
+export type ConfiguredRepositoryResponseDto = {
+  name: string;
+  setup: string | null;
+};
+
+export type ConfiguredSkillResponseDto = {
+  key: string;
+  /**
+   * The SHA-256 of the skill's files
+   */
+  digest: string;
+};
+
+export type StationConfigResponseDto = {
+  prompt: string | null;
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  profile: ConfiguredProfileResponseDto | null;
+  image: string | null;
+  repositories: Array<ConfiguredRepositoryResponseDto>;
+  skills: Array<ConfiguredSkillResponseDto>;
+  tools: Array<string>;
+  decisions: boolean;
+  memories: boolean;
+};
+
+export type HistoryConfigResponseDto = {
+  /**
+   * The SHA-256 naming this station config
+   */
+  fingerprint: string;
+  config: StationConfigResponseDto;
+};
+
+export type RunCostResponseDto = {
+  ms: number | null;
+  steps: number;
+  faults: number;
+  used: number | null;
+  cost: number | null;
+  currency: string | null;
+};
+
+export type PersonActResponseDto = {
+  act: 'started' | 'parked' | 'closed' | 'answered' | 'approved' | 'refused' | 'sent-back';
+  at: string;
+};
+
+export type RunTurnedOutResponseDto = {
+  ending: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+  failure: string | null;
+  /**
+   * How many runs this station has taken on the task, this one included
+   */
+  round: number;
+  cost: RunCostResponseDto | null;
+  checks: 'passed' | 'failed' | 'skipped' | null;
+  next: PersonActResponseDto | null;
+  delivery: 'open' | 'merged' | 'closed' | null;
+};
+
+export type FileChangeResponseDto = {
+  path: string;
+  before: string;
+  after: string;
+  /**
+   * The file was too large to send whole; before and after are empty
+   */
+  omitted: boolean;
+};
+
+export type HistoryRunResponseDto = {
+  runId: string;
+  taskId: string;
+  title: string;
+  fingerprint: string | null;
+  state: string;
+  attempt: number;
+  harness: string;
+  startedAt: string;
+  endedAt: string;
+  outcome: RunTurnedOutResponseDto | null;
+  changes: Array<FileChangeResponseDto>;
+  trace: TaskTraceResponseDto;
+};
+
+export type RunnerHistoryResponseDto = {
+  line: HistoryPlaceResponseDto;
+  station: HistoryPlaceResponseDto;
+  configs: Array<HistoryConfigResponseDto>;
+  runs: Array<HistoryRunResponseDto>;
+};
+
 export type DeliverSaidRequestDto = {
   /**
    * Everything said up to and including this note was given
@@ -1171,6 +1280,36 @@ export type TeamTraceResponseDto = {
   currency: string | null;
 };
 
+export type ConfigChangeResponseDto = {
+  part: 'prompt' | 'harness' | 'model' | 'effort' | 'profile' | 'image' | 'repository' | 'skill' | 'tool' | 'decisions' | 'memories';
+  /**
+   * The repository, skill or tool changed, where the part has several
+   */
+  name: string | null;
+  kind: 'added' | 'removed' | 'changed';
+  was: string | null;
+  now: string | null;
+};
+
+export type ConfigChangedSinceResponseDto = {
+  /**
+   * The station’s previous run, which ran another config
+   */
+  runId: string;
+  taskId: string;
+  fingerprint: string;
+  changes: Array<ConfigChangeResponseDto>;
+};
+
+export type RunConfigResponseDto = {
+  /**
+   * The SHA-256 naming the station config the run ran with
+   */
+  fingerprint: string | null;
+  config: StationConfigResponseDto | null;
+  changedSince: ConfigChangedSinceResponseDto | null;
+};
+
 export type RunConversationResponseDto = {
   runId: string;
   taskId: string;
@@ -1260,6 +1399,15 @@ export type AssignTaskRequestDto = {
   assigneeId: string | null;
 };
 
+export type ChatImprovingResponseDto = {
+  lineId: string;
+  lineKey: string;
+  lineName: string;
+  stationId: string;
+  stationKey: string;
+  stationName: string;
+};
+
 export type ChatSummaryResponseDto = {
   id: string;
   title: string;
@@ -1267,6 +1415,10 @@ export type ChatSummaryResponseDto = {
   model: string | null;
   effort: string | null;
   repositories: Array<string>;
+  /**
+   * The station the chat is about improving, if any
+   */
+  improving: ChatImprovingResponseDto | null;
   createdAt: string;
   updatedAt: string;
   /**
@@ -1304,6 +1456,10 @@ export type StartChatRequestDto = {
    * Tasks whose traces to share with the agent, by task id
    */
   traces?: Array<string>;
+  /**
+   * A station the chat is about improving, by its id; the agent is briefed to study its recent runs
+   */
+  improving?: string;
 };
 
 export type ChatTraceResponseDto = {
@@ -1351,6 +1507,10 @@ export type ChatResponseDto = {
   model: string | null;
   effort: string | null;
   repositories: Array<string>;
+  /**
+   * The station the chat is about improving, if any
+   */
+  improving: ChatImprovingResponseDto | null;
   createdAt: string;
   updatedAt: string;
   /**
@@ -3388,6 +3548,104 @@ export type MemoryFileResponseDto = {
   body: string;
 };
 
+export type NextActResponseDto = {
+  act: 'started' | 'parked' | 'closed' | 'answered' | 'approved' | 'refused' | 'sent-back';
+  at: string;
+};
+
+export type StationRunOutcomeResponseDto = {
+  runId: string;
+  taskId: string;
+  endedAt: string;
+  ending: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+  /**
+   * Why it failed, where it did
+   */
+  failure: string | null;
+  /**
+   * How many runs this station has taken on the task, this one included
+   */
+  round: number;
+  cost: RunCostResponseDto | null;
+  /**
+   * How its change fared when checked, if it was
+   */
+  checks: 'passed' | 'failed' | 'skipped' | null;
+  /**
+   * The first thing a person did with the task after the run
+   */
+  next: NextActResponseDto | null;
+  /**
+   * Where the task’s pull request stands, if it opened one
+   */
+  delivery: 'open' | 'merged' | 'closed' | null;
+};
+
+export type SpendResponseDto = {
+  amount: number;
+  currency: string;
+};
+
+export type StationTallyResponseDto = {
+  /**
+   * Runs that ran; the rest of the tally counts only these
+   */
+  runs: number;
+  /**
+   * Runs withdrawn from the queue before they ran
+   */
+  withdrawn: number;
+  failed: number;
+  /**
+   * Runs a person stopped
+   */
+  stopped: number;
+  checksPassed: number;
+  checksFailed: number;
+  /**
+   * Runs a person next closed or approved
+   */
+  accepted: number;
+  /**
+   * Runs a person next sent back or refused
+   */
+  sentBack: number;
+  /**
+   * Tasks among these runs whose pull request merged
+   */
+  merged: number;
+  /**
+   * What the runs cost together, where they cost one currency
+   */
+  cost: SpendResponseDto | null;
+  medianMs: number | null;
+};
+
+export type FingerprintGroupResponseDto = {
+  /**
+   * The station config these runs ran with; none for runs from before configs were fingerprinted
+   */
+  fingerprint: string | null;
+  config: StationConfigResponseDto | null;
+  /**
+   * How the config differs from the one before it
+   */
+  changes: Array<ConfigChangeResponseDto>;
+  /**
+   * Its runs, the newest first
+   */
+  runs: Array<StationRunOutcomeResponseDto>;
+  tally: StationTallyResponseDto;
+};
+
+export type StationOutcomesResponseDto = {
+  stationId: string;
+  /**
+   * The station’s latest runs, in runs of the same config, the newest first
+   */
+  groups: Array<FingerprintGroupResponseDto>;
+};
+
 export type HookSigningRequestDtoWritable = {
   /**
    * The HMAC secret, whsec_ and 24 to 64 base64 bytes; write-only, sent when secretVersion changes
@@ -3969,6 +4227,43 @@ export type ReadRunTraceResponses = {
 };
 
 export type ReadRunTraceResponse = ReadRunTraceResponses[keyof ReadRunTraceResponses];
+
+export type ReadRunHistoryData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query: {
+    last?: number;
+    since?: string;
+    outcome?: string;
+    fingerprint?: string;
+    line?: string;
+    station: string;
+  };
+  url: '/runs/{runId}/history';
+};
+
+export type ReadRunHistoryErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run, or no such station in its team
+   */
+  404: unknown;
+  /**
+   * Several of the team’s lines have a station by that key
+   */
+  409: unknown;
+};
+
+export type ReadRunHistoryResponses = {
+  200: RunnerHistoryResponseDto;
+};
+
+export type ReadRunHistoryResponse = ReadRunHistoryResponses[keyof ReadRunHistoryResponses];
 
 export type DeliverSaidData = {
   body: DeliverSaidRequestDto;
@@ -4875,6 +5170,33 @@ export type ListTeamTracesResponses = {
 };
 
 export type ListTeamTracesResponse = ListTeamTracesResponses[keyof ListTeamTracesResponses];
+
+export type ReadRunConfigData = {
+  body?: never;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/config';
+};
+
+export type ReadRunConfigErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadRunConfigResponses = {
+  200: RunConfigResponseDto;
+};
+
+export type ReadRunConfigResponse = ReadRunConfigResponses[keyof ReadRunConfigResponses];
 
 export type ReadRunConversationData = {
   body?: never;
@@ -11299,3 +11621,36 @@ export type ReadMemoryFilesResponses = {
 };
 
 export type ReadMemoryFilesResponse = ReadMemoryFilesResponses[keyof ReadMemoryFilesResponses];
+
+export type ListStationOutcomesData = {
+  body?: never;
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: {
+    /**
+     * How many of the latest runs to look at: 50 unless asked, 200 at most
+     */
+    last?: number;
+  };
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/outcomes';
+};
+
+export type ListStationOutcomesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListStationOutcomesResponses = {
+  200: StationOutcomesResponseDto;
+};
+
+export type ListStationOutcomesResponse = ListStationOutcomesResponses[keyof ListStationOutcomesResponses];

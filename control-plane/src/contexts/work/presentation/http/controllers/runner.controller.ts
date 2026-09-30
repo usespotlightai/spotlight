@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -7,6 +8,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Res,
   StreamableFile,
 } from '@nestjs/common';
@@ -21,6 +23,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
@@ -48,6 +51,7 @@ import type {
   RunCompletionDto,
   RunParkingDto,
 } from '@work/application/dto/run-completion.dto';
+import type { RunnerHistoryAnswer } from '@work/application/dto/runner-history.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import type { AttachmentContent } from '@work/application/ports/attachment-store.port';
@@ -55,6 +59,7 @@ import type { CheckLeaseRenewal } from '@work/application/ports/check-work.port'
 import { HarnessCatalogueQuery } from '@work/application/queries/list-harnesses.query';
 import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
+import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 import { TurnAsksAPersonQuery } from '@work/application/queries/turn-asks-a-person.query';
@@ -80,8 +85,10 @@ import {
   ToolAnswerResponseDto,
   TurnAsksAPersonResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
+import { RunnerHistoryResponseDto } from '@work/presentation/http/dto/runner-history.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 import { ClaimedWorkHttpMapper } from '@work/presentation/http/mappers/claimed-work.http.mapper';
+import { RunnerHistoryHttpMapper } from '@work/presentation/http/mappers/runner-history.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
 
 interface Answerable {
@@ -231,6 +238,65 @@ export class RunnerController {
     }
 
     return TaskTraceHttpMapper.toResponse(trace);
+  }
+
+  @Get('runs/:runId/history')
+  @ApiOperation({
+    operationId: 'readRunHistory',
+    summary:
+      "Read a station's recent runs, their configs, journals, changes and outcomes, for an agent studying its own team",
+  })
+  @ApiQuery({ name: 'station', type: String })
+  @ApiQuery({ name: 'line', type: String, required: false })
+  @ApiQuery({ name: 'fingerprint', type: String, required: false })
+  @ApiQuery({ name: 'outcome', type: String, required: false })
+  @ApiQuery({ name: 'since', type: String, required: false })
+  @ApiQuery({ name: 'last', type: Number, required: false })
+  @ApiOkResponse({ type: RunnerHistoryResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such run, or no such station in its team',
+  })
+  @ApiConflictResponse({
+    description: 'Several of the team’s lines have a station by that key',
+  })
+  async history(
+    @Param('runId') runId: string,
+    @Query('station') station: string | undefined,
+    @Query('line') line: string | undefined,
+    @Query('fingerprint') fingerprint: string | undefined,
+    @Query('outcome') outcome: string | undefined,
+    @Query('since') since: string | undefined,
+    @Query('last') last: string | undefined,
+    @CurrentRunner() runnerId: string,
+  ): Promise<RunnerHistoryResponseDto> {
+    if (!station?.trim()) {
+      throw new NotFoundException();
+    }
+
+    const answer = await this.queryBus.execute<
+      ReadRunnerHistoryQuery,
+      RunnerHistoryAnswer
+    >(
+      new ReadRunnerHistoryQuery(runId, runnerId, {
+        station: station.trim(),
+        line: line?.trim() || null,
+        fingerprint: fingerprint?.trim() || null,
+        outcome: outcome?.trim() || null,
+        since: since?.trim() || null,
+        last: last ? Number(last) : null,
+      }),
+    );
+
+    switch (answer.kind) {
+      case 'found':
+        return RunnerHistoryHttpMapper.toResponse(answer.history);
+      case 'ambiguous':
+        throw new ConflictException(
+          `Several lines have a station by that key; name one with --line: ${answer.lines.join(', ')}`,
+        );
+      default:
+        throw new NotFoundException();
+    }
   }
 
   @Post('runs/:runId/messages/delivered')

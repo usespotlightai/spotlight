@@ -1,4 +1,5 @@
 import type {
+  ChatImprovingResponseDto,
   ChatMessageResponseDto,
   ChatResponseDto,
   ChatSummaryResponseDto,
@@ -27,6 +28,39 @@ export const tracesHandedOver = (state: unknown): SharedTrace[] => {
   const traces = (state as { traces?: unknown } | null)?.traces;
 
   return Array.isArray(traces) ? traces.filter(isSharedTrace) : [];
+};
+
+export type ImprovedStation = ChatImprovingResponseDto;
+
+const IMPROVED_STATION_FIELDS = [
+  'lineId',
+  'lineKey',
+  'lineName',
+  'stationId',
+  'stationKey',
+  'stationName',
+] as const satisfies readonly (keyof ImprovedStation)[];
+
+const isImprovedStation = (given: unknown): given is ImprovedStation =>
+  typeof given === 'object' &&
+  given !== null &&
+  IMPROVED_STATION_FIELDS.every(
+    (field) => typeof (given as Record<string, unknown>)[field] === 'string',
+  );
+
+export const improvingHandedOver = (state: unknown): ImprovedStation | null => {
+  const improving = (state as { improving?: unknown } | null)?.improving;
+
+  return isImprovedStation(improving)
+    ? {
+        lineId: improving.lineId,
+        lineKey: improving.lineKey,
+        lineName: improving.lineName,
+        stationId: improving.stationId,
+        stationKey: improving.stationKey,
+        stationName: improving.stationName,
+      }
+    : null;
 };
 
 export type ChatMoment =

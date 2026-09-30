@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { lineKeys } from '@/hooks/api/useLines';
 import { repositoryKeys } from '@/hooks/api/useRepositories';
+import { runConfigKeys } from '@/hooks/api/useRunConfig';
 import { runConversationKeys } from '@/hooks/api/useRunConversation';
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
@@ -12,6 +13,7 @@ import type {
   HarnessResponseDto,
   JournalStepResponseDto,
   LineResponseDto,
+  RunConfigResponseDto,
   RunConversationResponseDto,
   RunJournalResponseDto,
   RunStationResponseDto,
@@ -212,11 +214,33 @@ const WORKSPACE: WorkspaceResponseDto = {
   teams: [{ id: TEAM_ID, name: 'Platform' }],
 };
 
+const FINGERPRINT =
+  '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9';
+
+const CONFIG: RunConfigResponseDto = {
+  fingerprint: FINGERPRINT,
+  config: {
+    prompt: 'Implement the spec on the task.',
+    harness: 'claude-code',
+    model: 'claude-opus-5',
+    effort: 'xhigh',
+    profile: null,
+    image: null,
+    repositories: [{ name: 'acme/worker', setup: 'npm ci' }],
+    skills: [{ key: 'reviewing', digest: 'c0ffee' }],
+    tools: [],
+    decisions: true,
+    memories: true,
+  },
+  changedSince: null,
+};
+
 const seedAround = (
   client: QueryClient,
   standing: Partial<TaskResponseDto> = {},
 ) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
+  client.setQueryData(runConfigKeys.forRun(RUN_ID), CONFIG);
   client.setQueryData(
     taskKeys.forTeam(TEAM_ID),
     TASKS.map((each) => ({ ...each, ...standing })),
@@ -326,6 +350,49 @@ export const seedCarryingOnRun = (client: QueryClient) => {
   });
   client.setQueryData(journalKeys.forTask(TASK_ID), [...JOURNAL, CARRIED_ON]);
   seedRunMemories(client, TEAM_ID, RUN_ID);
+};
+
+export const seedChangedConfigRun = (client: QueryClient) => {
+  seedRun(client);
+  client.setQueryData(runConfigKeys.forRun(RUN_ID), {
+    ...CONFIG,
+    changedSince: {
+      runId: 'run_retries_1',
+      taskId: 'task_webhooks',
+      fingerprint:
+        'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
+      changes: [
+        {
+          part: 'prompt',
+          name: null,
+          kind: 'changed',
+          was: null,
+          now: null,
+        },
+        {
+          part: 'effort',
+          name: null,
+          kind: 'changed',
+          was: 'high',
+          now: 'xhigh',
+        },
+        {
+          part: 'skill',
+          name: 'reviewing',
+          kind: 'added',
+          was: null,
+          now: null,
+        },
+        {
+          part: 'memories',
+          name: null,
+          kind: 'changed',
+          was: 'off',
+          now: 'on',
+        },
+      ],
+    },
+  } satisfies RunConfigResponseDto);
 };
 
 export const rememberingRun = (client: QueryClient) => {

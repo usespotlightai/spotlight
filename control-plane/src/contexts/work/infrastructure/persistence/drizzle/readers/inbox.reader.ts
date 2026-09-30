@@ -253,7 +253,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       TaskAside.attendedBy({
         viewer: userId,
         assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
-        onTeam: teams.get(row.teamId) ?? false,
+        seesTeam: teams.get(row.teamId) ?? false,
       }),
     );
 

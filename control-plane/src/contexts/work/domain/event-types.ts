@@ -20,6 +20,7 @@ import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
+import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
 import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
@@ -67,6 +68,7 @@ import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldBack } from '@work/domain/value-objects/held-back.vo';
+import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -100,6 +102,7 @@ import { Signing } from '@work/domain/value-objects/signing.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -155,6 +158,7 @@ export const WORK_EVENT_TYPES = [
   HarnessCommand,
   HarnessName,
   HarnessSession,
+  ImprovedStation,
   HeldBack,
   LineId,
   LineKey,
@@ -189,6 +193,7 @@ export const WORK_EVENT_TYPES = [
   SkillKey,
   StationCheck,
   StationColor,
+  StationConfig,
   StationDescription,
   StationId,
   StationKey,
@@ -233,6 +238,7 @@ export const WORK_EVENT_TYPES = [
   RunStopRequested,
   StationHarnessChanged,
   StationRenamed,
+  TaskActedOn,
   TaskAnswered,
   TaskAsked,
   TaskAsideRaised,

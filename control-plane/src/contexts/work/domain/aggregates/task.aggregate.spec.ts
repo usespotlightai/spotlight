@@ -11,6 +11,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
+import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-revision.error';
@@ -81,6 +82,16 @@ const added = (description?: TaskDescription) =>
   });
 
 const NOW = new Date('2026-08-29T12:00:00.000Z');
+
+const actsOf = (task: Task) =>
+  task
+    .pullEvents()
+    .filter((each): each is TaskActedOn => each instanceof TaskActedOn)
+    .map((each) => ({
+      act: each.act,
+      by: each.by.value,
+      after: each.after?.value ?? null,
+    }));
 
 const station = (
   id: string,
@@ -618,6 +629,31 @@ describe('Task, what it is doing', () => {
       expect(told.heldBy(RUN)).toBe(true);
       expect(told.wantsRun(LINE)).toBe(false);
       expect(told.undelivered).toHaveLength(1);
+    });
+
+    it('tells that a person sent a finished task back, after the run they spoke in', () => {
+      const told = added()
+        .handedTo(RUN, LINE)
+        .finishedHere(RUN, LINE, saying)
+        .spokenTo(RUN, aloud, here);
+
+      expect(actsOf(told)).toEqual([
+        { act: 'sent-back', by: 'user_1', after: 'run_1' },
+      ]);
+    });
+
+    it('tells that a person answered what the task was waiting on', () => {
+      const told = added().askedAbout(saying, null).spokenTo(RUN, aloud, here);
+
+      expect(actsOf(told)).toEqual([
+        { act: 'answered', by: 'user_1', after: null },
+      ]);
+    });
+
+    it('tells nothing a person did when they speak to the run still working it', () => {
+      expect(
+        actsOf(added().handedTo(RUN, LINE).spokenTo(RUN, aloud, here)),
+      ).toEqual([]);
     });
 
     it('keeps a task waiting on a person when what is said there is no answer', () => {
@@ -1172,6 +1208,49 @@ describe('Task, what it is doing', () => {
       expect(parked.pullEvents().map((each) => each.kind)).toContain(
         'task.let-go-of-run',
       );
+    });
+
+    it('tells whether a person started, parked or closed it', () => {
+      expect(actsOf(moved(BACKLOG, HERE))).toEqual([
+        { act: 'started', by: 'user_2', after: null },
+      ]);
+      expect(actsOf(moved(HERE, BACKLOG))).toEqual([
+        { act: 'parked', by: 'user_2', after: null },
+      ]);
+      expect(actsOf(moved(HERE, COMPLETED))).toEqual([
+        { act: 'closed', by: 'user_2', after: null },
+      ]);
+    });
+
+    it('names the run that last spoke on it when a person closes it', () => {
+      const finished = at(HERE)
+        .handedTo(RUN, LINE)
+        .finishedHere(RUN, LINE, { ...saying, voice: Voice.station(RUN) });
+      const reopened = finished.spokenTo(
+        RUN,
+        { ...saying, voice: Voice.person(UserId.of('user_1')) },
+        HERE,
+      );
+      reopened.pullEvents();
+
+      expect(
+        actsOf(
+          reopened.moveTo(LINE, COMPLETED, TaskRank.of('m'), saying, hand),
+        ),
+      ).toEqual([{ act: 'closed', by: 'user_2', after: 'run_1' }]);
+    });
+
+    it('tells nothing a person did when a reaction moves it', () => {
+      expect(
+        actsOf(
+          at(HERE).reactedTo(
+            LINE,
+            StationId.of('station_2'),
+            TaskRank.of('m'),
+            saying,
+          ),
+        ),
+      ).toEqual([]);
     });
 
     it('will not be moved between work stations, which its runs pass it along', () => {

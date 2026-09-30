@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { StationLayout } from '@/components/features/stations/StationLayout';
+import { StationSection } from '@/components/features/stations/StationSection';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
@@ -47,14 +48,12 @@ export function StationSkeleton() {
           </div>
         </div>
 
-        <section className="flex flex-col gap-2">
-          <h2 className="font-medium text-foreground text-sm">Agent prompt</h2>
-
+        <StationSection title="Agent prompt">
           <div className="w-full rounded-lg border-[0.5px] border-border bg-card p-3 text-sm leading-6">
             <SkeletonLine className="w-16" />
             <SkeletonLine className="w-2/3" />
           </div>
-        </section>
+        </StationSection>
       </StationLayout>
     </div>
   );

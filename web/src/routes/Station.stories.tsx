@@ -4,9 +4,13 @@ import { stationPath } from '@/lib/station';
 import { Station } from '@/routes/Station';
 import {
   failStation,
+  failStationOutcomes,
   LINE_ID,
+  refuseStationOutcomes,
   STATION_ID,
   seedStation,
+  seedStationAwaitingOutcomes,
+  seedStationWithoutRuns,
 } from '@/stories/fixtures/station';
 import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
 import { StoryPage } from '@/stories/StoryPage';
@@ -44,6 +48,42 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedStation}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const RunsLoading: Story = {
+  name: 'Runs loading',
+  render: () => (
+    <StoryPage at={at} seed={seedStationAwaitingOutcomes}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const RunsEmpty: Story = {
+  name: 'Runs empty',
+  render: () => (
+    <StoryPage at={at} seed={seedStationWithoutRuns}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const RunsFailed: Story = {
+  name: 'Runs error',
+  render: () => (
+    <StoryPage at={at} seed={failStationOutcomes}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const RunsMembersOnly: Story = {
+  name: 'Runs members only',
+  render: () => (
+    <StoryPage at={at} seed={refuseStationOutcomes}>
       {routes}
     </StoryPage>
   ),

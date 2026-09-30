@@ -15,6 +15,7 @@ import {
   type TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
+import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -273,9 +274,24 @@ export class Task extends EventRecorder {
   ): Task {
     this.refuseHandMove(line, to);
 
-    return this.relocated(line, to, rank, saying, handMove).lettingGoOf(
+    const into = Task.stationOn(line, to);
+    const moved = this.relocated(line, to, rank, saying, handMove).lettingGoOf(
       this.currentRunId,
     );
+
+    moved.record(
+      new TaskActedOn(
+        this.id,
+        this.workspaceId,
+        this.stationId,
+        into.isCompleted ? 'closed' : into.isBacklog ? 'parked' : 'started',
+        handMove.mover,
+        this.lastRun,
+        saying.at,
+      ),
+    );
+
+    return moved;
   }
 
   reactedTo(line: Line, to: StationId, rank: TaskRank, saying: Saying): Task {
@@ -551,9 +567,28 @@ export class Task extends EventRecorder {
       (!this.running && at !== null && this.stationId.equals(at));
     const owed = answering ? this.owedConversation : null;
 
-    return owed && !this.owesADecision
-      ? this.answered(NotePosition.of(owed.from), saying)
-      : this.heard(saying, at);
+    if (owed && !this.owesADecision) {
+      return this.answered(NotePosition.of(owed.from), saying);
+    }
+
+    const heard = this.heard(saying, at);
+    const sender = saying.voice.isPerson ? saying.voice.author : null;
+
+    if (sender && !this.running) {
+      heard.record(
+        new TaskActedOn(
+          this.id,
+          this.workspaceId,
+          this.stationId,
+          'sent-back',
+          sender,
+          by,
+          saying.at,
+        ),
+      );
+    }
+
+    return heard;
   }
 
   get awaitsAnAnswer(): boolean {
@@ -675,6 +710,12 @@ export class Task extends EventRecorder {
       key: ContinuityKey.forTask(this.id.value),
       sessionId: this.sessionId,
     });
+  }
+
+  private get lastRun(): RunId | null {
+    const spoken = this.notes.filter((note) => note.voice.run !== null);
+
+    return this.currentRunId ?? spoken[spoken.length - 1]?.voice.run ?? null;
   }
 
   private get trail(): Trail {
@@ -1020,6 +1061,24 @@ export class Task extends EventRecorder {
     if (this.currentRunId) {
       answered.record(
         new TaskAnswered(this.id, this.workspaceId, this.currentRunId),
+      );
+    }
+
+    if (by && saying.voice.isPerson) {
+      answered.record(
+        new TaskActedOn(
+          this.id,
+          this.workspaceId,
+          this.stationId,
+          decision === 'granted'
+            ? 'approved'
+            : decision === 'refused'
+              ? 'refused'
+              : 'answered',
+          by,
+          this.lastRun,
+          saying.at,
+        ),
       );
     }
 

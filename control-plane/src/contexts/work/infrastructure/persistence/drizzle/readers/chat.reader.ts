@@ -33,6 +33,7 @@ const summaryOf = (row: Row): ChatSummary => ({
   model: row.model,
   effort: row.effort,
   repositories: row.repositories,
+  improving: row.improving ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
   working: row.currentRunId !== null,

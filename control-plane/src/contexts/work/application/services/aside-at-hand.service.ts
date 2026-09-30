@@ -28,7 +28,8 @@ export class AsideAtHand {
       !TaskAside.attendedBy({
         viewer,
         assignee: task.assignee,
-        onTeam: (await this.access.onTeam(line.teamId.value, viewer)) !== null,
+        seesTeam:
+          (await this.access.onTeam(line.teamId.value, viewer)) !== null,
       })
     ) {
       throw new UnknownTaskAsideError(asideId);

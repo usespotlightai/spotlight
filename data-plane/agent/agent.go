@@ -28,6 +28,7 @@ func Main(args []string) int {
 const Usage = `  spotlight handover --next <where> [--note <text>]
   spotlight reply --to <handle> [--body <text>] [--resolve]
   spotlight trace --task <id> [--out <path>]
+  spotlight history --station <key> [--line <key>] [--fingerprint <fp>] [--outcome <word>] [--since <date>] [--last <n>] [--out <dir>]
   spotlight recall "<words>" | M-12
   spotlight remember --kind <kind> --body "…" [--path <path>]... [--reach team|line|station] [--supersedes M-12]
   spotlight tools
@@ -47,6 +48,8 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return reply(args[1:], in, out)
 	case "trace":
 		return traceCmd(args[1:], out)
+	case "history":
+		return historyCmd(args[1:], out)
 	case "recall":
 		return recall(args[1:], out)
 	case "remember":

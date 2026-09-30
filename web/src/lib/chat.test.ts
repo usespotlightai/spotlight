@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type ChatMessage,
   chatPath,
+  improvingHandedOver,
   momentsOf,
   newlyProposed,
   type Proposal,
@@ -237,5 +238,34 @@ describe('tracesHandedOver', () => {
     expect(tracesHandedOver(null)).toEqual([]);
     expect(tracesHandedOver({ traces: 'task_1' })).toEqual([]);
     expect(tracesHandedOver({ traces: [{ taskId: 'task_1' }] })).toEqual([]);
+  });
+});
+
+describe('improvingHandedOver', () => {
+  const SPEC = {
+    lineId: 'line_1',
+    lineKey: 'delivery',
+    lineName: 'Delivery',
+    stationId: 'station_1',
+    stationKey: 'spec',
+    stationName: 'Spec',
+  };
+
+  it('takes the station handed over with the page', () => {
+    expect(improvingHandedOver({ trail: [], improving: SPEC })).toEqual(SPEC);
+  });
+
+  it('keeps only what names the station', () => {
+    expect(
+      improvingHandedOver({ improving: { ...SPEC, color: '#b36ae2' } }),
+    ).toEqual(SPEC);
+  });
+
+  it('takes nothing where nothing, or nothing like a station, was handed over', () => {
+    expect(improvingHandedOver(null)).toBeNull();
+    expect(improvingHandedOver({ improving: 'station_1' })).toBeNull();
+    expect(
+      improvingHandedOver({ improving: { stationId: 'station_1' } }),
+    ).toBeNull();
   });
 });

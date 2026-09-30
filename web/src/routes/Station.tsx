@@ -1,6 +1,8 @@
 import { useParams } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { FixedSettings } from '@/components/features/stations/FixedSettings';
+import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
+import { StationOutcomes } from '@/components/features/stations/outcomes/StationOutcomes';
 import { StationLayout } from '@/components/features/stations/StationLayout';
 import { StationPrompt } from '@/components/features/stations/StationPrompt';
 import { StationSkeleton } from '@/components/features/stations/StationSkeleton';
@@ -17,7 +19,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { failed, loading } from '@/lib/query';
 import { stationShare } from '@/lib/station';
 import { linePath, teamPath } from '@/lib/team';
-import { useTrail } from '@/lib/trail';
+import { TrailContext, useTrail } from '@/lib/trail';
 
 const ENDS = {
   backlog:
@@ -56,7 +58,7 @@ export function Station() {
       : []),
     ...(station ? [{ label: station.name }] : []),
   ];
-  const { trail } = useTrail(base);
+  const { trail, forward } = useTrail(base);
 
   if (loading(lines)) {
     return <StationSkeleton />;
@@ -74,7 +76,7 @@ export function Station() {
     );
   }
 
-  if (!line || !station || !slug) {
+  if (!line || !station || !slug || !teamId) {
     return (
       <PageNotice title="Station not found">
         <p className="text-muted-foreground text-sm">
@@ -85,7 +87,7 @@ export function Station() {
   }
 
   return (
-    <>
+    <TrailContext value={forward}>
       <PageHeader title={<Breadcrumbs segments={trail} />} />
 
       <StationLayout>
@@ -105,6 +107,22 @@ export function Station() {
             <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
               {station.name}
             </h1>
+
+            {station.kind === 'work' && (
+              <ImproveStationLink
+                slug={slug}
+                teamId={teamId}
+                improving={{
+                  lineId: line.id,
+                  lineKey: line.key,
+                  lineName: line.name,
+                  stationId: station.id,
+                  stationKey: station.key,
+                  stationName: station.name,
+                }}
+                className="ml-auto"
+              />
+            )}
           </div>
 
           {station.description && (
@@ -134,6 +152,13 @@ export function Station() {
             />
 
             <StationSkills skills={station.skills} />
+
+            <StationOutcomes
+              slug={slug}
+              teamId={teamId}
+              lineId={line.id}
+              stationId={station.id}
+            />
           </>
         ) : (
           <p className="text-muted-foreground text-sm leading-6">
@@ -141,6 +166,6 @@ export function Station() {
           </p>
         )}
       </StationLayout>
-    </>
+    </TrailContext>
   );
 }

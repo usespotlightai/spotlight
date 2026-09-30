@@ -51,6 +51,13 @@ export class StartChatRequestDto {
     description: 'Tasks whose traces to share with the agent, by task id',
   })
   readonly traces?: string[];
+
+  @ApiPropertyOptional({
+    type: String,
+    description:
+      'A station the chat is about improving, by its id; the agent is briefed to study its recent runs',
+  })
+  readonly improving?: string;
 }
 
 export class SayInChatRequestDto {

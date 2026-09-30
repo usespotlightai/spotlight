@@ -1,6 +1,5 @@
-import { X } from 'lucide-react';
 import { SharedTraceChip } from '@/components/features/agent/SharedTraceChip';
-import { Button } from '@/components/ui/button';
+import { ChipRemoveButton } from '@/components/shared/attachment/ChipRemoveButton';
 import type { SharedTrace } from '@/lib/chat';
 import { cn } from '@/lib/utils';
 
@@ -30,16 +29,10 @@ export function PendingTraces({
             trace={trace}
             className="w-48 max-w-none"
             trailing={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="-mr-1 rounded-full text-muted-foreground"
-                onClick={() => onRemove(trace.taskId)}
-                aria-label={`Remove the trace of ${trace.title}`}
-              >
-                <X />
-              </Button>
+              <ChipRemoveButton
+                label={`Remove the trace of ${trace.title}`}
+                onRemove={() => onRemove(trace.taskId)}
+              />
             }
           />
         </li>

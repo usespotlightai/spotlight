@@ -195,6 +195,37 @@ describe('AgentChat', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/observability/tasks/task_9');
   });
 
+  it('names the station it is improving, leading to it', () => {
+    chat.mockReturnValue(
+      planning({
+        improving: {
+          lineId: 'line_1',
+          lineKey: 'delivery',
+          lineName: 'Delivery',
+          stationId: 'station_spec',
+          stationKey: 'spec',
+          stationName: 'Spec',
+        },
+      }),
+    );
+
+    renderChat();
+
+    expect(screen.getByRole('link', { name: 'Spec' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1/stations/station_spec',
+    );
+    expect(screen.getByText(/^Improving/)).toHaveTextContent(
+      'Improving Spec on Delivery',
+    );
+  });
+
+  it('names no station where the chat improves none', () => {
+    renderChat();
+
+    expect(screen.queryByText(/^Improving/)).not.toBeInTheDocument();
+  });
+
   it('says nothing has been said yet in a chat without a word in it', () => {
     chat.mockReturnValue(planning({ messages: [] }));
 

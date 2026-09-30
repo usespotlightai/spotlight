@@ -12,6 +12,14 @@ import {
   type RunEnding,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {
+  RUN_SUPERSEDED,
+  type RunSupersededIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-superseded.integration-event';
+import {
+  TASK_ACTED_ON,
+  type TaskActedOnIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
+import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
@@ -32,7 +40,9 @@ import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunBriefed } from '@work/domain/events/run-briefed.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
+import type { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
@@ -41,12 +51,19 @@ import type { TaskOpened } from '@work/domain/events/task-opened.event';
 const ended = (
   event: RunCompleted | RunAbandoned | RunWithdrawn,
   outcome: RunEnding,
+  { failure, stopped }: { failure: string | null; stopped: boolean } = {
+    failure: null,
+    stopped: false,
+  },
 ): RunEndedIntegrationEvent => ({
   kind: RUN_ENDED,
   runId: event.runId.value,
   workspaceId: event.workspaceId.value,
   taskId: event.taskId?.value ?? null,
+  stationId: event.subject?.stationId?.value ?? null,
   outcome,
+  failure,
+  stopped,
 });
 
 export const WORK_PUBLICATIONS = [
@@ -105,12 +122,36 @@ export const WORK_PUBLICATIONS = [
     }),
   ),
   publishing<RunCompleted>('run.completed', (event) =>
-    ended(event, event.outcome.failed ? 'failed' : 'completed'),
+    ended(event, event.outcome.failed ? 'failed' : 'completed', {
+      failure: event.outcome.failure?.code ?? null,
+      stopped: event.outcome.stopped,
+    }),
   ),
   publishing<RunAbandoned>('run.abandoned', (event) =>
     ended(event, 'abandoned'),
   ),
   publishing<RunWithdrawn>('run.withdrawn', (event) =>
     ended(event, 'withdrawn'),
+  ),
+  publishing<RunSuperseded>(
+    'run.superseded',
+    (event): RunSupersededIntegrationEvent => ({
+      kind: RUN_SUPERSEDED,
+      runId: event.runId.value,
+      workspaceId: event.workspaceId.value,
+      taskId: event.taskId?.value ?? null,
+    }),
+  ),
+  publishing<TaskActedOn>(
+    'task.acted-on',
+    (event): TaskActedOnIntegrationEvent => ({
+      kind: TASK_ACTED_ON,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      stationId: event.stationId.value,
+      act: event.act,
+      after: event.after?.value ?? null,
+      at: event.at.toISOString(),
+    }),
   ),
 ] as const;

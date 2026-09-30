@@ -36,6 +36,7 @@ type Journal interface {
 	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
+	History(ctx context.Context, runID string, asked protocol.HistoryRequest) (json.RawMessage, error)
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.Remembering) (json.RawMessage, error)
@@ -184,6 +185,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	channel.Traces(func(ctx context.Context, taskID string) (json.RawMessage, error) {
 		return opts.Journal.Trace(ctx, run.ID, taskID)
+	})
+
+	channel.Histories(func(ctx context.Context, asked protocol.HistoryRequest) (json.RawMessage, error) {
+		return opts.Journal.History(ctx, run.ID, asked)
 	})
 
 	channel.Memories(

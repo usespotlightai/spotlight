@@ -99,6 +99,7 @@ const chat = (
   createdAt: minutesAgo(3 * DAY),
   updatedAt: minutesAgo(3 * DAY),
   working: false,
+  improving: null,
   ...over,
 });
 

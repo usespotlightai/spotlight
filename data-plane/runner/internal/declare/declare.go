@@ -27,6 +27,8 @@ type Answerer func(ctx context.Context, said protocol.Remark) error
 
 type Tracer func(ctx context.Context, taskID string) (json.RawMessage, error)
 
+type Historian func(ctx context.Context, asked protocol.HistoryRequest) (json.RawMessage, error)
+
 type Recaller func(ctx context.Context, asked protocol.RecallRequest) (json.RawMessage, error)
 
 type Rememberer func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error)
@@ -54,6 +56,7 @@ type Server struct {
 	use       Tooler
 	answer    Answerer
 	trace     Tracer
+	history   Historian
 	recall    Recaller
 	remember  Rememberer
 
@@ -115,6 +118,10 @@ func (s *Server) Traces(trace Tracer) {
 	s.trace = trace
 }
 
+func (s *Server) Histories(history Historian) {
+	s.history = history
+}
+
 func (s *Server) Memories(recall Recaller, remember Rememberer) {
 	s.recall = recall
 	s.remember = remember
@@ -170,6 +177,11 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	if path.Clean(request.URL.Path) == protocol.HandoverTracePath {
 		s.traceOf(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.HandoverHistoryPath {
+		s.historyOf(writer, request)
 		return
 	}
 
@@ -321,6 +333,26 @@ func (s *Server) traceOf(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	_, _ = writer.Write(trace)
+}
+
+func (s *Server) historyOf(writer http.ResponseWriter, request *http.Request) {
+	if s.history == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot read a station's history")
+		return
+	}
+
+	var asked protocol.HistoryRequest
+	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&asked); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable history request")
+		return
+	}
+
+	if strings.TrimSpace(asked.Station) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say which station")
+		return
+	}
+
+	s.answered(writer, func() (json.RawMessage, error) { return s.history(request.Context(), asked) })
 }
 
 func (s *Server) recalled(writer http.ResponseWriter, request *http.Request) {

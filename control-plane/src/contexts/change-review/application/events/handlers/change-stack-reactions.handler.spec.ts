@@ -3,6 +3,7 @@ import { ChangeStackChecked } from '@change-review/domain/events/change-stack-ch
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const STACK_ID = ChangeStackId.of('stack-1');
@@ -17,7 +18,15 @@ describe('ChangeStackReactions', () => {
     });
 
     await reactions.onSettled(new ChangeStackSettled(STACK_ID, RUN_ID));
-    await reactions.onChecked(new ChangeStackChecked(STACK_ID, RUN_ID));
+    await reactions.onChecked(
+      new ChangeStackChecked(
+        STACK_ID,
+        RUN_ID,
+        null,
+        WorkspaceId.of('ws_1'),
+        true,
+      ),
+    );
 
     expect(announced).toEqual([RUN_ID, RUN_ID]);
   });

@@ -164,7 +164,10 @@ describe('change review hearing a run begin and end', () => {
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
+      stationId: 'station_1',
       outcome: 'completed',
+      failure: null,
+      stopped: false,
     };
     const ofChat: RunEndedIntegrationEvent = {
       ...ofTask,
@@ -202,7 +205,10 @@ describe('change review hearing a run end', () => {
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
+      stationId: 'station_1',
       outcome: 'completed',
+      failure: null,
+      stopped: false,
     };
 
     await subscriber?.handle(ofTask);
@@ -292,7 +298,13 @@ describe('change review hearing a stack’s check end', () => {
     const { subscriber, released } = releasing();
 
     await subscriber.handle(
-      new ChangeStackChecked(ChangeStackId.of('stack_1'), RunId.of('run_1')),
+      new ChangeStackChecked(
+        ChangeStackId.of('stack_1'),
+        RunId.of('run_1'),
+        null,
+        WorkspaceId.of('ws_1'),
+        true,
+      ),
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));

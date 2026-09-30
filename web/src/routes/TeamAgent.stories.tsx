@@ -73,6 +73,30 @@ export const SharingTraces: Story = {
   ),
 };
 
+export const ImprovingAStation: Story = {
+  name: 'Improving a station',
+  render: () => (
+    <StoryPage
+      at={{
+        pathname: at,
+        state: {
+          improving: {
+            lineId: 'line_delivery',
+            lineKey: 'delivery',
+            lineName: 'Delivery',
+            stationId: 'station_implementation',
+            stationKey: 'implementation',
+            stationName: 'Implementation',
+          },
+        },
+      }}
+      seed={seedChats}
+    >
+      {routes}
+    </StoryPage>
+  ),
+};
+
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedChats}>

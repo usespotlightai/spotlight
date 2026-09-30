@@ -24,6 +24,9 @@ const access = (db: DrizzleDatabase) =>
       dispatch: async () => {},
     }),
     new DrizzleIdentityResources(new DrizzleContext(db)),
+    new DrizzleTeamRepository(new DrizzleContext(db), {
+      dispatch: async () => {},
+    }),
   );
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');

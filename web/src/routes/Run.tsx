@@ -6,6 +6,7 @@ import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunComposer } from '@/components/features/runs/RunComposer';
+import { RunConfig } from '@/components/features/runs/RunConfig';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
 import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
@@ -20,6 +21,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
+import { runConfigKeys } from '@/hooks/api/useRunConfig';
 import {
   runConversationKeys,
   useRunConversation,
@@ -60,6 +62,9 @@ export function Run() {
     });
     void queryClient.invalidateQueries({
       queryKey: changeStackKeys.forRun(runId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: runConfigKeys.forRun(runId),
     });
     if (teamId && runId) {
       void queryClient.invalidateQueries({
@@ -193,7 +198,10 @@ export function Run() {
     ran.every((each) => each.steps.length === 0);
 
   const remembered = (
-    <RunRemembered slug={slug} teamId={teamId} runId={run.id} />
+    <div className="flex flex-col gap-3">
+      <RunConfig slug={slug} teamId={teamId} runId={run.id} />
+      <RunRemembered slug={slug} teamId={teamId} runId={run.id} />
+    </div>
   );
 
   const activity = run.station ? (

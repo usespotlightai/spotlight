@@ -1,5 +1,5 @@
 {
-  "id": "bc055193-cb80-438a-8b00-f744362a32bb",
+  "id": "6c3fe98e-a35d-4150-b807-d5dc78cd3498",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -4434,6 +4434,252 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.run_record": {
+      "name": "run_record",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "line_id": {
+          "name": "line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ending": {
+          "name": "ending",
+          "type": "run_record_ending",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "failure": {
+          "name": "failure",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "round": {
+          "name": "round",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "superseded": {
+          "name": "superseded",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "checks": {
+          "name": "checks",
+          "type": "run_record_checks",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_act": {
+          "name": "next_act",
+          "type": "run_record_act",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_at": {
+          "name": "next_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "run_record_station_idx": {
+          "name": "run_record_station_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ended_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_record_task_idx": {
+          "name": "run_record_task_idx",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ended_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_record_workspace_idx": {
+          "name": "run_record_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.task_delivery": {
+      "name": "task_delivery",
+      "schema": "",
+      "columns": {
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pull_request": {
+          "name": "pull_request",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "task_delivery_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "task_delivery_pull_request_idx": {
+          "name": "task_delivery_pull_request_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "pull_request",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.pool_token": {
       "name": "pool_token",
       "schema": "",
@@ -5624,6 +5870,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "improving": {
+          "name": "improving",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "current_run_id": {
           "name": "current_run_id",
@@ -7081,6 +7333,24 @@
           "notNull": true,
           "default": "'{\"briefed\":[],\"cut\":[]}'::jsonb"
         },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "station_fingerprint": {
+          "name": "station_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "station_config": {
+          "name": "station_config",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "claimable_from": {
           "name": "claimable_from",
           "type": "timestamp",
@@ -7203,6 +7473,42 @@
           "columns": [
             {
               "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_station_idx": {
+          "name": "run_station_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_station_fingerprint_idx": {
+          "name": "run_station_fingerprint_idx",
+          "columns": [
+            {
+              "expression": "station_fingerprint",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -8479,6 +8785,49 @@
       "values": [
         "briefed",
         "recalled"
+      ]
+    },
+    "public.run_record_act": {
+      "name": "run_record_act",
+      "schema": "public",
+      "values": [
+        "started",
+        "parked",
+        "closed",
+        "answered",
+        "approved",
+        "refused",
+        "sent-back"
+      ]
+    },
+    "public.run_record_checks": {
+      "name": "run_record_checks",
+      "schema": "public",
+      "values": [
+        "passed",
+        "failed",
+        "skipped"
+      ]
+    },
+    "public.run_record_ending": {
+      "name": "run_record_ending",
+      "schema": "public",
+      "values": [
+        "completed",
+        "failed",
+        "stopped",
+        "abandoned",
+        "withdrawn",
+        "superseded"
+      ]
+    },
+    "public.task_delivery_state": {
+      "name": "task_delivery_state",
+      "schema": "public",
+      "values": [
+        "open",
+        "merged",
+        "closed"
       ]
     },
     "public.run_state": {

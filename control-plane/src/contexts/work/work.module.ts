@@ -14,6 +14,7 @@ import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
 import { HOOKED_TASKS } from '@work/application/ports/hooked-tasks.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
 import { NETWORK_CALLS } from '@work/application/ports/network-calls.port';
+import { STATION_RUNS } from '@work/application/ports/station-runs.port';
 import { TASK_ASIDES } from '@work/application/ports/task-asides.port';
 import { TASK_NOTES_FROM_HOOKS } from '@work/application/ports/task-notes-from-hooks.port';
 import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
@@ -43,6 +44,7 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     NETWORK_CALLS,
     TASK_NOTES_FROM_HOOKS,
     TASK_ASIDES,
+    STATION_RUNS,
   ],
 })
 export class WorkModule {}

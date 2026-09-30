@@ -22,6 +22,7 @@ type channel struct {
 	use      func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error)
 	answer   func(ctx context.Context, said protocol.Remark) error
 	trace    func(ctx context.Context, taskID string) (json.RawMessage, error)
+	history  func(asked protocol.HistoryRequest) (json.RawMessage, error)
 	recall   func(asked protocol.RecallRequest) (json.RawMessage, error)
 	remember func(asked protocol.Remembering) (json.RawMessage, error)
 
@@ -64,6 +65,10 @@ func (h *channel) Traces(trace func(ctx context.Context, taskID string) (json.Ra
 	h.trace = trace
 }
 
+func (h *channel) Histories(history func(asked protocol.HistoryRequest) (json.RawMessage, error)) {
+	h.history = history
+}
+
 func (h *channel) Memories(
 	recall func(asked protocol.RecallRequest) (json.RawMessage, error),
 	remember func(asked protocol.Remembering) (json.RawMessage, error),
@@ -102,6 +107,13 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.remark(w, r)
 	case r.URL.Path == protocol.HandoverTracePath:
 		h.traceOf(w, r)
+	case r.URL.Path == protocol.HandoverHistoryPath:
+		var asked protocol.HistoryRequest
+		if h.history == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
+			refuse(w, http.StatusBadRequest, "unreadable history request")
+			return
+		}
+		answered(w)(h.history(asked))
 	case r.URL.Path == protocol.HandoverRecallPath:
 		var asked protocol.RecallRequest
 		if h.recall == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
