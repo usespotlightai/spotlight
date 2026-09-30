@@ -24,7 +24,7 @@ func TestSkillHomesIsWhereEverySkillIsLaid(t *testing.T) {
 		".claude/skills/our-migrations/examples/add-column.md",
 	}
 
-	homes := skillHomes(files(laid...))
+	homes := skillHomes(nil, files(laid...))
 
 	if got := slices.Collect(maps.Keys(homes)); !slices.Equal(got, []string{".claude/skills"}) {
 		t.Fatalf("homes = %v", got)
@@ -34,13 +34,30 @@ func TestSkillHomesIsWhereEverySkillIsLaid(t *testing.T) {
 	}
 }
 
+func TestSkillHomesAreNamedEvenWhereNoSkillIsLaid(t *testing.T) {
+	laid := []string{".claude/skills/our-migrations/SKILL.md"}
+
+	homes := skillHomes([]string{".claude/skills", ".spotlight/skills/", "."}, files(laid...))
+
+	got := slices.Sorted(maps.Keys(homes))
+	if !slices.Equal(got, []string{".claude/skills", ".spotlight/skills"}) {
+		t.Fatalf("homes = %v", got)
+	}
+	if !slices.Equal(homes[".claude/skills"], laid) {
+		t.Errorf("laid in .claude/skills = %v", homes[".claude/skills"])
+	}
+	if len(homes[".spotlight/skills"]) != 0 {
+		t.Errorf("laid in .spotlight/skills = %v", homes[".spotlight/skills"])
+	}
+}
+
 func TestSkillHomesNeverNamesTheWorkspaceItself(t *testing.T) {
 	for _, laid := range [][]string{
 		nil,
 		{"spotlight-handover/SKILL.md"},
 		{"SKILL.md"},
 	} {
-		if homes := skillHomes(files(laid...)); len(homes) != 0 {
+		if homes := skillHomes(nil, files(laid...)); len(homes) != 0 {
 			t.Errorf("skillHomes(%v) = %v, want none", laid, homes)
 		}
 	}

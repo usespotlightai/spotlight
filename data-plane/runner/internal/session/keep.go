@@ -45,7 +45,7 @@ func (k *keeper) carriesOn() bool {
 }
 
 func (k *keeper) restore(ctx context.Context) {
-	if !k.carriesOn() || k.run.Spec.Continuity.SessionID == "" {
+	if !k.carriesOn() {
 		return
 	}
 
@@ -86,7 +86,7 @@ func (k *keeper) restored(ctx context.Context) {
 	}
 
 	k.restoredFrom = held.ID
-	k.say(restoreStep, "Restored the workspace the conversation was left in (%s)", sized(held.Size))
+	k.say(restoreStep, "Restored the workspace the last run left (%s)", sized(held.Size))
 }
 
 func (k *keeper) settled() {

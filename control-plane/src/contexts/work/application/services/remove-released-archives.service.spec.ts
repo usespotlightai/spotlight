@@ -10,7 +10,6 @@ import {
   aSealedArchive,
   later,
 } from '@work/domain/aggregates/workspace-archive.fake-spec';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -71,12 +70,7 @@ describe('RemoveReleasedArchives', () => {
       {
         id: WorkspaceArchiveId.of('held'),
         facts: {
-          holder: {
-            stationId: StationId.of('station_1'),
-            conversing: true,
-            finished: false,
-            changedAt: later(0),
-          },
+          holder: { kind: 'task', finished: false, changedAt: later(0) },
           supersededAt: null,
         },
       },
@@ -93,12 +87,7 @@ describe('RemoveReleasedArchives', () => {
       {
         id: WorkspaceArchiveId.of('late'),
         facts: {
-          holder: {
-            stationId: StationId.of('station_1'),
-            conversing: true,
-            finished: false,
-            changedAt: later(0),
-          },
+          holder: { kind: 'task', finished: false, changedAt: later(0) },
           supersededAt: null,
         },
       },

@@ -160,6 +160,113 @@ func TestReturnsToTheBranchARestoredCheckoutWasLeftOn(t *testing.T) {
 	}
 }
 
+func (f fixture) push(t *testing.T, branch, name, body string) string {
+	t.Helper()
+
+	git(t, f.origin, "switch", "--quiet", branch)
+	pushed := f.commit(t, name, body)
+	git(t, f.origin, "switch", "--quiet", "main")
+	return pushed
+}
+
+func (f fixture) restored(t *testing.T, branch string) protocol.Checkout {
+	t.Helper()
+
+	git(t, f.origin, "branch", branch)
+	checkout := f.checkout(branch)
+	if _, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options()); err != nil {
+		t.Fatal(err)
+	}
+	return checkout
+}
+
+func TestCatchesARestoredCheckoutUpWithWhatWasPushedToItsBranch(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	write(t, filepath.Join(f.tree(), "halfway.md"), "not committed\n")
+
+	pushed := f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
+
+	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, said)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != pushed {
+		t.Errorf("the branch is at %s, want what was pushed, %s", got, pushed)
+	}
+	if _, err := os.Stat(filepath.Join(f.tree(), "halfway.md")); err != nil {
+		t.Errorf("the work left halfway is gone: %v", err)
+	}
+	if !strings.Contains(said, "caught acme/api up") {
+		t.Errorf("said %q", said)
+	}
+}
+
+func TestLeavesARestoredCheckoutAloneWhenItsBranchMovedOnBothHereAndOnTheRemote(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	write(t, filepath.Join(f.tree(), "local.md"), "the last run's\n")
+	git(t, f.tree(), "add", "--all")
+	git(t, f.tree(), "commit", "--quiet", "--message", "local")
+	local := git(t, f.tree(), "rev-parse", "HEAD")
+
+	f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
+
+	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, said)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != local {
+		t.Errorf("the branch moved to %s, want it left at %s", got, local)
+	}
+	if !strings.Contains(said, "moved on both here and on the remote") {
+		t.Errorf("said %q", said)
+	}
+}
+
+func TestLeavesARestoredCheckoutBehindWhenUncommittedWorkStandsInTheWay(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	before := git(t, f.tree(), "rev-parse", "HEAD")
+	write(t, filepath.Join(f.tree(), "README.md"), "halfway through a rewrite\n")
+
+	f.push(t, "spotlight/task-1", "README.md", "a person's rewrite\n")
+
+	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, said)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != before {
+		t.Errorf("the branch moved to %s, want it left at %s", got, before)
+	}
+	if body, _ := os.ReadFile(filepath.Join(f.tree(), "README.md")); string(body) != "halfway through a rewrite\n" {
+		t.Errorf("the work left halfway now reads %q", body)
+	}
+	if !strings.Contains(said, "stands in the way") {
+		t.Errorf("said %q", said)
+	}
+}
+
+func TestSaysNothingOfCatchingUpWhereTheLastRunIsAheadOfWhatWasPushed(t *testing.T) {
+	f := setUp(t)
+	checkout := f.restored(t, "spotlight/task-1")
+	write(t, filepath.Join(f.tree(), "local.md"), "the last run's\n")
+	git(t, f.tree(), "add", "--all")
+	git(t, f.tree(), "commit", "--quiet", "--message", "local")
+
+	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	if err != nil {
+		t.Fatalf("prepare: %v\n%s", err, said)
+	}
+
+	if said != "reusing acme/api" {
+		t.Errorf("said %q", said)
+	}
+}
+
 func TestChecksOutARefTheCloneDoesNotHold(t *testing.T) {
 	f := setUp(t)
 	git(t, f.origin, "switch", "--quiet", "-c", "feature")

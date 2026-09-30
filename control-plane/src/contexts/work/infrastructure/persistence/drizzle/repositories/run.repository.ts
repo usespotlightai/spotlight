@@ -41,7 +41,6 @@ import { and, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 const noEarlierRunStillHeld = sql`NOT EXISTS (
   SELECT 1 FROM ${run} AS earlier
   WHERE earlier.task_id = ${run.taskId}
-    AND earlier.station_id = ${run.stationId}
     AND earlier.id <> ${run.id}
     AND earlier.state IN (${sql.join(
       HELD_RUN_STATES.map((each) => sql`${each}`),

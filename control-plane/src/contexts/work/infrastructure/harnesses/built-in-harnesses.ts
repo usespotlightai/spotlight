@@ -212,6 +212,14 @@ export class BuiltInHarnesses
     return this.definition(id)?.skills ?? null;
   }
 
+  skillHomes(): readonly string[] {
+    return [...new Set(DEFINITIONS.map((each) => each.skills.directory))];
+  }
+
+  settingFiles(): readonly string[] {
+    return DEFINITIONS.flatMap((each) => each.profile.lays);
+  }
+
   commandFor(id: HarnessId, chosen: Chosen): HarnessCommand | null {
     const def = this.definition(id);
 

@@ -64,6 +64,7 @@ const nativeKeys = (profile: HarnessSettings): Record<string, unknown> => {
 
 export const codexProfile: ProfileTranslator = {
   native: 'toml',
+  lays: [CODEX_CONFIG_FILE, CODEX_RULES_FILE],
 
   translate(profile: HarnessSettings): TranslatedProfile {
     const warnings: HarnessNote[] = [];

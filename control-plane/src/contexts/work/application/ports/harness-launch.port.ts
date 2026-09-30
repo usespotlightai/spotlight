@@ -41,5 +41,9 @@ export interface HarnessLaunchPort {
 
   skillsFor(id: HarnessId): SkillsHome | null;
 
+  skillHomes(): readonly string[];
+
+  settingFiles(): readonly string[];
+
   catalogue(): readonly HarnessCatalogueEntry[];
 }

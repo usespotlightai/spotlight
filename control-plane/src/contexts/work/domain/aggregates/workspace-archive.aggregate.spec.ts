@@ -7,6 +7,7 @@ import {
 import {
   anArchive,
   aSealedArchive,
+  aSealedChatArchive,
   later,
   SHA256,
   storedAs,
@@ -19,7 +20,6 @@ import type { HolderState } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -27,17 +27,34 @@ const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
 
 const carryingOn: HolderState = {
-  stationId: StationId.of('station_1'),
-  conversing: true,
+  kind: 'task',
   finished: false,
+  changedAt: later(0),
+};
+
+const conversing: HolderState = {
+  kind: 'chat',
+  conversing: true,
   changedAt: later(0),
 };
 
 const held: ArchiveFacts = { holder: carryingOn, supersededAt: null };
 
-const letGo = (part: Partial<HolderState>): ArchiveFacts => ({
-  holder: { ...carryingOn, changedAt: later(2 * DAY), ...part },
+const standing = (holder: HolderState): ArchiveFacts => ({
+  holder,
   supersededAt: null,
+});
+
+const finished = standing({
+  kind: 'task',
+  finished: true,
+  changedAt: later(2 * DAY),
+});
+
+const leftItsConversation = standing({
+  kind: 'chat',
+  conversing: false,
+  changedAt: later(2 * DAY),
 });
 
 describe('WorkspaceArchive', () => {
@@ -128,26 +145,38 @@ describe('WorkspaceArchive', () => {
     expect(aSealedArchive().removableAt(later(DAY + HOUR), facts)).toBe(true);
   });
 
-  it.each([
-    ['finished', { finished: true }],
-    ['moved to another station', { stationId: StationId.of('station_2') }],
-    ['no longer in a conversation', { conversing: false }],
-  ])(
-    'is kept for a week after its task was %s, counted from whichever came last',
-    (_, part) => {
-      const facts = letGo(part);
+  it('is kept for a week after its task finished, counted from whichever came last', () => {
+    expect(aSealedArchive().removableAt(later(9 * DAY - 1), finished)).toBe(
+      false,
+    );
+    expect(aSealedArchive().removableAt(later(9 * DAY), finished)).toBe(true);
 
-      expect(aSealedArchive().removableAt(later(9 * DAY - 1), facts)).toBe(
-        false,
-      );
-      expect(aSealedArchive().removableAt(later(9 * DAY), facts)).toBe(true);
+    const sealedLater = anArchive().sealed(storedAs(1_024), later(3 * DAY));
 
-      const sealedLater = anArchive().sealed(storedAs(1_024), later(3 * DAY));
+    expect(sealedLater.removableAt(later(9 * DAY), finished)).toBe(false);
+    expect(sealedLater.removableAt(later(10 * DAY), finished)).toBe(true);
+  });
 
-      expect(sealedLater.removableAt(later(9 * DAY), facts)).toBe(false);
-      expect(sealedLater.removableAt(later(10 * DAY), facts)).toBe(true);
-    },
-  );
+  it('is kept for as long as its task is unfinished, however long ago it last changed', () => {
+    expect(
+      aSealedArchive().removableAt(
+        later(365 * DAY),
+        standing({ ...carryingOn, changedAt: later(2 * DAY) }),
+      ),
+    ).toBe(false);
+  });
+
+  it('is kept while its chat converses, and for a week after it left its conversation', () => {
+    expect(
+      aSealedChatArchive().removableAt(later(365 * DAY), standing(conversing)),
+    ).toBe(false);
+    expect(
+      aSealedChatArchive().removableAt(later(9 * DAY - 1), leftItsConversation),
+    ).toBe(false);
+    expect(
+      aSealedChatArchive().removableAt(later(9 * DAY), leftItsConversation),
+    ).toBe(true);
+  });
 
   it('is discarded when removed once no later run will restore it', () => {
     const gone: ArchiveFacts = { holder: null, supersededAt: null };
@@ -175,7 +204,7 @@ describe('WorkspaceArchive', () => {
     expect(anArchive().removableAt(later(DAY), held)).toBe(true);
     expect(
       aSealedArchive().removableAt(later(8 * DAY), {
-        holder: { ...carryingOn, finished: true, changedAt: later(DAY) },
+        holder: { kind: 'task', finished: true, changedAt: later(DAY) },
         supersededAt: null,
       }),
     ).toBe(true);

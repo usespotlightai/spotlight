@@ -153,7 +153,7 @@ func step(t *testing.T, written *journal, name string) string {
 	return ""
 }
 
-const carriedOn = "task_1-station_1"
+const carriedOn = "task-task_1"
 
 func TestKeepsTheWorkspaceForTheNextRunInAFreshSandbox(t *testing.T) {
 	kept := newKeptArchives(t)
@@ -179,6 +179,29 @@ func TestKeepsTheWorkspaceForTheNextRunInAFreshSandbox(t *testing.T) {
 	}
 	if got := step(t, second, "restore"); !strings.HasPrefix(got, "Restored the workspace") {
 		t.Errorf("the next run said %q about restoring", got)
+	}
+}
+
+func TestRestoresTheWorkspaceForARunThatStartsItsConversationAfresh(t *testing.T) {
+	kept := newKeptArchives(t)
+	carrying := func(o *runOptions) {
+		o.archives = kept
+		o.continuity = protocol.Continuity{Key: carriedOn}
+	}
+
+	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"), carrying)
+
+	if got := step(t, first, "restore"); got != "" {
+		t.Errorf("a run with nothing kept before it said %q about restoring", got)
+	}
+
+	second := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"), carrying)
+
+	if got := said(t, second); got != "halfway" {
+		t.Errorf("the next station's run found %q in the workspace", got)
+	}
+	if got := step(t, second, "restore"); !strings.HasPrefix(got, "Restored the workspace") {
+		t.Errorf("the next station's run said %q about restoring", got)
 	}
 }
 

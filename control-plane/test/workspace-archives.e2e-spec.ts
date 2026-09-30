@@ -14,7 +14,6 @@ import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
@@ -92,7 +91,10 @@ const aTask = async (
   return id;
 };
 
-const aChat = async (sessionId: string | null = 'session_1') => {
+const aChat = async (
+  sessionId: string | null = 'session_1',
+  updatedAt: Date = NOW,
+) => {
   const id = randomUUID();
 
   await db.insert(schema.chat).values({
@@ -103,6 +105,7 @@ const aChat = async (sessionId: string | null = 'session_1') => {
     title: 'Planning',
     harness: 'dev',
     sessionId,
+    updatedAt,
   });
 
   return id;
@@ -111,7 +114,6 @@ const aChat = async (sessionId: string | null = 'session_1') => {
 const forTask = (taskId: string): ArchiveHolder => ({
   kind: 'task',
   taskId: TaskId.of(taskId),
-  stationId: StationId.of(stationId),
 });
 
 const kept = async (
@@ -120,10 +122,7 @@ const kept = async (
 ): Promise<WorkspaceArchive> => {
   const continuity =
     holder.kind === 'task'
-      ? ContinuityKey.for({
-          taskId: holder.taskId.value,
-          stationId: holder.stationId.value,
-        })
+      ? ContinuityKey.forTask(holder.taskId.value)
       : ContinuityKey.forChat(holder.chatId.value);
   const granted = WorkspaceArchive.granted({
     id: WorkspaceArchiveId.of(randomUUID()),
@@ -169,7 +168,7 @@ describe('keeping workspace archives', () => {
 
     const found = await archives.newestSealed(
       WorkspaceId.of('ws_1'),
-      ContinuityKey.for({ taskId, stationId }),
+      ContinuityKey.forTask(taskId),
     );
 
     expect(found?.id.value).toBe(newer.id.value);
@@ -210,11 +209,7 @@ describe('keeping workspace archives', () => {
       sessionId: null,
       updatedAt: ago(8 * DAY),
     });
-    const movedStillTalking = await aTask({
-      stationId: otherStationId,
-      sessionId: 'session_2',
-      updatedAt: ago(8 * DAY),
-    });
+    const leftItsConversation = await aChat(null, ago(8 * DAY));
     const deleted = randomUUID();
     const deletedChat = randomUUID();
 
@@ -230,14 +225,14 @@ describe('keeping workspace archives', () => {
       grantedAt: ago(10 * DAY),
       sealedAt: ago(10 * DAY),
     });
-    const leftAtAnotherStation = await kept(forTask(movedOn), {
+    const keptAtAnotherStation = await kept(forTask(movedOn), {
       grantedAt: ago(10 * DAY),
       sealedAt: ago(10 * DAY),
     });
-    const leftStillTalking = await kept(forTask(movedStillTalking), {
-      grantedAt: ago(10 * DAY),
-      sealedAt: ago(10 * DAY),
-    });
+    const ofAChatLetGo = await kept(
+      { kind: 'chat', chatId: ChatId.of(leftItsConversation) },
+      { grantedAt: ago(10 * DAY), sealedAt: ago(10 * DAY) },
+    );
     const ofADeletedTask = await kept(forTask(deleted), {
       grantedAt: ago(HOUR),
       sealedAt: ago(HOUR),
@@ -260,15 +255,13 @@ describe('keeping workspace archives', () => {
     const due = await dueNow();
 
     expect(due.get(letGoLongAgo.id.value)?.holder).toEqual({
-      stationId: StationId.of(stationId),
-      conversing: true,
+      kind: 'task',
       finished: true,
       changedAt: ago(9 * DAY),
     });
-    expect(due.get(leftAtAnotherStation.id.value)?.holder).toEqual({
-      stationId: StationId.of(otherStationId),
+    expect(due.get(ofAChatLetGo.id.value)?.holder).toEqual({
+      kind: 'chat',
       conversing: false,
-      finished: false,
       changedAt: ago(8 * DAY),
     });
     expect(due.get(ofADeletedTask.id.value)?.holder).toBeNull();
@@ -276,14 +269,14 @@ describe('keeping workspace archives', () => {
     expect(due.has(neverSealed.id.value)).toBe(true);
 
     expect(due.has(stillHeld.id.value)).toBe(false);
+    expect(due.has(keptAtAnotherStation.id.value)).toBe(false);
     expect(due.has(letGoLately.id.value)).toBe(false);
     expect(due.has(ofAChat.id.value)).toBe(false);
     expect(due.has(stillUploading.id.value)).toBe(false);
 
     for (const id of [
       letGoLongAgo,
-      leftAtAnotherStation,
-      leftStillTalking,
+      ofAChatLetGo,
       ofADeletedTask,
       ofADeletedChat,
       neverSealed,

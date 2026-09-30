@@ -362,8 +362,8 @@ in the same bucket, under `workspaces/<id>/archives/`, so a later run of the
 task restores it in a fresh sandbox. They upload and fetch through presigned
 URLs signed for `S3_RUNNER_ENDPOINT`, or `S3_ENDPOINT` when it is unset. An
 archive may be 2 GiB packed; one a later run will not restore is removed an
-hour after a newer one is kept, a week after its task finishes or moves on, and
-at once when its task or chat is deleted.
+hour after a newer one is kept, a week after its task finishes or its chat
+leaves its conversation, and at once when its task or chat is deleted.
 
 | Variable | Development | Production |
 |---|---|---|

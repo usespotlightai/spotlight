@@ -245,6 +245,11 @@ const read = (raw: unknown): RunSpec => {
     'its skills',
     fileOf('its skills'),
   );
+  const skillHomes = optionalListAt(
+    given.skillHomes,
+    'where skills are kept',
+    (each) => stringAt(each, 'where skills are kept'),
+  );
   const manifest = optionalListAt(given.manifest, 'its tools', toolOf);
   const catalog = optionalListAt(given.catalog, 'its catalog tools', (each) =>
     stringAt(each, 'its catalog tools'),
@@ -257,6 +262,12 @@ const read = (raw: unknown): RunSpec => {
 
   const wears = optionalListAt(given.wears, 'the secrets it wears', (each) =>
     stringAt(each, 'the secrets it wears'),
+  );
+
+  const settingFiles = optionalListAt(
+    given.settingFiles,
+    'where its harness keeps settings',
+    (each) => stringAt(each, 'where its harness keeps settings'),
   );
 
   const diffs = given.diffs;
@@ -272,6 +283,7 @@ const read = (raw: unknown): RunSpec => {
     handover: handoverOf(given.handover),
     continuity: continuityOf(given.continuity),
     ...(skills ? { skills } : {}),
+    ...(skillHomes ? { skillHomes } : {}),
     ...(manifest ? { manifest } : {}),
     ...(catalog ? { catalog } : {}),
     ...(attachments ? { attachments } : {}),
@@ -281,6 +293,7 @@ const read = (raw: unknown): RunSpec => {
           diffs: booleanAt(diffs, 'whether it reports the diff it leaves'),
         }),
     ...(harnessSetup ? { harnessSetup } : {}),
+    ...(settingFiles ? { settingFiles } : {}),
     ...(wears ? { wears } : {}),
   });
 };

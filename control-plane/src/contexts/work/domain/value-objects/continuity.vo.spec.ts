@@ -3,7 +3,7 @@ import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { describe, expect, it } from 'vitest';
 
-const KEY = ContinuityKey.of('task_1-station_1');
+const KEY = ContinuityKey.of('task-task_1');
 
 describe('Continuity', () => {
   it('takes up no conversation unless given one', () => {
@@ -32,9 +32,7 @@ describe('Continuity', () => {
     });
 
     expect(
-      fresh.equals(
-        Continuity.of({ key: ContinuityKey.of('task_1-station_2') }),
-      ),
+      fresh.equals(Continuity.of({ key: ContinuityKey.of('task-task_2') })),
     ).toBe(false);
     expect(fresh.equals(resumed)).toBe(false);
     expect(resumed.equals(fresh)).toBe(false);

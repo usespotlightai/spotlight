@@ -50,7 +50,7 @@ export const aHeldRun = (
       briefing: 'keep the workspace',
       handover: { options: [], noteLimit: 4_000 },
       continuity: {
-        key: Key.for({ taskId: 'task_1', stationId: 'station_1' }).value,
+        key: Key.forTask('task_1').value,
         ...(over.session === null
           ? {}
           : { sessionId: over.session ?? 'session_1' }),

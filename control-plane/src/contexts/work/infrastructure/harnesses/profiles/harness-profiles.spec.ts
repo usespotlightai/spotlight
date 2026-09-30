@@ -407,4 +407,36 @@ describe('reviewing a harness profile', () => {
       })?.setup,
     ).toBeNull();
   });
+
+  it('names every setting file a harness may be laid, so a later run can clear it', () => {
+    const laid = (
+      [
+        ['claude-code', { permissions: {} }],
+        ['cursor', {}],
+        ['codex', 'approval_policy = "on-request"\n'],
+      ] as const
+    ).flatMap(([harness, native]) =>
+      prepared(
+        harness,
+        profile({
+          rules: [
+            rule('ask', 'execute', 'git push *'),
+            rule('allow', 'execute', 'git status'),
+            rule('deny', 'execute', 'rm -rf *'),
+          ],
+          mcpServers: [
+            {
+              name: 'linear',
+              command: 'npx',
+              args: ['-y', 'linear-mcp'],
+              env: {},
+            },
+          ],
+          native: { [harness]: native },
+        }),
+      ).setup.files.map((each) => each.path),
+    );
+
+    expect([...laid].sort()).toEqual([...harnesses.settingFiles()].sort());
+  });
 });

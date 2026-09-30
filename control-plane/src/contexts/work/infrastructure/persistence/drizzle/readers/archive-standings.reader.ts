@@ -7,7 +7,6 @@ import type {
 } from '@work/application/ports/archive-standings.port';
 import type { ArchiveRemovalCutoffs } from '@work/domain/aggregates/workspace-archive.aggregate';
 import type { HolderState } from '@work/domain/value-objects/archive-holder.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
@@ -22,7 +21,6 @@ import {
   isNull,
   lte,
   min,
-  ne,
   or,
   sql,
 } from 'drizzle-orm';
@@ -36,17 +34,9 @@ const sameContinuity = and(
   gt(newer.sealedAt, workspaceArchive.sealedAt),
 );
 
-const taskLetGo = or(
-  isNotNull(task.finishedAt),
-  ne(task.stationId, workspaceArchive.stationId),
-  isNull(task.sessionId),
-);
-
 interface HolderRow {
   readonly taskId: string | null;
   readonly heldTask: string | null;
-  readonly taskStation: string | null;
-  readonly taskSession: string | null;
   readonly taskFinishedAt: Date | null;
   readonly taskUpdatedAt: Date | null;
   readonly heldChat: string | null;
@@ -56,10 +46,9 @@ interface HolderRow {
 
 const holderOf = (row: HolderRow): HolderState | null => {
   if (row.taskId) {
-    return row.heldTask && row.taskStation && row.taskUpdatedAt
+    return row.heldTask && row.taskUpdatedAt
       ? {
-          stationId: StationId.of(row.taskStation),
-          conversing: row.taskSession !== null,
+          kind: 'task',
           finished: row.taskFinishedAt !== null,
           changedAt: row.taskUpdatedAt,
         }
@@ -68,9 +57,8 @@ const holderOf = (row: HolderRow): HolderState | null => {
 
   return row.heldChat && row.chatUpdatedAt
     ? {
-        stationId: null,
+        kind: 'chat',
         conversing: row.chatSession !== null,
-        finished: false,
         changedAt: row.chatUpdatedAt,
       }
     : null;
@@ -89,8 +77,6 @@ export class DrizzleArchiveStandings implements ArchiveStandingsPort {
         id: workspaceArchive.id,
         taskId: workspaceArchive.taskId,
         heldTask: task.id,
-        taskStation: task.stationId,
-        taskSession: task.sessionId,
         taskFinishedAt: task.finishedAt,
         taskUpdatedAt: task.updatedAt,
         heldChat: chat.id,
@@ -124,8 +110,7 @@ export class DrizzleArchiveStandings implements ArchiveStandingsPort {
               and(isNotNull(workspaceArchive.taskId), isNull(task.id)),
               and(isNotNull(workspaceArchive.chatId), isNull(chat.id)),
               and(
-                isNotNull(task.id),
-                taskLetGo,
+                isNotNull(task.finishedAt),
                 lte(task.updatedAt, letGoBy),
                 lte(workspaceArchive.sealedAt, letGoBy),
               ),

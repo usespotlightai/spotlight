@@ -672,10 +672,7 @@ export class Task extends EventRecorder {
 
   continuity(): Continuity {
     return Continuity.of({
-      key: ContinuityKey.for({
-        taskId: this.id.value,
-        stationId: this.stationId.value,
-      }),
+      key: ContinuityKey.forTask(this.id.value),
       sessionId: this.sessionId,
     });
   }

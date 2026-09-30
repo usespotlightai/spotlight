@@ -225,16 +225,7 @@ export class WorkspaceArchive extends EventRecorder {
   }
 
   private letGoBy(now: HolderState): boolean {
-    if (now.finished || !now.conversing) {
-      return true;
-    }
-
-    const { holder } = this.state;
-
-    return (
-      holder.kind === 'task' &&
-      !(now.stationId?.equals(holder.stationId) ?? false)
-    );
+    return now.kind === 'task' ? now.finished : !now.conversing;
   }
 
   removed(now: Date, facts: ArchiveFacts): WorkspaceArchive {

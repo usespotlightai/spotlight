@@ -387,6 +387,8 @@ type runOptions struct {
 	stopAfter   int
 	attachments []protocol.Attachment
 	skills      []protocol.SkillFile
+	skillHomes  []string
+	settings    []string
 	files       map[string]string
 	setup       protocol.HarnessSetup
 	decision    string
@@ -428,7 +430,9 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			Continuity:   settings.continuity,
 			Attachments:  settings.attachments,
 			Skills:       settings.skills,
+			SkillHomes:   settings.skillHomes,
 			HarnessSetup: settings.setup,
+			SettingFiles: settings.settings,
 		},
 	}, session.Options{
 		Workspace:  settings.root,
@@ -948,15 +952,7 @@ func TestARestoredWorkspaceHoldsOnlyTheSkillsThisRunWasGiven(t *testing.T) {
 	example := protocol.SkillFile{Path: ".claude/skills/our-migrations/examples/add-column.md", Text: "add it"}
 	opening := protocol.SkillFile{Path: ".claude/skills/spotlight-pull-request/SKILL.md", Text: "how to open one"}
 
-	space := filepath.Join(root, "task_1")
-	for _, left := range []protocol.SkillFile{handingOver, migrating, example, opening} {
-		if err := os.MkdirAll(filepath.Dir(filepath.Join(space, left.Path)), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(space, left.Path), []byte("stale"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
+	leaveSkills(t, root, handingOver, migrating, example, opening)
 
 	written := run(t, harness(t, `const fs = require("node:fs");
 said = JSON.stringify([
@@ -972,6 +968,88 @@ said = JSON.stringify([
 
 	if heard := said(t, written); heard != `["how we migrate",true,false,false]` {
 		t.Errorf("the agent found %s", heard)
+	}
+}
+
+func TestARestoredWorkspaceHoldsNoSkillsOfAnEarlierStationWhenThisRunWasGivenNone(t *testing.T) {
+	root := t.TempDir()
+
+	leaveSkills(t, root,
+		protocol.SkillFile{Path: ".claude/skills/our-migrations/SKILL.md"},
+		protocol.SkillFile{Path: ".spotlight/skills/our-migrations/SKILL.md"},
+		protocol.SkillFile{Path: "notes/SKILL.md"},
+	)
+
+	written := run(t, harness(t, `const fs = require("node:fs");
+said = JSON.stringify([
+  fs.existsSync(".claude/skills/our-migrations"),
+  fs.existsSync(".spotlight/skills/our-migrations"),
+  fs.existsSync("notes/SKILL.md"),
+]);`, "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.continuity = protocol.Continuity{Key: "task-task_1"}
+		o.skillHomes = []string{".claude/skills", ".spotlight/skills"}
+	})
+
+	if heard := said(t, written); heard != `[false,false,true]` {
+		t.Errorf("the agent found %s", heard)
+	}
+}
+
+func TestARestoredWorkspaceHoldsOnlyTheHarnessSettingsThisRunWasGiven(t *testing.T) {
+	root := t.TempDir()
+
+	leaveSkills(t, root,
+		protocol.SkillFile{Path: ".spotlight/state/claude/settings.json"},
+		protocol.SkillFile{Path: ".spotlight/state/codex/config.toml"},
+		protocol.SkillFile{Path: ".spotlight/state/claude/projects/-workspace/session_1.jsonl"},
+	)
+
+	written := run(t, harness(t, `const fs = require("node:fs");
+said = JSON.stringify([
+  fs.existsSync(".spotlight/state/claude/settings.json"),
+  fs.readFileSync(".spotlight/state/codex/config.toml", "utf8"),
+  fs.existsSync(".spotlight/state/claude/projects/-workspace/session_1.jsonl"),
+]);`, "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.continuity = protocol.Continuity{Key: "task-task_1"}
+		o.settings = []string{"claude/settings.json", "codex/config.toml", "codex/rules/spotlight.rules"}
+		o.setup = protocol.HarnessSetup{Files: []protocol.SetupFile{{Path: "codex/config.toml", Text: "model = \"given\""}}}
+	})
+
+	if heard := said(t, written); heard != `[false,"model = \"given\"",true]` {
+		t.Errorf("the agent found %s", heard)
+	}
+}
+
+func TestAnOutcomeAnEarlierRunLeftIsNotTakenForThisRuns(t *testing.T) {
+	root := t.TempDir()
+
+	leaveSkills(t, root, protocol.SkillFile{Path: ".spotlight/outcome.json"})
+	if err := os.WriteFile(filepath.Join(root, ".spotlight/outcome.json"), []byte(`{"next":"review","note":"from the last station"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	written := run(t, harness(t, `said = "declared nothing";`, "end_turn"), func(o *runOptions) {
+		o.root = root
+		o.handover = []string{"review"}
+	})
+
+	if written.done == nil || written.done.Outcome != nil {
+		t.Errorf("the run ended with %+v, wanted no outcome", written.done)
+	}
+}
+
+func leaveSkills(t *testing.T, space string, left ...protocol.SkillFile) {
+	t.Helper()
+
+	for _, skill := range left {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(space, skill.Path)), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(space, skill.Path), []byte("stale"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

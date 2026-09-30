@@ -56,6 +56,7 @@ const byDefault = (
 
 export const claudeCodeProfile: ProfileTranslator = {
   native: 'json',
+  lays: [CLAUDE_SETTINGS],
 
   translate(profile: HarnessSettings): TranslatedProfile {
     const lists: Lists = { allow: [], ask: [], deny: [] };

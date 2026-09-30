@@ -60,8 +60,10 @@ type Spec struct {
 	Continuity   Continuity     `json:"continuity,omitzero"`
 	Attachments  []Attachment   `json:"attachments,omitempty"`
 	Skills       []SkillFile    `json:"skills,omitempty"`
+	SkillHomes   []string       `json:"skillHomes,omitempty"`
 	Diffs        bool           `json:"diffs,omitempty"`
 	HarnessSetup HarnessSetup   `json:"harnessSetup,omitzero"`
+	SettingFiles []string       `json:"settingFiles,omitempty"`
 }
 
 type HarnessSetup struct {

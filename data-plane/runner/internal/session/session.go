@@ -87,6 +87,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	keeper := newKeeper(run, space, journal, opts.Journal, log)
 	keeper.restore(ctx)
 
+	if err := space.Remove(workspace.OutcomePath); err != nil {
+		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear an earlier run's outcome: %w", err))
+	}
+
 	if len(run.Spec.Checkouts) > 0 {
 		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID)
 		if err != nil {
@@ -116,7 +120,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		}
 	}
 
-	for home, laid := range skillHomes(run.Spec.Skills) {
+	for home, laid := range skillHomes(run.Spec.SkillHomes, run.Spec.Skills) {
 		if err := space.Prune(home, laid); err != nil {
 			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear skills from %s: %w", home, err))
 		}
@@ -133,6 +137,12 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	state, err := space.State()
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
+
+	for _, path := range run.Spec.SettingFiles {
+		if err := unset(space, path, run.Spec.HarnessSetup.Files); err != nil {
+			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		}
 	}
 
 	for _, file := range run.Spec.HarnessSetup.Files {
@@ -453,8 +463,11 @@ func layMemory(ctx context.Context, journal Journal, runID string, space *worksp
 
 const skillFile = "SKILL.md"
 
-func skillHomes(skills []protocol.SkillFile) map[string][]string {
-	var candidates []string
+func skillHomes(named []string, skills []protocol.SkillFile) map[string][]string {
+	candidates := make([]string, 0, len(named)+len(skills))
+	for _, home := range named {
+		candidates = append(candidates, filepath.Clean(home))
+	}
 	for _, skill := range skills {
 		path := filepath.Clean(skill.Path)
 		if filepath.Base(path) == skillFile {
@@ -505,6 +518,24 @@ func setUp(space *workspace.Workspace, file protocol.SetupFile) error {
 
 	if err := space.Replace(filepath.Join(workspace.StatePath, file.Path), nil, writing(file.Text)); err != nil {
 		return fmt.Errorf("lay harness file %s: %w", file.Path, err)
+	}
+
+	return nil
+}
+
+func unset(space *workspace.Workspace, path string, given []protocol.SetupFile) error {
+	if !filepath.IsLocal(path) {
+		return fmt.Errorf("harness file %q escapes the state directory", path)
+	}
+
+	if slices.ContainsFunc(given, func(file protocol.SetupFile) bool {
+		return filepath.Clean(file.Path) == filepath.Clean(path)
+	}) {
+		return nil
+	}
+
+	if err := space.Remove(filepath.Join(workspace.StatePath, path)); err != nil {
+		return fmt.Errorf("clear harness file %s: %w", path, err)
 	}
 
 	return nil
