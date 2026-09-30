@@ -26,7 +26,7 @@ const claimed = () =>
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'work out what is being asked for',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task_1-station_1' },
+      continuity: { key: 'task-task_1' },
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 

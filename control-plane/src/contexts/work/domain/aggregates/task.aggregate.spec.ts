@@ -354,8 +354,18 @@ describe('Task, what it is doing', () => {
       expect(moved.runnerId).toBeNull();
     });
 
-    it('names the directory the next run here should work in', () => {
-      expect(added().continuity().key.value).toBe('task_1-station_1');
+    it('names the one workspace every run of it works in, at whichever station', () => {
+      const moved = added().reactedTo(
+        LINE,
+        StationId.of('station_2'),
+        TaskRank.of('m'),
+        saying,
+      );
+
+      expect(added().continuity().key.value).toBe('task-task_1');
+      expect(moved.continuity().key.equals(added().continuity().key)).toBe(
+        true,
+      );
     });
 
     it('hands the conversation to the next run', () => {

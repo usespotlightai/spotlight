@@ -64,6 +64,7 @@ const tokenFor = (
 
 export const cursorProfile: ProfileTranslator = {
   native: 'json',
+  lays: [CURSOR_SETTINGS, CURSOR_MCP],
 
   translate(profile: HarnessSettings): TranslatedProfile {
     const allow: string[] = [];

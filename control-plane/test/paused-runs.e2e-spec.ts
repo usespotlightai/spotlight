@@ -641,7 +641,7 @@ describe('a message in a run chat', () => {
     expect(queued?.stationId).toBe(DEPLOY);
     expect(queued?.spec).toMatchObject({
       briefing: expect.stringContaining('Deploy the docs with it too.'),
-      continuity: { key: `${taskId}-${DEPLOY}`, sessionId: 'session_1' },
+      continuity: { key: `task-${taskId}`, sessionId: 'session_1' },
     });
 
     await claimed(next);
@@ -670,7 +670,7 @@ describe('a message in a run chat', () => {
   });
 });
 
-describe('a run queued at a station its task’s earlier run still holds', () => {
+describe('a run queued while an earlier run of its task is still held', () => {
   const claimsNext = async (): Promise<string[]> => {
     const claimed: string[] = [];
     const runs = app.get(DrizzleRunRepository);
@@ -697,41 +697,48 @@ describe('a run queued at a station its task’s earlier run still holds', () =>
     return claimed;
   };
 
-  it('is claimed only once the earlier run has ended, so the two never share the station’s session', async () => {
-    const { taskId, runId } = await aHeldTask();
-    const token = await claimed(runId);
-    const next = randomUUID();
-    const [earlier] = await db
-      .select()
-      .from(schema.run)
-      .where(eq(schema.run.id, runId));
-    await db.insert(schema.run).values({
-      ...(earlier as typeof schema.run.$inferInsert),
-      id: next,
-      state: 'queued',
-      claimedBy: null,
-      leaseExpiresAt: null,
-      attempt: 1,
-      version: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    await db
-      .update(schema.task)
-      .set({ currentRunId: next })
-      .where(eq(schema.task.id, taskId));
+  it.each([
+    ['the same station', BUILD],
+    ['another station', DEPLOY],
+  ])(
+    'is claimed only once the earlier run has ended, so the two never share the task’s workspace, at %s',
+    async (_, station) => {
+      const { taskId, runId } = await aHeldTask();
+      const token = await claimed(runId);
+      const next = randomUUID();
+      const [earlier] = await db
+        .select()
+        .from(schema.run)
+        .where(eq(schema.run.id, runId));
+      await db.insert(schema.run).values({
+        ...(earlier as typeof schema.run.$inferInsert),
+        id: next,
+        stationId: station,
+        state: 'queued',
+        claimedBy: null,
+        leaseExpiresAt: null,
+        attempt: 1,
+        version: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      await db
+        .update(schema.task)
+        .set({ currentRunId: next })
+        .where(eq(schema.task.id, taskId));
 
-    expect(await claimsNext()).not.toContain(next);
+      expect(await claimsNext()).not.toContain(next);
 
-    await runner(token)
-      .post(`/api/runs/${runId}/completion`, {
-        exitCode: 0,
-        failed: false,
-        stopped: true,
-      })
-      .expect(200);
-    expect((await runRow(runId))?.state).not.toBe('claimed');
+      await runner(token)
+        .post(`/api/runs/${runId}/completion`, {
+          exitCode: 0,
+          failed: false,
+          stopped: true,
+        })
+        .expect(200);
+      expect((await runRow(runId))?.state).not.toBe('claimed');
 
-    expect(await claimsNext()).toContain(next);
-  });
+      expect(await claimsNext()).toContain(next);
+    },
+  );
 });

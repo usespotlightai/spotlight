@@ -176,7 +176,26 @@ describe('keeping a workspace between runs', () => {
     ).resolves.toBe(false);
   });
 
-  it('restores nothing for a run that starts its conversation afresh, or one it does not hold', async () => {
+  it('restores a task’s workspace for a run that starts its conversation afresh', async () => {
+    const { grant, seal, read, store } = setUp(
+      aHeldRun(),
+      aHeldRun({ id: 'run_2', runner: 'runner_2', session: null }),
+    );
+
+    await grant.execute(
+      new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+    );
+    store.uploaded.set('archive_1', storedAs(1_024));
+    await seal.execute(
+      new SealWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
+    );
+
+    await expect(
+      read.execute(new HeldWorkspaceArchiveQuery('run_2', 'runner_2')),
+    ).resolves.toMatchObject({ held: true, archive: { id: 'archive_1' } });
+  });
+
+  it('restores nothing before a task has an archive, or for a run it does not hold', async () => {
     const { read } = setUp(aHeldRun({ session: null }));
 
     await expect(

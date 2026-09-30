@@ -26,6 +26,24 @@ describe('RunSubject', () => {
     );
   });
 
+  it('keeps a workspace for its task, wherever the task stands, or for its chat', () => {
+    expect(
+      RunSubject.task(
+        TaskId.of('task_1'),
+        StationId.of('station_1'),
+        TaskRevision.of(0),
+      ).archiveHolder,
+    ).toEqual({ kind: 'task', taskId: TaskId.of('task_1') });
+    expect(
+      RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0))
+        .archiveHolder,
+    ).toEqual({ kind: 'task', taskId: TaskId.of('task_1') });
+    expect(RunSubject.chat(ChatId.of('chat_1')).archiveHolder).toEqual({
+      kind: 'chat',
+      chatId: ChatId.of('chat_1'),
+    });
+  });
+
   it('comes back as what it was stored as', () => {
     const subject = RunSubject.rehydrate({
       taskId: TaskId.of('task_1'),

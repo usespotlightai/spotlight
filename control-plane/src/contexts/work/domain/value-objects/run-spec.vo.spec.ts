@@ -10,7 +10,7 @@ const parts = (over: Partial<RunSpecParts> = {}): RunSpecParts => ({
   command: { executable: 'claude-agent-acp', args: [] },
   briefing: 'do the thing',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task_1-station_1' },
+  continuity: { key: 'task-task_1' },
   ...over,
 });
 
@@ -33,10 +33,10 @@ describe('RunSpec', () => {
   it('carries on the work its continuity names, and its conversation only once there is one', () => {
     const afresh = RunSpec.of(parts());
     const continuing = RunSpec.of(
-      parts({ continuity: { key: 'task_1-station_1', sessionId: 's_1' } }),
+      parts({ continuity: { key: 'task-task_1', sessionId: 's_1' } }),
     );
 
-    expect(afresh.continuity?.value).toBe('task_1-station_1');
+    expect(afresh.continuity?.value).toBe('task-task_1');
     expect(afresh.continuesASession).toBe(false);
     expect(continuing.continuesASession).toBe(true);
     expect(
@@ -85,6 +85,12 @@ describe('RunSpec', () => {
   it('refuses a skill or attachment laid outside the workspace', () => {
     expect(() =>
       RunSpec.of(parts({ skills: [{ path: '/root/SKILL.md', text: '' }] })),
+    ).toThrow(InvalidRunSpecError);
+    expect(() => RunSpec.of(parts({ skillHomes: ['../skills'] }))).toThrow(
+      InvalidRunSpecError,
+    );
+    expect(() =>
+      RunSpec.of(parts({ settingFiles: ['../claude/settings.json'] })),
     ).toThrow(InvalidRunSpecError);
     expect(() =>
       RunSpec.of(parts({ attachments: [{ id: 'a', path: '../secret' }] })),

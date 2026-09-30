@@ -7,6 +7,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
@@ -18,12 +19,16 @@ import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-t
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -340,6 +345,54 @@ describe('Run', () => {
 
     it('was given nothing where its spec names no tools', () => {
       expect(queued().wasGiven(Tool.of('pull-request'))).toBe(false);
+    });
+  });
+
+  describe('knowing which workspace to restore', () => {
+    const working = (
+      subject: RunSubject | null,
+      continuity: { key: string; sessionId?: string },
+    ) =>
+      Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        subject,
+        spec: RunSpec.of({
+          command: { executable: 'sh', args: [] },
+          briefing: 'do the thing',
+          handover: { options: [], noteLimit: 4_000 },
+          continuity,
+        }),
+      });
+
+    const aTask = RunSubject.task(
+      TaskId.of('task_1'),
+      StationId.of('station_1'),
+      TaskRevision.of(1),
+    );
+    const aChat = RunSubject.chat(ChatId.of('chat_1'));
+
+    it('restores a task’s workspace whether or not a conversation carries on', () => {
+      expect(working(aTask, { key: 'task-task_1' }).restoresFrom?.value).toBe(
+        'task-task_1',
+      );
+      expect(
+        working(aTask, { key: 'task-task_1', sessionId: 'session_1' })
+          .restoresFrom?.value,
+      ).toBe('task-task_1');
+    });
+
+    it('restores a chat’s workspace only to carry its conversation on', () => {
+      expect(working(aChat, { key: 'chat-chat_1' }).restoresFrom).toBeNull();
+      expect(
+        working(aChat, { key: 'chat-chat_1', sessionId: 'session_1' })
+          .restoresFrom?.value,
+      ).toBe('chat-chat_1');
+    });
+
+    it('restores nothing for work that does not carry on', () => {
+      expect(working(null, { key: ' ' }).restoresFrom).toBeNull();
     });
   });
 

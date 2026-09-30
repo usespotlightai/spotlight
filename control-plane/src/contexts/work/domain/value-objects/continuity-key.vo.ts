@@ -13,14 +13,8 @@ export class ContinuityKey {
     return new ContinuityKey(key);
   }
 
-  static for({
-    taskId,
-    stationId,
-  }: {
-    taskId: string;
-    stationId: string;
-  }): ContinuityKey {
-    return ContinuityKey.of(`${taskId}-${stationId}`);
+  static forTask(taskId: string): ContinuityKey {
+    return ContinuityKey.of(`task-${taskId}`);
   }
 
   static forChat(chatId: string): ContinuityKey {

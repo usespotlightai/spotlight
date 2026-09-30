@@ -11,7 +11,7 @@ const parts = (over: Record<string, unknown> = {}) => ({
   command,
   briefing: 'do the thing',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task_1-station_1' },
+  continuity: { key: 'task-task_1' },
   ...over,
 });
 
@@ -31,8 +31,9 @@ const representative = {
   },
   briefing: 'do the thing',
   handover: { options: ['spec', 'review'], noteLimit: 4_000 },
-  continuity: { key: 'task_1-station_1', sessionId: 'session_1' },
+  continuity: { key: 'task-task_1', sessionId: 'session_1' },
   skills: [{ path: '.claude/skills/triage/SKILL.md', text: '# Triage' }],
+  skillHomes: ['.claude/skills', '.spotlight/skills'],
   manifest: [
     {
       name: 'grafana.search',
@@ -59,6 +60,7 @@ const representative = {
   attachments: [
     { id: 'att_1', path: '.spotlight/attachments/att_1/screen.png' },
   ],
+  settingFiles: ['claude/settings.json'],
   wears: ['LINEAR_API_KEY'],
 };
 
@@ -141,11 +143,11 @@ describe('RunSpecContract.ordered', () => {
 });
 
 describe('RunSpecContract.continuityOf', () => {
-  const key = ContinuityKey.of('task_1-station_2');
+  const key = ContinuityKey.of('task-task_2');
 
   it('tells the runner which directory to work in', () => {
     expect(RunSpecContract.continuityOf(Continuity.of({ key }))).toEqual({
-      key: 'task_1-station_2',
+      key: 'task-task_2',
     });
   });
 
@@ -158,7 +160,7 @@ describe('RunSpecContract.continuityOf', () => {
         }),
       ),
     ).toEqual({
-      key: 'task_1-station_2',
+      key: 'task-task_2',
       sessionId: 'session_1',
     });
   });

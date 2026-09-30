@@ -556,5 +556,11 @@ describe('TaskBriefing', () => {
       expect(briefing).toContain('- `web/` — acme/web');
       expect(briefing).not.toContain('acme/api');
     });
+
+    it('says the workspace is kept from one run and station to the next', () => {
+      expect(briefed(task('station_1'))).toContain(
+        'The task keeps this workspace from one run and station to the next',
+      );
+    });
   });
 });

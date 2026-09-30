@@ -7,8 +7,8 @@ import {
 } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 export const GRANTED_AT = new Date('2026-09-25T10:00:00.000Z');
@@ -28,12 +28,8 @@ export const anArchive = (
   WorkspaceArchive.granted({
     id: WorkspaceArchiveId.of(overrides.id ?? 'archive_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    continuity: ContinuityKey.for({ taskId: 'task_1', stationId: 'station_1' }),
-    holder: {
-      kind: 'task',
-      taskId: TaskId.of('task_1'),
-      stationId: StationId.of('station_1'),
-    },
+    continuity: ContinuityKey.forTask('task_1'),
+    holder: { kind: 'task', taskId: TaskId.of('task_1') },
     run: RunId.of(overrides.run ?? 'run_1'),
     size: ArchiveSize.of(overrides.bytes ?? 1_024),
     digest: ArchiveDigest.of(SHA256),
@@ -43,3 +39,15 @@ export const anArchive = (
 export const aSealedArchive = (
   overrides: { id?: string; run?: string } = {},
 ): WorkspaceArchive => anArchive(overrides).sealed(storedAs(1_024), later(0));
+
+export const aSealedChatArchive = (): WorkspaceArchive =>
+  WorkspaceArchive.granted({
+    id: WorkspaceArchiveId.of('archive_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    continuity: ContinuityKey.forChat('chat_1'),
+    holder: { kind: 'chat', chatId: ChatId.of('chat_1') },
+    run: RunId.of('run_1'),
+    size: ArchiveSize.of(1_024),
+    digest: ArchiveDigest.of(SHA256),
+    at: GRANTED_AT,
+  }).sealed(storedAs(1_024), later(0));

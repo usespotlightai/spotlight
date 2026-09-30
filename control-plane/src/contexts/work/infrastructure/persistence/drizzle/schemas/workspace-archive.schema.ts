@@ -14,7 +14,6 @@ export const workspaceArchive = pgTable(
     workspaceId: text('workspace_id').notNull(),
     continuityKey: text('continuity_key').notNull(),
     taskId: text('task_id'),
-    stationId: text('station_id'),
     chatId: text('chat_id'),
     grantedToRunId: text('granted_to_run_id').notNull(),
     size: bigint('size', { mode: 'number' }).notNull(),

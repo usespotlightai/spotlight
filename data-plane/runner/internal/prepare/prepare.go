@@ -114,10 +114,29 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 	if checkout.Branch == "" {
 		return nil
 	}
-	if git("switch", "--quiet", checkout.Branch) == nil {
-		return nil
+	if git("switch", "--quiet", checkout.Branch) != nil {
+		return git("switch", "--quiet", "-c", checkout.Branch, start)
 	}
-	return git("switch", "--quiet", "-c", checkout.Branch, start)
+
+	catchUp(checkout, func(args ...string) bool { return git(args...) == nil }, out)
+	return nil
+}
+
+func catchUp(checkout protocol.Checkout, git func(args ...string) bool, out *said) {
+	pushed := "refs/remotes/origin/" + checkout.Branch
+
+	if !git("rev-parse", "--verify", "--quiet", pushed) || git("merge-base", "--is-ancestor", pushed, "HEAD") {
+		return
+	}
+
+	switch {
+	case !git("merge-base", "--is-ancestor", "HEAD", pushed):
+		out.say("left %s as the last run left it: %s has moved on both here and on the remote", checkout.Path, checkout.Branch)
+	case !git("merge", "--quiet", "--ff-only", pushed):
+		out.say("left %s behind the remote's %s: what is not committed here stands in the way", checkout.Path, checkout.Branch)
+	default:
+		out.say("caught %s up with what was pushed to %s", checkout.Path, checkout.Branch)
+	}
 }
 
 func (o Options) clone(ctx context.Context, checkout protocol.Checkout, extra ...string) error {

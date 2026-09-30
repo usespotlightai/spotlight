@@ -77,11 +77,13 @@ export interface RunSpecParts {
   readonly handover: RunHandover;
   readonly continuity: RunContinuity;
   readonly skills?: readonly RunFile[];
+  readonly skillHomes?: readonly string[];
   readonly manifest?: readonly RunToolManifest[];
   readonly catalog?: readonly string[];
   readonly attachments?: readonly RunAttachment[];
   readonly diffs?: boolean;
   readonly harnessSetup?: RunHarnessSetup;
+  readonly settingFiles?: readonly string[];
   readonly wears?: readonly string[];
 }
 
@@ -152,6 +154,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.skills
     ? { skills: parts.skills.map(({ path, text }) => ({ path, text })) }
     : {}),
+  ...(parts.skillHomes?.length ? { skillHomes: [...parts.skillHomes] } : {}),
   ...(parts.manifest
     ? {
         manifest: parts.manifest.map((each) => ({
@@ -177,6 +180,9 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.diffs === undefined ? {} : { diffs: parts.diffs }),
   ...(parts.harnessSetup
     ? { harnessSetup: setupCopied(parts.harnessSetup) }
+    : {}),
+  ...(parts.settingFiles?.length
+    ? { settingFiles: [...parts.settingFiles] }
     : {}),
   ...(parts.wears?.length ? { wears: [...parts.wears] } : {}),
 });
@@ -242,8 +248,22 @@ export class RunSpec {
       }
     }
 
+    for (const home of parts.skillHomes ?? []) {
+      if (!home || outside(home)) {
+        throw new InvalidRunSpecError('must keep skills in the workspace');
+      }
+    }
+
     for (const file of parts.harnessSetup?.files ?? []) {
       if (!file.path || outside(file.path)) {
+        throw new InvalidRunSpecError(
+          'must keep a harness setting in the state directory',
+        );
+      }
+    }
+
+    for (const path of parts.settingFiles ?? []) {
+      if (!path || outside(path)) {
         throw new InvalidRunSpecError(
           'must keep a harness setting in the state directory',
         );

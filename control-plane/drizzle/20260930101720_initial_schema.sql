@@ -951,7 +951,6 @@ CREATE TABLE "workspace_archive" (
 	"workspace_id" text NOT NULL,
 	"continuity_key" text NOT NULL,
 	"task_id" text,
-	"station_id" text,
 	"chat_id" text,
 	"granted_to_run_id" text NOT NULL,
 	"size" bigint NOT NULL,

@@ -128,6 +128,9 @@ const SAYING_DECISIONS = [
   'Routine choices anyone would make need no mention. Name them again in your handover note.',
 ].join('\n\n');
 
+const KEPT_WORKSPACE =
+  'The task keeps this workspace from one run and station to the next, so work an earlier one left, committed or not, may already be here.';
+
 const workspaceOf = (task: Task, line: Line): string | null => {
   const repositories = repositoriesWorkedOn(task, line);
 
@@ -143,12 +146,14 @@ const workspaceOf = (task: Task, line: Line): string | null => {
     ? [
         '## The workspace',
         `The repository is checked out in:\n\n${listed}`,
+        KEPT_WORKSPACE,
       ].join('\n\n')
     : [
         '## The workspace',
         'These repositories are checked out side by side, each in its own directory:',
         listed,
         'Work out which one (or ones) your change belongs in. When you open a pull request, name the repository with `spotlight pull-request --repository <name>`.',
+        KEPT_WORKSPACE,
       ].join('\n\n');
 };
 

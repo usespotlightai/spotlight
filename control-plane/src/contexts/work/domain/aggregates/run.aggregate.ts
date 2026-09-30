@@ -219,7 +219,10 @@ export class Run extends EventRecorder {
   }
 
   get restoresFrom(): ContinuityKey | null {
-    return this.spec.continuesASession ? this.spec.continuity : null;
+    const kept =
+      this.archiveHolder?.kind === 'task' || this.spec.continuesASession;
+
+    return kept ? this.spec.continuity : null;
   }
 
   claim(by: RunnerId, now: Date): Run {

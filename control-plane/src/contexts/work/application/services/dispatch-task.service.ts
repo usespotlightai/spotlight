@@ -59,6 +59,8 @@ const written = (
   briefing: string,
   naming: string,
   skills: readonly SkillFileShape[],
+  skillHomes: readonly string[],
+  settingFiles: readonly string[],
   manifest: readonly ToolManifestShape[],
   catalog: readonly string[],
 ): RunSpec => {
@@ -81,11 +83,13 @@ const written = (
     },
     continuity: RunSpecContract.continuityOf(order.continuity),
     skills,
+    skillHomes,
     manifest,
     ...(catalog.length > 0 ? { catalog } : {}),
     attachments: Attached.shapes(task.allAttachments),
     diffs: order.diffs,
     ...(setup ? { harnessSetup: setup } : {}),
+    settingFiles,
     ...(worn.length > 0 ? { wears: worn } : {}),
   });
 };
@@ -264,6 +268,8 @@ export class DispatchTask implements TaskDispatching {
         briefing,
         this.tracing.for(task.id, id),
         skillFilesOf(folders, home),
+        this.launch.skillHomes(),
+        this.launch.settingFiles(),
         described.map(toolManifestOf),
         order.given.pinned.map((each) => each.value),
       ),

@@ -102,6 +102,8 @@ const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
 
 const launch: HarnessLaunchPort = {
   skillsFor: () => skillsHome,
+  skillHomes: () => ['.claude/skills', '.spotlight/skills'],
+  settingFiles: () => ['claude/settings.json', 'codex/config.toml'],
   commandFor,
   preparedFor: (id, chosen) => {
     const command = commandFor(id, chosen);
@@ -774,22 +776,35 @@ describe('DispatchTask', () => {
         RunnerId.of('runner_1'),
       );
 
-    it('gives the task the same directory for as long as it stands here', async () => {
+    it('gives the task the same workspace run after run', async () => {
       const station = stations[1] as Station;
 
       await dispatch(station);
       await dispatch(station, worked(station));
 
-      expect(continuityOf(0).key).toBe('task_1-station_2');
+      expect(continuityOf(0).key).toBe('task-task_1');
       expect(continuityOf(1).key).toBe(continuityOf(0).key);
     });
 
-    it('gives it a different one at the next station', async () => {
+    it('gives it the same one at the next station', async () => {
       await dispatch(stations[1] as Station);
       await dispatch(stations[2] as Station);
 
-      expect(continuityOf(0).key).toBe('task_1-station_2');
-      expect(continuityOf(1).key).toBe('task_1-station_3');
+      expect(continuityOf(0).key).toBe('task-task_1');
+      expect(continuityOf(1).key).toBe(continuityOf(0).key);
+    });
+
+    it('names every skill home and harness setting, so what an earlier station left is cleared', async () => {
+      await dispatch(stations[1] as Station);
+
+      expect(written(queued[0]).skillHomes).toEqual([
+        '.claude/skills',
+        '.spotlight/skills',
+      ]);
+      expect(written(queued[0]).settingFiles).toEqual([
+        'claude/settings.json',
+        'codex/config.toml',
+      ]);
     });
 
     it('asks for the conversation the task was last worked in', async () => {

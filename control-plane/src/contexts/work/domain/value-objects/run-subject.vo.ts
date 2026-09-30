@@ -69,9 +69,7 @@ export class RunSubject {
       return { kind: 'chat', chatId: this.chatId };
     }
 
-    return this.taskId && this.stationId
-      ? { kind: 'task', taskId: this.taskId, stationId: this.stationId }
-      : null;
+    return this.taskId ? { kind: 'task', taskId: this.taskId } : null;
   }
 
   match<T>(cases: RunSubjectCases<T>): T {

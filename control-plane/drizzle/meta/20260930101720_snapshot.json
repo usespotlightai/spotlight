@@ -1,5 +1,5 @@
 {
-  "id": "d68b9461-a39e-44ee-9af4-f8ef5b98077c",
+  "id": "bc055193-cb80-438a-8b00-f744362a32bb",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -8183,12 +8183,6 @@
         },
         "task_id": {
           "name": "task_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "station_id": {
-          "name": "station_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false

@@ -117,4 +117,21 @@ describe('where a harness finds skills', () => {
   it('says nothing for a harness it does not know', () => {
     expect(harnesses.skillsFor(HarnessId.of('teleport'))).toBeNull();
   });
+
+  it('names every setting file a harness profile may lay', () => {
+    expect(harnesses.settingFiles()).toEqual([
+      'claude/settings.json',
+      'cursor/cli-config.json',
+      'cursor/mcp.json',
+      'codex/config.toml',
+      'codex/rules/spotlight.rules',
+    ]);
+  });
+
+  it('names each home any harness is laid skills in, once', () => {
+    expect(harnesses.skillHomes()).toEqual([
+      '.claude/skills',
+      '.spotlight/skills',
+    ]);
+  });
 });

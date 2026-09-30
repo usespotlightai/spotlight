@@ -16,7 +16,6 @@ import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { workspaceArchive } from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
 import { and, desc, eq, isNotNull } from 'drizzle-orm';
@@ -24,12 +23,8 @@ import { and, desc, eq, isNotNull } from 'drizzle-orm';
 type Row = typeof workspaceArchive.$inferSelect;
 
 const holderOf = (row: Row): ArchiveHolder => {
-  if (row.taskId && row.stationId) {
-    return {
-      kind: 'task',
-      taskId: TaskId.of(row.taskId),
-      stationId: StationId.of(row.stationId),
-    };
+  if (row.taskId) {
+    return { kind: 'task', taskId: TaskId.of(row.taskId) };
   }
 
   if (row.chatId) {
@@ -58,12 +53,8 @@ const toArchive = (row: Row): WorkspaceArchive =>
 
 const holderColumns = (holder: ArchiveHolder) =>
   holder.kind === 'task'
-    ? {
-        taskId: holder.taskId.value,
-        stationId: holder.stationId.value,
-        chatId: null,
-      }
-    : { taskId: null, stationId: null, chatId: holder.chatId.value };
+    ? { taskId: holder.taskId.value, chatId: null }
+    : { taskId: null, chatId: holder.chatId.value };
 
 @Injectable()
 export class DrizzleWorkspaceArchiveRepository
