@@ -790,6 +790,8 @@ CREATE TABLE "station" (
 	"diffs" boolean DEFAULT false NOT NULL,
 	"decisions" boolean DEFAULT false NOT NULL,
 	"memories" boolean DEFAULT false NOT NULL,
+	"judge" jsonb,
+	"alerts" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

@@ -21,6 +21,8 @@ import {
   line,
   lineReaction,
   lineRepository,
+  type StationAlertRow,
+  type StationJudgeRow,
   station,
   stationSkill,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
@@ -37,6 +39,8 @@ const STATION_COLUMNS = {
   stationModel: station.model,
   stationEffort: station.effort,
   stationAgentPrompt: station.agentPrompt,
+  stationJudge: station.judge,
+  stationAlerts: station.alerts,
   stationKind: station.kind,
 };
 
@@ -51,6 +55,8 @@ type StationRow = {
   stationModel: string | null;
   stationEffort: string | null;
   stationAgentPrompt: string | null;
+  stationJudge: StationJudgeRow | null;
+  stationAlerts: StationAlertRow[];
   stationKind: StationKind;
 };
 
@@ -162,6 +168,8 @@ const summaryOf = (
   model: row.stationModel,
   effort: row.stationEffort,
   agentPrompt: row.stationAgentPrompt,
+  judge: row.stationJudge,
+  alerts: row.stationAlerts,
   kind: row.stationKind,
   skills: skills
     .filter((each) => each.stationId === row.stationId)

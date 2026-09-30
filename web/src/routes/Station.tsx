@@ -3,6 +3,8 @@ import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { FixedSettings } from '@/components/features/stations/FixedSettings';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
 import { StationOutcomes } from '@/components/features/stations/outcomes/StationOutcomes';
+import { StationAlerts } from '@/components/features/stations/StationAlerts';
+import { StationJudge } from '@/components/features/stations/StationJudge';
 import { StationLayout } from '@/components/features/stations/StationLayout';
 import { StationPrompt } from '@/components/features/stations/StationPrompt';
 import { StationSkeleton } from '@/components/features/stations/StationSkeleton';
@@ -152,6 +154,14 @@ export function Station() {
             />
 
             <StationSkills skills={station.skills} />
+
+            {station.judge && (
+              <StationJudge stationId={station.id} judge={station.judge} />
+            )}
+
+            {station.alerts.length > 0 && (
+              <StationAlerts alerts={station.alerts} />
+            )}
 
             <StationOutcomes
               slug={slug}

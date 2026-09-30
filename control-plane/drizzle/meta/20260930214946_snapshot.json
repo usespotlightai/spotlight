@@ -1,5 +1,5 @@
 {
-  "id": "300ef3b3-d899-4d02-9c40-5277fd932273",
+  "id": "0662d93b-728b-49c7-8899-d94b3d19e39a",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -6657,6 +6657,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "judge": {
+          "name": "judge",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alerts": {
+          "name": "alerts",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "created_at": {
           "name": "created_at",

@@ -10,8 +10,10 @@ import {
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
@@ -38,6 +40,8 @@ const station = (
   diffs: false,
   decisions: false,
   memories: false,
+  judge: null,
+  alerts: [],
   tools: [],
   skills: [],
   passesTo: [],
@@ -220,6 +224,78 @@ describe('LinePlan', () => {
       station: 'backlog',
       field: 'passesTo',
     });
+  });
+
+  it('refuses a judge at the backlog, where nothing runs to be judged', () => {
+    const refused = refusal(() =>
+      plan({
+        stations: [
+          backlog({
+            passesTo: [StationKey.of('code-review')],
+            judge: StationJudge.of({
+              rubric: 'A good run.',
+              sample: 0.2,
+              trust: 0.6,
+            }),
+          }),
+          station('code-review', { ends: true }),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(refused.message).toMatch(/no runs to judge/);
+    expect(refused.part).toEqual({
+      of: 'station',
+      station: 'backlog',
+      field: 'judge',
+    });
+  });
+
+  it('refuses alerts where the line ends, since nothing runs there', () => {
+    const refused = refusal(() =>
+      plan({
+        stations: [
+          backlog({ passesTo: [StationKey.of('code-review')] }),
+          station('code-review', { ends: true }),
+          completed({
+            alerts: [
+              StationAlert.of({ measure: 'failed_rate', above: 0.1, over: 5 }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(refused.part).toEqual({
+      of: 'station',
+      station: 'completed',
+      field: 'alerts',
+    });
+  });
+
+  it('lets a work station keep a judge and alerts', () => {
+    expect(() =>
+      plan({
+        stations: withStations(
+          station('code-review', {
+            ends: true,
+            judge: StationJudge.of({
+              rubric: 'A good run.',
+              sample: 0.2,
+              trust: 0.6,
+            }),
+            alerts: [
+              StationAlert.of({
+                measure: 'sent_back_rate',
+                risesBy: 0.2,
+                over: 20,
+              }),
+            ],
+          }),
+        ),
+      }),
+    ).not.toThrow();
   });
 
   it('refuses work passing to a station nobody works', () => {

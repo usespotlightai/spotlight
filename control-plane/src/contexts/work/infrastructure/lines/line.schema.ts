@@ -26,6 +26,21 @@ const identifier = (make: (raw: string) => unknown) =>
     }
   });
 
+const judgeSchema = z.object({
+  rubric: z.string(),
+  sample: z.number(),
+  trust: z.number(),
+});
+
+const alertSchema = z.object({
+  measure: z.string(),
+  risesBy: z.number().optional(),
+  above: z.number().optional(),
+  fallsBy: z.number().optional(),
+  below: z.number().optional(),
+  over: z.number(),
+});
+
 const stationSchema = z.object({
   key: identifier(StationKey.of),
   name: z.string().min(1, 'is what this station is called on the board'),
@@ -45,6 +60,8 @@ const stationSchema = z.object({
   diffs: z.boolean().optional(),
   decisions: z.boolean().optional(),
   memories: z.boolean().optional(),
+  judge: judgeSchema.optional(),
+  alerts: z.array(alertSchema).default([]),
   tools: z.array(identifier(Tool.of)).default([]),
   skills: z.array(identifier(SkillKey.of)).default([]),
   passesTo: z.array(identifier(StationKey.of)).default([]),

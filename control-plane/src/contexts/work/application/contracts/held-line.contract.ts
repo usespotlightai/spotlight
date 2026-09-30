@@ -1,5 +1,20 @@
 type HeldLineStationKind = 'backlog' | 'work' | 'completed';
 
+export type HeldLineJudge = {
+  readonly rubric: string;
+  readonly sample: number;
+  readonly trust: number;
+};
+
+export type HeldLineAlert = {
+  readonly measure: string;
+  readonly risesBy?: number;
+  readonly above?: number;
+  readonly fallsBy?: number;
+  readonly below?: number;
+  readonly over: number;
+};
+
 export type HeldLineStation = {
   readonly key: string;
   readonly name: string;
@@ -16,6 +31,8 @@ export type HeldLineStation = {
   readonly diffs?: boolean;
   readonly decisions?: boolean;
   readonly memories?: boolean;
+  readonly judge?: HeldLineJudge;
+  readonly alerts: readonly HeldLineAlert[];
   readonly tools: readonly string[];
   readonly skills: readonly string[];
   readonly passesTo: readonly string[];

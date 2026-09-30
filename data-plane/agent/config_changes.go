@@ -111,6 +111,23 @@ func configChanges(was, now protocol.StationConfig) []string {
 		changed("memories %s → %s", onOff(was.Memories), onOff(now.Memories))
 	}
 
+	switch {
+	case was.Judge == nil && now.Judge != nil:
+		changed("judge added")
+	case was.Judge != nil && now.Judge == nil:
+		changed("judge removed")
+	case was.Judge != nil:
+		if was.Judge.RubricDigest != now.Judge.RubricDigest {
+			changed("judge rubric changed")
+		}
+		if was.Judge.Sample != now.Judge.Sample {
+			changed("judge sample %s → %s", number(was.Judge.Sample), number(now.Judge.Sample))
+		}
+		if was.Judge.Trust != now.Judge.Trust {
+			changed("judge trust %s → %s", number(was.Judge.Trust), number(now.Judge.Trust))
+		}
+	}
+
 	return changes
 }
 

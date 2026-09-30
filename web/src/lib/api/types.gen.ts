@@ -8,6 +8,45 @@ export type HealthResponseDto = {
   status: 'ok';
 };
 
+export type StationJudgeResponseDto = {
+  /**
+   * What a good run looks like, in Markdown
+   */
+  rubric: string;
+  /**
+   * The share of runs judged, from 0 to 1
+   */
+  sample: number;
+  /**
+   * How often the judge must agree with people, from 0 to 1, before its scores show
+   */
+  trust: number;
+};
+
+export type StationAlertResponseDto = {
+  measure: 'sent_back_rate' | 'accepted_rate' | 'checks_failed_rate' | 'failed_rate' | 'merged_rate' | 'cost_per_run';
+  /**
+   * Goes off when the measure over the last `over` runs is this much higher than over the `over` runs before. For a rate, a share above 0 and at most 1 (0.2 is 20 percentage points); for `cost_per_run`, an amount above 0 in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set.
+   */
+  risesBy: number | null;
+  /**
+   * Goes off when the measure across the last `over` runs is higher than this. For a rate, a share from 0 to 1; for `cost_per_run`, an amount of 0 or more in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set.
+   */
+  above: number | null;
+  /**
+   * Goes off when the measure over the last `over` runs is this much lower than over the `over` runs before. For a rate, a share above 0 and at most 1 (0.2 is 20 percentage points); for `cost_per_run`, an amount above 0 in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set.
+   */
+  fallsBy: number | null;
+  /**
+   * Goes off when the measure across the last `over` runs is lower than this. For a rate, a share from 0 to 1; for `cost_per_run`, an amount of 0 or more in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set.
+   */
+  below: number | null;
+  /**
+   * How many runs are compared
+   */
+  over: number;
+};
+
 export type StationResponseDto = {
   id: string;
   /**
@@ -40,6 +79,14 @@ export type StationResponseDto = {
    * Markdown, handed to the agent that works this station
    */
   agentPrompt: string | null;
+  /**
+   * Scores the station’s runs against a rubric. Null when none is set.
+   */
+  judge: StationJudgeResponseDto | null;
+  /**
+   * When a measure of the station’s runs worsens enough to warn about, in the order they were written
+   */
+  alerts: Array<StationAlertResponseDto>;
   /**
    * The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged
    */
@@ -387,6 +434,21 @@ export type ConfiguredSkillResponseDto = {
   digest: string;
 };
 
+export type ConfiguredJudgeResponseDto = {
+  /**
+   * The SHA-256 of the judge's rubric
+   */
+  rubricDigest: string;
+  /**
+   * The share of runs judged
+   */
+  sample: number;
+  /**
+   * How often the judge must agree with people
+   */
+  trust: number;
+};
+
 export type StationConfigResponseDto = {
   prompt: string | null;
   harness: string;
@@ -399,6 +461,7 @@ export type StationConfigResponseDto = {
   tools: Array<string>;
   decisions: boolean;
   memories: boolean;
+  judge: ConfiguredJudgeResponseDto | null;
 };
 
 export type HistoryConfigResponseDto = {
@@ -1281,9 +1344,9 @@ export type TeamTraceResponseDto = {
 };
 
 export type ConfigChangeResponseDto = {
-  part: 'prompt' | 'harness' | 'model' | 'effort' | 'profile' | 'image' | 'repository' | 'skill' | 'tool' | 'decisions' | 'memories';
+  part: 'prompt' | 'harness' | 'model' | 'effort' | 'profile' | 'image' | 'repository' | 'skill' | 'tool' | 'decisions' | 'memories' | 'judge';
   /**
-   * The repository, skill or tool changed, where the part has several
+   * The repository, skill or tool changed, where the part has several, or the judge setting changed
    */
   name: string | null;
   kind: 'added' | 'removed' | 'changed';

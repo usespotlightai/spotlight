@@ -34,6 +34,7 @@ export class LineResourceResponseDto extends ResourceResponseDto {
           diffs: false,
           decisions: false,
           memories: false,
+          alerts: [],
           tools: [],
           skills: [],
           passesTo: ['completed'],

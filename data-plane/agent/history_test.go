@@ -63,6 +63,7 @@ func sampleHistory() protocol.History {
 	newer.Skills = []protocol.ConfigSkill{{Key: "tdd", Digest: "2222222222222222"}, {Key: "review", Digest: "3333"}}
 	newer.Tools = nil
 	newer.Memories = true
+	newer.Judge = &protocol.ConfigJudge{RubricDigest: "cccc", Sample: 0.2, Trust: 0.6}
 	newer.Profile = &protocol.ConfigProfile{Key: "fast", Settings: json.RawMessage(`{"b":[1,{"c":true}],"a":null}`)}
 
 	return protocol.History{
@@ -176,6 +177,7 @@ func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
 		"tool linear removed",
 		"profile fast added",
 		"memories off → on",
+		"judge added",
 		"- the oldest config here",
 	} {
 		if !strings.Contains(index, want) {

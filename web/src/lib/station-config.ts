@@ -1,5 +1,6 @@
 import type { ConfigChangeResponseDto } from '@/lib/api';
 import { imageShown } from '@/lib/run';
+import { sharePercent } from '@/lib/station-watch';
 
 export type ConfigChange = ConfigChangeResponseDto;
 
@@ -20,6 +21,7 @@ const PART_LABELS: Record<ConfigChange['part'], string> = {
   tool: 'Tool',
   decisions: 'Decisions',
   memories: 'Memories',
+  judge: 'Judge',
 };
 
 const SWITCHES: readonly ConfigChange['part'][] = ['decisions', 'memories'];
@@ -34,10 +36,23 @@ const shownValue = (
   value: string | null,
 ): string | null => (value && part === 'image' ? imageShown(value) : value);
 
-const namedPhrase = (change: ConfigChange, label: string, name: string) =>
-  change.kind === 'changed'
-    ? `${label} ${name} ${CHANGED_WITHIN[change.part] ?? 'changed'}`
-    : `${label} ${name} ${change.kind}`;
+const shareOf = (value: string | null): string | null =>
+  value === null || Number.isNaN(Number(value))
+    ? null
+    : sharePercent(Number(value));
+
+const namedPhrase = (change: ConfigChange, label: string, name: string) => {
+  const was = change.part === 'judge' ? shareOf(change.was) : null;
+  const now = change.part === 'judge' ? shareOf(change.now) : null;
+
+  if (change.kind !== 'changed') {
+    return `${label} ${name} ${change.kind}`;
+  }
+
+  return was && now
+    ? `${label} ${name} ${was} → ${now}`
+    : `${label} ${name} ${CHANGED_WITHIN[change.part] ?? 'changed'}`;
+};
 
 const valuePhrase = (change: ConfigChange, label: string): string => {
   const was = shownValue(change.part, change.was);

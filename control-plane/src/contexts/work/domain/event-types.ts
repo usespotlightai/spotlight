@@ -100,11 +100,13 @@ import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { Said } from '@work/domain/value-objects/said.vo';
 import { Signing } from '@work/domain/value-objects/signing.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
@@ -193,11 +195,13 @@ export const WORK_EVENT_TYPES = [
   Said,
   Signing,
   SkillKey,
+  StationAlert,
   StationCheck,
   StationColor,
   StationConfig,
   StationDescription,
   StationId,
+  StationJudge,
   StationKey,
   StationName,
   TaskDescription,

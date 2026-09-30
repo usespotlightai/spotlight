@@ -66,6 +66,15 @@ func configYAML(fingerprint string, config protocol.StationConfig) (string, erro
 	fmt.Fprintf(&out, "decisions: %t\n", config.Decisions)
 	fmt.Fprintf(&out, "memories: %t\n", config.Memories)
 
+	if config.Judge == nil {
+		out.WriteString("judge: null\n")
+	} else {
+		out.WriteString("judge:\n")
+		fmt.Fprintf(&out, "  rubricDigest: %s\n", quoted(config.Judge.RubricDigest))
+		fmt.Fprintf(&out, "  sample: %s\n", number(config.Judge.Sample))
+		fmt.Fprintf(&out, "  trust: %s\n", number(config.Judge.Trust))
+	}
+
 	out.WriteString("prompt:")
 	if config.Prompt == nil {
 		out.WriteString(" null\n")
@@ -142,6 +151,10 @@ func yamlScalar(value any) string {
 	default:
 		return quoted(fmt.Sprint(typed))
 	}
+}
+
+func number(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 func quoted(text string) string {

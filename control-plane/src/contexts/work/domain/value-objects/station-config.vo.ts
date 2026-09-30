@@ -20,6 +20,12 @@ interface ConfiguredSkill {
   readonly digest: string;
 }
 
+interface ConfiguredJudge {
+  readonly rubricDigest: string;
+  readonly sample: number;
+  readonly trust: number;
+}
+
 export interface StationConfigParts {
   readonly prompt: string | null;
   readonly harness: string;
@@ -32,6 +38,7 @@ export interface StationConfigParts {
   readonly tools: readonly string[];
   readonly decisions: boolean;
   readonly memories: boolean;
+  readonly judge?: ConfiguredJudge;
 }
 
 const CONFIG_PARTS = [
@@ -46,6 +53,7 @@ const CONFIG_PARTS = [
   'tool',
   'decisions',
   'memories',
+  'judge',
 ] as const;
 
 type ConfigPart = (typeof CONFIG_PARTS)[number];
@@ -100,6 +108,15 @@ const ordered = (parts: StationConfigParts): StationConfigParts => ({
   tools: [...new Set(parts.tools)].sort(textOrder),
   decisions: parts.decisions,
   memories: parts.memories,
+  ...(parts.judge
+    ? {
+        judge: {
+          rubricDigest: parts.judge.rubricDigest,
+          sample: parts.judge.sample,
+          trust: parts.judge.trust,
+        },
+      }
+    : {}),
 });
 
 const valueChange = (
@@ -161,6 +178,58 @@ const namedChanges = <T>(
 };
 
 const switched = (value: boolean): string => (value ? 'on' : 'off');
+
+const judgeChanges = (
+  was: ConfiguredJudge | undefined,
+  now: ConfiguredJudge | undefined,
+): ConfigChange[] => {
+  if (!was || !now) {
+    return was === now
+      ? []
+      : [
+          {
+            part: 'judge',
+            name: null,
+            kind: was ? 'removed' : 'added',
+            was: null,
+            now: null,
+          },
+        ];
+  }
+
+  const setting = (
+    name: 'sample' | 'trust',
+    before: number,
+    after: number,
+  ): ConfigChange[] =>
+    before === after
+      ? []
+      : [
+          {
+            part: 'judge',
+            name,
+            kind: 'changed',
+            was: String(before),
+            now: String(after),
+          },
+        ];
+
+  return [
+    ...(was.rubricDigest === now.rubricDigest
+      ? []
+      : [
+          {
+            part: 'judge' as const,
+            name: 'rubric',
+            kind: 'changed' as const,
+            was: null,
+            now: null,
+          },
+        ]),
+    ...setting('sample', was.sample, now.sample),
+    ...setting('trust', was.trust, now.trust),
+  ];
+};
 
 export class StationConfig {
   private constructor(
@@ -270,6 +339,7 @@ export class StationConfig {
         switched(was.memories),
         switched(now.memories),
       ),
+      ...judgeChanges(was.judge, now.judge),
     ];
   }
 

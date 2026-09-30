@@ -54,6 +54,28 @@ describe('changePhrase', () => {
     ).toBe('Image node:22 → node:22@sha256:aaaaaaaaaaaa');
   });
 
+  it('says a judge came or went, its rubric changed without repeating it, and what its sample and trust moved between', () => {
+    expect(changePhrase(change({ part: 'judge', kind: 'added' }))).toBe(
+      'Judge added',
+    );
+    expect(changePhrase(change({ part: 'judge', kind: 'removed' }))).toBe(
+      'Judge removed',
+    );
+    expect(changePhrase(change({ part: 'judge', name: 'rubric' }))).toBe(
+      'Judge rubric changed',
+    );
+    expect(
+      changePhrase(
+        change({ part: 'judge', name: 'sample', was: '0.2', now: '0.5' }),
+      ),
+    ).toBe('Judge sample 20% → 50%');
+    expect(
+      changePhrase(
+        change({ part: 'judge', name: 'trust', was: '0.6', now: '0.8' }),
+      ),
+    ).toBe('Judge trust 60% → 80%');
+  });
+
   it('names the skill, tool or repository that came or went', () => {
     expect(
       changePhrase(change({ part: 'skill', name: 'reviewing', kind: 'added' })),

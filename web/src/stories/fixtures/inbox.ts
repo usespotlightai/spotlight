@@ -366,6 +366,8 @@ const station = (
   model: 'claude-opus-5',
   effort: 'high',
   agentPrompt: null,
+  judge: null,
+  alerts: [],
   kind,
   skills: [],
 });

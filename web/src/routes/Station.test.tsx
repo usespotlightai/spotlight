@@ -16,6 +16,7 @@ const line = {
       color: '#a3a8b0',
       kind: 'backlog',
       skills: [],
+      alerts: [],
     },
     {
       id: 'station_1',
@@ -25,6 +26,7 @@ const line = {
       description: 'Where new work lands.',
       kind: 'work',
       skills: [],
+      alerts: [],
     },
     {
       id: 'station_2',
@@ -36,6 +38,37 @@ const line = {
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
       kind: 'work',
       skills: ['our-migrations', 'grafana-dashboards'],
+      judge: {
+        rubric: '## A good run\n\n- Changes only what it must',
+        sample: 0.2,
+        trust: 0.6,
+      },
+      alerts: [
+        {
+          measure: 'sent_back_rate',
+          risesBy: 0.2,
+          above: null,
+          fallsBy: null,
+          below: null,
+          over: 20,
+        },
+        {
+          measure: 'cost_per_run',
+          risesBy: null,
+          above: 2,
+          fallsBy: null,
+          below: null,
+          over: 10,
+        },
+        {
+          measure: 'accepted_rate',
+          risesBy: null,
+          above: null,
+          fallsBy: 0.1,
+          below: null,
+          over: 20,
+        },
+      ],
     },
     {
       id: 'station_3',
@@ -44,6 +77,7 @@ const line = {
       color: '#a3a8b0',
       kind: 'completed',
       skills: [],
+      alerts: [],
     },
   ],
   repositories: ['usespotlightai/spotlight'],
@@ -247,6 +281,62 @@ describe('Station', () => {
     renderAt('station_1');
 
     expect(screen.getByText('No skills.')).toBeInTheDocument();
+  });
+
+  it('shows how much of the station’s work its judge scores, and how far it must be trusted', () => {
+    renderAt('station_2');
+
+    expect(screen.getByRole('heading', { name: 'Judge' })).toBeInTheDocument();
+    expect(screen.getByText('20% of runs')).toBeInTheDocument();
+    expect(
+      screen.getByText('agreeing with people 60% of the time'),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the rubric folded away until asked, then shows it without letting it be written', async () => {
+    const user = userEvent.setup();
+    renderAt('station_2');
+
+    const rubric = screen.getByRole('button', { name: 'Rubric' });
+
+    expect(rubric).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('Rubric')).not.toBeInTheDocument();
+
+    await user.click(rubric);
+
+    expect(rubric).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('Rubric')).toHaveAttribute(
+      'contenteditable',
+      'false',
+    );
+    expect(
+      screen.getByRole('heading', { name: 'A good run' }),
+    ).toBeInTheDocument();
+  });
+
+  it('lists the station’s alerts in the order they were written', () => {
+    renderAt('station_2');
+
+    expect(
+      within(screen.getByRole('list', { name: 'Alerts' }))
+        .getAllByRole('listitem')
+        .map((each) => each.textContent),
+    ).toEqual([
+      'Sent-back rate up 20 points in the last 20 runs, against the 20 before',
+      'Cost per run above $2.00 across the last 10 runs',
+      'Accepted rate down 10 points in the last 20 runs, against the 20 before',
+    ]);
+  });
+
+  it('shows no judge or alerts where none are set', () => {
+    renderAt('station_1');
+
+    expect(
+      screen.queryByRole('heading', { name: 'Judge' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Alerts' }),
+    ).not.toBeInTheDocument();
   });
 
   it('marks how far along the line the station stands', () => {

@@ -32,6 +32,8 @@ const station = (
   model: null,
   effort: null,
   agentPrompt: null,
+  judge: null,
+  alerts: [],
   kind: 'work',
   skills: [],
   ...over,
@@ -69,6 +71,38 @@ const LINES: LineResponseDto[] = [
         agentPrompt:
           '## Role\n\nImplement the spec on the task.\n\n- Keep the change small\n- Ask when the spec is unclear',
         skills: ['our-migrations', 'grafana-dashboards'],
+        judge: {
+          rubric:
+            '## A good run\n\n- Changes only what the spec asks for\n- Leaves the tests passing\n- Says what it could not do',
+          sample: 0.2,
+          trust: 0.6,
+        },
+        alerts: [
+          {
+            measure: 'sent_back_rate',
+            risesBy: 0.2,
+            above: null,
+            fallsBy: null,
+            below: null,
+            over: 20,
+          },
+          {
+            measure: 'cost_per_run',
+            risesBy: null,
+            above: 2,
+            fallsBy: null,
+            below: null,
+            over: 10,
+          },
+          {
+            measure: 'accepted_rate',
+            risesBy: null,
+            above: null,
+            fallsBy: 0.1,
+            below: null,
+            over: 20,
+          },
+        ],
       }),
       station({
         id: 'station_completed',
@@ -160,6 +194,13 @@ const OUTCOMES: StationOutcomesResponseDto = {
           kind: 'added',
           was: null,
           now: null,
+        },
+        {
+          part: 'judge',
+          name: 'sample',
+          kind: 'changed',
+          was: '0.1',
+          now: '0.2',
         },
       ],
       tally: {

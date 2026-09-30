@@ -18,6 +18,7 @@ func TestConfigYAMLWritesEveryField(t *testing.T) {
 		Tools:        nil,
 		Decisions:    false,
 		Memories:     true,
+		Judge:        &protocol.ConfigJudge{RubricDigest: "beef", Sample: 0.2, Trust: 1},
 	})
 	if err != nil {
 		t.Fatalf("yaml: %v", err)
@@ -45,11 +46,26 @@ skills:
 tools: []
 decisions: false
 memories: true
+judge:
+  rubricDigest: "beef"
+  sample: 0.2
+  trust: 1
 prompt: |2
   Do it.
 `
 	if written != want {
 		t.Errorf("got\n%s\nwant\n%s", written, want)
+	}
+}
+
+func TestConfigYAMLWritesNoJudgeAsNull(t *testing.T) {
+	written, err := configYAML("f00d", protocol.StationConfig{Harness: "codex"})
+	if err != nil {
+		t.Fatalf("yaml: %v", err)
+	}
+
+	if !strings.Contains(written, "\njudge: null\n") {
+		t.Errorf("no judge: null in\n%s", written)
 	}
 }
 

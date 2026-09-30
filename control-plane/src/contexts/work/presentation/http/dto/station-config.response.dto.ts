@@ -50,6 +50,26 @@ export class ConfiguredSkillResponseDto {
   }
 }
 
+export class ConfiguredJudgeResponseDto {
+  @ApiProperty({ description: "The SHA-256 of the judge's rubric" })
+  readonly rubricDigest: string;
+
+  @ApiProperty({ example: 0.2, description: 'The share of runs judged' })
+  readonly sample: number;
+
+  @ApiProperty({
+    example: 0.6,
+    description: 'How often the judge must agree with people',
+  })
+  readonly trust: number;
+
+  constructor(from: { rubricDigest: string; sample: number; trust: number }) {
+    this.rubricDigest = from.rubricDigest;
+    this.sample = from.sample;
+    this.trust = from.trust;
+  }
+}
+
 export class StationConfigResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly prompt: string | null;
@@ -84,6 +104,9 @@ export class StationConfigResponseDto {
   @ApiProperty()
   readonly memories: boolean;
 
+  @ApiProperty({ nullable: true, type: () => ConfiguredJudgeResponseDto })
+  readonly judge: ConfiguredJudgeResponseDto | null;
+
   constructor(from: StationConfigShape) {
     this.prompt = from.prompt;
     this.harness = from.harness;
@@ -102,6 +125,7 @@ export class StationConfigResponseDto {
     this.tools = [...from.tools];
     this.decisions = from.decisions;
     this.memories = from.memories;
+    this.judge = from.judge ? new ConfiguredJudgeResponseDto(from.judge) : null;
   }
 }
 
@@ -117,6 +141,7 @@ const PARTS = [
   'tool',
   'decisions',
   'memories',
+  'judge',
 ];
 
 export class ConfigChangeResponseDto {
@@ -127,7 +152,7 @@ export class ConfigChangeResponseDto {
     nullable: true,
     type: String,
     description:
-      'The repository, skill or tool changed, where the part has several',
+      'The repository, skill or tool changed, where the part has several, or the judge setting changed',
   })
   readonly name: string | null;
 

@@ -2,6 +2,21 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
 
+export interface StationJudgeSummary {
+  readonly rubric: string;
+  readonly sample: number;
+  readonly trust: number;
+}
+
+export interface StationAlertSummary {
+  readonly measure: string;
+  readonly risesBy: number | null;
+  readonly above: number | null;
+  readonly fallsBy: number | null;
+  readonly below: number | null;
+  readonly over: number;
+}
+
 export interface StationSummary {
   readonly id: string;
   readonly key: string;
@@ -13,6 +28,8 @@ export interface StationSummary {
   readonly model: string | null;
   readonly effort: string | null;
   readonly agentPrompt: string | null;
+  readonly judge: StationJudgeSummary | null;
+  readonly alerts: readonly StationAlertSummary[];
   readonly kind: StationKind;
   readonly skills: readonly string[];
 }

@@ -10,10 +10,12 @@ import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import type { StationColor } from '@work/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
@@ -36,6 +38,8 @@ type Part = {
   diffs?: boolean;
   decisions?: boolean;
   memories?: boolean;
+  judge?: StationJudge | null;
+  alerts?: readonly StationAlert[];
   wayOut?: WayOut;
   tools?: readonly Tool[];
   skills?: readonly SkillKey[];
@@ -58,6 +62,8 @@ export type StationInput = {
   diffs?: boolean;
   decisions?: boolean;
   memories?: boolean;
+  judge?: StationJudge | null;
+  alerts?: readonly StationAlert[];
   kind?: StationKind;
   wayOut?: WayOut;
   tools?: readonly Tool[];
@@ -88,6 +94,8 @@ export abstract class Station {
   abstract readonly diffs: boolean;
   abstract readonly decisions: boolean;
   abstract readonly memories: boolean;
+  abstract readonly judge: StationJudge | null;
+  abstract readonly alerts: readonly StationAlert[];
 
   static of(input: StationInput): Station {
     Station.guardWhatItGives(input.tools ?? [], input.skills ?? []);
@@ -122,6 +130,8 @@ export abstract class Station {
           input.diffs ?? false,
           input.decisions ?? false,
           input.memories ?? false,
+          input.judge ?? null,
+          StationAlert.together(input.alerts ?? []),
         );
     }
   }
@@ -206,6 +216,8 @@ class WorkStation extends Station {
     readonly diffs: boolean,
     readonly decisions: boolean,
     readonly memories: boolean,
+    readonly judge: StationJudge | null,
+    readonly alerts: readonly StationAlert[],
   ) {
     super(id, key, name, position, color, description, wayOut, tools, skills);
   }
@@ -247,6 +259,8 @@ class WorkStation extends Station {
       part.diffs !== undefined ? part.diffs : this.diffs,
       part.decisions !== undefined ? part.decisions : this.decisions,
       part.memories !== undefined ? part.memories : this.memories,
+      part.judge !== undefined ? part.judge : this.judge,
+      part.alerts ? StationAlert.together(part.alerts) : this.alerts,
     );
   }
 }
@@ -263,6 +277,8 @@ class Backlog extends Station {
   readonly diffs = false;
   readonly decisions = false;
   readonly memories = false;
+  readonly judge = null;
+  readonly alerts: readonly StationAlert[] = [];
 
   runsOn(): Station {
     throw new InvalidStationChangeError(
@@ -309,6 +325,8 @@ class Completed extends Station {
   readonly diffs = false;
   readonly decisions = false;
   readonly memories = false;
+  readonly judge = null;
+  readonly alerts: readonly StationAlert[] = [];
 
   runsOn(): Station {
     throw new InvalidStationChangeError(

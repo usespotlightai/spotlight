@@ -55,6 +55,8 @@ const station = (
   diffs: false,
   decisions: false,
   memories: false,
+  judge: null,
+  alerts: [],
   tools: [],
   skills: [],
   passesTo: [],

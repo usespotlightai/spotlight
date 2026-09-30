@@ -40,6 +40,13 @@ type StationConfig struct {
 	Tools        []string           `json:"tools"`
 	Decisions    bool               `json:"decisions"`
 	Memories     bool               `json:"memories"`
+	Judge        *ConfigJudge       `json:"judge"`
+}
+
+type ConfigJudge struct {
+	RubricDigest string  `json:"rubricDigest"`
+	Sample       float64 `json:"sample"`
+	Trust        float64 `json:"trust"`
 }
 
 type ConfigProfile struct {

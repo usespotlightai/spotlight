@@ -16723,6 +16723,85 @@
           "status"
         ]
       },
+      "StationJudgeResponseDto": {
+        "type": "object",
+        "properties": {
+          "rubric": {
+            "type": "string",
+            "example": "A good run changes only what the task asks for.",
+            "description": "What a good run looks like, in Markdown"
+          },
+          "sample": {
+            "type": "number",
+            "example": 0.2,
+            "description": "The share of runs judged, from 0 to 1"
+          },
+          "trust": {
+            "type": "number",
+            "example": 0.6,
+            "description": "How often the judge must agree with people, from 0 to 1, before its scores show"
+          }
+        },
+        "required": [
+          "rubric",
+          "sample",
+          "trust"
+        ]
+      },
+      "StationAlertResponseDto": {
+        "type": "object",
+        "properties": {
+          "measure": {
+            "type": "string",
+            "enum": [
+              "sent_back_rate",
+              "accepted_rate",
+              "checks_failed_rate",
+              "failed_rate",
+              "merged_rate",
+              "cost_per_run"
+            ],
+            "example": "sent_back_rate"
+          },
+          "risesBy": {
+            "type": "number",
+            "example": 0.2,
+            "nullable": true,
+            "description": "Goes off when the measure over the last `over` runs is this much higher than over the `over` runs before. For a rate, a share above 0 and at most 1 (0.2 is 20 percentage points); for `cost_per_run`, an amount above 0 in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set."
+          },
+          "above": {
+            "type": "number",
+            "example": null,
+            "nullable": true,
+            "description": "Goes off when the measure across the last `over` runs is higher than this. For a rate, a share from 0 to 1; for `cost_per_run`, an amount of 0 or more in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set."
+          },
+          "fallsBy": {
+            "type": "number",
+            "example": null,
+            "nullable": true,
+            "description": "Goes off when the measure over the last `over` runs is this much lower than over the `over` runs before. For a rate, a share above 0 and at most 1 (0.2 is 20 percentage points); for `cost_per_run`, an amount above 0 in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set."
+          },
+          "below": {
+            "type": "number",
+            "example": null,
+            "nullable": true,
+            "description": "Goes off when the measure across the last `over` runs is lower than this. For a rate, a share from 0 to 1; for `cost_per_run`, an amount of 0 or more in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set."
+          },
+          "over": {
+            "type": "number",
+            "example": 20,
+            "description": "How many runs are compared"
+          }
+        },
+        "required": [
+          "measure",
+          "risesBy",
+          "above",
+          "fallsBy",
+          "below",
+          "over"
+        ]
+      },
       "StationResponseDto": {
         "type": "object",
         "properties": {
@@ -16778,6 +16857,23 @@
             "nullable": true,
             "description": "Markdown, handed to the agent that works this station"
           },
+          "judge": {
+            "nullable": true,
+            "description": "Scores the station’s runs against a rubric. Null when none is set.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StationJudgeResponseDto"
+              }
+            ]
+          },
+          "alerts": {
+            "description": "When a measure of the station’s runs worsens enough to warn about, in the order they were written",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StationAlertResponseDto"
+            }
+          },
           "kind": {
             "type": "string",
             "enum": [
@@ -16809,6 +16905,8 @@
           "model",
           "effort",
           "agentPrompt",
+          "judge",
+          "alerts",
           "kind",
           "skills"
         ]
@@ -17017,6 +17115,7 @@
                   "diffs": false,
                   "decisions": false,
                   "memories": false,
+                  "alerts": [],
                   "tools": [],
                   "skills": [],
                   "passesTo": [
@@ -17700,6 +17799,30 @@
           "digest"
         ]
       },
+      "ConfiguredJudgeResponseDto": {
+        "type": "object",
+        "properties": {
+          "rubricDigest": {
+            "type": "string",
+            "description": "The SHA-256 of the judge's rubric"
+          },
+          "sample": {
+            "type": "number",
+            "example": 0.2,
+            "description": "The share of runs judged"
+          },
+          "trust": {
+            "type": "number",
+            "example": 0.6,
+            "description": "How often the judge must agree with people"
+          }
+        },
+        "required": [
+          "rubricDigest",
+          "sample",
+          "trust"
+        ]
+      },
       "StationConfigResponseDto": {
         "type": "object",
         "properties": {
@@ -17761,6 +17884,15 @@
           },
           "memories": {
             "type": "boolean"
+          },
+          "judge": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredJudgeResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -17774,7 +17906,8 @@
           "skills",
           "tools",
           "decisions",
-          "memories"
+          "memories",
+          "judge"
         ]
       },
       "HistoryConfigResponseDto": {
@@ -20000,14 +20133,15 @@
               "skill",
               "tool",
               "decisions",
-              "memories"
+              "memories",
+              "judge"
             ],
             "example": "effort"
           },
           "name": {
             "type": "string",
             "nullable": true,
-            "description": "The repository, skill or tool changed, where the part has several"
+            "description": "The repository, skill or tool changed, where the part has several, or the judge setting changed"
           },
           "kind": {
             "type": "string",

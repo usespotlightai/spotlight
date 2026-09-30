@@ -13,6 +13,11 @@ export interface StationConfigShape {
   readonly tools: readonly string[];
   readonly decisions: boolean;
   readonly memories: boolean;
+  readonly judge?: {
+    readonly rubricDigest: string;
+    readonly sample: number;
+    readonly trust: number;
+  };
 }
 
 export interface ConfigChangeShape {

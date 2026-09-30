@@ -34,6 +34,30 @@ import { seatTeam } from './support/team';
 
 const DELIVERY = definitionOf(BUILT_IN_LINES[0] as LineOpening);
 
+const JUDGE = {
+  rubric: 'A good run changes only what the task asks for.\n',
+  sample: 0.2,
+  trust: 0.6,
+};
+
+const ALERTS = [
+  { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
+  { measure: 'cost_per_run', above: 5, over: 10 },
+  { measure: 'accepted_rate', fallsBy: 0.1, over: 20 },
+  { measure: 'merged_rate', below: 0.4, over: 20 },
+];
+
+const judged = (
+  judge: object | undefined,
+  alerts: readonly object[],
+  at = 1,
+) => ({
+  ...DELIVERY,
+  stations: DELIVERY.stations.map((each, place) =>
+    place === at ? { ...each, ...(judge ? { judge } : {}), alerts } : each,
+  ),
+});
+
 const seated = async (
   app: INestApplication,
 ): Promise<ResourceFixture & { readonly held: string }> => {
@@ -52,10 +76,16 @@ const seated = async (
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/lines`,
     workspaceOf: () => held,
     address: `team/${DELIVERY.key}`,
-    valid: DELIVERY,
-    changed: { ...DELIVERY, name: 'Delivery, again' },
-    changedAgain: { ...DELIVERY, name: 'Delivery, once more' },
-    invalid: { body: { ...DELIVERY, stations: [] }, path: 'stations' },
+    valid: judged(JUDGE, ALERTS),
+    changed: {
+      ...judged({ ...JUDGE, sample: 0.5 }, [...ALERTS].reverse()),
+      name: 'Delivery, again',
+    },
+    changedAgain: { ...judged(undefined, []), name: 'Delivery, once more' },
+    invalid: {
+      body: judged({ ...JUDGE, sample: 1.5 }, ALERTS),
+      path: 'stations[1].judge.sample',
+    },
     close: async () => {
       await db
         .delete(schema.idempotentCreate)
@@ -195,6 +225,72 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(made.body.definition.stations[0].memories).toBe(false);
     expect(stopped.status).toBe(200);
     expect(stopped.body.definition.stations[1].memories).toBe(false);
+  });
+
+  it('keeps a station’s judge and its alerts as written, in their order, and forgets them once left out', async () => {
+    const made = await create(judged(JUDGE, ALERTS));
+    const again = await change(
+      made.body.id,
+      made.body.version,
+      judged(JUDGE, ALERTS),
+    );
+    const dropped = await change(
+      made.body.id,
+      again.body.version,
+      judged(undefined, []),
+    );
+
+    expect(made.status).toBe(201);
+    expect(made.body.definition.stations[1].judge).toEqual(JUDGE);
+    expect(made.body.definition.stations[1].alerts).toEqual(ALERTS);
+    expect(made.body.definition.stations[0]).not.toHaveProperty('judge');
+    expect(made.body.definition.stations[0].alerts).toEqual([]);
+    expect(again.status).toBe(200);
+    expect(again.body.definition).toEqual(made.body.definition);
+    expect(dropped.status).toBe(200);
+    expect(dropped.body.definition.stations[1]).not.toHaveProperty('judge');
+    expect(dropped.body.definition.stations[1].alerts).toEqual([]);
+  });
+
+  it('refuses a wrong alert at its field, an alert repeating one before it, and a judge or alerts where nothing runs', async () => {
+    const wrongAlert = await create(
+      judged(JUDGE, [
+        ALERTS[0] as object,
+        { measure: 'merged_rate', below: 1.5, over: 20 },
+      ]),
+    );
+    const neither = await create(
+      judged(JUDGE, [{ measure: 'failed_rate', over: 5 }]),
+    );
+    const several = await create(
+      judged(JUDGE, [
+        ALERTS[0] as object,
+        { measure: 'cost_per_run', risesBy: 1, below: 5, over: 10 },
+      ]),
+    );
+    const twice = await create(
+      judged(JUDGE, [
+        ALERTS[1] as object,
+        ALERTS[0] as object,
+        { measure: 'cost_per_run', above: 9, over: 5 },
+      ]),
+    );
+    const atBacklog = await create(judged(JUDGE, [], 0));
+    const atCompleted = await create(
+      judged(undefined, ALERTS, DELIVERY.stations.length - 1),
+    );
+
+    for (const [refused, path] of [
+      [wrongAlert, 'stations[1].alerts[1].below'],
+      [neither, 'stations[1].alerts[0]'],
+      [several, 'stations[1].alerts[1]'],
+      [twice, 'stations[1].alerts[2]'],
+      [atBacklog, 'stations[0].judge'],
+      [atCompleted, `stations[${DELIVERY.stations.length - 1}].alerts`],
+    ] as const) {
+      expect(refused.status).toBe(422);
+      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+    }
   });
 
   it('keeps the image and setup each repository names, and reads them back as written', async () => {

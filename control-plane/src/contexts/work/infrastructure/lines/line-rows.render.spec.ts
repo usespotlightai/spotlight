@@ -25,6 +25,8 @@ const station = (
   diffs: false,
   decisions: false,
   memories: false,
+  judge: null,
+  alerts: [],
   finishes: false,
   ...over,
 });
@@ -101,6 +103,69 @@ describe('renderLineRows', () => {
     expect(rendered.stations[1]?.runners).toEqual(['gpu']);
     expect(Object.keys(rendered.stations[0] ?? {})).not.toContain('runners');
     expect(Object.keys(renderLineRows(ROWS))).not.toContain('runners');
+    expect(compileLine(rendered).ok).toBe(true);
+  });
+
+  it('renders a judge only where there is one, and alerts in their order with only the threshold they set', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      stations: [
+        ...ROWS.stations.slice(0, 1),
+        station('build', {
+          finishes: true,
+          judge: { rubric: 'A good run is small.\n', sample: 0.2, trust: 0.6 },
+          alerts: [
+            {
+              measure: 'sent_back_rate',
+              risesBy: 0.2,
+              above: null,
+              fallsBy: null,
+              below: null,
+              over: 20,
+            },
+            {
+              measure: 'cost_per_run',
+              risesBy: null,
+              above: 2,
+              fallsBy: null,
+              below: null,
+              over: 10,
+            },
+            {
+              measure: 'accepted_rate',
+              risesBy: null,
+              above: null,
+              fallsBy: 0.1,
+              below: null,
+              over: 20,
+            },
+            {
+              measure: 'merged_rate',
+              risesBy: null,
+              above: null,
+              fallsBy: null,
+              below: 0.4,
+              over: 20,
+            },
+          ],
+        }),
+        ...ROWS.stations.slice(2),
+      ],
+    });
+
+    expect(rendered.stations[1]?.judge).toEqual({
+      rubric: 'A good run is small.\n',
+      sample: 0.2,
+      trust: 0.6,
+    });
+    expect(rendered.stations[1]?.alerts).toEqual([
+      { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
+      { measure: 'cost_per_run', above: 2, over: 10 },
+      { measure: 'accepted_rate', fallsBy: 0.1, over: 20 },
+      { measure: 'merged_rate', below: 0.4, over: 20 },
+    ]);
+    expect(Object.keys(rendered.stations[0] ?? {})).not.toContain('judge');
+    expect(rendered.stations[0]?.alerts).toEqual([]);
     expect(compileLine(rendered).ok).toBe(true);
   });
 

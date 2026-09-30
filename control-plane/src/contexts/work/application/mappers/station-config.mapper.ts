@@ -67,6 +67,15 @@ export const StationConfigMapper = {
         tools: order.given.tools.map((each) => each.value),
         decisions: station.decisions,
         memories: station.memories,
+        ...(station.judge
+          ? {
+              judge: {
+                rubricDigest: digest.sha256(station.judge.rubric),
+                sample: station.judge.sample,
+                trust: station.judge.trust,
+              },
+            }
+          : {}),
       },
       (canonical) => digest.sha256(canonical),
     );

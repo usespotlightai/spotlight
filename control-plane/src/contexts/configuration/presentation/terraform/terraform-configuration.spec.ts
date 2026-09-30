@@ -74,6 +74,36 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     skills    = [spotlight_skill.core_grafana.key, "catalog.research@1.0.0"]
     passes_to = []
     ends      = true
+
+    judge {
+      rubric = file("\${path.module}/judges/core/delivery/implementation.md")
+      sample = 0.2
+      trust  = 0.6
+    }
+
+    alert {
+      measure  = "sent_back_rate"
+      rises_by = 0.2
+      over     = 20
+    }
+
+    alert {
+      measure = "cost_per_run"
+      above   = 5
+      over    = 10
+    }
+
+    alert {
+      measure  = "accepted_rate"
+      falls_by = 0.1
+      over     = 20
+    }
+
+    alert {
+      measure = "merged_rate"
+      below   = 0.4
+      over    = 20
+    }
   }
 
   station {
@@ -101,6 +131,7 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
 describe('workspaceTerraform', () => {
   it('writes main.tf, variables.tf and every file main.tf reads, ordered by path', () => {
     expect(workspaceTerraform(HELD).map((each) => each.path)).toEqual([
+      'judges/core/delivery/implementation.md',
       'main.tf',
       'prompts/core/delivery/implementation.md',
       'skills/core/grafana/SKILL.md',
@@ -178,6 +209,12 @@ describe('workspaceTerraform', () => {
   it('keeps each prompt in its own file byte for byte, read with file()', () => {
     expect(fileOf(HELD, 'prompts/core/delivery/implementation.md')).toBe(
       'Implement the task.\n\n',
+    );
+  });
+
+  it('keeps each judge rubric in its own file byte for byte, read with file()', () => {
+    expect(fileOf(HELD, 'judges/core/delivery/implementation.md')).toBe(
+      'A good run changes only what the task asks for.\n',
     );
   });
 
@@ -694,6 +731,10 @@ describe('resourceHcl', () => {
 
   it('hands over only the files that resource reads', () => {
     expect(resourceHcl(HELD, heldAs('line')).files).toEqual([
+      {
+        path: 'judges/core/delivery/implementation.md',
+        content: 'A good run changes only what the task asks for.\n',
+      },
       {
         path: 'prompts/core/delivery/implementation.md',
         content: 'Implement the task.\n\n',

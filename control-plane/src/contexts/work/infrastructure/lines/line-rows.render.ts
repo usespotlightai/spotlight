@@ -64,6 +64,8 @@ type StationRow = Pick<
   | 'diffs'
   | 'decisions'
   | 'memories'
+  | 'judge'
+  | 'alerts'
   | 'finishes'
 >;
 
@@ -139,6 +141,24 @@ export const renderLineRows = (
     diffs: row.diffs,
     decisions: row.decisions,
     memories: row.memories,
+    ...present(
+      'judge',
+      row.judge
+        ? {
+            rubric: row.judge.rubric,
+            sample: row.judge.sample,
+            trust: row.judge.trust,
+          }
+        : null,
+    ),
+    alerts: row.alerts.map((each) => ({
+      measure: each.measure,
+      ...present('risesBy', each.risesBy),
+      ...present('above', each.above),
+      ...present('fallsBy', each.fallsBy),
+      ...present('below', each.below),
+      over: each.over,
+    })),
     tools: givenAt(rows.tools, row.id),
     skills: givenAt(rows.skills, row.id),
     passesTo: rows.routes

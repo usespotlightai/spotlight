@@ -51,6 +51,28 @@ export class ConfigSkillResponseDto {
   }
 }
 
+export class ConfigJudgeResponseDto {
+  @ApiProperty({
+    description: 'The digest of the rubric the runs were judged by',
+  })
+  readonly rubricDigest: string;
+
+  @ApiProperty({ example: 0.2, description: 'The share of runs judged' })
+  readonly sample: number;
+
+  @ApiProperty({
+    example: 0.6,
+    description: 'How often the judge must agree with people',
+  })
+  readonly trust: number;
+
+  constructor(judge: { rubricDigest: string; sample: number; trust: number }) {
+    this.rubricDigest = judge.rubricDigest;
+    this.sample = judge.sample;
+    this.trust = judge.trust;
+  }
+}
+
 export class StationConfigResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly prompt: string | null;
@@ -85,6 +107,9 @@ export class StationConfigResponseDto {
   @ApiProperty({ description: 'Whether its runs keep memories' })
   readonly memories: boolean;
 
+  @ApiProperty({ type: ConfigJudgeResponseDto, nullable: true })
+  readonly judge: ConfigJudgeResponseDto | null;
+
   constructor(config: StationConfigView) {
     this.prompt = config.prompt;
     this.harness = config.harness;
@@ -101,6 +126,7 @@ export class StationConfigResponseDto {
     this.tools = [...config.tools];
     this.decisions = config.decisions;
     this.memories = config.memories;
+    this.judge = config.judge ? new ConfigJudgeResponseDto(config.judge) : null;
   }
 }
 
