@@ -22,6 +22,7 @@ import { TeamIndex } from './routes/TeamIndex.tsx';
 import { TeamIntegrations } from './routes/TeamIntegrations.tsx';
 import { TeamSection } from './routes/TeamSection.tsx';
 import { TeamSkills } from './routes/TeamSkills.tsx';
+import { Tokens } from './routes/Tokens.tsx';
 import { Workspace } from './routes/Workspace.tsx';
 import { WorkspaceIndex } from './routes/WorkspaceIndex.tsx';
 
@@ -66,6 +67,7 @@ export default function App() {
           </Route>
 
           <Route path="runners" element={<Runners />} />
+          <Route path="tokens" element={<Tokens />} />
         </Route>
       </Route>
 

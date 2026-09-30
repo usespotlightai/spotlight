@@ -1,4 +1,4 @@
-import { InstallCommand } from '@/components/features/runners/InstallCommand';
+import { CopyBlock } from '@/components/shared/CopyBlock';
 import { installCommand } from '@/lib/runner';
 
 type PoolCreatedProps = {
@@ -15,7 +15,7 @@ export function PoolCreated({ pool, token }: PoolCreatedProps) {
         token in it is shown only this once.
       </p>
 
-      <InstallCommand command={installCommand(token)} focused />
+      <CopyBlock text={installCommand(token)} label="Copy command" focused />
     </div>
   );
 }

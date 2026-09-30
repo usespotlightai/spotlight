@@ -68,6 +68,7 @@ const acme = {
   id: 'ws_1',
   name: 'Acme Inc.',
   slug: 'acme-inc',
+  role: 'owner',
   teams: [{ id: 'team_1', name: 'Platform' }],
 };
 
@@ -96,6 +97,27 @@ describe('Workspace', () => {
     expect(
       screen.getByRole('button', { name: /Acme Inc\./ }),
     ).toBeInTheDocument();
+  });
+
+  it('offers the tokens to an owner or admin of the workspace', () => {
+    loaded({ ...acme, role: 'admin' });
+
+    renderAt('acme-inc');
+
+    expect(screen.getByRole('link', { name: 'Tokens' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc/tokens',
+    );
+  });
+
+  it('offers a member no tokens', () => {
+    loaded({ ...acme, role: 'member' });
+
+    renderAt('acme-inc');
+
+    expect(
+      screen.queryByRole('link', { name: 'Tokens' }),
+    ).not.toBeInTheDocument();
   });
 
   it('frames the section at that address', () => {

@@ -8,5 +8,8 @@ export const nameOfRole: Record<Role, string> = {
   member: 'Member',
 };
 
-export const managesRunners = (role: Role): boolean =>
-  role === 'owner' || role === 'admin';
+const isAdmin = (role: Role): boolean => role === 'owner' || role === 'admin';
+
+export const managesRunners = isAdmin;
+
+export const administers = isAdmin;
