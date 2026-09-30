@@ -19,6 +19,7 @@ import {
 } from '@work/application/queries/read-runner-history.query';
 import { Money } from '@work/domain/value-objects/money.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const FP = 'a'.repeat(64);
@@ -145,6 +146,7 @@ const reading = ({
             used: 40_000,
             size: 200_000,
             cost: Money.of(0.42, 'USD'),
+            tokens: Tokens.UNREPORTED,
           },
         ]),
       ),

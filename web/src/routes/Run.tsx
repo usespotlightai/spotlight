@@ -10,6 +10,7 @@ import { RunConfig } from '@/components/features/runs/RunConfig';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
 import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
+import { RunSpend } from '@/components/features/runs/RunSpend';
 import { RunWaiting } from '@/components/features/runs/RunWaiting';
 import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
@@ -200,6 +201,7 @@ export function Run() {
   const remembered = (
     <div className="flex flex-col gap-3">
       <RunConfig slug={slug} teamId={teamId} runId={run.id} />
+      <RunSpend spend={said?.spend ?? null} />
       <RunRemembered slug={slug} teamId={teamId} runId={run.id} />
     </div>
   );

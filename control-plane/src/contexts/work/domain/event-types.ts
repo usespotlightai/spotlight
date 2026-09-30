@@ -114,6 +114,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -173,6 +174,7 @@ export const WORK_EVENT_TYPES = [
   Mark,
   MessagePosition,
   Money,
+  Tokens,
   NetworkAnswer,
   NetworkCallId,
   NetworkRequest,

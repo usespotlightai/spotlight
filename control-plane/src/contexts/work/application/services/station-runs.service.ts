@@ -45,6 +45,10 @@ export class StationRuns implements StationRunsPort {
           used: digest.used,
           cost: digest.cost?.amount ?? null,
           currency: digest.cost?.currency ?? null,
+          inputTokens: digest.tokens.input,
+          outputTokens: digest.tokens.output,
+          cacheReadTokens: digest.tokens.cacheRead,
+          cacheWriteTokens: digest.tokens.cacheWrite,
         },
       ]),
     );

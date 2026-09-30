@@ -1,8 +1,10 @@
 import { Money } from '@work/domain/value-objects/money.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { Told } from '@work/infrastructure/acp/told';
 import {
   digestOf,
   spentAcross,
+  tokensAcross,
 } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { describe, expect, it } from 'vitest';
 
@@ -14,6 +16,7 @@ describe('digestOf', () => {
       used: 10,
       size: 200,
       cost: Money.of(0.5, 'USD'),
+      tokens: Tokens.UNREPORTED,
     });
 
     expect(digest.steps).toBe(5);
@@ -27,6 +30,7 @@ describe('digestOf', () => {
       used: null,
       size: null,
       cost: null,
+      tokens: Tokens.UNREPORTED,
     });
 
     expect(digest).toEqual({
@@ -36,6 +40,7 @@ describe('digestOf', () => {
       used: null,
       size: null,
       cost: null,
+      tokens: Tokens.UNREPORTED,
     });
   });
 });
@@ -75,5 +80,73 @@ describe('spentAcross', () => {
 
   it('spent nothing where nothing was reported', () => {
     expect(spentAcross([new Told()])).toBeNull();
+  });
+});
+
+describe('tokensAcross', () => {
+  const turned = (...usages: object[]) => {
+    const told = new Told();
+    for (const usage of usages) {
+      told.take({
+        type: 'usage',
+        at: new Date('2026-09-29T09:00:00.000Z'),
+        message: null,
+        data: Buffer.from(JSON.stringify(usage)).toString('base64'),
+      });
+    }
+    return told;
+  };
+
+  it('adds up every turn of every attempt, count by count', () => {
+    const tokens = tokensAcross([
+      turned(
+        {
+          inputTokens: 10,
+          outputTokens: 20,
+          cachedReadTokens: 300,
+          cachedWriteTokens: 40,
+          totalTokens: 370,
+        },
+        {
+          inputTokens: 1,
+          outputTokens: 2,
+          cachedReadTokens: 30,
+          cachedWriteTokens: 4,
+          totalTokens: 37,
+        },
+      ),
+      turned({
+        inputTokens: 5,
+        outputTokens: 5,
+        cachedReadTokens: 0,
+        cachedWriteTokens: 0,
+        totalTokens: 10,
+      }),
+    ]);
+
+    expect(tokens).toMatchObject({
+      input: 16,
+      output: 27,
+      cacheRead: 330,
+      cacheWrite: 44,
+    });
+  });
+
+  it('leaves a count no turn reported unknown rather than zero', () => {
+    const tokens = tokensAcross([
+      turned({
+        inputTokens: 10,
+        outputTokens: 20,
+        cachedReadTokens: 300,
+        totalTokens: 330,
+      }),
+    ]);
+
+    expect(tokens.cacheRead).toBe(300);
+    expect(tokens.cacheWrite).toBeNull();
+  });
+
+  it('knows nothing of a run whose harness reported no usage', () => {
+    expect(tokensAcross([new Told(), new Told()])).toEqual(Tokens.UNREPORTED);
   });
 });

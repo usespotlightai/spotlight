@@ -4,6 +4,7 @@ import type { StationConfigParts } from '@work/domain/value-objects/station-conf
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   doublePrecision,
   index,
@@ -119,6 +120,10 @@ export const runDigest = pgTable(
     size: integer('size'),
     cost: doublePrecision('cost'),
     currency: text('currency'),
+    inputTokens: bigint('input_tokens', { mode: 'number' }),
+    outputTokens: bigint('output_tokens', { mode: 'number' }),
+    cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
+    cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
     digestedAt: timestamp('digested_at').defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.runId, table.attempt] })],

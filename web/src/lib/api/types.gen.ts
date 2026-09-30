@@ -1310,6 +1310,27 @@ export type RunConfigResponseDto = {
   changedSince: ConfigChangedSinceResponseDto | null;
 };
 
+export type RunSpendResponseDto = {
+  cost: number | null;
+  currency: string | null;
+  /**
+   * Fresh input tokens; null where the harness did not report them
+   */
+  inputTokens: number | null;
+  /**
+   * Output tokens; null where the harness did not report them
+   */
+  outputTokens: number | null;
+  /**
+   * Input tokens read from the prompt cache; null where the harness did not report them
+   */
+  cacheReadTokens: number | null;
+  /**
+   * Input tokens written to the prompt cache; null where the harness did not report them
+   */
+  cacheWriteTokens: number | null;
+};
+
 export type RunConversationResponseDto = {
   runId: string;
   taskId: string;
@@ -1330,6 +1351,10 @@ export type RunConversationResponseDto = {
    */
   working: boolean;
   notes: Array<InboxMessageResponseDto>;
+  /**
+   * What the run spent, once it has ended and been digested
+   */
+  spend: RunSpendResponseDto | null;
 };
 
 export type SayToRunRequestDto = {

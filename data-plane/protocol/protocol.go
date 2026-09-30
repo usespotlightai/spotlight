@@ -151,6 +151,7 @@ const (
 	EventOutput         EventType = "output"
 	EventFailed         EventType = "failed"
 	EventSpan           EventType = "span"
+	EventUsage          EventType = "usage"
 )
 
 type Event struct {

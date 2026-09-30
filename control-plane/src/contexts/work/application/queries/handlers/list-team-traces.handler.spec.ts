@@ -8,6 +8,7 @@ import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-08-29T12:00:00.000Z');
@@ -48,6 +49,7 @@ const digests = {
           used: null,
           size: null,
           cost: Money.of(0.5, 'USD'),
+          tokens: Tokens.UNREPORTED,
         },
       ],
     ]);

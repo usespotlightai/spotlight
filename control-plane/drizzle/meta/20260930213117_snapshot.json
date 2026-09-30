@@ -1,5 +1,5 @@
 {
-  "id": "6c3fe98e-a35d-4150-b807-d5dc78cd3498",
+  "id": "300ef3b3-d899-4d02-9c40-5277fd932273",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -7628,6 +7628,30 @@
         "currency": {
           "name": "currency",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "input_tokens": {
+          "name": "input_tokens",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "output_tokens": {
+          "name": "output_tokens",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cache_read_tokens": {
+          "name": "cache_read_tokens",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cache_write_tokens": {
+          "name": "cache_write_tokens",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },

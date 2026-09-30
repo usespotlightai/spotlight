@@ -118,11 +118,22 @@ export const took = (ms: number): string => {
   return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
 };
 
-export const counted = (tokens: number): string =>
-  tokens < 1_000 ? `${tokens}` : `${Math.round(tokens / 100) / 10}k`;
+export const counted = (tokens: number): string => {
+  if (tokens < 1_000) {
+    return `${tokens}`;
+  }
+  if (Math.round(tokens / 100) < 10_000) {
+    return `${Math.round(tokens / 100) / 10}k`;
+  }
+
+  return `${Math.round(tokens / 100_000) / 10}M`;
+};
 
 export const spentOn = (cost: number | null): string =>
   cost === null ? '–' : `$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
+
+export const spentIn = (amount: number, currency: string): string =>
+  currency === 'USD' ? spentOn(amount) : `${amount.toFixed(2)} ${currency}`;
 
 export type JournalStep = RunJournalResponseDto['steps'][number];
 

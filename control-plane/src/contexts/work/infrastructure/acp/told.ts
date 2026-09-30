@@ -7,14 +7,21 @@ import {
   type RunSpent,
   type StepChange,
   type StepLocation,
+  TURN_USAGE,
 } from '@work/application/contracts/run-journal.contract';
 import { Money } from '@work/domain/value-objects/money.vo';
 import type { StepKind } from '@work/domain/value-objects/step-kind';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { type Content, diffIn } from '@work/infrastructure/acp/content';
 import {
   decoded,
   type Journalled,
 } from '@work/infrastructure/journal/journalled';
+
+const countOf = (said: unknown): number | null =>
+  typeof said === 'number' && Number.isSafeInteger(said) && said >= 0
+    ? said
+    : null;
 
 const DETAIL_LIMIT = 4_000;
 
@@ -100,6 +107,13 @@ const written = (raw: unknown): string | null => {
   }
 };
 
+interface TurnUsage {
+  readonly inputTokens?: unknown;
+  readonly outputTokens?: unknown;
+  readonly cachedReadTokens?: unknown;
+  readonly cachedWriteTokens?: unknown;
+}
+
 interface HookCalled {
   readonly hook?: string;
   readonly step?: string;
@@ -172,6 +186,7 @@ export class Told {
   #saying: Building | null = null;
   #spent: RunSpent | null = null;
   #spentBySession = new Map<string, RunSpent>();
+  #tokens = Tokens.UNREPORTED;
   #first: Date | null = null;
   #last: Date | null = null;
   #spokenAt: Date[] = [];
@@ -207,6 +222,9 @@ export class Told {
         break;
       case RUN_PAUSED:
         this.#pausedAt.push(event.at);
+        break;
+      case TURN_USAGE:
+        this.used(event);
         break;
       default:
         break;
@@ -266,6 +284,27 @@ export class Told {
       default:
         break;
     }
+  }
+
+  private used(event: Journalled): void {
+    let usage: TurnUsage;
+    try {
+      usage = JSON.parse(decoded(event.data ?? '')) as TurnUsage;
+    } catch {
+      return;
+    }
+    if (typeof usage !== 'object' || usage === null) {
+      return;
+    }
+
+    this.#tokens = this.#tokens.plus(
+      Tokens.of({
+        input: countOf(usage.inputTokens),
+        output: countOf(usage.outputTokens),
+        cacheRead: countOf(usage.cachedReadTokens),
+        cacheWrite: countOf(usage.cachedWriteTokens),
+      }),
+    );
   }
 
   private ranHook(event: Journalled): void {
@@ -378,6 +417,10 @@ export class Told {
 
   spentBySession(): ReadonlyMap<string, RunSpent> {
     return this.#spentBySession;
+  }
+
+  tokens(): Tokens {
+    return this.#tokens;
   }
 
   private cost(update: NonNullable<Spoken['update']>, session: string): void {

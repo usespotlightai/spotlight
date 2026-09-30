@@ -20097,6 +20097,53 @@
           "changedSince"
         ]
       },
+      "RunSpendResponseDto": {
+        "type": "object",
+        "properties": {
+          "cost": {
+            "type": "number",
+            "example": 0.4213,
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "nullable": true
+          },
+          "inputTokens": {
+            "type": "number",
+            "example": 3120,
+            "nullable": true,
+            "description": "Fresh input tokens; null where the harness did not report them"
+          },
+          "outputTokens": {
+            "type": "number",
+            "example": 8840,
+            "nullable": true,
+            "description": "Output tokens; null where the harness did not report them"
+          },
+          "cacheReadTokens": {
+            "type": "number",
+            "example": 412300,
+            "nullable": true,
+            "description": "Input tokens read from the prompt cache; null where the harness did not report them"
+          },
+          "cacheWriteTokens": {
+            "type": "number",
+            "example": 21400,
+            "nullable": true,
+            "description": "Input tokens written to the prompt cache; null where the harness did not report them"
+          }
+        },
+        "required": [
+          "cost",
+          "currency",
+          "inputTokens",
+          "outputTokens",
+          "cacheReadTokens",
+          "cacheWriteTokens"
+        ]
+      },
       "RunConversationResponseDto": {
         "type": "object",
         "properties": {
@@ -20151,6 +20198,16 @@
             "items": {
               "$ref": "#/components/schemas/InboxMessageResponseDto"
             }
+          },
+          "spend": {
+            "nullable": true,
+            "description": "What the run spent, once it has ended and been digested",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunSpendResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -20163,7 +20220,8 @@
           "createdAt",
           "briefing",
           "working",
-          "notes"
+          "notes",
+          "spend"
         ]
       },
       "SayToRunRequestDto": {

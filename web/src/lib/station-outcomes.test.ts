@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   runSpent,
   type StationTally,
-  spentIn,
   tallyFigures,
 } from '@/lib/station-outcomes';
 
@@ -50,13 +49,6 @@ describe('tallyFigures', () => {
       { label: 'Cost', value: '$1.50' },
       { label: 'Median', value: '4m 12s' },
     ]);
-  });
-});
-
-describe('spentIn', () => {
-  it('writes dollars as the rest of the app does, and names any other currency', () => {
-    expect(spentIn(0.25, 'USD')).toBe('$0.25');
-    expect(spentIn(3, 'EUR')).toBe('3.00 EUR');
   });
 });
 

@@ -5,7 +5,7 @@ import type {
   StationRunOutcomeResponseDto,
   StationTallyResponseDto,
 } from '@/lib/api';
-import { spentOn, took } from '@/lib/inbox';
+import { spentIn, took } from '@/lib/inbox';
 
 export type StationRunOutcome = StationRunOutcomeResponseDto;
 
@@ -64,9 +64,6 @@ const DELIVERIES: Record<NonNullable<StationRunOutcome['delivery']>, string> = {
 export const deliveryShown = (
   delivery: StationRunOutcome['delivery'],
 ): string => (delivery ? DELIVERIES[delivery] : '–');
-
-export const spentIn = (amount: number, currency: string): string =>
-  currency === 'USD' ? spentOn(amount) : `${amount.toFixed(2)} ${currency}`;
 
 export const runSpent = (cost: StationRunOutcome['cost']): string =>
   cost?.cost != null && cost.currency ? spentIn(cost.cost, cost.currency) : '–';

@@ -92,6 +92,9 @@ func TestOpensASessionAndReportsWhatWasSaid(t *testing.T) {
 	if result.StopReason != "end_turn" {
 		t.Errorf("stopped for %q", result.StopReason)
 	}
+	if !result.Used() || string(result.Usage) != `{"inputTokens":3,"outputTokens":5,"totalTokens":8}` {
+		t.Errorf("the turn's usage came back as %s", result.Usage)
+	}
 }
 
 const asking = `

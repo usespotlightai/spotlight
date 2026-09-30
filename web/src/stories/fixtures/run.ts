@@ -75,6 +75,14 @@ const CONVERSATION: RunConversationResponseDto = {
   briefing:
     '## Implementation\n\nYou are the Implementation station of the Delivery line. Carry out the change the spec settled on, keep the pull request small, and hand over once the tests pass.\n\n## The task\n\nDrain the stuck retry queues. Webhook deliveries have been failing since the queue worker was redeployed on Friday.\n\n## What came before\n\nMaya Chen answered: start with webhook-retries. Billing is still being reconciled, so leave it alone for now.',
   working: false,
+  spend: {
+    cost: 1.8742,
+    currency: 'USD',
+    inputTokens: 3_120,
+    outputTokens: 18_840,
+    cacheReadTokens: 2_412_300,
+    cacheWriteTokens: 61_400,
+  },
   notes: [
     {
       position: 0,
@@ -275,7 +283,10 @@ const seedPausedRun = (
   client.setQueryData(teamRunKeys.forTeam(TEAM_ID), [
     { ...RUN, state, exitCode: null, updatedAt, review: OWED },
   ]);
-  client.setQueryData(runConversationKeys.forRun(RUN_ID), CONVERSATION);
+  client.setQueryData(runConversationKeys.forRun(RUN_ID), {
+    ...CONVERSATION,
+    spend: null,
+  });
   client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
   seedRunMemories(client, TEAM_ID, RUN_ID);
 };
@@ -346,6 +357,7 @@ export const seedCarryingOnRun = (client: QueryClient) => {
   client.setQueryData(runConversationKeys.forRun(RUN_ID), {
     ...CONVERSATION,
     working: true,
+    spend: null,
     notes: [...CONVERSATION.notes, ANSWER],
   });
   client.setQueryData(journalKeys.forTask(TASK_ID), [...JOURNAL, CARRIED_ON]);
@@ -393,6 +405,21 @@ export const seedChangedConfigRun = (client: QueryClient) => {
       ],
     },
   } satisfies RunConfigResponseDto);
+};
+
+export const seedPartlyReportedRun = (client: QueryClient) => {
+  seedRun(client);
+  client.setQueryData(runConversationKeys.forRun(RUN_ID), {
+    ...CONVERSATION,
+    spend: {
+      cost: null,
+      currency: null,
+      inputTokens: 4_480,
+      outputTokens: 12_210,
+      cacheReadTokens: 988_160,
+      cacheWriteTokens: null,
+    },
+  } satisfies RunConversationResponseDto);
 };
 
 export const rememberingRun = (client: QueryClient) => {

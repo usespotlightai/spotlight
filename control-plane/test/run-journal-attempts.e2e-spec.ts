@@ -195,6 +195,80 @@ describe('digesting a run that paused for a person', () => {
   });
 });
 
+describe('digesting the tokens a run took', () => {
+  const turned = (seq: number, usage: Record<string, number>) => ({
+    seq,
+    type: 'usage',
+    at: new Date(Date.UTC(2026, 8, 17, 9, 0, seq)),
+    data: Buffer.from(JSON.stringify(usage)).toString('base64'),
+  });
+
+  it('adds up the turns of every attempt it kept, count by count', async () => {
+    const { runId } = await chatRun();
+
+    await journal.append(RunAttempt.of(runId, 1), [
+      turned(1, {
+        inputTokens: 10,
+        outputTokens: 20,
+        cachedReadTokens: 3_000,
+        cachedWriteTokens: 400,
+        totalTokens: 3_430,
+      }),
+    ]);
+    await db
+      .update(schema.run)
+      .set({ attempt: 2, parkedAttempts: [1], state: 'claimed' })
+      .where(eq(schema.run.id, runId.value));
+    await journal.append(RunAttempt.of(runId, 2), [
+      turned(1, {
+        inputTokens: 5,
+        outputTokens: 7,
+        cachedReadTokens: 2_000,
+        cachedWriteTokens: 0,
+        totalTokens: 2_012,
+      }),
+    ]);
+    await finished(runId);
+    await digests.ensure([runId]);
+
+    const digest = (await digests.forRuns([runId])).get(runId.value);
+
+    expect(digest?.tokens).toMatchObject({
+      input: 15,
+      output: 27,
+      cacheRead: 5_000,
+      cacheWrite: 400,
+    });
+  });
+
+  it('stores what the harness never reported as unknown, not zero', async () => {
+    const { runId } = await chatRun();
+
+    await journal.append(RunAttempt.of(runId, 1), [
+      turned(1, { inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
+    ]);
+    await finished(runId);
+    await digests.ensure([runId]);
+
+    const [stored] = await db
+      .select({
+        inputTokens: schema.runDigest.inputTokens,
+        outputTokens: schema.runDigest.outputTokens,
+        cacheReadTokens: schema.runDigest.cacheReadTokens,
+        cacheWriteTokens: schema.runDigest.cacheWriteTokens,
+      })
+      .from(schema.runDigest)
+      .where(eq(schema.runDigest.runId, runId.value));
+
+    expect(stored).toEqual({
+      inputTokens: 10,
+      outputTokens: 20,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+    });
+  });
+});
+
 describe('journalling aside what happened around a run', () => {
   const aside = (message: string, second: number) => ({
     type: 'hook.called',

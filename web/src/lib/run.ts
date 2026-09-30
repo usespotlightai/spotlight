@@ -1,10 +1,32 @@
-import type { TaskRunResponseDto, TeamRunResponseDto } from '@/lib/api';
+import type {
+  RunSpendResponseDto,
+  TaskRunResponseDto,
+  TeamRunResponseDto,
+} from '@/lib/api';
+import { counted, spentIn } from '@/lib/inbox';
 
 export type Run = TaskRunResponseDto;
 
 export type TeamRun = TeamRunResponseDto;
 
 export type Review = NonNullable<Run['review']>;
+
+export type RunSpend = RunSpendResponseDto;
+
+export const TOKEN_COUNTS = [
+  { key: 'inputTokens', label: 'Input' },
+  { key: 'outputTokens', label: 'Output' },
+  { key: 'cacheReadTokens', label: 'Cache read' },
+  { key: 'cacheWriteTokens', label: 'Cache write' },
+] as const;
+
+export const tokensShown = (count: number | null): string =>
+  count === null ? 'not reported' : counted(count);
+
+export const runCost = (spend: RunSpend): string =>
+  spend.cost !== null && spend.currency
+    ? spentIn(spend.cost, spend.currency)
+    : 'not reported';
 
 export const reviewInk = (review: Review): string =>
   review.state === 'owed' ? 'text-muted-foreground' : 'text-faint opacity-70';

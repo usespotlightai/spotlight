@@ -53,6 +53,65 @@ export class RunReviewResponseDto {
   }
 }
 
+export class RunSpendResponseDto {
+  @ApiProperty({ example: 0.4213, nullable: true, type: Number })
+  readonly cost: number | null;
+
+  @ApiProperty({ example: 'USD', nullable: true, type: String })
+  readonly currency: string | null;
+
+  @ApiProperty({
+    example: 3120,
+    nullable: true,
+    type: Number,
+    description:
+      'Fresh input tokens; null where the harness did not report them',
+  })
+  readonly inputTokens: number | null;
+
+  @ApiProperty({
+    example: 8840,
+    nullable: true,
+    type: Number,
+    description: 'Output tokens; null where the harness did not report them',
+  })
+  readonly outputTokens: number | null;
+
+  @ApiProperty({
+    example: 412300,
+    nullable: true,
+    type: Number,
+    description:
+      'Input tokens read from the prompt cache; null where the harness did not report them',
+  })
+  readonly cacheReadTokens: number | null;
+
+  @ApiProperty({
+    example: 21400,
+    nullable: true,
+    type: Number,
+    description:
+      'Input tokens written to the prompt cache; null where the harness did not report them',
+  })
+  readonly cacheWriteTokens: number | null;
+
+  constructor(
+    cost: number | null,
+    currency: string | null,
+    inputTokens: number | null,
+    outputTokens: number | null,
+    cacheReadTokens: number | null,
+    cacheWriteTokens: number | null,
+  ) {
+    this.cost = cost;
+    this.currency = currency;
+    this.inputTokens = inputTokens;
+    this.outputTokens = outputTokens;
+    this.cacheReadTokens = cacheReadTokens;
+    this.cacheWriteTokens = cacheWriteTokens;
+  }
+}
+
 export class RunConversationResponseDto {
   @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
   readonly runId: string;
@@ -92,6 +151,13 @@ export class RunConversationResponseDto {
   @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
   readonly notes: readonly InboxMessageResponseDto[];
 
+  @ApiProperty({
+    type: RunSpendResponseDto,
+    nullable: true,
+    description: 'What the run spent, once it has ended and been digested',
+  })
+  readonly spend: RunSpendResponseDto | null;
+
   constructor(
     runId: string,
     taskId: string,
@@ -103,6 +169,7 @@ export class RunConversationResponseDto {
     briefing: string | null,
     working: boolean,
     notes: readonly InboxMessageResponseDto[],
+    spend: RunSpendResponseDto | null,
   ) {
     this.runId = runId;
     this.taskId = taskId;
@@ -114,6 +181,7 @@ export class RunConversationResponseDto {
     this.briefing = briefing;
     this.working = working;
     this.notes = notes;
+    this.spend = spend;
   }
 }
 

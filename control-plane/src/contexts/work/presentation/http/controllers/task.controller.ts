@@ -62,6 +62,7 @@ import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.res
 import { TaskResponseDto } from '@work/presentation/http/dto/task.response.dto';
 import {
   RunConversationResponseDto,
+  RunSpendResponseDto,
   RunStationResponseDto,
   SayToRunRequestDto,
   TaskRunResponseDto,
@@ -253,6 +254,16 @@ export class TaskController {
             note.failure ? new InboxFailureResponseDto(note.failure) : null,
           ),
       ),
+      found.spend
+        ? new RunSpendResponseDto(
+            found.spend.cost,
+            found.spend.currency,
+            found.spend.inputTokens,
+            found.spend.outputTokens,
+            found.spend.cacheReadTokens,
+            found.spend.cacheWriteTokens,
+          )
+        : null,
     );
   }
 

@@ -2,6 +2,15 @@ import type { AttachmentDto } from '@work/application/dto/attachment.dto';
 import type { InboxMessageDto } from '@work/application/dto/inbox.dto';
 import type { RunStationDto } from '@work/application/dto/task-run.dto';
 
+export interface RunSpendDto {
+  readonly cost: number | null;
+  readonly currency: string | null;
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly cacheReadTokens: number | null;
+  readonly cacheWriteTokens: number | null;
+}
+
 export interface RunConversationDto {
   readonly runId: string;
   readonly taskId: string;
@@ -13,4 +22,5 @@ export interface RunConversationDto {
   readonly briefing: string | null;
   readonly working: boolean;
   readonly notes: readonly InboxMessageDto[];
+  readonly spend: RunSpendDto | null;
 }

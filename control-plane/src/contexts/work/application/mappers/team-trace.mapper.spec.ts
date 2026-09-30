@@ -7,6 +7,7 @@ import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-08-29T12:00:00.000Z');
@@ -39,6 +40,7 @@ const digest = (over: Partial<RunDigest> = {}): RunDigest => ({
   used: 12_000,
   size: 200_000,
   cost: Money.of(0.25, 'USD'),
+  tokens: Tokens.UNREPORTED,
   ...over,
 });
 

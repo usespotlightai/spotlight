@@ -6,10 +6,12 @@ import type {
   RunJournal,
 } from '@/lib/inbox';
 import {
+  counted,
   decisionOwed,
   inboxItemPath,
   previewOf,
   shownAt,
+  spentIn,
   spentOn,
   workedOn,
 } from '@/lib/inbox';
@@ -55,6 +57,22 @@ describe('spentOn', () => {
 
   it('says nothing where the harness reported nothing', () => {
     expect(spentOn(null)).toBe('–');
+  });
+});
+
+describe('counted', () => {
+  it('shortens tokens to thousands and millions', () => {
+    expect(counted(950)).toBe('950');
+    expect(counted(412_300)).toBe('412.3k');
+    expect(counted(2_480_000)).toBe('2.5M');
+    expect(counted(999_960)).toBe('1M');
+  });
+});
+
+describe('spentIn', () => {
+  it('writes dollars as the rest of the app does, and names any other currency', () => {
+    expect(spentIn(0.25, 'USD')).toBe('$0.25');
+    expect(spentIn(3, 'EUR')).toBe('3.00 EUR');
   });
 });
 

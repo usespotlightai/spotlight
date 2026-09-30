@@ -7,6 +7,8 @@ export const HOOK_CALLED = 'hook.called';
 
 export const RUN_PAUSED = 'run.paused';
 
+export const TURN_USAGE = 'usage';
+
 export const ASIDE_SEQ = -1_000_000;
 
 export const isAside = (seq: number): boolean => seq <= ASIDE_SEQ;

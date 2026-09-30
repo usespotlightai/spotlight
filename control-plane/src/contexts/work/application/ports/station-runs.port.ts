@@ -9,6 +9,10 @@ export interface EndedRunCost {
   readonly used: number | null;
   readonly cost: number | null;
   readonly currency: string | null;
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly cacheReadTokens: number | null;
+  readonly cacheWriteTokens: number | null;
 }
 
 export interface EndedStationRun {

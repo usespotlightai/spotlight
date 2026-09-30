@@ -1277,6 +1277,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ReadRunConversationQuery, ReadRunConversationHandler, [
     RUN_READER,
+    RUN_DIGESTS,
   ]),
 
   ...bindQueryHandler(ReadAttachmentQuery, ReadAttachmentHandler, [

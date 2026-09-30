@@ -1,6 +1,7 @@
 import type { RunDigest } from '@work/application/ports/run-digest-reader.port';
 import { together } from '@work/application/read-models/run-digest';
 import { Money } from '@work/domain/value-objects/money.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('together', () => {
@@ -11,6 +12,7 @@ describe('together', () => {
     used: null,
     size: null,
     cost,
+    tokens: Tokens.UNREPORTED,
   });
 
   it('adds up what every run of the task cost', () => {

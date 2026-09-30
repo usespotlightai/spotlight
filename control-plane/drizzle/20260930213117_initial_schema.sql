@@ -886,6 +886,10 @@ CREATE TABLE "run_digest" (
 	"size" integer,
 	"cost" double precision,
 	"currency" text,
+	"input_tokens" bigint,
+	"output_tokens" bigint,
+	"cache_read_tokens" bigint,
+	"cache_write_tokens" bigint,
 	"digested_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "run_digest_run_id_attempt_pk" PRIMARY KEY("run_id","attempt")
 );

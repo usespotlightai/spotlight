@@ -392,6 +392,60 @@ describe('Run', () => {
     });
   });
 
+  describe('what it spent', () => {
+    const spent = () => document.querySelector('[data-slot="run-spend"]');
+
+    it('splits the tokens beside the cost', () => {
+      conversation.mockReturnValue(
+        said({
+          spend: {
+            cost: 1.8742,
+            currency: 'USD',
+            inputTokens: 3_120,
+            outputTokens: 18_840,
+            cacheReadTokens: 2_412_300,
+            cacheWriteTokens: 61_400,
+          },
+        }),
+      );
+
+      renderRun();
+
+      expect(spent()).toHaveTextContent(
+        'Spent$1.87·Input3.1k·Output18.8k·Cache read2.4M·Cache write61.4k',
+      );
+    });
+
+    it('says what the harness never reported was not reported, rather than none', () => {
+      conversation.mockReturnValue(
+        said({
+          spend: {
+            cost: null,
+            currency: null,
+            inputTokens: 4_480,
+            outputTokens: 0,
+            cacheReadTokens: 988_160,
+            cacheWriteTokens: null,
+          },
+        }),
+      );
+
+      renderRun();
+
+      expect(spent()).toHaveTextContent(
+        'Spentnot reported·Input4.5k·Output0·Cache read988.2k·Cache writenot reported',
+      );
+    });
+
+    it('shows no spend before the run has ended', () => {
+      conversation.mockReturnValue(said({ spend: null }));
+
+      renderRun();
+
+      expect(spent()).not.toBeInTheDocument();
+    });
+  });
+
   it('says there is no such run beneath a bar of its own', () => {
     runs.mockReturnValue([run({ id: 'run_2' })]);
 

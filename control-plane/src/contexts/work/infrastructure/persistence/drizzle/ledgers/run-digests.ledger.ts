@@ -11,6 +11,7 @@ import type { RunDigestWriterPort } from '@work/application/ports/run-digest-wri
 import { Money } from '@work/domain/value-objects/money.vo';
 import { TERMINAL_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { faulted } from '@work/domain/value-objects/step-status';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { Told } from '@work/infrastructure/acp/told';
 import {
   run,
@@ -27,7 +28,14 @@ interface Worked {
   readonly used: number | null;
   readonly size: number | null;
   readonly cost: Money | null;
+  readonly tokens: Tokens;
 }
+
+export const tokensAcross = (readings: readonly Told[]): Tokens =>
+  readings.reduce(
+    (all, reading) => all.plus(reading.tokens()),
+    Tokens.UNREPORTED,
+  );
 
 export const spentAcross = (readings: readonly Told[]): RunSpent | null => {
   const latest =
@@ -67,6 +75,7 @@ export const digestOf = (worked: Worked): RunDigest => ({
   used: worked.used,
   size: worked.size,
   cost: worked.cost,
+  tokens: worked.tokens,
 });
 
 const chunked = <T>(all: readonly T[], size: number): T[][] => {
@@ -181,6 +190,7 @@ export class DrizzleRunDigests
         used: spent?.used ?? null,
         size: spent?.size ?? null,
         cost: spent?.cost ?? null,
+        tokens: tokensAcross(kept),
       });
 
       return {
@@ -193,6 +203,10 @@ export class DrizzleRunDigests
         size: digest.size,
         cost: digest.cost?.amount ?? null,
         currency: digest.cost?.currency ?? null,
+        inputTokens: digest.tokens.input,
+        outputTokens: digest.tokens.output,
+        cacheReadTokens: digest.tokens.cacheRead,
+        cacheWriteTokens: digest.tokens.cacheWrite,
       };
     });
 
@@ -220,10 +234,17 @@ export class DrizzleRunDigests
         size: runDigest.size,
         cost: runDigest.cost,
         currency: runDigest.currency,
+        inputTokens: runDigest.inputTokens,
+        outputTokens: runDigest.outputTokens,
+        cacheReadTokens: runDigest.cacheReadTokens,
+        cacheWriteTokens: runDigest.cacheWriteTokens,
       })
       .from(runDigest)
-      .where(inArray(runDigest.runId, ids))
-      .orderBy(asc(runDigest.attempt));
+      .innerJoin(
+        run,
+        and(eq(run.id, runDigest.runId), eq(run.attempt, runDigest.attempt)),
+      )
+      .where(inArray(runDigest.runId, ids));
 
     return new Map(
       held.map((each) => [
@@ -235,6 +256,12 @@ export class DrizzleRunDigests
           used: each.used,
           size: each.size,
           cost: Money.maybe(each.cost, each.currency),
+          tokens: Tokens.of({
+            input: each.inputTokens,
+            output: each.outputTokens,
+            cacheRead: each.cacheReadTokens,
+            cacheWrite: each.cacheWriteTokens,
+          }),
         },
       ]),
     );

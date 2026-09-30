@@ -315,6 +315,69 @@ describe('Told', () => {
     expect(told.steps()).toEqual([]);
   });
 
+  it('adds up the tokens each turn reported, count by count', () => {
+    const told = new Told();
+    const turn = (usage: Record<string, unknown>, at: number) =>
+      told.take({
+        type: 'usage',
+        at: clock(at),
+        message: null,
+        data: Buffer.from(JSON.stringify(usage)).toString('base64'),
+      });
+
+    turn({ inputTokens: 3, outputTokens: 5, cachedReadTokens: 100 }, 1);
+    turn({ inputTokens: 2, outputTokens: 1, cachedReadTokens: 50 }, 2);
+
+    expect(told.tokens()).toMatchObject({
+      input: 5,
+      output: 6,
+      cacheRead: 150,
+      cacheWrite: null,
+    });
+    expect(told.steps()).toEqual([]);
+  });
+
+  it('knows no tokens where no turn reported any', () => {
+    const told = new Told();
+    told.take({
+      type: 'usage',
+      at: clock(1),
+      message: null,
+      data: Buffer.from('not usage').toString('base64'),
+    });
+
+    expect(told.tokens()).toMatchObject({
+      input: null,
+      output: null,
+      cacheRead: null,
+      cacheWrite: null,
+    });
+  });
+
+  it('reads a count that is not a whole number of tokens as unreported', () => {
+    const told = new Told();
+    told.take({
+      type: 'usage',
+      at: clock(1),
+      message: null,
+      data: Buffer.from(
+        JSON.stringify({
+          inputTokens: -1,
+          outputTokens: 2.5,
+          cachedReadTokens: '7',
+          cachedWriteTokens: 4,
+        }),
+      ).toString('base64'),
+    });
+
+    expect(told.tokens()).toMatchObject({
+      input: null,
+      output: null,
+      cacheRead: null,
+      cacheWrite: 4,
+    });
+  });
+
   it('passes over what it has nothing to show for', () => {
     const told = read(
       sent({ sessionUpdate: 'available_commands_update' }),

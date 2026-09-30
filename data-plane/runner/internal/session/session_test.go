@@ -313,10 +313,11 @@ process.stdin.on("data", (chunk) => {
     if (msg.method === "session/prompt") {
       const sessionId = msg.params.sessionId;
       let said = "";
+      let usage;
       try { ` + doing + ` } catch (e) { said = String(e.message ?? e); }
       send({ jsonrpc: "2.0", method: "session/update",
              params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: said } } } });
-      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "` + stopReason + `" } });
+      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "` + stopReason + `", ...(usage ? { usage } : {}) } });
     }
   }
 });
@@ -507,6 +508,34 @@ func TestKeepsWhatTheAgentSaidAsItSaidIt(t *testing.T) {
 	}
 	if _, ok := update["update"]; !ok {
 		t.Errorf("kept %v, which is not a session update", update)
+	}
+}
+
+func TestWhatATurnUsedIsKeptAsTheHarnessReportedIt(t *testing.T) {
+	written := run(t, harness(t, `said = "cached"; usage = { totalTokens: 20, inputTokens: 3, outputTokens: 5, cachedReadTokens: 12 };`, "end_turn"))
+
+	used := written.typed(protocol.EventUsage)
+	if len(used) != 1 {
+		t.Fatalf("expected one usage per turn, got %d", len(used))
+	}
+
+	var usage map[string]any
+	if err := json.Unmarshal(used[0].Data, &usage); err != nil {
+		t.Fatalf("not readable as usage: %v", err)
+	}
+	if usage["cachedReadTokens"] != float64(12) {
+		t.Errorf("kept %v", usage)
+	}
+	if _, told := usage["cachedWriteTokens"]; told {
+		t.Errorf("kept a cache write the harness never reported: %v", usage)
+	}
+}
+
+func TestATurnThatReportsNoUsageKeepsNone(t *testing.T) {
+	written := run(t, harness(t, `said = "quiet";`, "end_turn"))
+
+	if used := written.typed(protocol.EventUsage); len(used) != 0 {
+		t.Errorf("kept usage nobody reported: %v", used)
 	}
 }
 

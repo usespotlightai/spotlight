@@ -12,6 +12,7 @@ import {
   seedCarryingOnRun,
   seedChangedConfigRun,
   seedParkedRun,
+  seedPartlyReportedRun,
   seedRun,
   seedWaitingRun,
   TEAM_ID,
@@ -65,6 +66,15 @@ export const ConfigChanged: Story = {
   name: 'Config changed since the previous run',
   render: () => (
     <StoryPage at={at} seed={seedChangedConfigRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const PartlyReported: Story = {
+  name: 'Spend the harness partly reported',
+  render: () => (
+    <StoryPage at={at} seed={seedPartlyReportedRun}>
       {routes}
     </StoryPage>
   ),
