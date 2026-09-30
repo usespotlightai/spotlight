@@ -20,6 +20,7 @@ const preview: Preview = {
             'Create workspace',
             'GitHub installed',
             'Runners',
+            'Tokens',
           ],
           'Inbox',
           ['Items', 'Setup steps', 'Proposed memories'],

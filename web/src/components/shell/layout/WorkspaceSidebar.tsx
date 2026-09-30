@@ -1,18 +1,21 @@
-import { Inbox, Server } from 'lucide-react';
+import { Inbox, KeyRound, Server } from 'lucide-react';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useRunners } from '@/hooks/api/useRunners';
 import { inboxPath } from '@/lib/inbox';
+import { administers, type Role } from '@/lib/role';
 import { answeringCount, runnersPath } from '@/lib/runner';
 import type { Team } from '@/lib/team';
+import { tokensPath } from '@/lib/token';
 
 type WorkspaceSidebarProps = {
   slug: string;
   workspace: {
     readonly id: string;
     readonly name: string;
+    readonly role: Role;
     readonly teams: readonly Team[];
   };
 };
@@ -50,6 +53,11 @@ export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
           >
             Runners
           </SidebarLink>
+          {administers(workspace.role) && (
+            <SidebarLink to={tokensPath(slug)} icon={KeyRound}>
+              Tokens
+            </SidebarLink>
+          )}
         </div>
 
         <TeamNav slug={slug} teams={workspace.teams} />
