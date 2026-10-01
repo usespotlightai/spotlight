@@ -152,6 +152,7 @@ const (
 	EventFailed         EventType = "failed"
 	EventSpan           EventType = "span"
 	EventUsage          EventType = "usage"
+	EventToolRefused    EventType = "tool.refused"
 )
 
 type Event struct {

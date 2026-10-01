@@ -41,6 +41,7 @@ const endOf = (
       effort: run.effort,
       profileKey: run.profileKey,
       repositories: run.repositories,
+      skills: run.skills,
     }),
     queuedAt: run.queuedAt,
     startedAt: run.startedAt,

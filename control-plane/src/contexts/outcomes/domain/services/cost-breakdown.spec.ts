@@ -3,6 +3,7 @@ import { costedRecord, endedRecord } from '@outcomes/domain/outcomes.fake-spec';
 import { costBreakdownOf } from '@outcomes/domain/services/cost-breakdown';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
+import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import { describe, expect, it } from 'vitest';
 
 const PERIOD = InsightsPeriod.of('7d', new Date('2026-10-01T15:00:00.000Z'));
@@ -24,6 +25,7 @@ const tokened = (
       currency: null,
       tokens: { input, output: 10, cacheRead, cacheWrite },
     }),
+    RunTools.NONE,
   );
 
 describe('costBreakdownOf', () => {

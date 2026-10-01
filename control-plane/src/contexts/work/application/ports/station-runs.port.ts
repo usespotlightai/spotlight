@@ -16,6 +16,7 @@ export interface EndedStationRun {
   readonly effort: string | null;
   readonly profileKey: string | null;
   readonly repositories: readonly string[];
+  readonly skills: readonly string[];
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
   readonly endedAt: Date;
@@ -27,4 +28,6 @@ export interface StationRunsPort {
   configsInOrder(
     fingerprints: readonly string[],
   ): Promise<readonly FingerprintedConfig[]>;
+
+  teamSkillKeys(teamId: string): Promise<readonly string[]>;
 }

@@ -34,6 +34,7 @@ import { ReadInsightsOverviewHandler } from '@outcomes/application/queries/handl
 import { ReadInsightsPeopleHandler } from '@outcomes/application/queries/handlers/read-insights-people.handler';
 import { ReadInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/read-insights-pull-requests.handler';
 import { ReadInsightsStationsHandler } from '@outcomes/application/queries/handlers/read-insights-stations.handler';
+import { ReadInsightsToolsHandler } from '@outcomes/application/queries/handlers/read-insights-tools.handler';
 import { ReadRunScoresHandler } from '@outcomes/application/queries/handlers/read-run-scores.handler';
 import { ReadStationJudgeHandler } from '@outcomes/application/queries/handlers/read-station-judge.handler';
 import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
@@ -45,6 +46,7 @@ import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-in
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
+import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { ReadRunScoresQuery } from '@outcomes/application/queries/read-run-scores.query';
 import { ReadStationJudgeQuery } from '@outcomes/application/queries/read-station-judge.query';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
@@ -274,6 +276,10 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadInsightsCostQuery, ReadInsightsCostHandler, [
     TeamHistories,
   ]),
+  ...bindQueryHandler(ReadInsightsToolsQuery, ReadInsightsToolsHandler, [
+    TeamHistories,
+    WORK,
+  ]),
   {
     provide: TeamPullRequests,
     inject: [
@@ -445,12 +451,13 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: NotePersonAct,
-    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
+      work: WorkPort,
       records: DrizzleRunRecordRepository,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NotePersonAct(records, forgotten, transaction),
+    ) => new NotePersonAct(work, records, forgotten, transaction),
   },
   {
     provide: NotePullRequestOpened,
@@ -486,12 +493,13 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: NoteRunDigested,
-    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
+      work: WorkPort,
       records: DrizzleRunRecordRepository,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NoteRunDigested(records, forgotten, transaction),
+    ) => new NoteRunDigested(work, records, forgotten, transaction),
   },
   {
     provide: NoteRunHandedOn,

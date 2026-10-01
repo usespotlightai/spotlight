@@ -50,6 +50,7 @@ const asking = (
       endedRun: async () => ENDED,
       configsInOrder: async () => [],
       teamRepositories: async () => [],
+      teamSkillKeys: async () => [],
     },
     {
       holds: async () => change.held ?? true,

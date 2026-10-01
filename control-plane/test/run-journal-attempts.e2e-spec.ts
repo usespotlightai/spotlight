@@ -3,6 +3,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
@@ -27,7 +28,9 @@ beforeAll(async () => {
   events = new DrizzleRunEventReader(db, {
     mayView: async () => true,
   } as unknown as WorkspaceAccessPort);
-  digests = new DrizzleRunDigests(db);
+  digests = new DrizzleRunDigests(db, {
+    skillHomes: () => ['.claude/skills'],
+  } as unknown as HarnessLaunchPort);
 }, 60_000);
 
 afterAll(async () => {

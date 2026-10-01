@@ -1,12 +1,15 @@
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
+import type { WorkPort } from '@outcomes/application/ports/work.port';
 import { ListInsightsRunsHandler } from '@outcomes/application/queries/handlers/list-insights-runs.handler';
 import { ReadInsightsOverviewHandler } from '@outcomes/application/queries/handlers/read-insights-overview.handler';
 import { ReadInsightsPeopleHandler } from '@outcomes/application/queries/handlers/read-insights-people.handler';
 import { ReadInsightsStationsHandler } from '@outcomes/application/queries/handlers/read-insights-stations.handler';
+import { ReadInsightsToolsHandler } from '@outcomes/application/queries/handlers/read-insights-tools.handler';
 import { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
 import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-insights-overview.query';
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
+import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import {
@@ -25,6 +28,8 @@ import {
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
 import type { RunFilterAsked } from '@outcomes/domain/services/run-filter';
+import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import {
   PersonPrincipal,
   type Principal,
@@ -59,6 +64,14 @@ const ANY: RunFilterAsked = {
   taskIds: null,
   personId: null,
   day: null,
+  week: null,
+  skillGiven: null,
+  skillUsed: null,
+  server: null,
+  serverFailed: null,
+  failedAfter: null,
+  refusedTool: null,
+  refusedServer: null,
   delivery: null,
   next: null,
   asked: null,
@@ -227,5 +240,69 @@ describe('the team’s insights', () => {
       'user_bob',
       'user_cy',
     ]);
+  });
+
+  it('reads which skills and servers the period’s runs used from what each run was digested with', async () => {
+    const { histories, records } = await insights();
+    const asked: string[] = [];
+    const work: WorkPort = {
+      endedRun: async () => null,
+      configsInOrder: async () => [],
+      teamRepositories: async () => [],
+      teamSkillKeys: async (teamId) => {
+        asked.push(teamId);
+        return ['grafana', 'release-notes'];
+      },
+    };
+    await records.add(
+      costedRecord('run_4', {
+        taskId: 'task_3',
+        endedAt: day('2026-09-30'),
+        skills: ['grafana'],
+        tools: RunTools.of({
+          servers: [
+            {
+              server: 'linear',
+              calls: 2,
+              failed: 0,
+              latency: LatencyHistogram.timing([100, 300]),
+              lastCallFailed: false,
+            },
+          ],
+          skillsRead: ['grafana'],
+        }),
+      }),
+    );
+
+    const tools = await new ReadInsightsToolsHandler(histories, work).execute(
+      new ReadInsightsToolsQuery('team_1', READ_TOKEN, '7d'),
+    );
+
+    expect(asked).toEqual(['team_1']);
+    expect(tools.runs).toBe(4);
+    expect(tools.weeks).toEqual(['2026-09-21', '2026-09-28']);
+    expect(tools.trendRule).toEqual({
+      recentWeeks: 2,
+      fewestRuns: 5,
+      shiftPoints: 20,
+    });
+    expect(tools.skills.map((each) => [each.key, each.used])).toEqual([
+      ['grafana', 1],
+    ]);
+    expect(tools.unused).toEqual(['release-notes']);
+    expect(tools.servers).toEqual([
+      expect.objectContaining({ server: 'linear', runs: 1, callsPerRun: 2 }),
+    ]);
+  });
+
+  it('finds no tools for someone not on the team', async () => {
+    const { histories } = await insights();
+    const work = { teamSkillKeys: async () => [] } as unknown as WorkPort;
+
+    await expect(
+      new ReadInsightsToolsHandler(histories, work).execute(
+        new ReadInsightsToolsQuery('team_1', STRANGER, '7d'),
+      ),
+    ).rejects.toMatchObject({ kind: 'not-found' });
   });
 });

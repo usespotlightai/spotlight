@@ -23,12 +23,79 @@ const NOTHING: RunFilterAsked = {
   taskIds: null,
   personId: null,
   day: null,
+  week: null,
+  skillGiven: null,
+  skillUsed: null,
+  server: null,
+  serverFailed: null,
+  failedAfter: null,
+  refusedTool: null,
+  refusedServer: null,
   delivery: null,
   next: null,
   asked: null,
 };
 
 describe('runFilterOf', () => {
+  it('narrows to the week that starts on the day asked, and refuses a day it cannot read', () => {
+    expect(
+      runFilterOf({ ...NOTHING, week: '2026-09-28' }, PERIOD).week,
+    ).toEqual({
+      from: new Date('2026-09-28T00:00:00.000Z'),
+      to: new Date('2026-10-05T00:00:00.000Z'),
+    });
+    expect(() =>
+      runFilterOf({ ...NOTHING, week: 'last week' }, PERIOD),
+    ).toThrow(InvalidRunFilterError);
+  });
+
+  it('refuses a week that is not a real day, or starts on a day other than Monday', () => {
+    for (const week of ['2026-02-30', '2026-13-01', '2026-09-29']) {
+      expect(() => runFilterOf({ ...NOTHING, week }, PERIOD)).toThrow(
+        InvalidRunFilterError,
+      );
+    }
+  });
+
+  it('keeps the skill, server and tool asked for', () => {
+    expect(
+      runFilterOf(
+        {
+          ...NOTHING,
+          skillUsed: 'grafana',
+          failedAfter: 'linear',
+          refusedTool: 'create_issue',
+          refusedServer: 'linear',
+        },
+        PERIOD,
+      ),
+    ).toMatchObject({
+      skillUsed: 'grafana',
+      failedAfter: 'linear',
+      refusedTool: 'create_issue',
+      refusedServer: { kind: 'is', value: 'linear' },
+      server: null,
+    });
+  });
+
+  it('narrows to refusals of no server when asked for none', () => {
+    expect(
+      runFilterOf({ ...NOTHING, refusedServer: 'none' }, PERIOD).refusedServer,
+    ).toEqual({ kind: 'none' });
+    expect(runFilterOf(NOTHING, PERIOD).refusedServer).toEqual({
+      kind: 'any',
+    });
+  });
+
+  it('refuses a value longer than two hundred characters', () => {
+    expect(
+      runFilterOf({ ...NOTHING, skillUsed: 'a'.repeat(200) }, PERIOD).skillUsed,
+    ).toHaveLength(200);
+    expect(() =>
+      runFilterOf({ ...NOTHING, refusedTool: 'a'.repeat(201) }, PERIOD),
+    ).toThrow(InvalidRunFilterError);
+  });
+
   it('narrows by nothing when nothing is asked', () => {
     expect(runFilterOf(NOTHING, PERIOD)).toMatchObject({
       model: { kind: 'any' },

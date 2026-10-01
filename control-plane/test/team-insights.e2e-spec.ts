@@ -14,7 +14,12 @@ import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import {
+  RUN_SUPERSEDED,
+  type RunSupersededIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-superseded.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -26,11 +31,16 @@ import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
+import {
+  type ServerCalls,
+  ToolUse,
+} from '@work/domain/value-objects/tool-use.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -118,7 +128,7 @@ beforeAll(async () => {
       profile: null,
       image: null,
       repositories: [{ name: 'acme/api', setup: null }],
-      skills: [],
+      skills: [{ key: 'grafana', digest: 'd'.repeat(64) }],
       tools: [],
       decisions: false,
       memories: false,
@@ -183,6 +193,18 @@ beforeAll(async () => {
         200_000,
         Money.of(1.25, 'USD'),
         Tokens.of({ input: 2_000, output: 1_000, cacheRead: 90_000 }),
+        ToolUse.of({
+          servers: [
+            {
+              server: 'linear',
+              calls: 3,
+              failed: 1,
+              latency: LatencyHistogram.timing([200, 400, 900]),
+              lastCallFailed: false,
+            },
+          ],
+          skills: ['grafana'],
+        }),
       ),
     ],
     async () => (await record())?.cost,
@@ -217,6 +239,21 @@ beforeAll(async () => {
       ),
     ],
     async () => (await record())?.next && (await touches())?.acts.length === 1,
+  );
+  await heard(
+    [
+      new TaskActedOn(
+        TASK,
+        workspaceId,
+        station,
+        'refused',
+        team.owner,
+        RUN,
+        ago(150),
+        CalledTool.of({ server: 'linear', tool: 'create_issue' }),
+      ),
+    ],
+    async () => (await record())?.refusals.length === 1,
   );
   await heard(
     [
@@ -326,7 +363,31 @@ describe('what the outcomes context hears for a team’s insights (e2e)', () => 
       model: 'sonnet',
       effort: 'high',
       repositories: ['acme/api'],
+      skills: ['grafana'],
     });
+    expect(record?.refusals.map((each) => [each.server, each.tool])).toEqual([
+      ['linear', 'create_issue'],
+    ]);
+    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
+      LatencyHistogram.timing([200, 400, 900]),
+    );
+  });
+
+  it('reads the tools a run used with each record of the team', async () => {
+    const [record] = await app.get(DrizzleRunRecordRepository).endedForTeam(
+      {
+        workspaceId: team.workspaceId,
+        teamId: team.teamId,
+        from: ago(7 * 24 * 60),
+        to: ago(0),
+      },
+      10,
+    );
+
+    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
+      LatencyHistogram.timing([200, 400, 900]),
+    );
+    expect(record?.tools?.read('grafana')).toBe(true);
     expect(record?.end?.queuedMs).toBe(2 * MINUTE);
   });
 
@@ -374,8 +435,8 @@ describe('the team’s insights (e2e)', () => {
       mergedPullRequests: 1,
       mergeRate: 1,
       costPerMerge: { amount: 1.25, currency: 'USD' },
-      touches: 1,
-      touchesPerTask: 1,
+      touches: 2,
+      touchesPerTask: 2,
       activePeople: 1,
       mergedTaskIds: [TASK.value],
     });
@@ -497,6 +558,92 @@ describe('the team’s insights (e2e)', () => {
     expect(await status('page=10001')).toBe(422);
   });
 
+  it('drills down by the skills and MCP servers a run used, and the tools a person refused', async () => {
+    const total = async (query: string) =>
+      (await asOwner(insights('runs', `period=7d&${query}`))).body.total;
+    const ended = new Date(NOW - 240 * MINUTE);
+    const monday = new Date(
+      Date.UTC(
+        ended.getUTCFullYear(),
+        ended.getUTCMonth(),
+        ended.getUTCDate() - ((ended.getUTCDay() + 6) % 7),
+      ),
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    expect(await total('skillGiven=grafana')).toBe(1);
+    expect(await total('skillUsed=grafana')).toBe(1);
+    expect(await total('skillUsed=our-migrations')).toBe(0);
+    expect(await total('server=linear')).toBe(1);
+    expect(await total('server=sentry')).toBe(0);
+    expect(await total('serverFailed=linear')).toBe(1);
+    expect(await total('failedAfter=linear')).toBe(0);
+    expect(await total('refusedTool=create_issue')).toBe(1);
+    expect(await total('refusedServer=linear')).toBe(1);
+    expect(await total('refusedServer=linear&refusedTool=create_issue')).toBe(
+      1,
+    );
+    expect(await total('refusedServer=jira&refusedTool=create_issue')).toBe(0);
+    expect(await total(`week=${monday}`)).toBe(1);
+
+    const tuesday = new Date(
+      Date.parse(`${monday}T00:00:00Z`) + 24 * 60 * MINUTE,
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    for (const week of ['yesterday', '2026-02-30', tuesday]) {
+      expect(
+        (await asOwner(insights('runs', `period=7d&week=${week}`))).status,
+      ).toBe(422);
+    }
+  });
+
+  it('shows which skills runs were given and read, and how each MCP server behaved', async () => {
+    const answer = await asOwner(insights('tools'));
+
+    expect(answer.status).toBe(200);
+    expect(answer.body.runs).toBe(1);
+    expect(answer.body.trendRule).toEqual({
+      recentWeeks: 2,
+      fewestRuns: 5,
+      shiftPoints: 20,
+    });
+    expect(answer.body.skills).toEqual([
+      expect.objectContaining({
+        key: 'grafana',
+        given: 1,
+        used: 1,
+        trend: null,
+        stations: [
+          expect.objectContaining({
+            stationId: team.stationId.value,
+            given: 1,
+            used: 1,
+          }),
+        ],
+      }),
+    ]);
+    expect(answer.body.servers).toEqual([
+      {
+        server: 'linear',
+        runs: 1,
+        calls: 3,
+        callsPerRun: 3,
+        p50Ms: 316,
+        p95Ms: 707,
+        failedCalls: 1,
+        errorRate: 1 / 3,
+        failingRuns: 0,
+        refused: 1,
+      },
+    ]);
+    expect(answer.body.refusals).toEqual([
+      { tool: 'create_issue', server: 'linear', refused: 1 },
+    ]);
+  });
+
   it('refuses to drill down by more than two hundred tasks at once', async () => {
     const many = Array.from({ length: 201 }, () => randomUUID()).join(',');
 
@@ -576,7 +723,7 @@ describe('the team’s insights (e2e)', () => {
     expect(answer.body.adoption.people[0]).toMatchObject({
       name: 'Ada',
       tasksOpened: 1,
-      acts: 1,
+      acts: 2,
       chats: 1,
       isNew: false,
       firstSeenAt: '2026-01-02T03:04:05.000Z',
@@ -621,5 +768,254 @@ describe('the team’s insights (e2e)', () => {
         },
       ],
     });
+  });
+});
+
+describe('the team’s Tools tab and its drill-downs (e2e)', () => {
+  const total = async (query: string) =>
+    (await asOwner(insights('runs', `period=7d&${query}`))).body
+      .total as number;
+
+  it('leaves a run withdrawn before it ran out of the runs given a skill, as the tab does', async () => {
+    const withdrawn = RunId.of(randomUUID());
+    const task = TaskId.of(randomUUID());
+
+    await db.insert(schema.run).values({
+      id: withdrawn.value,
+      workspaceId: team.workspaceId.value,
+      harness: 'dev',
+      taskId: task.value,
+      taskRevision: 0,
+      stationId: team.stationId.value,
+      state: 'failed',
+      spec: SPEC,
+      stationFingerprint: CONFIG,
+      stationConfig: {
+        prompt: 'Implement the task.',
+        harness: 'claude-code',
+        model: 'sonnet',
+        effort: 'high',
+        profile: null,
+        image: null,
+        repositories: [],
+        skills: [{ key: 'grafana', digest: 'd'.repeat(64) }],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      createdAt: ago(120),
+      endedAt: ago(119),
+    });
+    const ended: RunEndedIntegrationEvent = {
+      kind: RUN_ENDED,
+      runId: withdrawn.value,
+      workspaceId: team.workspaceId.value,
+      taskId: task.value,
+      stationId: team.stationId.value,
+      outcome: 'withdrawn',
+      failure: null,
+      stopped: false,
+    };
+
+    await app.get(EventOutbox).record([ended]);
+    await eventually(async () => {
+      await app.get(EventDelivery).drain(2_000);
+      return (await app.get(DrizzleRunRecordRepository).of(withdrawn))
+        ?.hasEnded;
+    }, 60_000);
+
+    const record = await app.get(DrizzleRunRecordRepository).of(withdrawn);
+
+    expect(record?.ending).toBe('withdrawn');
+    expect(record?.end?.setup.skills).toEqual(['grafana']);
+
+    const tools = await asOwner(insights('tools'));
+
+    expect(tools.body.skills).toEqual([
+      expect.objectContaining({ key: 'grafana', given: 1 }),
+    ]);
+    expect(await total('skillGiven=grafana')).toBe(1);
+  });
+
+  const seeded = async (seed: {
+    readonly outcome: 'completed' | 'failed';
+    readonly superseded?: boolean;
+    readonly servers: readonly ServerCalls[];
+    readonly refused: readonly CalledTool[];
+  }) => {
+    const runId = RunId.of(randomUUID());
+    const task = TaskId.of(randomUUID());
+
+    await db.insert(schema.run).values({
+      id: runId.value,
+      workspaceId: team.workspaceId.value,
+      harness: 'dev',
+      taskId: task.value,
+      taskRevision: 0,
+      stationId: team.stationId.value,
+      state: seed.outcome,
+      spec: SPEC,
+      stationFingerprint: CONFIG,
+      stationConfig: {
+        prompt: 'Implement the task.',
+        harness: 'claude-code',
+        model: 'sonnet',
+        effort: 'high',
+        profile: null,
+        image: null,
+        repositories: [],
+        skills: [],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      createdAt: ago(100),
+      startedAt: ago(99),
+      endedAt: ago(90),
+    });
+
+    const ended: RunEndedIntegrationEvent = {
+      kind: RUN_ENDED,
+      runId: runId.value,
+      workspaceId: team.workspaceId.value,
+      taskId: task.value,
+      stationId: team.stationId.value,
+      outcome: seed.outcome,
+      failure: seed.outcome === 'failed' ? 'exited' : null,
+      stopped: false,
+    };
+    const superseded: RunSupersededIntegrationEvent = {
+      kind: RUN_SUPERSEDED,
+      runId: runId.value,
+      workspaceId: team.workspaceId.value,
+      taskId: task.value,
+    };
+
+    await app
+      .get(EventOutbox)
+      .record([
+        ended,
+        new RunDigested(
+          runId,
+          team.workspaceId,
+          task,
+          MINUTE,
+          4,
+          0,
+          null,
+          null,
+          null,
+          Tokens.UNREPORTED,
+          ToolUse.of({ servers: seed.servers, skills: [] }),
+        ),
+        ...seed.refused.map(
+          (tool, at) =>
+            new TaskActedOn(
+              task,
+              team.workspaceId,
+              team.stationId,
+              'refused',
+              team.owner,
+              runId,
+              ago(80 - at),
+              tool,
+            ),
+        ),
+        ...(seed.superseded ? [superseded] : []),
+      ]);
+    await eventually(async () => {
+      await app.get(EventDelivery).drain(2_000);
+      const record = await app.get(DrizzleRunRecordRepository).of(runId);
+
+      return (
+        record?.hasEnded === true &&
+        record.cost !== null &&
+        record.refusals.length === seed.refused.length &&
+        record.superseded === (seed.superseded ?? false)
+      );
+    }, 60_000);
+  };
+
+  it('counts on the tab exactly the runs each drill-down lists', async () => {
+    const jira = (calls: number, timed: number[]): ServerCalls => ({
+      server: 'jira',
+      calls,
+      failed: Math.max(calls - timed.length, 1),
+      latency: LatencyHistogram.timing(timed),
+      lastCallFailed: true,
+    });
+    const createIssue = CalledTool.of({
+      server: 'linear',
+      tool: 'create_issue',
+    });
+
+    await seeded({ outcome: 'failed', servers: [jira(2, [300])], refused: [] });
+    await seeded({
+      outcome: 'failed',
+      superseded: true,
+      servers: [jira(1, [])],
+      refused: [],
+    });
+    await seeded({
+      outcome: 'completed',
+      servers: [],
+      refused: [
+        createIssue,
+        createIssue,
+        CalledTool.of({ server: 'linear', tool: 'comment' }),
+      ],
+    });
+    await seeded({
+      outcome: 'completed',
+      servers: [],
+      refused: [CalledTool.of({ server: null, tool: 'github.merge' })],
+    });
+
+    const tools = (await asOwner(insights('tools'))).body as {
+      servers: {
+        server: string;
+        runs: number;
+        failingRuns: number;
+        refused: number;
+      }[];
+      skills: { key: string; given: number; used: number }[];
+      refusals: { tool: string; server: string | null; refused: number }[];
+    };
+
+    expect(tools.skills.length).toBeGreaterThan(0);
+    expect(tools.servers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ server: 'jira', runs: 2, failingRuns: 1 }),
+        expect.objectContaining({ server: 'linear', refused: 2 }),
+      ]),
+    );
+    expect(tools.refusals).toEqual(
+      expect.arrayContaining([
+        { tool: 'create_issue', server: 'linear', refused: 2 },
+        { tool: 'comment', server: 'linear', refused: 1 },
+        { tool: 'github.merge', server: null, refused: 1 },
+      ]),
+    );
+
+    for (const server of tools.servers) {
+      expect(await total(`server=${server.server}`)).toBe(server.runs);
+      expect(await total(`failedAfter=${server.server}`)).toBe(
+        server.failingRuns,
+      );
+      expect(await total(`refusedServer=${server.server}`)).toBe(
+        server.refused,
+      );
+    }
+    for (const refusal of tools.refusals) {
+      expect(
+        await total(
+          `refusedTool=${encodeURIComponent(refusal.tool)}&refusedServer=${refusal.server ?? 'none'}`,
+        ),
+      ).toBe(refusal.refused);
+    }
+    for (const skill of tools.skills) {
+      expect(await total(`skillUsed=${skill.key}`)).toBe(skill.used);
+      expect(await total(`skillGiven=${skill.key}`)).toBe(skill.given);
+    }
   });
 });

@@ -15,6 +15,7 @@ import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
+import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -48,6 +49,7 @@ export const endOf = (
     harness?: string;
     model?: string | null;
     repositories?: readonly string[];
+    skills?: readonly string[];
   } = {},
 ): RunEnd =>
   RunEnd.of({
@@ -60,6 +62,7 @@ export const endOf = (
       effort: null,
       profileKey: null,
       repositories: change.repositories ?? ['acme/api'],
+      skills: change.skills ?? [],
     }),
     queuedAt: change.queuedAt === undefined ? null : change.queuedAt,
     startedAt: change.startedAt === undefined ? null : change.startedAt,
@@ -94,8 +97,12 @@ export const endedRecord = (
 export const costedRecord = (
   runId: string,
   change: NonNullable<Parameters<typeof endOf>[0]> &
-    NonNullable<Parameters<typeof costOf>[0]> = {},
-): RunRecord => endedRecord(runId, change).digested(costOf(change));
+    NonNullable<Parameters<typeof costOf>[0]> & { tools?: RunTools } = {},
+): RunRecord =>
+  endedRecord(runId, change).digested(
+    costOf(change),
+    change.tools ?? RunTools.NONE,
+  );
 
 const endedTime = (record: RunRecord): number =>
   record.end?.endedAt.getTime() ?? 0;
@@ -355,6 +362,7 @@ export const SET_UP = {
   effort: null,
   profileKey: null,
   repositories: ['acme/api'],
+  skills: [],
   queuedAt: new Date('2026-09-01T00:00:00.000Z'),
   startedAt: null,
 };

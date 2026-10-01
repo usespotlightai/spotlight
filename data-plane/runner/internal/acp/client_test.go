@@ -371,7 +371,7 @@ func TestAPermissionIsAnsweredOnceNotForever(t *testing.T) {
 		if result.StopReason != expected.told {
 			t.Errorf("verdict %v: the agent was told %q, wanted %q", expected.verdict, result.StopReason, expected.told)
 		}
-		if asked.SessionID != "session_1" ||
+		if asked.SessionID != "session_1" || asked.ToolCallID != "toolu_1" ||
 			asked.Kind != "execute" || asked.Title != "rm -rf build" ||
 			string(asked.Input) != `{"command":"rm -rf build"}` {
 			t.Errorf("verdict %v: asked %+v", expected.verdict, asked)

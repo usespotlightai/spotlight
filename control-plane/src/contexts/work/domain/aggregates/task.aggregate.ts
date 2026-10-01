@@ -1165,6 +1165,9 @@ export class Task extends EventRecorder {
           by,
           this.lastRun,
           saying.at,
+          decision
+            ? (this.notes[from.value]?.approval?.subject.tool ?? null)
+            : null,
         ),
       );
     }

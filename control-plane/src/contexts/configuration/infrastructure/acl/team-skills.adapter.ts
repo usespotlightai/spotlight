@@ -13,6 +13,14 @@ export class TeamSkills implements TeamSkillsPort {
     private readonly secrets: HeldSecretsPort,
   ) {}
 
+  async definedFor(teamId: TeamId): Promise<readonly string[]> {
+    const configuration = await this.applied.of(teamId);
+
+    return this.reader
+      .read(configuration.skills)
+      .skills.map((folder) => folder.skill.key.value);
+  }
+
   async readyFor(
     teamId: TeamId,
     named: readonly string[],

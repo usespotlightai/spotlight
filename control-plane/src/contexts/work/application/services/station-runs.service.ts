@@ -1,14 +1,19 @@
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   EndedStationRun,
   StationRunsPort,
 } from '@work/application/ports/station-runs.port';
+import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 import { roundAfter } from '@work/domain/services/station-round';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 export class StationRuns implements StationRunsPort {
-  constructor(private readonly reader: StationRunReaderPort) {}
+  constructor(
+    private readonly reader: StationRunReaderPort,
+    private readonly skills: TeamSkillsPort,
+  ) {}
 
   async ended(runId: string): Promise<EndedStationRun | null> {
     const found = await this.reader.endedRun(runId);
@@ -27,7 +32,12 @@ export class StationRuns implements StationRunsPort {
       effort: config?.effort ?? null,
       profileKey: config?.profile?.key ?? null,
       repositories: config?.repositories.map((each) => each.name) ?? [],
+      skills: config?.skills.map((each) => each.key) ?? [],
     };
+  }
+
+  teamSkillKeys(teamId: string): Promise<readonly string[]> {
+    return this.skills.definedFor(TeamId.of(teamId));
   }
 
   async configsInOrder(

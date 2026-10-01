@@ -1,3 +1,4 @@
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -7,11 +8,13 @@ import type {
   RunDigestReaderPort,
 } from '@work/application/ports/run-digest-reader.port';
 import type { RunDigestWriterPort } from '@work/application/ports/run-digest-writer.port';
+import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
+import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { describe, expect, it } from 'vitest';
 
 const DIGEST: RunDigest = {
@@ -23,6 +26,19 @@ const DIGEST: RunDigest = {
   cost: Money.of(0.42, 'USD'),
   tokens: Tokens.of({ input: 1_200, output: 900, cacheRead: 80_000 }),
 };
+
+const TOOLS = ToolUse.of({
+  servers: [
+    {
+      server: 'linear',
+      calls: 2,
+      failed: 1,
+      latency: LatencyHistogram.timing([300, 900]),
+      lastCallFailed: true,
+    },
+  ],
+  skills: ['our-migrations'],
+});
 
 const digesting = (held: Map<string, RunDigest>) => {
   const ensured: string[] = [];
@@ -44,8 +60,11 @@ const digesting = (held: Map<string, RunDigest>) => {
         }),
       ),
   };
+  const tools: RunToolsReaderPort = {
+    toolsFor: async (runId) => (held.has(runId.value) ? TOOLS : null),
+  };
 
-  return { handler: new DigestRun(writer, reader), ensured };
+  return { handler: new DigestRun(writer, reader, tools), ensured };
 };
 
 const ended = {
@@ -75,6 +94,7 @@ describe('DigestRun', () => {
         200_000,
         DIGEST.cost,
         DIGEST.tokens,
+        TOOLS,
       ),
     ]);
   });
@@ -94,6 +114,7 @@ describe('DigestRun', () => {
     const handler = new DigestRun(
       { ensure: async () => {}, catchUp: async () => {} },
       reader,
+      { toolsFor: async () => null },
     );
 
     expect(

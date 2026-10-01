@@ -14,6 +14,7 @@ export interface EndedRun {
   readonly effort: string | null;
   readonly profileKey: string | null;
   readonly repositories: readonly string[];
+  readonly skills: readonly string[];
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
   readonly endedAt: Date;
@@ -63,4 +64,6 @@ export interface WorkPort {
   ): Promise<readonly ConfigInOrder[]>;
 
   teamRepositories(teamId: string): Promise<readonly string[]>;
+
+  teamSkillKeys(teamId: string): Promise<readonly string[]>;
 }

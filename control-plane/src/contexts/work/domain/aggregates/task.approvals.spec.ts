@@ -6,8 +6,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import type { Clearance } from '@work/domain/value-objects/clearance';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -209,6 +211,7 @@ describe('clearing a tool call that needs approval', () => {
         kind: 'execute',
         title: 'git push',
         input: undefined,
+        tool: null,
       }),
     );
     const lookalike = ApprovalSubject.toolCall(
@@ -288,6 +291,57 @@ describe('deciding an approval', () => {
         'granted',
       ),
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+  });
+
+  it('names the tool it decided on in the act it records, and its server when it is one', () => {
+    const refusedTool = (subject: ApprovalSubject) => {
+      const asked = clear(working(), subject).task;
+      const at = asked.approvalFor(subject)?.at;
+
+      if (!at) {
+        throw new Error('nothing was asked');
+      }
+
+      return asked
+        .answered(at, person('Rejected.'), 'refused')
+        .pullEvents()
+        .find((each): each is TaskActedOn => each instanceof TaskActedOn)?.tool;
+    };
+    const permission = (title: string, tool: CalledTool | null) =>
+      ApprovalSubject.harnessPermission(
+        HarnessPermission.asked({
+          harness: HarnessId.of('claude-code'),
+          kind: 'other',
+          title,
+          input: undefined,
+          tool,
+        }),
+      );
+
+    expect(refusedTool(CALL)).toEqual({ tool: 'linear.comment', server: null });
+    expect(
+      refusedTool(
+        permission(
+          'mcp__sentry__resolve_issue',
+          CalledTool.of({ server: 'sentry', tool: 'resolve_issue' }),
+        ),
+      ),
+    ).toEqual({ tool: 'resolve_issue', server: 'sentry' });
+    expect(refusedTool(permission('rm -rf build', null))).toEqual({
+      tool: 'claude-code other',
+      server: null,
+    });
+  });
+
+  it('names no tool on words that decide nothing', () => {
+    const { asked, at } = askedOnce();
+    const acted = asked
+      .answered(at, person('Mention the ticket.'))
+      .pullEvents()
+      .find((each): each is TaskActedOn => each instanceof TaskActedOn);
+
+    expect(acted?.act).toBe('answered');
+    expect(acted?.tool).toBeNull();
   });
 
   it('takes words alone without deciding anything', () => {

@@ -1253,12 +1253,13 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 		decision string
 		told     string
 		asked    int
+		refused  []string
 	}{
-		{"no profile", nil, protocol.PermissionReject, "allowed", 0},
-		{"a kind the profile never asks about", []string{"edit", "delete"}, protocol.PermissionReject, "allowed", 0},
-		{"allowed", []string{"execute"}, protocol.PermissionAllow, "allowed", 1},
-		{"rejected", []string{"execute"}, protocol.PermissionReject, "refused", 1},
-		{"unreachable", []string{"execute"}, "", "refused", 1},
+		{"no profile", nil, protocol.PermissionReject, "allowed", 0, nil},
+		{"a kind the profile never asks about", []string{"edit", "delete"}, protocol.PermissionReject, "allowed", 0, nil},
+		{"allowed", []string{"execute"}, protocol.PermissionAllow, "allowed", 1, nil},
+		{"rejected", []string{"execute"}, protocol.PermissionReject, "refused", 1, []string{"toolu_1"}},
+		{"unreachable", []string{"execute"}, "", "refused", 1, []string{"toolu_1"}},
 	} {
 		written := run(t, permitting(t), func(o *runOptions) {
 			o.setup = protocol.HarnessSetup{Asks: expected.asks}
@@ -1270,6 +1271,9 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 		}
 		if len(written.asked) != expected.asked {
 			t.Fatalf("%s: asked the control plane %d times, wanted %d", expected.name, len(written.asked), expected.asked)
+		}
+		if got := refusedCalls(t, written); !slices.Equal(got, expected.refused) {
+			t.Errorf("%s: journalled refusals %v, wanted %v", expected.name, got, expected.refused)
 		}
 		if written.done == nil || written.done.Failed {
 			t.Errorf("%s: completion %+v", expected.name, written.done)
@@ -1291,6 +1295,25 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 	}
 }
 
+func refusedCalls(t *testing.T, written *journal) []string {
+	t.Helper()
+
+	var refused []string
+	for _, event := range written.events {
+		if event.Type != protocol.EventToolRefused {
+			continue
+		}
+		var call struct {
+			ToolCallID string `json:"toolCallId"`
+		}
+		if err := json.Unmarshal(event.Data, &call); err != nil {
+			t.Fatalf("a refusal that is not JSON: %s", event.Data)
+		}
+		refused = append(refused, call.ToolCallID)
+	}
+	return refused
+}
+
 func TestAPermissionPutToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testing.T) {
 	written := run(t, permitting(t), func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
@@ -1299,6 +1322,9 @@ func TestAPermissionPutToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testing.T) 
 
 	if heard := said(t, written); heard != "cancelled" {
 		t.Errorf("the agent was told %q", heard)
+	}
+	if got := refusedCalls(t, written); !slices.Equal(got, []string{"toolu_1"}) {
+		t.Errorf("journalled refusals %v", got)
 	}
 	if written.done == nil || written.done.Failed || written.done.Stopped {
 		t.Fatalf("completion %+v", written.done)

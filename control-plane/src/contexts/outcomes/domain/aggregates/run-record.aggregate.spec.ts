@@ -8,6 +8,10 @@ import {
 } from '@outcomes/domain/outcomes.fake-spec';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
+import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
+import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -99,6 +103,8 @@ describe('RunRecord', () => {
       next: null,
       cost: null,
       handedOn: null,
+      tools: null,
+      refusals: [],
       version: 3,
     });
 
@@ -147,6 +153,8 @@ describe('RunRecord', () => {
         next: null,
         cost: null,
         handedOn: null,
+        tools: null,
+        refusals: [],
         version: 0,
       }),
     ).toThrow(InvalidOutcomeError);
@@ -155,11 +163,12 @@ describe('RunRecord', () => {
   it('keeps the first cost it hears of, before or after it ended', () => {
     const digested = RunRecord.heardOf(RUN, WORKSPACE).digested(
       costOf({ amount: 0.4 }),
+      RunTools.NONE,
     );
     const ended = digested.ended(endOf());
 
     expect(ended.cost?.spend?.amount).toBe(0.4);
-    expect(ended.digested(costOf({ amount: 9 }))).toBe(ended);
+    expect(ended.digested(costOf({ amount: 9 }), RunTools.NONE)).toBe(ended);
   });
 
   it('keeps the first station it handed its task on to', () => {
@@ -169,5 +178,95 @@ describe('RunRecord', () => {
 
     expect(handed.handedOnTo(HandedOn.of('station_3', LATER))).toBe(handed);
     expect(handed.handedOn?.to).toBe('station_2');
+  });
+
+  it('keeps the tools it used with the first digest it hears of', () => {
+    const used = RunTools.of({
+      servers: [
+        {
+          server: 'linear',
+          calls: 1,
+          failed: 0,
+          latency: LatencyHistogram.timing([200]),
+          lastCallFailed: false,
+        },
+      ],
+      skillsRead: ['grafana'],
+    });
+    const digested = endedRecord('run_1').digested(costOf(), used);
+
+    expect(digested.tools?.read('grafana')).toBe(true);
+    expect(digested.digested(costOf(), RunTools.NONE)).toBe(digested);
+  });
+
+  it('holds the tools it used only once digested, and may be read without them', () => {
+    const stored = (cost: RunCost | null, tools: RunTools | null) =>
+      RunRecord.rehydrate({
+        runId: RUN,
+        workspaceId: WORKSPACE,
+        taskId: TaskId.of('task_1'),
+        end: endOf({ taskId: 'task_1' }),
+        superseded: false,
+        checks: null,
+        next: null,
+        cost,
+        handedOn: null,
+        tools,
+        refusals: [],
+        version: 0,
+      });
+
+    expect(() => stored(null, RunTools.NONE)).toThrow(InvalidOutcomeError);
+    expect(stored(costOf(), null).tools).toBeNull();
+  });
+
+  it('notes each refusal once, however often it is heard', () => {
+    const refusal = Refusal.of({
+      tool: 'mcp__linear__create_issue',
+      server: 'linear',
+      at: AT,
+    });
+    const refused = endedRecord('run_1').refused(refusal);
+
+    expect(refused.refused(refusal)).toBe(refused);
+    expect(
+      refused.refused(Refusal.of({ ...refusal, at: LATER })).refusals,
+    ).toHaveLength(2);
+    expect(
+      refused.refused(Refusal.of({ ...refusal, server: 'jira' })).refusals,
+    ).toHaveLength(2);
+  });
+
+  it('failed after calling a server only when it failed and its last call there failed', () => {
+    const timed = LatencyHistogram.timing([100, 200]);
+    const used = RunTools.of({
+      servers: [
+        {
+          server: 'linear',
+          calls: 2,
+          failed: 1,
+          latency: timed,
+          lastCallFailed: true,
+        },
+        {
+          server: 'sentry',
+          calls: 2,
+          failed: 1,
+          latency: timed,
+          lastCallFailed: false,
+        },
+      ],
+      skillsRead: [],
+    });
+    const failed = endedRecord('run_1', { ending: 'failed' }).digested(
+      costOf(),
+      used,
+    );
+    const completed = endedRecord('run_2').digested(costOf(), used);
+
+    expect(failed.failedAfterCallingTo('linear')).toBe(true);
+    expect(failed.failedAfterCallingTo('sentry')).toBe(false);
+    expect(failed.failedAfterCallingTo('wiki')).toBe(false);
+    expect(completed.failedAfterCallingTo('linear')).toBe(false);
   });
 });

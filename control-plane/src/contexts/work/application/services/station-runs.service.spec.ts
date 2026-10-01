@@ -2,6 +2,7 @@ import type {
   EndedRunRow,
   StationRunReaderPort,
 } from '@work/application/ports/station-run-reader.port';
+import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 import { StationRuns } from '@work/application/services/station-runs.service';
 import { describe, expect, it } from 'vitest';
 
@@ -29,8 +30,13 @@ const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
 const readingOnly = (found: EndedRunRow): StationRunReaderPort =>
   ({ endedRun: async () => found }) as unknown as StationRunReaderPort;
 
+const NO_SKILLS: TeamSkillsPort = {
+  definedFor: async () => [],
+  readyFor: async () => [],
+};
+
 describe('StationRuns.ended', () => {
-  it('names the harness, model, effort, profile and repositories the run was configured with', async () => {
+  it('names the harness, model, effort, profile, repositories and skills the run was configured with', async () => {
     const stations = new StationRuns(
       readingOnly(
         row({
@@ -45,13 +51,17 @@ describe('StationRuns.ended', () => {
               { name: 'acme/api', setup: null },
               { name: 'acme/web', setup: 'npm ci' },
             ],
-            skills: [],
+            skills: [
+              { key: 'grafana', digest: 'd'.repeat(64) },
+              { key: 'our-migrations', digest: 'e'.repeat(64) },
+            ],
             tools: [],
             decisions: false,
             memories: false,
           },
         }),
       ),
+      NO_SKILLS,
     );
 
     expect(await stations.ended('run_1')).toEqual({
@@ -68,6 +78,7 @@ describe('StationRuns.ended', () => {
       effort: 'high',
       profileKey: 'careful',
       repositories: ['acme/api', 'acme/web'],
+      skills: ['grafana', 'our-migrations'],
       queuedAt: QUEUED,
       startedAt: STARTED,
       endedAt: ENDED,
@@ -75,7 +86,7 @@ describe('StationRuns.ended', () => {
   });
 
   it('falls back on the harness the run ran on when it recorded no config', async () => {
-    const stations = new StationRuns(readingOnly(row()));
+    const stations = new StationRuns(readingOnly(row()), NO_SKILLS);
 
     expect(await stations.ended('run_1')).toMatchObject({
       harness: 'claude-code',
@@ -83,6 +94,22 @@ describe('StationRuns.ended', () => {
       effort: null,
       profileKey: null,
       repositories: [],
+      skills: [],
     });
+  });
+});
+
+describe('StationRuns.teamSkillKeys', () => {
+  it('names every skill the team defines', async () => {
+    const stations = new StationRuns(readingOnly(row()), {
+      ...NO_SKILLS,
+      definedFor: async (teamId) =>
+        teamId.value === 'team_1' ? ['grafana', 'our-migrations'] : [],
+    });
+
+    expect(await stations.teamSkillKeys('team_1')).toEqual([
+      'grafana',
+      'our-migrations',
+    ]);
   });
 });

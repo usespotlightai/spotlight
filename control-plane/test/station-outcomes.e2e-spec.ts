@@ -103,6 +103,7 @@ const endedRun = (
     effort: null,
     profileKey: null,
     repositories: ['acme/api'],
+    skills: [],
     queuedAt: new Date('2026-09-30T00:00:00.000Z'),
     startedAt: null,
     ...change,
@@ -114,6 +115,7 @@ const endedRun = (
 const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId) ?? null,
   teamRepositories: async () => [],
+  teamSkillKeys: async () => [],
   configsInOrder: async (fingerprints) =>
     fingerprints.map((fingerprint, index) => ({
       ...configOf(fingerprint, fingerprint === SONNET ? 'sonnet' : 'opus'),
@@ -184,6 +186,8 @@ const runEnded = async (
     outputTokens: null,
     cacheReadTokens: null,
     cacheWriteTokens: null,
+    servers: [],
+    skillsRead: [],
   });
 };
 
@@ -213,7 +217,7 @@ beforeAll(async () => {
     ending: new NoteRunEnded(work, records, forgotten, context),
     superseding: new NoteRunSuperseded(records, forgotten, context),
     checking: new NoteChangeChecked(records, forgotten, context),
-    acting: new NotePersonAct(records, forgotten, context),
+    acting: new NotePersonAct(work, records, forgotten, context),
     opening: new NotePullRequestOpened(
       deliveries,
       reviews,
@@ -262,7 +266,7 @@ beforeAll(async () => {
       ask: async () => {},
       settle: async () => {},
     }),
-    digesting: new NoteRunDigested(records, forgotten, context),
+    digesting: new NoteRunDigested(work, records, forgotten, context),
     handingOn: new NoteRunHandedOn(records, forgotten, context),
     reviewing: new NotePullRequestReviewed(
       deliveries,

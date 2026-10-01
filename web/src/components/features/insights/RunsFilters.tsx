@@ -41,6 +41,7 @@ export function RunsFilters({
       case 'personId':
         return personShown(people, value);
       case 'day':
+      case 'week':
         return dayShown(value);
       case 'lineId':
         return lines.find((line) => line.id === value)?.name ?? value;

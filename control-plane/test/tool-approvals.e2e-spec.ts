@@ -7,6 +7,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -113,6 +114,7 @@ describe('an approval a run asked for', () => {
         kind: 'execute',
         title: 'git push',
         input: { command: 'git push' },
+        tool: null,
       }),
     );
     const { task } = await asking(permission);
@@ -133,6 +135,24 @@ describe('an approval a run asked for', () => {
         ),
       ),
     ).toBeNull();
+  });
+
+  it('is read back with the MCP tool a harness permission names', async () => {
+    const permission = ApprovalSubject.harnessPermission(
+      HarnessPermission.asked({
+        harness: HarnessId.of('claude-code'),
+        kind: 'other',
+        title: 'mcp__linear__create_issue',
+        input: { title: 'Queue stuck' },
+        tool: CalledTool.of({ server: 'linear', tool: 'create_issue' }),
+      }),
+    );
+    const { task } = await asking(permission);
+
+    expect(task.approvalFor(permission)?.approval.subject.tool).toEqual({
+      server: 'linear',
+      tool: 'create_issue',
+    });
   });
 
   it('matches nothing where the run would send something else', async () => {

@@ -4,6 +4,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Money } from '@work/domain/value-objects/money.vo';
 import type { Tokens } from '@work/domain/value-objects/tokens.vo';
+import type { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 
 export class RunDigested implements DomainEvent {
   readonly kind = 'run.digested';
@@ -19,5 +20,6 @@ export class RunDigested implements DomainEvent {
     readonly size: number | null,
     readonly cost: Money | null,
     readonly tokens: Tokens,
+    readonly tools: ToolUse,
   ) {}
 }

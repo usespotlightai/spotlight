@@ -23,6 +23,7 @@ import type {
   InsightsPullRequestListDto,
   InsightsPullRequestsDto,
 } from '@outcomes/application/dto/insights-pull-requests.dto';
+import type { InsightsToolsDto } from '@outcomes/application/dto/insights-tools.dto';
 import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
 import { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
 import { ReadInsightsCostQuery } from '@outcomes/application/queries/read-insights-cost.query';
@@ -31,11 +32,13 @@ import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-in
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
+import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { MOST_FILTERED_REPOSITORIES } from '@outcomes/domain/services/pull-request-filter';
 import {
   HARNESS_DEFAULT_MODEL,
   MOST_FILTERED_TASKS,
   NO_REPOSITORY,
+  NO_SERVER,
 } from '@outcomes/domain/services/run-filter';
 import { MOST_RUN_PAGE } from '@outcomes/domain/services/run-page';
 import {
@@ -57,6 +60,7 @@ import {
 } from '@outcomes/presentation/http/dto/insights-pull-requests.response.dto';
 import { InsightsRunsResponseDto } from '@outcomes/presentation/http/dto/insights-runs.response.dto';
 import { InsightsStationsResponseDto } from '@outcomes/presentation/http/dto/insights-stations.response.dto';
+import { InsightsToolsResponseDto } from '@outcomes/presentation/http/dto/insights-tools.response.dto';
 import { AdmitsWorkspaceTokens } from '@platform/http/decorators/admits-workspace-tokens.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -113,7 +117,7 @@ const FilterQuery = (name: string, description: string) =>
 @ApiNotFoundResponse({ description: 'No such team for this caller' })
 @ApiUnprocessableEntityResponse({
   description:
-    'No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last',
+    'No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last',
 })
 @ApiParam({ name: 'teamId', type: String })
 @Controller('teams/:teamId/insights')
@@ -218,6 +222,26 @@ export class TeamInsightsController {
     return new InsightsCostResponseDto(
       await this.queryBus.execute<ReadInsightsCostQuery, InsightsCostDto>(
         new ReadInsightsCostQuery(teamId, principal, periodOf(period)),
+      ),
+    );
+  }
+
+  @Get('tools')
+  @ApiOperation({
+    operationId: 'readInsightsTools',
+    summary:
+      'Which skills the team’s runs were given and read, week by week, and how each MCP server they called behaved',
+  })
+  @PeriodQuery()
+  @ApiOkResponse({ type: InsightsToolsResponseDto })
+  async tools(
+    @Param('teamId') teamId: string,
+    @Query('period') period: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<InsightsToolsResponseDto> {
+    return new InsightsToolsResponseDto(
+      await this.queryBus.execute<ReadInsightsToolsQuery, InsightsToolsDto>(
+        new ReadInsightsToolsQuery(teamId, principal, periodOf(period)),
       ),
     );
   }
@@ -374,6 +398,26 @@ export class TeamInsightsController {
   )
   @FilterQuery('personId', 'Only runs of tasks this person opened')
   @FilterQuery('day', 'Only runs that ended on this UTC day, as YYYY-MM-DD')
+  @FilterQuery(
+    'week',
+    'Only runs that ended in the week starting this UTC Monday, as YYYY-MM-DD',
+  )
+  @FilterQuery('skillGiven', 'Only runs whose station config gave this skill')
+  @FilterQuery('skillUsed', 'Only runs that read this skill')
+  @FilterQuery('server', 'Only runs that called this MCP server')
+  @FilterQuery(
+    'serverFailed',
+    'Only runs with a call to this MCP server that failed',
+  )
+  @FilterQuery(
+    'failedAfter',
+    'Only runs that failed where the run’s last call to this MCP server failed',
+  )
+  @FilterQuery('refusedTool', 'Only runs a person refused this tool for')
+  @FilterQuery(
+    'refusedServer',
+    `Only runs a person refused a tool of this MCP server for; ${NO_SERVER} for tools of no server`,
+  )
   @ApiQuery({
     name: 'delivery',
     required: false,
@@ -429,6 +473,14 @@ export class TeamInsightsController {
             taskIds: listOf(asked.taskIds),
             personId: askedOf(asked.personId),
             day: askedOf(asked.day),
+            week: askedOf(asked.week),
+            skillGiven: askedOf(asked.skillGiven),
+            skillUsed: askedOf(asked.skillUsed),
+            server: askedOf(asked.server),
+            serverFailed: askedOf(asked.serverFailed),
+            failedAfter: askedOf(asked.failedAfter),
+            refusedTool: askedOf(asked.refusedTool),
+            refusedServer: askedOf(asked.refusedServer),
             delivery: askedOf(asked.delivery),
             next: askedOf(asked.next),
             asked: askedOf(asked.asked),

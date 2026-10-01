@@ -34,6 +34,7 @@ export class Work implements WorkPort {
       effort: run.effort,
       profileKey: run.profileKey,
       repositories: run.repositories,
+      skills: run.skills,
       queuedAt: run.queuedAt,
       startedAt: run.startedAt,
       endedAt: run.endedAt,
@@ -60,5 +61,9 @@ export class Work implements WorkPort {
     );
 
     return [...new Set(names)];
+  }
+
+  teamSkillKeys(teamId: string): Promise<readonly string[]> {
+    return this.stations.teamSkillKeys(teamId);
   }
 }

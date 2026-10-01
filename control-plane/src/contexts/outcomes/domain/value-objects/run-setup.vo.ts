@@ -9,6 +9,7 @@ export class RunSetup {
     readonly effort: string | null,
     readonly profileKey: string | null,
     readonly repositories: readonly string[],
+    readonly skills: readonly string[],
   ) {}
 
   static of(input: {
@@ -17,12 +18,16 @@ export class RunSetup {
     effort: string | null;
     profileKey: string | null;
     repositories: readonly string[];
+    skills: readonly string[];
   }): RunSetup {
     if (blank(input.harness)) {
       throw new InvalidOutcomeError('names the harness it ran on');
     }
     if (input.repositories.some(blank)) {
       throw new InvalidOutcomeError('names each repository it worked');
+    }
+    if (input.skills.some(blank)) {
+      throw new InvalidOutcomeError('names each skill it was given');
     }
 
     return new RunSetup(
@@ -31,6 +36,7 @@ export class RunSetup {
       input.effort,
       input.profileKey,
       [...new Set(input.repositories)],
+      [...new Set(input.skills)],
     );
   }
 }

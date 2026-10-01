@@ -2,9 +2,11 @@ import { InvalidOutcomeError } from '@outcomes/domain/exceptions/invalid-outcome
 import type { CheckVerdict } from '@outcomes/domain/value-objects/check-verdict';
 import type { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import type { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import type { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import type { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
+import type { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,6 +22,8 @@ export class RunRecord {
     readonly next: NextAct | null,
     readonly cost: RunCost | null,
     readonly handedOn: HandedOn | null,
+    readonly tools: RunTools | null,
+    readonly refusals: readonly Refusal[],
     readonly version: number,
   ) {}
 
@@ -38,6 +42,8 @@ export class RunRecord {
       null,
       null,
       null,
+      null,
+      [],
       0,
     );
   }
@@ -52,6 +58,8 @@ export class RunRecord {
     next: NextAct | null;
     cost: RunCost | null;
     handedOn: HandedOn | null;
+    tools: RunTools | null;
+    refusals: readonly Refusal[];
     version: number;
   }): RunRecord {
     if (
@@ -59,6 +67,9 @@ export class RunRecord {
       (!input.taskId || !input.end.place.taskId.equals(input.taskId))
     ) {
       throw new InvalidOutcomeError('ends on the task it was heard of for');
+    }
+    if (input.tools !== null && input.cost === null) {
+      throw new InvalidOutcomeError('holds the tools it used once digested');
     }
 
     return new RunRecord(
@@ -71,6 +82,8 @@ export class RunRecord {
       input.next,
       input.cost,
       input.handedOn,
+      input.tools,
+      input.refusals,
       input.version,
     );
   }
@@ -120,8 +133,21 @@ export class RunRecord {
     return this.next ? this : this.with({ next: act });
   }
 
-  digested(cost: RunCost): RunRecord {
-    return this.cost ? this : this.with({ cost });
+  digested(cost: RunCost, tools: RunTools): RunRecord {
+    return this.cost ? this : this.with({ cost, tools });
+  }
+
+  refused(refusal: Refusal): RunRecord {
+    return this.refusals.some((each) => each.sameAs(refusal))
+      ? this
+      : this.with({ refusals: [...this.refusals, refusal] });
+  }
+
+  failedAfterCallingTo(server: string): boolean {
+    return (
+      this.ending === 'failed' &&
+      this.tools?.callsTo(server)?.lastCallFailed === true
+    );
   }
 
   handedOnTo(handedOn: HandedOn): RunRecord {
@@ -142,6 +168,8 @@ export class RunRecord {
     next?: NextAct;
     cost?: RunCost;
     handedOn?: HandedOn;
+    tools?: RunTools;
+    refusals?: readonly Refusal[];
   }): RunRecord {
     return new RunRecord(
       this.runId,
@@ -153,6 +181,8 @@ export class RunRecord {
       change.next ?? this.next,
       change.cost ?? this.cost,
       change.handedOn ?? this.handedOn,
+      change.tools ?? this.tools,
+      change.refusals ?? this.refusals,
       this.version,
     );
   }

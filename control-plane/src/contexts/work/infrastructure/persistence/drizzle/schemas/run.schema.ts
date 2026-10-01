@@ -107,6 +107,19 @@ export const runJournalEntry = pgTable(
   (table) => [primaryKey({ columns: [table.runId, table.attempt, table.seq] })],
 );
 
+export interface RunDigestServerCalls {
+  readonly server: string;
+  readonly calls: number;
+  readonly failed: number;
+  readonly latency: readonly number[];
+  readonly lastCallFailed: boolean;
+}
+
+export interface RunDigestTools {
+  readonly servers: readonly RunDigestServerCalls[];
+  readonly skills: readonly string[];
+}
+
 export const runDigest = pgTable(
   'run_digest',
   {
@@ -125,6 +138,10 @@ export const runDigest = pgTable(
     outputTokens: bigint('output_tokens', { mode: 'number' }),
     cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
     cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
+    tools: jsonb('tools')
+      .$type<RunDigestTools>()
+      .notNull()
+      .default({ servers: [], skills: [] }),
     digestedAt: timestamp('digested_at').defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.runId, table.attempt] })],

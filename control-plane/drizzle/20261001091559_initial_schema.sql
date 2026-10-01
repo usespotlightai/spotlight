@@ -656,6 +656,7 @@ CREATE TABLE "run_record" (
 	"effort" text,
 	"profile_key" text,
 	"repositories" jsonb,
+	"skills" jsonb,
 	"queued_at" timestamp,
 	"started_at" timestamp,
 	"ended_at" timestamp,
@@ -680,6 +681,8 @@ CREATE TABLE "run_record" (
 	"output_tokens" bigint,
 	"cache_read_tokens" bigint,
 	"cache_write_tokens" bigint,
+	"tools" jsonb,
+	"refusals" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1091,6 +1094,7 @@ CREATE TABLE "run_digest" (
 	"output_tokens" bigint,
 	"cache_read_tokens" bigint,
 	"cache_write_tokens" bigint,
+	"tools" jsonb DEFAULT '{"servers":[],"skills":[]}'::jsonb NOT NULL,
 	"digested_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "run_digest_run_id_attempt_pk" PRIMARY KEY("run_id","attempt")
 );

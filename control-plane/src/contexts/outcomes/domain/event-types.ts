@@ -9,11 +9,13 @@ import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
+import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
+import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
@@ -31,6 +33,8 @@ export const OUTCOMES_EVENT_TYPES = [
   RunCost,
   RunEnd,
   RunPlace,
+  RunTools,
+  Refusal,
   Citation,
   JudgeReason,
   JudgingFailure,

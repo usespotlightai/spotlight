@@ -1,5 +1,6 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { wordsFrom } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import type { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 
 const PROSE = new Set(['description']);
 
@@ -32,6 +33,7 @@ export class HarnessPermission {
     readonly kind: string,
     readonly title: string,
     readonly input: string,
+    readonly tool: CalledTool | null,
   ) {}
 
   static asked(input: {
@@ -39,6 +41,7 @@ export class HarnessPermission {
     kind: string;
     title: string;
     input: unknown;
+    tool: CalledTool | null;
   }): HarnessPermission {
     return new HarnessPermission(
       input.harness,
@@ -47,6 +50,7 @@ export class HarnessPermission {
       input.input === undefined
         ? ''
         : JSON.stringify(canonical(withoutProse(input.input))),
+      input.tool,
     );
   }
 
@@ -55,12 +59,14 @@ export class HarnessPermission {
     kind: string;
     title: string;
     input: string;
+    tool: CalledTool | null;
   }): HarnessPermission {
     return new HarnessPermission(
       HarnessId.of(input.harness),
       input.kind,
       input.title,
       input.input,
+      input.tool,
     );
   }
 

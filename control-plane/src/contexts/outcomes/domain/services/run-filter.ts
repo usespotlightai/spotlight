@@ -1,4 +1,5 @@
 import { InvalidRunFilterError } from '@outcomes/domain/exceptions/invalid-run-filter.error';
+import { weekWindowOf } from '@outcomes/domain/services/pull-request-insights';
 import {
   DELIVERY_STATES,
   type DeliveryState,
@@ -20,6 +21,10 @@ export const HARNESS_DEFAULT_MODEL = '~default';
 
 export const NO_REPOSITORY = 'none';
 
+export const NO_SERVER = 'none';
+
+const LONGEST_FILTER = 200;
+
 export const MOST_FILTERED_TASKS = 200;
 
 type AskedValue = string | readonly string[] | null;
@@ -36,6 +41,14 @@ export interface RunFilterAsked {
   readonly taskIds: readonly string[] | null;
   readonly personId: AskedValue;
   readonly day: AskedValue;
+  readonly week: AskedValue;
+  readonly skillGiven: AskedValue;
+  readonly skillUsed: AskedValue;
+  readonly server: AskedValue;
+  readonly serverFailed: AskedValue;
+  readonly failedAfter: AskedValue;
+  readonly refusedTool: AskedValue;
+  readonly refusedServer: AskedValue;
   readonly delivery: AskedValue;
   readonly next: AskedValue;
   readonly asked: AskedValue;
@@ -57,12 +70,25 @@ export interface RunFilter {
   readonly taskIds: readonly string[] | null;
   readonly personId: string | null;
   readonly day: Window | null;
+  readonly week: Window | null;
+  readonly skillGiven: string | null;
+  readonly skillUsed: string | null;
+  readonly server: string | null;
+  readonly serverFailed: string | null;
+  readonly failedAfter: string | null;
+  readonly refusedTool: string | null;
+  readonly refusedServer: Narrowing;
   readonly delivery: DeliveryState | null;
   readonly next: PersonAct | null;
   readonly askedWithin: Window | null;
 }
 
 const single = (asked: AskedValue, what: string): string | null => {
+  if (typeof asked === 'string' && asked.length > LONGEST_FILTER) {
+    throw new InvalidRunFilterError(
+      `by a ${what} of at most ${LONGEST_FILTER} characters`,
+    );
+  }
   if (typeof asked === 'string' || asked === null) {
     return asked;
   }
@@ -114,6 +140,8 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const MONDAY = 1;
+
 const startOf = (asked: string): Date | null => {
   const from = DATE.test(asked) ? new Date(`${asked}T00:00:00.000Z`) : null;
 
@@ -140,6 +168,29 @@ const dayOf = (value: AskedValue, period: Window): Window | null => {
   }
 
   return { from, to: new Date(from.getTime() + DAY_MS) };
+};
+
+const weekOf = (value: AskedValue): Window | null => {
+  const asked = single(value, 'week');
+
+  if (asked === null) {
+    return null;
+  }
+
+  const window = DATE.test(asked) ? weekWindowOf(asked) : null;
+  const monday =
+    window !== null &&
+    !Number.isNaN(window.from.getTime()) &&
+    window.from.toISOString().slice(0, 10) === asked &&
+    window.from.getUTCDay() === MONDAY;
+
+  if (!window || !monday) {
+    throw new InvalidRunFilterError(
+      `by a week that starts on a Monday written YYYY-MM-DD, not ${asked}`,
+    );
+  }
+
+  return window;
 };
 
 const taskIdsOf = (asked: RunFilterAsked): readonly string[] | null => {
@@ -179,6 +230,14 @@ export const runFilterOf = (
   taskIds: taskIdsOf(asked),
   personId: single(asked.personId, 'person'),
   day: dayOf(asked.day, period),
+  week: weekOf(asked.week),
+  skillGiven: single(asked.skillGiven, 'skill given'),
+  skillUsed: single(asked.skillUsed, 'skill used'),
+  server: single(asked.server, 'server'),
+  serverFailed: single(asked.serverFailed, 'server that failed'),
+  failedAfter: single(asked.failedAfter, 'server failed after'),
+  refusedTool: single(asked.refusedTool, 'refused tool'),
+  refusedServer: narrowingOf(asked.refusedServer, NO_SERVER, 'refused server'),
   delivery: oneOf(DELIVERY_STATES, asked.delivery, 'delivery'),
   next: oneOf(PERSON_ACTS, asked.next, 'next act'),
   askedWithin: askedWithinOf(asked.asked, period),

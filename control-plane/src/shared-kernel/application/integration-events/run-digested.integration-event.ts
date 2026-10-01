@@ -1,5 +1,13 @@
 export const RUN_DIGESTED = 'work.run-digested.v1';
 
+type ServerCallsPublished = {
+  readonly server: string;
+  readonly calls: number;
+  readonly failed: number;
+  readonly latency: readonly number[];
+  readonly lastCallFailed: boolean;
+};
+
 export type RunDigestedIntegrationEvent = {
   readonly kind: typeof RUN_DIGESTED;
   readonly runId: string;
@@ -16,4 +24,6 @@ export type RunDigestedIntegrationEvent = {
   readonly outputTokens: number | null;
   readonly cacheReadTokens: number | null;
   readonly cacheWriteTokens: number | null;
+  readonly servers: readonly ServerCallsPublished[];
+  readonly skillsRead: readonly string[];
 };

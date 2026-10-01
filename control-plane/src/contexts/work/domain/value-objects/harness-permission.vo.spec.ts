@@ -8,6 +8,7 @@ const asked = (input: unknown, kind = 'execute') =>
     kind,
     title: '`rm -rf build`',
     input,
+    tool: null,
   });
 
 describe('a permission a harness asks for', () => {
@@ -54,6 +55,7 @@ describe('a permission a harness asks for', () => {
         kind: permission.kind,
         title: permission.title,
         input: permission.input,
+        tool: permission.tool,
       }).equals(permission),
     ).toBe(true);
   });

@@ -7,6 +7,7 @@ import { PeopleTab } from '@/components/features/insights/PeopleTab';
 import { PullRequestsTab } from '@/components/features/insights/pull-requests/PullRequestsTab';
 import { RunsTab } from '@/components/features/insights/RunsTab';
 import { StationsTab } from '@/components/features/insights/StationsTab';
+import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
 import { useLines } from '@/hooks/api/useLines';
 import {
   type InsightsView,
@@ -50,6 +51,7 @@ export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
             <PeopleTab slug={slug} teamId={teamId} period={view.period} />
           )}
           {view.tab === 'cost' && <CostTab {...shared} />}
+          {view.tab === 'tools' && <ToolsTab {...shared} />}
           {view.tab === 'runs' && (
             <RunsTab
               slug={slug}

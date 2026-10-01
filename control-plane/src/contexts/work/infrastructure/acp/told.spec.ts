@@ -594,4 +594,353 @@ describe('Told', () => {
       });
     });
   });
+
+  describe('calls', () => {
+    it('names each call by the tool the harness says it called, with its server, time and ending', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          title: 'mcp__linear__get_issue',
+          _meta: { claudeCode: { toolName: 'mcp__linear__get_issue' } },
+          rawInput: { id: 'ENG-1' },
+        }),
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'b',
+          title: 'Read SKILL.md',
+          kind: 'read',
+          status: 'completed',
+          _meta: { claudeCode: { toolName: 'Read' } },
+          locations: [{ path: '/workspace/.claude/skills/grafana/SKILL.md' }],
+        }),
+        sent({
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'a',
+          status: 'failed',
+        }),
+        chunk('agent_message_chunk', 'Done.'),
+      );
+
+      expect(told.calls()).toEqual([
+        {
+          server: 'linear',
+          tool: 'get_issue',
+          skillAskedFor: null,
+          paths: [],
+          ms: 2_000,
+          ending: 'failed',
+        },
+        {
+          server: null,
+          tool: 'Read',
+          skillAskedFor: null,
+          paths: ['/workspace/.claude/skills/grafana/SKILL.md'],
+          ms: 0,
+          ending: 'completed',
+        },
+      ]);
+    });
+
+    it('takes the bridge’s own file tools for the harness’s, while a server of the same name still counts', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          title: 'Read',
+          status: 'completed',
+          _meta: { claudeCode: { toolName: 'mcp__acp__Read' } },
+        }),
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'b',
+          title: 'mcp__acp__query',
+          status: 'completed',
+          _meta: { claudeCode: { toolName: 'mcp__acp__query' } },
+        }),
+      );
+
+      expect(
+        told.calls().map(({ server, tool }) => ({ server, tool })),
+      ).toEqual([
+        { server: null, tool: 'Read' },
+        { server: 'acp', tool: 'query' },
+      ]);
+    });
+
+    it('names a call by its title where the harness gives no tool name', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          title: 'Tool: sentry/resolve_issue',
+          status: 'completed',
+        }),
+      );
+
+      expect(told.calls()[0]).toMatchObject({
+        server: 'sentry',
+        tool: 'resolve_issue',
+      });
+    });
+
+    it('times a call from when it started working, leaving out the wait for approval', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          status: 'pending',
+        }),
+        sent({
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'a',
+          status: 'in_progress',
+        }),
+        sent({
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'a',
+          status: 'in_progress',
+        }),
+        sent({
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'a',
+          status: 'completed',
+        }),
+      );
+
+      expect(told.calls()[0]?.ms).toBe(2_000);
+    });
+
+    it('leaves a call that never finished untimed', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          status: 'pending',
+        }),
+      );
+
+      expect(told.calls()[0]).toMatchObject({ ms: null, ending: 'unfinished' });
+    });
+
+    it('takes a call as refused only when Spotlight refused its permission, whatever it said', () => {
+      const told = new Told();
+      const journal = [
+        {
+          type: 'output',
+          data: sent({
+            sessionUpdate: 'tool_call',
+            toolCallId: 'a',
+            _meta: { claudeCode: { toolName: 'mcp__linear__comment' } },
+          }),
+        },
+        {
+          type: 'tool.refused',
+          data: Buffer.from(JSON.stringify({ toolCallId: 'a' })).toString(
+            'base64',
+          ),
+        },
+        {
+          type: 'output',
+          data: sent({
+            sessionUpdate: 'tool_call_update',
+            toolCallId: 'a',
+            status: 'failed',
+          }),
+        },
+        {
+          type: 'output',
+          data: sent({
+            sessionUpdate: 'tool_call',
+            toolCallId: 'b',
+            _meta: { claudeCode: { toolName: 'mcp__linear__comment' } },
+          }),
+        },
+        {
+          type: 'output',
+          data: sent({
+            sessionUpdate: 'tool_call_update',
+            toolCallId: 'b',
+            status: 'failed',
+            rawOutput: 'User refused permission to run tool',
+          }),
+        },
+      ];
+      journal.forEach((each, at) => {
+        told.take({ ...each, at: clock(at), message: null });
+      });
+
+      expect(told.calls().map((each) => each.ending)).toEqual([
+        'refused',
+        'failed',
+      ]);
+    });
+
+    it('stops timing a call once it completed or failed', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          status: 'in_progress',
+        }),
+        sent({
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'a',
+          status: 'completed',
+        }),
+        chunk('agent_message_chunk', 'Reading it.'),
+        sent({
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'a',
+          rawOutput: 'late output',
+        }),
+      );
+
+      expect(told.calls()[0]).toMatchObject({ ms: 1_000, ending: 'completed' });
+    });
+
+    it('leaves the time the run waited for a person out of a call that never said it was working', () => {
+      const told = new Told();
+      const call = (at: number, update: Record<string, unknown>) =>
+        told.take({
+          type: 'output',
+          at: clock(at),
+          message: null,
+          data: sent({ toolCallId: 'a', ...update }),
+        });
+
+      call(0, { sessionUpdate: 'tool_call', status: 'pending' });
+      call(2, { sessionUpdate: 'tool_call_update' });
+      told.take({
+        type: 'run.paused',
+        at: clock(3),
+        message: null,
+        data: null,
+      });
+      call(60, { sessionUpdate: 'tool_call_update' });
+      call(61, { sessionUpdate: 'tool_call_update', status: 'completed' });
+
+      expect(told.calls()[0]?.ms).toBe(3_000);
+    });
+
+    it('takes a call announced twice under one id as one call', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          status: 'pending',
+          _meta: { claudeCode: { toolName: 'mcp__linear__get_issue' } },
+        }),
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          status: 'in_progress',
+        }),
+        sent({
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'a',
+          status: 'completed',
+        }),
+      );
+
+      expect(told.calls()).toEqual([
+        expect.objectContaining({
+          server: 'linear',
+          tool: 'get_issue',
+          ms: 1_000,
+          ending: 'completed',
+        }),
+      ]);
+      expect(told.steps()).toHaveLength(1);
+    });
+
+    it('never reads a server out of the title of a command', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          kind: 'execute',
+          title: 'mcp__linear__get_issue',
+          status: 'completed',
+        }),
+      );
+
+      expect(told.calls()[0]).toMatchObject({
+        server: null,
+        tool: 'mcp__linear__get_issue',
+      });
+    });
+
+    it('reads the skill the harness’s skill tool was asked for', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          title: 'Skill',
+          status: 'completed',
+          _meta: { claudeCode: { toolName: 'Skill' } },
+          rawInput: { skill: 'our-migrations' },
+        }),
+      );
+
+      expect(told.calls()[0]?.skillAskedFor).toBe('our-migrations');
+    });
+
+    it('offers only what a read, search or command reached as read', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          kind: 'execute',
+          status: 'completed',
+          _meta: { claudeCode: { toolName: 'Bash' } },
+          rawInput: { command: 'cat .claude/skills/grafana/SKILL.md' },
+        }),
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'b',
+          kind: 'edit',
+          status: 'completed',
+          _meta: { claudeCode: { toolName: 'Write' } },
+          locations: [{ path: '/workspace/.claude/skills/grafana/SKILL.md' }],
+          rawInput: { file_path: '/workspace/.claude/skills/grafana/SKILL.md' },
+        }),
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'c',
+          kind: 'other',
+          status: 'completed',
+          _meta: { claudeCode: { toolName: 'mcp__wiki__save' } },
+          rawInput: { path: '.claude/skills/grafana/SKILL.md' },
+        }),
+      );
+
+      expect(told.calls().map((each) => each.paths)).toEqual([
+        [
+          JSON.stringify(
+            { command: 'cat .claude/skills/grafana/SKILL.md' },
+            null,
+            2,
+          ),
+        ],
+        [],
+        [],
+      ]);
+    });
+
+    it('keeps the tool’s name and working time out of the steps it shows', () => {
+      const told = read(
+        sent({
+          sessionUpdate: 'tool_call',
+          toolCallId: 'a',
+          title: 'Search',
+          status: 'in_progress',
+          _meta: { claudeCode: { toolName: 'mcp__wiki__search' } },
+        }),
+      );
+
+      expect(told.steps()[0]).not.toHaveProperty('named');
+      expect(told.steps()[0]).not.toHaveProperty('workingAt');
+    });
+  });
 });

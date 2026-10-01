@@ -34,7 +34,7 @@ import { NOT_ON_TEAM, SLUG, TEAM_ID, WORKSPACE } from '@/stories/fixtures/team';
 export const insightsAt = (tab: string): string =>
   `${teamSectionPath(SLUG, TEAM_ID, 'insights')}?tab=${tab}`;
 
-const LINE_ID = 'line_delivery';
+export const LINE_ID = 'line_delivery';
 
 const station = (
   over: Partial<StationResponseDto> & {

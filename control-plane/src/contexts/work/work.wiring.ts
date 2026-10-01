@@ -220,6 +220,7 @@ import {
   type HarnessLaunchPort,
 } from '@work/application/ports/harness-launch.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
+import { HARNESS_TOOL_NAMES } from '@work/application/ports/harness-tool-names.port';
 import {
   HEARD_HAPPENINGS,
   type HeardHappeningsPort,
@@ -277,6 +278,10 @@ import { RUN_OUTCOMES } from '@work/application/ports/run-outcomes.port';
 import { RUN_READER } from '@work/application/ports/run-reader.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import { RUN_STREAM } from '@work/application/ports/run-stream.port';
+import {
+  RUN_TOOLS,
+  type RunToolsReaderPort,
+} from '@work/application/ports/run-tools-reader.port';
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
 import { SANDBOX_REACH } from '@work/application/ports/sandbox-reach.port';
@@ -464,6 +469,7 @@ import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
 import { WORK_EVENT_TYPES } from '@work/domain/event-types';
 import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
+import { AcpHarnessToolNames } from '@work/infrastructure/acp/harness-tools';
 import {
   BuiltInHarnesses,
   DEFAULT_HARNESS,
@@ -787,6 +793,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: TRACED_TASK_READER, useClass: DrizzleTracedTaskReader },
 
   { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
+  { provide: HARNESS_TOOL_NAMES, useClass: AcpHarnessToolNames },
 
   { provide: HARNESS_PROFILE_REVIEW, useExisting: BuiltInHarnesses },
 
@@ -825,13 +832,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: RUN_DIGESTS, useExisting: DrizzleRunDigests },
 
   { provide: RUN_DIGEST_WRITER, useExisting: DrizzleRunDigests },
+  { provide: RUN_TOOLS, useExisting: DrizzleRunDigests },
 
   { provide: STATION_RUN_READER, useClass: DrizzleStationRunReader },
 
   {
     provide: STATION_RUNS,
-    inject: [STATION_RUN_READER],
-    useFactory: (reader: StationRunReaderPort) => new StationRuns(reader),
+    inject: [STATION_RUN_READER, TEAM_SKILLS],
+    useFactory: (reader: StationRunReaderPort, skills: TeamSkillsPort) =>
+      new StationRuns(reader, skills),
   },
 
   { provide: RUN_EVENT_READER, useClass: DrizzleRunEventReader },
@@ -1219,6 +1228,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ToolUsedHooks,
       RUN_JOURNAL,
       RUN_DIGESTS,
+      RUN_TOOLS,
     ],
     useFactory: (
       types: EventTypes,
@@ -1246,6 +1256,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       toolUsedHooks: ToolUsedHooks,
       journal: RunJournalPort,
       digested: RunDigestReaderPort,
+      tools: RunToolsReaderPort,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -1262,7 +1273,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           pausedRuns: new PausedRuns(tasks, runs),
           pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
-          digests: new DigestRun(digests, digested),
+          digests: new DigestRun(digests, digested, tools),
           provisioning: new ProvisionTeam(
             provisioningLines,
             tasks,
@@ -1695,7 +1706,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       new ToolUsedHooks(hookedTasks, hooks),
   },
 
-  ...bindCommandHandler(AskPermissionCommand, AskPermissionHandler, [RunWorks]),
+  ...bindCommandHandler(AskPermissionCommand, AskPermissionHandler, [
+    RunWorks,
+    HARNESS_TOOL_NAMES,
+  ]),
 
   ...bindCommandHandler(StartChatCommand, StartChatHandler, [
     WORKSPACE_READER,

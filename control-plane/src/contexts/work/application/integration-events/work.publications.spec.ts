@@ -1,4 +1,5 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -22,6 +23,7 @@ import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
@@ -32,6 +34,7 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
+import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { describe, expect, it } from 'vitest';
 
 const published = (event: DomainEvent) =>
@@ -133,6 +136,18 @@ describe('WORK_PUBLICATIONS', () => {
           200_000,
           Money.of(0.42, 'USD'),
           Tokens.of({ input: 1_200, output: 900, cacheRead: 80_000 }),
+          ToolUse.of({
+            servers: [
+              {
+                server: 'linear',
+                calls: 2,
+                failed: 1,
+                latency: LatencyHistogram.timing([300, 900]),
+                lastCallFailed: true,
+              },
+            ],
+            skills: ['our-migrations'],
+          }),
         ),
       ),
     ).toEqual([
@@ -152,6 +167,16 @@ describe('WORK_PUBLICATIONS', () => {
         outputTokens: 900,
         cacheReadTokens: 80_000,
         cacheWriteTokens: null,
+        servers: [
+          {
+            server: 'linear',
+            calls: 2,
+            failed: 1,
+            latency: LatencyHistogram.timing([300, 900]).counts,
+            lastCallFailed: true,
+          },
+        ],
+        skillsRead: ['our-migrations'],
       },
     ]);
   });
@@ -418,7 +443,32 @@ describe('WORK_PUBLICATIONS', () => {
         by: 'user_1',
         after: 'run_1',
         at: '2026-09-26T09:00:00.000Z',
+        tool: null,
+        server: null,
       },
+    ]);
+  });
+
+  it('publishes the tool a person refused, and its server', () => {
+    expect(
+      published(
+        new TaskActedOn(
+          TASK,
+          WORKSPACE,
+          StationId.of('station_1'),
+          'refused',
+          UserId.of('user_1'),
+          RUN,
+          new Date('2026-09-26T09:00:00Z'),
+          CalledTool.of({ server: 'linear', tool: 'create_issue' }),
+        ),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        act: 'refused',
+        tool: 'create_issue',
+        server: 'linear',
+      }),
     ]);
   });
 

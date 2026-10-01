@@ -424,6 +424,8 @@ describe('cost', () => {
   it('names what a drilled-in filter narrows to', () => {
     expect(filterValueShown('model', '~default')).toBe('Harness default');
     expect(filterValueShown('repository', 'none')).toBe('No repository');
+    expect(filterValueShown('refusedServer', 'none')).toBe('No server');
+    expect(filterValueShown('refusedServer', 'linear')).toBe('linear');
     expect(filterValueShown('taskIds', 'task_1,task_2')).toBe('2 tasks');
     expect(filterValueShown('next', 'sent-back')).toBe('Sent back');
     expect(filterValueShown('delivery', 'merged')).toBe('Merged');

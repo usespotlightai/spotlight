@@ -50,6 +50,7 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -125,6 +126,7 @@ import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
+import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -181,6 +183,8 @@ export const WORK_EVENT_TYPES = [
   MessagePosition,
   Money,
   Tokens,
+  ToolUse,
+  CalledTool,
   NetworkAnswer,
   NetworkCallId,
   NetworkRequest,

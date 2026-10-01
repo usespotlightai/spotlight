@@ -9,4 +9,6 @@ export type TaskActedOnIntegrationEvent = {
   readonly by: string;
   readonly after: string | null;
   readonly at: string;
+  readonly tool: string | null;
+  readonly server: string | null;
 };

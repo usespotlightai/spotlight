@@ -41,6 +41,7 @@ const noting = (runs: readonly EndedRun[]) => {
       runs.find((each) => each.runId === runId) ?? null,
     configsInOrder: async () => [],
     teamRepositories: async () => [],
+    teamSkillKeys: async () => [],
   };
 
   return {

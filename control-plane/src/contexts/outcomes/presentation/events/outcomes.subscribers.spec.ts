@@ -67,6 +67,7 @@ import { TASK_HANDED_ON } from '@shared-kernel/application/integration-events/ta
 import { TASK_OPENED } from '@shared-kernel/application/integration-events/task-opened.integration-event';
 import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
 import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -92,6 +93,7 @@ const WORK = {
   endedRun: async (runId: string) => (runId === ENDED.runId ? ENDED : null),
   configsInOrder: async () => [],
   teamRepositories: async () => ['acme/api'],
+  teamSkillKeys: async () => [],
 };
 
 const CLOCK = {
@@ -117,7 +119,7 @@ const subscribed = () => {
     ending: new NoteRunEnded(WORK, records, forgotten, inTransaction),
     superseding: new NoteRunSuperseded(records, forgotten, inTransaction),
     checking: new NoteChangeChecked(records, forgotten, inTransaction),
-    acting: new NotePersonAct(records, forgotten, inTransaction),
+    acting: new NotePersonAct(WORK, records, forgotten, inTransaction),
     opening: new NotePullRequestOpened(
       deliveries,
       reviews,
@@ -180,7 +182,7 @@ const subscribed = () => {
         asked.push(`settle ${taskId.value} ${runId.value}`);
       },
     }),
-    digesting: new NoteRunDigested(records, forgotten, inTransaction),
+    digesting: new NoteRunDigested(WORK, records, forgotten, inTransaction),
     handingOn: new NoteRunHandedOn(records, forgotten, inTransaction),
     reviewing: new NotePullRequestReviewed(
       deliveries,
@@ -301,6 +303,8 @@ describe('outcomesSubscribers', () => {
       by: 'user_ada',
       after: 'run_1',
       at: '2026-09-30T11:00:00.000Z',
+      tool: null,
+      server: null,
     });
     await heard.deliver('outcomes.record-superseded-run', {
       kind: RUN_SUPERSEDED,
@@ -361,6 +365,16 @@ describe('outcomesSubscribers', () => {
       outputTokens: 900,
       cacheReadTokens: 80_000,
       cacheWriteTokens: null,
+      servers: [
+        {
+          server: 'linear',
+          calls: 2,
+          failed: 1,
+          latency: LatencyHistogram.timing([300, 900]).counts,
+          lastCallFailed: true,
+        },
+      ],
+      skillsRead: ['grafana'],
     });
     await heard.deliver('outcomes.record-ended-run', runEnded());
     await heard.deliver('outcomes.record-handed-on-run', {
@@ -383,6 +397,10 @@ describe('outcomesSubscribers', () => {
     });
     expect(record?.handedOn?.to).toBe('station_2');
     expect(record?.end?.setup.harness).toBe('claude-code');
+    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
+      LatencyHistogram.timing([300, 900]),
+    );
+    expect(record?.tools?.read('grafana')).toBe(true);
   });
 
   it('keeps no cost for a run that worked no task', async () => {
@@ -404,6 +422,8 @@ describe('outcomesSubscribers', () => {
       outputTokens: null,
       cacheReadTokens: null,
       cacheWriteTokens: null,
+      servers: [],
+      skillsRead: [],
     });
 
     expect(await heard.record()).toBeNull();
@@ -500,6 +520,8 @@ describe('outcomesSubscribers', () => {
       by: 'user_bob',
       after: 'run_1',
       at: '2026-09-30T10:20:00.000Z',
+      tool: null,
+      server: null,
     });
 
     const touches = await heard.touches.of(TaskId.of('task_1'));
@@ -711,6 +733,8 @@ describe('outcomesSubscribers', () => {
       outputTokens: null,
       cacheReadTokens: null,
       cacheWriteTokens: null,
+      servers: [],
+      skillsRead: [],
     });
     await heard.deliver('outcomes.record-handed-on-run', {
       kind: TASK_HANDED_ON,
@@ -743,6 +767,8 @@ describe('outcomesSubscribers', () => {
       by: 'user_bob',
       after: 'run_5',
       at: '2026-09-30T10:20:00.000Z',
+      tool: null,
+      server: null,
     });
     await heard.deliver('outcomes.record-inbox-ask', {
       kind: TASK_ASKED,

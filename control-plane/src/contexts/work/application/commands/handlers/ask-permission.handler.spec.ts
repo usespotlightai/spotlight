@@ -18,6 +18,7 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -149,6 +150,12 @@ const asking = (start: Task, subject?: RunSubject) => {
       { holding: async () => LINE } as unknown as LineRepository,
       { now: () => NOW, sleep: async () => {} },
     ),
+    {
+      askedFor: (title) =>
+        title === 'mcp__linear__create_issue'
+          ? CalledTool.of({ server: 'linear', tool: 'create_issue' })
+          : null,
+    },
   );
 
   return {
@@ -196,6 +203,16 @@ describe('AskPermissionHandler', () => {
     expect(asked?.body.value).toContain('git push origin main');
     expect(standing().currentRunId).toEqual(RunId.of('run_1'));
     expect(standing().sessionId?.value).toBe('sess_1');
+  });
+
+  it('records the MCP tool a permission names, so a refusal is counted against it', async () => {
+    const { ask, standing } = asking(heldBy('run_1'));
+
+    await ask({ ...PUSH, title: 'mcp__linear__create_issue' });
+
+    expect(
+      standing().notes[standing().notes.length - 1]?.approval?.subject.tool,
+    ).toEqual({ server: 'linear', tool: 'create_issue' });
   });
 
   it('lets the run that takes the task up again do it once a person approves', async () => {

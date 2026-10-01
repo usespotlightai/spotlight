@@ -4587,6 +4587,165 @@ export type InsightsCostResponseDto = {
   mixedCurrenciesBefore: boolean;
 };
 
+export type TrendRuleResponseDto = {
+  /**
+   * How many of the latest weeks are weighed against the rest
+   */
+  recentWeeks: number;
+  /**
+   * The fewest runs each side needs for a trend
+   */
+  fewestRuns: number;
+  /**
+   * How many points the share of runs that used a skill must move
+   */
+  shiftPoints: number;
+};
+
+export type SkillWeekResponseDto = {
+  /**
+   * The Monday, UTC, the week starts on
+   */
+  week: string;
+  /**
+   * Runs that ended that week
+   */
+  runs: number;
+  /**
+   * Of those, the runs given it
+   */
+  given: number;
+  /**
+   * Of those, the runs that read it
+   */
+  used: number;
+};
+
+export type SkillAtStationResponseDto = {
+  lineId: string;
+  stationId: string;
+  /**
+   * Runs that ended there
+   */
+  runs: number;
+  given: number;
+  used: number;
+  /**
+   * spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs
+   */
+  trend: 'spreading' | 'fading' | 'steady' | null;
+};
+
+export type SkillReportResponseDto = {
+  key: string;
+  /**
+   * Whether the team’s configuration defines it
+   */
+  defined: boolean;
+  /**
+   * Runs in the period whose station config gave it
+   */
+  given: number;
+  /**
+   * Runs in the period that read it: a tool call touched a file in its folder, or asked the harness for it by name
+   */
+  used: number;
+  /**
+   * Every week of the period, oldest first
+   */
+  weeks: Array<SkillWeekResponseDto>;
+  /**
+   * spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs
+   */
+  trend: 'spreading' | 'fading' | 'steady' | null;
+  /**
+   * Each station whose runs were given it or read it
+   */
+  stations: Array<SkillAtStationResponseDto>;
+};
+
+export type ServerReportResponseDto = {
+  server: string;
+  /**
+   * Runs that called it
+   */
+  runs: number;
+  /**
+   * Calls to it across those runs, leaving out calls a person refused to approve
+   */
+  calls: number;
+  callsPerRun: number | null;
+  /**
+   * Median time a finished call took from when it started working, estimated from fixed latency buckets
+   */
+  p50Ms: number | null;
+  /**
+   * Time 95 in 100 finished calls took at most, estimated from fixed latency buckets
+   */
+  p95Ms: number | null;
+  /**
+   * Calls that failed, counting calls that never finished
+   */
+  failedCalls: number;
+  /**
+   * Failed calls over calls, from 0 to 1
+   */
+  errorRate: number | null;
+  /**
+   * Runs that failed where the run’s last call to this server failed
+   */
+  failingRuns: number;
+  /**
+   * Runs in which a person refused one of its tools
+   */
+  refused: number;
+};
+
+export type ToolRefusalsResponseDto = {
+  /**
+   * The tool’s own name, or what the harness asked to do where it names no tool
+   */
+  tool: string;
+  server: string | null;
+  /**
+   * Runs in which a person refused this tool
+   */
+  refused: number;
+};
+
+export type InsightsToolsResponseDto = {
+  period: InsightsPeriodResponseDto;
+  /**
+   * Whether the team had more than 20,000 runs in the period, so only the newest 20,000 were counted
+   */
+  truncated: boolean;
+  /**
+   * The Mondays of every week the period touches, oldest first
+   */
+  weeks: Array<string>;
+  /**
+   * Runs that ran in the period
+   */
+  runs: number;
+  trendRule: TrendRuleResponseDto;
+  /**
+   * Every skill a run in the period was given or read, the most used first
+   */
+  skills: Array<SkillReportResponseDto>;
+  /**
+   * Skills the team’s configuration defines that no run in the period read
+   */
+  unused: Array<string>;
+  /**
+   * Every MCP server a run in the period called, the busiest first
+   */
+  servers: Array<ServerReportResponseDto>;
+  /**
+   * Each tool a person refused to approve for a run in the period, per server, the most refused first
+   */
+  refusals: Array<ToolRefusalsResponseDto>;
+};
+
 export type WeekShareResponseDto = {
   /**
    * The Monday, UTC, the week starts on
@@ -13018,7 +13177,7 @@ export type ReadInsightsOverviewErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -13053,7 +13212,7 @@ export type ReadInsightsFlowErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -13088,7 +13247,7 @@ export type ReadInsightsStationsErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -13123,7 +13282,7 @@ export type ReadInsightsPeopleErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -13158,7 +13317,7 @@ export type ReadInsightsCostErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -13168,6 +13327,41 @@ export type ReadInsightsCostResponses = {
 };
 
 export type ReadInsightsCostResponse = ReadInsightsCostResponses[keyof ReadInsightsCostResponses];
+
+export type ReadInsightsToolsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/insights/tools';
+};
+
+export type ReadInsightsToolsErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ReadInsightsToolsResponses = {
+  200: InsightsToolsResponseDto;
+};
+
+export type ReadInsightsToolsResponse = ReadInsightsToolsResponses[keyof ReadInsightsToolsResponses];
 
 export type ReadInsightsPullRequestsData = {
   body?: never;
@@ -13193,7 +13387,7 @@ export type ReadInsightsPullRequestsErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -13268,7 +13462,7 @@ export type ListInsightsPullRequestsErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -13305,6 +13499,38 @@ export type ListInsightsRunsData = {
      * Only runs of tasks whose pull request stands this way
      */
     delivery?: 'open' | 'merged' | 'closed';
+    /**
+     * Only runs a person refused a tool of this MCP server for; none for tools of no server
+     */
+    refusedServer?: string;
+    /**
+     * Only runs a person refused this tool for
+     */
+    refusedTool?: string;
+    /**
+     * Only runs that failed where the run’s last call to this MCP server failed
+     */
+    failedAfter?: string;
+    /**
+     * Only runs with a call to this MCP server that failed
+     */
+    serverFailed?: string;
+    /**
+     * Only runs that called this MCP server
+     */
+    server?: string;
+    /**
+     * Only runs that read this skill
+     */
+    skillUsed?: string;
+    /**
+     * Only runs whose station config gave this skill
+     */
+    skillGiven?: string;
+    /**
+     * Only runs that ended in the week starting this UTC Monday, as YYYY-MM-DD
+     */
+    week?: string;
     /**
      * Only runs that ended on this UTC day, as YYYY-MM-DD
      */
@@ -13367,7 +13593,7 @@ export type ListInsightsRunsErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };

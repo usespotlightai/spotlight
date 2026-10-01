@@ -44,6 +44,7 @@ const preview: Preview = {
               'Stations',
               'People',
               'Cost',
+              'Tools',
               'Runs',
             ],
             'Settings',

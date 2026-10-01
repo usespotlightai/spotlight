@@ -1,17 +1,25 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunSpent } from '@work/application/contracts/run-journal.contract';
+import {
+  HARNESS_LAUNCH,
+  type HarnessLaunchPort,
+} from '@work/application/ports/harness-launch.port';
 import type {
   RunDigest,
   RunDigestReaderPort,
 } from '@work/application/ports/run-digest-reader.port';
 import type { RunDigestWriterPort } from '@work/application/ports/run-digest-writer.port';
+import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
+import { toolUseOf } from '@work/domain/services/tool-attribution';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { TERMINAL_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { faulted } from '@work/domain/value-objects/step-status';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
+import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { Told } from '@work/infrastructure/acp/told';
 import {
   run,
@@ -90,9 +98,12 @@ const chunked = <T>(all: readonly T[], size: number): T[][] => {
 
 @Injectable()
 export class DrizzleRunDigests
-  implements RunDigestReaderPort, RunDigestWriterPort
+  implements RunDigestReaderPort, RunDigestWriterPort, RunToolsReaderPort
 {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
+    @Inject(HARNESS_LAUNCH) private readonly launch: HarnessLaunchPort,
+  ) {}
 
   async ensure(runIds: readonly RunId[]): Promise<void> {
     const ids = [...new Set(runIds.map((each) => each.value))];
@@ -173,6 +184,7 @@ export class DrizzleRunDigests
       readings.set(`${row.runId}:${row.attempt}`, reading);
     }
 
+    const homes = this.launch.skillHomes();
     const rows = owed.map(({ id, attempt, parked }) => {
       const kept = [...parked, attempt]
         .sort((one, other) => one - other)
@@ -192,6 +204,10 @@ export class DrizzleRunDigests
         cost: spent?.cost ?? null,
         tokens: tokensAcross(kept),
       });
+      const tools = toolUseOf(
+        kept.flatMap((reading) => reading.calls()),
+        homes,
+      );
 
       return {
         runId: id,
@@ -207,6 +223,16 @@ export class DrizzleRunDigests
         outputTokens: digest.tokens.output,
         cacheReadTokens: digest.tokens.cacheRead,
         cacheWriteTokens: digest.tokens.cacheWrite,
+        tools: {
+          servers: tools.servers.map((each) => ({
+            server: each.server,
+            calls: each.calls,
+            failed: each.failed,
+            latency: [...each.latency.counts],
+            lastCallFailed: each.lastCallFailed,
+          })),
+          skills: [...tools.skills],
+        },
       };
     });
 
@@ -265,5 +291,27 @@ export class DrizzleRunDigests
         },
       ]),
     );
+  }
+
+  async toolsFor(runId: RunId): Promise<ToolUse | null> {
+    const [held] = await this.db
+      .select({ tools: runDigest.tools })
+      .from(runDigest)
+      .innerJoin(
+        run,
+        and(eq(run.id, runDigest.runId), eq(run.attempt, runDigest.attempt)),
+      )
+      .where(eq(runDigest.runId, runId.value))
+      .limit(1);
+
+    return held
+      ? ToolUse.of({
+          servers: held.tools.servers.map((called) => ({
+            ...called,
+            latency: LatencyHistogram.of(called.latency),
+          })),
+          skills: held.tools.skills,
+        })
+      : null;
   }
 }

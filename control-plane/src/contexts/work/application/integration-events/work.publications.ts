@@ -199,6 +199,8 @@ export const WORK_PUBLICATIONS = [
       by: event.by.value,
       after: event.after?.value ?? null,
       at: event.at.toISOString(),
+      tool: event.tool?.tool ?? null,
+      server: event.tool?.server ?? null,
     }),
   ),
   publishing<RunDigested>(
@@ -219,6 +221,14 @@ export const WORK_PUBLICATIONS = [
       outputTokens: event.tokens.output,
       cacheReadTokens: event.tokens.cacheRead,
       cacheWriteTokens: event.tokens.cacheWrite,
+      servers: event.tools.servers.map((each) => ({
+        server: each.server,
+        calls: each.calls,
+        failed: each.failed,
+        latency: [...each.latency.counts],
+        lastCallFailed: each.lastCallFailed,
+      })),
+      skillsRead: [...event.tools.skills],
     }),
   ),
   publishing<TaskHandedOn>(

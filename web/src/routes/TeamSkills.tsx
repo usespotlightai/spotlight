@@ -1,4 +1,5 @@
-import { useParams } from 'react-router';
+import { useEffect } from 'react';
+import { useLocation, useParams } from 'react-router';
 import { SettingsEmpty } from '@/components/features/settings/SettingsEmpty';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
@@ -7,10 +8,22 @@ import { TeamSkillRowSkeleton } from '@/components/features/skills/TeamSkillRowS
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { useTeamSkills } from '@/hooks/api/useTeamSkills';
 import { failed, loading } from '@/lib/query';
+import { pointedSkill, skillAnchor } from '@/lib/skills';
 
 export function TeamSkills() {
   const { teamId } = useParams();
   const skills = useTeamSkills(teamId);
+  const { hash } = useLocation();
+  const pointed = pointedSkill(hash);
+  const shown = Boolean(skills.data);
+
+  useEffect(() => {
+    if (shown && pointed) {
+      document
+        .getElementById(skillAnchor(pointed))
+        ?.scrollIntoView({ block: 'center' });
+    }
+  }, [shown, pointed]);
 
   if (!teamId) {
     return null;
@@ -49,7 +62,11 @@ export function TeamSkills() {
       {held.length > 0 && (
         <SettingsSection>
           {held.map((skill) => (
-            <TeamSkillRow key={skill.key} skill={skill} />
+            <TeamSkillRow
+              key={skill.key}
+              skill={skill}
+              pointed={skill.key === pointed}
+            />
           ))}
         </SettingsSection>
       )}

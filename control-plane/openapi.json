@@ -16889,7 +16889,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -16948,7 +16948,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17007,7 +17007,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17066,7 +17066,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17125,7 +17125,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17134,6 +17134,65 @@
           }
         ],
         "summary": "Spend by harness, model, station and repository, and how it flows from model to station to repository",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/teams/{teamId}/insights/tools": {
+      "get": {
+        "operationId": "readInsightsTools",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "description": "How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long",
+            "schema": {
+              "enum": [
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsToolsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Which skills the team’s runs were given and read, week by week, and how each MCP server they called behaved",
         "tags": [
           "insights"
         ]
@@ -17184,7 +17243,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17358,7 +17417,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17440,6 +17499,78 @@
                 "merged",
                 "closed"
               ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "refusedServer",
+            "required": false,
+            "in": "query",
+            "description": "Only runs a person refused a tool of this MCP server for; none for tools of no server",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "refusedTool",
+            "required": false,
+            "in": "query",
+            "description": "Only runs a person refused this tool for",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "failedAfter",
+            "required": false,
+            "in": "query",
+            "description": "Only runs that failed where the run’s last call to this MCP server failed",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serverFailed",
+            "required": false,
+            "in": "query",
+            "description": "Only runs with a call to this MCP server that failed",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "server",
+            "required": false,
+            "in": "query",
+            "description": "Only runs that called this MCP server",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skillUsed",
+            "required": false,
+            "in": "query",
+            "description": "Only runs that read this skill",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skillGiven",
+            "required": false,
+            "in": "query",
+            "description": "Only runs whose station config gave this skill",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "week",
+            "required": false,
+            "in": "query",
+            "description": "Only runs that ended in the week starting this UTC Monday, as YYYY-MM-DD",
+            "schema": {
               "type": "string"
             }
           },
@@ -17583,7 +17714,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -29092,6 +29223,335 @@
           "cost",
           "spendBefore",
           "mixedCurrenciesBefore"
+        ]
+      },
+      "TrendRuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "recentWeeks": {
+            "type": "number",
+            "example": 2,
+            "description": "How many of the latest weeks are weighed against the rest"
+          },
+          "fewestRuns": {
+            "type": "number",
+            "example": 5,
+            "description": "The fewest runs each side needs for a trend"
+          },
+          "shiftPoints": {
+            "type": "number",
+            "example": 20,
+            "description": "How many points the share of runs that used a skill must move"
+          }
+        },
+        "required": [
+          "recentWeeks",
+          "fewestRuns",
+          "shiftPoints"
+        ]
+      },
+      "SkillWeekResponseDto": {
+        "type": "object",
+        "properties": {
+          "week": {
+            "type": "string",
+            "example": "2026-09-28",
+            "description": "The Monday, UTC, the week starts on"
+          },
+          "runs": {
+            "type": "number",
+            "example": 14,
+            "description": "Runs that ended that week"
+          },
+          "given": {
+            "type": "number",
+            "example": 9,
+            "description": "Of those, the runs given it"
+          },
+          "used": {
+            "type": "number",
+            "example": 6,
+            "description": "Of those, the runs that read it"
+          }
+        },
+        "required": [
+          "week",
+          "runs",
+          "given",
+          "used"
+        ]
+      },
+      "SkillAtStationResponseDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "example": "line_1"
+          },
+          "stationId": {
+            "type": "string",
+            "example": "station_1"
+          },
+          "runs": {
+            "type": "number",
+            "example": 30,
+            "description": "Runs that ended there"
+          },
+          "given": {
+            "type": "number",
+            "example": 30
+          },
+          "used": {
+            "type": "number",
+            "example": 12
+          },
+          "trend": {
+            "type": "string",
+            "enum": [
+              "spreading",
+              "fading",
+              "steady",
+              null
+            ],
+            "nullable": true,
+            "example": "steady",
+            "description": "spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs"
+          }
+        },
+        "required": [
+          "lineId",
+          "stationId",
+          "runs",
+          "given",
+          "used",
+          "trend"
+        ]
+      },
+      "SkillReportResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "our-migrations"
+          },
+          "defined": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the team’s configuration defines it"
+          },
+          "given": {
+            "type": "number",
+            "example": 40,
+            "description": "Runs in the period whose station config gave it"
+          },
+          "used": {
+            "type": "number",
+            "example": 22,
+            "description": "Runs in the period that read it: a tool call touched a file in its folder, or asked the harness for it by name"
+          },
+          "weeks": {
+            "description": "Every week of the period, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillWeekResponseDto"
+            }
+          },
+          "trend": {
+            "type": "string",
+            "enum": [
+              "spreading",
+              "fading",
+              "steady",
+              null
+            ],
+            "nullable": true,
+            "example": "spreading",
+            "description": "spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs"
+          },
+          "stations": {
+            "description": "Each station whose runs were given it or read it",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillAtStationResponseDto"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "defined",
+          "given",
+          "used",
+          "weeks",
+          "trend",
+          "stations"
+        ]
+      },
+      "ServerReportResponseDto": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string",
+            "example": "linear"
+          },
+          "runs": {
+            "type": "number",
+            "example": 18,
+            "description": "Runs that called it"
+          },
+          "calls": {
+            "type": "number",
+            "example": 72,
+            "description": "Calls to it across those runs, leaving out calls a person refused to approve"
+          },
+          "callsPerRun": {
+            "type": "number",
+            "nullable": true,
+            "example": 4
+          },
+          "p50Ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 420,
+            "description": "Median time a finished call took from when it started working, estimated from fixed latency buckets"
+          },
+          "p95Ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 2100,
+            "description": "Time 95 in 100 finished calls took at most, estimated from fixed latency buckets"
+          },
+          "failedCalls": {
+            "type": "number",
+            "example": 3,
+            "description": "Calls that failed, counting calls that never finished"
+          },
+          "errorRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.04,
+            "description": "Failed calls over calls, from 0 to 1"
+          },
+          "failingRuns": {
+            "type": "number",
+            "example": 1,
+            "description": "Runs that failed where the run’s last call to this server failed"
+          },
+          "refused": {
+            "type": "number",
+            "example": 2,
+            "description": "Runs in which a person refused one of its tools"
+          }
+        },
+        "required": [
+          "server",
+          "runs",
+          "calls",
+          "callsPerRun",
+          "p50Ms",
+          "p95Ms",
+          "failedCalls",
+          "errorRate",
+          "failingRuns",
+          "refused"
+        ]
+      },
+      "ToolRefusalsResponseDto": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "example": "create_issue",
+            "description": "The tool’s own name, or what the harness asked to do where it names no tool"
+          },
+          "server": {
+            "type": "string",
+            "nullable": true,
+            "example": "linear"
+          },
+          "refused": {
+            "type": "number",
+            "example": 2,
+            "description": "Runs in which a person refused this tool"
+          }
+        },
+        "required": [
+          "tool",
+          "server",
+          "refused"
+        ]
+      },
+      "InsightsToolsResponseDto": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "$ref": "#/components/schemas/InsightsPeriodResponseDto"
+          },
+          "truncated": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the team had more than 20,000 runs in the period, so only the newest 20,000 were counted"
+          },
+          "weeks": {
+            "example": [
+              "2026-09-21",
+              "2026-09-28"
+            ],
+            "description": "The Mondays of every week the period touches, oldest first",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "runs": {
+            "type": "number",
+            "example": 120,
+            "description": "Runs that ran in the period"
+          },
+          "trendRule": {
+            "$ref": "#/components/schemas/TrendRuleResponseDto"
+          },
+          "skills": {
+            "description": "Every skill a run in the period was given or read, the most used first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillReportResponseDto"
+            }
+          },
+          "unused": {
+            "example": [
+              "grafana-dashboards"
+            ],
+            "description": "Skills the team’s configuration defines that no run in the period read",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "servers": {
+            "description": "Every MCP server a run in the period called, the busiest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerReportResponseDto"
+            }
+          },
+          "refusals": {
+            "description": "Each tool a person refused to approve for a run in the period, per server, the most refused first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolRefusalsResponseDto"
+            }
+          }
+        },
+        "required": [
+          "period",
+          "truncated",
+          "weeks",
+          "runs",
+          "trendRule",
+          "skills",
+          "unused",
+          "servers",
+          "refusals"
         ]
       },
       "WeekShareResponseDto": {

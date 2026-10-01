@@ -33,6 +33,25 @@ const JUDGING_FAILURE_CODES = Object.keys(JUDGING_FAILURES) as [
   ...(keyof typeof JUDGING_FAILURES)[],
 ];
 
+export interface StoredServerCalls {
+  readonly server: string;
+  readonly calls: number;
+  readonly failed: number;
+  readonly latency: readonly number[];
+  readonly lastCallFailed: boolean;
+}
+
+export interface StoredTools {
+  readonly servers: readonly StoredServerCalls[];
+  readonly skillsRead: readonly string[];
+}
+
+export interface StoredRefusal {
+  readonly tool: string;
+  readonly server: string | null;
+  readonly at: string;
+}
+
 export interface StoredCitation {
   readonly step: number | null;
   readonly hunk: string | null;
@@ -96,6 +115,7 @@ export const runRecord = pgTable(
     effort: text('effort'),
     profileKey: text('profile_key'),
     repositories: jsonb('repositories').$type<string[]>(),
+    skills: jsonb('skills').$type<string[]>(),
     queuedAt: timestamp('queued_at'),
     startedAt: timestamp('started_at'),
     endedAt: timestamp('ended_at'),
@@ -120,6 +140,8 @@ export const runRecord = pgTable(
     outputTokens: bigint('output_tokens', { mode: 'number' }),
     cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
     cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
+    tools: jsonb('tools').$type<StoredTools>(),
+    refusals: jsonb('refusals').$type<StoredRefusal[]>().notNull().default([]),
     version: integer('version').notNull().default(0),
   },
   (table) => [

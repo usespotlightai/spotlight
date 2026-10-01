@@ -107,6 +107,7 @@ const endedRecord = (runId: string) =>
         effort: null,
         profileKey: null,
         repositories: [],
+        skills: [],
       }),
       queuedAt: null,
       startedAt: null,

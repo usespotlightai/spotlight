@@ -1,5 +1,5 @@
 {
-  "id": "7965f26b-9eb0-4d15-a801-17cd466272ae",
+  "id": "89bd0ef1-d1f8-453d-917f-e5a363c90ddd",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -5453,6 +5453,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "skills": {
+          "name": "skills",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "queued_at": {
           "name": "queued_at",
           "type": "timestamp",
@@ -5601,6 +5607,19 @@
           "type": "bigint",
           "primaryKey": false,
           "notNull": false
+        },
+        "tools": {
+          "name": "tools",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refusals": {
+          "name": "refusals",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "version": {
           "name": "version",
@@ -9324,6 +9343,13 @@
           "type": "bigint",
           "primaryKey": false,
           "notNull": false
+        },
+        "tools": {
+          "name": "tools",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"servers\":[],\"skills\":[]}'::jsonb"
         },
         "digested_at": {
           "name": "digested_at",

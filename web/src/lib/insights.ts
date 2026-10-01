@@ -82,6 +82,7 @@ export const INSIGHTS_TABS = [
   { id: 'stations', label: 'Stations' },
   { id: 'people', label: 'People' },
   { id: 'cost', label: 'Cost' },
+  { id: 'tools', label: 'Tools' },
   { id: 'runs', label: 'Runs' },
 ] as const;
 
@@ -136,6 +137,14 @@ const RUN_FILTER_KEYS = [
   'taskIds',
   'personId',
   'day',
+  'week',
+  'skillGiven',
+  'skillUsed',
+  'server',
+  'serverFailed',
+  'failedAfter',
+  'refusedTool',
+  'refusedServer',
 ] as const;
 
 export type RunFilterKey = (typeof RUN_FILTER_KEYS)[number];
@@ -662,6 +671,10 @@ const DEFAULT_MODEL_FILTER = '~default';
 
 const NO_REPOSITORY_FILTER = 'none';
 
+export const NO_SERVER_FILTER = 'none';
+
+const NO_SERVER = 'No server';
+
 const NONE_BY_DIMENSION: Record<CostDimension, string | null> = {
   harness: null,
   model: DEFAULT_MODEL_FILTER,
@@ -768,6 +781,14 @@ const FILTER_LABELS: Record<RunFilterKey, string> = {
   taskIds: 'Tasks',
   personId: 'Person',
   day: 'Day',
+  week: 'Week of',
+  skillGiven: 'Given skill',
+  skillUsed: 'Read skill',
+  server: 'Called',
+  serverFailed: 'A call failed on',
+  failedAfter: 'Last call failed on',
+  refusedTool: 'Refused',
+  refusedServer: 'Refused on',
 };
 
 export const filterLabel = (key: RunFilterKey): string => FILTER_LABELS[key];
@@ -794,6 +815,8 @@ export const filterValueShown = (key: RunFilterKey, value: string): string => {
       return value === DEFAULT_MODEL_FILTER ? HARNESS_DEFAULT : value;
     case 'repository':
       return value === NO_REPOSITORY_FILTER ? NO_REPOSITORY : value;
+    case 'refusedServer':
+      return value === NO_SERVER_FILTER ? NO_SERVER : value;
     case 'taskIds': {
       const count = value.split(',').filter(Boolean).length;
       return `${count} ${count === 1 ? 'task' : 'tasks'}`;

@@ -111,9 +111,10 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	var asked struct {
 		SessionID string `json:"sessionId"`
 		ToolCall  struct {
-			Kind     string          `json:"kind"`
-			Title    string          `json:"title"`
-			RawInput json.RawMessage `json:"rawInput"`
+			ToolCallID string          `json:"toolCallId"`
+			Kind       string          `json:"kind"`
+			Title      string          `json:"title"`
+			RawInput   json.RawMessage `json:"rawInput"`
 		} `json:"toolCall"`
 		Options []option `json:"options"`
 	}
@@ -125,10 +126,11 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	}
 
 	verdict := c.answer(c.life, Asked{
-		SessionID: asked.SessionID,
-		Kind:      asked.ToolCall.Kind,
-		Title:     asked.ToolCall.Title,
-		Input:     input,
+		SessionID:  asked.SessionID,
+		ToolCallID: asked.ToolCall.ToolCallID,
+		Kind:       asked.ToolCall.Kind,
+		Title:      asked.ToolCall.Title,
+		Input:      input,
 	})
 
 	if verdict == Cancel {

@@ -15,17 +15,21 @@ import type {
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
+import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import {
   runRecord,
+  type StoredTools,
   taskDelivery,
   taskTouches,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -43,6 +47,7 @@ import {
   lte,
   ne,
   type SQL,
+  type SQLWrapper,
   sql,
 } from 'drizzle-orm';
 
@@ -84,6 +89,64 @@ const endedWithin = (window: Window | null): SQL | undefined =>
         lt(runRecord.endedAt, window.to),
       );
 
+const holding = (column: SQLWrapper, value: unknown): SQL =>
+  sql`${column} @> ${JSON.stringify(value)}::jsonb`;
+
+const ranWhere = sql`${runRecord.ending}::text <> 'withdrawn'`;
+
+const refusedServerOf = (server: Narrowing): { server?: string | null } => {
+  if (server.kind === 'any') {
+    return {};
+  }
+
+  return { server: server.kind === 'none' ? null : server.value };
+};
+
+const refusalWhere = (filter: RunFilter): SQL | undefined =>
+  filter.refusedTool === null && filter.refusedServer.kind === 'any'
+    ? undefined
+    : holding(runRecord.refusals, [
+        {
+          ...(filter.refusedTool === null ? {} : { tool: filter.refusedTool }),
+          ...refusedServerOf(filter.refusedServer),
+        },
+      ]);
+
+const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
+  const narrowed = [
+    filter.skillGiven === null
+      ? undefined
+      : holding(runRecord.skills, [filter.skillGiven]),
+    filter.skillUsed === null
+      ? undefined
+      : holding(sql`${runRecord.tools}->'skillsRead'`, [filter.skillUsed]),
+    filter.server === null
+      ? undefined
+      : holding(sql`${runRecord.tools}->'servers'`, [
+          { server: filter.server },
+        ]),
+    filter.serverFailed === null
+      ? undefined
+      : sql`exists (select 1 from jsonb_array_elements(${runRecord.tools}->'servers') as called where called->>'server' = ${filter.serverFailed} and (called->>'failed')::int > 0)`,
+    filter.failedAfter === null
+      ? undefined
+      : and(
+          sql`${runRecord.ending}::text = 'failed'`,
+          eq(runRecord.superseded, false),
+          holding(sql`${runRecord.tools}->'servers'`, [
+            { server: filter.failedAfter, lastCallFailed: true },
+          ]),
+        ),
+    refusalWhere(filter),
+  ].filter((each) => each !== undefined);
+
+  return [
+    endedWithin(filter.week),
+    ...narrowed,
+    narrowed.length > 0 ? ranWhere : undefined,
+  ];
+};
+
 const endOf = (row: RecordRow): RunEnd | null => {
   if (!row.endedAt) {
     return null;
@@ -117,6 +180,7 @@ const endOf = (row: RecordRow): RunEnd | null => {
       effort: row.effort,
       profileKey: row.profileKey,
       repositories: row.repositories ?? [],
+      skills: row.skills ?? [],
     }),
     queuedAt: row.queuedAt,
     startedAt: row.startedAt,
@@ -157,6 +221,38 @@ const costOf = (row: RecordRow): RunCost | null =>
       })
     : null;
 
+const toolsOf = (row: RecordRow): RunTools | null => {
+  if (!row.digested) {
+    return null;
+  }
+
+  return row.tools
+    ? RunTools.of({
+        servers: row.tools.servers.map((each) => ({
+          ...each,
+          latency: LatencyHistogram.of(each.latency),
+        })),
+        skillsRead: row.tools.skillsRead,
+      })
+    : RunTools.NONE;
+};
+
+const storedToolsOf = (tools: RunTools): StoredTools => ({
+  servers: tools.servers.map((each) => ({
+    server: each.server,
+    calls: each.calls,
+    failed: each.failed,
+    latency: [...each.latency.counts],
+    lastCallFailed: each.lastCallFailed,
+  })),
+  skillsRead: [...tools.skillsRead],
+});
+
+const refusalsOf = (row: RecordRow): readonly Refusal[] =>
+  row.refusals.map((each) =>
+    Refusal.of({ tool: each.tool, server: each.server, at: new Date(each.at) }),
+  );
+
 const handedOnOf = (row: RecordRow): HandedOn | null => {
   if ((row.handedOnTo === null) !== (row.handedOnAt === null)) {
     throw new InconsistentStateError(
@@ -181,6 +277,8 @@ const toRecord = (row: RecordRow): RunRecord =>
     next: nextOf(row),
     cost: costOf(row),
     handedOn: handedOnOf(row),
+    tools: toolsOf(row),
+    refusals: refusalsOf(row),
     version: row.version,
   });
 
@@ -198,6 +296,7 @@ const columnsOf = (record: RunRecord) => {
     effort: end?.setup.effort ?? null,
     profileKey: end?.setup.profileKey ?? null,
     repositories: end ? [...end.setup.repositories] : null,
+    skills: end ? [...end.setup.skills] : null,
     queuedAt: end?.queuedAt ?? null,
     startedAt: end?.startedAt ?? null,
     endedAt: end?.endedAt ?? null,
@@ -222,6 +321,12 @@ const columnsOf = (record: RunRecord) => {
     outputTokens: record.cost?.tokens.output ?? null,
     cacheReadTokens: record.cost?.tokens.cacheRead ?? null,
     cacheWriteTokens: record.cost?.tokens.cacheWrite ?? null,
+    tools: record.tools ? storedToolsOf(record.tools) : null,
+    refusals: record.refusals.map((each) => ({
+      tool: each.tool,
+      server: each.server,
+      at: each.at.toISOString(),
+    })),
   };
 };
 
@@ -418,6 +523,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
           ? sql`false`
           : inArray(runRecord.taskId, [...filter.taskIds]),
       endedWithin(filter.day),
+      ...toolsWhere(filter),
       filter.next === null
         ? undefined
         : sql`${runRecord.nextAct}::text = ${filter.next}`,

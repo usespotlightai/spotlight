@@ -53,6 +53,7 @@ const listing = async (member = true) => {
   const work: WorkPort = {
     endedRun: async () => null,
     teamRepositories: async () => [],
+    teamSkillKeys: async () => [],
     configsInOrder: async (fingerprints) => {
       asked.push([...fingerprints]);
       return fingerprints.map(
