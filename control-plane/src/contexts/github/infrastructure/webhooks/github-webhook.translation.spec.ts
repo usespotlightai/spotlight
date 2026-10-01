@@ -1,4 +1,6 @@
 import { GitHubWebhookTranslation } from '@github/infrastructure/webhooks/github-webhook.translation';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const translation = new GitHubWebhookTranslation();
@@ -283,6 +285,8 @@ describe('GitHubWebhookTranslation', () => {
         {
           kind: 'pull-request-reviewed',
           pullRequest: 'https://github.com/acme/api/pull/7',
+          id: null,
+          facts: null,
           state: 'approved',
           login: 'ada',
           byBot: false,
@@ -465,6 +469,183 @@ describe('GitHubWebhookTranslation', () => {
     });
   });
 
+  describe('hearing what a pull request is', () => {
+    const described = (body: Record<string, unknown>, event = 'pull_request') =>
+      heard(event, {
+        repository: { full_name: 'acme/api' },
+        ...body,
+      }).flatMap((each) => (each.kind === 'pull-request' ? [each.facts] : []));
+
+    const OPEN = {
+      number: 7,
+      state: 'open',
+      merged: false,
+      title: 'Retry failed uploads',
+      body: 'So they stop failing.',
+      html_url: 'https://github.com/acme/api/pull/7',
+      user: { login: 'ada', type: 'User' },
+      head: { ref: 'fix/uploads' },
+      created_at: '2026-09-20T08:00:00Z',
+      updated_at: '2026-09-20T09:00:00Z',
+      additions: 40,
+      deletions: 3,
+      changed_files: 2,
+    };
+
+    it('hears every pull request event as what the pull request now is, whether or not a task owns it', () => {
+      for (const action of ['opened', 'edited', 'synchronize', 'reopened']) {
+        expect(described({ action, pull_request: OPEN })).toEqual([
+          {
+            url: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+            repository: Repository.of('acme/api'),
+            number: 7,
+            title: 'Retry failed uploads',
+            body: 'So they stop failing.',
+            author: 'ada',
+            authorIsBot: false,
+            branch: 'fix/uploads',
+            size: { additions: 40, deletions: 3, changedFiles: 2 },
+            openedAt: new Date('2026-09-20T08:00:00Z'),
+            state: 'open',
+            closedAt: null,
+            updatedAt: new Date('2026-09-20T09:00:00Z'),
+          },
+        ]);
+      }
+    });
+
+    it('reads a merge as merged, when it merged', () => {
+      expect(
+        described({
+          action: 'closed',
+          pull_request: {
+            ...OPEN,
+            state: 'closed',
+            merged: true,
+            merged_at: '2026-09-21T09:30:00Z',
+            closed_at: '2026-09-21T09:30:01Z',
+          },
+        }),
+      ).toMatchObject([
+        { state: 'merged', closedAt: new Date('2026-09-21T09:30:00Z') },
+      ]);
+    });
+
+    it('reads a close without a merge as closed', () => {
+      expect(
+        described({
+          action: 'closed',
+          pull_request: {
+            ...OPEN,
+            state: 'closed',
+            closed_at: '2026-09-21T09:30:00Z',
+          },
+        }),
+      ).toMatchObject([
+        { state: 'closed', closedAt: new Date('2026-09-21T09:30:00Z') },
+      ]);
+    });
+
+    it('reads a bot author, and no size where GitHub gives none', () => {
+      expect(
+        described({
+          action: 'opened',
+          pull_request: {
+            ...OPEN,
+            user: { login: 'dependabot[bot]', type: 'Bot' },
+            additions: undefined,
+          },
+        }),
+      ).toMatchObject([{ authorIsBot: true, size: null }]);
+    });
+
+    it('hears nothing of a pull request it cannot name', () => {
+      expect(
+        described({
+          action: 'opened',
+          pull_request: { ...OPEN, number: null },
+        }),
+      ).toEqual([]);
+      expect(
+        described({ action: 'opened', pull_request: OPEN, repository: {} }),
+      ).toEqual([]);
+    });
+
+    it('hears nothing of a pull request whose address names another repository or number', () => {
+      expect(
+        described({
+          action: 'opened',
+          pull_request: OPEN,
+          repository: { full_name: 'acme/web' },
+        }),
+      ).toEqual([]);
+      expect(
+        described({ action: 'opened', pull_request: { ...OPEN, number: 8 } }),
+      ).toEqual([]);
+      expect(
+        described({
+          action: 'opened',
+          pull_request: OPEN,
+          repository: { full_name: 'Acme/API' },
+        }),
+      ).toHaveLength(1);
+    });
+
+    it('hears a dismissed review by its id, with what the pull request is', () => {
+      expect(
+        heard('pull_request_review', {
+          action: 'dismissed',
+          repository: { full_name: 'acme/api' },
+          pull_request: OPEN,
+          review: {
+            id: 900,
+            state: 'dismissed',
+            user: { login: 'bob', type: 'User' },
+          },
+        }).filter((each) => each.kind === 'pull-request-review-dismissed'),
+      ).toMatchObject([
+        {
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          id: 900,
+          facts: { number: 7 },
+        },
+      ]);
+    });
+
+    it('carries what the pull request is along with a review, and the review’s id', () => {
+      expect(
+        heard('pull_request_review', {
+          action: 'submitted',
+          repository: { full_name: 'acme/api' },
+          pull_request: OPEN,
+          review: {
+            id: 900,
+            state: 'changes_requested',
+            user: { login: 'bob', type: 'User' },
+            submitted_at: '2026-09-21T09:30:00Z',
+          },
+        }).find((each) => each.kind === 'pull-request-reviewed'),
+      ).toMatchObject({ id: 900, facts: { number: 7, state: 'open' } });
+    });
+
+    it('tells a bot’s review comment from a person’s', () => {
+      expect(
+        heard('pull_request_review_comment', {
+          action: 'created',
+          repository: { full_name: 'acme/api' },
+          pull_request: OPEN,
+          comment: {
+            id: 301,
+            html_url: 'https://github.com/acme/api/pull/7#discussion_r301',
+            path: 'src/a.ts',
+            body: 'Nit.',
+            user: { login: 'linter[bot]', type: 'Bot' },
+          },
+        }).find((each) => each.kind === 'review-comment'),
+      ).toMatchObject({ comment: { byBot: true }, facts: { number: 7 } });
+    });
+  });
+
   describe('hearing a review comment', () => {
     const commented = (action: string, comment: Record<string, unknown>) =>
       heard('pull_request_review_comment', {
@@ -504,8 +685,10 @@ describe('GitHubWebhookTranslation', () => {
             body: 'Why not a constant?',
             answers: 200,
             login: 'octocat',
+            byBot: false,
             writtenAt: new Date('2026-09-16T09:00:00Z'),
           },
+          facts: null,
         },
       ]);
       expect(commented('deleted', COMMENT)[0]).toMatchObject({

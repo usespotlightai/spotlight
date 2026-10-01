@@ -23,6 +23,10 @@ import {
   TEAM,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
+import {
+  PullRequestRecordsInMemory,
+  TaskChangeShapesInMemory,
+} from '@outcomes/domain/pull-requests.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -116,6 +120,8 @@ const heldFor = () => ({
   touches: new TaskTouchesInMemory(),
   failures: new TaskFailuresInMemory(),
   chats: new ChatRecordsInMemory(),
+  pullRequests: new PullRequestRecordsInMemory(),
+  shapes: new TaskChangeShapesInMemory(),
   reviews: pendingReviewsInMemory(),
   forgotten: forgottenInMemory(),
 });
@@ -294,6 +300,8 @@ describe('forgetting outcomes', () => {
         touches,
         failures: new TaskFailuresInMemory(),
         chats: new ChatRecordsInMemory(),
+        pullRequests: new PullRequestRecordsInMemory(),
+        shapes: new TaskChangeShapesInMemory(),
         reviews: pendingReviewsInMemory(),
         forgotten: forgottenInMemory(),
       },
@@ -323,6 +331,8 @@ describe('forgetting outcomes', () => {
         touches,
         failures: new TaskFailuresInMemory(),
         chats: new ChatRecordsInMemory(),
+        pullRequests: new PullRequestRecordsInMemory(),
+        shapes: new TaskChangeShapesInMemory(),
         reviews: pendingReviewsInMemory(),
         forgotten: forgottenInMemory(),
       },
@@ -346,6 +356,8 @@ describe('forgetting outcomes', () => {
         touches,
         failures: new TaskFailuresInMemory(),
         chats: new ChatRecordsInMemory(),
+        pullRequests: new PullRequestRecordsInMemory(),
+        shapes: new TaskChangeShapesInMemory(),
         reviews: pendingReviewsInMemory(),
         forgotten: forgottenInMemory(),
       },

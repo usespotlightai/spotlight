@@ -25,32 +25,39 @@ import {
   type PeoplePort,
 } from '@outcomes/application/ports/people.port';
 import { WORK, type WorkPort } from '@outcomes/application/ports/work.port';
+import { ListInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/list-insights-pull-requests.handler';
 import { ListInsightsRunsHandler } from '@outcomes/application/queries/handlers/list-insights-runs.handler';
 import { ListStationOutcomesHandler } from '@outcomes/application/queries/handlers/list-station-outcomes.handler';
 import { ReadInsightsCostHandler } from '@outcomes/application/queries/handlers/read-insights-cost.handler';
 import { ReadInsightsFlowHandler } from '@outcomes/application/queries/handlers/read-insights-flow.handler';
 import { ReadInsightsOverviewHandler } from '@outcomes/application/queries/handlers/read-insights-overview.handler';
 import { ReadInsightsPeopleHandler } from '@outcomes/application/queries/handlers/read-insights-people.handler';
+import { ReadInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/read-insights-pull-requests.handler';
 import { ReadInsightsStationsHandler } from '@outcomes/application/queries/handlers/read-insights-stations.handler';
 import { ReadRunScoresHandler } from '@outcomes/application/queries/handlers/read-run-scores.handler';
 import { ReadStationJudgeHandler } from '@outcomes/application/queries/handlers/read-station-judge.handler';
+import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
 import { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
 import { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
 import { ReadInsightsCostQuery } from '@outcomes/application/queries/read-insights-cost.query';
 import { ReadInsightsFlowQuery } from '@outcomes/application/queries/read-insights-flow.query';
 import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-insights-overview.query';
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
+import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadRunScoresQuery } from '@outcomes/application/queries/read-run-scores.query';
 import { ReadStationJudgeQuery } from '@outcomes/application/queries/read-station-judge.query';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
+import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
+import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
+import { NotePullRequestRecords } from '@outcomes/application/services/note-pull-request-records.service';
 import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
@@ -64,6 +71,7 @@ import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service
 import { RunScoresViews } from '@outcomes/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
 import { WorkJudgings } from '@outcomes/application/services/work-judgings.service';
 import { OUTCOMES_EVENT_TYPES } from '@outcomes/domain/event-types';
 import { Evidence } from '@outcomes/infrastructure/acl/evidence.adapter';
@@ -76,8 +84,10 @@ import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/driz
 import { DrizzleFirstSeen } from '@outcomes/infrastructure/persistence/drizzle/readers/first-seen.reader';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
+import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
+import { DrizzleTaskChangeShapeRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
 import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
@@ -110,6 +120,10 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import {
+  LINE_RESOURCES,
+  type LineResourcesPort,
+} from '@work/application/ports/line-resources.port';
+import {
   RUN_EVIDENCE,
   type RunEvidencePort,
 } from '@work/application/ports/run-evidence.port';
@@ -135,8 +149,9 @@ export const OUTCOMES_CONTROLLERS: readonly Type[] = [
 export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   {
     provide: WORK,
-    inject: [STATION_RUNS],
-    useFactory: (stations: StationRunsPort) => new Work(stations),
+    inject: [STATION_RUNS, LINE_RESOURCES],
+    useFactory: (stations: StationRunsPort, lines: LineResourcesPort) =>
+      new Work(stations, lines),
   },
   {
     provide: PEOPLE,
@@ -167,6 +182,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   DrizzleTaskTouchesRepository,
   DrizzleTaskFailuresRepository,
   DrizzleChatRecordRepository,
+  DrizzlePullRequestRecordRepository,
+  DrizzleTaskChangeShapeRepository,
   DrizzleFirstSeen,
   DrizzleForgotten,
   DrizzlePendingReviews,
@@ -257,6 +274,33 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadInsightsCostQuery, ReadInsightsCostHandler, [
     TeamHistories,
   ]),
+  {
+    provide: TeamPullRequests,
+    inject: [
+      TeamHistories,
+      WORK,
+      DrizzlePullRequestRecordRepository,
+      DrizzleRunRecordRepository,
+      DrizzleTaskChangeShapeRepository,
+    ],
+    useFactory: (
+      histories: TeamHistories,
+      work: WorkPort,
+      records: DrizzlePullRequestRecordRepository,
+      runs: DrizzleRunRecordRepository,
+      shapes: DrizzleTaskChangeShapeRepository,
+    ) => new TeamPullRequests(histories, work, { records, runs, shapes }),
+  },
+  ...bindQueryHandler(
+    ReadInsightsPullRequestsQuery,
+    ReadInsightsPullRequestsHandler,
+    [TeamPullRequests],
+  ),
+  ...bindQueryHandler(
+    ListInsightsPullRequestsQuery,
+    ListInsightsPullRequestsHandler,
+    [TeamPullRequests],
+  ),
   ...bindQueryHandler(ListInsightsRunsQuery, ListInsightsRunsHandler, [
     TeamHistories,
     DrizzleRunRecordRepository,
@@ -337,10 +381,19 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       new WorkJudgings(judgings, evidence, judge, clock, transaction, logger),
   },
   {
+    provide: DropExpiredTombstones,
+    inject: [DrizzleForgotten, CLOCK],
+    useFactory: (forgotten: DrizzleForgotten, clock: ClockPort) =>
+      new DropExpiredTombstones(forgotten, clock),
+  },
+  {
     provide: OwedWorkWorker,
-    inject: [WorkJudgings, LOGGER],
-    useFactory: (judgings: WorkJudgings, logger: LoggerPort) =>
-      new OwedWorkWorker([judgings], logger),
+    inject: [WorkJudgings, DropExpiredTombstones, LOGGER],
+    useFactory: (
+      judgings: WorkJudgings,
+      tombstones: DropExpiredTombstones,
+      logger: LoggerPort,
+    ) => new OwedWorkWorker([judgings, tombstones], logger),
   },
   {
     provide: RecordJudgeScore,
@@ -501,6 +554,30 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new NoteChatStarted(chats, forgotten, transaction),
   },
   {
+    provide: NotePullRequestRecords,
+    inject: [DrizzlePullRequestRecordRepository, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      records: DrizzlePullRequestRecordRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NotePullRequestRecords(records, forgotten, transaction),
+  },
+  {
+    provide: NoteChangeShaped,
+    inject: [
+      WORK,
+      DrizzleTaskChangeShapeRepository,
+      DrizzleForgotten,
+      TRANSACTION,
+    ],
+    useFactory: (
+      work: WorkPort,
+      shapes: DrizzleTaskChangeShapeRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteChangeShaped(work, shapes, forgotten, transaction),
+  },
+  {
     provide: ForgetOutcomes,
     inject: [
       DrizzleRunRecordRepository,
@@ -510,6 +587,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       DrizzleTaskTouchesRepository,
       DrizzleTaskFailuresRepository,
       DrizzleChatRecordRepository,
+      DrizzlePullRequestRecordRepository,
+      DrizzleTaskChangeShapeRepository,
       DrizzlePendingReviews,
       DrizzleForgotten,
       TRANSACTION,
@@ -522,6 +601,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       touches: DrizzleTaskTouchesRepository,
       failures: DrizzleTaskFailuresRepository,
       chats: DrizzleChatRecordRepository,
+      pullRequests: DrizzlePullRequestRecordRepository,
+      shapes: DrizzleTaskChangeShapeRepository,
       reviews: DrizzlePendingReviews,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
@@ -535,6 +616,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           touches,
           failures,
           chats,
+          pullRequests,
+          shapes,
           reviews,
           forgotten,
         },
@@ -562,6 +645,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       NoteTaskFailed,
       NoteTaskTouch,
       NoteChatStarted,
+      NotePullRequestRecords,
+      NoteChangeShaped,
     ],
     useFactory: (
       types: EventTypes,
@@ -582,6 +667,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       failing: NoteTaskFailed,
       touching: NoteTaskTouch,
       chatting: NoteChatStarted,
+      recording: NotePullRequestRecords,
+      shaping: NoteChangeShaped,
     ) => {
       types.register('outcomes', OUTCOMES_EVENT_TYPES);
       subscribers.register(
@@ -602,6 +689,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           failing,
           touching,
           chatting,
+          recording,
+          shaping,
         }),
       );
       return true;

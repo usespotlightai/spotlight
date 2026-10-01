@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import {
+  type InsightsFilter,
   type InsightsTab,
   insightsPath,
-  type RunFilter,
   viewOf,
 } from '@/lib/insights';
 import { cn } from '@/lib/utils';
 
 type InsightsLinkProps = {
   tab: InsightsTab;
-  filter?: RunFilter;
+  filter?: InsightsFilter;
   className?: string;
   children: ReactNode;
 };

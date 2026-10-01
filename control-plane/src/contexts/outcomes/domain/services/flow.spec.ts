@@ -105,6 +105,7 @@ describe('flowOf', () => {
       reviewed: 1,
       merged: 2,
       openedTaskIds: ['task_1', 'task_2'],
+      reviewedTaskIds: ['task_1'],
       mergedTaskIds: ['task_1', 'task_2'],
     });
   });

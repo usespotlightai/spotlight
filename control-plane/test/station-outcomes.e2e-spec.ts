@@ -9,10 +9,12 @@ import { AskForJudging } from '@outcomes/application/services/ask-for-judging.se
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
+import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
+import { NotePullRequestRecords } from '@outcomes/application/services/note-pull-request-records.service';
 import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
@@ -28,8 +30,10 @@ import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/l
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
+import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
+import { DrizzleTaskChangeShapeRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
 import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
@@ -109,6 +113,7 @@ const endedRun = (
 
 const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId) ?? null,
+  teamRepositories: async () => [],
   configsInOrder: async (fingerprints) =>
     fingerprints.map((fingerprint, index) => ({
       ...configOf(fingerprint, fingerprint === SONNET ? 'sonnet' : 'opus'),
@@ -200,6 +205,8 @@ beforeAll(async () => {
   const touches = new DrizzleTaskTouchesRepository(context);
   const failures = new DrizzleTaskFailuresRepository(context);
   chats = new DrizzleChatRecordRepository(context);
+  const pullRequests = new DrizzlePullRequestRecordRepository(context);
+  const shapes = new DrizzleTaskChangeShapeRepository(context);
   const reviews = new DrizzlePendingReviews(context);
   forgotten = new DrizzleForgotten(context);
   subscribers = outcomesSubscribers({
@@ -224,6 +231,8 @@ beforeAll(async () => {
         touches,
         failures,
         chats,
+        pullRequests,
+        shapes,
         reviews,
         forgotten,
       },
@@ -265,6 +274,8 @@ beforeAll(async () => {
     failing: new NoteTaskFailed(failures, forgotten, context),
     touching: new NoteTaskTouch(touches, forgotten, context),
     chatting: new NoteChatStarted(chats, forgotten, context),
+    recording: new NotePullRequestRecords(pullRequests, forgotten, context),
+    shaping: new NoteChangeShaped(work, shapes, forgotten, context),
   });
   listing = new ListStationOutcomesHandler(
     new OutcomesAccess({

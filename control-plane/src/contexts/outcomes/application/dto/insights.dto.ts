@@ -98,6 +98,7 @@ export interface DeliveryFlowDto {
   readonly reviewed: number;
   readonly merged: number;
   readonly openedTaskIds: readonly string[];
+  readonly reviewedTaskIds: readonly string[];
   readonly mergedTaskIds: readonly string[];
 }
 
@@ -225,7 +226,7 @@ export const periodOf = (period: InsightsPeriod): PeriodDto => ({
   days: period.days,
 });
 
-const spreadDtoOf = (spread: Spread): SpreadDto => ({
+export const spreadDtoOf = (spread: Spread): SpreadDto => ({
   p50Ms: spread.p50,
   p90Ms: spread.p90,
   count: spread.count,

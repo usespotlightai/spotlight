@@ -5,10 +5,12 @@ import { AskForJudging } from '@outcomes/application/services/ask-for-judging.se
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
+import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
+import { NotePullRequestRecords } from '@outcomes/application/services/note-pull-request-records.service';
 import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
@@ -38,13 +40,21 @@ import {
   SET_UP,
   TaskDeliveriesInMemory,
 } from '@outcomes/domain/outcomes.fake-spec';
+import {
+  PullRequestRecordsInMemory,
+  TaskChangeShapesInMemory,
+} from '@outcomes/domain/pull-requests.fake-spec';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subscribers';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
+import { CHANGE_STACK_SHAPED } from '@shared-kernel/application/integration-events/change-stack-shaped.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import { PULL_REQUEST_FORGOTTEN } from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import { PULL_REQUEST_RECORDED } from '@shared-kernel/application/integration-events/pull-request-recorded.integration-event';
+import { PULL_REQUEST_REVIEW_TAKEN } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import { PULL_REQUEST_REVIEWED } from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
 import { RUN_DIGESTED } from '@shared-kernel/application/integration-events/run-digested.integration-event';
 import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
@@ -57,8 +67,10 @@ import { TASK_HANDED_ON } from '@shared-kernel/application/integration-events/ta
 import { TASK_OPENED } from '@shared-kernel/application/integration-events/task-opened.integration-event';
 import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
 import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const PULL = 'https://github.com/acme/api/pull/3';
@@ -79,6 +91,7 @@ const ENDED: EndedRun = {
 const WORK = {
   endedRun: async (runId: string) => (runId === ENDED.runId ? ENDED : null),
   configsInOrder: async () => [],
+  teamRepositories: async () => ['acme/api'],
 };
 
 const CLOCK = {
@@ -94,6 +107,8 @@ const subscribed = () => {
   const touches = new TaskTouchesInMemory();
   const failures = new TaskFailuresInMemory();
   const chats = new ChatRecordsInMemory();
+  const pullRequests = new PullRequestRecordsInMemory();
+  const shapes = new TaskChangeShapesInMemory();
   const reviews = pendingReviewsInMemory();
   const forgotten = forgottenInMemory();
   const asked: string[] = [];
@@ -120,6 +135,8 @@ const subscribed = () => {
         touches,
         failures,
         chats,
+        pullRequests,
+        shapes,
         reviews,
         forgotten,
       },
@@ -175,6 +192,12 @@ const subscribed = () => {
     failing: new NoteTaskFailed(failures, forgotten, inTransaction),
     touching: new NoteTaskTouch(touches, forgotten, inTransaction),
     chatting: new NoteChatStarted(chats, forgotten, inTransaction),
+    recording: new NotePullRequestRecords(
+      pullRequests,
+      forgotten,
+      inTransaction,
+    ),
+    shaping: new NoteChangeShaped(WORK, shapes, forgotten, inTransaction),
   });
 
   const deliver = async (name: string, event: Record<string, unknown>) => {
@@ -195,6 +218,8 @@ const subscribed = () => {
     touches,
     failures,
     chats,
+    pullRequests,
+    shapes,
     reviews,
     asked,
     subscribers,
@@ -1001,5 +1026,375 @@ describe('outcomesSubscribers', () => {
 
     expect(heard.judgings.held.size).toBe(0);
     expect(heard.scores.held.size).toBe(0);
+  });
+
+  describe('every pull request in the team’s repositories', () => {
+    const recordedEvent = (change: Record<string, unknown> = {}) => ({
+      kind: PULL_REQUEST_RECORDED,
+      workspaceId: 'ws_1',
+      pullRequest: PULL,
+      repository: 'acme/api',
+      number: 3,
+      title: 'Retry failed uploads',
+      author: 'ada',
+      authorIsBot: false,
+      branch: null,
+      additions: 1,
+      deletions: 1,
+      changedFiles: 1,
+      openedAt: '2026-09-30T08:00:00.000Z',
+      state: 'open',
+      closedAt: null,
+      updatedAt: '2026-09-30T08:30:00.000Z',
+      firstReviewAt: null,
+      reviews: 0,
+      reviewRounds: 0,
+      reviewComments: 0,
+      isRevert: false,
+      revertedBy: null,
+      version: 1,
+      ...change,
+    });
+
+    const held = (heard: ReturnType<typeof subscribed>) =>
+      heard.pullRequests.at(WorkspaceId.of('ws_1'), PullRequestUrl.of(PULL));
+
+    it('records a pull request no task owns, as people’s', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+
+      const record = await held(heard);
+      expect(record?.seen?.title).toBe('Retry failed uploads');
+      expect(record?.owner).toBeNull();
+    });
+
+    it('makes it Spotlight’s whichever it hears first, the pull request or the task opening it', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-pull-request-owner', {
+        kind: PULL_REQUEST_OPENED,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        url: PULL,
+        at: '2026-09-30T08:00:00.000Z',
+      });
+      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+
+      const record = await held(heard);
+      expect(record?.owner?.taskId.value).toBe('task_1');
+      expect(record?.seen?.number).toBe(3);
+    });
+
+    it('keeps the newest of what GitHub said, however late an older word arrives', async () => {
+      const heard = subscribed();
+
+      await heard.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent({ state: 'merged', version: 4 }),
+      );
+      await heard.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent({ state: 'open', version: 2 }),
+      );
+
+      expect((await held(heard))?.seen?.state).toBe('merged');
+    });
+
+    it('marks people’s pull request touched once a review task ran on it', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+      await heard.deliver('outcomes.record-pull-request-review-task', {
+        kind: PULL_REQUEST_REVIEW_TAKEN,
+        taskId: 'task_9',
+        workspaceId: 'ws_1',
+        url: PULL,
+      });
+
+      expect(
+        (await held(heard))?.reviewTasks.map((each) => each.value),
+      ).toEqual(['task_9']);
+    });
+
+    const CLOSED_AT = '2026-03-01T08:00:00.000Z';
+
+    const closedEvent = (change: Record<string, unknown> = {}) =>
+      recordedEvent({
+        state: 'closed',
+        closedAt: CLOSED_AT,
+        updatedAt: CLOSED_AT,
+        ...change,
+      });
+
+    const forgottenEvent = (updatedAt = CLOSED_AT) => ({
+      kind: PULL_REQUEST_FORGOTTEN,
+      workspaceId: 'ws_1',
+      pullRequest: PULL,
+      updatedAt,
+    });
+
+    const ownedEvent = (taskId = 'task_1', teamId = 'team_1') => ({
+      kind: PULL_REQUEST_OPENED,
+      taskId,
+      workspaceId: 'ws_1',
+      teamId,
+      url: PULL,
+      at: '2026-09-30T08:00:00.000Z',
+    });
+
+    it('forgets people’s pull request once GitHub forgets it, and never takes it back from a late word', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
+      await heard.deliver(
+        'outcomes.forget-pull-request-github-forgot',
+        forgottenEvent(),
+      );
+      await heard.deliver(
+        'outcomes.record-seen-pull-request',
+        closedEvent({ version: 3 }),
+      );
+
+      expect(await held(heard)).toBeNull();
+    });
+
+    it('turns away a late word GitHub said no later than it forgot, even one saying it is open', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
+      await heard.deliver(
+        'outcomes.forget-pull-request-github-forgot',
+        forgottenEvent(),
+      );
+      await heard.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent({ updatedAt: CLOSED_AT, version: 9 }),
+      );
+
+      expect(await held(heard)).toBeNull();
+    });
+
+    it('takes a forgotten pull request back once GitHub changes it later, at any version', async () => {
+      const reopened = subscribed();
+      const closedLater = subscribed();
+
+      for (const heard of [reopened, closedLater]) {
+        await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
+        await heard.deliver(
+          'outcomes.forget-pull-request-github-forgot',
+          forgottenEvent(),
+        );
+      }
+      await reopened.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent({ title: 'Reopened' }),
+      );
+      await closedLater.deliver(
+        'outcomes.record-seen-pull-request',
+        closedEvent({
+          closedAt: '2026-09-30T08:00:00.000Z',
+          updatedAt: '2026-09-30T08:00:00.000Z',
+          title: 'Again',
+        }),
+      );
+
+      expect((await held(reopened))?.seen?.title).toBe('Reopened');
+      expect((await held(closedLater))?.seen?.title).toBe('Again');
+    });
+
+    it('keeps Spotlight’s pull request after GitHub forgets it, and hears it anew once GitHub records it again', async () => {
+      const heard = subscribed();
+
+      await heard.deliver(
+        'outcomes.record-seen-pull-request',
+        closedEvent({ version: 5 }),
+      );
+      await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
+      await heard.deliver(
+        'outcomes.forget-pull-request-github-forgot',
+        forgottenEvent(),
+      );
+
+      expect((await held(heard))?.seen?.number).toBe(3);
+
+      await heard.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent({ title: 'Reopened', version: 1 }),
+      );
+
+      expect((await held(heard))?.seen?.title).toBe('Reopened');
+    });
+
+    it('lets go of a deleted task’s pull request GitHub already forgot', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
+      await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
+      await heard.deliver(
+        'outcomes.forget-pull-request-github-forgot',
+        forgottenEvent(),
+      );
+      await heard.deliver('outcomes.forget-pull-requests-of-deleted-task', {
+        kind: TASK_DELETED,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+      });
+
+      expect(await held(heard)).toBeNull();
+    });
+
+    it('keeps what GitHub said of a disbanded team’s pull request, as nobody’s', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+      await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
+      await heard.deliver('outcomes.forget-pull-requests-of-disbanded-team', {
+        kind: TEAM_DISBANDED,
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+      });
+
+      const record = await held(heard);
+      expect(record?.owner).toBeNull();
+      expect(record?.seen?.number).toBe(3);
+    });
+
+    it('lets go of a disbanded team’s pull request GitHub already forgot', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
+      await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
+      await heard.deliver(
+        'outcomes.forget-pull-request-github-forgot',
+        forgottenEvent(),
+      );
+      await heard.deliver('outcomes.forget-pull-requests-of-disbanded-team', {
+        kind: TEAM_DISBANDED,
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+      });
+
+      expect(await held(heard)).toBeNull();
+    });
+
+    it('leaves another team’s pull request alone when a team disbands', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+      await heard.deliver(
+        'outcomes.record-pull-request-owner',
+        ownedEvent('task_1', 'team_2'),
+      );
+      await heard.deliver('outcomes.forget-pull-requests-of-disbanded-team', {
+        kind: TEAM_DISBANDED,
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+      });
+
+      expect((await held(heard))?.owner?.teamId.value).toBe('team_2');
+    });
+
+    it('lets go of a deleted task’s pull requests but keeps what GitHub said of them', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+      await heard.deliver('outcomes.record-pull-request-owner', {
+        kind: PULL_REQUEST_OPENED,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        url: PULL,
+        at: '2026-09-30T08:00:00.000Z',
+      });
+      await heard.deliver('outcomes.forget-pull-requests-of-deleted-task', {
+        kind: TASK_DELETED,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+      });
+      await heard.deliver('outcomes.record-pull-request-owner', {
+        kind: PULL_REQUEST_OPENED,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        url: PULL,
+        at: '2026-09-30T08:00:00.000Z',
+      });
+
+      const record = await held(heard);
+      expect(record?.owner).toBeNull();
+      expect(record?.seen?.number).toBe(3);
+    });
+
+    it('forgets every pull request of a closed workspace', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+      await heard.deliver('outcomes.forget-pull-requests-of-closed-workspace', {
+        kind: WORKSPACE_CLOSED,
+        workspaceId: 'ws_1',
+      });
+      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+
+      expect(await held(heard)).toBeNull();
+    });
+
+    it('records no cohorts a change stack claims for another task or workspace than its run’s', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-change-shape', {
+        kind: CHANGE_STACK_SHAPED,
+        runId: 'run_1',
+        taskId: 'task_2',
+        workspaceId: 'ws_1',
+        changeTitles: ['Fix the retry loop'],
+        changeIntents: [''],
+        at: '2026-09-30T10:00:00.000Z',
+      });
+      await heard.deliver('outcomes.record-change-shape', {
+        kind: CHANGE_STACK_SHAPED,
+        runId: 'run_1',
+        taskId: 'task_1',
+        workspaceId: 'ws_2',
+        changeTitles: ['Fix the retry loop'],
+        changeIntents: [''],
+        at: '2026-09-30T10:00:00.000Z',
+      });
+
+      expect(await heard.shapes.forTask(TaskId.of('task_1'))).toBeNull();
+      expect(await heard.shapes.forTask(TaskId.of('task_2'))).toBeNull();
+    });
+
+    it('records the cohorts of the latest change stack a task’s run left', async () => {
+      const heard = subscribed();
+
+      await heard.deliver('outcomes.record-change-shape', {
+        kind: CHANGE_STACK_SHAPED,
+        runId: 'run_1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        changeTitles: ['Fix the retry loop'],
+        changeIntents: ['Stop dropping uploads'],
+        at: '2026-09-30T10:00:00.000Z',
+      });
+      await heard.deliver('outcomes.record-change-shape', {
+        kind: CHANGE_STACK_SHAPED,
+        runId: 'run_unknown',
+        taskId: 'task_2',
+        workspaceId: 'ws_1',
+        changeTitles: ['Add a flag'],
+        changeIntents: [''],
+        at: '2026-09-30T10:00:00.000Z',
+      });
+
+      expect(
+        (await heard.shapes.forTask(TaskId.of('task_1')))?.shape.changeTitles,
+      ).toEqual(['Fix the retry loop']);
+      expect(
+        (await heard.shapes.forTask(TaskId.of('task_1')))?.teamId.value,
+      ).toBe('team_1');
+      expect(await heard.shapes.forTask(TaskId.of('task_2'))).toBeNull();
+    });
   });
 });

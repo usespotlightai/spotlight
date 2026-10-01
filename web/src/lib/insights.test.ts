@@ -139,6 +139,47 @@ describe('the insights view in the address', () => {
     );
   });
 
+  it('reads the pull request filters on the pull requests tab, and drops bad ones', () => {
+    expect(
+      viewOf(
+        new URLSearchParams(
+          'tab=pull-requests&repository=acme/api&author=spotlight&type=fix&state=merged&week=2026-09-28&reverted=true&rounds=3%2B&page=2&stationId=s',
+        ),
+      ),
+    ).toEqual({
+      tab: 'pull-requests',
+      period: '30d',
+      filter: {
+        repository: 'acme/api',
+        author: 'spotlight',
+        type: 'fix',
+        state: 'merged',
+        week: '2026-09-28',
+        reverted: 'true',
+        rounds: '3+',
+      },
+      page: 2,
+    });
+    expect(
+      viewOf(
+        new URLSearchParams(
+          'tab=pull-requests&author=robots&type=epic&state=draft&week=monday&reverted=no&rounds=9',
+        ),
+      ).filter,
+    ).toEqual({});
+  });
+
+  it('keeps pull request filters, so they survive a reload', () => {
+    const view = {
+      tab: 'pull-requests' as const,
+      period: '90d' as const,
+      filter: { author: 'people', repository: 'acme/api,acme/web' },
+      page: 3,
+    };
+
+    expect(viewOf(new URLSearchParams(paramsOf(view)))).toEqual(view);
+  });
+
   it('round-trips through the address', () => {
     const view = {
       tab: 'runs' as const,

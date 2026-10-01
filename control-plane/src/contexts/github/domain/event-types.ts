@@ -1,4 +1,7 @@
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestForgotten } from '@github/domain/events/pull-request-forgotten.event';
+import { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
+import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
@@ -12,4 +15,7 @@ export const GITHUB_EVENT_TYPES = [
   ReviewCommentReceived,
   PullRequestClosed,
   PullRequestReviewed,
+  PullRequestRecorded,
+  PullRequestRevertMerged,
+  PullRequestForgotten,
 ] as const;

@@ -11,7 +11,14 @@ import type {
   TranslatedDelivery,
   WebhookTranslationPort,
 } from '@github/application/ports/webhook-translation.port';
+import type {
+  PullRequestFacts,
+  PullRequestSize,
+  PullRequestState,
+} from '@github/domain/aggregates/pull-request.aggregate';
 import { unsigned } from '@github/infrastructure/github/spotlight-signature';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 interface Payload {
   readonly action?: unknown;
@@ -22,6 +29,7 @@ interface Payload {
   };
   readonly comment?: Remark & ReviewComment;
   readonly review?: Remark & {
+    readonly id?: unknown;
     readonly state?: unknown;
     readonly submitted_at?: unknown;
   };
@@ -40,15 +48,23 @@ interface Described {
   readonly title?: unknown;
   readonly body?: unknown;
   readonly draft?: unknown;
-  readonly user?: { readonly login?: unknown };
+  readonly user?: { readonly login?: unknown; readonly type?: unknown };
   readonly author_association?: unknown;
 }
 
 interface Pull extends Described {
+  readonly number?: unknown;
+  readonly state?: unknown;
   readonly merged?: unknown;
+  readonly merged_at?: unknown;
   readonly merge_commit_sha?: unknown;
+  readonly created_at?: unknown;
+  readonly updated_at?: unknown;
   readonly closed_at?: unknown;
   readonly html_url?: unknown;
+  readonly additions?: unknown;
+  readonly deletions?: unknown;
+  readonly changed_files?: unknown;
   readonly head?: { readonly ref?: unknown };
 }
 
@@ -201,6 +217,82 @@ const pullRequestActivity = (
   return [{ kind: 'pull-request-activity', activity: read }];
 };
 
+const counted = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0
+    ? value
+    : null;
+
+const sizeOf = (pull: Pull): PullRequestSize | null => {
+  const additions = counted(pull.additions);
+  const deletions = counted(pull.deletions);
+  const changedFiles = counted(pull.changed_files);
+
+  return additions !== null && deletions !== null && changedFiles !== null
+    ? { additions, deletions, changedFiles }
+    : null;
+};
+
+const stateOf = (pull: Pull): PullRequestState => {
+  if (pull.merged === true || text(pull.merged_at)) {
+    return 'merged';
+  }
+
+  return pull.state === 'closed' ? 'closed' : 'open';
+};
+
+const factsOf = (payload: Payload): PullRequestFacts | null => {
+  const pull = payload.pull_request;
+  const html = text(pull?.html_url);
+  const fullName = text(payload.repository?.full_name);
+  const number = at(pull?.number);
+  const title = text(pull?.title);
+  const openedAt = writtenAt(pull?.created_at);
+
+  if (!pull || !html || !fullName || !number || !title || !openedAt) {
+    return null;
+  }
+
+  try {
+    const url = PullRequestUrl.of(html);
+    const repository = Repository.of(fullName);
+    const state = stateOf(pull);
+
+    if (
+      url.number !== number ||
+      url.repository?.value.toLowerCase() !== repository.value.toLowerCase()
+    ) {
+      return null;
+    }
+
+    return {
+      url,
+      repository,
+      number,
+      title: title.trim(),
+      body: text(pull.body),
+      author: text(pull.user?.login),
+      authorIsBot: pull.user?.type === 'Bot',
+      branch: text(pull.head?.ref),
+      size: sizeOf(pull),
+      openedAt,
+      state,
+      closedAt:
+        state === 'merged'
+          ? (writtenAt(pull.merged_at) ?? writtenAt(pull.closed_at))
+          : writtenAt(pull.closed_at),
+      updatedAt: writtenAt(pull.updated_at),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const pullRequestDescribed = (payload: Payload): Heard[] => {
+  const facts = factsOf(payload);
+
+  return facts ? [{ kind: 'pull-request', facts }] : [];
+};
+
 const reviewComment = (payload: Payload): Heard[] => {
   const comment = payload.comment;
   const action = REVIEW_COMMENT_ACTIONS.find((each) => each === payload.action);
@@ -240,8 +332,10 @@ const reviewComment = (payload: Payload): Heard[] => {
               : comment.body,
         answers: at(comment.in_reply_to_id),
         login: text(comment.user?.login),
+        byBot: comment.user?.type === 'Bot',
         writtenAt: writtenAt(comment.created_at),
       },
+      facts: factsOf(payload),
     },
   ];
 };
@@ -300,10 +394,30 @@ const pullRequestReviewed = (payload: Payload): Heard[] => {
     {
       kind: 'pull-request-reviewed',
       pullRequest,
+      id: at(review.id),
+      facts: factsOf(payload),
       state,
       login: text(review.user?.login),
       byBot: review.user?.type === 'Bot',
       submittedAt: writtenAt(review.submitted_at),
+    },
+  ];
+};
+
+const reviewDismissed = (payload: Payload): Heard[] => {
+  const pullRequest = text(payload.pull_request?.html_url);
+  const id = at(payload.review?.id);
+
+  if (payload.action !== 'dismissed' || !pullRequest || id === null) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'pull-request-review-dismissed',
+      pullRequest,
+      id,
+      facts: factsOf(payload),
     },
   ];
 };
@@ -317,8 +431,10 @@ const heardIn = (event: string | undefined, payload: Payload): Heard[] => {
 
   return [
     ...(event === 'pull_request_review_comment' ? reviewComment(payload) : []),
+    ...(event === 'pull_request' ? pullRequestDescribed(payload) : []),
     ...(event === 'pull_request' ? pullRequestClosed(payload) : []),
     ...(event === 'pull_request_review' ? pullRequestReviewed(payload) : []),
+    ...(event === 'pull_request_review' ? reviewDismissed(payload) : []),
     ...pullRequestActivity(event, payload),
   ];
 };

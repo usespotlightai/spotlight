@@ -41,6 +41,8 @@ export interface RunRecordRepository {
 
   ofRuns(runIds: readonly RunId[]): Promise<readonly RunRecord[]>;
 
+  ofTasks(taskIds: readonly TaskId[]): Promise<readonly RunRecord[]>;
+
   lastEndedOfTaskAt(
     taskId: TaskId,
     stationId: string,

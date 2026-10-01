@@ -8,6 +8,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
+import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
@@ -95,6 +96,25 @@ describe('WORK_PUBLICATIONS', () => {
         teamId: 'team_1',
         url: 'https://github.com/acme/api/pull/1',
         at: '2026-09-26T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes the pull request a review task reviews', () => {
+    expect(
+      published(
+        new PullRequestReviewTaken(
+          TASK,
+          WORKSPACE,
+          PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.pull-request-review-taken.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        url: 'https://github.com/acme/api/pull/1',
       },
     ]);
   });

@@ -4247,6 +4247,10 @@ export type DeliveryFlowResponseDto = {
   reviewed: number;
   merged: number;
   openedTaskIds: Array<string>;
+  /**
+   * The tasks whose pull requests a person first reviewed in the period
+   */
+  reviewedTaskIds: Array<string>;
   mergedTaskIds: Array<string>;
 };
 
@@ -4581,6 +4585,249 @@ export type InsightsCostResponseDto = {
    * Whether the priced runs the period before came in more than one currency, so nothing was summed
    */
   mixedCurrenciesBefore: boolean;
+};
+
+export type WeekShareResponseDto = {
+  /**
+   * The Monday, UTC, the week starts on
+   */
+  week: string;
+  /**
+   * Pull requests merged that week
+   */
+  merged: number;
+  /**
+   * Of those, the ones Spotlight made
+   */
+  made: number;
+  /**
+   * Of those, ones people or bots wrote that a Spotlight review task was opened on
+   */
+  touched: number;
+  /**
+   * Of those, ones bots wrote with no Spotlight review task
+   */
+  bots: number;
+  /**
+   * Made and touched over everything merged, bots’ included, from 0 to 1; none where nothing merged
+   */
+  share: number | null;
+};
+
+export type RepositoryPenetrationResponseDto = {
+  repository: string;
+  merged: number;
+  made: number;
+  touched: number;
+  bots: number;
+  share: number | null;
+  weeks: Array<WeekShareResponseDto>;
+};
+
+export type PenetrationResponseDto = {
+  /**
+   * Pull requests merged in the period, across the team, bots’ included
+   */
+  merged: number;
+  made: number;
+  /**
+   * Merged ones a Spotlight review task was opened on
+   */
+  touched: number;
+  /**
+   * Merged ones bots wrote alone
+   */
+  bots: number;
+  /**
+   * Made and touched over everything merged; bots’ pull requests count in the whole
+   */
+  share: number | null;
+  /**
+   * The team, week by week, oldest first
+   */
+  weeks: Array<WeekShareResponseDto>;
+  /**
+   * Each repository the team’s lines work, and any other its tasks merged into, the busiest first
+   */
+  repositories: Array<RepositoryPenetrationResponseDto>;
+};
+
+export type GroupMeasuresResponseDto = {
+  /**
+   * Pull requests merged
+   */
+  merged: number;
+  /**
+   * From opening to merge
+   */
+  toMerge: SpreadResponseDto;
+  /**
+   * From the first review by a person to merge
+   */
+  inReview: SpreadResponseDto;
+  /**
+   * Review rounds per pull request: each approval or request for changes by a person, and any later comments, is a round
+   */
+  meanRounds: number | null;
+  /**
+   * Review comments by people per pull request
+   */
+  meanComments: number | null;
+  /**
+   * Merged, then reverted
+   */
+  reverted: number;
+  revertRate: number | null;
+};
+
+export type ComparisonResponseDto = {
+  /**
+   * The repositories Spotlight merged into in the period; people’s pull requests are counted only in these
+   */
+  repositories: Array<string>;
+  /**
+   * Pull requests Spotlight made
+   */
+  spotlight: GroupMeasuresResponseDto;
+  /**
+   * Pull requests people wrote with no Spotlight review task opened on them; bots’ are left out
+   */
+  people: GroupMeasuresResponseDto;
+};
+
+export type TypeShareResponseDto = {
+  type: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+  /**
+   * Pull requests of this type Spotlight merged
+   */
+  spotlight: number;
+  /**
+   * Pull requests of this type people merged alone, bots’ left out
+   */
+  people: number;
+  /**
+   * What the runs of Spotlight’s pull requests of this type cost; none where nothing was priced or prices came in more than one currency
+   */
+  spend: SpendResponseDto | null;
+  /**
+   * Runs with no price
+   */
+  unpriced: number;
+  mixedCurrencies: boolean;
+};
+
+export type RoundsShareResponseDto = {
+  rounds: '0' | '1' | '2' | '3+';
+  spotlight: number;
+  /**
+   * People’s alone, bots’ left out
+   */
+  people: number;
+};
+
+export type InsightsPullRequestsResponseDto = {
+  period: InsightsPeriodResponseDto;
+  /**
+   * Whether the team had more than 20,000 pull requests in the period, so only the newest 20,000 were counted
+   */
+  truncated: boolean;
+  /**
+   * Pull requests recorded in the team’s repositories that were open at some point in the period, whatever became of them
+   */
+  total: number;
+  /**
+   * The repositories the team’s lines work
+   */
+  repositories: Array<string>;
+  /**
+   * The Mondays of every week the period touches, oldest first
+   */
+  weeks: Array<string>;
+  /**
+   * How much of what merged Spotlight made or touched
+   */
+  penetration: PenetrationResponseDto;
+  /**
+   * Spotlight’s merged pull requests against people’s, in the same repositories
+   */
+  comparison: ComparisonResponseDto;
+  /**
+   * What merged, by type, with what Spotlight spent on each
+   */
+  types: Array<TypeShareResponseDto>;
+  /**
+   * How many review rounds merged pull requests took, Spotlight’s against people’s, in the same repositories
+   */
+  depth: Array<RoundsShareResponseDto>;
+};
+
+export type InsightsPullRequestResponseDto = {
+  pullRequest: string;
+  repository: string;
+  number: number;
+  title: string;
+  author: string | null;
+  authorIsBot: boolean;
+  /**
+   * spotlight where a task opened it, touched where someone else wrote it and a Spotlight review task was opened on it, bots where a bot wrote it with no such task, people otherwise
+   */
+  by: 'spotlight' | 'touched' | 'people' | 'bots';
+  /**
+   * The task that opened it
+   */
+  taskId: string | null;
+  /**
+   * The review tasks opened on it
+   */
+  reviewTaskIds: Array<string>;
+  type: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+  state: 'open' | 'merged' | 'closed';
+  openedAt: string;
+  closedAt: string | null;
+  firstReviewAt: string | null;
+  toMergeMs: number | null;
+  inReviewMs: number | null;
+  /**
+   * Reviews people gave it
+   */
+  reviews: number;
+  reviewRounds: number;
+  reviewComments: number;
+  /**
+   * Whether it reverts another pull request
+   */
+  isRevert: boolean;
+  /**
+   * Whether another merged pull request reverted it
+   */
+  reverted: boolean;
+  revertedBy: string | null;
+  additions: number | null;
+  deletions: number | null;
+  changedFiles: number | null;
+  /**
+   * What the runs of the task that opened it cost
+   */
+  spend: SpendResponseDto | null;
+  /**
+   * Its task’s runs with no price
+   */
+  unpriced: number;
+};
+
+export type InsightsPullRequestListResponseDto = {
+  period: InsightsPeriodResponseDto;
+  truncated: boolean;
+  /**
+   * Pull requests that match
+   */
+  total: number;
+  page: number;
+  size: number;
+  /**
+   * This page, the most recently closed or opened first
+   */
+  pullRequests: Array<InsightsPullRequestResponseDto>;
 };
 
 export type TokenCountsResponseDto = {
@@ -12771,7 +13018,7 @@ export type ReadInsightsOverviewErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -12806,7 +13053,7 @@ export type ReadInsightsFlowErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -12841,7 +13088,7 @@ export type ReadInsightsStationsErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -12876,7 +13123,7 @@ export type ReadInsightsPeopleErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -12911,7 +13158,7 @@ export type ReadInsightsCostErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };
@@ -12921,6 +13168,116 @@ export type ReadInsightsCostResponses = {
 };
 
 export type ReadInsightsCostResponse = ReadInsightsCostResponses[keyof ReadInsightsCostResponses];
+
+export type ReadInsightsPullRequestsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/insights/pull-requests';
+};
+
+export type ReadInsightsPullRequestsErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ReadInsightsPullRequestsResponses = {
+  200: InsightsPullRequestsResponseDto;
+};
+
+export type ReadInsightsPullRequestsResponse = ReadInsightsPullRequestsResponses[keyof ReadInsightsPullRequestsResponses];
+
+export type ListInsightsPullRequestsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * Pull requests per page: 50 unless asked, 200 at most
+     */
+    size?: number;
+    /**
+     * Which page, from 1
+     */
+    page?: number;
+    /**
+     * Only pull requests that took this many review rounds
+     */
+    rounds?: '0' | '1' | '2' | '3+';
+    /**
+     * true for only pull requests in the repositories Spotlight merged into in the period, the ones its pull requests are set against people’s in
+     */
+    compared?: boolean;
+    /**
+     * true for only pull requests another merged pull request reverted
+     */
+    reverted?: boolean;
+    /**
+     * Only pull requests that closed in the week starting this UTC day, as YYYY-MM-DD
+     */
+    week?: string;
+    /**
+     * merged or closed for those that closed so in the period, open for those still open
+     */
+    state?: 'open' | 'merged' | 'closed';
+    /**
+     * Only pull requests of this type
+     */
+    type?: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+    /**
+     * spotlight for those a task opened, touched for others’ a Spotlight review task was opened on, bots for bots’ with no such task, people for the rest
+     */
+    author?: 'spotlight' | 'touched' | 'people' | 'bots';
+    /**
+     * Only pull requests in these repositories, comma-separated or repeated, at most 50
+     */
+    repository?: string;
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/insights/pull-requests/list';
+};
+
+export type ListInsightsPullRequestsErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ListInsightsPullRequestsResponses = {
+  200: InsightsPullRequestListResponseDto;
+};
+
+export type ListInsightsPullRequestsResponse = ListInsightsPullRequestsResponses[keyof ListInsightsPullRequestsResponses];
 
 export type ListInsightsRunsData = {
   body?: never;
@@ -13010,7 +13367,7 @@ export type ListInsightsRunsErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
    */
   422: unknown;
 };

@@ -3,10 +3,15 @@ import type {
   EndedRun,
   WorkPort,
 } from '@outcomes/application/ports/work.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 import type { StationRunsPort } from '@work/application/ports/station-runs.port';
 
 export class Work implements WorkPort {
-  constructor(private readonly stations: StationRunsPort) {}
+  constructor(
+    private readonly stations: StationRunsPort,
+    private readonly lines: LineResourcesPort,
+  ) {}
 
   async endedRun(runId: string): Promise<EndedRun | null> {
     const run = await this.stations.ended(runId);
@@ -47,5 +52,13 @@ export class Work implements WorkPort {
       config: each.config,
       changes: each.changes,
     }));
+  }
+
+  async teamRepositories(teamId: string): Promise<readonly string[]> {
+    const names = (await this.lines.ofTeam(TeamId.of(teamId))).flatMap((line) =>
+      line.definition.repositories.map((each) => each.name),
+    );
+
+    return [...new Set(names)];
   }
 }

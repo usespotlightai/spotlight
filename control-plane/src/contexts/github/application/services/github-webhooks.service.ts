@@ -6,6 +6,7 @@ import type {
   Heard,
   WebhookTranslationPort,
 } from '@github/application/ports/webhook-translation.port';
+import type { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
@@ -21,6 +22,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     private readonly signature: WebhookSignaturePort,
     private readonly connections: GitHubConnectionRepository,
     private readonly events: DomainEventDispatcher,
+    private readonly recording: RecordPullRequests,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -59,15 +61,22 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       return;
     }
 
+    const failures: unknown[] = [];
+
     for (const each of heard) {
       try {
         await this.attend(installation, each);
       } catch (error) {
+        failures.push(error);
         this.logger.error(
           { err: error, heard: each.kind },
           'Attending to what a GitHub delivery said about the workspace',
         );
       }
+    }
+
+    if (failures.length > 0) {
+      throw failures[0];
     }
   }
 
@@ -81,10 +90,16 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       return;
     }
 
+    const from = { installation, workspaceId };
+
     if (heard.kind === 'installation-removed') {
       await this.connections.save(
         (await this.connections.of(workspaceId)).disconnectedFrom(installation),
       );
+    }
+
+    if (heard.kind === 'pull-request') {
+      await this.recording.described(from, heard.facts);
     }
 
     if (heard.kind === 'review-comment') {
@@ -96,6 +111,11 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
           heard.comment,
         ),
       ]);
+      await this.recording.commented(from, heard.pullRequest, heard.facts, {
+        id: heard.comment.id,
+        action: heard.action,
+        byBot: heard.comment.byBot,
+      });
     }
 
     if (heard.kind === 'pull-request-reviewed') {
@@ -109,6 +129,24 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
           heard.submittedAt,
         ),
       ]);
+
+      if (heard.id !== null) {
+        await this.recording.reviewed(from, heard.pullRequest, heard.facts, {
+          id: heard.id,
+          state: heard.state,
+          byBot: heard.byBot,
+          at: heard.submittedAt,
+        });
+      }
+    }
+
+    if (heard.kind === 'pull-request-review-dismissed') {
+      await this.recording.reviewDismissed(
+        from,
+        heard.pullRequest,
+        heard.facts,
+        heard.id,
+      );
     }
 
     if (heard.kind === 'pull-request-closed') {

@@ -19,26 +19,42 @@ import type {
   InsightsRunsDto,
   InsightsStationsDto,
 } from '@outcomes/application/dto/insights.dto';
+import type {
+  InsightsPullRequestListDto,
+  InsightsPullRequestsDto,
+} from '@outcomes/application/dto/insights-pull-requests.dto';
+import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
 import { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
 import { ReadInsightsCostQuery } from '@outcomes/application/queries/read-insights-cost.query';
 import { ReadInsightsFlowQuery } from '@outcomes/application/queries/read-insights-flow.query';
 import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-insights-overview.query';
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
+import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
+import { MOST_FILTERED_REPOSITORIES } from '@outcomes/domain/services/pull-request-filter';
 import {
   HARNESS_DEFAULT_MODEL,
   MOST_FILTERED_TASKS,
   NO_REPOSITORY,
 } from '@outcomes/domain/services/run-filter';
 import { MOST_RUN_PAGE } from '@outcomes/domain/services/run-page';
+import {
+  PULL_REQUEST_AUTHORS,
+  ROUND_BUCKETS,
+} from '@outcomes/domain/services/team-pull-requests';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { INSIGHTS_PERIODS } from '@outcomes/domain/value-objects/insights-period.vo';
 import { PERSON_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
+import { PULL_REQUEST_TYPES } from '@outcomes/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@outcomes/domain/value-objects/run-ending';
 import { InsightsCostResponseDto } from '@outcomes/presentation/http/dto/insights-cost.response.dto';
 import { InsightsFlowResponseDto } from '@outcomes/presentation/http/dto/insights-flow.response.dto';
 import { InsightsOverviewResponseDto } from '@outcomes/presentation/http/dto/insights-overview.response.dto';
 import { InsightsPeopleResponseDto } from '@outcomes/presentation/http/dto/insights-people.response.dto';
+import {
+  InsightsPullRequestListResponseDto,
+  InsightsPullRequestsResponseDto,
+} from '@outcomes/presentation/http/dto/insights-pull-requests.response.dto';
 import { InsightsRunsResponseDto } from '@outcomes/presentation/http/dto/insights-runs.response.dto';
 import { InsightsStationsResponseDto } from '@outcomes/presentation/http/dto/insights-stations.response.dto';
 import { AdmitsWorkspaceTokens } from '@platform/http/decorators/admits-workspace-tokens.decorator';
@@ -62,14 +78,15 @@ const askedOf = (raw: unknown): string | readonly string[] | null =>
   Array.isArray(raw) ? raw.map(String) : textOf(raw);
 
 const listOf = (raw: unknown): readonly string[] | null => {
-  const text = textOf(raw);
+  const texts = (Array.isArray(raw) ? raw : [raw]).flatMap((each) => {
+    const text = textOf(each);
+    return text === null ? [] : text.split(',');
+  });
+  const listed = texts
+    .map((each) => each.trim())
+    .filter((each) => each.length > 0);
 
-  return text === null
-    ? null
-    : text
-        .split(',')
-        .map((each) => each.trim())
-        .filter((each) => each.length > 0);
+  return listed.length > 0 ? listed : null;
 };
 
 const numberOf = (raw: unknown): number | null => {
@@ -96,7 +113,7 @@ const FilterQuery = (name: string, description: string) =>
 @ApiNotFoundResponse({ description: 'No such team for this caller' })
 @ApiUnprocessableEntityResponse({
   description:
-    'No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last',
+    'No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last',
 })
 @ApiParam({ name: 'teamId', type: String })
 @Controller('teams/:teamId/insights')
@@ -201,6 +218,126 @@ export class TeamInsightsController {
     return new InsightsCostResponseDto(
       await this.queryBus.execute<ReadInsightsCostQuery, InsightsCostDto>(
         new ReadInsightsCostQuery(teamId, principal, periodOf(period)),
+      ),
+    );
+  }
+
+  @Get('pull-requests')
+  @ApiOperation({
+    operationId: 'readInsightsPullRequests',
+    summary:
+      'How much of what the team merges Spotlight made or touched, week by week, how Spotlight’s pull requests fare against people’s, and what kinds it ships',
+  })
+  @PeriodQuery()
+  @ApiOkResponse({ type: InsightsPullRequestsResponseDto })
+  async pullRequests(
+    @Param('teamId') teamId: string,
+    @Query('period') period: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<InsightsPullRequestsResponseDto> {
+    return new InsightsPullRequestsResponseDto(
+      await this.queryBus.execute<
+        ReadInsightsPullRequestsQuery,
+        InsightsPullRequestsDto
+      >(new ReadInsightsPullRequestsQuery(teamId, principal, periodOf(period))),
+    );
+  }
+
+  @Get('pull-requests/list')
+  @ApiOperation({
+    operationId: 'listInsightsPullRequests',
+    summary:
+      'Every pull request in the team’s repositories opened or closed in the period, or still open, the latest first, a page at a time; every filter narrows it further',
+  })
+  @PeriodQuery()
+  @FilterQuery(
+    'repository',
+    `Only pull requests in these repositories, comma-separated or repeated, at most ${MOST_FILTERED_REPOSITORIES}`,
+  )
+  @ApiQuery({
+    name: 'author',
+    required: false,
+    enum: PULL_REQUEST_AUTHORS,
+    description:
+      'spotlight for those a task opened, touched for others’ a Spotlight review task was opened on, bots for bots’ with no such task, people for the rest',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: PULL_REQUEST_TYPES,
+    description: 'Only pull requests of this type',
+  })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    enum: DELIVERY_STATES,
+    description:
+      'merged or closed for those that closed so in the period, open for those still open',
+  })
+  @FilterQuery(
+    'week',
+    'Only pull requests that closed in the week starting this UTC day, as YYYY-MM-DD',
+  )
+  @ApiQuery({
+    name: 'reverted',
+    required: false,
+    type: Boolean,
+    description:
+      'true for only pull requests another merged pull request reverted',
+  })
+  @ApiQuery({
+    name: 'compared',
+    required: false,
+    type: Boolean,
+    description:
+      'true for only pull requests in the repositories Spotlight merged into in the period, the ones its pull requests are set against people’s in',
+  })
+  @ApiQuery({
+    name: 'rounds',
+    required: false,
+    enum: ROUND_BUCKETS,
+    description: 'Only pull requests that took this many review rounds',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Which page, from 1',
+  })
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    type: Number,
+    description: 'Pull requests per page: 50 unless asked, 200 at most',
+  })
+  @ApiOkResponse({ type: InsightsPullRequestListResponseDto })
+  async pullRequestList(
+    @Param('teamId') teamId: string,
+    @Query() asked: Record<string, unknown>,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<InsightsPullRequestListResponseDto> {
+    return new InsightsPullRequestListResponseDto(
+      await this.queryBus.execute<
+        ListInsightsPullRequestsQuery,
+        InsightsPullRequestListDto
+      >(
+        new ListInsightsPullRequestsQuery(
+          teamId,
+          principal,
+          periodOf(asked.period),
+          {
+            repository: listOf(asked.repository),
+            author: askedOf(asked.author),
+            type: askedOf(asked.type),
+            state: askedOf(asked.state),
+            week: askedOf(asked.week),
+            reverted: askedOf(asked.reverted),
+            rounds: askedOf(asked.rounds),
+            compared: askedOf(asked.compared),
+          },
+          numberOf(asked.page),
+          numberOf(asked.size),
+        ),
       ),
     );
   }

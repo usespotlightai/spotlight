@@ -291,6 +291,24 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
     return rows.map(toRecord);
   }
 
+  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly RunRecord[]> {
+    if (taskIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(runRecord)
+      .where(
+        inArray(
+          runRecord.taskId,
+          taskIds.map((each) => each.value),
+        ),
+      );
+
+    return rows.map(toRecord);
+  }
+
   async lastEndedOfTaskAt(
     taskId: TaskId,
     stationId: string,

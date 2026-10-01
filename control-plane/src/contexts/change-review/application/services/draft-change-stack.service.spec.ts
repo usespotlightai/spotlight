@@ -227,6 +227,7 @@ describe('DraftChangeStack', () => {
     expect(dispatched.map((each) => each.kind)).toEqual([
       'change-stack.drafting-began',
       'change-stack.settled',
+      'change-stack.shaped',
     ]);
     expect(saved[1]?.cohorts[0]?.layers[0]?.ranges).toHaveLength(2);
   });

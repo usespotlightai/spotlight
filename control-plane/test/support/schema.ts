@@ -5,6 +5,7 @@ export * from '@change-review/infrastructure/persistence/drizzle/schemas/review.
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 export * from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 export * from '@github/infrastructure/persistence/drizzle/schemas/github-connection.schema';
+export * from '@github/infrastructure/persistence/drizzle/schemas/pull-request.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';

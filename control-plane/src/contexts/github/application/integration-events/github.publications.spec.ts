@@ -1,5 +1,7 @@
 import { GITHUB_PUBLICATIONS } from '@github/application/integration-events/github.publications';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestForgotten } from '@github/domain/events/pull-request-forgotten.event';
+import { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -116,5 +118,79 @@ describe('GITHUB_PUBLICATIONS', () => {
         ),
       ),
     ).toMatchObject([{ merged: false, mergeCommit: null, closedAt: null }]);
+  });
+  it('publishes what a pull request now is as plain data, owned by a task or not', () => {
+    expect(
+      published(
+        new PullRequestRecorded(WorkspaceId.of('ws_1'), {
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          repository: 'acme/api',
+          number: 7,
+          title: 'Retry failed uploads',
+          author: 'ada',
+          authorIsBot: false,
+          branch: 'fix/uploads',
+          additions: 40,
+          deletions: 3,
+          changedFiles: 2,
+          openedAt: new Date('2026-09-20T08:00:00Z'),
+          state: 'merged',
+          closedAt: new Date('2026-09-21T09:00:00Z'),
+          updatedAt: new Date('2026-09-21T09:05:00Z'),
+          firstReviewAt: null,
+          reviews: 0,
+          reviewRounds: 0,
+          reviewComments: 0,
+          isRevert: false,
+          revertedBy: null,
+          version: 3,
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'github.pull-request-recorded.v1',
+        workspaceId: 'ws_1',
+        pullRequest: 'https://github.com/acme/api/pull/7',
+        repository: 'acme/api',
+        number: 7,
+        title: 'Retry failed uploads',
+        author: 'ada',
+        authorIsBot: false,
+        branch: 'fix/uploads',
+        additions: 40,
+        deletions: 3,
+        changedFiles: 2,
+        openedAt: '2026-09-20T08:00:00.000Z',
+        state: 'merged',
+        closedAt: '2026-09-21T09:00:00.000Z',
+        updatedAt: '2026-09-21T09:05:00.000Z',
+        firstReviewAt: null,
+        reviews: 0,
+        reviewRounds: 0,
+        reviewComments: 0,
+        isRevert: false,
+        revertedBy: null,
+        version: 3,
+      },
+    ]);
+  });
+
+  it('publishes a forgotten pull request with when GitHub last changed it', () => {
+    expect(
+      published(
+        new PullRequestForgotten(
+          WorkspaceId.of('ws_1'),
+          'https://github.com/acme/api/pull/7',
+          new Date('2026-03-01T10:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'github.pull-request-forgotten.v1',
+        workspaceId: 'ws_1',
+        pullRequest: 'https://github.com/acme/api/pull/7',
+        updatedAt: '2026-03-01T10:00:00.000Z',
+      },
+    ]);
   });
 });

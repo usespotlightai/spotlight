@@ -8,6 +8,7 @@ CREATE TYPE "public"."review_sync_kind" AS ENUM('review', 'reply', 'file', 'edit
 CREATE TYPE "public"."review_sync_state" AS ENUM('pending', 'done', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-changes');--> statement-breakpoint
 CREATE TYPE "public"."check_phase" AS ENUM('waiting', 'reordering', 'checked', 'skipped');--> statement-breakpoint
+CREATE TYPE "public"."github_pull_request_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
 CREATE TYPE "public"."memory_drafting_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'errored', 'interrupted');--> statement-breakpoint
@@ -18,6 +19,7 @@ CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> sta
 CREATE TYPE "public"."memory_standing" AS ENUM('stands', 'retired');--> statement-breakpoint
 CREATE TYPE "public"."memory_use_way" AS ENUM('briefed', 'recalled');--> statement-breakpoint
 CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'ungrounded', 'errored', 'interrupted');--> statement-breakpoint
+CREATE TYPE "public"."pull_request_record_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'approved', 'refused', 'sent-back');--> statement-breakpoint
 CREATE TYPE "public"."run_record_checks" AS ENUM('passed', 'failed', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped', 'abandoned', 'withdrawn', 'superseded');--> statement-breakpoint
@@ -244,6 +246,32 @@ CREATE TABLE "github_connection" (
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "github_connection_installation_id_unique" UNIQUE("installation_id")
+);
+--> statement-breakpoint
+CREATE TABLE "github_pull_request" (
+	"workspace_id" text NOT NULL,
+	"url" text NOT NULL,
+	"repository" text NOT NULL,
+	"number" integer NOT NULL,
+	"title" text NOT NULL,
+	"author" text,
+	"author_is_bot" boolean DEFAULT false NOT NULL,
+	"branch" text,
+	"additions" integer,
+	"deletions" integer,
+	"changed_files" integer,
+	"opened_at" timestamp NOT NULL,
+	"state" "github_pull_request_state" NOT NULL,
+	"closed_at" timestamp,
+	"updated_at" timestamp NOT NULL,
+	"reverts" jsonb,
+	"reviews" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"dismissed_reviews" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"comments" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"deleted_comments" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"reverted_by" text,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "github_pull_request_workspace_id_url_pk" PRIMARY KEY("workspace_id","url")
 );
 --> statement-breakpoint
 CREATE TABLE "configuration_change" (
@@ -535,6 +563,13 @@ CREATE TABLE "chat_record" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "forgotten_pull_request" (
+	"workspace_id" text NOT NULL,
+	"pull_request" text NOT NULL,
+	"updated_at" timestamp NOT NULL,
+	CONSTRAINT "forgotten_pull_request_workspace_id_pull_request_pk" PRIMARY KEY("workspace_id","pull_request")
+);
+--> statement-breakpoint
 CREATE TABLE "forgotten_task" (
 	"task_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL
@@ -575,6 +610,37 @@ CREATE TABLE "pending_review" (
 	"pull_request" text NOT NULL,
 	"at" timestamp NOT NULL,
 	CONSTRAINT "pending_review_workspace_id_pull_request_at_pk" PRIMARY KEY("workspace_id","pull_request","at")
+);
+--> statement-breakpoint
+CREATE TABLE "pull_request_record" (
+	"workspace_id" text NOT NULL,
+	"pull_request" text NOT NULL,
+	"repository" text,
+	"number" integer,
+	"title" text,
+	"author" text,
+	"author_is_bot" boolean DEFAULT false NOT NULL,
+	"branch" text,
+	"additions" integer,
+	"deletions" integer,
+	"changed_files" integer,
+	"opened_at" timestamp,
+	"state" "pull_request_record_state",
+	"closed_at" timestamp,
+	"updated_at" timestamp,
+	"first_review_at" timestamp,
+	"reviews" integer DEFAULT 0 NOT NULL,
+	"review_rounds" integer DEFAULT 0 NOT NULL,
+	"review_comments" integer DEFAULT 0 NOT NULL,
+	"is_revert" boolean DEFAULT false NOT NULL,
+	"reverted_by" text,
+	"seen_version" integer,
+	"owner_task_id" text,
+	"owner_team_id" text,
+	"review_task_ids" text[] DEFAULT '{}' NOT NULL,
+	"github_forgot_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "pull_request_record_workspace_id_pull_request_pk" PRIMARY KEY("workspace_id","pull_request")
 );
 --> statement-breakpoint
 CREATE TABLE "run_record" (
@@ -635,6 +701,16 @@ CREATE TABLE "score" (
 	"seen" jsonb DEFAULT '{"steps":[],"hunks":[]}'::jsonb NOT NULL,
 	"by" text,
 	"at" timestamp NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "task_change_shape" (
+	"task_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"change_titles" text[] DEFAULT '{}' NOT NULL,
+	"change_intents" text[] DEFAULT '{}' NOT NULL,
+	"shaped_at" timestamp NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1188,6 +1264,9 @@ CREATE INDEX "stack_check_task_idx" ON "stack_check" USING btree ("task_id");-->
 CREATE INDEX "stack_check_waiting_idx" ON "stack_check" USING btree ("workspace_id","phase");--> statement-breakpoint
 CREATE INDEX "stack_check_reserved_idx" ON "stack_check" USING btree ("reserved_for");--> statement-breakpoint
 CREATE INDEX "stack_check_overdue_idx" ON "stack_check" USING btree ("phase","waiting_since");--> statement-breakpoint
+CREATE INDEX "github_pull_request_number_idx" ON "github_pull_request" USING btree ("workspace_id","repository","number");--> statement-breakpoint
+CREATE INDEX "github_pull_request_closed_idx" ON "github_pull_request" USING btree ("closed_at");--> statement-breakpoint
+CREATE INDEX "github_pull_request_updated_idx" ON "github_pull_request" USING btree ("updated_at");--> statement-breakpoint
 CREATE INDEX "configuration_change_workspace_idx" ON "configuration_change" USING btree ("workspace_id","seq");--> statement-breakpoint
 CREATE INDEX "team_workspace_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_workspace_key_idx" ON "team" USING btree ("workspace_id","key");--> statement-breakpoint
@@ -1216,10 +1295,16 @@ CREATE INDEX "memory_proposal_decided_idx" ON "memory_proposal" USING btree ("te
 CREATE INDEX "memory_use_run_idx" ON "memory_use" USING btree ("run_id","at");--> statement-breakpoint
 CREATE INDEX "chat_record_team_idx" ON "chat_record" USING btree ("team_id","started_at");--> statement-breakpoint
 CREATE INDEX "chat_record_workspace_idx" ON "chat_record" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "forgotten_pull_request_updated_idx" ON "forgotten_pull_request" USING btree ("updated_at");--> statement-breakpoint
 CREATE INDEX "forgotten_task_workspace_idx" ON "forgotten_task" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "judging_owed_idx" ON "judging" USING btree ("asked_at") WHERE "judging"."owed";--> statement-breakpoint
 CREATE INDEX "judging_task_idx" ON "judging" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "judging_workspace_idx" ON "judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
+CREATE INDEX "pull_request_record_opened_idx" ON "pull_request_record" USING btree ("workspace_id","opened_at");--> statement-breakpoint
+CREATE INDEX "pull_request_record_repository_idx" ON "pull_request_record" USING btree ("workspace_id","repository");--> statement-breakpoint
+CREATE INDEX "pull_request_record_owner_idx" ON "pull_request_record" USING btree ("owner_task_id");--> statement-breakpoint
+CREATE INDEX "pull_request_record_team_idx" ON "pull_request_record" USING btree ("owner_team_id");--> statement-breakpoint
+CREATE INDEX "pull_request_record_review_tasks_idx" ON "pull_request_record" USING gin ("review_task_ids");--> statement-breakpoint
 CREATE INDEX "run_record_team_idx" ON "run_record" USING btree ("team_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_station_idx" ON "run_record" USING btree ("station_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_task_idx" ON "run_record" USING btree ("task_id","ended_at");--> statement-breakpoint
@@ -1229,6 +1314,7 @@ CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","by") WH
 CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> statement-breakpoint
 CREATE INDEX "score_task_idx" ON "score" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_id");--> statement-breakpoint
+CREATE INDEX "task_change_shape_team_idx" ON "task_change_shape" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "task_delivery_pull_request_idx" ON "task_delivery" USING btree ("workspace_id","pull_request");--> statement-breakpoint
 CREATE INDEX "task_delivery_team_idx" ON "task_delivery" USING btree ("team_id","opened_at");--> statement-breakpoint
 CREATE INDEX "task_failures_last_idx" ON "task_failures" USING btree ("workspace_id","last_at");--> statement-breakpoint

@@ -7,6 +7,10 @@ import {
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import {
+  PULL_REQUEST_REVIEW_TAKEN,
+  type PullRequestReviewTakenIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
+import {
   RUN_BRIEFED,
   type RunBriefedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-briefed.integration-event';
@@ -58,6 +62,7 @@ import {
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
+import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunBriefed } from '@work/domain/events/run-briefed.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
@@ -110,6 +115,15 @@ export const WORK_PUBLICATIONS = [
       teamId: event.teamId.value,
       url: event.url.value,
       at: event.at.toISOString(),
+    }),
+  ),
+  publishing<PullRequestReviewTaken>(
+    'task.pull-request-review-taken',
+    (event): PullRequestReviewTakenIntegrationEvent => ({
+      kind: PULL_REQUEST_REVIEW_TAKEN,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      url: event.url.value,
     }),
   ),
   publishing<TaskDeleted>(

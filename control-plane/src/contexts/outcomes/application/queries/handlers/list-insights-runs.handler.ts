@@ -5,6 +5,7 @@ import {
   periodOf,
 } from '@outcomes/application/dto/insights.dto';
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
+import { pageOf, sizeOf } from '@outcomes/application/queries/handlers/paging';
 import type { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
 import {
   type TeamHistories,
@@ -19,17 +20,6 @@ import { tasksOf } from '@outcomes/domain/services/team-history';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-
-const DEFAULT_SIZE = 50;
-const MOST_SIZE = 200;
-
-const sizeOf = (asked: number | null): number =>
-  asked !== null && Number.isInteger(asked) && asked > 0
-    ? Math.min(asked, MOST_SIZE)
-    : DEFAULT_SIZE;
-
-const pageOf = (asked: number | null): number =>
-  asked !== null && Number.isInteger(asked) && asked > 0 ? asked : 1;
 
 export class ListInsightsRunsHandler
   implements QueryHandlerPort<ListInsightsRunsQuery, InsightsRunsDto>

@@ -990,6 +990,18 @@ describe('Task, what it is doing', () => {
       ]);
     });
 
+    it('says which pull request it reviews, so Insights can tell people’s pull requests Spotlight touched', () => {
+      const reviewing = added().reviews(url, { outside: false });
+
+      expect(reviewing.pullEvents()).toContainEqual(
+        expect.objectContaining({
+          kind: 'task.pull-request-review-taken',
+          taskId: reviewing.id,
+          url,
+        }),
+      );
+    });
+
     it('reviews only a pull request whose head it can check out', () => {
       expect(() =>
         added().reviews(PullRequestUrl.of('https://gitlab.example/acme/7'), {

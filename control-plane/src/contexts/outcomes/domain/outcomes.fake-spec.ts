@@ -133,6 +133,12 @@ export class RunRecordsInMemory implements RunRecordRepository {
     });
   }
 
+  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly RunRecord[]> {
+    return [...this.held.values()].filter((each) =>
+      taskIds.some((taskId) => each.taskId?.equals(taskId)),
+    );
+  }
+
   async lastEndedOfTaskAt(
     taskId: TaskId,
     stationId: string,

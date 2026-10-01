@@ -99,6 +99,14 @@ export class DeliveryFlowResponseDto {
   @ApiProperty({ type: String, isArray: true })
   readonly openedTaskIds: readonly string[];
 
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description:
+      'The tasks whose pull requests a person first reviewed in the period',
+  })
+  readonly reviewedTaskIds: readonly string[];
+
   @ApiProperty({ type: String, isArray: true })
   readonly mergedTaskIds: readonly string[];
 
@@ -110,6 +118,7 @@ export class DeliveryFlowResponseDto {
     this.reviewed = delivery.reviewed;
     this.merged = delivery.merged;
     this.openedTaskIds = delivery.openedTaskIds;
+    this.reviewedTaskIds = delivery.reviewedTaskIds;
     this.mergedTaskIds = delivery.mergedTaskIds;
   }
 }

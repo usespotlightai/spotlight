@@ -7,6 +7,7 @@ import { LineRetired } from '@work/domain/events/line-retired.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
+import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
@@ -234,6 +235,7 @@ export const WORK_EVENT_TYPES = [
   ProposalAccepted,
   ProposalDismissed,
   PullRequestOpened,
+  PullRequestReviewTaken,
   RunAbandoned,
   RunWithdrawn,
   RunBriefed,

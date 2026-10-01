@@ -1,9 +1,13 @@
 import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { PendingReviewsPort } from '@outcomes/application/ports/pending-reviews.port';
+import type { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
+import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
 import type { ChatRecordRepository } from '@outcomes/domain/repositories/chat-record.repository';
 import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
+import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
+import type { TaskChangeShapeRepository } from '@outcomes/domain/repositories/task-change-shape.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import type { TaskFailuresRepository } from '@outcomes/domain/repositories/task-failures.repository';
 import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-touches.repository';
@@ -11,6 +15,8 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+const ATTEMPTS = 3;
 
 export interface OutcomesHeld {
   readonly records: RunRecordRepository;
@@ -20,6 +26,8 @@ export interface OutcomesHeld {
   readonly touches: TaskTouchesRepository;
   readonly failures: TaskFailuresRepository;
   readonly chats: ChatRecordRepository;
+  readonly pullRequests: PullRequestRecordRepository;
+  readonly shapes: TaskChangeShapeRepository;
   readonly reviews: PendingReviewsPort;
   readonly forgotten: ForgottenPort;
 }
@@ -70,6 +78,22 @@ export class ForgetOutcomes {
     );
   }
 
+  async pullRequestsOfTask(
+    workspaceId: WorkspaceId,
+    taskId: TaskId,
+  ): Promise<void> {
+    await this.ofTask(workspaceId, taskId, () =>
+      this.held.shapes.removeForTask(taskId),
+    );
+
+    for (const record of await this.held.pullRequests.heldByTask(
+      workspaceId,
+      taskId,
+    )) {
+      await this.lettingGo(record, (held) => held.withoutTask(taskId));
+    }
+  }
+
   runsOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
     return this.ofTeam(workspaceId, teamId, () =>
       this.held.records.removeForTeam(workspaceId, teamId),
@@ -117,6 +141,22 @@ export class ForgetOutcomes {
     );
   }
 
+  async pullRequestsOfTeam(
+    workspaceId: WorkspaceId,
+    teamId: TeamId,
+  ): Promise<void> {
+    await this.ofTeam(workspaceId, teamId, () =>
+      this.held.shapes.removeForTeam(workspaceId, teamId),
+    );
+
+    for (const record of await this.held.pullRequests.ownedByTeam(
+      workspaceId,
+      teamId,
+    )) {
+      await this.lettingGo(record, (held) => held.withoutTeam(teamId));
+    }
+  }
+
   runsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, () =>
       this.held.records.removeForWorkspace(workspaceId),
@@ -153,6 +193,50 @@ export class ForgetOutcomes {
     return this.ofWorkspace(workspaceId, () =>
       this.held.chats.removeForWorkspace(workspaceId),
     );
+  }
+
+  pullRequestsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    return this.ofWorkspace(workspaceId, async () => {
+      await this.held.pullRequests.removeForWorkspace(workspaceId);
+      await this.held.shapes.removeForWorkspace(workspaceId);
+    });
+  }
+
+  private async lettingGo(
+    record: PullRequestRecord,
+    letGo: (held: PullRequestRecord) => PullRequestRecord | null,
+  ): Promise<void> {
+    for (let left = ATTEMPTS; ; left -= 1) {
+      try {
+        await this.transaction.run(async () => {
+          await this.held.forgotten.holdingPullRequest(
+            record.workspaceId,
+            record.pullRequest,
+          );
+          const held = await this.held.pullRequests.at(
+            record.workspaceId,
+            record.pullRequest,
+          );
+
+          if (!held) {
+            return;
+          }
+
+          const kept = letGo(held);
+
+          if (kept === null) {
+            await this.held.pullRequests.remove(held);
+          } else if (kept !== held) {
+            await this.held.pullRequests.save(kept);
+          }
+        });
+        return;
+      } catch (error) {
+        if (!(error instanceof PullRequestRecordMovedOnError) || left <= 1) {
+          throw error;
+        }
+      }
+    }
   }
 
   private ofTask(

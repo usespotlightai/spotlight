@@ -1,7 +1,7 @@
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
+import { InsightsPager } from '@/components/features/insights/InsightsPager';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { RunsFilters } from '@/components/features/insights/RunsFilters';
-import { RunsPager } from '@/components/features/insights/RunsPager';
 import { RunsSkeleton } from '@/components/features/insights/RunsSkeleton';
 import { RunsTable } from '@/components/features/insights/RunsTable';
 import { Button } from '@/components/ui/button';
@@ -81,7 +81,8 @@ export function RunsTab({
               harnesses={harnesses}
             />
           </div>
-          <RunsPager
+          <InsightsPager
+            label="Pages of runs"
             shown={runsShownOf(runs.data)}
             page={runs.data.page}
             lastPage={lastPageOf(runs.data)}

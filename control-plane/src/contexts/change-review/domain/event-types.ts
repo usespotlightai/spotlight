@@ -4,6 +4,7 @@ import { ChangeStackFailed } from '@change-review/domain/events/change-stack-fai
 import { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
 import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import { DecisionDraftingFailed } from '@change-review/domain/events/decision-drafting-failed.event';
@@ -62,6 +63,7 @@ export const CHANGE_REVIEW_EVENT_TYPES = [
   ChangeStackReordered,
   ChangeStackReorderingEnded,
   ChangeStackSettled,
+  ChangeStackShaped,
   CheckReservationDropped,
   HeldCheckForgotten,
   LayersFailedCheck,

@@ -3,6 +3,7 @@ import { ChangeStackFailed } from '@change-review/domain/events/change-stack-fai
 import { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
 import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
@@ -305,6 +306,7 @@ export class ChangeStack
     });
 
     reordered.record(new ChangeStackReordered(this.id, this.runId));
+    reordered.recordShape(now);
     return reordered;
   }
 
@@ -334,7 +336,25 @@ export class ChangeStack
     });
 
     settledStack.record(new ChangeStackSettled(this.id, this.runId));
+    settledStack.recordShape(now);
     return settledStack;
+  }
+
+  private recordShape(at: Date): void {
+    this.record(
+      new ChangeStackShaped(
+        this.id,
+        this.runId,
+        this.taskId,
+        this.workspaceId,
+        this.cohorts.map((each) => ({
+          kind: each.kind,
+          title: each.title,
+          intent: each.intent,
+        })),
+        at,
+      ),
+    );
   }
 
   fail(reason: string, now: Date): ChangeStack {

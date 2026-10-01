@@ -73,6 +73,10 @@ export const runRecordEnding = pgEnum('run_record_ending', RUN_ENDINGS);
 export const runRecordChecks = pgEnum('run_record_checks', CHECK_VERDICTS);
 export const runRecordAct = pgEnum('run_record_act', PERSON_ACTS);
 export const taskDeliveryState = pgEnum('task_delivery_state', DELIVERY_STATES);
+export const pullRequestRecordState = pgEnum(
+  'pull_request_record_state',
+  DELIVERY_STATES,
+);
 export const scoreSource = pgEnum('score_source', SCORE_SOURCES);
 export const scoreKind = pgEnum('score_kind', SCORE_KINDS);
 export const judgingFailure = pgEnum('judging_failure', JUDGING_FAILURE_CODES);
@@ -222,6 +226,85 @@ export const forgottenTeam = pgTable(
     teamId: text('team_id').notNull(),
   },
   (table) => [primaryKey({ columns: [table.workspaceId, table.teamId] })],
+);
+
+export const forgottenPullRequest = pgTable(
+  'forgotten_pull_request',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    pullRequest: text('pull_request').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.pullRequest] }),
+    index('forgotten_pull_request_updated_idx').on(table.updatedAt),
+  ],
+);
+
+export const pullRequestRecord = pgTable(
+  'pull_request_record',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    pullRequest: text('pull_request').notNull(),
+    repository: text('repository'),
+    number: integer('number'),
+    title: text('title'),
+    author: text('author'),
+    authorIsBot: boolean('author_is_bot').notNull().default(false),
+    branch: text('branch'),
+    additions: integer('additions'),
+    deletions: integer('deletions'),
+    changedFiles: integer('changed_files'),
+    openedAt: timestamp('opened_at'),
+    state: pullRequestRecordState('state'),
+    closedAt: timestamp('closed_at'),
+    updatedAt: timestamp('updated_at'),
+    firstReviewAt: timestamp('first_review_at'),
+    reviews: integer('reviews').notNull().default(0),
+    reviewRounds: integer('review_rounds').notNull().default(0),
+    reviewComments: integer('review_comments').notNull().default(0),
+    isRevert: boolean('is_revert').notNull().default(false),
+    revertedBy: text('reverted_by'),
+    seenVersion: integer('seen_version'),
+    ownerTaskId: text('owner_task_id'),
+    ownerTeamId: text('owner_team_id'),
+    reviewTaskIds: text('review_task_ids').array().notNull().default([]),
+    githubForgotAt: timestamp('github_forgot_at'),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.pullRequest] }),
+    index('pull_request_record_opened_idx').on(
+      table.workspaceId,
+      table.openedAt,
+    ),
+    index('pull_request_record_repository_idx').on(
+      table.workspaceId,
+      table.repository,
+    ),
+    index('pull_request_record_owner_idx').on(table.ownerTaskId),
+    index('pull_request_record_team_idx').on(table.ownerTeamId),
+    index('pull_request_record_review_tasks_idx').using(
+      'gin',
+      table.reviewTaskIds,
+    ),
+  ],
+);
+
+export const taskChangeShape = pgTable(
+  'task_change_shape',
+  {
+    taskId: text('task_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    changeTitles: text('change_titles').array().notNull().default([]),
+    changeIntents: text('change_intents').array().notNull().default([]),
+    shapedAt: timestamp('shaped_at').notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    index('task_change_shape_team_idx').on(table.workspaceId, table.teamId),
+  ],
 );
 
 export const chatRecord = pgTable(

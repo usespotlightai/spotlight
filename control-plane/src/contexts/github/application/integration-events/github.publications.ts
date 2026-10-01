@@ -1,4 +1,6 @@
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import type { PullRequestForgotten } from '@github/domain/events/pull-request-forgotten.event';
+import type { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
 import type { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
@@ -6,6 +8,14 @@ import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
+  PULL_REQUEST_FORGOTTEN,
+  type PullRequestForgottenIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
+import {
+  PULL_REQUEST_RECORDED,
+  type PullRequestRecordedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-recorded.integration-event';
 import {
   PULL_REQUEST_REVIEWED,
   type PullRequestReviewedIntegrationEvent,
@@ -80,6 +90,27 @@ export const GITHUB_PUBLICATIONS = [
       login: event.login,
       byBot: event.byBot,
       submittedAt: event.submittedAt?.toISOString() ?? null,
+    }),
+  ),
+  publishing<PullRequestRecorded>(
+    'pull-request.recorded',
+    ({ workspaceId, recorded }): PullRequestRecordedIntegrationEvent => ({
+      kind: PULL_REQUEST_RECORDED,
+      workspaceId: workspaceId.value,
+      ...recorded,
+      openedAt: recorded.openedAt.toISOString(),
+      closedAt: recorded.closedAt?.toISOString() ?? null,
+      updatedAt: recorded.updatedAt.toISOString(),
+      firstReviewAt: recorded.firstReviewAt?.toISOString() ?? null,
+    }),
+  ),
+  publishing<PullRequestForgotten>(
+    'pull-request.forgotten',
+    (event): PullRequestForgottenIntegrationEvent => ({
+      kind: PULL_REQUEST_FORGOTTEN,
+      workspaceId: event.workspaceId.value,
+      pullRequest: event.pullRequest,
+      updatedAt: event.updatedAt.toISOString(),
     }),
   ),
 ] as const;

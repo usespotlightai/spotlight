@@ -15,6 +15,7 @@ import {
   type TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
+import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
@@ -519,7 +520,14 @@ export class Task extends EventRecorder {
       throw new UnreviewablePullRequestError(url.value);
     }
 
-    return this.markedBy(Mark.review(url)).with({ pullRequestLink: link });
+    const reviewing = this.markedBy(Mark.review(url)).with({
+      pullRequestLink: link,
+    });
+    reviewing.record(
+      new PullRequestReviewTaken(reviewing.id, reviewing.workspaceId, url),
+    );
+
+    return reviewing;
   }
 
   get pullRequest(): PullRequestUrl | null {

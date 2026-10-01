@@ -139,14 +139,14 @@ const periodOf = (count: number): InsightsPeriodResponseDto => {
   };
 };
 
-const PERIOD = periodOf(30);
+export const PERIOD = periodOf(30);
 
-const daysAgo = (days: number, hours = 12): string =>
+export const daysAgo = (days: number, hours = 12): string =>
   new Date(
     midnight(Date.now()) - days * DAY_MS + hours * HOUR_MS,
   ).toISOString();
 
-const spread = (
+export const spread = (
   p50Ms: number | null,
   p90Ms: number | null,
   count: number,
@@ -348,6 +348,7 @@ const FLOW: InsightsFlow = {
       reviewed: 25,
       merged: 23,
       openedTaskIds: [],
+      reviewedTaskIds: ['task_run_impl_9', 'task_run_spec_4'],
       mergedTaskIds: [],
     },
   },
@@ -372,6 +373,7 @@ const FLOW: InsightsFlow = {
       reviewed: 19,
       merged: 17,
       openedTaskIds: [],
+      reviewedTaskIds: [],
       mergedTaskIds: [],
     },
   },
@@ -390,6 +392,7 @@ const EMPTY_FLOW: InsightsFlow = {
       reviewed: 0,
       merged: 0,
       openedTaskIds: [],
+      reviewedTaskIds: [],
       mergedTaskIds: [],
     },
   },
@@ -403,6 +406,7 @@ const EMPTY_FLOW: InsightsFlow = {
       reviewed: 0,
       merged: 0,
       openedTaskIds: [],
+      reviewedTaskIds: [],
       mergedTaskIds: [],
     },
   },

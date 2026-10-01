@@ -28,6 +28,11 @@ import type {
 } from '@/lib/api';
 import type { ImprovedStation } from '@/lib/chat';
 import { spentIn, took } from '@/lib/inbox';
+import {
+  PULL_REQUEST_FILTER_KEYS,
+  type PullRequestFilterKey,
+  pullRequestFilterOf,
+} from '@/lib/insights-pull-requests';
 import { percentShown } from '@/lib/judge';
 import { RANGES, type Range } from '@/lib/range';
 import { teamSectionPath } from '@/lib/team';
@@ -73,6 +78,7 @@ export const asPeriod = (raw: string | null): InsightsPeriod =>
 export const INSIGHTS_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'flow', label: 'Flow' },
+  { id: 'pull-requests', label: 'Pull requests' },
   { id: 'stations', label: 'Stations' },
   { id: 'people', label: 'People' },
   { id: 'cost', label: 'Cost' },
@@ -134,15 +140,30 @@ const RUN_FILTER_KEYS = [
 
 export type RunFilterKey = (typeof RUN_FILTER_KEYS)[number];
 
-export type RunFilter = {
-  readonly [key in RunFilterKey]?: string;
+export type InsightsFilter = {
+  readonly [key in RunFilterKey | PullRequestFilterKey]?: string;
 };
+
+export type RunFilter = Pick<InsightsFilter, RunFilterKey>;
 
 export type InsightsView = {
   readonly tab: InsightsTab;
   readonly period: InsightsPeriod;
-  readonly filter: RunFilter;
+  readonly filter: InsightsFilter;
   readonly page: number;
+};
+
+const LISTED_TABS: readonly InsightsTab[] = ['runs', 'pull-requests'];
+
+const filterKeysOf = (tab: InsightsTab): readonly (keyof InsightsFilter)[] => {
+  switch (tab) {
+    case 'runs':
+      return RUN_FILTER_KEYS;
+    case 'pull-requests':
+      return PULL_REQUEST_FILTER_KEYS;
+    default:
+      return [];
+  }
 };
 
 const pageOf = (raw: string | null): number => {
@@ -150,7 +171,7 @@ const pageOf = (raw: string | null): number => {
   return Number.isInteger(asked) && asked > 1 ? asked : 1;
 };
 
-const filterOf = (params: URLSearchParams): RunFilter =>
+const runFilterOf = (params: URLSearchParams): RunFilter =>
   Object.fromEntries(
     RUN_FILTER_KEYS.flatMap((key) => {
       const value = params.get(key);
@@ -178,14 +199,28 @@ const filterOf = (params: URLSearchParams): RunFilter =>
     }),
   );
 
+const filterOf = (
+  tab: InsightsTab,
+  params: URLSearchParams,
+): InsightsFilter => {
+  switch (tab) {
+    case 'runs':
+      return runFilterOf(params);
+    case 'pull-requests':
+      return pullRequestFilterOf(params);
+    default:
+      return {};
+  }
+};
+
 export const viewOf = (params: URLSearchParams): InsightsView => {
   const tab = asTab(params.get('tab'));
 
   return {
     tab,
     period: asPeriod(params.get('period')),
-    filter: tab === 'runs' ? filterOf(params) : {},
-    page: tab === 'runs' ? pageOf(params.get('page')) : 1,
+    filter: filterOf(tab, params),
+    page: LISTED_TABS.includes(tab) ? pageOf(params.get('page')) : 1,
   };
 };
 
@@ -195,13 +230,11 @@ export const paramsOf = (view: InsightsView): Record<string, string> =>
     ...(view.period === DEFAULT_PERIOD
       ? []
       : [['period', view.period] as const]),
-    ...(view.tab === 'runs'
-      ? RUN_FILTER_KEYS.flatMap((key) => {
-          const value = view.filter[key];
-          return value ? [[key, value] as const] : [];
-        })
-      : []),
-    ...(view.tab === 'runs' && view.page > 1
+    ...filterKeysOf(view.tab).flatMap((key) => {
+      const value = view.filter[key];
+      return value ? [[key, value] as const] : [];
+    }),
+    ...(LISTED_TABS.includes(view.tab) && view.page > 1
       ? [['page', String(view.page)] as const]
       : []),
   ]);
@@ -314,7 +347,7 @@ const spendAmount = (spend: Spend | null, like: Spend | null): number | null =>
   spend && (!like || like.currency === spend.currency) ? spend.amount : null;
 
 export type TileDrill =
-  | { readonly tab: InsightsTab; readonly filter?: RunFilter }
+  | { readonly tab: InsightsTab; readonly filter?: InsightsFilter }
   | undefined;
 
 export type HeadlineTile = {
@@ -697,19 +730,28 @@ export const flowLinkRows = (shown: SankeyShown): FlowLinkRow[] =>
     amount: link.value,
   }));
 
-export const runsShownOf = (runs: InsightsRuns): string => {
-  if (runs.total === 0) {
-    return 'No runs';
-  }
-
-  const first = (runs.page - 1) * runs.size + 1;
-  const last = Math.min(runs.page * runs.size, runs.total);
-
-  return `${countShown(first)}–${countShown(last)} of ${countShown(runs.total)}`;
+type Paged = {
+  readonly total: number;
+  readonly page: number;
+  readonly size: number;
 };
 
-export const lastPageOf = (runs: InsightsRuns): number =>
-  Math.max(Math.ceil(runs.total / Math.max(runs.size, 1)), 1);
+export const pageShownOf = (paged: Paged, none: string): string => {
+  if (paged.total === 0) {
+    return none;
+  }
+
+  const first = (paged.page - 1) * paged.size + 1;
+  const last = Math.min(paged.page * paged.size, paged.total);
+
+  return `${countShown(first)}–${countShown(last)} of ${countShown(paged.total)}`;
+};
+
+export const runsShownOf = (runs: InsightsRuns): string =>
+  pageShownOf(runs, 'No runs');
+
+export const lastPageOf = (paged: Paged): number =>
+  Math.max(Math.ceil(paged.total / Math.max(paged.size, 1)), 1);
 
 const FILTER_LABELS: Record<RunFilterKey, string> = {
   lineId: 'Line',

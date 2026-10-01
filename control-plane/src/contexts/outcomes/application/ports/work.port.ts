@@ -61,4 +61,6 @@ export interface WorkPort {
   configsInOrder(
     fingerprints: readonly string[],
   ): Promise<readonly ConfigInOrder[]>;
+
+  teamRepositories(teamId: string): Promise<readonly string[]>;
 }

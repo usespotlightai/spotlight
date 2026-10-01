@@ -17,6 +17,7 @@ type DeliveryStagesProps = {
 
 export function DeliveryStages({ delivery, before }: DeliveryStagesProps) {
   const opened = tasksFilter(delivery.openedTaskIds);
+  const reviewed = tasksFilter(delivery.reviewedTaskIds);
 
   return (
     <InsightsCard
@@ -36,6 +37,7 @@ export function DeliveryStages({ delivery, before }: DeliveryStagesProps) {
           value={countShown(delivery.reviewed)}
           detail={`PR to review ${spreadShown(delivery.toFirstReview)}`}
           delta={deltaOf(delivery.reviewed, before.reviewed, 'up')}
+          drill={reviewed ? { tab: 'runs', filter: reviewed } : undefined}
         />
         <InsightsTile
           label="PRs merged"

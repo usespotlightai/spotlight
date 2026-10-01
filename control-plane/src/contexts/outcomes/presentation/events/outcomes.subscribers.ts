@@ -2,10 +2,12 @@ import type { AskForJudging } from '@outcomes/application/services/ask-for-judgi
 import type { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import type { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import type { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
+import type { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import type { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
 import type { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import type { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import type { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
+import type { NotePullRequestRecords } from '@outcomes/application/services/note-pull-request-records.service';
 import type { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import type { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import type { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
@@ -21,6 +23,10 @@ import {
   type ChangeCheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import {
+  CHANGE_STACK_SHAPED,
+  type ChangeStackShapedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/change-stack-shaped.integration-event';
+import {
   CHAT_STARTED,
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
@@ -29,9 +35,21 @@ import {
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import {
+  PULL_REQUEST_FORGOTTEN,
+  type PullRequestForgottenIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
+import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import {
+  PULL_REQUEST_RECORDED,
+  type PullRequestRecordedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-recorded.integration-event';
+import {
+  PULL_REQUEST_REVIEW_TAKEN,
+  type PullRequestReviewTakenIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import {
   PULL_REQUEST_REVIEWED,
   type PullRequestReviewedIntegrationEvent,
@@ -107,7 +125,34 @@ export interface OutcomesReactions {
   readonly failing: NoteTaskFailed;
   readonly touching: NoteTaskTouch;
   readonly chatting: NoteChatStarted;
+  readonly recording: NotePullRequestRecords;
+  readonly shaping: NoteChangeShaped;
 }
+
+const dateOf = (at: string | null): Date | null => (at ? new Date(at) : null);
+
+const seenOf = (event: PullRequestRecordedIntegrationEvent) => ({
+  repository: event.repository,
+  number: event.number,
+  title: event.title,
+  author: event.author,
+  authorIsBot: event.authorIsBot,
+  branch: event.branch,
+  additions: event.additions,
+  deletions: event.deletions,
+  changedFiles: event.changedFiles,
+  openedAt: new Date(event.openedAt),
+  state: event.state,
+  closedAt: dateOf(event.closedAt),
+  updatedAt: new Date(event.updatedAt),
+  firstReviewAt: dateOf(event.firstReviewAt),
+  reviews: event.reviews,
+  reviewRounds: event.reviewRounds,
+  reviewComments: event.reviewComments,
+  isRevert: event.isRevert,
+  revertedBy: event.revertedBy,
+  version: event.version,
+});
 
 export const outcomesSubscribers = (
   reactions: OutcomesReactions,
@@ -235,6 +280,90 @@ export const outcomesSubscribers = (
         merged: event.merged,
         at: event.closedAt ? new Date(event.closedAt) : null,
       }),
+  ),
+  subscribing<PullRequestRecordedIntegrationEvent>(
+    'outcomes.record-seen-pull-request',
+    [PULL_REQUEST_RECORDED],
+    (event) =>
+      reactions.recording.seen({
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        pullRequest: PullRequestUrl.of(event.pullRequest),
+        seen: seenOf(event),
+      }),
+  ),
+  subscribing<PullRequestForgottenIntegrationEvent>(
+    'outcomes.forget-pull-request-github-forgot',
+    [PULL_REQUEST_FORGOTTEN],
+    (event) =>
+      reactions.recording.forgottenByGitHub({
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        pullRequest: PullRequestUrl.of(event.pullRequest),
+        updatedAt: new Date(event.updatedAt),
+      }),
+  ),
+  subscribing<PullRequestOpenedIntegrationEvent>(
+    'outcomes.record-pull-request-owner',
+    [PULL_REQUEST_OPENED],
+    (event) =>
+      reactions.recording.owned({
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        pullRequest: PullRequestUrl.of(event.url),
+        taskId: TaskId.of(event.taskId),
+        teamId: TeamId.of(event.teamId),
+      }),
+  ),
+  subscribing<PullRequestReviewTakenIntegrationEvent>(
+    'outcomes.record-pull-request-review-task',
+    [PULL_REQUEST_REVIEW_TAKEN],
+    (event) =>
+      reactions.recording.reviewed({
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        pullRequest: PullRequestUrl.of(event.url),
+        taskId: TaskId.of(event.taskId),
+      }),
+  ),
+  subscribing<ChangeStackShapedIntegrationEvent>(
+    'outcomes.record-change-shape',
+    [CHANGE_STACK_SHAPED],
+    (event) =>
+      event.taskId
+        ? reactions.shaping.shaped({
+            runId: event.runId,
+            taskId: event.taskId,
+            workspaceId: event.workspaceId,
+            shape: {
+              changeTitles: event.changeTitles,
+              changeIntents: event.changeIntents,
+              at: new Date(event.at),
+            },
+          })
+        : Promise.resolve(),
+  ),
+  subscribing<TaskDeletedIntegrationEvent>(
+    'outcomes.forget-pull-requests-of-deleted-task',
+    [TASK_DELETED],
+    (event) =>
+      reactions.forgetting.pullRequestsOfTask(
+        WorkspaceId.of(event.workspaceId),
+        TaskId.of(event.taskId),
+      ),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'outcomes.forget-pull-requests-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.forgetting.pullRequestsOfTeam(
+        WorkspaceId.of(event.workspaceId),
+        TeamId.of(event.teamId),
+      ),
+  ),
+  subscribing<WorkspaceClosedIntegrationEvent>(
+    'outcomes.forget-pull-requests-of-closed-workspace',
+    [WORKSPACE_CLOSED],
+    (event) =>
+      reactions.forgetting.pullRequestsOfWorkspace(
+        WorkspaceId.of(event.workspaceId),
+      ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'outcomes.forget-runs-of-deleted-task',

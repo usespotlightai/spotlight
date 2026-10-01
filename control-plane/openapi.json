@@ -16889,7 +16889,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -16948,7 +16948,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17007,7 +17007,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17066,7 +17066,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17125,7 +17125,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -17134,6 +17134,239 @@
           }
         ],
         "summary": "Spend by harness, model, station and repository, and how it flows from model to station to repository",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/teams/{teamId}/insights/pull-requests": {
+      "get": {
+        "operationId": "readInsightsPullRequests",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "description": "How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long",
+            "schema": {
+              "enum": [
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsPullRequestsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "How much of what the team merges Spotlight made or touched, week by week, how Spotlight’s pull requests fare against people’s, and what kinds it ships",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/teams/{teamId}/insights/pull-requests/list": {
+      "get": {
+        "operationId": "listInsightsPullRequests",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "required": false,
+            "in": "query",
+            "description": "Pull requests per page: 50 unless asked, 200 at most",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Which page, from 1",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "rounds",
+            "required": false,
+            "in": "query",
+            "description": "Only pull requests that took this many review rounds",
+            "schema": {
+              "enum": [
+                "0",
+                "1",
+                "2",
+                "3+"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "compared",
+            "required": false,
+            "in": "query",
+            "description": "true for only pull requests in the repositories Spotlight merged into in the period, the ones its pull requests are set against people’s in",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "reverted",
+            "required": false,
+            "in": "query",
+            "description": "true for only pull requests another merged pull request reverted",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "week",
+            "required": false,
+            "in": "query",
+            "description": "Only pull requests that closed in the week starting this UTC day, as YYYY-MM-DD",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "description": "merged or closed for those that closed so in the period, open for those still open",
+            "schema": {
+              "enum": [
+                "open",
+                "merged",
+                "closed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Only pull requests of this type",
+            "schema": {
+              "enum": [
+                "feature",
+                "fix",
+                "refactor",
+                "tests",
+                "chore",
+                "other"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "author",
+            "required": false,
+            "in": "query",
+            "description": "spotlight for those a task opened, touched for others’ a Spotlight review task was opened on, bots for bots’ with no such task, people for the rest",
+            "schema": {
+              "enum": [
+                "spotlight",
+                "touched",
+                "people",
+                "bots"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository",
+            "required": false,
+            "in": "query",
+            "description": "Only pull requests in these repositories, comma-separated or repeated, at most 50",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "description": "How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long",
+            "schema": {
+              "enum": [
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsPullRequestListResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Every pull request in the team’s repositories opened or closed in the period, or still open, the latest first, a page at a time; every filter narrows it further",
         "tags": [
           "insights"
         ]
@@ -17350,7 +17583,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "No such period, or a filter it does not take: more tasks than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
           }
         },
         "security": [
@@ -28082,6 +28315,13 @@
               "type": "string"
             }
           },
+          "reviewedTaskIds": {
+            "description": "The tasks whose pull requests a person first reviewed in the period",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "mergedTaskIds": {
             "type": "array",
             "items": {
@@ -28097,6 +28337,7 @@
           "reviewed",
           "merged",
           "openedTaskIds",
+          "reviewedTaskIds",
           "mergedTaskIds"
         ]
       },
@@ -28851,6 +29092,628 @@
           "cost",
           "spendBefore",
           "mixedCurrenciesBefore"
+        ]
+      },
+      "WeekShareResponseDto": {
+        "type": "object",
+        "properties": {
+          "week": {
+            "type": "string",
+            "example": "2026-09-28",
+            "description": "The Monday, UTC, the week starts on"
+          },
+          "merged": {
+            "type": "number",
+            "example": 12,
+            "description": "Pull requests merged that week"
+          },
+          "made": {
+            "type": "number",
+            "example": 5,
+            "description": "Of those, the ones Spotlight made"
+          },
+          "touched": {
+            "type": "number",
+            "example": 2,
+            "description": "Of those, ones people or bots wrote that a Spotlight review task was opened on"
+          },
+          "bots": {
+            "type": "number",
+            "example": 3,
+            "description": "Of those, ones bots wrote with no Spotlight review task"
+          },
+          "share": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.58,
+            "description": "Made and touched over everything merged, bots’ included, from 0 to 1; none where nothing merged"
+          }
+        },
+        "required": [
+          "week",
+          "merged",
+          "made",
+          "touched",
+          "bots",
+          "share"
+        ]
+      },
+      "RepositoryPenetrationResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "acme/api"
+          },
+          "merged": {
+            "type": "number",
+            "example": 40
+          },
+          "made": {
+            "type": "number",
+            "example": 18
+          },
+          "touched": {
+            "type": "number",
+            "example": 4
+          },
+          "bots": {
+            "type": "number",
+            "example": 1
+          },
+          "share": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.55
+          },
+          "weeks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeekShareResponseDto"
+            }
+          }
+        },
+        "required": [
+          "repository",
+          "merged",
+          "made",
+          "touched",
+          "bots",
+          "share",
+          "weeks"
+        ]
+      },
+      "PenetrationResponseDto": {
+        "type": "object",
+        "properties": {
+          "merged": {
+            "type": "number",
+            "example": 52,
+            "description": "Pull requests merged in the period, across the team, bots’ included"
+          },
+          "made": {
+            "type": "number",
+            "example": 21
+          },
+          "touched": {
+            "type": "number",
+            "example": 6,
+            "description": "Merged ones a Spotlight review task was opened on"
+          },
+          "bots": {
+            "type": "number",
+            "example": 4,
+            "description": "Merged ones bots wrote alone"
+          },
+          "share": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.52,
+            "description": "Made and touched over everything merged; bots’ pull requests count in the whole"
+          },
+          "weeks": {
+            "description": "The team, week by week, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeekShareResponseDto"
+            }
+          },
+          "repositories": {
+            "description": "Each repository the team’s lines work, and any other its tasks merged into, the busiest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositoryPenetrationResponseDto"
+            }
+          }
+        },
+        "required": [
+          "merged",
+          "made",
+          "touched",
+          "bots",
+          "share",
+          "weeks",
+          "repositories"
+        ]
+      },
+      "GroupMeasuresResponseDto": {
+        "type": "object",
+        "properties": {
+          "merged": {
+            "type": "number",
+            "example": 21,
+            "description": "Pull requests merged"
+          },
+          "toMerge": {
+            "description": "From opening to merge",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpreadResponseDto"
+              }
+            ]
+          },
+          "inReview": {
+            "description": "From the first review by a person to merge",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpreadResponseDto"
+              }
+            ]
+          },
+          "meanRounds": {
+            "type": "number",
+            "nullable": true,
+            "example": 1.4,
+            "description": "Review rounds per pull request: each approval or request for changes by a person, and any later comments, is a round"
+          },
+          "meanComments": {
+            "type": "number",
+            "nullable": true,
+            "example": 3.2,
+            "description": "Review comments by people per pull request"
+          },
+          "reverted": {
+            "type": "number",
+            "example": 1,
+            "description": "Merged, then reverted"
+          },
+          "revertRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.05
+          }
+        },
+        "required": [
+          "merged",
+          "toMerge",
+          "inReview",
+          "meanRounds",
+          "meanComments",
+          "reverted",
+          "revertRate"
+        ]
+      },
+      "ComparisonResponseDto": {
+        "type": "object",
+        "properties": {
+          "repositories": {
+            "example": [
+              "acme/api"
+            ],
+            "description": "The repositories Spotlight merged into in the period; people’s pull requests are counted only in these",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "spotlight": {
+            "description": "Pull requests Spotlight made",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GroupMeasuresResponseDto"
+              }
+            ]
+          },
+          "people": {
+            "description": "Pull requests people wrote with no Spotlight review task opened on them; bots’ are left out",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GroupMeasuresResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "repositories",
+          "spotlight",
+          "people"
+        ]
+      },
+      "TypeShareResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "feature",
+              "fix",
+              "refactor",
+              "tests",
+              "chore",
+              "other"
+            ],
+            "example": "fix"
+          },
+          "spotlight": {
+            "type": "number",
+            "example": 7,
+            "description": "Pull requests of this type Spotlight merged"
+          },
+          "people": {
+            "type": "number",
+            "example": 9,
+            "description": "Pull requests of this type people merged alone, bots’ left out"
+          },
+          "spend": {
+            "nullable": true,
+            "description": "What the runs of Spotlight’s pull requests of this type cost; none where nothing was priced or prices came in more than one currency",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpendResponseDto"
+              }
+            ]
+          },
+          "unpriced": {
+            "type": "number",
+            "example": 0,
+            "description": "Runs with no price"
+          },
+          "mixedCurrencies": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "type",
+          "spotlight",
+          "people",
+          "spend",
+          "unpriced",
+          "mixedCurrencies"
+        ]
+      },
+      "RoundsShareResponseDto": {
+        "type": "object",
+        "properties": {
+          "rounds": {
+            "type": "string",
+            "enum": [
+              "0",
+              "1",
+              "2",
+              "3+"
+            ],
+            "example": "1"
+          },
+          "spotlight": {
+            "type": "number",
+            "example": 12
+          },
+          "people": {
+            "type": "number",
+            "example": 15,
+            "description": "People’s alone, bots’ left out"
+          }
+        },
+        "required": [
+          "rounds",
+          "spotlight",
+          "people"
+        ]
+      },
+      "InsightsPullRequestsResponseDto": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "$ref": "#/components/schemas/InsightsPeriodResponseDto"
+          },
+          "truncated": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the team had more than 20,000 pull requests in the period, so only the newest 20,000 were counted"
+          },
+          "total": {
+            "type": "number",
+            "example": 64,
+            "description": "Pull requests recorded in the team’s repositories that were open at some point in the period, whatever became of them"
+          },
+          "repositories": {
+            "example": [
+              "acme/api",
+              "acme/web"
+            ],
+            "description": "The repositories the team’s lines work",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "weeks": {
+            "example": [
+              "2026-09-21",
+              "2026-09-28"
+            ],
+            "description": "The Mondays of every week the period touches, oldest first",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "penetration": {
+            "description": "How much of what merged Spotlight made or touched",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PenetrationResponseDto"
+              }
+            ]
+          },
+          "comparison": {
+            "description": "Spotlight’s merged pull requests against people’s, in the same repositories",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonResponseDto"
+              }
+            ]
+          },
+          "types": {
+            "description": "What merged, by type, with what Spotlight spent on each",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TypeShareResponseDto"
+            }
+          },
+          "depth": {
+            "description": "How many review rounds merged pull requests took, Spotlight’s against people’s, in the same repositories",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoundsShareResponseDto"
+            }
+          }
+        },
+        "required": [
+          "period",
+          "truncated",
+          "total",
+          "repositories",
+          "weeks",
+          "penetration",
+          "comparison",
+          "types",
+          "depth"
+        ]
+      },
+      "InsightsPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "pullRequest": {
+            "type": "string",
+            "example": "https://github.com/acme/api/pull/42"
+          },
+          "repository": {
+            "type": "string",
+            "example": "acme/api"
+          },
+          "number": {
+            "type": "number",
+            "example": 42
+          },
+          "title": {
+            "type": "string",
+            "example": "Retry failed uploads"
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "example": "octocat"
+          },
+          "authorIsBot": {
+            "type": "boolean",
+            "example": false
+          },
+          "by": {
+            "type": "string",
+            "enum": [
+              "spotlight",
+              "touched",
+              "people",
+              "bots"
+            ],
+            "example": "spotlight",
+            "description": "spotlight where a task opened it, touched where someone else wrote it and a Spotlight review task was opened on it, bots where a bot wrote it with no such task, people otherwise"
+          },
+          "taskId": {
+            "type": "string",
+            "nullable": true,
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "description": "The task that opened it"
+          },
+          "reviewTaskIds": {
+            "description": "The review tasks opened on it",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "feature",
+              "fix",
+              "refactor",
+              "tests",
+              "chore",
+              "other"
+            ],
+            "example": "feature"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "merged",
+              "closed"
+            ],
+            "example": "merged"
+          },
+          "openedAt": {
+            "type": "string",
+            "example": "2026-09-29T10:00:00.000Z"
+          },
+          "closedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "firstReviewAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "toMergeMs": {
+            "type": "number",
+            "nullable": true,
+            "example": 86400000
+          },
+          "inReviewMs": {
+            "type": "number",
+            "nullable": true,
+            "example": 3600000
+          },
+          "reviews": {
+            "type": "number",
+            "example": 2,
+            "description": "Reviews people gave it"
+          },
+          "reviewRounds": {
+            "type": "number",
+            "example": 1
+          },
+          "reviewComments": {
+            "type": "number",
+            "example": 3
+          },
+          "isRevert": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether it reverts another pull request"
+          },
+          "reverted": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether another merged pull request reverted it"
+          },
+          "revertedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "additions": {
+            "type": "number",
+            "nullable": true,
+            "example": 120
+          },
+          "deletions": {
+            "type": "number",
+            "nullable": true,
+            "example": 30
+          },
+          "changedFiles": {
+            "type": "number",
+            "nullable": true,
+            "example": 4
+          },
+          "spend": {
+            "nullable": true,
+            "description": "What the runs of the task that opened it cost",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpendResponseDto"
+              }
+            ]
+          },
+          "unpriced": {
+            "type": "number",
+            "example": 0,
+            "description": "Its task’s runs with no price"
+          }
+        },
+        "required": [
+          "pullRequest",
+          "repository",
+          "number",
+          "title",
+          "author",
+          "authorIsBot",
+          "by",
+          "taskId",
+          "reviewTaskIds",
+          "type",
+          "state",
+          "openedAt",
+          "closedAt",
+          "firstReviewAt",
+          "toMergeMs",
+          "inReviewMs",
+          "reviews",
+          "reviewRounds",
+          "reviewComments",
+          "isRevert",
+          "reverted",
+          "revertedBy",
+          "additions",
+          "deletions",
+          "changedFiles",
+          "spend",
+          "unpriced"
+        ]
+      },
+      "InsightsPullRequestListResponseDto": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "$ref": "#/components/schemas/InsightsPeriodResponseDto"
+          },
+          "truncated": {
+            "type": "boolean",
+            "example": false
+          },
+          "total": {
+            "type": "number",
+            "example": 52,
+            "description": "Pull requests that match"
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "size": {
+            "type": "number",
+            "example": 50
+          },
+          "pullRequests": {
+            "description": "This page, the most recently closed or opened first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InsightsPullRequestResponseDto"
+            }
+          }
+        },
+        "required": [
+          "period",
+          "truncated",
+          "total",
+          "page",
+          "size",
+          "pullRequests"
         ]
       },
       "TokenCountsResponseDto": {

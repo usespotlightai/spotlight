@@ -68,6 +68,7 @@ const connecting = (
     {
       of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),
       claimantOf: vi.fn(async () => over.claimedBy ?? null),
+      heldClaimantOf: vi.fn(async () => over.claimedBy ?? null),
       save,
     } satisfies GitHubConnectionRepository,
     administration,

@@ -37,6 +37,7 @@ interface DeliveryFlow {
   readonly reviewed: number;
   readonly merged: number;
   readonly openedTaskIds: readonly string[];
+  readonly reviewedTaskIds: readonly string[];
   readonly mergedTaskIds: readonly string[];
 }
 
@@ -120,6 +121,7 @@ export const flowOf = (history: TeamHistory, window: Window): Flow => {
       reviewed: reviewed.length,
       merged: merged.length,
       openedTaskIds: opened.map((each) => each.taskId.value),
+      reviewedTaskIds: reviewed.map((each) => each.taskId.value),
       mergedTaskIds: merged.map((each) => each.taskId.value),
     },
   };
