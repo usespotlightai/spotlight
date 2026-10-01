@@ -137,7 +137,11 @@ describe('CreateTaskFromProposal', () => {
       new TaskOpened(
         TaskId.of('task_9'),
         WorkspaceId.of('ws_1'),
+        TeamId.of('team_1'),
+        LineId.of('line_1'),
         StationId.of('station_1'),
+        null,
+        new Date(),
         false,
         ProposalOrigin.of({ chatId: ChatId.of('chat_1'), position: SECOND }),
       ),
@@ -156,7 +160,11 @@ describe('CreateTaskFromProposal', () => {
       new TaskOpened(
         TaskId.of('task_9'),
         WorkspaceId.of('ws_1'),
+        TeamId.of('team_1'),
+        LineId.of('line_1'),
         StationId.of('station_1'),
+        null,
+        new Date(),
         false,
       ),
     );

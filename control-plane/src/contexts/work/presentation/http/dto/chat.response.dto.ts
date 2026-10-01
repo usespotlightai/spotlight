@@ -6,6 +6,42 @@ import {
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 
+export class ChatImprovingResponseDto {
+  @ApiProperty()
+  readonly lineId: string;
+
+  @ApiProperty({ example: 'delivery' })
+  readonly lineKey: string;
+
+  @ApiProperty({ example: 'Delivery' })
+  readonly lineName: string;
+
+  @ApiProperty()
+  readonly stationId: string;
+
+  @ApiProperty({ example: 'implementation' })
+  readonly stationKey: string;
+
+  @ApiProperty({ example: 'Implementation' })
+  readonly stationName: string;
+
+  constructor(from: {
+    lineId: string;
+    lineKey: string;
+    lineName: string;
+    stationId: string;
+    stationKey: string;
+    stationName: string;
+  }) {
+    this.lineId = from.lineId;
+    this.lineKey = from.lineKey;
+    this.lineName = from.lineName;
+    this.stationId = from.stationId;
+    this.stationKey = from.stationKey;
+    this.stationName = from.stationName;
+  }
+}
+
 export class ChatSummaryResponseDto {
   @ApiProperty({ example: '0b8f5e2c-4d1a-4b7e-9c3f-6a2d8e1f5b90' })
   readonly id: string;
@@ -25,6 +61,13 @@ export class ChatSummaryResponseDto {
   @ApiProperty({ type: String, isArray: true, example: ['acme/api'] })
   readonly repositories: readonly string[];
 
+  @ApiProperty({
+    type: () => ChatImprovingResponseDto,
+    nullable: true,
+    description: 'The station the chat is about improving, if any',
+  })
+  readonly improving: ChatImprovingResponseDto | null;
+
   @ApiProperty({ example: '2026-09-14T09:00:00.000Z' })
   readonly createdAt: string;
 
@@ -41,6 +84,7 @@ export class ChatSummaryResponseDto {
     model: string | null,
     effort: string | null,
     repositories: readonly string[],
+    improving: ChatImprovingResponseDto | null,
     createdAt: string,
     updatedAt: string,
     working: boolean,
@@ -51,6 +95,7 @@ export class ChatSummaryResponseDto {
     this.model = model;
     this.effort = effort;
     this.repositories = repositories;
+    this.improving = improving;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.working = working;
@@ -207,6 +252,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
       summary.model,
       summary.effort,
       summary.repositories,
+      summary.improving,
       summary.createdAt,
       summary.updatedAt,
       summary.working,

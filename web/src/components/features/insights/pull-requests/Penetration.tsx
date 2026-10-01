@@ -1,0 +1,59 @@
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { InsightsTile } from '@/components/features/insights/InsightsTile';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import { PenetrationChart } from '@/components/features/insights/pull-requests/PenetrationChart';
+import { PenetrationTable } from '@/components/features/insights/pull-requests/PenetrationTable';
+import { countShown, shareShown } from '@/lib/insights';
+import {
+  type InsightsPullRequests,
+  mergedPullRequestsFilter,
+  weekBars,
+} from '@/lib/insights-pull-requests';
+
+type PenetrationProps = {
+  penetration: InsightsPullRequests['penetration'];
+};
+
+export function Penetration({ penetration }: PenetrationProps) {
+  const drill = (filter: Parameters<typeof mergedPullRequestsFilter>[0]) => ({
+    tab: 'pull-requests' as const,
+    filter: mergedPullRequestsFilter(filter),
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <InsightsTiles label="Merged pull requests">
+        <InsightsTile
+          label="PRs merged"
+          value={countShown(penetration.merged)}
+          detail="In the team’s repositories"
+          drill={drill({})}
+        />
+        <InsightsTile
+          label="Made by Spotlight"
+          value={countShown(penetration.made)}
+          drill={drill({ author: 'spotlight' })}
+        />
+        <InsightsTile
+          label="Reviewed by Spotlight"
+          value={countShown(penetration.touched)}
+          detail="Others’, with a Spotlight review task opened"
+          drill={drill({ author: 'touched' })}
+        />
+        <InsightsTile
+          label="Spotlight’s share"
+          value={shareShown(penetration.share)}
+          detail="Made or reviewed by Spotlight, of all merged, bots’ included"
+        />
+      </InsightsTiles>
+
+      <InsightsCard
+        title="Week by week"
+        description="Pull requests merged each week: made by Spotlight, written by someone else with a Spotlight review task opened on it, written by people alone, and written by bots alone."
+        table={<PenetrationTable weeks={penetration.weeks} repository={null} />}
+      >
+        <PenetrationChart bars={weekBars(penetration.weeks)} />
+      </InsightsCard>
+    </div>
+  );
+}

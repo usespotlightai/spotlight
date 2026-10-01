@@ -4,6 +4,15 @@ import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
 export const CHAT_READER = Symbol('CHAT_READER');
 
+interface ChatImprovingView {
+  readonly lineId: string;
+  readonly lineKey: string;
+  readonly lineName: string;
+  readonly stationId: string;
+  readonly stationKey: string;
+  readonly stationName: string;
+}
+
 export interface ChatSummary {
   readonly id: string;
   readonly title: string;
@@ -11,6 +20,7 @@ export interface ChatSummary {
   readonly model: string | null;
   readonly effort: string | null;
   readonly repositories: readonly string[];
+  readonly improving: ChatImprovingView | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly working: boolean;

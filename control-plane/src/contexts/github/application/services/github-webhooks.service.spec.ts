@@ -3,13 +3,17 @@ import type {
   TranslatedDelivery,
 } from '@github/application/ports/webhook-translation.port';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
+import type { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -29,6 +33,7 @@ const COMMENT = {
   body: 'Why not a constant?',
   answers: 200,
   login: 'octocat',
+  byBot: false,
   writtenAt: new Date('2026-09-16T09:00:00Z'),
 };
 
@@ -72,6 +77,7 @@ const hooks = (
           })
         : GitHubConnection.none(id),
     ),
+    heldClaimantOf: vi.fn(async () => (held ? WORKSPACE : null)),
     save: vi.fn(async (_: GitHubConnection) => {}),
   } satisfies GitHubConnectionRepository;
   const events = {
@@ -79,6 +85,13 @@ const hooks = (
   };
   const signature = { signs: vi.fn(() => over.signs ?? true) };
   const logger = { error: vi.fn() } as unknown as LoggerPort;
+  const recording = {
+    described: vi.fn(async () => {}),
+    reviewed: vi.fn(async () => {}),
+    reviewDismissed: vi.fn(async () => {}),
+    commented: vi.fn(async () => {}),
+    uninstalled: vi.fn(async () => 0),
+  };
 
   return {
     service: new GitHubWebhooks(
@@ -90,10 +103,12 @@ const hooks = (
       signature,
       connections,
       events,
+      recording as unknown as RecordPullRequests,
       logger,
     ),
     connections,
     events,
+    recording,
     signature,
     logger,
   };
@@ -170,6 +185,40 @@ describe('GitHubWebhooks', () => {
       ]);
     });
 
+    it('leaves forgetting the pull requests of a removed installation to the disconnection it says', async () => {
+      const { service, recording } = hooks({
+        installation: '158876513',
+        heard: [{ kind: 'installation-removed' }],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(recording.uninstalled).not.toHaveBeenCalled();
+    });
+
+    it('records that a review was dismissed', async () => {
+      const { service, recording } = hooks({
+        installation: '42',
+        heard: [
+          {
+            kind: 'pull-request-review-dismissed',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            id: 900,
+            facts: null,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(recording.reviewDismissed).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        'https://github.com/acme/api/pull/7',
+        null,
+        900,
+      );
+    });
+
     it('saves nothing where nobody held that installation', async () => {
       const { service, connections } = hooks(
         {
@@ -193,6 +242,7 @@ describe('GitHubWebhooks', () => {
             action: 'created',
             pullRequest: 'https://github.com/acme/api/pull/7',
             comment: COMMENT,
+            facts: null,
           },
         ],
       });
@@ -237,6 +287,119 @@ describe('GitHubWebhooks', () => {
       ]);
     });
 
+    it('says a pull request was reviewed in the workspace', async () => {
+      const submittedAt = new Date('2026-09-21T09:30:00Z');
+      const { service, events } = hooks({
+        installation: '42',
+        heard: [
+          {
+            kind: 'pull-request-reviewed',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            id: 900,
+            facts: null,
+            state: 'changes-requested',
+            login: 'ada',
+            byBot: false,
+            submittedAt,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(events.dispatch).toHaveBeenCalledWith([
+        new PullRequestReviewed(
+          WORKSPACE,
+          'https://github.com/acme/api/pull/7',
+          'changes-requested',
+          'ada',
+          false,
+          submittedAt,
+        ),
+      ]);
+    });
+
+    it('records every pull request it hears of, whether or not a task owns it', async () => {
+      const facts = {
+        url: PullRequestUrl.of('https://github.com/acme/api/pull/8'),
+        repository: Repository.of('acme/api'),
+        number: 8,
+        title: 'Tidy the router',
+        body: null,
+        author: 'ada',
+        authorIsBot: false,
+        branch: 'tidy-router',
+        size: { additions: 10, deletions: 2, changedFiles: 1 },
+        openedAt: new Date('2026-09-21T08:00:00Z'),
+        state: 'open' as const,
+        closedAt: null,
+        updatedAt: new Date('2026-09-21T08:30:00Z'),
+      };
+      const { service, recording } = hooks({
+        installation: '42',
+        heard: [{ kind: 'pull-request', facts }],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(recording.described).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        facts,
+      );
+    });
+
+    it('records a review on the pull request it was given to', async () => {
+      const submittedAt = new Date('2026-09-21T09:30:00Z');
+      const { service, recording } = hooks({
+        installation: '42',
+        heard: [
+          {
+            kind: 'pull-request-reviewed',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            id: 900,
+            facts: null,
+            state: 'approved',
+            login: 'ada',
+            byBot: false,
+            submittedAt,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(recording.reviewed).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        'https://github.com/acme/api/pull/7',
+        null,
+        { id: 900, state: 'approved', byBot: false, at: submittedAt },
+      );
+    });
+
+    it('records a review comment on the pull request it was left on', async () => {
+      const { service, recording } = hooks({
+        installation: '42',
+        heard: [
+          {
+            kind: 'review-comment',
+            action: 'deleted',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            comment: COMMENT,
+            facts: null,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(recording.commented).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        'https://github.com/acme/api/pull/7',
+        null,
+        { id: 300, action: 'deleted', byBot: false },
+      );
+    });
+
     it('says nothing of a delivery through an installation nobody claimed', async () => {
       const { service, events } = hooks(
         {
@@ -275,7 +438,7 @@ describe('GitHubWebhooks', () => {
       expect(events.dispatch).not.toHaveBeenCalled();
     });
 
-    it('does not fail the delivery when attending goes wrong', async () => {
+    it('fails the delivery when attending goes wrong, so it is tried again', async () => {
       const { service, events, logger } = hooks(
         {
           installation: '42',
@@ -288,9 +451,44 @@ describe('GitHubWebhooks', () => {
         },
       );
 
-      await expect(service.receive(DELIVERY)).resolves.toBeUndefined();
+      await expect(service.receive(DELIVERY)).rejects.toThrow(
+        'the outbox is down',
+      );
       expect(events.dispatch).toHaveBeenCalled();
       expect(logger.error).toHaveBeenCalled();
+    });
+
+    it('attends to everything a delivery said before failing it for what went wrong', async () => {
+      const facts = {
+        url: PullRequestUrl.of('https://github.com/acme/api/pull/8'),
+        repository: Repository.of('acme/api'),
+        number: 8,
+        title: 'Tidy the router',
+        body: null,
+        author: 'ada',
+        authorIsBot: false,
+        branch: null,
+        size: null,
+        openedAt: new Date('2026-09-21T08:00:00Z'),
+        state: 'open' as const,
+        closedAt: null,
+        updatedAt: new Date('2026-09-21T08:30:00Z'),
+      };
+      const { service, recording } = hooks({
+        installation: '42',
+        heard: [
+          { kind: 'pull-request', facts },
+          { kind: 'pull-request', facts: { ...facts, number: 9 } },
+        ],
+      });
+      recording.described.mockRejectedValueOnce(
+        new Error('Database went away'),
+      );
+
+      await expect(service.receive(DELIVERY)).rejects.toThrow(
+        'Database went away',
+      );
+      expect(recording.described).toHaveBeenCalledTimes(2);
     });
   });
 });

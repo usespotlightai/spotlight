@@ -86,7 +86,7 @@ const working = () =>
     newId: () => 'task_1',
   })
     .handedTo(RUN, DELIVERY)
-    .openedAt(RUN, PullRequestUrl.of(PULL));
+    .openedAt(RUN, PullRequestUrl.of(PULL), NOW, DELIVERY);
 
 const dispatched: Task[] = [];
 

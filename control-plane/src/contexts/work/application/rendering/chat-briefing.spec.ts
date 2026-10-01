@@ -10,8 +10,18 @@ import type {
 } from '@work/application/ports/team-memories.port';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { Line } from '@work/domain/aggregates/line.aggregate';
+import { Station } from '@work/domain/entities/station.entity';
 import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
+import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { LineKey } from '@work/domain/value-objects/line-key.vo';
+import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { StationKey } from '@work/domain/value-objects/station-key.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
@@ -42,8 +52,43 @@ const brief = (
   chat: Chat,
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
-) =>
-  ChatBriefing.brief({ chat, team: 'Core', lines: [], memories, memoryFolder });
+  lines: readonly Line[] = [],
+) => ChatBriefing.brief({ chat, team: 'Core', lines, memories, memoryFolder });
+
+const DELIVERY = Line.rehydrate({
+  id: LineId.of('line_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  key: LineKey.of('delivery'),
+  name: LineName.of('Delivery'),
+  stations: [
+    Station.of({
+      id: StationId.of('station_0'),
+      key: StationKey.of('backlog'),
+      name: StationName.of('Backlog'),
+      position: 0,
+      color: StationColor.of('#a3a8b0'),
+      kind: 'backlog',
+    }),
+    Station.of({
+      id: StationId.of('station_2'),
+      key: StationKey.of('completed'),
+      name: StationName.of('Completed'),
+      position: 2,
+      color: StationColor.of('#a3a8b0'),
+      kind: 'completed',
+    }),
+    Station.of({
+      id: StationId.of('station_1'),
+      key: StationKey.of('implementation'),
+      name: StationName.of('Building'),
+      position: 1,
+      color: StationColor.of('#a3a8b0'),
+      harness: HarnessId.of('claude-code'),
+      kind: 'work',
+    }),
+  ],
+});
 
 const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   const handed = chat
@@ -64,7 +109,52 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   return ChatBriefing.followUp(handed, event?.handed ?? []);
 };
 
+const improvingChat = () =>
+  Chat.start({
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+    startedBy: LEON,
+    harness: HarnessId.of('claude-code'),
+    body: ChatMessageBody.given('Improve this station.'),
+    improving: IMPLEMENTATION,
+    now: NOW,
+    newId: () => 'chat_1',
+  });
+
+const IMPLEMENTATION = ImprovedStation.rehydrate({
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
+  lineKey: LineKey.of('delivery'),
+  lineName: LineName.of('Delivery'),
+  stationId: StationId.of('station_1'),
+  stationKey: StationKey.of('implementation'),
+  stationName: StationName.of('Implementation'),
+});
+
 describe('ChatBriefing', () => {
+  it('briefs a chat improving a station to read its history first, and to propose Terraform', () => {
+    const briefed = brief(improvingChat(), [], null, [DELIVERY]);
+
+    expect(briefed).toContain('## Improving a station');
+    expect(briefed).toContain('the Building station');
+    expect(briefed).toContain(
+      'spotlight history --line delivery --station implementation --last 30',
+    );
+    expect(briefed).toContain('Propose one change at a time');
+    expect(briefed).toContain('prompts/<team>/delivery/implementation.md');
+  });
+
+  it('tells the agent when the station it was to improve is gone', () => {
+    const briefed = brief(improvingChat());
+
+    expect(briefed).toContain('no longer on the team');
+    expect(briefed).not.toContain('spotlight history');
+  });
+
+  it('says nothing of improving a station where none was shared', () => {
+    expect(brief(started())).not.toContain('spotlight history');
+  });
+
   it('gives the command for each shared trace, and how to read one', () => {
     const briefed = brief(started([traceOf('task_1', 'Retries back off')]));
 

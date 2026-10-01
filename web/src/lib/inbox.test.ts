@@ -6,10 +6,12 @@ import type {
   RunJournal,
 } from '@/lib/inbox';
 import {
+  counted,
   decisionOwed,
   inboxItemPath,
   previewOf,
   shownAt,
+  spentIn,
   spentOn,
   workedOn,
 } from '@/lib/inbox';
@@ -58,6 +60,22 @@ describe('spentOn', () => {
   });
 });
 
+describe('counted', () => {
+  it('shortens tokens to thousands and millions', () => {
+    expect(counted(950)).toBe('950');
+    expect(counted(412_300)).toBe('412.3k');
+    expect(counted(2_480_000)).toBe('2.5M');
+    expect(counted(999_960)).toBe('1M');
+  });
+});
+
+describe('spentIn', () => {
+  it('writes dollars as the rest of the app does, and names any other currency', () => {
+    expect(spentIn(0.25, 'USD')).toBe('$0.25');
+    expect(spentIn(3, 'EUR')).toBe('3.00 EUR');
+  });
+});
+
 describe('previewOf', () => {
   const item = (notes: Partial<InboxMessage>[]) =>
     ({
@@ -80,6 +98,22 @@ describe('previewOf', () => {
 
   it('says where it waits when nothing has been said', () => {
     expect(previewOf(item([]))).toBe('Waiting at Planning');
+  });
+
+  it('says a station crossed its alert, and that it came back within it', () => {
+    const alert = (resolved: boolean) =>
+      ({
+        ...item([]),
+        resolved,
+        aside: { form: 'alert', about: 'alert_1' },
+      }) as InboxItem;
+
+    expect(previewOf(alert(false))).toBe(
+      'A station crossed one of its alert thresholds.',
+    );
+    expect(previewOf(alert(true))).toBe(
+      'The station is back within its alert.',
+    );
   });
 });
 

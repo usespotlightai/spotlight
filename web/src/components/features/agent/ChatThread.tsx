@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
+import { ChatImproving } from '@/components/features/agent/ChatImproving';
 import { ChatSaid } from '@/components/features/agent/ChatSaid';
 import { ChatWork } from '@/components/features/agent/ChatWork';
 import { ProposalLink } from '@/components/features/agent/ProposalLink';
@@ -48,6 +49,13 @@ export function ChatThread({
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-8 py-8">
           <TimeMarker at={chat.createdAt} />
+          {chat.improving && (
+            <ChatImproving
+              slug={slug}
+              teamId={teamId}
+              improving={chat.improving}
+            />
+          )}
 
           {turns.length === 0 && !chat.working && <ChatEmpty />}
 

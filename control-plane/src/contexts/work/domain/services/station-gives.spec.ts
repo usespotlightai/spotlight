@@ -43,6 +43,8 @@ const laid = (key: string, over: Partial<StationPlan> = {}): StationPlan => ({
   diffs: false,
   decisions: false,
   memories: false,
+  judge: null,
+  alerts: [],
   tools: [],
   skills: [],
   passesTo: [],

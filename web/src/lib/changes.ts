@@ -7,6 +7,26 @@ export interface FileChange {
   readonly after: string;
 }
 
+export interface LineRange {
+  readonly start: number;
+  readonly end: number;
+}
+
+const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
+
+export const linesOfHunk = (header: string | null): LineRange | null => {
+  const found = header ? HUNK_HEADER.exec(header) : null;
+
+  if (!found) {
+    return null;
+  }
+
+  const start = Number(found[1]);
+  const count = found[2] === undefined ? 1 : Number(found[2]);
+
+  return { start: Math.max(start, 1), end: Math.max(start + count - 1, 1) };
+};
+
 export interface Tally {
   readonly added: number;
   readonly removed: number;

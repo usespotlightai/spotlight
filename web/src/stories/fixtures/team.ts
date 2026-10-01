@@ -21,6 +21,11 @@ export const WORKSPACE: WorkspaceResponseDto = {
   role: 'owner',
 };
 
+export const NOT_ON_TEAM = Object.assign(
+  new Error('There is no team team_platform for this caller'),
+  { statusCode: 404 },
+);
+
 export const CONFIGURATION: ConfigurationResponseDto = { integrations: [] };
 
 const MEMBERS: MemberResponseDto[] = [

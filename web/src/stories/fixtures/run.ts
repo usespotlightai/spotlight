@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { lineKeys } from '@/hooks/api/useLines';
 import { repositoryKeys } from '@/hooks/api/useRepositories';
+import { runConfigKeys } from '@/hooks/api/useRunConfig';
 import { runConversationKeys } from '@/hooks/api/useRunConversation';
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
@@ -12,6 +13,7 @@ import type {
   HarnessResponseDto,
   JournalStepResponseDto,
   LineResponseDto,
+  RunConfigResponseDto,
   RunConversationResponseDto,
   RunJournalResponseDto,
   RunStationResponseDto,
@@ -26,6 +28,12 @@ import {
   seedNoRunMemories,
   seedRunMemories,
 } from '@/stories/fixtures/run-memories';
+import {
+  failRunScores,
+  seedHiddenRunScores,
+  seedNoRunScores,
+  seedRunScores,
+} from '@/stories/fixtures/run-scores';
 
 export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
@@ -73,6 +81,14 @@ const CONVERSATION: RunConversationResponseDto = {
   briefing:
     '## Implementation\n\nYou are the Implementation station of the Delivery line. Carry out the change the spec settled on, keep the pull request small, and hand over once the tests pass.\n\n## The task\n\nDrain the stuck retry queues. Webhook deliveries have been failing since the queue worker was redeployed on Friday.\n\n## What came before\n\nMaya Chen answered: start with webhook-retries. Billing is still being reconciled, so leave it alone for now.',
   working: false,
+  spend: {
+    cost: 1.8742,
+    currency: 'USD',
+    inputTokens: 3_120,
+    outputTokens: 18_840,
+    cacheReadTokens: 2_412_300,
+    cacheWriteTokens: 61_400,
+  },
   notes: [
     {
       position: 0,
@@ -156,6 +172,8 @@ const station = (
   model: 'claude-opus-5',
   effort: 'high',
   agentPrompt: null,
+  judge: null,
+  alerts: [],
   kind,
   skills: [],
 });
@@ -212,11 +230,34 @@ const WORKSPACE: WorkspaceResponseDto = {
   teams: [{ id: TEAM_ID, name: 'Platform' }],
 };
 
+const FINGERPRINT =
+  '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9';
+
+const CONFIG: RunConfigResponseDto = {
+  fingerprint: FINGERPRINT,
+  config: {
+    prompt: 'Implement the spec on the task.',
+    harness: 'claude-code',
+    model: 'claude-opus-5',
+    effort: 'xhigh',
+    profile: null,
+    image: null,
+    repositories: [{ name: 'acme/worker', setup: 'npm ci' }],
+    skills: [{ key: 'reviewing', digest: 'c0ffee' }],
+    tools: [],
+    decisions: true,
+    memories: true,
+    judge: null,
+  },
+  changedSince: null,
+};
+
 const seedAround = (
   client: QueryClient,
   standing: Partial<TaskResponseDto> = {},
 ) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
+  client.setQueryData(runConfigKeys.forRun(RUN_ID), CONFIG);
   client.setQueryData(
     taskKeys.forTeam(TEAM_ID),
     TASKS.map((each) => ({ ...each, ...standing })),
@@ -227,6 +268,7 @@ const seedAround = (
     { fullName: 'acme/api' },
     { fullName: 'acme/worker' },
   ]);
+  seedNoRunScores(client, RUN_ID, TASK_ID);
 };
 
 export const seedRun = (client: QueryClient) => {
@@ -251,7 +293,10 @@ const seedPausedRun = (
   client.setQueryData(teamRunKeys.forTeam(TEAM_ID), [
     { ...RUN, state, exitCode: null, updatedAt, review: OWED },
   ]);
-  client.setQueryData(runConversationKeys.forRun(RUN_ID), CONVERSATION);
+  client.setQueryData(runConversationKeys.forRun(RUN_ID), {
+    ...CONVERSATION,
+    spend: null,
+  });
   client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
   seedRunMemories(client, TEAM_ID, RUN_ID);
 };
@@ -322,10 +367,69 @@ export const seedCarryingOnRun = (client: QueryClient) => {
   client.setQueryData(runConversationKeys.forRun(RUN_ID), {
     ...CONVERSATION,
     working: true,
+    spend: null,
     notes: [...CONVERSATION.notes, ANSWER],
   });
   client.setQueryData(journalKeys.forTask(TASK_ID), [...JOURNAL, CARRIED_ON]);
   seedRunMemories(client, TEAM_ID, RUN_ID);
+};
+
+export const seedChangedConfigRun = (client: QueryClient) => {
+  seedRun(client);
+  client.setQueryData(runConfigKeys.forRun(RUN_ID), {
+    ...CONFIG,
+    changedSince: {
+      runId: 'run_retries_1',
+      taskId: 'task_webhooks',
+      fingerprint:
+        'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
+      changes: [
+        {
+          part: 'prompt',
+          name: null,
+          kind: 'changed',
+          was: null,
+          now: null,
+        },
+        {
+          part: 'effort',
+          name: null,
+          kind: 'changed',
+          was: 'high',
+          now: 'xhigh',
+        },
+        {
+          part: 'skill',
+          name: 'reviewing',
+          kind: 'added',
+          was: null,
+          now: null,
+        },
+        {
+          part: 'memories',
+          name: null,
+          kind: 'changed',
+          was: 'off',
+          now: 'on',
+        },
+      ],
+    },
+  } satisfies RunConfigResponseDto);
+};
+
+export const seedPartlyReportedRun = (client: QueryClient) => {
+  seedRun(client);
+  client.setQueryData(runConversationKeys.forRun(RUN_ID), {
+    ...CONVERSATION,
+    spend: {
+      cost: null,
+      currency: null,
+      inputTokens: 4_480,
+      outputTokens: 12_210,
+      cacheReadTokens: 988_160,
+      cacheWriteTokens: null,
+    },
+  } satisfies RunConversationResponseDto);
 };
 
 export const rememberingRun = (client: QueryClient) => {
@@ -354,4 +458,38 @@ export const emptyRun = (client: QueryClient) => {
 export const failRun = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   failQuery(client, teamRunKeys.forTeam(TEAM_ID));
+};
+
+const EDITED: RunJournalResponseDto[] = JOURNAL.map((journal) => ({
+  ...journal,
+  steps: [
+    ...journal.steps,
+    step({
+      tool: 'edit',
+      text: 'services/worker/retry.ts',
+      change: {
+        path: '/workspace/worker/services/retry.ts',
+        before:
+          'export const retry = async (job: Job) => {\n  await deliver(job);\n};\n',
+        after:
+          'export const retry = async (job: Job) => {\n  const answer = await deliver(job);\n  if (!answer.ok) await later(job);\n};\n',
+      },
+    }),
+  ],
+}));
+
+export const seedJudgedRun = (client: QueryClient) => {
+  seedRun(client);
+  client.setQueryData(journalKeys.forTask(TASK_ID), EDITED);
+  seedRunScores(client, RUN_ID, TASK_ID);
+};
+
+export const seedJudgeHiddenRun = (client: QueryClient) => {
+  seedJudgedRun(client);
+  seedHiddenRunScores(client, RUN_ID, TASK_ID);
+};
+
+export const judgingFailedRun = (client: QueryClient) => {
+  seedRun(client);
+  failRunScores(client, RUN_ID);
 };

@@ -90,13 +90,14 @@ export class InboxAsideResponseDto {
     enum: INBOX_ASIDE_FORMS,
     example: 'memories',
     description:
-      'What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject',
+      'What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run',
   })
   readonly form: string;
 
   @ApiProperty({
     example: 'run_1',
-    description: 'What it is about: for memories, the run that proposed them',
+    description:
+      'What it is about: for memories, the run that proposed them; for grade, the run to grade',
   })
   readonly about: string;
 

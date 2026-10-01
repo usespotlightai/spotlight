@@ -23,6 +23,8 @@ const station = (
   model: null,
   effort: null,
   agentPrompt: null,
+  judge: null,
+  alerts: [],
   skills: [],
   ...over,
 });

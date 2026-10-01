@@ -264,6 +264,7 @@ describe('MoveTaskHandler', () => {
     ).toEqual([
       ['task.moved'],
       ['task.let-go-of-run', 'run_0'],
+      ['task.acted-on'],
       ['task.handed-to-run', 'run_1'],
     ]);
   });

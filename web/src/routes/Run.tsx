@@ -3,14 +3,18 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
+import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunComposer } from '@/components/features/runs/RunComposer';
+import { RunConfig } from '@/components/features/runs/RunConfig';
 import { RunEmpty } from '@/components/features/runs/RunEmpty';
 import { RunOpening } from '@/components/features/runs/RunOpening';
 import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
+import { RunSpend } from '@/components/features/runs/RunSpend';
 import { RunWaiting } from '@/components/features/runs/RunWaiting';
 import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
+import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -20,15 +24,18 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
+import { runConfigKeys } from '@/hooks/api/useRunConfig';
 import {
   runConversationKeys,
   useRunConversation,
 } from '@/hooks/api/useRunConversation';
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
+import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys, useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { changesOf } from '@/lib/changes';
 import { decisionOwed, workedOn } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import { waitsOnPerson, working } from '@/lib/run';
@@ -61,6 +68,9 @@ export function Run() {
     void queryClient.invalidateQueries({
       queryKey: changeStackKeys.forRun(runId),
     });
+    void queryClient.invalidateQueries({
+      queryKey: runConfigKeys.forRun(runId),
+    });
     if (teamId && runId) {
       void queryClient.invalidateQueries({
         queryKey: runMemoryKeys.forRun(teamId, runId),
@@ -76,9 +86,12 @@ export function Run() {
   useEffect(() => {
     if (stood.current && state && stood.current !== state) {
       bump();
+      void queryClient.invalidateQueries({
+        queryKey: runScoreKeys.forRun(runId),
+      });
     }
     stood.current = state;
-  }, [state, bump]);
+  }, [state, bump, queryClient, runId]);
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
@@ -193,7 +206,12 @@ export function Run() {
     ran.every((each) => each.steps.length === 0);
 
   const remembered = (
-    <RunRemembered slug={slug} teamId={teamId} runId={run.id} />
+    <div className="flex flex-col gap-3">
+      <RunConfig slug={slug} teamId={teamId} runId={run.id} />
+      <RunSpend spend={said?.spend ?? null} />
+      <RunJudgeScore teamId={teamId} runId={run.id} files={changesOf(ran)} />
+      <RunRemembered slug={slug} teamId={teamId} runId={run.id} />
+    </div>
   );
 
   const activity = run.station ? (
@@ -206,48 +224,50 @@ export function Run() {
         <PageHeader title={<Breadcrumbs segments={trail} />} />
 
         <ChangesPanel>
-          {item && item.notes.length > 0 ? (
-            <Conversation
-              item={item}
-              worked={worked ?? []}
-              opening={
-                said?.briefing ? (
-                  <div className="flex flex-col gap-3">
-                    <RunBriefing
-                      briefing={said.briefing}
-                      attachments={said.attachments}
-                    />
-                    {remembered}
-                  </div>
-                ) : (
-                  remembered
-                )
-              }
-              live={run.state === 'claimed' ? activity : waiting}
-              footer={footer}
-            />
-          ) : (
-            <>
-              <RunOpening
-                run={run}
-                briefing={said?.briefing ?? null}
-                attachments={said?.attachments ?? []}
-                remembered={remembered}
-                activity={
-                  quiet ? (
-                    <RunEmpty slug={slug} teamId={teamId} run={run} />
+          <StepAnchorsProvider runId={run.id} journals={worked ?? []}>
+            {item && item.notes.length > 0 ? (
+              <Conversation
+                item={item}
+                worked={worked ?? []}
+                opening={
+                  said?.briefing ? (
+                    <div className="flex flex-col gap-3">
+                      <RunBriefing
+                        briefing={said.briefing}
+                        attachments={said.attachments}
+                      />
+                      {remembered}
+                    </div>
                   ) : (
-                    <>
-                      {activity}
-                      {waiting}
-                    </>
+                    remembered
                   )
                 }
+                live={run.state === 'claimed' ? activity : waiting}
+                footer={footer}
               />
+            ) : (
+              <>
+                <RunOpening
+                  run={run}
+                  briefing={said?.briefing ?? null}
+                  attachments={said?.attachments ?? []}
+                  remembered={remembered}
+                  activity={
+                    quiet ? (
+                      <RunEmpty slug={slug} teamId={teamId} run={run} />
+                    ) : (
+                      <>
+                        {activity}
+                        {waiting}
+                      </>
+                    )
+                  }
+                />
 
-              <ComposerFooter>{footer}</ComposerFooter>
-            </>
-          )}
+                <ComposerFooter>{footer}</ComposerFooter>
+              </>
+            )}
+          </StepAnchorsProvider>
         </ChangesPanel>
       </div>
     </TrailContext>

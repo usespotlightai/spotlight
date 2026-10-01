@@ -1,4 +1,4 @@
-import { useParams } from 'react-router';
+import { useLocation, useParams } from 'react-router';
 import { SettingsEmpty } from '@/components/features/settings/SettingsEmpty';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
@@ -6,11 +6,17 @@ import { TeamSkillRow } from '@/components/features/skills/TeamSkillRow';
 import { TeamSkillRowSkeleton } from '@/components/features/skills/TeamSkillRowSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { useTeamSkills } from '@/hooks/api/useTeamSkills';
+import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { failed, loading } from '@/lib/query';
+import { pointedSkill } from '@/lib/skills';
 
 export function TeamSkills() {
   const { teamId } = useParams();
   const skills = useTeamSkills(teamId);
+  const { hash } = useLocation();
+  const pointed = pointedSkill(hash);
+
+  useScrollToHash(Boolean(skills.data));
 
   if (!teamId) {
     return null;
@@ -49,7 +55,11 @@ export function TeamSkills() {
       {held.length > 0 && (
         <SettingsSection>
           {held.map((skill) => (
-            <TeamSkillRow key={skill.key} skill={skill} />
+            <TeamSkillRow
+              key={skill.key}
+              skill={skill}
+              pointed={skill.key === pointed}
+            />
           ))}
         </SettingsSection>
       )}

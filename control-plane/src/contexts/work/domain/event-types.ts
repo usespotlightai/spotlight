@@ -7,9 +7,11 @@ import { LineRetired } from '@work/domain/events/line-retired.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
+import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunDigested } from '@work/domain/events/run-digested.event';
 import { RunLapsed } from '@work/domain/events/run-lapsed.event';
 import { RunParked } from '@work/domain/events/run-parked.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
@@ -20,12 +22,15 @@ import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
+import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
 import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
+import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
@@ -45,6 +50,7 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -67,6 +73,7 @@ import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldBack } from '@work/domain/value-objects/held-back.vo';
+import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -98,10 +105,13 @@ import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { Said } from '@work/domain/value-objects/said.vo';
 import { Signing } from '@work/domain/value-objects/signing.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
@@ -111,10 +121,12 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
+import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -155,6 +167,7 @@ export const WORK_EVENT_TYPES = [
   HarnessCommand,
   HarnessName,
   HarnessSession,
+  ImprovedStation,
   HeldBack,
   LineId,
   LineKey,
@@ -169,6 +182,9 @@ export const WORK_EVENT_TYPES = [
   Mark,
   MessagePosition,
   Money,
+  Tokens,
+  ToolUse,
+  CalledTool,
   NetworkAnswer,
   NetworkCallId,
   NetworkRequest,
@@ -187,10 +203,13 @@ export const WORK_EVENT_TYPES = [
   Said,
   Signing,
   SkillKey,
+  StationAlert,
   StationCheck,
   StationColor,
+  StationConfig,
   StationDescription,
   StationId,
+  StationJudge,
   StationKey,
   StationName,
   TaskDescription,
@@ -220,11 +239,15 @@ export const WORK_EVENT_TYPES = [
   ProposalAccepted,
   ProposalDismissed,
   PullRequestOpened,
+  PullRequestReviewTaken,
   RunAbandoned,
   RunWithdrawn,
   RunBriefed,
   RunSuperseded,
   RunCompleted,
+  RunDigested,
+  TaskFailed,
+  TaskHandedOn,
   RunLapsed,
   RunParked,
   RunPaused,
@@ -233,6 +256,7 @@ export const WORK_EVENT_TYPES = [
   RunStopRequested,
   StationHarnessChanged,
   StationRenamed,
+  TaskActedOn,
   TaskAnswered,
   TaskAsked,
   TaskAsideRaised,

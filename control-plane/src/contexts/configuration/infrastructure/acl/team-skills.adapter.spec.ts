@@ -110,6 +110,15 @@ describe('TeamSkills', () => {
     expect(keysOf(ready)).toEqual(['our-migrations']);
   });
 
+  it('names every skill the team defines, whether or not its secrets are held', async () => {
+    const skills = keeping([GRAFANA, MIGRATIONS]);
+
+    expect(await skills.definedFor(TEAM)).toEqual([
+      'grafana-dashboards',
+      'our-migrations',
+    ]);
+  });
+
   it('gives nothing where no skill is named', async () => {
     const skills = keeping([MIGRATIONS, FRONTEND]);
 

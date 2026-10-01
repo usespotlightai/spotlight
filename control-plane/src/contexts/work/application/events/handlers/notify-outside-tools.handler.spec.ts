@@ -82,7 +82,9 @@ describe('NotifyOutsideTools', () => {
   it('tells outside tools a person is being asked', async () => {
     const { handler, task, notify } = notifying();
 
-    await handler.on(new TaskAsked(task.id, WORKSPACE, STATION, null));
+    await handler.on(
+      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
+    );
 
     expect(notify).toHaveBeenCalledWith(task, 'task.asked');
   });
@@ -90,7 +92,18 @@ describe('NotifyOutsideTools', () => {
   it('tells outside tools of a task opened from what they said', async () => {
     const { handler, task, notify } = notifying();
 
-    await handler.on(new TaskOpened(task.id, WORKSPACE, STATION, true));
+    await handler.on(
+      new TaskOpened(
+        task.id,
+        WORKSPACE,
+        TeamId.of('team_1'),
+        LineId.of('line_1'),
+        STATION,
+        null,
+        new Date(),
+        true,
+      ),
+    );
 
     expect(notify).toHaveBeenCalledWith(task, 'task.opened');
   });
@@ -98,7 +111,18 @@ describe('NotifyOutsideTools', () => {
   it('keeps quiet about a task somebody opened here', async () => {
     const { handler, task, notify } = notifying();
 
-    await handler.on(new TaskOpened(task.id, WORKSPACE, STATION, false));
+    await handler.on(
+      new TaskOpened(
+        task.id,
+        WORKSPACE,
+        TeamId.of('team_1'),
+        LineId.of('line_1'),
+        STATION,
+        null,
+        new Date(),
+        false,
+      ),
+    );
 
     expect(notify).not.toHaveBeenCalled();
   });
@@ -108,7 +132,9 @@ describe('NotifyOutsideTools', () => {
       Mark.of('slack.thread', '170.9'),
     ]);
 
-    await handler.on(new TaskAsked(task.id, WORKSPACE, STATION, null));
+    await handler.on(
+      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
+    );
 
     expect(save.mock.calls[0]?.[0].marks.map((each) => each.kind)).toContain(
       'slack.thread',
@@ -128,7 +154,9 @@ describe('NotifyOutsideTools', () => {
     before.pullEvents();
     const { handler, task, save } = notifying([thread], before);
 
-    await handler.on(new TaskAsked(task.id, WORKSPACE, STATION, null));
+    await handler.on(
+      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
+    );
 
     const [given, taker] = save.mock.calls.map(([each]) => each);
     expect(given?.id.value).toBe('task_0');
@@ -139,7 +167,9 @@ describe('NotifyOutsideTools', () => {
   it('writes nothing where no tool handed a mark back', async () => {
     const { handler, task, save } = notifying();
 
-    await handler.on(new TaskAsked(task.id, WORKSPACE, STATION, null));
+    await handler.on(
+      new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
+    );
 
     expect(save).not.toHaveBeenCalled();
   });

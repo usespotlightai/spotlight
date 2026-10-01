@@ -1,23 +1,55 @@
 import { parseDiffFromFile } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useHighlighterReady } from '@/hooks/useHighlighterReady';
+import type { LineRange } from '@/lib/changes';
 import { diffOptions } from '@/lib/diff';
 import { cn } from '@/lib/utils';
+
+const MOST_TRIES = 60;
 
 export function CodeDiff({
   path,
   before,
   after,
   flush = false,
+  lines = null,
 }: {
   path: string | null;
   before: string;
   after: string;
   flush?: boolean;
+  lines?: LineRange | null;
 }) {
   const name = path ?? 'file';
   const ready = useHighlighterReady(name);
+  const held = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ready || !lines) {
+      return;
+    }
+
+    let tries = 0;
+    let waiting = 0;
+
+    const find = () => {
+      const shown = [...(held.current?.querySelectorAll('*') ?? [])]
+        .find((each) => each.shadowRoot)
+        ?.shadowRoot?.querySelector('[data-selected-line]');
+
+      if (shown) {
+        shown.scrollIntoView({ block: 'center' });
+      } else if (tries < MOST_TRIES) {
+        tries += 1;
+        waiting = requestAnimationFrame(find);
+      }
+    };
+
+    waiting = requestAnimationFrame(find);
+
+    return () => cancelAnimationFrame(waiting);
+  }, [ready, lines]);
 
   const fileDiff = useMemo(
     () =>
@@ -27,12 +59,20 @@ export function CodeDiff({
 
   return (
     <div
+      ref={held}
+      data-slot="code-diff"
       className={cn(
         'overflow-x-auto text-xs',
         !flush && 'rounded-md border-[0.5px] border-border',
       )}
     >
-      {ready && <FileDiff fileDiff={fileDiff} options={diffOptions(flush)} />}
+      {ready && (
+        <FileDiff
+          fileDiff={fileDiff}
+          options={diffOptions(flush)}
+          selectedLines={lines ? { ...lines, side: 'additions' } : null}
+        />
+      )}
     </div>
   );
 }

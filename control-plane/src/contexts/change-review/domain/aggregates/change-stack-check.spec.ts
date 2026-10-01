@@ -141,7 +141,10 @@ describe('ChangeStack, on the check it asks for', () => {
 
     expect(reordered.reordering).toBe(false);
     expect(reordered.owesWork).toBe(false);
-    expect(kinds(reordered)).toEqual(['change-stack.reordered']);
+    expect(kinds(reordered)).toEqual([
+      'change-stack.reordered',
+      'change-stack.shaped',
+    ]);
   });
 
   it('says reordering ended where it is given up', () => {
@@ -175,6 +178,7 @@ describe('ChangeStack, on the check it asks for', () => {
     expect(kinds(stack)).toEqual([
       'change-stack.drafting-began',
       'change-stack.settled',
+      'change-stack.shaped',
     ]);
   });
 });

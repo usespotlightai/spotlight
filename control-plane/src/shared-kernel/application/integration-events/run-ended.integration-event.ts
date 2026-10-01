@@ -7,5 +7,8 @@ export type RunEndedIntegrationEvent = {
   readonly runId: string;
   readonly workspaceId: string;
   readonly taskId: string | null;
+  readonly stationId: string | null;
   readonly outcome: RunEnding;
+  readonly failure: string | null;
+  readonly stopped: boolean;
 };

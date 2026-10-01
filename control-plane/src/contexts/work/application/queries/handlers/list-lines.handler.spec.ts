@@ -13,6 +13,8 @@ const bare = {
   model: null,
   effort: null,
   agentPrompt: null,
+  judge: null,
+  alerts: [],
   kind: 'work' as const,
   skills: [],
 };

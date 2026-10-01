@@ -32,6 +32,7 @@ const authorizing = (allowed: boolean) =>
     })),
     clearanceIn: vi.fn(),
     clearanceOnTeam: vi.fn(),
+    clearanceAsTeamReader: vi.fn(),
     mayPlan: vi.fn(),
   }) satisfies WorkspaceAccessPort;
 

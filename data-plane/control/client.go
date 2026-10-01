@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -180,6 +181,43 @@ func (c *Client) Trace(
 	}
 
 	return out, nil
+}
+
+func (c *Client) History(
+	ctx context.Context, runID string, asked protocol.HistoryRequest,
+) (json.RawMessage, error) {
+	query := url.Values{"station": {asked.Station}}
+	for name, value := range map[string]string{
+		"line": asked.Line, "fingerprint": asked.Fingerprint, "outcome": asked.Outcome, "since": asked.Since,
+	} {
+		if value != "" {
+			query.Set(name, value)
+		}
+	}
+	if asked.Last > 0 {
+		query.Set("last", strconv.Itoa(asked.Last))
+	}
+
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/history?%s", url.PathEscape(runID), query.Encode())
+
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		var rejection *Rejection
+		if errors.As(err, &rejection) && rejection.Gone() {
+			rejection.Message = unknownStation(asked)
+		}
+		return nil, fmt.Errorf("read the history of %s: %w", asked.Station, err)
+	}
+
+	return out, nil
+}
+
+func unknownStation(asked protocol.HistoryRequest) string {
+	if asked.Line != "" {
+		return fmt.Sprintf("line %q has no station %q in this team", asked.Line, asked.Station)
+	}
+
+	return fmt.Sprintf("no line in this team has a station %q", asked.Station)
 }
 
 func (c *Client) RecallMemories(

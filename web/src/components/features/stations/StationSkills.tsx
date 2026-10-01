@@ -1,11 +1,10 @@
 import { SquareMousePointer } from 'lucide-react';
+import { StationSection } from '@/components/features/stations/StationSection';
 import { Pill } from '@/components/shared/Pill';
 
 export function StationSkills({ skills }: { skills: readonly string[] }) {
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="font-medium text-foreground text-sm">Skills</h2>
-
+    <StationSection title="Skills">
       {skills.length > 0 ? (
         <ul aria-label="Skills" className="flex flex-wrap gap-1.5">
           {skills.map((skill) => (
@@ -21,6 +20,6 @@ export function StationSkills({ skills }: { skills: readonly string[] }) {
       ) : (
         <p className="text-muted-foreground text-sm">No skills.</p>
       )}
-    </section>
+    </StationSection>
   );
 }

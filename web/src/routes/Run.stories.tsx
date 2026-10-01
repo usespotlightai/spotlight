@@ -5,12 +5,17 @@ import { Run } from '@/routes/Run';
 import {
   emptyRun,
   failRun,
+  judgingFailedRun,
   RUN_ID,
   rememberedFailedRun,
   rememberingRun,
   SLUG,
   seedCarryingOnRun,
+  seedChangedConfigRun,
+  seedJudgedRun,
+  seedJudgeHiddenRun,
   seedParkedRun,
+  seedPartlyReportedRun,
   seedRun,
   seedWaitingRun,
   TEAM_ID,
@@ -55,6 +60,24 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ConfigChanged: Story = {
+  name: 'Config changed since the previous run',
+  render: () => (
+    <StoryPage at={at} seed={seedChangedConfigRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const PartlyReported: Story = {
+  name: 'Spend the harness partly reported',
+  render: () => (
+    <StoryPage at={at} seed={seedPartlyReportedRun}>
       {routes}
     </StoryPage>
   ),
@@ -110,6 +133,33 @@ export const CarryingOn: Story = {
   name: 'Carrying on after the answer',
   render: () => (
     <StoryPage at={at} seed={seedCarryingOnRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Judged: Story = {
+  name: 'Judged',
+  render: () => (
+    <StoryPage at={at} seed={seedJudgedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeHidden: Story = {
+  name: 'Judge score hidden',
+  render: () => (
+    <StoryPage at={at} seed={seedJudgeHiddenRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeFailed: Story = {
+  name: 'Judge score error',
+  render: () => (
+    <StoryPage at={at} seed={judgingFailedRun}>
       {routes}
     </StoryPage>
   ),

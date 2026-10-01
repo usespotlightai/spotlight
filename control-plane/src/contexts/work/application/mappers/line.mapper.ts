@@ -19,6 +19,8 @@ export const LineMapper = {
       model: summary.model,
       effort: summary.effort,
       agentPrompt: summary.agentPrompt,
+      judge: summary.judge ? { ...summary.judge } : null,
+      alerts: summary.alerts.map((each) => ({ ...each })),
       kind: summary.kind,
       skills: summary.skills,
     };
@@ -36,6 +38,21 @@ export const LineMapper = {
       model: station.model?.value ?? null,
       effort: station.effort?.value ?? null,
       agentPrompt: station.agentPrompt?.value ?? null,
+      judge: station.judge
+        ? {
+            rubric: station.judge.rubric,
+            sample: station.judge.sample,
+            trust: station.judge.trust,
+          }
+        : null,
+      alerts: station.alerts.map((each) => ({
+        measure: each.measure,
+        risesBy: each.risesBy,
+        above: each.above,
+        fallsBy: each.fallsBy,
+        below: each.below,
+        over: each.over,
+      })),
       kind: station.kind,
       skills: station.skills.map((each) => each.value),
     };

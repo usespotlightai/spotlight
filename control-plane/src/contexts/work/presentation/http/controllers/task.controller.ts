@@ -33,6 +33,7 @@ import { DeleteTaskCommand } from '@work/application/commands/delete-task.comman
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
+import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunConversationDto } from '@work/application/dto/run-conversation.dto';
 import type { TaskDto } from '@work/application/dto/task.dto';
 import type {
@@ -45,6 +46,7 @@ import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.quer
 import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
 import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.query';
 import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
+import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
 import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
@@ -56,9 +58,11 @@ import {
   InboxMessageResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
+import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
 import { TaskResponseDto } from '@work/presentation/http/dto/task.response.dto';
 import {
   RunConversationResponseDto,
+  RunSpendResponseDto,
   RunStationResponseDto,
   SayToRunRequestDto,
   TaskRunResponseDto,
@@ -161,6 +165,31 @@ export class TaskController {
     return traces.map(TeamTraceHttpMapper.toResponse);
   }
 
+  @Get('runs/:runId/config')
+  @ApiOperation({
+    operationId: 'readRunConfig',
+    summary:
+      'The station config a run ran with, and what changed since the station’s run before it',
+  })
+  @ApiParam({ name: 'runId', type: String })
+  @ApiOkResponse({ type: RunConfigResponseDto })
+  @ApiNotFoundResponse({ description: 'No such run for this caller' })
+  async config(
+    @Param('runId') runId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<RunConfigResponseDto> {
+    const found = await this.queryBus.execute<
+      ReadRunConfigQuery,
+      RunConfigDto | null
+    >(new ReadRunConfigQuery(runId, user.id));
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return new RunConfigResponseDto(found);
+  }
+
   @Get('runs/:runId/conversation')
   @ApiOperation({
     operationId: 'readRunConversation',
@@ -225,6 +254,16 @@ export class TaskController {
             note.failure ? new InboxFailureResponseDto(note.failure) : null,
           ),
       ),
+      found.spend
+        ? new RunSpendResponseDto(
+            found.spend.cost,
+            found.spend.currency,
+            found.spend.inputTokens,
+            found.spend.outputTokens,
+            found.spend.cacheReadTokens,
+            found.spend.cacheWriteTokens,
+          )
+        : null,
     );
   }
 

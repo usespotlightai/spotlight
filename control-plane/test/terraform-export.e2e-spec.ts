@@ -44,6 +44,8 @@ const PROMPTED = BUILT_IN.stations.find(
   (station) => station.prompt !== undefined,
 );
 
+const RUBRIC = 'A good run changes only what the task asks for.\n\n';
+
 const DELIVERY = {
   ...BUILT_IN,
   repositories: [
@@ -58,6 +60,13 @@ const DELIVERY = {
           profile: 'careful',
           skills: ['grafana'],
           tools: ['linear.comment'],
+          judge: { rubric: RUBRIC, sample: 0.2, trust: 0.6 },
+          alerts: [
+            { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
+            { measure: 'cost_per_run', above: 5, over: 10 },
+            { measure: 'accepted_rate', fallsBy: 0.1, over: 20 },
+            { measure: 'merged_rate', below: 0.4, over: 20 },
+          ],
         }
       : station,
   ),
@@ -277,6 +286,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
         ...DELIVERY.stations
           .filter((station) => station.prompt !== undefined)
           .map((station) => `prompts/team/delivery/${station.key}.md`),
+        `judges/team/delivery/${PROMPTED?.key}.md`,
       ]),
     );
 
@@ -417,9 +427,20 @@ describe('a workspace exported as Terraform (e2e)', () => {
     }
   });
 
-  it('keeps each prompt and skill file byte for byte', async () => {
+  it('writes a station’s judge reading its rubric with file(), and its alerts in order', async () => {
+    const main = fileOf(await exported(), 'main.tf');
+
+    expect(main).toContain(
+      `    judge {\n      rubric = file("\${path.module}/judges/team/delivery/${PROMPTED?.key}.md")\n      sample = 0.2\n      trust  = 0.6\n    }\n\n    alert {\n      measure  = "sent_back_rate"\n      rises_by = 0.2\n      over     = 20\n    }\n\n    alert {\n      measure = "cost_per_run"\n      above   = 5\n      over    = 10\n    }\n\n    alert {\n      measure  = "accepted_rate"\n      falls_by = 0.1\n      over     = 20\n    }\n\n    alert {\n      measure = "merged_rate"\n      below   = 0.4\n      over    = 20\n    }\n  }\n`,
+    );
+  });
+
+  it('keeps each prompt, judge rubric and skill file byte for byte', async () => {
     const files = await exported();
 
+    expect(fileOf(files, `judges/team/delivery/${PROMPTED?.key}.md`)).toBe(
+      RUBRIC,
+    );
     expect(fileOf(files, `prompts/team/delivery/${PROMPTED?.key}.md`)).toBe(
       PROMPTED?.prompt,
     );

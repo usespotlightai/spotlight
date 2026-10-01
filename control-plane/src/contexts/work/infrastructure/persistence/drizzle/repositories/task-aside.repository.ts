@@ -18,7 +18,7 @@ import {
   taskAside,
   taskAsideRead,
 } from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 
 type Row = typeof taskAside.$inferSelect;
 type ReadRow = typeof taskAsideRead.$inferSelect;
@@ -68,6 +68,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
       const written = await this.context.db
         .update(taskAside)
         .set({
+          raisedAt: saved.raisedAt,
           settledAt: saved.settledAt,
           version: saved.version + 1,
         })
@@ -83,6 +84,17 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
         throw new TaskAsideMovedOnError(saved.id.value);
       }
 
+      await this.context.db.delete(taskAsideRead).where(
+        and(
+          eq(taskAsideRead.asideId, saved.id.value),
+          saved.reads.length > 0
+            ? notInArray(
+                taskAsideRead.userId,
+                saved.reads.map((each) => each.by.value),
+              )
+            : undefined,
+        ),
+      );
       await this.readsKept(saved);
       await this.events.dispatch(saved.pullEvents());
     });

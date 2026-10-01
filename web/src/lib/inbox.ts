@@ -118,11 +118,28 @@ export const took = (ms: number): string => {
   return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
 };
 
-export const counted = (tokens: number): string =>
-  tokens < 1_000 ? `${tokens}` : `${Math.round(tokens / 100) / 10}k`;
+export const counted = (tokens: number): string => {
+  if (tokens < 1_000) {
+    return `${tokens}`;
+  }
+  if (Math.round(tokens / 100) < 10_000) {
+    return `${Math.round(tokens / 100) / 10}k`;
+  }
+
+  return `${Math.round(tokens / 100_000) / 10}M`;
+};
+
+const bareAmount = (amount: number): string =>
+  amount < 0.01 ? amount.toFixed(4) : amount.toFixed(2);
 
 export const spentOn = (cost: number | null): string =>
-  cost === null ? '–' : `$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`;
+  cost === null ? '–' : `$${bareAmount(cost)}`;
+
+export const spentIn = (amount: number, currency: string): string =>
+  currency === 'USD' ? spentOn(amount) : `${amount.toFixed(2)} ${currency}`;
+
+export const amountIn = (amount: number, currency: string | null): string =>
+  currency === null ? bareAmount(amount) : spentIn(amount, currency);
 
 export type JournalStep = RunJournalResponseDto['steps'][number];
 
@@ -178,6 +195,18 @@ export const previewOf = (item: InboxItem): string => {
     return item.resolved
       ? 'The memories a run proposed are decided.'
       : 'A run proposed memories for the team to keep.';
+  }
+
+  if (item.aside?.form === 'alert') {
+    return item.resolved
+      ? 'The station is back within its alert.'
+      : 'A station crossed one of its alert thresholds.';
+  }
+
+  if (item.aside?.form === 'grade') {
+    return item.resolved
+      ? 'This run is graded.'
+      : 'Grade a judged run, so the team can check its judge.';
   }
 
   const asked = item.notes[item.notes.length - 1];

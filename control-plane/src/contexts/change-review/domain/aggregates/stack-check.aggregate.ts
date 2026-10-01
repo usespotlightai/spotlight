@@ -422,7 +422,15 @@ export class StackCheck extends EventRecorder {
     this.assertIn('reordering', 'keep its layers');
 
     const kept = this.with({ phase: 'checked' });
-    kept.record(new ChangeStackChecked(this.stackId, this.runId));
+    kept.record(
+      new ChangeStackChecked(
+        this.stackId,
+        this.runId,
+        this.taskId,
+        this.workspaceId,
+        this.outcome?.whole?.passed ?? null,
+      ),
+    );
 
     return kept;
   }
@@ -457,7 +465,15 @@ export class StackCheck extends EventRecorder {
     found.record(
       reorder
         ? new LayersFailedCheck(this.stackId, this.runId)
-        : new ChangeStackChecked(this.stackId, this.runId),
+        : new ChangeStackChecked(
+            this.stackId,
+            this.runId,
+            this.taskId,
+            this.workspaceId,
+            outcome.state === 'checked'
+              ? (outcome.whole?.passed ?? null)
+              : null,
+          ),
     );
 
     return found;

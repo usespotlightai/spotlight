@@ -270,6 +270,14 @@ export class Line extends EventRecorder {
         this.teamId,
         this.key,
         ConfigurationChange.updated(this.whatChanged, by),
+        [
+          ...new Map(
+            [...this.stations, ...relaid.stations].map((each) => [
+              each.id.value,
+              each.id,
+            ]),
+          ).values(),
+        ],
       ),
     );
 
@@ -313,6 +321,7 @@ export class Line extends EventRecorder {
         this.teamId,
         this.key,
         ConfigurationChange.deleted(this.whatChanged, by),
+        this.stations.map((each) => each.id),
       ),
     );
 

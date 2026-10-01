@@ -35,10 +35,12 @@ import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
@@ -98,6 +100,8 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     diffs: row.diffs,
     decisions: row.decisions,
     memories: row.memories,
+    judge: row.judge ? StationJudge.of(row.judge) : null,
+    alerts: row.alerts.map((each) => StationAlert.of(each)),
     kind: row.kind,
     wayOut: WayOut.of({
       stations: ways.routes.get(row.id) ?? [],
@@ -187,6 +191,21 @@ const columnsOf = (each: Station) => ({
   diffs: each.diffs,
   decisions: each.decisions,
   memories: each.memories,
+  judge: each.judge
+    ? {
+        rubric: each.judge.rubric,
+        sample: each.judge.sample,
+        trust: each.judge.trust,
+      }
+    : null,
+  alerts: each.alerts.map((alert) => ({
+    measure: alert.measure,
+    risesBy: alert.risesBy,
+    above: alert.above,
+    fallsBy: alert.fallsBy,
+    below: alert.below,
+    over: alert.over,
+  })),
   kind: each.kind,
   finishes: each.wayOut.ends,
 });

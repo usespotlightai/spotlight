@@ -4,5 +4,7 @@ export type PullRequestOpenedIntegrationEvent = {
   readonly kind: typeof PULL_REQUEST_OPENED;
   readonly taskId: string;
   readonly workspaceId: string;
+  readonly teamId: string;
   readonly url: string;
+  readonly at: string;
 };

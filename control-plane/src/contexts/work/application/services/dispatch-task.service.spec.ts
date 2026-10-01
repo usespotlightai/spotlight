@@ -42,7 +42,9 @@ import {
   OPENING_PULL_REQUESTS,
 } from '@work/domain/services/built-in-skills';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
+import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import { Effort } from '@work/domain/value-objects/effort.vo';
 import { Harness } from '@work/domain/value-objects/harness.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
@@ -62,6 +64,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
+import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -172,11 +175,11 @@ const stations = [
 const triage = (gives: { tools?: string[]; skills?: SkillKey[] }) =>
   at('station_2', 'Triage', 1, DEV.id, ['station_3'], gives);
 
-const task = (stationId: string) =>
+const task = (stationId: string, title = 'Fix the queue') =>
   Task.add({
     line: held(),
     at: StationId.of(stationId),
-    title: TaskTitle.of('Fix the queue'),
+    title: TaskTitle.of(title),
     rank: TaskRank.of('i'),
     raisedBy: UserId.of('user_1'),
     now: NOW,
@@ -337,6 +340,7 @@ const dispatch = async (
       error: () => undefined,
     },
     { isolated: (work) => work() },
+    new Sha256ContentDigest(),
   );
   const working = standing ?? task(station.id.value);
   const line = held(station, repositories);
@@ -1066,6 +1070,129 @@ describe('DispatchTask, the tools a run is told about', () => {
       expect(run?.spec.value.briefing).not.toContain(
         'What the team has learned',
       );
+    });
+  });
+
+  describe('the station config a run records', () => {
+    const triageAt = stations[1] as Station;
+
+    const configOf = async (
+      station: Station,
+      title?: string,
+      repositories?: readonly Worked[],
+    ) => {
+      queued = [];
+      await dispatch(station, task(station.id.value, title), repositories);
+      const config = queued[0]?.configuredAs;
+
+      if (!config) {
+        throw new Error('the run recorded no station config');
+      }
+
+      return config;
+    };
+
+    it('records the resolved values the run was configured with', async () => {
+      const config = await configOf(
+        triageAt
+          .instruct(AgentPrompt.of('Triage carefully.'))
+          .atEffort(Effort.of('high')),
+        undefined,
+        [
+          WorkedRepository.of(Repository.of('acme/api'), {
+            setup: RepositorySetup.of('npm ci'),
+          }),
+        ],
+      );
+
+      expect(config.parts).toMatchObject({
+        prompt: 'Triage carefully.',
+        harness: 'dev',
+        effort: 'high',
+        repositories: [{ name: 'api', setup: 'npm ci' }],
+        skills: [],
+      });
+      expect(config.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it('gives two runs of an unchanged station the same fingerprint, whatever their tasks say', async () => {
+      const first = await configOf(triageAt, 'Fix the queue');
+      const second = await configOf(triageAt, 'Rename the widget');
+
+      expect(second.fingerprint).toBe(first.fingerprint);
+    });
+
+    it('gives a new fingerprint when any part of the station changes', async () => {
+      const before = await configOf(triageAt);
+      const changed = [
+        await configOf(triageAt.instruct(AgentPrompt.of('Be brief.'))),
+        await configOf(triageAt.atEffort(Effort.of('xhigh'))),
+        await configOf(triage({ tools: ['pull-request'] })),
+        await configOf(triageAt, undefined, [
+          WorkedRepository.of(Repository.of('acme/api'), {
+            setup: RepositorySetup.of('make deps'),
+          }),
+        ]),
+      ];
+
+      expect(new Set(changed.map((each) => each.fingerprint)).size).toBe(4);
+      expect(changed.map((each) => each.fingerprint)).not.toContain(
+        before.fingerprint,
+      );
+    });
+
+    it('keeps a digest of each MCP server env value, never the value', async () => {
+      teamProfiles = {
+        tokened: {
+          key: 'tokened',
+          rules: [],
+          mcpServers: [
+            {
+              name: 'tracker',
+              command: 'npx',
+              args: [],
+              env: { TRACKER_TOKEN: 'plain-token-value' },
+            },
+          ],
+          native: {},
+        },
+      };
+
+      const config = await configOf(
+        Station.of({
+          id: StationId.of('station_2'),
+          key: StationKey.of('triage'),
+          name: StationName.of('Triage'),
+          position: 1,
+          color: StationColor.of('#a3a8b0'),
+          harness: DEV.id,
+          profile: ProfileKey.of('tokened'),
+          wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+        }),
+      );
+
+      expect(JSON.stringify(config.parts)).not.toContain('plain-token-value');
+      expect(config.parts.profile?.key).toBe('tokened');
+    });
+
+    it('says what changed between two configs', async () => {
+      const before = await configOf(triageAt.atEffort(Effort.of('high')));
+      const after = await configOf(
+        triageAt
+          .atEffort(Effort.of('xhigh'))
+          .instruct(AgentPrompt.of('Be brief.')),
+      );
+
+      expect(after.changesFrom(before)).toEqual([
+        { part: 'prompt', name: null, kind: 'added', was: null, now: null },
+        {
+          part: 'effort',
+          name: null,
+          kind: 'changed',
+          was: 'high',
+          now: 'xhigh',
+        },
+      ]);
     });
   });
 });

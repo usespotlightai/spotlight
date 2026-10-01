@@ -20,6 +20,7 @@ import {
   changesOfTask,
   journalOfRun,
   journalsOfChat,
+  journalsOfRuns,
   journalsOfTask,
 } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
@@ -58,6 +59,10 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
 
   ofRun(runId: RunId): Promise<RunJournal | null> {
     return journalOfRun(this.db, runId);
+  }
+
+  attemptsOfRun(runId: RunId): Promise<RunJournal[]> {
+    return journalsOfRuns(this.db, [runId.value]);
   }
 
   changesOfTask(taskId: TaskId): Promise<RunChanges[]> {

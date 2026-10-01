@@ -17,9 +17,13 @@ import type { FilesAtHand } from '@work/application/services/files-at-hand.servi
 import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
+import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
+import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
 
 export class StartChatHandler
   implements CommandHandlerPort<StartChatCommand, string | null>
@@ -29,6 +33,7 @@ export class StartChatHandler
     private readonly chats: ChatRepository,
     private readonly files: FilesAtHand,
     private readonly traces: TracesAtHand,
+    private readonly lines: LineRepository,
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
     private readonly ids: IdGeneratorPort,
@@ -63,6 +68,9 @@ export class StartChatHandler
           command.attachments,
         );
         const traces = await this.traces.shared(command.traces);
+        const improving = command.improving
+          ? await this.improved(command.improving)
+          : null;
 
         const chat = Chat.start({
           workspaceId,
@@ -75,6 +83,7 @@ export class StartChatHandler
           body: ChatMessageBody.given(command.body, attachments, traces),
           attachments,
           traces,
+          improving,
           now: this.clock.now(),
           newId: () => this.ids.generate(),
         });
@@ -89,5 +98,17 @@ export class StartChatHandler
     } catch (error) {
       rethrowAsFault(error);
     }
+  }
+
+  private async improved(stationId: string): Promise<ImprovedStation> {
+    const id = StationId.of(stationId);
+    const line = await this.lines.holding(id);
+    const station = line?.stationAt(id);
+
+    if (!line || !station) {
+      throw new UnknownStationError(stationId);
+    }
+
+    return ImprovedStation.at(line, station);
   }
 }

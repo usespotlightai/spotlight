@@ -55,5 +55,10 @@ export interface WorkspaceAccessPort {
     principal: Principal,
   ): Promise<TeamClearance | null>;
 
+  clearanceAsTeamReader(
+    teamId: string,
+    principal: Principal,
+  ): Promise<TeamClearance | null>;
+
   mayPlan(principal: Principal): boolean;
 }

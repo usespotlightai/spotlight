@@ -7,8 +7,11 @@ export abstract class EventRecorder {
     this.pending.push(event);
   }
 
-  protected inheritEvents(from: EventRecorder): void {
-    this.pending.push(...from.pending);
+  protected inheritEvents(
+    from: EventRecorder,
+    kept: (event: DomainEvent) => boolean = () => true,
+  ): void {
+    this.pending.push(...from.pending.filter(kept));
   }
 
   pullEvents(): readonly DomainEvent[] {

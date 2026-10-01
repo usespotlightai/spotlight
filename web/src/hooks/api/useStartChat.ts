@@ -11,6 +11,7 @@ type StartChatInput = {
   body: string;
   attachments: string[];
   traces: string[];
+  improving?: string;
 };
 
 export function useStartChat() {

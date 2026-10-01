@@ -4,6 +4,7 @@ import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/d
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleViewableWorkspaces } from '@identity/infrastructure/persistence/drizzle/readers/viewable-workspaces.reader';
 import { DrizzleWorkspaceReader } from '@identity/infrastructure/persistence/drizzle/readers/workspace.reader';
+import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/drizzle/repositories/team.repository';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -31,6 +32,9 @@ const access = (db: DrizzleDatabase) =>
       dispatch: async () => {},
     }),
     new DrizzleIdentityResources(new DrizzleContext(db)),
+    new DrizzleTeamRepository(new DrizzleContext(db), {
+      dispatch: async () => {},
+    }),
   );
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');

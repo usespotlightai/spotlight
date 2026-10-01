@@ -23,9 +23,11 @@ import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import type { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { reviewsOn } from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import type { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import type { StationColor } from '@work/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@work/domain/value-objects/station-description.vo';
+import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
@@ -47,6 +49,8 @@ export interface StationPlan {
   readonly diffs: boolean;
   readonly decisions: boolean;
   readonly memories: boolean;
+  readonly judge: StationJudge | null;
+  readonly alerts: readonly StationAlert[];
   readonly tools: readonly Tool[];
   readonly skills: readonly SkillKey[];
   readonly passesTo: readonly StationKey[];
@@ -54,11 +58,30 @@ export interface StationPlan {
 }
 
 type RefusedStation = {
-  readonly field: 'skills' | 'tools';
+  readonly field: 'skills' | 'tools' | 'judge' | 'alerts';
   readonly reason: string;
 } | null;
 
+const NOTHING_RUNS: Readonly<Record<Exclude<StationKind, 'work'>, string>> = {
+  backlog: 'is a backlog, where nothing runs',
+  completed: 'is where the line ends, where nothing runs',
+};
+
 const stationRefused = (station: StationPlan): RefusedStation => {
+  if (station.kind !== 'work') {
+    const idle = NOTHING_RUNS[station.kind];
+
+    if (station.judge) {
+      return { field: 'judge', reason: `${idle}, so it has no runs to judge` };
+    }
+    if (station.alerts.length > 0) {
+      return {
+        field: 'alerts',
+        reason: `${idle}, so it has no runs to alert on`,
+      };
+    }
+  }
+
   const skills = skillsRefused(station.skills);
 
   if (skills) {

@@ -1,0 +1,18 @@
+import { IdentityModule } from '@identity/identity.module';
+import { MemoryModule } from '@memory/memory.module';
+import { Module } from '@nestjs/common';
+import { JUDGE_STANDING } from '@outcomes/application/ports/judge-standing.port';
+import {
+  OUTCOMES_CONTROLLERS,
+  OUTCOMES_PROVIDERS,
+} from '@outcomes/outcomes.wiring';
+import { RUN_OUTCOMES } from '@work/application/ports/run-outcomes.port';
+import { WorkModule } from '@work/work.module';
+
+@Module({
+  imports: [IdentityModule, WorkModule, MemoryModule],
+  controllers: [...OUTCOMES_CONTROLLERS],
+  providers: [...OUTCOMES_PROVIDERS],
+  exports: [RUN_OUTCOMES, JUDGE_STANDING],
+})
+export class OutcomesModule {}

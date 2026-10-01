@@ -27,3 +27,6 @@ export function messageOf(
 
   return fallback;
 }
+
+export const notFound = (thrown: unknown): boolean =>
+  (thrown as { statusCode?: unknown } | null)?.statusCode === 404;

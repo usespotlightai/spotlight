@@ -18,6 +18,9 @@ vi.mock('@/components/features/runs/TeamRuns', () => ({
 vi.mock('@/components/features/trace/list/TraceList', () => ({
   TraceList: () => null,
 }));
+vi.mock('@/components/features/insights/TeamInsights', () => ({
+  TeamInsights: () => <p>The team’s insights</p>,
+}));
 
 const renderAt = (section: string) =>
   render(
@@ -43,6 +46,18 @@ describe('TeamSection', () => {
       screen.getByRole('heading', { name: /Platform\s*Agent/ }),
     ).toBeInTheDocument();
     expect(screen.getByText('The team’s chats')).toBeInTheDocument();
+  });
+
+  it('opens the team’s insights under an Insights breadcrumb, with a period to pick', () => {
+    renderAt('insights?period=7d');
+
+    expect(
+      screen.getByRole('heading', { name: /Platform\s*Insights/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('The team’s insights')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Time range' }),
+    ).toHaveTextContent('Past 7 days');
   });
 
   it('sends a section it does not know on to the runs', async () => {

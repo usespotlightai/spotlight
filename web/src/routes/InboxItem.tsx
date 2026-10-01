@@ -1,10 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router';
+import { AsideLayout } from '@/components/features/inbox/AsideLayout';
+import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
 import { FailureCount } from '@/components/features/inbox/FailureCount';
+import { GradeRun } from '@/components/features/inbox/grades/GradeRun';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { MemoryReview } from '@/components/features/inbox/memories/MemoryReview';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
@@ -121,19 +124,48 @@ export function InboxItem() {
 
   if (item.aside?.form === 'memories') {
     return (
+      <AsideLayout trail={trail}>
+        <MemoryReview
+          slug={slug}
+          teamId={item.teamId}
+          taskId={item.taskId}
+          runId={item.aside.about}
+        />
+      </AsideLayout>
+    );
+  }
+
+  if (item.aside?.form === 'alert') {
+    return (
+      <AsideLayout trail={trail}>
+        <StationAlertCard
+          slug={slug}
+          teamId={item.teamId}
+          alertId={item.aside.about}
+        />
+      </AsideLayout>
+    );
+  }
+
+  if (item.aside?.form === 'grade') {
+    return (
       <div className="flex min-h-0 flex-1 flex-col">
         <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
-            <MemoryReview
-              slug={slug}
-              teamId={item.teamId}
-              taskId={item.taskId}
-              runId={item.aside.about}
-            />
+        <ChangesPanel>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
+              <GradeRun
+                slug={slug}
+                teamId={item.teamId}
+                taskId={item.taskId}
+                runId={item.aside.about}
+                title={item.title}
+                description={item.description}
+              />
+            </div>
           </div>
-        </div>
+        </ChangesPanel>
       </div>
     );
   }

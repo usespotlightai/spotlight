@@ -62,11 +62,13 @@ const connecting = (
       ),
       clearanceIn: vi.fn(),
       clearanceOnTeam: vi.fn(),
+      clearanceAsTeamReader: vi.fn(),
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
     {
       of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),
       claimantOf: vi.fn(async () => over.claimedBy ?? null),
+      heldClaimantOf: vi.fn(async () => over.claimedBy ?? null),
       save,
     } satisfies GitHubConnectionRepository,
     administration,

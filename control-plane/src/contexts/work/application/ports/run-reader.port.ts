@@ -6,6 +6,7 @@ import type { AttachmentSummary } from '@work/application/ports/attachment-reade
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type { ReviewState } from '@work/domain/services/conversations';
 import type { RunState } from '@work/domain/value-objects/run-state';
+import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 
 export interface RunReview {
   readonly state: ReviewState;
@@ -52,6 +53,18 @@ export interface RunConversationSummary {
   readonly notes: readonly InboxNote[];
 }
 
+export interface ConfiguredRun {
+  readonly runId: string;
+  readonly taskId: string;
+  readonly fingerprint: string;
+  readonly parts: StationConfigParts;
+}
+
+export interface RunConfigSummary {
+  readonly ran: ConfiguredRun | null;
+  readonly before: ConfiguredRun | null;
+}
+
 export const RUN_READER = Symbol('RUN_READER');
 
 export interface RunReaderPort {
@@ -63,4 +76,6 @@ export interface RunReaderPort {
     runId: RunId,
     viewerId: UserId,
   ): Promise<RunConversationSummary | null>;
+
+  configFor(runId: RunId, viewerId: UserId): Promise<RunConfigSummary | null>;
 }

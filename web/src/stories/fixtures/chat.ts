@@ -32,6 +32,7 @@ const CHAT: ChatResponseDto = {
   updatedAt: minutesAgo(25),
   working: false,
   runId: null,
+  improving: null,
   messages: [
     {
       position: 0,
@@ -156,6 +157,30 @@ export const seedChat = (client: QueryClient) => {
   seedAround(client);
   client.setQueryData(chatKeys.one(CHAT_ID), CHAT);
   client.setQueryData(chatKeys.journal(CHAT_ID), JOURNAL);
+};
+
+export const seedImprovingChat = (client: QueryClient) => {
+  seedAround(client);
+  client.setQueryData(chatKeys.one(CHAT_ID), {
+    ...CHAT,
+    title: 'Make Implementation keep pull requests small',
+    improving: {
+      lineId: 'line_delivery',
+      lineKey: 'delivery',
+      lineName: 'Delivery',
+      stationId: 'station_implementation',
+      stationKey: 'implementation',
+      stationName: 'Implementation',
+    },
+    messages: [
+      {
+        ...(CHAT.messages[0] as ChatResponseDto['messages'][number]),
+        body: 'Its last runs were sent back twice for sprawling diffs. What should it do better?',
+        traces: [],
+      },
+    ],
+  } satisfies ChatResponseDto);
+  client.setQueryData(chatKeys.journal(CHAT_ID), []);
 };
 
 export const emptyChat = (client: QueryClient) => {

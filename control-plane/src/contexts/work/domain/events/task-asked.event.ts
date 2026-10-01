@@ -12,5 +12,6 @@ export class TaskAsked implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly stationId: StationId,
     readonly assignee: UserId | null,
+    readonly at: Date,
   ) {}
 }

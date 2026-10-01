@@ -7,20 +7,36 @@ import {
   type RunSpent,
   type StepChange,
   type StepLocation,
+  TOOL_REFUSED,
+  TURN_USAGE,
 } from '@work/application/contracts/run-journal.contract';
+import type { CalledStep } from '@work/domain/services/tool-attribution';
 import { Money } from '@work/domain/value-objects/money.vo';
 import type { StepKind } from '@work/domain/value-objects/step-kind';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { type Content, diffIn } from '@work/infrastructure/acp/content';
+import {
+  callEndingOf,
+  harnessToolOf,
+  readingPaths,
+  skillAskedFor,
+} from '@work/infrastructure/acp/harness-tools';
 import {
   decoded,
   type Journalled,
 } from '@work/infrastructure/journal/journalled';
+
+const countOf = (said: unknown): number | null =>
+  typeof said === 'number' && Number.isSafeInteger(said) && said >= 0
+    ? said
+    : null;
 
 const DETAIL_LIMIT = 4_000;
 
 interface Spoken {
   sessionId?: string;
   update?: {
+    _meta?: { claudeCode?: { toolName?: unknown } };
     sessionUpdate?: string;
     toolCallId?: string;
     title?: string;
@@ -100,6 +116,19 @@ const written = (raw: unknown): string | null => {
   }
 };
 
+const toolNameOf = (update: NonNullable<Spoken['update']>): string | null => {
+  const named = update._meta?.claudeCode?.toolName;
+
+  return typeof named === 'string' && named.trim().length > 0 ? named : null;
+};
+
+interface TurnUsage {
+  readonly inputTokens?: unknown;
+  readonly outputTokens?: unknown;
+  readonly cachedReadTokens?: unknown;
+  readonly cachedWriteTokens?: unknown;
+}
+
 interface HookCalled {
   readonly hook?: string;
   readonly step?: string;
@@ -138,40 +167,72 @@ const planned = (entries: NonNullable<Spoken['update']>['entries']): string =>
     .join('\n');
 
 interface Building {
+  id: string | null;
   kind: StepKind;
   text: string;
   status: string | null;
   tool: string | null;
+  named: string | null;
   detail: string | null;
   locations: StepLocation[];
   given: string | null;
   returned: string | null;
   change: StepChange | null;
   startedAt: Date;
+  workingAt: Date | null;
   endedAt: Date;
 }
 
 const bare = (kind: StepKind, text: string, at: Date): Building => ({
+  id: null,
   kind,
   text,
   status: null,
   tool: null,
+  named: null,
   detail: null,
   locations: [],
   given: null,
   returned: null,
   change: null,
   startedAt: at,
+  workingAt: null,
   endedAt: at,
 });
+
+const WORKING = 'in_progress';
+
+const SETTLED = new Set(['completed', 'failed']);
+
+interface Span {
+  readonly from: number;
+  readonly to: number;
+}
+
+const overlapping = (spans: readonly Span[], within: Span): number =>
+  spans.reduce(
+    (sum, span) =>
+      sum +
+      Math.max(
+        0,
+        Math.min(span.to, within.to) - Math.max(span.from, within.from),
+      ),
+    0,
+  );
+
+interface RefusedCall {
+  readonly toolCallId?: unknown;
+}
 
 export class Told {
   #steps: Building[] = [];
   #hooks: JournalStep[] = [];
   #tools = new Map<string, number>();
+  #refused = new Set<string>();
   #saying: Building | null = null;
   #spent: RunSpent | null = null;
   #spentBySession = new Map<string, RunSpent>();
+  #tokens = Tokens.UNREPORTED;
   #first: Date | null = null;
   #last: Date | null = null;
   #spokenAt: Date[] = [];
@@ -207,6 +268,12 @@ export class Told {
         break;
       case RUN_PAUSED:
         this.#pausedAt.push(event.at);
+        break;
+      case TURN_USAGE:
+        this.used(event);
+        break;
+      case TOOL_REFUSED:
+        this.refused(event);
         break;
       default:
         break;
@@ -265,6 +332,40 @@ export class Told {
         break;
       default:
         break;
+    }
+  }
+
+  private used(event: Journalled): void {
+    let usage: TurnUsage;
+    try {
+      usage = JSON.parse(decoded(event.data ?? '')) as TurnUsage;
+    } catch {
+      return;
+    }
+    if (typeof usage !== 'object' || usage === null) {
+      return;
+    }
+
+    this.#tokens = this.#tokens.plus(
+      Tokens.of({
+        input: countOf(usage.inputTokens),
+        output: countOf(usage.outputTokens),
+        cacheRead: countOf(usage.cachedReadTokens),
+        cacheWrite: countOf(usage.cachedWriteTokens),
+      }),
+    );
+  }
+
+  private refused(event: Journalled): void {
+    let refused: RefusedCall;
+    try {
+      refused = JSON.parse(decoded(event.data ?? '')) as RefusedCall;
+    } catch {
+      return;
+    }
+
+    if (typeof refused?.toolCallId === 'string' && refused.toolCallId) {
+      this.#refused.add(refused.toolCallId);
     }
   }
 
@@ -328,12 +429,57 @@ export class Told {
 
     return this.#hooks.reduce(
       inPlace,
-      this.#steps.map(({ startedAt, endedAt, ...step }) => ({
-        ...step,
-        ms: endedAt.getTime() - startedAt.getTime(),
-        startedAt,
-      })),
+      this.#steps.map(
+        ({
+          startedAt,
+          endedAt,
+          id: _id,
+          named: _named,
+          workingAt: _workingAt,
+          ...step
+        }) => ({
+          ...step,
+          ms: endedAt.getTime() - startedAt.getTime(),
+          startedAt,
+        }),
+      ),
     );
+  }
+
+  calls(): CalledStep[] {
+    this.settle();
+
+    const turns = this.turns();
+
+    return this.#steps.flatMap((step) =>
+      step.kind === 'tool' ? [this.calledOf(step, turns)] : [],
+    );
+  }
+
+  private calledOf(step: Building, turns: readonly Span[]): CalledStep {
+    const tool = harnessToolOf(step.named, step.text, step.tool);
+    const ending = callEndingOf(
+      step.status,
+      step.id !== null && this.#refused.has(step.id),
+    );
+
+    return {
+      server: tool.server,
+      tool: tool.tool,
+      skillAskedFor: skillAskedFor(tool, step.given),
+      paths: readingPaths(tool, step.tool, [
+        ...step.locations.map((each) => each.path),
+        step.given,
+      ]),
+      ms:
+        ending === 'unfinished'
+          ? null
+          : overlapping(turns, {
+              from: (step.workingAt ?? step.startedAt).getTime(),
+              to: step.endedAt.getTime(),
+            }),
+      ending,
+    };
   }
 
   ms(): number | null {
@@ -341,10 +487,14 @@ export class Told {
       return null;
     }
 
+    return this.turns().reduce((sum, span) => sum + span.to - span.from, 0);
+  }
+
+  private turns(): Span[] {
     const pauses = this.#pausedAt
       .map((at) => at.getTime())
       .sort((a, b) => a - b);
-    const turns = new Map<number, { from: number; to: number }>();
+    const turns = new Map<number, Span>();
 
     for (const at of this.#spokenAt.map((each) => each.getTime())) {
       const turn = pauses.filter((pause) => pause < at).length;
@@ -356,10 +506,7 @@ export class Told {
       });
     }
 
-    return [...turns.values()].reduce(
-      (sum, span) => sum + span.to - span.from,
-      0,
-    );
+    return [...turns.values()];
   }
 
   marks(): RunMarks {
@@ -378,6 +525,10 @@ export class Told {
 
   spentBySession(): ReadonlyMap<string, RunSpent> {
     return this.#spentBySession;
+  }
+
+  tokens(): Tokens {
+    return this.#tokens;
   }
 
   private cost(update: NonNullable<Spoken['update']>, session: string): void {
@@ -427,11 +578,19 @@ export class Told {
   }
 
   private reachFor(update: NonNullable<Spoken['update']>, at: Date): void {
+    if (update.toolCallId && this.#tools.has(update.toolCallId)) {
+      this.went(update, at);
+      return;
+    }
+
     this.settle();
 
     const step = bare('tool', update.title ?? 'a tool', at);
+    step.id = update.toolCallId ?? null;
     step.status = update.status ?? null;
     step.tool = update.kind ?? null;
+    step.named = toolNameOf(update);
+    step.workingAt = update.status === WORKING ? at : null;
     step.locations = reached(update.locations);
     step.given = written(update.rawInput);
 
@@ -459,12 +618,15 @@ export class Told {
       text: update.title ?? step.text,
       status: update.status ?? step.status,
       tool: update.kind ?? step.tool,
+      named: toolNameOf(update) ?? step.named,
       detail: came ? unfenced(came).slice(0, DETAIL_LIMIT) : step.detail,
       locations: locations.length > 0 ? locations : step.locations,
       given: written(update.rawInput) ?? step.given,
       returned: written(update.rawOutput) ?? step.returned,
       change: changed(update.content) ?? step.change,
-      endedAt: at,
+      workingAt: step.workingAt ?? (update.status === WORKING ? at : null),
+      endedAt:
+        step.status !== null && SETTLED.has(step.status) ? step.endedAt : at,
     };
   }
 

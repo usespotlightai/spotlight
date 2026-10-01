@@ -1,5 +1,6 @@
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
+import type { PullRequestFacts } from '@github/domain/aggregates/pull-request.aggregate';
 
 export const WEBHOOK_TRANSLATION = Symbol('WEBHOOK_TRANSLATION');
 
@@ -21,6 +22,7 @@ type HeardReviewComment = {
   readonly body: string;
   readonly answers: number | null;
   readonly login: string | null;
+  readonly byBot: boolean;
   readonly writtenAt: Date | null;
 } & HeardPlace;
 
@@ -31,13 +33,31 @@ export type Heard =
       readonly action: ReviewCommentAction;
       readonly pullRequest: string;
       readonly comment: HeardReviewComment;
+      readonly facts: PullRequestFacts | null;
     }
+  | { readonly kind: 'pull-request'; readonly facts: PullRequestFacts }
   | {
       readonly kind: 'pull-request-closed';
       readonly pullRequest: string;
       readonly repository: string;
       readonly merge: { readonly commit: string } | null;
       readonly closedAt: Date | null;
+    }
+  | {
+      readonly kind: 'pull-request-reviewed';
+      readonly pullRequest: string;
+      readonly id: number | null;
+      readonly facts: PullRequestFacts | null;
+      readonly state: 'approved' | 'changes-requested' | 'commented';
+      readonly login: string | null;
+      readonly byBot: boolean;
+      readonly submittedAt: Date | null;
+    }
+  | {
+      readonly kind: 'pull-request-review-dismissed';
+      readonly pullRequest: string;
+      readonly id: number;
+      readonly facts: PullRequestFacts | null;
     }
   | {
       readonly kind: 'pull-request-activity';

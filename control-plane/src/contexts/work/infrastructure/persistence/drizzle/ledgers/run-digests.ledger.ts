@@ -1,16 +1,26 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunSpent } from '@work/application/contracts/run-journal.contract';
+import {
+  HARNESS_LAUNCH,
+  type HarnessLaunchPort,
+} from '@work/application/ports/harness-launch.port';
 import type {
   RunDigest,
   RunDigestReaderPort,
 } from '@work/application/ports/run-digest-reader.port';
 import type { RunDigestWriterPort } from '@work/application/ports/run-digest-writer.port';
+import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
+import { changedLinesOf } from '@work/domain/services/change-hunks';
+import { toolUseOf } from '@work/domain/services/tool-attribution';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { TERMINAL_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { faulted } from '@work/domain/value-objects/step-status';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
+import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { Told } from '@work/infrastructure/acp/told';
 import {
   run,
@@ -24,10 +34,22 @@ const AT_A_TIME = 25;
 interface Worked {
   readonly ms: number | null;
   readonly statuses: readonly (string | null)[];
+  readonly changes: readonly {
+    readonly path: string | null;
+    readonly before: string;
+    readonly after: string;
+  }[];
   readonly used: number | null;
   readonly size: number | null;
   readonly cost: Money | null;
+  readonly tokens: Tokens;
 }
+
+export const tokensAcross = (readings: readonly Told[]): Tokens =>
+  readings.reduce(
+    (all, reading) => all.plus(reading.tokens()),
+    Tokens.UNREPORTED,
+  );
 
 export const spentAcross = (readings: readonly Told[]): RunSpent | null => {
   const latest =
@@ -64,9 +86,11 @@ export const digestOf = (worked: Worked): RunDigest => ({
   ms: worked.ms,
   steps: worked.statuses.length,
   faults: worked.statuses.filter(faulted).length,
+  changedLines: changedLinesOf(worked.changes),
   used: worked.used,
   size: worked.size,
   cost: worked.cost,
+  tokens: worked.tokens,
 });
 
 const chunked = <T>(all: readonly T[], size: number): T[][] => {
@@ -81,9 +105,12 @@ const chunked = <T>(all: readonly T[], size: number): T[][] => {
 
 @Injectable()
 export class DrizzleRunDigests
-  implements RunDigestReaderPort, RunDigestWriterPort
+  implements RunDigestReaderPort, RunDigestWriterPort, RunToolsReaderPort
 {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
+    @Inject(HARNESS_LAUNCH) private readonly launch: HarnessLaunchPort,
+  ) {}
 
   async ensure(runIds: readonly RunId[]): Promise<void> {
     const ids = [...new Set(runIds.map((each) => each.value))];
@@ -164,24 +191,30 @@ export class DrizzleRunDigests
       readings.set(`${row.runId}:${row.attempt}`, reading);
     }
 
+    const homes = this.launch.skillHomes();
     const rows = owed.map(({ id, attempt, parked }) => {
       const kept = [...parked, attempt]
         .sort((one, other) => one - other)
         .map((each) => readings.get(`${id}:${each}`) ?? new Told());
       const spent = spentAcross(kept);
+      const steps = kept.flatMap((reading) => reading.steps());
       const took = kept
         .map((reading) => reading.ms())
         .filter((each) => each !== null);
 
       const digest = digestOf({
         ms: took.length > 0 ? took.reduce((sum, ms) => sum + ms, 0) : null,
-        statuses: kept.flatMap((reading) =>
-          reading.steps().map((step) => step.status),
-        ),
+        statuses: steps.map((step) => step.status),
+        changes: steps.flatMap((step) => (step.change ? [step.change] : [])),
         used: spent?.used ?? null,
         size: spent?.size ?? null,
         cost: spent?.cost ?? null,
+        tokens: tokensAcross(kept),
       });
+      const tools = toolUseOf(
+        kept.flatMap((reading) => reading.calls()),
+        homes,
+      );
 
       return {
         runId: id,
@@ -189,10 +222,25 @@ export class DrizzleRunDigests
         ms: digest.ms,
         steps: digest.steps,
         faults: digest.faults,
+        changedLines: digest.changedLines,
         used: digest.used,
         size: digest.size,
         cost: digest.cost?.amount ?? null,
         currency: digest.cost?.currency ?? null,
+        inputTokens: digest.tokens.input,
+        outputTokens: digest.tokens.output,
+        cacheReadTokens: digest.tokens.cacheRead,
+        cacheWriteTokens: digest.tokens.cacheWrite,
+        tools: {
+          servers: tools.servers.map((each) => ({
+            server: each.server,
+            calls: each.calls,
+            failed: each.failed,
+            latency: [...each.latency.counts],
+            lastCallFailed: each.lastCallFailed,
+          })),
+          skills: [...tools.skills],
+        },
       };
     });
 
@@ -216,14 +264,22 @@ export class DrizzleRunDigests
         ms: runDigest.ms,
         steps: runDigest.steps,
         faults: runDigest.faults,
+        changedLines: runDigest.changedLines,
         used: runDigest.used,
         size: runDigest.size,
         cost: runDigest.cost,
         currency: runDigest.currency,
+        inputTokens: runDigest.inputTokens,
+        outputTokens: runDigest.outputTokens,
+        cacheReadTokens: runDigest.cacheReadTokens,
+        cacheWriteTokens: runDigest.cacheWriteTokens,
       })
       .from(runDigest)
-      .where(inArray(runDigest.runId, ids))
-      .orderBy(asc(runDigest.attempt));
+      .innerJoin(
+        run,
+        and(eq(run.id, runDigest.runId), eq(run.attempt, runDigest.attempt)),
+      )
+      .where(inArray(runDigest.runId, ids));
 
     return new Map(
       held.map((each) => [
@@ -232,11 +288,40 @@ export class DrizzleRunDigests
           ms: each.ms,
           steps: each.steps,
           faults: each.faults,
+          changedLines: each.changedLines,
           used: each.used,
           size: each.size,
           cost: Money.maybe(each.cost, each.currency),
+          tokens: Tokens.of({
+            input: each.inputTokens,
+            output: each.outputTokens,
+            cacheRead: each.cacheReadTokens,
+            cacheWrite: each.cacheWriteTokens,
+          }),
         },
       ]),
     );
+  }
+
+  async toolsFor(runId: RunId): Promise<ToolUse | null> {
+    const [held] = await this.db
+      .select({ tools: runDigest.tools })
+      .from(runDigest)
+      .innerJoin(
+        run,
+        and(eq(run.id, runDigest.runId), eq(run.attempt, runDigest.attempt)),
+      )
+      .where(eq(runDigest.runId, runId.value))
+      .limit(1);
+
+    return held
+      ? ToolUse.of({
+          servers: held.tools.servers.map((called) => ({
+            ...called,
+            latency: LatencyHistogram.of(called.latency),
+          })),
+          skills: held.tools.skills,
+        })
+      : null;
   }
 }

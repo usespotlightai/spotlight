@@ -118,6 +118,9 @@ export class ChatController {
         body.body ?? '',
         givenIds(body.attachments),
         givenIds(body.traces),
+        typeof body.improving === 'string' && body.improving.trim()
+          ? body.improving.trim()
+          : null,
       ),
     );
 

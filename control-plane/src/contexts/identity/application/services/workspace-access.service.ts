@@ -8,7 +8,9 @@ import type {
   WorkspaceMembership,
 } from '@identity/application/ports/workspace-access.port';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
+import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import { TeamReadership } from '@identity/domain/services/team-readership';
 import { Clearance } from '@identity/domain/value-objects/clearance.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import {
@@ -53,6 +55,7 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     private readonly visibility: ViewableWorkspacesPort,
     private readonly workspaces: WorkspaceRepository,
     private readonly resources: IdentityResourcesPort,
+    private readonly teams: TeamRepository,
   ) {}
 
   viewableBy(
@@ -106,6 +109,23 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     const cleared = team
       ? await this.clearanceIn(team.workspaceId, principal)
       : null;
+
+    return team && cleared ? { ...cleared, teamId: team.id } : null;
+  }
+
+  async clearanceAsTeamReader(
+    teamId: string,
+    principal: Principal,
+  ): Promise<TeamClearance | null> {
+    const team = await this.teams.find(TeamId.of(teamId));
+    const workspace = team
+      ? await this.workspaces.find(team.workspaceId)
+      : null;
+
+    const cleared =
+      team && workspace && TeamReadership.admits(team, workspace, principal)
+        ? clearanceIn(workspace, principal)
+        : null;
 
     return team && cleared ? { ...cleared, teamId: team.id } : null;
   }

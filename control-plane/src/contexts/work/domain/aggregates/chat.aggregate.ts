@@ -18,6 +18,7 @@ import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event'
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
+import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -28,6 +29,7 @@ import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import type { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -50,6 +52,7 @@ export class Chat extends EventRecorder {
     readonly model: HarnessModel | null,
     readonly effort: Effort | null,
     readonly repositories: readonly Repository[],
+    readonly improving: ImprovedStation | null,
     readonly messages: readonly ChatMessage[],
     readonly currentRunId: RunId | null,
     readonly sessionId: HarnessSession | null,
@@ -71,10 +74,12 @@ export class Chat extends EventRecorder {
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
     traces?: readonly TraceReference[];
+    improving?: ImprovedStation | null;
     now: Date;
     newId: () => string;
   }): Chat {
     Chat.refuseForeignTraces(input.teamId, input.traces ?? []);
+    Chat.refuseForeignStation(input.teamId, input.improving ?? null);
 
     const opening = ChatMessage.said({
       position: MessagePosition.of(0),
@@ -95,6 +100,7 @@ export class Chat extends EventRecorder {
       input.model ?? null,
       input.effort ?? null,
       Chat.distinct(input.repositories ?? []),
+      input.improving ?? null,
       [opening],
       null,
       null,
@@ -104,7 +110,13 @@ export class Chat extends EventRecorder {
     );
 
     chat.record(
-      new ChatStarted(chat.id, chat.workspaceId, chat.teamId, chat.startedBy),
+      new ChatStarted(
+        chat.id,
+        chat.workspaceId,
+        chat.teamId,
+        chat.startedBy,
+        chat.createdAt,
+      ),
     );
 
     return chat;
@@ -120,6 +132,7 @@ export class Chat extends EventRecorder {
     model: HarnessModel | null;
     effort: Effort | null;
     repositories: readonly Repository[];
+    improving?: ImprovedStation | null;
     messages: readonly ChatMessage[];
     currentRunId: RunId | null;
     sessionId: HarnessSession | null;
@@ -143,6 +156,7 @@ export class Chat extends EventRecorder {
       input.model,
       input.effort,
       input.repositories,
+      input.improving ?? null,
       input.messages,
       input.currentRunId,
       input.sessionId,
@@ -412,6 +426,15 @@ export class Chat extends EventRecorder {
     }
   }
 
+  private static refuseForeignStation(
+    teamId: TeamId,
+    improving: ImprovedStation | null,
+  ): void {
+    if (improving && !improving.teamId.equals(teamId)) {
+      throw new UnknownStationError(improving.stationId.value);
+    }
+  }
+
   private refuseStranger(by: UserId): void {
     if (!this.startedBy.equals(by)) {
       throw new NotTheChatStarterError(this.id.value);
@@ -444,6 +467,7 @@ export class Chat extends EventRecorder {
       this.model,
       this.effort,
       this.repositories,
+      this.improving,
       part.messages ?? this.messages,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,
       part.sessionId !== undefined ? part.sessionId : this.sessionId,

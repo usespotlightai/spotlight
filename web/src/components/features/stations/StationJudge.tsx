@@ -1,0 +1,75 @@
+import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
+import { StationSection } from '@/components/features/stations/StationSection';
+import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { JUDGE_ANCHOR } from '@/lib/station';
+import { type JudgeSettings, sharePercent } from '@/lib/station-watch';
+import { cn } from '@/lib/utils';
+
+type StationJudgeProps = {
+  slug: string;
+  teamId: string;
+  lineId: string;
+  stationId: string;
+  judge: JudgeSettings;
+};
+
+export function StationJudge({
+  slug,
+  teamId,
+  lineId,
+  stationId,
+  judge,
+}: StationJudgeProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <StationSection title="Judge" id={JUDGE_ANCHOR}>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">Judges</dt>
+        <dd className="text-foreground">
+          {sharePercent(judge.sample)} of runs
+        </dd>
+        <dt className="text-muted-foreground">Trusted from</dt>
+        <dd className="text-foreground">
+          agreement with people of {judge.trust.toFixed(2)} or more
+        </dd>
+      </dl>
+
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-fit items-center gap-1 rounded py-0.5 text-muted-foreground text-sm outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ChevronRight
+          aria-hidden
+          className={cn(
+            'size-3.5 transition-transform duration-200',
+            open && 'rotate-90',
+          )}
+        />
+        Rubric
+      </button>
+
+      {open && (
+        <MarkdownEditor
+          key={stationId}
+          initialValue={judge.rubric}
+          readOnly
+          ariaLabel="Rubric"
+          placeholder=""
+          className="bg-card"
+        />
+      )}
+
+      <JudgeAgreement
+        slug={slug}
+        teamId={teamId}
+        lineId={lineId}
+        stationId={stationId}
+      />
+    </StationSection>
+  );
+}

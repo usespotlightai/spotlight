@@ -111,6 +111,15 @@ export async function changesOfTask(
   }));
 }
 
+export function journalsOfRuns(
+  db: DrizzleDatabase,
+  runIds: readonly string[],
+): Promise<RunJournal[]> {
+  return runIds.length === 0
+    ? Promise.resolve([])
+    : journalsOf(db, inArray(run.id, [...runIds]));
+}
+
 export async function journalOfRun(
   db: DrizzleDatabase,
   runId: RunId,

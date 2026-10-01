@@ -1,7 +1,12 @@
 import { X } from 'lucide-react';
 import { CodeDiff } from '@/components/shared/CodeDiff';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
-import { type FileChange, repoRelative, tallyFile } from '@/lib/changes';
+import {
+  type FileChange,
+  type LineRange,
+  repoRelative,
+  tallyFile,
+} from '@/lib/changes';
 
 const CHANGE_PANE: PaneConfig = {
   storageKey: 'spotlight.changes-detail-width',
@@ -13,10 +18,12 @@ const CHANGE_PANE: PaneConfig = {
 
 export function ChangeDetail({
   file,
+  lines,
   open,
   onClose,
 }: {
   file: FileChange;
+  lines: LineRange | null;
   open: boolean;
   onClose: () => void;
 }) {
@@ -54,6 +61,7 @@ export function ChangeDetail({
           path={file.path}
           before={file.before}
           after={file.after}
+          lines={lines}
         />
       </div>
     </SidePane>

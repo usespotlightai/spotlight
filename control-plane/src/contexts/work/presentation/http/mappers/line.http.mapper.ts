@@ -18,6 +18,8 @@ export const LineHttpMapper = {
       dto.model,
       dto.effort,
       dto.agentPrompt,
+      dto.judge,
+      dto.alerts,
       dto.kind,
       dto.skills,
     );

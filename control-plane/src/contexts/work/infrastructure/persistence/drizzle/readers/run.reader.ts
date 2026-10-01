@@ -16,6 +16,8 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type {
+  ConfiguredRun,
+  RunConfigSummary,
   RunConversationSummary,
   RunReaderPort,
   RunStationSummary,
@@ -23,6 +25,7 @@ import type {
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
 import { awaitsAPerson, turnOf } from '@work/domain/services/conversations';
+import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -36,7 +39,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, lt } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 export const ranAt = alias(station, 'ran_at');
@@ -236,4 +239,71 @@ export class DrizzleRunReader implements RunReaderPort {
       notes: said,
     };
   }
+
+  async configFor(
+    runId: RunId,
+    viewerId: UserId,
+  ): Promise<RunConfigSummary | null> {
+    const [found] = await this.db
+      .select({
+        runId: run.id,
+        taskId: run.taskId,
+        stationId: run.stationId,
+        createdAt: run.createdAt,
+        fingerprint: run.stationFingerprint,
+        parts: run.stationConfig,
+        workspaceId: run.workspaceId,
+      })
+      .from(run)
+      .where(eq(run.id, runId.value))
+      .limit(1);
+
+    if (
+      !found ||
+      !(await this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId)))
+    ) {
+      return null;
+    }
+
+    const ran = configured(found);
+
+    if (!ran || !found.stationId) {
+      return { ran, before: null };
+    }
+
+    const [earlier] = await this.db
+      .select({
+        runId: run.id,
+        taskId: run.taskId,
+        fingerprint: run.stationFingerprint,
+        parts: run.stationConfig,
+      })
+      .from(run)
+      .where(
+        and(
+          eq(run.stationId, found.stationId),
+          lt(run.createdAt, found.createdAt),
+          isNotNull(run.stationFingerprint),
+        ),
+      )
+      .orderBy(desc(run.createdAt))
+      .limit(1);
+
+    return { ran, before: earlier ? configured(earlier) : null };
+  }
 }
+
+const configured = (row: {
+  runId: string;
+  taskId: string | null;
+  fingerprint: string | null;
+  parts: StationConfigParts | null;
+}): ConfiguredRun | null =>
+  row.taskId && row.fingerprint && row.parts
+    ? {
+        runId: row.runId,
+        taskId: row.taskId,
+        fingerprint: row.fingerprint,
+        parts: row.parts,
+      }
+    : null;

@@ -27,6 +27,7 @@ x-control-plane-env: &control-plane-env
   CHANGE_STACK_MODEL: ${CHANGE_STACK_MODEL:-google/gemini-3.8-flash}
   DECISIONS_MODEL: ${DECISIONS_MODEL:-google/gemini-3.8-flash}
   MEMORIES_MODEL: ${MEMORIES_MODEL:-google/gemini-3.8-flash}
+  JUDGE_MODEL: ${JUDGE_MODEL:-google/gemini-3.8-flash}
 
 services:
   traefik:

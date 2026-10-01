@@ -15,14 +15,20 @@ import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
+import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { LineKey } from '@work/domain/value-objects/line-key.vo';
+import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { StationKey } from '@work/domain/value-objects/station-key.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
@@ -43,6 +49,26 @@ const started = (body = 'Plan how retries back off.\nThen split it up.') =>
     harness: HarnessId.of('claude-code'),
     repositories: [Repository.of('acme/api'), Repository.of('acme/api')],
     body: ChatMessageBody.given(body),
+    now: NOW,
+    newId: () => 'chat_1',
+  });
+
+const improving = (stationTeam: TeamId) =>
+  Chat.start({
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+    startedBy: LEON,
+    harness: HarnessId.of('claude-code'),
+    body: ChatMessageBody.given('Improve this station.'),
+    improving: ImprovedStation.rehydrate({
+      teamId: stationTeam,
+      lineId: LineId.of('line_1'),
+      lineKey: LineKey.of('delivery'),
+      lineName: LineName.of('Delivery'),
+      stationId: StationId.of('station_1'),
+      stationKey: StationKey.of('implementation'),
+      stationName: StationName.of('Implementation'),
+    }),
     now: NOW,
     newId: () => 'chat_1',
   });
@@ -150,6 +176,17 @@ describe('Chat', () => {
         at: LATER,
       }),
     ).toThrow(UnknownTaskError);
+  });
+
+  it('keeps the station it was opened to improve', () => {
+    const chat = improving(TeamId.of('team_1'));
+
+    expect(chat.improving?.stationKey.value).toBe('implementation');
+    expect(chat.improving?.lineKey.value).toBe('delivery');
+  });
+
+  it('improves no station of another team, as if there were no such station', () => {
+    expect(() => improving(TeamId.of('team_2'))).toThrow(UnknownStationError);
   });
 
   it('shares only so many traces at once', () => {

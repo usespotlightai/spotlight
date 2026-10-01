@@ -9,3 +9,12 @@ export const stationPath = (
 
 export const stationShare = (place: number, count: number): number =>
   count > 1 ? place / (count - 1) : 1;
+
+export const JUDGE_ANCHOR = 'judge';
+
+export const judgeAgreementPath = (
+  slug: string,
+  teamId: string,
+  station: { lineId: string; stationId: string },
+): string =>
+  `${stationPath(slug, teamId, station.lineId, station.stationId)}#${JUDGE_ANCHOR}`;

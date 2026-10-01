@@ -36,6 +36,7 @@ type Journal interface {
 	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
+	History(ctx context.Context, runID string, asked protocol.HistoryRequest) (json.RawMessage, error)
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.Remembering) (json.RawMessage, error)
@@ -186,6 +187,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return opts.Journal.Trace(ctx, run.ID, taskID)
 	})
 
+	channel.Histories(func(ctx context.Context, asked protocol.HistoryRequest) (json.RawMessage, error) {
+		return opts.Journal.History(ctx, run.ID, asked)
+	})
+
 	channel.Memories(
 		func(ctx context.Context, asked protocol.RecallRequest) (json.RawMessage, error) {
 			from := time.Now()
@@ -225,7 +230,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		Env:        granted(run.Spec.Command.Env, channel, state, telemetry.URL),
 		Root:       cwd,
 		RunAs:      opts.AgentUser,
-		Answer:     answering(run, opts.Journal, &putToPerson, log),
+		Answer:     answering(run, opts.Journal, journal, &putToPerson, log),
 		Session:    run.Spec.HarnessSetup.Session,
 		McpServers: serversOf(run.Spec.HarnessSetup.McpServers),
 	})
@@ -356,39 +361,56 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 }
 
 func answering(
-	run protocol.Run, lease Journal, putToPerson *atomic.Bool, log *slog.Logger,
+	run protocol.Run, lease Journal, journal *journalWriter, putToPerson *atomic.Bool, log *slog.Logger,
 ) acp.Permission {
 	asks := run.Spec.HarnessSetup.Asks
 
 	return func(ctx context.Context, asked acp.Asked) acp.Verdict {
-		if !slices.Contains(asks, asked.Kind) {
-			return acp.Allow
+		verdict := decide(ctx, run, asks, lease, putToPerson, log, asked)
+		if verdict != acp.Allow && asked.ToolCallID != "" {
+			journal.append(protocol.Event{Type: protocol.EventToolRefused, Data: refusedCall(asked.ToolCallID)})
 		}
+		return verdict
+	}
+}
 
-		if putToPerson.Load() {
-			return acp.Cancel
-		}
+func refusedCall(toolCallID string) []byte {
+	data, _ := json.Marshal(struct {
+		ToolCallID string `json:"toolCallId"`
+	}{toolCallID})
+	return data
+}
 
-		answer, err := lease.AskPermission(ctx, run.ID, protocol.PermissionAsked{
-			SessionID: asked.SessionID,
-			Kind:      asked.Kind,
-			Title:     asked.Title,
-			Input:     asked.Input,
-		})
-		if err != nil {
-			log.Warn("could not ask for permission; refusing", "tool", asked.Title, "error", err)
-			return acp.Reject
-		}
+func decide(
+	ctx context.Context, run protocol.Run, asks []string, lease Journal, putToPerson *atomic.Bool, log *slog.Logger, asked acp.Asked,
+) acp.Verdict {
+	if !slices.Contains(asks, asked.Kind) {
+		return acp.Allow
+	}
 
-		switch answer.Decision {
-		case protocol.PermissionAllow:
-			return acp.Allow
-		case protocol.PermissionPutToPerson:
-			putToPerson.Store(true)
-			return acp.Cancel
-		default:
-			return acp.Reject
-		}
+	if putToPerson.Load() {
+		return acp.Cancel
+	}
+
+	answer, err := lease.AskPermission(ctx, run.ID, protocol.PermissionAsked{
+		SessionID: asked.SessionID,
+		Kind:      asked.Kind,
+		Title:     asked.Title,
+		Input:     asked.Input,
+	})
+	if err != nil {
+		log.Warn("could not ask for permission; refusing", "tool", asked.Title, "error", err)
+		return acp.Reject
+	}
+
+	switch answer.Decision {
+	case protocol.PermissionAllow:
+		return acp.Allow
+	case protocol.PermissionPutToPerson:
+		putToPerson.Store(true)
+		return acp.Cancel
+	default:
+		return acp.Reject
 	}
 }
 

@@ -1,3 +1,4 @@
+import { StationSection } from '@/components/features/stations/StationSection';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 
 type StationPromptProps = {
@@ -7,9 +8,7 @@ type StationPromptProps = {
 
 export function StationPrompt({ stationId, prompt }: StationPromptProps) {
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="font-medium text-foreground text-sm">Agent prompt</h2>
-
+    <StationSection title="Agent prompt">
       {prompt ? (
         <MarkdownEditor
           key={stationId}
@@ -22,6 +21,6 @@ export function StationPrompt({ stationId, prompt }: StationPromptProps) {
       ) : (
         <p className="text-muted-foreground text-sm">No agent prompt.</p>
       )}
-    </section>
+    </StationSection>
   );
 }

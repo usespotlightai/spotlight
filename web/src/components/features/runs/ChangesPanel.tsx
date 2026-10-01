@@ -1,22 +1,27 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { ChangeDetail } from '@/components/features/runs/ChangeDetail';
 import { useLingering } from '@/hooks/useLingering';
-import type { FileChange } from '@/lib/changes';
+import type { FileChange, LineRange } from '@/lib/changes';
 import { ChangesPanelContext } from '@/lib/changes-panel';
 
 const LEAVING = 240;
 
 export function ChangesPanel({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState<FileChange | null>(null);
+  const [lines, setLines] = useState<LineRange | null>(null);
   const held = useLingering(selected, LEAVING);
 
   const value = useMemo(
     () => ({
       selected,
-      open: (file: FileChange) => setSelected(file),
+      lines,
+      open: (file: FileChange, at?: LineRange) => {
+        setSelected(file);
+        setLines(at ?? null);
+      },
       close: () => setSelected(null),
     }),
-    [selected],
+    [selected, lines],
   );
 
   return (
@@ -27,6 +32,7 @@ export function ChangesPanel({ children }: { children: ReactNode }) {
         {held && (
           <ChangeDetail
             file={held}
+            lines={held === selected ? lines : null}
             open={selected !== null}
             onClose={() => setSelected(null)}
           />

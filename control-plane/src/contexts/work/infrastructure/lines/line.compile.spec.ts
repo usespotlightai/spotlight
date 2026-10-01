@@ -83,6 +83,107 @@ describe('compileLine', () => {
     ).toMatchObject({ field: FieldPath.dotted('stations.1.prompt') });
   });
 
+  it('reads a station’s judge and its alerts in the order they were written', () => {
+    const compiled = compileLine(
+      withStation(1, {
+        ...DELIVERY.stations[1],
+        judge: { rubric: 'A good run is small.\n', sample: 0.2, trust: 0.6 },
+        alerts: [
+          { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
+          { measure: 'cost_per_run', above: 2, over: 10 },
+          { measure: 'accepted_rate', fallsBy: 0.1, over: 20 },
+          { measure: 'merged_rate', below: 0.4, over: 20 },
+        ],
+      }),
+    );
+    const judged = compiled.ok ? compiled.line.stations[1] : undefined;
+
+    expect(judged?.judge).toMatchObject({
+      rubric: 'A good run is small.\n',
+      sample: 0.2,
+      trust: 0.6,
+    });
+    expect(judged?.alerts.map((each) => each.measure)).toEqual([
+      'sent_back_rate',
+      'cost_per_run',
+      'accepted_rate',
+      'merged_rate',
+    ]);
+    expect(judged?.alerts[2]).toMatchObject({ fallsBy: 0.1, risesBy: null });
+    expect(judged?.alerts[3]).toMatchObject({ below: 0.4, above: null });
+    expect(compiled.ok && compiled.line.stations[0]?.judge).toBeNull();
+    expect(compiled.ok && compiled.line.stations[0]?.alerts).toEqual([]);
+  });
+
+  it('refuses a judge setting at its own path', () => {
+    expect(
+      refused(
+        withStation(1, {
+          ...DELIVERY.stations[1],
+          judge: { rubric: 'A good run.', sample: 1.5, trust: 0.6 },
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.sample') });
+  });
+
+  it('refuses an alert setting at its own path', () => {
+    expect(
+      refused(
+        withStation(1, {
+          ...DELIVERY.stations[1],
+          alerts: [
+            { measure: 'cost_per_run', above: 2, over: 10 },
+            { measure: 'sent_back_rate', risesBy: -0.1, over: 20 },
+          ],
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.alerts.1.risesBy') });
+    expect(
+      refused(
+        withStation(1, {
+          ...DELIVERY.stations[1],
+          alerts: [{ measure: 'merged_rate', below: 1.5, over: 20 }],
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.alerts.0.below') });
+  });
+
+  it.each([
+    ['no threshold', { measure: 'failed_rate', over: 5 }],
+    [
+      'two thresholds',
+      { measure: 'accepted_rate', fallsBy: 0.1, below: 0.4, over: 5 },
+    ],
+  ])('refuses an alert with %s at the alert itself', (_, alert) => {
+    expect(
+      refused(
+        withStation(1, {
+          ...DELIVERY.stations[1],
+          alerts: [alert],
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.alerts.0') });
+  });
+
+  it('refuses a judge or alerts at a station where nothing runs', () => {
+    expect(
+      refused(
+        withStation(0, {
+          ...DELIVERY.stations[0],
+          judge: { rubric: 'A good run.', sample: 0.2, trust: 0.6 },
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.0.judge') });
+    expect(
+      refused(
+        withStation(2, {
+          ...DELIVERY.stations[2],
+          alerts: [{ measure: 'failed_rate', above: 0.1, over: 5 }],
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.2.alerts') });
+  });
+
   it('reads the reactions along with the stations', () => {
     const compiled = compileLine(DELIVERY);
 

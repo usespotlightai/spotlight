@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamSkills } from '@/routes/TeamSkills';
 
@@ -24,9 +24,11 @@ const GRAFANA = {
   path: '.spotlight/skills/grafana-dashboards',
 };
 
-const showing = () =>
+const showing = (hash = '') =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/team/team_1/settings/skills']}>
+    <MemoryRouter
+      initialEntries={[`/w/acme/team/team_1/settings/skills${hash}`]}
+    >
       <Routes>
         <Route
           path="/w/:slug/team/:teamId/settings/skills"
@@ -43,6 +45,51 @@ beforeEach(() => {
 });
 
 describe('TeamSkills', () => {
+  it('scrolls to the skill a link names, so Insights can point at one', () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+
+    showing('#skill-grafana-dashboards');
+
+    expect(document.getElementById('skill-grafana-dashboards')).toHaveAttribute(
+      'data-slot',
+      'team-skill',
+    );
+    expect(document.getElementById('skill-grafana-dashboards')).toHaveAttribute(
+      'data-pointed',
+    );
+    expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
+  });
+
+  it('marks the skill a link points at after moving there within the app', async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    render(
+      <MemoryRouter initialEntries={['/w/acme/team/team_1/settings/skills']}>
+        <Routes>
+          <Route
+            path="/w/:slug/team/:teamId/settings/skills"
+            element={
+              <>
+                <TeamSkills />
+                <Link to="#skill-grafana-dashboards">Point at it</Link>
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      document.getElementById('skill-grafana-dashboards'),
+    ).not.toHaveAttribute('data-pointed');
+
+    await userEvent.click(screen.getByRole('link', { name: 'Point at it' }));
+
+    expect(document.getElementById('skill-grafana-dashboards')).toHaveAttribute(
+      'data-pointed',
+    );
+  });
+
   it('lists the team’s skills by name and what each is for', () => {
     showing();
 

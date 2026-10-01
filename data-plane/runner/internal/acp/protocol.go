@@ -39,5 +39,10 @@ type Update struct {
 }
 
 type Result struct {
-	StopReason string `json:"stopReason"`
+	StopReason string          `json:"stopReason"`
+	Usage      json.RawMessage `json:"usage"`
+}
+
+func (r Result) Used() bool {
+	return len(r.Usage) > 0 && string(r.Usage) != "null"
 }

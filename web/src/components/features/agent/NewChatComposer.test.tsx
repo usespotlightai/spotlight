@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
-import type { SharedTrace } from '@/lib/chat';
+import type { ImprovedStation, SharedTrace } from '@/lib/chat';
 
 const started = vi.fn();
 const harnesses = vi.fn();
@@ -32,12 +32,26 @@ const CLAUDE = {
 
 const RETRIES = { taskId: 'task_1', title: 'Drain the stuck retry queues' };
 
-const showing = (onStarted = vi.fn(), traces: readonly SharedTrace[] = []) => {
+const SPEC: ImprovedStation = {
+  lineId: 'line_1',
+  lineKey: 'delivery',
+  lineName: 'Delivery',
+  stationId: 'station_spec',
+  stationKey: 'spec',
+  stationName: 'Spec',
+};
+
+const showing = (
+  onStarted = vi.fn(),
+  traces: readonly SharedTrace[] = [],
+  improving: ImprovedStation | null = null,
+) => {
   render(
     <NewChatComposer
       slug="acme"
       teamId="team_1"
       traces={traces}
+      improving={improving}
       onStarted={onStarted}
     />,
   );
@@ -114,6 +128,36 @@ describe('NewChatComposer', () => {
       screen.queryByRole('list', { name: 'Traces to share' }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+  });
+
+  it('improves the station it was handed, and may start with nothing typed', async () => {
+    showing(vi.fn(), [], SPEC);
+
+    expect(
+      screen.getByRole('list', { name: 'Station to improve' }),
+    ).toHaveTextContent('Spec');
+    expect(box()).toHaveAttribute('placeholder', 'What should it do better?');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(started).toHaveBeenCalledWith(
+      expect.objectContaining({ body: '', improving: 'station_spec' }),
+      expect.anything(),
+    );
+  });
+
+  it('lets the handed station go before starting', async () => {
+    showing(vi.fn(), [], SPEC);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Stop improving Spec' }),
+    );
+    await userEvent.type(box(), 'Plan the retries{Enter}');
+
+    expect(
+      screen.queryByRole('list', { name: 'Station to improve' }),
+    ).not.toBeInTheDocument();
+    expect(started.mock.calls[0]?.[0]).not.toHaveProperty('improving');
   });
 
   it('shows which harness it will talk to', () => {

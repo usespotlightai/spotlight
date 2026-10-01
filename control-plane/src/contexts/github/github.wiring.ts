@@ -34,6 +34,7 @@ import { ListRepositoriesQuery } from '@github/application/queries/list-reposito
 import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { Installations } from '@github/application/services/installations.service';
+import { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
 import { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
 import { GITHUB_EVENT_TYPES } from '@github/domain/event-types';
 import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access';
@@ -48,9 +49,12 @@ import { GitHubRemarks } from '@github/infrastructure/github/github-remarks';
 import { GitHubRepositoryCatalog } from '@github/infrastructure/github/github-repository.catalog';
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
+import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
 import { GitHubWebhookTranslation } from '@github/infrastructure/webhooks/github-webhook.translation';
+import { githubSubscribers } from '@github/presentation/events/github.subscribers';
 import { GitHubConnectionController } from '@github/presentation/http/controllers/github-connection.controller';
 import { RepositoryController } from '@github/presentation/http/controllers/repository.controller';
+import { ForgottenPullRequestsWorker } from '@github/presentation/workers/forgotten-pull-requests.worker';
 import {
   LINKED_ACCOUNTS,
   type LinkedAccountsPort,
@@ -63,7 +67,12 @@ import { type Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventPublications } from '@platform/events/event-publications';
+import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
+import {
+  CLOCK,
+  type ClockPort,
+} from '@shared-kernel/application/ports/clock.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -72,7 +81,10 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
+import {
+  TRANSACTION,
+  type TransactionPort,
+} from '@shared-kernel/application/ports/transaction.port';
 
 const GITHUB_EVENTS = Symbol('GITHUB_EVENTS');
 
@@ -84,12 +96,57 @@ export const GITHUB_CONTROLLERS: readonly Type[] = [
 export const GITHUB_PROVIDERS: readonly Provider[] = [
   {
     provide: GITHUB_EVENTS,
-    inject: [EventTypes, EventPublications],
-    useFactory: (types: EventTypes, publications: EventPublications) => {
+    inject: [
+      EventTypes,
+      EventPublications,
+      EventSubscribers,
+      RecordPullRequests,
+    ],
+    useFactory: (
+      types: EventTypes,
+      publications: EventPublications,
+      subscribers: EventSubscribers,
+      recording: RecordPullRequests,
+    ) => {
       types.register('github', GITHUB_EVENT_TYPES);
       publications.register(GITHUB_PUBLICATIONS);
+      subscribers.register(githubSubscribers(recording));
       return true;
     },
+  },
+
+  DrizzlePullRequests,
+
+  {
+    provide: RecordPullRequests,
+    inject: [
+      DrizzlePullRequests,
+      DrizzleGitHubConnections,
+      TRANSACTION,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      pullRequests: DrizzlePullRequests,
+      connections: DrizzleGitHubConnections,
+      transaction: TransactionPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) =>
+      new RecordPullRequests(
+        pullRequests,
+        connections,
+        transaction,
+        clock,
+        logger,
+      ),
+  },
+
+  {
+    provide: ForgottenPullRequestsWorker,
+    inject: [RecordPullRequests, LOGGER],
+    useFactory: (recording: RecordPullRequests, logger: LoggerPort) =>
+      new ForgottenPullRequestsWorker(recording, logger),
   },
   {
     provide: PULL_REQUEST_COMMENTS,
@@ -138,6 +195,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       WEBHOOK_SIGNATURE,
       DrizzleGitHubConnections,
       DOMAIN_EVENT_DISPATCHER,
+      RecordPullRequests,
       LOGGER,
     ],
     useFactory: (
@@ -145,9 +203,17 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       signature: WebhookSignaturePort,
       connections: DrizzleGitHubConnections,
       events: DomainEventDispatcher,
+      recording: RecordPullRequests,
       logger: LoggerPort,
     ) =>
-      new GitHubWebhooks(translation, signature, connections, events, logger),
+      new GitHubWebhooks(
+        translation,
+        signature,
+        connections,
+        events,
+        recording,
+        logger,
+      ),
   },
 
   {

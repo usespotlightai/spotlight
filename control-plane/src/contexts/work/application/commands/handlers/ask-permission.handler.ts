@@ -5,6 +5,7 @@ import type {
   PermissionAnswer,
   PermissionAnswerDto,
 } from '@work/application/dto/permission-answer.dto';
+import type { HarnessToolNamesPort } from '@work/application/ports/harness-tool-names.port';
 import type { PermissionCleared } from '@work/application/services/run-work';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
@@ -19,7 +20,10 @@ const ANSWERS: Readonly<Record<PermissionCleared, PermissionAnswer>> = {
 export class AskPermissionHandler
   implements CommandHandlerPort<AskPermissionCommand, PermissionAnswerDto>
 {
-  constructor(private readonly works: RunWorks) {}
+  constructor(
+    private readonly works: RunWorks,
+    private readonly toolNames: HarnessToolNamesPort,
+  ) {}
 
   async execute(command: AskPermissionCommand): Promise<PermissionAnswerDto> {
     try {
@@ -38,6 +42,10 @@ export class AskPermissionHandler
           kind: command.asked.kind,
           title: command.asked.title,
           input: command.asked.input,
+          tool: this.toolNames.askedFor(
+            command.asked.title,
+            command.asked.kind,
+          ),
         }),
         command.asked.sessionId
           ? HarnessSession.of(command.asked.sessionId)

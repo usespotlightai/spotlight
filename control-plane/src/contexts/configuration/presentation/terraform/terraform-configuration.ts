@@ -24,6 +24,8 @@ import {
 import type { FieldSegment } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { isToolName } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type {
+  HeldLineAlert,
+  HeldLineJudge,
   HeldLineReaction,
   HeldLineRepository,
   HeldLineReviews,
@@ -309,6 +311,36 @@ const line = (
   const files: TerraformFile[] = [];
   const { definition } = held;
 
+  const judge = (stationKey: string, set: HeldLineJudge): HclBlock => {
+    const path = `judges/${held.teamKey}/${held.key}/${stationKey}.md`;
+
+    files.push({ path, content: set.rubric });
+
+    return block(
+      'judge',
+      [],
+      [
+        attribute('rubric', HclExpression.moduleFile(path)),
+        attribute('sample', set.sample),
+        attribute('trust', set.trust),
+      ],
+    );
+  };
+
+  const alert = (set: HeldLineAlert): HclBlock =>
+    block(
+      'alert',
+      [],
+      [
+        attribute('measure', set.measure),
+        ...present('rises_by', set.risesBy),
+        ...present('above', set.above),
+        ...present('falls_by', set.fallsBy),
+        ...present('below', set.below),
+        attribute('over', set.over),
+      ],
+    );
+
   const station = (each: HeldLineStation): HclBlock => {
     const path = `prompts/${held.teamKey}/${held.key}/${each.key}.md`;
 
@@ -355,6 +387,8 @@ const line = (
         ),
         attribute('passes_to', each.passesTo),
         attribute('ends', each.ends),
+        ...(each.judge ? [judge(each.key, each.judge)] : []),
+        ...each.alerts.map(alert),
       ],
     );
   };

@@ -11,6 +11,21 @@ export interface ReviewsRow {
   };
 }
 
+export interface StationJudgeRow {
+  readonly rubric: string;
+  readonly sample: number;
+  readonly trust: number;
+}
+
+export interface StationAlertRow {
+  readonly measure: string;
+  readonly risesBy: number | null;
+  readonly above: number | null;
+  readonly fallsBy: number | null;
+  readonly below: number | null;
+  readonly over: number;
+}
+
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -77,6 +92,8 @@ export const station = pgTable(
     diffs: boolean('diffs').notNull().default(false),
     decisions: boolean('decisions').notNull().default(false),
     memories: boolean('memories').notNull().default(false),
+    judge: jsonb('judge').$type<StationJudgeRow>(),
+    alerts: jsonb('alerts').$type<StationAlertRow[]>().notNull().default([]),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()

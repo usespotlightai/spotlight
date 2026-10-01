@@ -1,4 +1,10 @@
-import { Binoculars, Brain, MousePointer2, Play } from 'lucide-react';
+import {
+  Binoculars,
+  Brain,
+  ChartNoAxesColumn,
+  MousePointer2,
+  Play,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export type Team = {
@@ -20,6 +26,7 @@ export const SECTIONS_BELOW_LINES = [
   { id: 'runs', label: 'Runs', icon: Play },
   { id: 'observability', label: 'Observability', icon: Binoculars },
   { id: 'memory', label: 'Memory', icon: Brain },
+  { id: 'insights', label: 'Insights', icon: ChartNoAxesColumn },
 ] as const satisfies readonly TeamSectionDefinition[];
 
 const TEAM_SECTIONS = [...SECTIONS_ABOVE_LINES, ...SECTIONS_BELOW_LINES];

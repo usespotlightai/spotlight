@@ -13,10 +13,14 @@ import {
 import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import type { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
 
+export type AsideStanding = 'seesTeam' | 'readsTeamOutcomes';
+
 export interface AsideAttendance {
+  readonly form: AsideForm;
   readonly viewer: UserId;
   readonly assignee: UserId | null;
-  readonly onTeam: boolean;
+  readonly seesTeam: boolean;
+  readonly readsTeamOutcomes: boolean;
 }
 
 export class TaskAside extends EventRecorder {
@@ -107,10 +111,24 @@ export class TaskAside extends EventRecorder {
     );
   }
 
+  static standingToAttend(form: AsideForm): AsideStanding {
+    switch (form) {
+      case 'memories':
+        return 'seesTeam';
+      case 'grade':
+      case 'alert':
+        return 'readsTeamOutcomes';
+    }
+  }
+
   static attendedBy(attendance: AsideAttendance): boolean {
+    if (TaskAside.standingToAttend(attendance.form) === 'readsTeamOutcomes') {
+      return attendance.readsTeamOutcomes;
+    }
+
     return attendance.assignee
       ? attendance.assignee.equals(attendance.viewer)
-      : attendance.onTeam;
+      : attendance.seesTeam;
   }
 
   get open(): boolean {
@@ -137,6 +155,30 @@ export class TaskAside extends EventRecorder {
     const settled = this.with({ settledAt: now });
     settled.record(new TaskAsideSettled(this.id, this.taskId));
     return settled;
+  }
+
+  reopened(now: Date): TaskAside {
+    if (this.open) {
+      return this;
+    }
+
+    const reopened = new TaskAside(
+      this.id,
+      this.workspaceId,
+      this.taskId,
+      this.form,
+      this.about,
+      now,
+      [],
+      null,
+      this.version,
+    );
+
+    reopened.inheritEvents(this);
+    reopened.record(
+      new TaskAsideRaised(this.id, this.taskId, this.form, this.about),
+    );
+    return reopened;
   }
 
   private with(change: {

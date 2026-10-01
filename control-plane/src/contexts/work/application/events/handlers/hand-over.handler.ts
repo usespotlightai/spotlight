@@ -145,13 +145,13 @@ export class HandOver implements RunOutcomes {
 
     if (routing.kind === 'let-go') {
       return (
-        routing.failure ? task.failed(routing.failure, saying, run) : task
+        routing.failure ? task.failed(routing.failure, saying, run, line) : task
       ).leftBy(run, saying.at);
     }
 
     if (routing.kind === 'ask') {
       return routing.failure
-        ? task.failed(routing.failure, saying, run)
+        ? task.failed(routing.failure, saying, run, line)
         : task.askedAbout(saying, run);
     }
 

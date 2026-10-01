@@ -42,6 +42,7 @@ import {
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import type { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
@@ -78,6 +79,8 @@ export class Run extends EventRecorder {
     readonly handBacks: HandBacks,
     readonly briefedWith: BriefedMemories = BriefedMemories.none(),
     readonly parkedAttempts: readonly number[] = [],
+    readonly configuredAs: StationConfig | null = null,
+    readonly startedAt: Date | null = null,
     readonly version: number = 0,
   ) {
     super();
@@ -92,6 +95,7 @@ export class Run extends EventRecorder {
     spec: RunSpec;
     placement?: RunnerPlacement;
     briefedWith?: BriefedMemories;
+    configuredAs?: StationConfig | null;
   }): Run {
     const run = new Run(
       input.id,
@@ -112,7 +116,15 @@ export class Run extends EventRecorder {
       null,
       HandBacks.none(),
       input.briefedWith ?? BriefedMemories.none(),
+      [],
+      input.configuredAs ?? null,
     );
+
+    if (run.configuredAs && !run.stationId) {
+      throw new InvalidRunTransitionError(
+        'cannot record a station config on a run that works at no station',
+      );
+    }
 
     if (run.briefedWith.briefed.length > 0) {
       run.record(new RunBriefed(run.id, run.workspaceId, run.briefedWith));
@@ -141,6 +153,8 @@ export class Run extends EventRecorder {
     handBacks?: HandBacks;
     briefedWith?: BriefedMemories;
     parkedAttempts?: readonly number[];
+    configuredAs?: StationConfig | null;
+    startedAt?: Date | null;
     version?: number;
   }): Run {
     Run.guardReconstituted(input);
@@ -165,6 +179,8 @@ export class Run extends EventRecorder {
       input.handBacks ?? HandBacks.none(),
       input.briefedWith ?? BriefedMemories.none(),
       [...(input.parkedAttempts ?? [])],
+      input.configuredAs ?? null,
+      input.startedAt ?? null,
       input.version ?? 0,
     );
   }
@@ -423,6 +439,7 @@ export class Run extends EventRecorder {
       reservation: null,
       provisioning: Provisioning.none(),
       ranIn: null,
+      startedAt: null,
       handBacks: HandBacks.none(),
     });
   }
@@ -440,10 +457,11 @@ export class Run extends EventRecorder {
       state: 'queued',
       claimedBy: null,
       leaseExpiresAt: null,
+      startedAt: null,
     });
   }
 
-  startedIn(by: RunnerId, image: RunnerImage): Run {
+  startedIn(by: RunnerId, image: RunnerImage, now: Date): Run {
     this.requireWorkedBy(by, 'start');
 
     if (!image.isPinned) {
@@ -460,7 +478,7 @@ export class Run extends EventRecorder {
       );
     }
 
-    return this.with({ ranIn: image });
+    return this.with({ ranIn: image, startedAt: this.startedAt ?? now });
   }
 
   renewLease(by: RunnerId, now: Date): Run {
@@ -709,6 +727,7 @@ export class Run extends EventRecorder {
       leaseExpiresAt: null,
       reservation: null,
       ranIn: null,
+      startedAt: null,
       handBacks,
     });
   }
@@ -929,6 +948,7 @@ export class Run extends EventRecorder {
     handBacks?: HandBacks;
     spec?: RunSpec;
     parkedAttempts?: readonly number[];
+    startedAt?: Date | null;
   }): Run {
     const next = new Run(
       this.id,
@@ -954,6 +974,8 @@ export class Run extends EventRecorder {
       part.handBacks ?? this.handBacks,
       this.briefedWith,
       part.parkedAttempts ?? this.parkedAttempts,
+      this.configuredAs,
+      part.startedAt !== undefined ? part.startedAt : this.startedAt,
       this.version,
     );
 

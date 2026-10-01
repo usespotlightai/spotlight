@@ -1,8 +1,10 @@
 import { Money } from '@work/domain/value-objects/money.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { Told } from '@work/infrastructure/acp/told';
 import {
   digestOf,
   spentAcross,
+  tokensAcross,
 } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { describe, expect, it } from 'vitest';
 
@@ -11,31 +13,54 @@ describe('digestOf', () => {
     const digest = digestOf({
       ms: 4_000,
       statuses: ['completed', 'failed', null, 'running', 'failed'],
+      changes: [],
       used: 10,
       size: 200,
       cost: Money.of(0.5, 'USD'),
+      tokens: Tokens.UNREPORTED,
     });
 
     expect(digest.steps).toBe(5);
     expect(digest.faults).toBe(2);
   });
 
+  it('counts the lines its changes took out and put in', () => {
+    const digest = digestOf({
+      ms: null,
+      statuses: ['completed', 'completed'],
+      changes: [
+        { path: 'a.ts', before: 'a\nb\n', after: 'a\nc\n' },
+        { path: 'new.ts', before: '', after: 'new\n' },
+      ],
+      used: null,
+      size: null,
+      cost: null,
+      tokens: Tokens.UNREPORTED,
+    });
+
+    expect(digest.changedLines).toBe(3);
+  });
+
   it('says a run did nothing where its journal held nothing', () => {
     const digest = digestOf({
       ms: null,
       statuses: [],
+      changes: [],
       used: null,
       size: null,
       cost: null,
+      tokens: Tokens.UNREPORTED,
     });
 
     expect(digest).toEqual({
       ms: null,
       steps: 0,
       faults: 0,
+      changedLines: 0,
       used: null,
       size: null,
       cost: null,
+      tokens: Tokens.UNREPORTED,
     });
   });
 });
@@ -75,5 +100,73 @@ describe('spentAcross', () => {
 
   it('spent nothing where nothing was reported', () => {
     expect(spentAcross([new Told()])).toBeNull();
+  });
+});
+
+describe('tokensAcross', () => {
+  const turned = (...usages: object[]) => {
+    const told = new Told();
+    for (const usage of usages) {
+      told.take({
+        type: 'usage',
+        at: new Date('2026-09-29T09:00:00.000Z'),
+        message: null,
+        data: Buffer.from(JSON.stringify(usage)).toString('base64'),
+      });
+    }
+    return told;
+  };
+
+  it('adds up every turn of every attempt, count by count', () => {
+    const tokens = tokensAcross([
+      turned(
+        {
+          inputTokens: 10,
+          outputTokens: 20,
+          cachedReadTokens: 300,
+          cachedWriteTokens: 40,
+          totalTokens: 370,
+        },
+        {
+          inputTokens: 1,
+          outputTokens: 2,
+          cachedReadTokens: 30,
+          cachedWriteTokens: 4,
+          totalTokens: 37,
+        },
+      ),
+      turned({
+        inputTokens: 5,
+        outputTokens: 5,
+        cachedReadTokens: 0,
+        cachedWriteTokens: 0,
+        totalTokens: 10,
+      }),
+    ]);
+
+    expect(tokens).toMatchObject({
+      input: 16,
+      output: 27,
+      cacheRead: 330,
+      cacheWrite: 44,
+    });
+  });
+
+  it('leaves a count no turn reported unknown rather than zero', () => {
+    const tokens = tokensAcross([
+      turned({
+        inputTokens: 10,
+        outputTokens: 20,
+        cachedReadTokens: 300,
+        totalTokens: 330,
+      }),
+    ]);
+
+    expect(tokens.cacheRead).toBe(300);
+    expect(tokens.cacheWrite).toBeNull();
+  });
+
+  it('knows nothing of a run whose harness reported no usage', () => {
+    expect(tokensAcross([new Told(), new Told()])).toEqual(Tokens.UNREPORTED);
   });
 });

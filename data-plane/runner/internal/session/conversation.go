@@ -121,6 +121,9 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 		})
 		endTurn()
 
+		if err == nil && result.Used() {
+			c.journal.append(protocol.Event{Type: protocol.EventUsage, Data: result.Usage})
+		}
 		c.journal.flush(ctx)
 
 		if c.told() {

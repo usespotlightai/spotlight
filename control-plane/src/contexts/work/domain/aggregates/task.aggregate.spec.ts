@@ -11,6 +11,10 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
+import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
+import { TaskAsked } from '@work/domain/events/task-asked.event';
+import { TaskFailed } from '@work/domain/events/task-failed.event';
+import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-revision.error';
@@ -81,6 +85,16 @@ const added = (description?: TaskDescription) =>
   });
 
 const NOW = new Date('2026-08-29T12:00:00.000Z');
+
+const actsOf = (task: Task) =>
+  task
+    .pullEvents()
+    .filter((each): each is TaskActedOn => each instanceof TaskActedOn)
+    .map((each) => ({
+      act: each.act,
+      by: each.by.value,
+      after: each.after?.value ?? null,
+    }));
 
 const station = (
   id: string,
@@ -620,6 +634,31 @@ describe('Task, what it is doing', () => {
       expect(told.undelivered).toHaveLength(1);
     });
 
+    it('tells that a person sent a finished task back, after the run they spoke in', () => {
+      const told = added()
+        .handedTo(RUN, LINE)
+        .finishedHere(RUN, LINE, saying)
+        .spokenTo(RUN, aloud, here);
+
+      expect(actsOf(told)).toEqual([
+        { act: 'sent-back', by: 'user_1', after: 'run_1' },
+      ]);
+    });
+
+    it('tells that a person answered what the task was waiting on', () => {
+      const told = added().askedAbout(saying, null).spokenTo(RUN, aloud, here);
+
+      expect(actsOf(told)).toEqual([
+        { act: 'answered', by: 'user_1', after: null },
+      ]);
+    });
+
+    it('tells nothing a person did when they speak to the run still working it', () => {
+      expect(
+        actsOf(added().handedTo(RUN, LINE).spokenTo(RUN, aloud, here)),
+      ).toEqual([]);
+    });
+
     it('keeps a task waiting on a person when what is said there is no answer', () => {
       const asked = added().askedAbout(saying, null);
       const told = asked.heard(aloud, here);
@@ -647,6 +686,8 @@ describe('Task, what it is doing', () => {
         .openedAt(
           RUN,
           PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
+          NOW,
+          LINE,
         );
 
     it('offers what nobody has answered, and nothing else', () => {
@@ -920,14 +961,14 @@ describe('Task, what it is doing', () => {
     const url = PullRequestUrl.of('https://github.com/acme/widgets/pull/7');
 
     it('is opened only for the run that holds it', () => {
-      expect(() => added().openedAt(RUN, url)).toThrow(
+      expect(() => added().openedAt(RUN, url, NOW, LINE)).toThrow(
         InvalidTaskTransitionError,
       );
       expect(() =>
-        added().handedTo(RUN, LINE).openedAt(RunId.of('run_2'), url),
+        added().handedTo(RUN, LINE).openedAt(RunId.of('run_2'), url, NOW, LINE),
       ).toThrow(InvalidTaskTransitionError);
       expect(
-        added().handedTo(RUN, LINE).openedAt(RUN, url).pullRequest,
+        added().handedTo(RUN, LINE).openedAt(RUN, url, NOW, LINE).pullRequest,
       ).toEqual(url);
     });
   });
@@ -949,6 +990,18 @@ describe('Task, what it is doing', () => {
       ]);
     });
 
+    it('says which pull request it reviews, so Insights can tell people’s pull requests Spotlight touched', () => {
+      const reviewing = added().reviews(url, { outside: false });
+
+      expect(reviewing.pullEvents()).toContainEqual(
+        expect.objectContaining({
+          kind: 'task.pull-request-review-taken',
+          taskId: reviewing.id,
+          url,
+        }),
+      );
+    });
+
     it('reviews only a pull request whose head it can check out', () => {
       expect(() =>
         added().reviews(PullRequestUrl.of('https://gitlab.example/acme/7'), {
@@ -958,7 +1011,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('reviews nothing once it has a pull request of its own', () => {
-      const own = added().handedTo(RUN, LINE).openedAt(RUN, url);
+      const own = added().handedTo(RUN, LINE).openedAt(RUN, url, NOW, LINE);
 
       expect(own.reviewing).toBe(false);
       expect(own.reviewedHead).toBeNull();
@@ -1174,6 +1227,49 @@ describe('Task, what it is doing', () => {
       );
     });
 
+    it('tells whether a person started, parked or closed it', () => {
+      expect(actsOf(moved(BACKLOG, HERE))).toEqual([
+        { act: 'started', by: 'user_2', after: null },
+      ]);
+      expect(actsOf(moved(HERE, BACKLOG))).toEqual([
+        { act: 'parked', by: 'user_2', after: null },
+      ]);
+      expect(actsOf(moved(HERE, COMPLETED))).toEqual([
+        { act: 'closed', by: 'user_2', after: null },
+      ]);
+    });
+
+    it('names the run that last spoke on it when a person closes it', () => {
+      const finished = at(HERE)
+        .handedTo(RUN, LINE)
+        .finishedHere(RUN, LINE, { ...saying, voice: Voice.station(RUN) });
+      const reopened = finished.spokenTo(
+        RUN,
+        { ...saying, voice: Voice.person(UserId.of('user_1')) },
+        HERE,
+      );
+      reopened.pullEvents();
+
+      expect(
+        actsOf(
+          reopened.moveTo(LINE, COMPLETED, TaskRank.of('m'), saying, hand),
+        ),
+      ).toEqual([{ act: 'closed', by: 'user_2', after: 'run_1' }]);
+    });
+
+    it('tells nothing a person did when a reaction moves it', () => {
+      expect(
+        actsOf(
+          at(HERE).reactedTo(
+            LINE,
+            StationId.of('station_2'),
+            TaskRank.of('m'),
+            saying,
+          ),
+        ),
+      ).toEqual([]);
+    });
+
     it('will not be moved between work stations, which its runs pass it along', () => {
       expect(() => moved(HERE, StationId.of('station_2'))).toThrow(
         new MoveRefusedError('between-work-stations', 'Triage', 'Spec'),
@@ -1300,6 +1396,45 @@ describe('Task, what it is doing', () => {
 
       expect(movedEvents(task.reorderTo(TaskRank.of('z')))).toEqual([]);
     });
+
+    it('says which run handed it on, from where to where and when', () => {
+      const held = added().handedTo(RUN, LINE);
+      held.pullEvents();
+
+      const handedOn = held
+        .passedOn(
+          RUN,
+          LINE,
+          StationId.of('station_2'),
+          TaskRank.of('m'),
+          saying,
+        )
+        .pullEvents()
+        .filter((each) => each instanceof TaskHandedOn);
+
+      expect(handedOn).toEqual([
+        new TaskHandedOn(
+          held.id,
+          held.workspaceId,
+          RUN,
+          HERE,
+          StationId.of('station_2'),
+          NOW,
+        ),
+      ]);
+    });
+
+    it('says nothing was handed on when a happening moves it', () => {
+      const task = added();
+      task.pullEvents();
+
+      expect(
+        task
+          .reactedTo(LINE, StationId.of('station_2'), TaskRank.of('m'), saying)
+          .pullEvents()
+          .filter((each) => each instanceof TaskHandedOn),
+      ).toEqual([]);
+    });
   });
 });
 
@@ -1313,7 +1448,12 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('puts the first failure to a person, saying where it came from', () => {
-    const failed = worked().failed(RUN_EXITED, failure('It exited 1.'), RUN);
+    const failed = worked().failed(
+      RUN_EXITED,
+      failure('It exited 1.'),
+      RUN,
+      LINE,
+    );
 
     expect(failed.awaitingReview).toBe(true);
     expect(failed.running).toBe(false);
@@ -1324,8 +1464,8 @@ describe('Task, a failure reported on it', () => {
 
   it('counts the same failure again while a person has not yet answered, rather than asking twice', () => {
     const failed = added()
-      .failed(LOOPED, failure('Stopped a loop.'), null)
-      .failed(LOOPED, failure('Stopped it again.'), null);
+      .failed(LOOPED, failure('Stopped a loop.'), null, LINE)
+      .failed(LOOPED, failure('Stopped it again.'), null, LINE);
 
     expect(failed.notes).toHaveLength(1);
     expect(failed.notes[0]?.failure?.occurrences).toBe(2);
@@ -1333,7 +1473,12 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('keeps a repeat in the conversation it belongs to once a person has answered', () => {
-    const asked = worked().failed(RUN_EXITED, failure('It exited 1.'), RUN);
+    const asked = worked().failed(
+      RUN_EXITED,
+      failure('It exited 1.'),
+      RUN,
+      LINE,
+    );
     const answered = asked.answered(NotePosition.of(0), {
       ...saying,
       body: TaskNoteBody.of('Try again.'),
@@ -1341,7 +1486,12 @@ describe('Task, a failure reported on it', () => {
     });
     const again = answered
       .handedTo(RunId.of('run_2'), LINE)
-      .failed(RUN_EXITED, failure('It exited 1 again.'), RunId.of('run_2'));
+      .failed(
+        RUN_EXITED,
+        failure('It exited 1 again.'),
+        RunId.of('run_2'),
+        LINE,
+      );
 
     expect(again.openConversation?.from).toBe(0);
     expect(again.notes.map((each) => each.kind)).toEqual([
@@ -1354,11 +1504,12 @@ describe('Task, a failure reported on it', () => {
 
   it('says a different failure in the open conversation rather than opening another', () => {
     const failed = added()
-      .failed(LOOPED, failure('Stopped a loop.'), null)
+      .failed(LOOPED, failure('Stopped a loop.'), null, LINE)
       .failed(
         TaskFailure.fromHook('audit', 'loop'),
         failure('Stopped another.'),
         null,
+        LINE,
       );
 
     expect(failed.notes.map((each) => each.kind)).toEqual(['asked', 'said']);
@@ -1366,7 +1517,12 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('lets go of the run working it when the failure is not that run’s', () => {
-    const failed = worked().failed(LOOPED, failure('Stopped a loop.'), null);
+    const failed = worked().failed(
+      LOOPED,
+      failure('Stopped a loop.'),
+      null,
+      LINE,
+    );
 
     expect(failed.running).toBe(false);
     expect(failed.pullEvents().map((each) => each.kind)).toContain(
@@ -1379,8 +1535,80 @@ describe('Task, a failure reported on it', () => {
 
     expect(finished.movedOnFrom(HERE)).toBe(true);
     expect(() =>
-      finished.failed(LOOPED, failure('Stopped a loop.'), null),
+      finished.failed(LOOPED, failure('Stopped a loop.'), null, LINE),
     ).toThrow(InvalidTaskTransitionError);
+  });
+
+  it('says each failure raised, where it was raised and how often it has repeated', () => {
+    const failed = added()
+      .failed(LOOPED, failure('Stopped a loop.'), null, LINE)
+      .failed(LOOPED, failure('Stopped it again.'), null, LINE)
+      .failed(RUN_EXITED, failure('It exited 1.'), null, LINE);
+
+    expect(
+      failed
+        .pullEvents()
+        .filter((each) => each instanceof TaskFailed)
+        .map((each) => [
+          each.stationId.value,
+          each.failure.source,
+          each.failure.code,
+          each.failure.occurrences,
+        ]),
+    ).toEqual([
+      [HERE.value, 'hook:notify', 'loop', 1],
+      [HERE.value, 'hook:notify', 'loop', 2],
+      [HERE.value, 'run', 'exited', 1],
+    ]);
+  });
+
+  it('says which team’s line the failed task stands on', () => {
+    const [raised] = worked()
+      .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
+      .pullEvents()
+      .filter((each) => each instanceof TaskFailed);
+
+    expect(raised?.teamId).toEqual(LINE.teamId);
+  });
+
+  it('tells no team of a failure raised while the task stands on no line', () => {
+    expect(
+      worked()
+        .failed(RUN_EXITED, failure('It exited 1.'), RUN, null)
+        .pullEvents()
+        .filter((each) => each instanceof TaskFailed),
+    ).toEqual([]);
+  });
+
+  it('leaves the task it failed from untouched, recording the failure only on the task it returns', () => {
+    const task = worked();
+    task.pullEvents();
+
+    const failed = task.failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE);
+
+    expect(task.hasEvents).toBe(false);
+    expect(
+      failed.pullEvents().filter((each) => each instanceof TaskFailed),
+    ).toHaveLength(1);
+  });
+
+  it('says which run raised a failure, and when', () => {
+    const [raised] = worked()
+      .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
+      .pullEvents()
+      .filter((each) => each instanceof TaskFailed);
+
+    expect(raised?.by).toEqual(RUN);
+    expect(raised?.at).toEqual(NOW);
+  });
+
+  it('says when it put the failure to a person', () => {
+    const [asked] = worked()
+      .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
+      .pullEvents()
+      .filter((each) => each instanceof TaskAsked);
+
+    expect(asked?.at).toEqual(NOW);
   });
 
   it('knows it has moved on from a station it no longer stands at', () => {
@@ -1614,6 +1842,61 @@ describe('Task and the happenings heard while a run holds it', () => {
     expect(spoken?.form).toBe('failure');
     expect(spoken?.failure).toEqual(failure);
     expect(spoken?.body.value).toContain('The run failed: exit 1');
+  });
+
+  it('says which run handed it on when a held-back move takes it on', () => {
+    const handedOn = held()
+      .heldBack(LINE, SPEC, world)
+      .movedAsHeldBack(
+        RUN,
+        LINE,
+        SPEC,
+        TaskRank.of('m'),
+        ending(Handover.done(TaskNoteBody.of('Done.'))),
+      )
+      .pullEvents()
+      .filter((each) => each instanceof TaskHandedOn);
+
+    expect(handedOn).toEqual([
+      new TaskHandedOn(added().id, added().workspaceId, RUN, HERE, SPEC, NOW),
+    ]);
+  });
+
+  it('counts a failure that repeats one a person already answered when a held-back move takes the task on', () => {
+    const exited = TaskFailure.fromRun('exited');
+    const again = RunId.of('run_2');
+    const answered = held()
+      .failed(
+        exited,
+        { ...saying, body: TaskNoteBody.of('Exit 1.') },
+        RUN,
+        LINE,
+      )
+      .answered(NotePosition.of(0), {
+        ...saying,
+        body: TaskNoteBody.of('Try again.'),
+        voice: Voice.person(UserId.of('user_1')),
+      })
+      .handedTo(again, LINE);
+    answered.pullEvents();
+
+    const moved = answered
+      .heldBack(LINE, SPEC, world)
+      .movedAsHeldBack(
+        again,
+        LINE,
+        SPEC,
+        TaskRank.of('m'),
+        ending(Handover.failed(TaskNoteBody.of('Exit 1 again.'), exited)),
+      );
+
+    expect(
+      moved
+        .pullEvents()
+        .filter((each) => each instanceof TaskFailed)
+        .map((each) => each.failure.occurrences),
+    ).toEqual([2]);
+    expect(moved.notes[moved.notes.length - 1]?.failure?.occurrences).toBe(2);
   });
 
   it('is moved for a held-back move only by the run that holds it, and only to where the move was held back to', () => {

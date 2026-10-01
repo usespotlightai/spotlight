@@ -4,6 +4,8 @@ import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 export const TEAM_SKILLS = Symbol('TEAM_SKILLS');
 
 export interface TeamSkillsPort {
+  definedFor(teamId: TeamId): Promise<readonly string[]>;
+
   readyFor(
     teamId: TeamId,
     named: readonly string[],

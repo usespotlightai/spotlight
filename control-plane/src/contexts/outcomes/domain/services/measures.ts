@@ -1,0 +1,77 @@
+import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
+
+export interface Spread {
+  readonly p50: number | null;
+  readonly p90: number | null;
+  readonly count: number;
+}
+
+const sorted = (values: readonly number[]): number[] =>
+  [...values].sort((a, b) => a - b);
+
+export const medianOf = (values: readonly number[]): number | null => {
+  if (values.length === 0) {
+    return null;
+  }
+
+  const ordered = sorted(values);
+  const middle = Math.floor(ordered.length / 2);
+
+  return ordered.length % 2 === 1
+    ? (ordered[middle] ?? null)
+    : Math.round(((ordered[middle - 1] ?? 0) + (ordered[middle] ?? 0)) / 2);
+};
+
+export const percentileOf = (
+  values: readonly number[],
+  percent: number,
+): number | null => {
+  if (values.length === 0) {
+    return null;
+  }
+
+  const ordered = sorted(values);
+  const rank = Math.ceil((percent / 100) * ordered.length);
+
+  return ordered[Math.min(Math.max(rank, 1), ordered.length) - 1] ?? null;
+};
+
+export const spreadOf = (values: readonly number[]): Spread => ({
+  p50: medianOf(values),
+  p90: percentileOf(values, 90),
+  count: values.length,
+});
+
+export const rateOf = (part: number, whole: number): number | null =>
+  whole > 0 ? part / whole : null;
+
+export interface Spending {
+  readonly spend: Spend | null;
+  readonly priced: number;
+  readonly unpriced: number;
+  readonly mixedCurrencies: boolean;
+}
+
+export const spendingOf = (spends: readonly (Spend | null)[]): Spending => {
+  const priced = spends.flatMap((each) => (each ? [each] : []));
+  const [first] = priced;
+  const mixedCurrencies = priced.some(
+    (each) => each.currency !== first?.currency,
+  );
+
+  return {
+    spend:
+      first && !mixedCurrencies
+        ? {
+            amount: priced.reduce((sum, each) => sum + each.amount, 0),
+            currency: first.currency,
+          }
+        : null,
+    priced: priced.length,
+    unpriced: spends.length - priced.length,
+    mixedCurrencies,
+  };
+};
+
+export const between = (from: Date, to: Date): number =>
+  to.getTime() - from.getTime();

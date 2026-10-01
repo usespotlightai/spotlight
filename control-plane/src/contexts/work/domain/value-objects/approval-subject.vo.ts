@@ -1,3 +1,4 @@
+import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import type { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 
@@ -43,6 +44,16 @@ export class ApprovalSubject {
     return this.when({
       toolCall: (call) => call.tool.value,
       harnessPermission: (permission) => permission.name,
+    });
+  }
+
+  get tool(): CalledTool {
+    return this.when({
+      toolCall: (call) =>
+        CalledTool.of({ server: null, tool: call.tool.value }),
+      harnessPermission: (permission) =>
+        permission.tool ??
+        CalledTool.of({ server: null, tool: permission.name }),
     });
   }
 

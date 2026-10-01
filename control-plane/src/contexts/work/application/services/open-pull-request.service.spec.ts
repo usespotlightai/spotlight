@@ -173,6 +173,7 @@ const opening = (
       },
       after: async () => {},
     },
+    { now: () => NOW, sleep: async () => {} },
   );
 
   return {
@@ -284,6 +285,8 @@ describe('OpenPullRequest', () => {
       .openedAt(
         RunId.of('run_0'),
         PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
+        NOW,
+        delivery(),
       );
     before.pullEvents();
     const { open, saved } = opening({ wearer: before });
@@ -301,6 +304,8 @@ describe('OpenPullRequest', () => {
     const already = task().openedAt(
       RUN,
       PullRequestUrl.of('https://github.com/acme/widgets/pull/1'),
+      NOW,
+      delivery(),
     );
     const { open, opened, saved } = opening();
 
@@ -336,6 +341,8 @@ describe('OpenPullRequest', () => {
         task.openedAt(
           RUN,
           PullRequestUrl.of('https://github.com/acme/widgets/pull/5'),
+          NOW,
+          delivery(),
         ),
     });
 
@@ -400,6 +407,8 @@ describe('OpenPullRequest', () => {
         task().openedAt(
           RUN,
           PullRequestUrl.of('https://github.com/acme/widgets/pull/3'),
+          NOW,
+          delivery(),
         ),
       );
 

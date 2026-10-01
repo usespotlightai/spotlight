@@ -8,6 +8,7 @@ import {
   failChat,
   SLUG,
   seedChat,
+  seedImprovingChat,
   TEAM_ID,
 } from '@/stories/fixtures/chat';
 import { StoryPage } from '@/stories/StoryPage';
@@ -50,6 +51,15 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedChat}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ImprovingAStation: Story = {
+  name: 'Improving a station',
+  render: () => (
+    <StoryPage at={at} seed={seedImprovingChat}>
       {routes}
     </StoryPage>
   ),

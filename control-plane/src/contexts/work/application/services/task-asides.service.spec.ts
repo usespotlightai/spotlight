@@ -87,4 +87,21 @@ describe('TaskAsides', () => {
     expect(held).toHaveLength(1);
     expect(held[0]?.open).toBe(false);
   });
+
+  it('reopens a settled aside, or raises it when none was raised yet', async () => {
+    const { asides, held } = asiding();
+    await asides.settle(MEMORIES);
+
+    await asides.reopen(MEMORIES);
+    await asides.reopen(MEMORIES);
+
+    expect(held).toHaveLength(1);
+    expect(held[0]?.open).toBe(true);
+
+    const fresh = asiding();
+    await fresh.asides.reopen(MEMORIES);
+
+    expect(fresh.held).toHaveLength(1);
+    expect(fresh.held[0]?.open).toBe(true);
+  });
 });

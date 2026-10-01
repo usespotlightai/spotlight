@@ -34,7 +34,7 @@ export class RecordRunImageHandler
       }
 
       await this.runs.save(
-        run.startedIn(runner, RunnerImage.of(command.image)),
+        run.startedIn(runner, RunnerImage.of(command.image), this.clock.now()),
       );
     } catch (error) {
       rethrowAsFault(error);

@@ -11,6 +11,7 @@ const INSTALLED = GitHubInstallation.of('158876513');
 const connections = (held: boolean) =>
   new WorkspaceConnections({
     claimantOf: vi.fn(async () => (held ? WORKSPACE : null)),
+    heldClaimantOf: vi.fn(async () => (held ? WORKSPACE : null)),
     of: vi.fn(async (id: WorkspaceId) =>
       held
         ? GitHubConnection.rehydrate({

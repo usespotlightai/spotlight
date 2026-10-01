@@ -1,6 +1,6 @@
-import { CircleAlert, LoaderCircle, X } from 'lucide-react';
+import { CircleAlert, LoaderCircle } from 'lucide-react';
 import { AttachmentChip } from '@/components/shared/attachment/AttachmentChip';
-import { Button } from '@/components/ui/button';
+import { ChipRemoveButton } from '@/components/shared/attachment/ChipRemoveButton';
 import { type PendingAttachment, sized } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
 
@@ -36,16 +36,10 @@ export function PendingAttachmentChip({
         )
       }
       trailing={
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="-mr-1 rounded-full text-muted-foreground"
-          onClick={onRemove}
-          aria-label={`Remove ${attachment.name}`}
-        >
-          <X />
-        </Button>
+        <ChipRemoveButton
+          label={`Remove ${attachment.name}`}
+          onRemove={onRemove}
+        />
       }
       className={cn('w-48 max-w-none', failed && 'border-destructive/40')}
     />

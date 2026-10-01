@@ -36,10 +36,11 @@ type Client struct {
 }
 
 type Asked struct {
-	SessionID string
-	Kind      string
-	Title     string
-	Input     json.RawMessage
+	SessionID  string
+	ToolCallID string
+	Kind       string
+	Title      string
+	Input      json.RawMessage
 }
 
 type McpServer struct {

@@ -1,5 +1,8 @@
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import {
+  FieldPath,
+  type FieldSegment,
+} from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -11,6 +14,8 @@ import type {
 } from '@work/application/ports/line-compiler.port';
 import { LINES, lineAt } from '@work/application/rendering/line-problems';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
+import { InvalidStationAlertError } from '@work/domain/exceptions/invalid-station-alert.error';
+import { InvalidStationJudgeError } from '@work/domain/exceptions/invalid-station-judge.error';
 import type { LinePart } from '@work/domain/services/line-layout';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
@@ -26,9 +31,11 @@ import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
+import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
@@ -67,12 +74,15 @@ const compileStation = (
   at: number,
   station: StationDefinition,
 ): Read<StationPlan> => {
-  const refused = (field: string, error: unknown): Read<StationPlan> => ({
+  const refused = (
+    within: readonly FieldSegment[],
+    error: unknown,
+  ): Read<StationPlan> => ({
     ok: false,
     problems: [
       ConfigurationProblem.of({
         path,
-        at: FieldPath.of(['stations', at, field]),
+        at: FieldPath.of(['stations', at, ...within]),
         reason: reasoned(error),
       }),
     ],
@@ -83,7 +93,7 @@ const compileStation = (
   try {
     agentPrompt = station.prompt ? AgentPrompt.of(station.prompt) : null;
   } catch (error) {
-    return refused('prompt', error);
+    return refused(['prompt'], error);
   }
 
   let check: StationCheck | null = null;
@@ -91,7 +101,7 @@ const compileStation = (
   try {
     check = station.check ? StationCheck.of(station.check) : null;
   } catch (error) {
-    return refused('check', error);
+    return refused(['check'], error);
   }
 
   let placement = RunnerPlacement.anywhere();
@@ -99,7 +109,35 @@ const compileStation = (
   try {
     placement = RunnerPlacement.of(station.runners ?? []);
   } catch (error) {
-    return refused('runners', error);
+    return refused(['runners'], error);
+  }
+
+  let judge: StationJudge | null = null;
+
+  try {
+    judge = station.judge ? StationJudge.of(station.judge) : null;
+  } catch (error) {
+    return refused(
+      error instanceof InvalidStationJudgeError
+        ? ['judge', error.field]
+        : ['judge'],
+      error,
+    );
+  }
+
+  const alerts: StationAlert[] = [];
+
+  for (const [place, alert] of station.alerts.entries()) {
+    try {
+      alerts.push(StationAlert.of(alert).alongside(alerts));
+    } catch (error) {
+      return refused(
+        error instanceof InvalidStationAlertError && error.field
+          ? ['alerts', place, error.field]
+          : ['alerts', place],
+        error,
+      );
+    }
   }
 
   return {
@@ -124,6 +162,8 @@ const compileStation = (
       diffs: station.diffs ?? false,
       decisions: station.decisions ?? false,
       memories: station.memories ?? false,
+      judge,
+      alerts,
       tools: station.tools.map((each) => Tool.of(each)),
       skills: station.skills.map((each) => SkillKey.of(each)),
       passesTo: station.passesTo.map((each) => StationKey.of(each)),

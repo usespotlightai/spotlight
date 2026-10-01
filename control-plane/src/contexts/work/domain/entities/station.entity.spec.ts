@@ -1,7 +1,9 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { Station } from '@work/domain/entities/station.entity';
+import { InvalidStationAlertError } from '@work/domain/exceptions/invalid-station-alert.error';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -25,6 +27,23 @@ const furnished = () =>
     .instruct(AgentPrompt.of('## Role'));
 
 describe('Station', () => {
+  it('refuses to watch one measure twice for the same kind of threshold', () => {
+    expect(() =>
+      Station.of({
+        id: StationId.of('station_1'),
+        key: StationKey.of('build'),
+        name: StationName.of('Build'),
+        position: 1,
+        color: StationColor.of('#a3a8b0'),
+        kind: 'work',
+        alerts: [
+          StationAlert.of({ measure: 'failed_rate', above: 0.1, over: 5 }),
+          StationAlert.of({ measure: 'failed_rate', above: 0.3, over: 9 }),
+        ],
+      }),
+    ).toThrow(InvalidStationAlertError);
+  });
+
   it('opens bare, with nothing said about how it is worked', () => {
     const bare = station();
 

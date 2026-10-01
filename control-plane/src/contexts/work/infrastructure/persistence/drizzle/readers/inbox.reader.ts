@@ -13,6 +13,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,7 +21,10 @@ import type {
   InboxItemSummary,
   InboxReaderPort,
 } from '@work/application/ports/inbox-reader.port';
-import { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
+import {
+  type AsideStanding,
+  TaskAside,
+} from '@work/domain/aggregates/task-aside.aggregate';
 import {
   awaitsAPerson,
   conversationsOf,
@@ -28,6 +32,7 @@ import {
   stillOpen,
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
+import { ASIDE_FORMS } from '@work/domain/value-objects/aside-form';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import {
   attachmentsFor,
@@ -46,8 +51,12 @@ import {
   taskAside,
   taskAsideRead,
 } from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+
+const FORMS_FOR_TEAM_READERS = ASIDE_FORMS.filter(
+  (form) => TaskAside.standingToAttend(form) === 'readsTeamOutcomes',
+);
 
 @Injectable()
 export class DrizzleInboxReader implements InboxReaderPort {
@@ -237,23 +246,57 @@ export class DrizzleInboxReader implements InboxReaderPort {
       .where(
         and(
           eq(taskAside.workspaceId, workspaceId),
-          or(eq(task.assigneeId, userId.value), isNull(task.assigneeId)),
+          or(
+            eq(task.assigneeId, userId.value),
+            isNull(task.assigneeId),
+            inArray(taskAside.form, FORMS_FOR_TEAM_READERS),
+          ),
         ),
       );
 
-    const teams = new Map<string, boolean>();
+    const needing = (standing: AsideStanding) =>
+      rows.filter((row) => TaskAside.standingToAttend(row.form) === standing);
 
-    for (const teamId of new Set(
-      rows.filter((row) => !row.assigneeId).map((row) => row.teamId),
-    )) {
-      teams.set(teamId, (await this.access.onTeam(teamId, userId)) !== null);
-    }
+    const onTeam = new Map(
+      await Promise.all(
+        [
+          ...new Set(
+            needing('seesTeam')
+              .filter((row) => row.assigneeId === null)
+              .map((row) => row.teamId),
+          ),
+        ].map(
+          async (teamId) =>
+            [
+              teamId,
+              (await this.access.onTeam(teamId, userId)) !== null,
+            ] as const,
+        ),
+      ),
+    );
+
+    const readerOf = new Map(
+      await Promise.all(
+        [...new Set(needing('readsTeamOutcomes').map((row) => row.teamId))].map(
+          async (teamId) =>
+            [
+              teamId,
+              (await this.access.clearanceAsTeamReader(
+                teamId,
+                PersonPrincipal.of(userId),
+              )) !== null,
+            ] as const,
+        ),
+      ),
+    );
 
     const attending = rows.filter((row) =>
       TaskAside.attendedBy({
+        form: row.form,
         viewer: userId,
         assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
-        onTeam: teams.get(row.teamId) ?? false,
+        seesTeam: onTeam.get(row.teamId) ?? false,
+        readsTeamOutcomes: readerOf.get(row.teamId) ?? false,
       }),
     );
 

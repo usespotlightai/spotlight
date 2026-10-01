@@ -36,6 +36,10 @@ export type ApprovalSubjectRow =
       readonly asks: string;
       readonly title: string;
       readonly input: string;
+      readonly called: {
+        readonly server: string | null;
+        readonly tool: string;
+      } | null;
     };
 
 export interface ApprovalRow {

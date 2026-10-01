@@ -1,4 +1,89 @@
 import { ApiProperty } from '@nestjs/swagger';
+import type {
+  StationAlertSummary,
+  StationJudgeSummary,
+} from '@work/application/ports/line-reader.port';
+import { ALERT_MEASURES } from '@work/domain/value-objects/station-alert.vo';
+
+export class StationJudgeResponseDto {
+  @ApiProperty({
+    example: 'A good run changes only what the task asks for.',
+    description: 'What a good run looks like, in Markdown',
+  })
+  readonly rubric: string;
+
+  @ApiProperty({
+    example: 0.2,
+    description: 'The share of runs judged, from 0 to 1',
+  })
+  readonly sample: number;
+
+  @ApiProperty({
+    example: 0.6,
+    description:
+      'How often the judge must agree with people, from 0 to 1, before its scores show',
+  })
+  readonly trust: number;
+
+  constructor(judge: StationJudgeSummary) {
+    this.rubric = judge.rubric;
+    this.sample = judge.sample;
+    this.trust = judge.trust;
+  }
+}
+
+export class StationAlertResponseDto {
+  @ApiProperty({ enum: ALERT_MEASURES, example: 'sent_back_rate' })
+  readonly measure: string;
+
+  @ApiProperty({
+    example: 0.2,
+    nullable: true,
+    type: Number,
+    description:
+      "Goes off when the measure over the last `over` runs is this much higher than over the `over` runs before. For a rate, a share above 0 and at most 1 (0.2 is 20 percentage points); for `cost_per_run`, an amount above 0 in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set.",
+  })
+  readonly risesBy: number | null;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    type: Number,
+    description:
+      "Goes off when the measure across the last `over` runs is higher than this. For a rate, a share from 0 to 1; for `cost_per_run`, an amount of 0 or more in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set.",
+  })
+  readonly above: number | null;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    type: Number,
+    description:
+      "Goes off when the measure over the last `over` runs is this much lower than over the `over` runs before. For a rate, a share above 0 and at most 1 (0.2 is 20 percentage points); for `cost_per_run`, an amount above 0 in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set.",
+  })
+  readonly fallsBy: number | null;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    type: Number,
+    description:
+      "Goes off when the measure across the last `over` runs is lower than this. For a rate, a share from 0 to 1; for `cost_per_run`, an amount of 0 or more in the workspace's currency. Exactly one of `risesBy`, `above`, `fallsBy` and `below` is set.",
+  })
+  readonly below: number | null;
+
+  @ApiProperty({ example: 20, description: 'How many runs are compared' })
+  readonly over: number;
+
+  constructor(alert: StationAlertSummary) {
+    this.measure = alert.measure;
+    this.risesBy = alert.risesBy;
+    this.above = alert.above;
+    this.fallsBy = alert.fallsBy;
+    this.below = alert.below;
+    this.over = alert.over;
+  }
+}
 
 export class StationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
@@ -62,6 +147,22 @@ export class StationResponseDto {
   readonly agentPrompt: string | null;
 
   @ApiProperty({
+    type: StationJudgeResponseDto,
+    nullable: true,
+    description:
+      'Scores the station’s runs against a rubric. Null when none is set.',
+  })
+  readonly judge: StationJudgeResponseDto | null;
+
+  @ApiProperty({
+    type: StationAlertResponseDto,
+    isArray: true,
+    description:
+      'When a measure of the station’s runs worsens enough to warn about, in the order they were written',
+  })
+  readonly alerts: StationAlertResponseDto[];
+
+  @ApiProperty({
     enum: ['backlog', 'work', 'completed'],
     description:
       'The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged',
@@ -87,6 +188,8 @@ export class StationResponseDto {
     model: string | null,
     effort: string | null,
     agentPrompt: string | null,
+    judge: StationJudgeSummary | null,
+    alerts: readonly StationAlertSummary[],
     kind: string,
     skills: readonly string[],
   ) {
@@ -100,6 +203,8 @@ export class StationResponseDto {
     this.model = model;
     this.effort = effort;
     this.agentPrompt = agentPrompt;
+    this.judge = judge ? new StationJudgeResponseDto(judge) : null;
+    this.alerts = alerts.map((each) => new StationAlertResponseDto(each));
     this.kind = kind;
     this.skills = [...skills];
   }

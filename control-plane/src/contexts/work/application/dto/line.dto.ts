@@ -1,4 +1,9 @@
+import type {
+  StationAlertSummary,
+  StationJudgeSummary,
+} from '@work/application/ports/line-reader.port';
 import type { StationKind } from '@work/domain/entities/station.entity';
+
 export interface StationDto {
   readonly id: string;
   readonly key: string;
@@ -10,6 +15,8 @@ export interface StationDto {
   readonly model: string | null;
   readonly effort: string | null;
   readonly agentPrompt: string | null;
+  readonly judge: StationJudgeSummary | null;
+  readonly alerts: readonly StationAlertSummary[];
   readonly kind: StationKind;
   readonly skills: readonly string[];
 }

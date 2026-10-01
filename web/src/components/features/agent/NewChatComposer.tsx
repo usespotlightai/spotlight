@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PendingImprovement } from '@/components/features/agent/PendingImprovement';
 import { PendingTraces } from '@/components/features/agent/PendingTraces';
 import { Composer } from '@/components/features/inbox/conversation/Composer';
 import { HarnessSelect } from '@/components/features/stations/HarnessSelect';
@@ -7,7 +8,7 @@ import { RepositoriesSelect } from '@/components/features/stations/RepositoriesS
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartChat } from '@/hooks/api/useStartChat';
 import { useRemembered } from '@/hooks/useRemembered';
-import type { SharedTrace } from '@/lib/chat';
+import type { ImprovedStation, SharedTrace } from '@/lib/chat';
 
 const HARNESS_KEY = 'spotlight.chat-harness';
 
@@ -15,6 +16,7 @@ type NewChatComposerProps = {
   slug: string;
   teamId: string;
   traces?: readonly SharedTrace[];
+  improving?: ImprovedStation | null;
   onStarted: (chatId: string) => void;
 };
 
@@ -22,6 +24,7 @@ export function NewChatComposer({
   slug,
   teamId,
   traces: handed = [],
+  improving: handedStation = null,
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
@@ -30,11 +33,14 @@ export function NewChatComposer({
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);
   const [traces, setTraces] = useState(handed);
+  const [improving, setImproving] = useState(handedStation);
   const start = useStartChat();
 
   const harness = harnesses?.some((each) => each.id === held)
     ? held
     : (harnesses?.[0]?.id ?? '');
+
+  const alongsideCount = traces.length + (improving ? 1 : 0);
 
   const choose = (next: string) => {
     remember(next);
@@ -46,18 +52,27 @@ export function NewChatComposer({
     <Composer
       slug={slug}
       label="Plan with the agent"
-      placeholder="What are we planning?"
+      placeholder={
+        improving ? 'What should it do better?' : 'What are we planning?'
+      }
       pending={start.isPending || !harness}
       alongside={{
-        count: traces.length,
-        shown: (
-          <PendingTraces
-            traces={traces}
-            onRemove={(taskId) =>
-              setTraces((was) => was.filter((each) => each.taskId !== taskId))
-            }
-            className="px-1 pt-1 pb-2"
-          />
+        count: alongsideCount,
+        shown: alongsideCount > 0 && (
+          <div className="flex flex-wrap gap-2 px-1 pt-1 pb-2">
+            {improving && (
+              <PendingImprovement
+                station={improving}
+                onRemove={() => setImproving(null)}
+              />
+            )}
+            <PendingTraces
+              traces={traces}
+              onRemove={(taskId) =>
+                setTraces((was) => was.filter((each) => each.taskId !== taskId))
+              }
+            />
+          </div>
         ),
       }}
       onSend={(body, attachments, sent) =>
@@ -71,11 +86,13 @@ export function NewChatComposer({
             body,
             attachments,
             traces: traces.map((each) => each.taskId),
+            ...(improving ? { improving: improving.stationId } : {}),
           },
           {
             onSuccess: (chat) => {
               sent();
               setTraces([]);
+              setImproving(null);
               onStarted(chat.id);
             },
           },

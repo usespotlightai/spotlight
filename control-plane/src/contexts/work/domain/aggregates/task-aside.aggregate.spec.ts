@@ -2,7 +2,10 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
+import {
+  type AsideAttendance,
+  TaskAside,
+} from '@work/domain/aggregates/task-aside.aggregate';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
 import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
 import { InvalidTaskAsideError } from '@work/domain/exceptions/invalid-task-aside.error';
@@ -57,6 +60,26 @@ describe('TaskAside', () => {
     expect(settled.settled(NOW)).toBe(settled);
   });
 
+  it('reopens unread once settled, says it was raised again, and leaves an open aside be', () => {
+    const settled = raised().readBy(ADA, NOW).settled(NOW);
+    settled.pullEvents();
+
+    const reopened = settled.reopened(LATER);
+
+    expect(reopened.open).toBe(true);
+    expect(reopened.raisedAt).toEqual(LATER);
+    expect(reopened.unreadBy(ADA)).toBe(true);
+    expect(reopened.pullEvents()).toEqual([
+      new TaskAsideRaised(
+        reopened.id,
+        reopened.taskId,
+        'memories',
+        AsideAbout.of('run_1'),
+      ),
+    ]);
+    expect(reopened.reopened(LATER)).toBe(reopened);
+  });
+
   it('says it settled', () => {
     const aside = raised();
     aside.pullEvents();
@@ -109,22 +132,68 @@ describe('TaskAside', () => {
   });
 
   describe('who attends to it', () => {
+    const attending = (change: Partial<AsideAttendance>) =>
+      TaskAside.attendedBy({
+        form: 'memories',
+        viewer: BEA,
+        assignee: null,
+        seesTeam: true,
+        readsTeamOutcomes: true,
+        ...change,
+      });
+
     it('is the task’s assignee, and nobody else, while the task has one', () => {
+      expect(attending({ viewer: ADA, assignee: ADA, seesTeam: false })).toBe(
+        true,
+      );
+      expect(attending({ viewer: BEA, assignee: ADA })).toBe(false);
+    });
+
+    it('is anyone who sees the task’s team while nobody is assigned, whether or not they read the team’s outcomes', () => {
+      expect(attending({ readsTeamOutcomes: false })).toBe(true);
+      expect(attending({ seesTeam: false })).toBe(false);
+    });
+
+    it('asks a grade of everyone who reads the team’s outcomes, whoever the task is assigned to', () => {
+      expect(attending({ form: 'grade', seesTeam: false })).toBe(true);
+      expect(attending({ form: 'grade', viewer: BEA, assignee: ADA })).toBe(
+        true,
+      );
+      expect(attending({ form: 'grade', readsTeamOutcomes: false })).toBe(
+        false,
+      );
       expect(
-        TaskAside.attendedBy({ viewer: ADA, assignee: ADA, onTeam: true }),
-      ).toBe(true);
-      expect(
-        TaskAside.attendedBy({ viewer: BEA, assignee: ADA, onTeam: true }),
+        attending({
+          form: 'grade',
+          viewer: ADA,
+          assignee: ADA,
+          readsTeamOutcomes: false,
+        }),
       ).toBe(false);
     });
 
-    it('is anyone on the task’s team while nobody is assigned', () => {
+    it('raises an alert to everyone who reads the team’s outcomes, whoever the task is assigned to', () => {
+      expect(attending({ form: 'alert', seesTeam: false })).toBe(true);
+      expect(attending({ form: 'alert', viewer: BEA, assignee: ADA })).toBe(
+        true,
+      );
+      expect(attending({ form: 'alert', readsTeamOutcomes: false })).toBe(
+        false,
+      );
       expect(
-        TaskAside.attendedBy({ viewer: BEA, assignee: null, onTeam: true }),
-      ).toBe(true);
-      expect(
-        TaskAside.attendedBy({ viewer: BEA, assignee: null, onTeam: false }),
+        attending({
+          form: 'alert',
+          viewer: ADA,
+          assignee: ADA,
+          readsTeamOutcomes: false,
+        }),
       ).toBe(false);
+    });
+
+    it('needs only the standing its form asks for', () => {
+      expect(TaskAside.standingToAttend('memories')).toBe('seesTeam');
+      expect(TaskAside.standingToAttend('grade')).toBe('readsTeamOutcomes');
+      expect(TaskAside.standingToAttend('alert')).toBe('readsTeamOutcomes');
     });
   });
 });

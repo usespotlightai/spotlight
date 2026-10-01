@@ -24,10 +24,15 @@ import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { LineKey } from '@work/domain/value-objects/line-key.vo';
+import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { StationKey } from '@work/domain/value-objects/station-key.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
@@ -123,6 +128,17 @@ const toChat = (
     model: row.model ? HarnessModel.of(row.model) : null,
     effort: row.effort ? Effort.of(row.effort) : null,
     repositories: row.repositories.map((each) => Repository.of(each)),
+    improving: row.improving
+      ? ImprovedStation.rehydrate({
+          teamId: TeamId.of(row.teamId),
+          lineId: LineId.of(row.improving.lineId),
+          lineKey: LineKey.of(row.improving.lineKey),
+          lineName: LineName.of(row.improving.lineName),
+          stationId: StationId.of(row.improving.stationId),
+          stationKey: StationKey.of(row.improving.stationKey),
+          stationName: StationName.of(row.improving.stationName),
+        })
+      : null,
     messages: messages.map((each) => toMessage(each, attachments)),
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
     sessionId: row.sessionId ? HarnessSession.of(row.sessionId) : null,
@@ -157,6 +173,16 @@ export class DrizzleChatRepository implements ChatRepository {
       model: added.model?.value ?? null,
       effort: added.effort?.value ?? null,
       repositories: added.repositories.map((each) => each.value),
+      improving: added.improving
+        ? {
+            lineId: added.improving.lineId.value,
+            lineKey: added.improving.lineKey.value,
+            lineName: added.improving.lineName.value,
+            stationId: added.improving.stationId.value,
+            stationKey: added.improving.stationKey.value,
+            stationName: added.improving.stationName.value,
+          }
+        : null,
       currentRunId: added.currentRunId?.value ?? null,
       sessionId: added.sessionId?.value ?? null,
       runnerId: added.runnerId?.value ?? null,
