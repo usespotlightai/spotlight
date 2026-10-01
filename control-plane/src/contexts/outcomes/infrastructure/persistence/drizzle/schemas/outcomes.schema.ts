@@ -1,3 +1,7 @@
+import {
+  ALERT_MEASURES,
+  ALERT_THRESHOLDS,
+} from '@outcomes/domain/value-objects/alert-rule.vo';
 import { CHECK_VERDICTS } from '@outcomes/domain/value-objects/check-verdict';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { JUDGING_FAILURES } from '@outcomes/domain/value-objects/judging-failure.vo';
@@ -97,6 +101,8 @@ export const pullRequestRecordState = pgEnum(
   DELIVERY_STATES,
 );
 export const scoreSource = pgEnum('score_source', SCORE_SOURCES);
+export const alertMeasure = pgEnum('alert_measure', ALERT_MEASURES);
+export const alertThreshold = pgEnum('alert_threshold', ALERT_THRESHOLDS);
 export const scoreKind = pgEnum('score_kind', SCORE_KINDS);
 export const judgingFailure = pgEnum('judging_failure', JUDGING_FAILURE_CODES);
 
@@ -132,6 +138,7 @@ export const runRecord = pgTable(
     ms: integer('ms'),
     steps: integer('steps'),
     faults: integer('faults'),
+    changedLines: integer('changed_lines'),
     used: integer('used'),
     size: integer('size'),
     cost: doublePrecision('cost'),
@@ -408,5 +415,48 @@ export const score = pgTable(
     index('score_station_idx').on(table.stationId, table.at),
     index('score_task_idx').on(table.taskId),
     index('score_workspace_idx').on(table.workspaceId, table.teamId),
+  ],
+);
+
+export const stationWatch = pgTable(
+  'station_watch',
+  {
+    stationId: text('station_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    lineId: text('line_id').notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    index('station_watch_team_idx').on(table.workspaceId, table.teamId),
+  ],
+);
+
+export const stationAlert = pgTable(
+  'station_alert',
+  {
+    id: text('id').primaryKey(),
+    stationId: text('station_id')
+      .notNull()
+      .references(() => stationWatch.stationId, { onDelete: 'cascade' }),
+    measure: alertMeasure('measure').notNull(),
+    threshold: alertThreshold('threshold').notNull(),
+    amount: doublePrecision('amount').notNull(),
+    over: integer('over').notNull(),
+    value: doublePrecision('value').notNull(),
+    baseline: doublePrecision('baseline'),
+    runId: text('run_id').notNull(),
+    taskId: text('task_id').notNull(),
+    raisedAt: timestamp('raised_at').notNull(),
+    recoveredAt: timestamp('recovered_at'),
+    clearRuns: integer('clear_runs').notNull().default(0),
+    lastSeenRunId: text('last_seen_run_id'),
+  },
+  (table) => [
+    index('station_alert_station_idx').on(table.stationId, table.raisedAt),
+    index('station_alert_task_idx').on(table.taskId),
+    uniqueIndex('station_alert_open_rule_idx')
+      .on(table.stationId, table.measure, table.threshold)
+      .where(sql`${table.recoveredAt} is null`),
   ],
 );

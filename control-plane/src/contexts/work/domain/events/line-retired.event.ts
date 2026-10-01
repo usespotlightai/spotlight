@@ -4,6 +4,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineId } from '@work/domain/value-objects/line-id.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
+import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
 export class LineRetired implements ConfigurationChanged {
   readonly kind = 'line.retired';
@@ -14,5 +15,6 @@ export class LineRetired implements ConfigurationChanged {
     readonly teamId: TeamId,
     readonly key: LineKey,
     readonly change: ConfigurationChange,
+    readonly stationIds: readonly StationId[],
   ) {}
 }

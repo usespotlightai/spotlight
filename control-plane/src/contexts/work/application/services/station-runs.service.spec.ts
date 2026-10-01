@@ -99,6 +99,29 @@ describe('StationRuns.ended', () => {
   });
 });
 
+describe('StationRuns.alertsAt', () => {
+  it('names the thresholds a station watches, and nothing for a station it does not know', async () => {
+    const alert = {
+      measure: 'sent_back_rate',
+      risesBy: 0.15,
+      above: null,
+      fallsBy: null,
+      below: null,
+      over: 10,
+    };
+    const stations = new StationRuns(
+      {
+        alertsAt: async (stationId: string) =>
+          stationId === 'station_1' ? [alert] : null,
+      } as unknown as StationRunReaderPort,
+      NO_SKILLS,
+    );
+
+    expect(await stations.alertsAt('station_1')).toEqual([alert]);
+    expect(await stations.alertsAt('station_9')).toBeNull();
+  });
+});
+
 describe('StationRuns.teamSkillKeys', () => {
   it('names every skill the team defines', async () => {
     const stations = new StationRuns(readingOnly(row()), {

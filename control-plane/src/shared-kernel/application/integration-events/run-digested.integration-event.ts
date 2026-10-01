@@ -16,6 +16,7 @@ export type RunDigestedIntegrationEvent = {
   readonly ms: number | null;
   readonly steps: number;
   readonly faults: number;
+  readonly changedLines: number;
   readonly used: number | null;
   readonly size: number | null;
   readonly cost: number | null;

@@ -5,6 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { useBeforeAfterPanel } from '@/lib/before-after-panel';
 import {
   type OutputDay,
   type StationNames,
@@ -28,6 +29,8 @@ export function ConfigMarkers({
   names,
   inset,
 }: ConfigMarkersProps) {
+  const panel = useBeforeAfterPanel();
+
   return (
     <ul aria-label="Config changes" className="relative h-5">
       {days.map((day, at) =>
@@ -73,6 +76,18 @@ export function ConfigMarkers({
                       >
                         {stationShown(names, change.stationId)}
                       </TrailLink>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          panel.show({
+                            stationId: change.stationId,
+                            fingerprint: change.fingerprint,
+                          })
+                        }
+                        className="w-fit rounded-sm text-left text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+                      >
+                        Before and after
+                      </button>
                       <InsightsLink
                         tab="runs"
                         filter={{

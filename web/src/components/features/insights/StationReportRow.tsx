@@ -9,6 +9,7 @@ import {
   deltaOf,
   type StationNames,
   type StationReport,
+  stationAnchor,
   stationShown,
   trendOf,
 } from '@/lib/insights';
@@ -31,7 +32,11 @@ export function StationReportRow({
   const delta = deltaOf(report.tally.runs, report.before.runs, 'neither');
 
   return (
-    <li data-slot="station-report" className="flex flex-col gap-2 py-3">
+    <li
+      id={stationAnchor(report.stationId)}
+      data-slot="station-report"
+      className="flex scroll-mt-4 flex-col gap-2 py-3"
+    >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <p className="flex flex-wrap items-baseline gap-x-2 text-sm">

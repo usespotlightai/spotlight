@@ -1,6 +1,7 @@
 import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
 import { pendingReviewsInMemory } from '@outcomes/application/ports/pending-reviews.fake-spec';
 import type { EndedRun } from '@outcomes/application/ports/work.port';
+import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
@@ -19,7 +20,10 @@ import { NoteRunSuperseded } from '@outcomes/application/services/note-run-super
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
+import { WatchStations } from '@outcomes/application/services/watch-stations.service';
+import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
 import { RunJudged } from '@outcomes/domain/events/run-judged.event';
+import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
 import {
   ChatRecordsInMemory,
   TaskFailuresInMemory,
@@ -34,6 +38,7 @@ import {
   ScoresInMemory,
 } from '@outcomes/domain/judging.fake-spec';
 import {
+  endedRecord,
   FIRST_CONFIG,
   inTransaction,
   RunRecordsInMemory,
@@ -44,12 +49,14 @@ import {
   PullRequestRecordsInMemory,
   TaskChangeShapesInMemory,
 } from '@outcomes/domain/pull-requests.fake-spec';
+import { AlertRule } from '@outcomes/domain/value-objects/alert-rule.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subscribers';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHANGE_STACK_SHAPED } from '@shared-kernel/application/integration-events/change-stack-shaped.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import { LINE_REDEFINED } from '@shared-kernel/application/integration-events/line-redefined.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_FORGOTTEN } from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
@@ -94,6 +101,7 @@ const WORK = {
   configsInOrder: async () => [],
   teamRepositories: async () => ['acme/api'],
   teamSkillKeys: async () => [],
+  alertsAt: async () => null,
 };
 
 const CLOCK = {
@@ -101,8 +109,12 @@ const CLOCK = {
   sleep: async () => {},
 };
 
-const subscribed = () => {
+const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const records = new RunRecordsInMemory();
+  const watches = new StationWatchesInMemory();
+  const alerted: string[] = [];
+  let alertsNow = alerts;
+  const work = { ...WORK, alertsAt: async () => alertsNow };
   const deliveries = new TaskDeliveriesInMemory();
   const judgings = new JudgingsInMemory();
   const scores = new ScoresInMemory();
@@ -139,6 +151,7 @@ const subscribed = () => {
         chats,
         pullRequests,
         shapes,
+        watches,
         reviews,
         forgotten,
       },
@@ -200,6 +213,29 @@ const subscribed = () => {
       inTransaction,
     ),
     shaping: new NoteChangeShaped(WORK, shapes, forgotten, inTransaction),
+    watching: new WatchStations(
+      work,
+      { records, deliveries, watches, forgotten },
+      inTransaction,
+      {
+        generate: () => {
+          next += 1;
+          return `alert_${next}`;
+        },
+      },
+      CLOCK,
+    ),
+    alerting: new AlertInbox(
+      {
+        open: async (taskId, alertId) => {
+          alerted.push(`open ${taskId.value} ${alertId.value}`);
+        },
+        settle: async (taskId, alertId) => {
+          alerted.push(`settle ${taskId.value} ${alertId.value}`);
+        },
+      },
+      watches,
+    ),
   });
 
   const deliver = async (name: string, event: Record<string, unknown>) => {
@@ -222,8 +258,13 @@ const subscribed = () => {
     chats,
     pullRequests,
     shapes,
+    watches,
     reviews,
     asked,
+    alerted,
+    alertsNow: (next: readonly AlertRule[] | null) => {
+      alertsNow = next;
+    },
     subscribers,
     deliver,
     record: () => records.of(RunId.of('run_1')),
@@ -357,6 +398,7 @@ describe('outcomesSubscribers', () => {
       ms: 60_000,
       steps: 12,
       faults: 1,
+      changedLines: 40,
       used: 40_000,
       size: 200_000,
       cost: 0.42,
@@ -414,6 +456,7 @@ describe('outcomesSubscribers', () => {
       ms: 60_000,
       steps: 12,
       faults: 1,
+      changedLines: 0,
       used: null,
       size: null,
       cost: 0.42,
@@ -725,6 +768,7 @@ describe('outcomesSubscribers', () => {
       ms: 60_000,
       steps: 12,
       faults: 1,
+      changedLines: 0,
       used: null,
       size: null,
       cost: 0.42,
@@ -1421,6 +1465,158 @@ describe('outcomesSubscribers', () => {
         (await heard.shapes.forTask(TaskId.of('task_1')))?.teamId.value,
       ).toBe('team_1');
       expect(await heard.shapes.forTask(TaskId.of('task_2'))).toBeNull();
+    });
+  });
+
+  describe('station alerts', () => {
+    const FAILING_ABOVE_HALF = AlertRule.of({
+      measure: 'failed_rate',
+      above: 0.5,
+      over: 1,
+    });
+
+    const watched = async (
+      heard: ReturnType<typeof subscribed>,
+      runId: string,
+    ) => {
+      const record = await heard.records.of(RunId.of(runId));
+
+      if (!record?.end) {
+        throw new Error(`no ended run ${runId}`);
+      }
+
+      await heard.deliver(
+        'outcomes.watch-station-after-run',
+        new RunRecordEnded(
+          record.runId,
+          record.workspaceId,
+          record.end.place,
+        ) as never,
+      );
+    };
+
+    it('raises one inbox aside on the run that crossed a station’s alert, and settles it once the station recovers', async () => {
+      const heard = subscribed([FAILING_ABOVE_HALF]);
+      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
+
+      await watched(heard, 'run_1');
+      await watched(heard, 'run_1');
+      const [raised] = heard.watches.raised;
+      await heard.deliver(
+        'outcomes.follow-station-alert-aside',
+        raised as never,
+      );
+
+      expect(heard.alerted).toEqual(['open task_1 alert_1']);
+
+      await heard.records.add(
+        endedRecord('run_2', {
+          taskId: 'task_2',
+          endedAt: new Date('2026-09-30T11:00:00.000Z'),
+        }),
+      );
+      await watched(heard, 'run_2');
+      const recovered = heard.watches.raised[1];
+      await heard.deliver(
+        'outcomes.follow-station-alert-aside',
+        recovered as never,
+      );
+
+      expect(heard.alerted).toEqual([
+        'open task_1 alert_1',
+        'settle task_1 alert_1',
+      ]);
+    });
+
+    it('settles the aside even when the raising is heard after the recovery', async () => {
+      const heard = subscribed([FAILING_ABOVE_HALF]);
+      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
+      await watched(heard, 'run_1');
+      await heard.records.add(
+        endedRecord('run_2', {
+          taskId: 'task_2',
+          endedAt: new Date('2026-09-30T11:00:00.000Z'),
+        }),
+      );
+      await watched(heard, 'run_2');
+      const [raised, recovered] = heard.watches.raised;
+
+      await heard.deliver(
+        'outcomes.follow-station-alert-aside',
+        recovered as never,
+      );
+      await heard.deliver(
+        'outcomes.follow-station-alert-aside',
+        raised as never,
+      );
+
+      expect(heard.alerted).toEqual([
+        'settle task_1 alert_1',
+        'settle task_1 alert_1',
+      ]);
+    });
+
+    it('forgets a disbanded team’s alerts and raises none for it after', async () => {
+      const heard = subscribed([FAILING_ABOVE_HALF]);
+      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
+      await watched(heard, 'run_1');
+
+      await heard.deliver('outcomes.forget-alerts-of-disbanded-team', {
+        kind: TEAM_DISBANDED,
+        teamId: 'team_1',
+        workspaceId: 'ws_1',
+      });
+      await watched(heard, 'run_1');
+
+      expect(heard.watches.held.size).toBe(0);
+    });
+
+    it('re-checks a redefined line’s stations, recovering an alert whose threshold is gone', async () => {
+      const heard = subscribed([FAILING_ABOVE_HALF]);
+      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
+      await watched(heard, 'run_1');
+      heard.alertsNow([]);
+
+      await heard.deliver('outcomes.watch-stations-after-line-redefined', {
+        kind: LINE_REDEFINED,
+        lineId: 'line_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        stationIds: ['station_1'],
+      });
+
+      expect(heard.watches.raised.map((each) => each.kind)).toEqual([
+        'station-alert.raised',
+        'station-alert.recovered',
+      ]);
+    });
+
+    it('watches nothing at a station with no alerts', async () => {
+      const heard = subscribed();
+      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
+
+      await watched(heard, 'run_1');
+
+      expect(heard.watches.held.size).toBe(0);
+    });
+
+    it('raises no alert for a run whose task was deleted, and forgets the alerts a deleted task raised', async () => {
+      const heard = subscribed([FAILING_ABOVE_HALF]);
+      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
+      await watched(heard, 'run_1');
+
+      await heard.deliver('outcomes.forget-alerts-of-deleted-task', {
+        kind: TASK_DELETED,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+      });
+      await watched(heard, 'run_1');
+
+      expect(
+        (await heard.watches.of('station_1'))?.crossings.map(
+          (each) => each.taskId.value,
+        ),
+      ).toEqual([]);
     });
   });
 });

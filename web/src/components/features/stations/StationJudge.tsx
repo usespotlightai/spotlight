@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
 import { StationSection } from '@/components/features/stations/StationSection';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { JUDGE_ANCHOR } from '@/lib/station';
 import { type JudgeSettings, sharePercent } from '@/lib/station-watch';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +25,7 @@ export function StationJudge({
   const [open, setOpen] = useState(false);
 
   return (
-    <StationSection title="Judge">
+    <StationSection title="Judge" id={JUDGE_ANCHOR}>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">Judges</dt>
         <dd className="text-foreground">

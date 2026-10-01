@@ -44,6 +44,7 @@ import {
   REVIEWS,
   type ReviewsPort,
 } from '@memory/application/ports/reviews.port';
+import { TEAM_MEMORY_USE } from '@memory/application/ports/team-memory-use.port';
 import { WORK, type WorkPort } from '@memory/application/ports/work.port';
 import { ListTeamMemoriesHandler } from '@memory/application/queries/handlers/list-team-memories.handler';
 import { ReadMemoryFilesHandler } from '@memory/application/queries/handlers/read-memory-files.handler';
@@ -76,6 +77,7 @@ import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence
 import { DrizzleMemoryRelevance } from '@memory/infrastructure/persistence/drizzle/repositories/memory-relevance.reader';
 import { DrizzleMemoryUses } from '@memory/infrastructure/persistence/drizzle/repositories/memory-uses.ledger';
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
+import { DrizzleTeamMemoryUse } from '@memory/infrastructure/persistence/drizzle/repositories/team-memory-use.reader';
 import { memorySubscribers } from '@memory/presentation/events/memory.subscribers';
 import { MemoryReviewController } from '@memory/presentation/http/controllers/memory-review.controller';
 import { RunMemoriesController } from '@memory/presentation/http/controllers/run-memories.controller';
@@ -206,6 +208,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       new TeamMemoryAtHand(memories, work),
   },
   { provide: MEMORY_USES, useClass: DrizzleMemoryUses },
+  { provide: TEAM_MEMORY_USE, useClass: DrizzleTeamMemoryUse },
   {
     provide: TeamMemoryViews,
     inject: [DrizzleMemoryRepository, WORK, PEOPLE, MEMORY_USES],

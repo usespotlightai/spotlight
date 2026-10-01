@@ -52,8 +52,19 @@ export interface StationRunRow {
   readonly endedAt: Date;
 }
 
+export interface StationAlertRowShape {
+  readonly measure: string;
+  readonly risesBy: number | null;
+  readonly above: number | null;
+  readonly fallsBy: number | null;
+  readonly below: number | null;
+  readonly over: number;
+}
+
 export interface StationRunReaderPort {
   endedRun(runId: string): Promise<EndedRunRow | null>;
+
+  alertsAt(stationId: string): Promise<readonly StationAlertRowShape[] | null>;
 
   configsNamed(fingerprints: readonly string[]): Promise<readonly RanConfig[]>;
 

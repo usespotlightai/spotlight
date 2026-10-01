@@ -1,9 +1,10 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
 import type { LineResponseDto } from '@/lib/api';
+import { BeforeAfterPanelContext } from '@/lib/before-after-panel';
 import { type OutputDay, stationNamesOf } from '@/lib/insights';
 
 const NAMES = stationNamesOf([
@@ -82,6 +83,45 @@ describe('OutputAgainstCost', () => {
         { name: /Config changed on .*: Implementation/ },
       ),
     ).toBeInTheDocument();
+  });
+
+  it('opens the station’s before and after from a marker', async () => {
+    const show = vi.fn();
+    render(
+      <BeforeAfterPanelContext value={{ shown: null, show, close: vi.fn() }}>
+        <MemoryRouter initialEntries={['/w/acme/team/team_1/insights']}>
+          <Routes>
+            <Route
+              path="/w/:slug/team/:teamId/:section"
+              element={
+                <OutputAgainstCost
+                  slug="acme"
+                  teamId="team_1"
+                  days={DAYS}
+                  currency="USD"
+                  noSpend="Nothing was priced"
+                  names={NAMES}
+                />
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </BeforeAfterPanelContext>,
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: /Config changed on .*: Implementation/,
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Before and after' }),
+    );
+
+    expect(show).toHaveBeenCalledWith({
+      stationId: 'station_build',
+      fingerprint: 'b7d4a60c8e2f1a9b',
+    });
   });
 
   it('puts a table behind the chart, each day leading to its runs', async () => {

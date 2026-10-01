@@ -32,6 +32,7 @@ const workOfTeam = (teamId: string): WorkPort => ({
   configsInOrder: async () => [],
   teamRepositories: async () => [],
   teamSkillKeys: async () => [],
+  alertsAt: async () => null,
 });
 
 const acting = async (...runs: Ended[]) => {

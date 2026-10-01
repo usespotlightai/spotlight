@@ -189,7 +189,8 @@ export class ConfigMarkerResponseDto {
 
   @ApiProperty({
     example: '2026-09-21T09:00:00.000Z',
-    description: 'When the first run with it ended',
+    description:
+      'When the first run with it started, or ended where it never started',
   })
   readonly firstRunAt: string;
 

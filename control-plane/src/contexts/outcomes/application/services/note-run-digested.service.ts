@@ -26,6 +26,7 @@ export interface RunDigestHeard {
   readonly ms: number | null;
   readonly steps: number;
   readonly faults: number;
+  readonly changedLines: number;
   readonly used: number | null;
   readonly size: number | null;
   readonly cost: number | null;
@@ -51,6 +52,7 @@ export class NoteRunDigested {
       ms: heard.ms,
       steps: heard.steps,
       faults: heard.faults,
+      changedLines: heard.changedLines,
       used: heard.used,
       size: heard.size,
       amount: heard.cost,

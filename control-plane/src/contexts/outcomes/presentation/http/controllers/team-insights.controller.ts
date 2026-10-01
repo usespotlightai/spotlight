@@ -20,19 +20,29 @@ import type {
   InsightsStationsDto,
 } from '@outcomes/application/dto/insights.dto';
 import type {
+  InsightsChangesDto,
+  InsightsSetupsDto,
+} from '@outcomes/application/dto/insights-changes.dto';
+import type { InsightsMemoryDto } from '@outcomes/application/dto/insights-memory.dto';
+import type {
   InsightsPullRequestListDto,
   InsightsPullRequestsDto,
 } from '@outcomes/application/dto/insights-pull-requests.dto';
 import type { InsightsToolsDto } from '@outcomes/application/dto/insights-tools.dto';
+import type { StationAlertDto } from '@outcomes/application/dto/station-alert.dto';
 import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
 import { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
+import { ReadInsightsChangesQuery } from '@outcomes/application/queries/read-insights-changes.query';
 import { ReadInsightsCostQuery } from '@outcomes/application/queries/read-insights-cost.query';
 import { ReadInsightsFlowQuery } from '@outcomes/application/queries/read-insights-flow.query';
+import { ReadInsightsMemoryQuery } from '@outcomes/application/queries/read-insights-memory.query';
 import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-insights-overview.query';
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
+import { ReadInsightsSetupsQuery } from '@outcomes/application/queries/read-insights-setups.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
+import { ReadStationAlertQuery } from '@outcomes/application/queries/read-station-alert.query';
 import { MOST_FILTERED_REPOSITORIES } from '@outcomes/domain/services/pull-request-filter';
 import {
   HARNESS_DEFAULT_MODEL,
@@ -41,6 +51,7 @@ import {
   NO_SERVER,
 } from '@outcomes/domain/services/run-filter';
 import { MOST_RUN_PAGE } from '@outcomes/domain/services/run-page';
+import { RUN_SIZES } from '@outcomes/domain/services/run-size';
 import {
   PULL_REQUEST_AUTHORS,
   ROUND_BUCKETS,
@@ -50,8 +61,13 @@ import { INSIGHTS_PERIODS } from '@outcomes/domain/value-objects/insights-period
 import { PERSON_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
 import { PULL_REQUEST_TYPES } from '@outcomes/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@outcomes/domain/value-objects/run-ending';
+import {
+  InsightsChangesResponseDto,
+  InsightsSetupsResponseDto,
+} from '@outcomes/presentation/http/dto/insights-changes.response.dto';
 import { InsightsCostResponseDto } from '@outcomes/presentation/http/dto/insights-cost.response.dto';
 import { InsightsFlowResponseDto } from '@outcomes/presentation/http/dto/insights-flow.response.dto';
+import { InsightsMemoryResponseDto } from '@outcomes/presentation/http/dto/insights-memory.response.dto';
 import { InsightsOverviewResponseDto } from '@outcomes/presentation/http/dto/insights-overview.response.dto';
 import { InsightsPeopleResponseDto } from '@outcomes/presentation/http/dto/insights-people.response.dto';
 import {
@@ -61,6 +77,7 @@ import {
 import { InsightsRunsResponseDto } from '@outcomes/presentation/http/dto/insights-runs.response.dto';
 import { InsightsStationsResponseDto } from '@outcomes/presentation/http/dto/insights-stations.response.dto';
 import { InsightsToolsResponseDto } from '@outcomes/presentation/http/dto/insights-tools.response.dto';
+import { StationAlertCrossingResponseDto } from '@outcomes/presentation/http/dto/station-alert-crossing.response.dto';
 import { AdmitsWorkspaceTokens } from '@platform/http/decorators/admits-workspace-tokens.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -242,6 +259,100 @@ export class TeamInsightsController {
     return new InsightsToolsResponseDto(
       await this.queryBus.execute<ReadInsightsToolsQuery, InsightsToolsDto>(
         new ReadInsightsToolsQuery(teamId, principal, periodOf(period)),
+      ),
+    );
+  }
+
+  @Get('changes')
+  @ApiOperation({
+    operationId: 'readInsightsChanges',
+    summary:
+      'Every station config change in the period, with how the station’s runs went before and after it, and the judge’s scores where its judge is trusted',
+  })
+  @PeriodQuery()
+  @ApiOkResponse({ type: InsightsChangesResponseDto })
+  async changes(
+    @Param('teamId') teamId: string,
+    @Query('period') period: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<InsightsChangesResponseDto> {
+    return new InsightsChangesResponseDto(
+      await this.queryBus.execute<ReadInsightsChangesQuery, InsightsChangesDto>(
+        new ReadInsightsChangesQuery(teamId, principal, periodOf(period)),
+      ),
+    );
+  }
+
+  @Get('setups')
+  @ApiOperation({
+    operationId: 'readInsightsSetups',
+    summary:
+      'How runs went against what they cost on each harness, model, effort and profile, with the cost frontier marked for each outcome',
+  })
+  @PeriodQuery()
+  @FilterQuery('stationId', 'Only runs at this station')
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    enum: RUN_SIZES,
+    description:
+      'Only runs of this size, told by the lines their changes took out and put in, or by their steps where they changed none',
+  })
+  @ApiOkResponse({ type: InsightsSetupsResponseDto })
+  async setups(
+    @Param('teamId') teamId: string,
+    @Query() asked: Record<string, unknown>,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<InsightsSetupsResponseDto> {
+    return new InsightsSetupsResponseDto(
+      await this.queryBus.execute<ReadInsightsSetupsQuery, InsightsSetupsDto>(
+        new ReadInsightsSetupsQuery(
+          teamId,
+          principal,
+          periodOf(asked.period),
+          textOf(asked.stationId),
+          textOf(asked.size),
+        ),
+      ),
+    );
+  }
+
+  @Get('memory')
+  @ApiOperation({
+    operationId: 'readInsightsMemory',
+    summary:
+      'The team’s standing memories, how many runs were briefed or read them, which were flagged wrong, and how runs with memories went against runs without',
+  })
+  @PeriodQuery()
+  @ApiOkResponse({ type: InsightsMemoryResponseDto })
+  async memory(
+    @Param('teamId') teamId: string,
+    @Query('period') period: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<InsightsMemoryResponseDto> {
+    return new InsightsMemoryResponseDto(
+      await this.queryBus.execute<ReadInsightsMemoryQuery, InsightsMemoryDto>(
+        new ReadInsightsMemoryQuery(teamId, principal, periodOf(period)),
+      ),
+    );
+  }
+
+  @Get('alerts/:alertId')
+  @ApiOperation({
+    operationId: 'readStationAlert',
+    summary:
+      'A station alert that went off: the threshold it crossed, the run that crossed it, and the measure run by run around it',
+  })
+  @ApiParam({ name: 'alertId', type: String })
+  @ApiOkResponse({ type: StationAlertCrossingResponseDto })
+  async alert(
+    @Param('teamId') teamId: string,
+    @Param('alertId') alertId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<StationAlertCrossingResponseDto> {
+    return new StationAlertCrossingResponseDto(
+      await this.queryBus.execute<ReadStationAlertQuery, StationAlertDto>(
+        new ReadStationAlertQuery(teamId, principal, alertId),
       ),
     );
   }

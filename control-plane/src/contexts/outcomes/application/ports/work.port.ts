@@ -1,3 +1,5 @@
+import type { AlertRule } from '@outcomes/domain/value-objects/alert-rule.vo';
+
 export const WORK = Symbol('OUTCOMES_WORK');
 
 export interface EndedRun {
@@ -66,4 +68,6 @@ export interface WorkPort {
   teamRepositories(teamId: string): Promise<readonly string[]>;
 
   teamSkillKeys(teamId: string): Promise<readonly string[]>;
+
+  alertsAt(stationId: string): Promise<readonly AlertRule[] | null>;
 }

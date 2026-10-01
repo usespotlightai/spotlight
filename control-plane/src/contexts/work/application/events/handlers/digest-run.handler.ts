@@ -40,6 +40,7 @@ export class DigestRun {
             digest.ms,
             digest.steps,
             digest.faults,
+            digest.changedLines,
             digest.used,
             digest.size,
             digest.cost,

@@ -28,6 +28,7 @@ const digest: RunDigest = {
   ms: 60_000,
   steps: 12,
   faults: 0,
+  changedLines: 0,
   used: 40_000,
   size: 200_000,
   cost: Money.of(0.42, 'USD'),

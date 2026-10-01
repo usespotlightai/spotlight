@@ -967,7 +967,7 @@ export type InboxAsideResponseDto = {
   /**
    * What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
    */
-  form: 'memories' | 'grade';
+  form: 'memories' | 'grade' | 'alert';
   /**
    * What it is about: for memories, the run that proposed them; for grade, the run to grade
    */
@@ -4093,7 +4093,7 @@ export type ConfigMarkerResponseDto = {
    */
   fingerprint: string;
   /**
-   * When the first run with it ended
+   * When the first run with it started, or ended where it never started
    */
   firstRunAt: string;
   runId: string;
@@ -4744,6 +4744,358 @@ export type InsightsToolsResponseDto = {
    * Each tool a person refused to approve for a run in the period, per server, the most refused first
    */
   refusals: Array<ToolRefusalsResponseDto>;
+};
+
+export type MeasureVerdictResponseDto = {
+  measure: 'sent_back_rate' | 'accepted_rate' | 'checks_failed_rate' | 'failed_rate' | 'merged_rate' | 'cost_per_run';
+  /**
+   * The measure over the settled runs compared against: a share, or a cost per run
+   */
+  before: number | null;
+  /**
+   * The measure over the settled runs compared
+   */
+  after: number | null;
+  /**
+   * Runs compared against whose outcome for this measure is known
+   */
+  settledBefore: number;
+  /**
+   * Runs compared whose outcome for this measure is known
+   */
+  settledAfter: number;
+  /**
+   * The currency of a cost per run; none for a share
+   */
+  currency: string | null;
+  /**
+   * Whether the runs compared did better, worse or the same; insufficient below 5 settled runs on either side, or where the costs are in different currencies
+   */
+  verdict: 'better' | 'worse' | 'unchanged' | 'insufficient';
+};
+
+export type JudgeShareResponseDto = {
+  /**
+   * The judge’s mean score as a share of its scale, from 0 for the lowest to 1 for the highest; none where it judged none of the runs
+   */
+  mean: number | null;
+  /**
+   * Runs the judge scored
+   */
+  judged: number;
+};
+
+export type ChangeMarkerResponseDto = {
+  lineId: string;
+  stationId: string;
+  /**
+   * The new station config
+   */
+  fingerprint: string;
+  /**
+   * The config the station ran with just before
+   */
+  previousFingerprint: string | null;
+  /**
+   * When the first run with the new config started
+   */
+  firstRunAt: string;
+  /**
+   * That first run
+   */
+  runId: string;
+  /**
+   * The station’s runs with the config before that started since its config before last changed, up to this change
+   */
+  before: RunTallyResponseDto;
+  /**
+   * The station’s runs with this config that started from this change up to the next one
+   */
+  after: RunTallyResponseDto;
+  /**
+   * Each measure over the runs with the config before against the runs with this one, and whether this one did better
+   */
+  verdicts: Array<MeasureVerdictResponseDto>;
+  /**
+   * The judge’s scores of the runs before, only where the station’s judge is trusted
+   */
+  judgeBefore: JudgeShareResponseDto | null;
+  /**
+   * The judge’s scores of the runs after, only where the station’s judge is trusted
+   */
+  judgeAfter: JudgeShareResponseDto | null;
+  /**
+   * How the new config differs from the one before it
+   */
+  changes: Array<ConfigChangeResponseDto>;
+};
+
+export type StationStandingResponseDto = {
+  /**
+   * Whether the judge agrees with people often enough for its scores to count
+   */
+  trusted: boolean;
+  /**
+   * How agreement is measured: Cohen’s kappa for yes or no scores, Spearman’s correlation for numbers
+   */
+  measure: 'kappa' | 'spearman' | null;
+  agreement: number | null;
+  /**
+   * Runs of the current rubric with both a judge score and people’s
+   */
+  pairs: number;
+  trust: number | null;
+  /**
+   * Why the judge’s scores are hidden, where they are
+   */
+  hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
+  lineId: string;
+  stationId: string;
+};
+
+export type InsightsChangesResponseDto = {
+  period: InsightsPeriodResponseDto;
+  /**
+   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
+   */
+  truncated: boolean;
+  /**
+   * Every station config change in the period, the oldest first, with the station’s tally before and after it
+   */
+  markers: Array<ChangeMarkerResponseDto>;
+  /**
+   * How far each changed station’s judge is trusted, where it has one
+   */
+  judges: Array<StationStandingResponseDto>;
+};
+
+export type SizeBoundResponseDto = {
+  size: 'small' | 'medium' | 'large';
+  /**
+   * The most lines a run’s changes may take out and put in to be this size; none for no limit
+   */
+  mostLines: number | null;
+  /**
+   * For a run that changed no lines, the most steps it may take to be this size; none for no limit
+   */
+  mostSteps: number | null;
+};
+
+export type SetupOutcomesResponseDto = {
+  /**
+   * Share of runs a person next closed or approved
+   */
+  accepted: number | null;
+  /**
+   * Share of runs a person next sent back or refused
+   */
+  sent_back: number | null;
+  /**
+   * Share of runs that moved their task on to another station
+   */
+  handed_on: number | null;
+  /**
+   * Share of checked runs whose checks passed
+   */
+  checks_passed: number | null;
+  /**
+   * Share of the runs’ tasks whose pull request merged
+   */
+  merged: number | null;
+  /**
+   * The judge’s mean score as a share of its scale, over runs at stations whose judge is trusted
+   */
+  judge: number | null;
+};
+
+export type SetupOutcomeResponseDto = {
+  harness: string;
+  model: string | null;
+  effort: string | null;
+  profileKey: string | null;
+  tally: RunTallyResponseDto;
+  /**
+   * What a priced run cost on average; none where no run was priced or they came in more than one currency
+   */
+  costPerRun: number | null;
+  currency: string | null;
+  outcomes: SetupOutcomesResponseDto;
+  /**
+   * The judge’s scores of this setup’s runs; none unless the comparison is narrowed to one station
+   */
+  judge: JudgeShareResponseDto | null;
+  /**
+   * The outcomes this setup sits on the cost frontier for: no other setup with enough runs did as well or better for less
+   */
+  frontier: Array<'accepted' | 'sent_back' | 'handed_on' | 'checks_passed' | 'merged' | 'judge'>;
+};
+
+export type InsightsSetupsResponseDto = {
+  period: InsightsPeriodResponseDto;
+  /**
+   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
+   */
+  truncated: boolean;
+  /**
+   * The station the comparison was narrowed to, if any
+   */
+  stationId: string | null;
+  /**
+   * The run size the comparison was narrowed to, if any
+   */
+  size: 'small' | 'medium' | 'large' | null;
+  /**
+   * How a run’s size is told: by the lines its changes took out and put in, or by its steps where it changed none
+   */
+  sizes: Array<SizeBoundResponseDto>;
+  /**
+   * The fewest runs a setup needs to sit on the frontier
+   */
+  fewestRuns: number;
+  /**
+   * The currency the frontier is drawn in; setups priced in another are left off it
+   */
+  currency: string | null;
+  /**
+   * How runs went on each harness, model, effort and profile, the most runs first
+   */
+  setups: Array<SetupOutcomeResponseDto>;
+  /**
+   * Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric
+   */
+  judgeWithheld: 'no_station' | null;
+  /**
+   * How far the station’s judge is trusted, where one station is picked and it has a judge
+   */
+  judges: Array<StationStandingResponseDto>;
+};
+
+export type FlaggedMemoryResponseDto = {
+  memoryId: string;
+  handle: string;
+  body: string;
+  /**
+   * Why the person said it was wrong
+   */
+  reason: string | null;
+  by: string | null;
+  byName: string | null;
+  at: string;
+};
+
+export type MemoryBenchmarkResponseDto = {
+  ranAt: string;
+  /**
+   * Share of the benchmark’s cases solved with memories
+   */
+  withMemories: number;
+  /**
+   * Share of the benchmark’s cases solved without them
+   */
+  withoutMemories: number;
+  cases: number;
+};
+
+export type InsightsMemoryResponseDto = {
+  period: InsightsPeriodResponseDto;
+  /**
+   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
+   */
+  truncated: boolean;
+  /**
+   * Memories the team keeps now
+   */
+  standing: number;
+  /**
+   * Memories briefed to at least one run in the period
+   */
+  memoriesBriefed: number;
+  /**
+   * Memories a run read for itself in the period
+   */
+  memoriesRecalled: number;
+  /**
+   * Runs briefed any memory
+   */
+  runsBriefed: number;
+  /**
+   * Runs that read any memory
+   */
+  runsRecalled: number;
+  /**
+   * Memories a person retired as wrong in the period, rather than a newer memory replacing them, the latest first
+   */
+  flagged: Array<FlaggedMemoryResponseDto>;
+  /**
+   * How runs that were briefed or read a memory turned out
+   */
+  withMemories: RunTallyResponseDto;
+  /**
+   * How the rest of the runs turned out
+   */
+  withoutMemories: RunTallyResponseDto;
+  /**
+   * Each measure over the runs without memories against the runs with them, and whether runs with memories did better
+   */
+  verdicts: Array<MeasureVerdictResponseDto>;
+  /**
+   * The latest memory benchmark run for the team, if any
+   */
+  benchmark: MemoryBenchmarkResponseDto | null;
+};
+
+export type AlertThresholdResponseDto = {
+  measure: 'sent_back_rate' | 'accepted_rate' | 'checks_failed_rate' | 'failed_rate' | 'merged_rate' | 'cost_per_run';
+  risesBy: number | null;
+  fallsBy: number | null;
+  above: number | null;
+  below: number | null;
+  over: number;
+};
+
+export type AlertCrossingPointResponseDto = {
+  runId: string;
+  endedAt: string;
+  /**
+   * The measure over the runs up to and including this one, as many as the alert compares; none until there are that many
+   */
+  value: number | null;
+};
+
+export type StationAlertCrossingResponseDto = {
+  alertId: string;
+  lineId: string;
+  stationId: string;
+  /**
+   * The threshold that was crossed, as set on the station
+   */
+  threshold: AlertThresholdResponseDto;
+  /**
+   * The measure over the last runs when it crossed
+   */
+  value: number;
+  /**
+   * The measure over the runs before them, for a threshold that watches a rise or fall
+   */
+  baseline: number | null;
+  /**
+   * The run that crossed it
+   */
+  runId: string;
+  taskId: string;
+  raisedAt: string;
+  /**
+   * When the station came back within the threshold, if it has
+   */
+  recoveredAt: string | null;
+  /**
+   * The currency a cost threshold is in
+   */
+  currency: string | null;
+  /**
+   * The measure run by run around the crossing, the oldest first
+   */
+  series: Array<AlertCrossingPointResponseDto>;
 };
 
 export type WeekShareResponseDto = {
@@ -13362,6 +13714,150 @@ export type ReadInsightsToolsResponses = {
 };
 
 export type ReadInsightsToolsResponse = ReadInsightsToolsResponses[keyof ReadInsightsToolsResponses];
+
+export type ReadInsightsChangesData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/insights/changes';
+};
+
+export type ReadInsightsChangesErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ReadInsightsChangesResponses = {
+  200: InsightsChangesResponseDto;
+};
+
+export type ReadInsightsChangesResponse = ReadInsightsChangesResponses[keyof ReadInsightsChangesResponses];
+
+export type ReadInsightsSetupsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * Only runs of this size, told by the lines their changes took out and put in, or by their steps where they changed none
+     */
+    size?: 'small' | 'medium' | 'large';
+    /**
+     * Only runs at this station
+     */
+    stationId?: string;
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/insights/setups';
+};
+
+export type ReadInsightsSetupsErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ReadInsightsSetupsResponses = {
+  200: InsightsSetupsResponseDto;
+};
+
+export type ReadInsightsSetupsResponse = ReadInsightsSetupsResponses[keyof ReadInsightsSetupsResponses];
+
+export type ReadInsightsMemoryData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/insights/memory';
+};
+
+export type ReadInsightsMemoryErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ReadInsightsMemoryResponses = {
+  200: InsightsMemoryResponseDto;
+};
+
+export type ReadInsightsMemoryResponse = ReadInsightsMemoryResponses[keyof ReadInsightsMemoryResponses];
+
+export type ReadStationAlertData = {
+  body?: never;
+  path: {
+    teamId: string;
+    alertId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/insights/alerts/{alertId}';
+};
+
+export type ReadStationAlertErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ReadStationAlertResponses = {
+  200: StationAlertCrossingResponseDto;
+};
+
+export type ReadStationAlertResponse = ReadStationAlertResponses[keyof ReadStationAlertResponses];
 
 export type ReadInsightsPullRequestsData = {
   body?: never;

@@ -1,6 +1,6 @@
 import { InvalidTaskAsideError } from '@work/domain/exceptions/invalid-task-aside.error';
 
-export const ASIDE_FORMS = ['memories', 'grade'] as const;
+export const ASIDE_FORMS = ['memories', 'grade', 'alert'] as const;
 
 export type AsideForm = (typeof ASIDE_FORMS)[number];
 

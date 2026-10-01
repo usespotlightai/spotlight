@@ -8,6 +8,7 @@ import { StationsTable } from '@/components/features/insights/StationsTable';
 import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { StationTallyFigures } from '@/components/features/stations/outcomes/StationTallyFigures';
 import { useInsightsStations } from '@/hooks/api/useInsightsStations';
+import { useScrollToHash } from '@/hooks/useScrollToHash';
 import {
   deltaOf,
   type InsightsPeriod,
@@ -24,6 +25,7 @@ type StationsTabProps = {
 
 export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
   const stations = useInsightsStations(teamId, period);
+  useScrollToHash(Boolean(stations.data));
 
   if (loading(stations)) {
     return <StationsSkeleton />;

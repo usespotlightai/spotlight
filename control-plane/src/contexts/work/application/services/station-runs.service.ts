@@ -3,6 +3,7 @@ import type { FingerprintedConfig } from '@work/application/contracts/station-co
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   EndedStationRun,
+  StationAlertShape,
   StationRunsPort,
 } from '@work/application/ports/station-runs.port';
 import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
@@ -34,6 +35,23 @@ export class StationRuns implements StationRunsPort {
       repositories: config?.repositories.map((each) => each.name) ?? [],
       skills: config?.skills.map((each) => each.key) ?? [],
     };
+  }
+
+  async alertsAt(
+    stationId: string,
+  ): Promise<readonly StationAlertShape[] | null> {
+    const alerts = await this.reader.alertsAt(stationId);
+
+    return (
+      alerts?.map((each) => ({
+        measure: each.measure,
+        risesBy: each.risesBy,
+        above: each.above,
+        fallsBy: each.fallsBy,
+        below: each.below,
+        over: each.over,
+      })) ?? null
+    );
   }
 
   teamSkillKeys(teamId: string): Promise<readonly string[]> {

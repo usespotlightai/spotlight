@@ -51,6 +51,7 @@ const asking = (
       configsInOrder: async () => [],
       teamRepositories: async () => [],
       teamSkillKeys: async () => [],
+      alertsAt: async () => null,
     },
     {
       holds: async () => change.held ?? true,

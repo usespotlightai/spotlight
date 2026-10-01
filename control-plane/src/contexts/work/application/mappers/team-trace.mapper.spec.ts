@@ -37,6 +37,7 @@ const digest = (over: Partial<RunDigest> = {}): RunDigest => ({
   ms: 90_000,
   steps: 40,
   faults: 1,
+  changedLines: 0,
   used: 12_000,
   size: 200_000,
   cost: Money.of(0.25, 'USD'),

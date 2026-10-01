@@ -1,4 +1,6 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -8,6 +10,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
+import { LineRedefined } from '@work/domain/events/line-redefined.event';
+import { LineRetired } from '@work/domain/events/line-retired.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
@@ -26,6 +30,7 @@ import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo'
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -52,6 +57,46 @@ const SUBJECT = RunSubject.task(
 );
 
 describe('WORK_PUBLICATIONS', () => {
+  it('publishes which stations a redefined or retired line had and has', () => {
+    const change = ConfigurationChange.updated(
+      { resource: 'line', id: 'line_1', key: 'default' },
+      attributedIn(),
+    );
+    const stations = [StationId.of('station_1'), StationId.of('station_2')];
+    const told = {
+      kind: 'work.line-redefined.v1',
+      lineId: 'line_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      stationIds: ['station_1', 'station_2'],
+    };
+
+    expect(
+      published(
+        new LineRedefined(
+          LineId.of('line_1'),
+          WORKSPACE,
+          TeamId.of('team_1'),
+          LineKey.of('default'),
+          change,
+          stations,
+        ),
+      ),
+    ).toEqual([told]);
+    expect(
+      published(
+        new LineRetired(
+          LineId.of('line_1'),
+          WORKSPACE,
+          TeamId.of('team_1'),
+          LineKey.of('default'),
+          change,
+          stations,
+        ),
+      ),
+    ).toEqual([told]);
+  });
+
   it('publishes a task opening, on which team and line, by whom and when', () => {
     expect(
       published(
@@ -132,6 +177,7 @@ describe('WORK_PUBLICATIONS', () => {
           60_000,
           12,
           1,
+          40,
           40_000,
           200_000,
           Money.of(0.42, 'USD'),
@@ -159,6 +205,7 @@ describe('WORK_PUBLICATIONS', () => {
         ms: 60_000,
         steps: 12,
         faults: 1,
+        changedLines: 40,
         used: 40_000,
         size: 200_000,
         cost: 0.42,

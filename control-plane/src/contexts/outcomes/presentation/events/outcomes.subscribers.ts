@@ -1,3 +1,4 @@
+import type { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import type { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import type { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import type { GradeAsides } from '@outcomes/application/services/grade-asides.service';
@@ -16,8 +17,15 @@ import type { NoteRunSuperseded } from '@outcomes/application/services/note-run-
 import type { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import type { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import type { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
+import type { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import type { RunJudged } from '@outcomes/domain/events/run-judged.event';
+import type { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
+import type { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
 import type { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
+import type { StationAlertRaised } from '@outcomes/domain/events/station-alert-raised.event';
+import type { StationAlertRecovered } from '@outcomes/domain/events/station-alert-recovered.event';
+import type { StationAlertReopened } from '@outcomes/domain/events/station-alert-reopened.event';
+import type { TaskDeliveryClosed } from '@outcomes/domain/events/task-delivery-closed.event';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -30,6 +38,10 @@ import {
   CHAT_STARTED,
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import {
+  LINE_REDEFINED,
+  type LineRedefinedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-redefined.integration-event';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
@@ -127,6 +139,8 @@ export interface OutcomesReactions {
   readonly chatting: NoteChatStarted;
   readonly recording: NotePullRequestRecords;
   readonly shaping: NoteChangeShaped;
+  readonly watching: WatchStations;
+  readonly alerting: AlertInbox;
 }
 
 const dateOf = (at: string | null): Date | null => (at ? new Date(at) : null);
@@ -182,6 +196,37 @@ export const outcomesSubscribers = (
     'outcomes.ask-or-settle-grade',
     ['score.recorded'],
     (event) => reactions.grading.recorded(event),
+  ),
+  subscribing<RunRecordEnded>(
+    'outcomes.watch-station-after-run',
+    ['run-record.ended'],
+    (event) => reactions.watching.runEnded(event),
+  ),
+  subscribing<RunRecordSettled>(
+    'outcomes.watch-station-after-settled-run',
+    ['run-record.settled'],
+    (event) => reactions.watching.runSettled(event),
+  ),
+  subscribing<TaskDeliveryClosed>(
+    'outcomes.watch-stations-after-closed-delivery',
+    ['task-delivery.closed'],
+    (event) => reactions.watching.deliveryClosed(event),
+  ),
+  subscribing<
+    StationAlertRaised | StationAlertRecovered | StationAlertReopened
+  >(
+    'outcomes.follow-station-alert-aside',
+    [
+      'station-alert.raised',
+      'station-alert.recovered',
+      'station-alert.reopened',
+    ],
+    (event) => reactions.alerting.moved(event),
+  ),
+  subscribing<LineRedefinedIntegrationEvent>(
+    'outcomes.watch-stations-after-line-redefined',
+    [LINE_REDEFINED],
+    (event) => reactions.watching.lineRedefined(event),
   ),
   subscribing<RunSupersededIntegrationEvent>(
     'outcomes.record-superseded-run',
@@ -410,6 +455,24 @@ export const outcomesSubscribers = (
         TaskId.of(event.taskId),
       ),
   ),
+  subscribing<TaskDeletedIntegrationEvent>(
+    'outcomes.forget-alerts-of-deleted-task',
+    [TASK_DELETED],
+    (event) =>
+      reactions.forgetting.alertsOfTask(
+        WorkspaceId.of(event.workspaceId),
+        TaskId.of(event.taskId),
+      ),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'outcomes.forget-alerts-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.forgetting.alertsOfTeam(
+        WorkspaceId.of(event.workspaceId),
+        TeamId.of(event.teamId),
+      ),
+  ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'outcomes.forget-touches-of-disbanded-team',
     [TEAM_DISBANDED],
@@ -507,5 +570,11 @@ export const outcomesSubscribers = (
     [WORKSPACE_CLOSED],
     (event) =>
       reactions.forgetting.chatsOfWorkspace(WorkspaceId.of(event.workspaceId)),
+  ),
+  subscribing<WorkspaceClosedIntegrationEvent>(
+    'outcomes.forget-alerts-of-closed-workspace',
+    [WORKSPACE_CLOSED],
+    (event) =>
+      reactions.forgetting.alertsOfWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

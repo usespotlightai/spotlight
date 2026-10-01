@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskDeliveryMovedOnError } from '@outcomes/domain/exceptions/task-delivery-moved-on.error';
 import type { TeamWindow } from '@outcomes/domain/repositories/run-record.repository';
@@ -8,6 +8,10 @@ import {
   taskDelivery,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -39,7 +43,11 @@ const columnsOf = (delivery: TaskDelivery) => ({
 
 @Injectable()
 export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
 
   async add(added: TaskDelivery): Promise<void> {
     const written = await this.context.db
@@ -57,6 +65,8 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
     if (written.length === 0) {
       throw new TaskDeliveryMovedOnError(added.taskId.value);
     }
+
+    await this.events.dispatch(added.pullEvents());
   }
 
   async save(saved: TaskDelivery): Promise<void> {
@@ -74,6 +84,8 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
     if (written.length === 0) {
       throw new TaskDeliveryMovedOnError(saved.taskId.value);
     }
+
+    await this.events.dispatch(saved.pullEvents());
   }
 
   async forTask(taskId: TaskId): Promise<TaskDelivery | null> {

@@ -3,6 +3,10 @@ import {
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import {
+  LINE_REDEFINED,
+  type LineRedefinedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
@@ -61,6 +65,8 @@ import {
 } from '@shared-kernel/application/integration-events/task-opened.integration-event';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
+import type { LineRedefined } from '@work/domain/events/line-redefined.event';
+import type { LineRetired } from '@work/domain/events/line-retired.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
@@ -94,6 +100,16 @@ const ended = (
   outcome,
   failure,
   stopped,
+});
+
+const redefined = (
+  event: LineRedefined | LineRetired,
+): LineRedefinedIntegrationEvent => ({
+  kind: LINE_REDEFINED,
+  lineId: event.lineId.value,
+  workspaceId: event.workspaceId.value,
+  teamId: event.teamId.value,
+  stationIds: event.stationIds.map((each) => each.value),
 });
 
 export const WORK_PUBLICATIONS = [
@@ -213,6 +229,7 @@ export const WORK_PUBLICATIONS = [
       ms: event.ms,
       steps: event.steps,
       faults: event.faults,
+      changedLines: event.changedLines,
       used: event.used,
       size: event.size,
       cost: event.cost?.amount ?? null,
@@ -279,4 +296,6 @@ export const WORK_PUBLICATIONS = [
       at: event.at.toISOString(),
     }),
   ),
+  publishing<LineRedefined>('line.redefined', redefined),
+  publishing<LineRetired>('line.retired', redefined),
 ] as const;

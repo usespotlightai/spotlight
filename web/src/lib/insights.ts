@@ -75,14 +75,31 @@ export const PERIOD_RANGES: readonly Range[] = RANGES.filter((range) =>
 export const asPeriod = (raw: string | null): InsightsPeriod =>
   PERIOD_IDS.find((each) => each === raw) ?? DEFAULT_PERIOD;
 
+const MINUTE_MS = 60_000;
+
+export const periodCovering = (at: string, now: Date): InsightsPeriod => {
+  const ago = (now.getTime() - new Date(at).getTime()) / MINUTE_MS;
+
+  return (
+    (PERIOD_RANGES.find((range) => range.minutes >= ago)?.id as
+      | InsightsPeriod
+      | undefined) ?? '90d'
+  );
+};
+
+export const stationAnchor = (stationId: string): string =>
+  `station-${stationId}`;
+
 export const INSIGHTS_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'flow', label: 'Flow' },
   { id: 'pull-requests', label: 'Pull requests' },
   { id: 'stations', label: 'Stations' },
+  { id: 'changes', label: 'Changes' },
   { id: 'people', label: 'People' },
   { id: 'cost', label: 'Cost' },
   { id: 'tools', label: 'Tools' },
+  { id: 'memory', label: 'Memory' },
   { id: 'runs', label: 'Runs' },
 ] as const;
 

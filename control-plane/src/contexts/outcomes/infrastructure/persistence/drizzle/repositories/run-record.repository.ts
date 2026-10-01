@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
 import type {
@@ -28,6 +28,10 @@ import {
   taskTouches,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -208,6 +212,7 @@ const costOf = (row: RecordRow): RunCost | null =>
         ms: row.ms,
         steps: row.steps ?? 0,
         faults: row.faults ?? 0,
+        changedLines: row.changedLines ?? 0,
         used: row.used,
         size: row.size,
         amount: row.cost,
@@ -313,6 +318,7 @@ const columnsOf = (record: RunRecord) => {
     ms: record.cost?.ms ?? null,
     steps: record.cost?.steps ?? null,
     faults: record.cost?.faults ?? null,
+    changedLines: record.cost?.changedLines ?? null,
     used: record.cost?.used ?? null,
     size: record.cost?.size ?? null,
     cost: record.cost?.spend?.amount ?? null,
@@ -332,7 +338,11 @@ const columnsOf = (record: RunRecord) => {
 
 @Injectable()
 export class DrizzleRunRecordRepository implements RunRecordRepository {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
 
   async add(added: RunRecord): Promise<void> {
     const written = await this.context.db
@@ -349,6 +359,8 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
     if (written.length === 0) {
       throw new RunRecordMovedOnError(added.runId.value);
     }
+
+    await this.events.dispatch(added.pullEvents());
   }
 
   async save(saved: RunRecord): Promise<void> {
@@ -366,6 +378,8 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
     if (written.length === 0) {
       throw new RunRecordMovedOnError(saved.runId.value);
     }
+
+    await this.events.dispatch(saved.pullEvents());
   }
 
   async of(runId: RunId): Promise<RunRecord | null> {

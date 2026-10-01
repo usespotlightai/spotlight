@@ -54,6 +54,7 @@ const listing = async (member = true) => {
     endedRun: async () => null,
     teamRepositories: async () => [],
     teamSkillKeys: async () => [],
+    alertsAt: async () => null,
     configsInOrder: async (fingerprints) => {
       asked.push([...fingerprints]);
       return fingerprints.map(

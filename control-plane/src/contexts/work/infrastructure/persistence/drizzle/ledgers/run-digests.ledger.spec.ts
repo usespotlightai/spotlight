@@ -13,6 +13,7 @@ describe('digestOf', () => {
     const digest = digestOf({
       ms: 4_000,
       statuses: ['completed', 'failed', null, 'running', 'failed'],
+      changes: [],
       used: 10,
       size: 200,
       cost: Money.of(0.5, 'USD'),
@@ -23,10 +24,28 @@ describe('digestOf', () => {
     expect(digest.faults).toBe(2);
   });
 
+  it('counts the lines its changes took out and put in', () => {
+    const digest = digestOf({
+      ms: null,
+      statuses: ['completed', 'completed'],
+      changes: [
+        { path: 'a.ts', before: 'a\nb\n', after: 'a\nc\n' },
+        { path: 'new.ts', before: '', after: 'new\n' },
+      ],
+      used: null,
+      size: null,
+      cost: null,
+      tokens: Tokens.UNREPORTED,
+    });
+
+    expect(digest.changedLines).toBe(3);
+  });
+
   it('says a run did nothing where its journal held nothing', () => {
     const digest = digestOf({
       ms: null,
       statuses: [],
+      changes: [],
       used: null,
       size: null,
       cost: null,
@@ -37,6 +56,7 @@ describe('digestOf', () => {
       ms: null,
       steps: 0,
       faults: 0,
+      changedLines: 0,
       used: null,
       size: null,
       cost: null,

@@ -948,8 +948,32 @@ describe('Line, what it records of its changes', () => {
             { resource: 'line', id: line.id.value, key: line.key.value },
             attributedIn(),
           ),
+          line.stations.map((each) => each.id),
         ),
       );
+    });
+
+    it('names the stations it had and has when redefined, so a dropped station is told too', () => {
+      const line = lineOf([at(1), at(2)]);
+      const relaid = line.relaidAs(
+        {
+          key: line.key,
+          name: line.name,
+          stations: [backlog(), at(1), completed(2)],
+          reactions: [],
+        },
+        attributedIn(),
+      );
+      const [redefined] = relaid
+        .pullEvents()
+        .filter((each) => each instanceof LineRedefined);
+
+      expect(redefined?.stationIds.map((each) => each.value).sort()).toEqual([
+        'backlog_1',
+        'completed_1',
+        'station_1',
+        'station_2',
+      ]);
     });
 
     it('refuses a change made against another version', () => {
@@ -988,6 +1012,7 @@ describe('Line, what it records of its changes', () => {
             { resource: 'line', id: line.id.value, key: line.key.value },
             attributedIn(),
           ),
+          line.stations.map((each) => each.id),
         ),
       ]);
       expect(() => retired.worksIn([])).toThrow(/after it retired/);

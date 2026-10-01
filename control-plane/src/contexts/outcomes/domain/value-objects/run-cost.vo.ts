@@ -27,6 +27,7 @@ export class RunCost {
     readonly ms: number | null,
     readonly steps: number,
     readonly faults: number,
+    readonly changedLines: number,
     readonly used: number | null,
     readonly size: number | null,
     readonly spend: Spend | null,
@@ -37,6 +38,7 @@ export class RunCost {
     ms: number | null;
     steps: number;
     faults: number;
+    changedLines?: number;
     used: number | null;
     size?: number | null;
     amount: number | null;
@@ -44,9 +46,15 @@ export class RunCost {
     tokens?: TokenCounts;
   }): RunCost {
     const tokens = input.tokens ?? NO_TOKENS;
+    const changedLines = input.changedLines ?? 0;
 
     if (input.steps < 0 || input.faults < 0) {
       throw new InvalidOutcomeError('counts no fewer than no steps or faults');
+    }
+    if (!Number.isSafeInteger(changedLines) || changedLines < 0) {
+      throw new InvalidOutcomeError(
+        'counts its changed lines in whole numbers',
+      );
     }
     if (input.ms !== null && input.ms < 0) {
       throw new InvalidOutcomeError('takes no less than no time');
@@ -66,6 +74,7 @@ export class RunCost {
       input.ms,
       input.steps,
       input.faults,
+      changedLines,
       input.used,
       input.size ?? null,
       input.amount !== null && input.currency

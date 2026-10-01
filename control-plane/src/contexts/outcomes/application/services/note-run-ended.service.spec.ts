@@ -42,6 +42,7 @@ const noting = (runs: readonly EndedRun[]) => {
     configsInOrder: async () => [],
     teamRepositories: async () => [],
     teamSkillKeys: async () => [],
+    alertsAt: async () => null,
   };
 
   return {

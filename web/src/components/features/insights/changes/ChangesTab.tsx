@@ -1,0 +1,82 @@
+import { useState } from 'react';
+import { ChangeMarkerList } from '@/components/features/insights/changes/ChangeMarkerList';
+import { ChangesSkeleton } from '@/components/features/insights/changes/ChangesSkeleton';
+import { SetupComparison } from '@/components/features/insights/changes/SetupComparison';
+import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
+import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
+import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
+import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
+import {
+  type SetupsNarrowed,
+  useInsightsSetups,
+} from '@/hooks/api/useInsightsSetups';
+import type { InsightsPeriod, StationNames } from '@/lib/insights';
+import { DEFAULT_OUTCOME, type OutcomeMeasure } from '@/lib/insights-changes';
+import { failed, loading } from '@/lib/query';
+
+type ChangesTabProps = {
+  slug: string;
+  teamId: string;
+  period: InsightsPeriod;
+  names: StationNames;
+};
+
+const EVERY_SETUP: SetupsNarrowed = { stationId: null, size: null };
+
+export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
+  const [narrowed, setNarrowed] = useState<SetupsNarrowed>(EVERY_SETUP);
+  const [measure, setMeasure] = useState<OutcomeMeasure>(DEFAULT_OUTCOME);
+  const changes = useInsightsChanges(teamId, period);
+  const setups = useInsightsSetups(teamId, period, narrowed);
+
+  if (loading(changes) || loading(setups)) {
+    return <ChangesSkeleton />;
+  }
+
+  if (failed(changes) || !changes.data) {
+    return <InsightsFailed what="The changes" query={changes} />;
+  }
+
+  if (failed(setups) || !setups.data) {
+    return <InsightsFailed what="The setups" query={setups} />;
+  }
+
+  const narrowing = narrowed.stationId !== null || narrowed.size !== null;
+
+  if (
+    changes.data.markers.length === 0 &&
+    setups.data.setups.length === 0 &&
+    !narrowing
+  ) {
+    return (
+      <NoRunsInPeriod slug={slug} teamId={teamId}>
+        Once stations run tasks, their config changes and how each harness,
+        model and effort did show here.
+      </NoRunsInPeriod>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {(changes.data.truncated || setups.data.truncated) && <TruncatedNote />}
+
+      <ChangeMarkerList
+        slug={slug}
+        teamId={teamId}
+        markers={changes.data.markers}
+        names={names}
+      />
+
+      <SetupComparison
+        slug={slug}
+        teamId={teamId}
+        setups={setups.data}
+        narrowed={narrowed}
+        measure={measure}
+        names={names}
+        onNarrow={setNarrowed}
+        onMeasure={setMeasure}
+      />
+    </div>
+  );
+}

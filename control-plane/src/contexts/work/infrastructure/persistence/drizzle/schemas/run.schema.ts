@@ -130,6 +130,7 @@ export const runDigest = pgTable(
     ms: integer('ms'),
     steps: integer('steps').notNull().default(0),
     faults: integer('faults').notNull().default(0),
+    changedLines: integer('changed_lines').notNull().default(0),
     used: integer('used'),
     size: integer('size'),
     cost: doublePrecision('cost'),

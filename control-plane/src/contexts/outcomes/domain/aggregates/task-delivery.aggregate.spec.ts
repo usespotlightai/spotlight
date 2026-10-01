@@ -1,4 +1,5 @@
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
+import type { TaskDeliveryClosed } from '@outcomes/domain/events/task-delivery-closed.event';
 import { TEAM, WORKSPACE } from '@outcomes/domain/outcomes.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -125,5 +126,26 @@ describe('TaskDelivery', () => {
 
     expect(reopened.openedAt).toEqual(AT);
     expect(reopened.firstReviewAt).toBeNull();
+  });
+
+  it('tells it closed each time its pull request closes or merges, carrying whether it merged', () => {
+    const closed = opened()
+      .reviewed({ pullRequest: FIRST, at: AT, byBot: false })
+      .closed({ pullRequest: FIRST, merged: false, at: AT })
+      .closed({ pullRequest: FIRST, merged: false, at: AT })
+      .closed({ pullRequest: FIRST, merged: true, at: AT });
+
+    const events = closed.pullEvents();
+
+    expect(events.map((each) => each.kind)).toEqual([
+      'task-delivery.closed',
+      'task-delivery.closed',
+    ]);
+    expect(events.map((each) => (each as TaskDeliveryClosed).merged)).toEqual([
+      false,
+      true,
+    ]);
+    expect(closed.finished).toBe(true);
+    expect(opened().finished).toBe(false);
   });
 });

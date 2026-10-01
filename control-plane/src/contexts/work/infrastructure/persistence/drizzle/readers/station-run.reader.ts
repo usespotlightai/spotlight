@@ -7,6 +7,7 @@ import type {
   EndedRunRow,
   KeyedStation,
   RanConfig,
+  StationAlertRowShape,
   StationRunReaderPort,
   StationRunRow,
   StationRunsWanted,
@@ -66,6 +67,18 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     return row?.taskId && row.endedAt
       ? { ...row, taskId: row.taskId, endedAt: row.endedAt }
       : null;
+  }
+
+  async alertsAt(
+    stationId: string,
+  ): Promise<readonly StationAlertRowShape[] | null> {
+    const [row] = await this.db
+      .select({ alerts: station.alerts })
+      .from(station)
+      .where(eq(station.id, stationId))
+      .limit(1);
+
+    return row ? row.alerts : null;
   }
 
   async configsNamed(

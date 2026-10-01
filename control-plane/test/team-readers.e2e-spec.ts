@@ -347,3 +347,26 @@ describe('who may read a team’s Insights', () => {
     ).toBe(404);
   });
 });
+
+describe('who is alerted about a team’s station in their inbox', () => {
+  let alertAside: string;
+
+  beforeAll(async () => {
+    alertAside = await raiseAside('alert', null);
+  });
+
+  it('alerts a member of the team', async () => {
+    expect(await asidesIn(team.owner.value)).toContain(alertAside);
+  });
+
+  it('alerts an admin of the workspace who is not on the team', async () => {
+    expect(await asidesIn(ADMIN)).toContain(alertAside);
+  });
+
+  it('alerts no workspace member who is only on another team, nor lets them read it', async () => {
+    expect(await asidesIn(ELSEWHERE_IN_WORKSPACE)).not.toContain(alertAside);
+    expect((await readAside(ELSEWHERE_IN_WORKSPACE, alertAside)).status).toBe(
+      404,
+    );
+  });
+});

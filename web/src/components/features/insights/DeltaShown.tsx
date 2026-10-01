@@ -7,7 +7,13 @@ const TONES: Record<Delta['tone'], string> = {
   flat: 'text-muted-foreground',
 };
 
-export function DeltaShown({ delta }: { delta: Delta }) {
+export function DeltaShown({
+  delta,
+  against = 'last period',
+}: {
+  delta: Delta;
+  against?: string | null;
+}) {
   return (
     <span
       data-slot="delta"
@@ -15,7 +21,7 @@ export function DeltaShown({ delta }: { delta: Delta }) {
       className={cn('text-xs tabular-nums', TONES[delta.tone])}
     >
       {delta.shown}
-      <span className="text-muted-foreground"> vs last period</span>
+      {against && <span className="text-muted-foreground"> vs {against}</span>}
     </span>
   );
 }

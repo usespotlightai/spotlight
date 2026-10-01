@@ -253,6 +253,7 @@ describe('the team’s insights', () => {
         asked.push(teamId);
         return ['grafana', 'release-notes'];
       },
+      alertsAt: async () => null,
     };
     await records.add(
       costedRecord('run_4', {

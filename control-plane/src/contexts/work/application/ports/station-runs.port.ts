@@ -22,12 +22,23 @@ export interface EndedStationRun {
   readonly endedAt: Date;
 }
 
+export interface StationAlertShape {
+  readonly measure: string;
+  readonly risesBy: number | null;
+  readonly above: number | null;
+  readonly fallsBy: number | null;
+  readonly below: number | null;
+  readonly over: number;
+}
+
 export interface StationRunsPort {
   ended(runId: string): Promise<EndedStationRun | null>;
 
   configsInOrder(
     fingerprints: readonly string[],
   ): Promise<readonly FingerprintedConfig[]>;
+
+  alertsAt(stationId: string): Promise<readonly StationAlertShape[] | null>;
 
   teamSkillKeys(teamId: string): Promise<readonly string[]>;
 }

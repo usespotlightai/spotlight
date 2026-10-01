@@ -7,6 +7,7 @@ import type { JudgingRepository } from '@outcomes/domain/repositories/judging.re
 import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
+import type { StationWatchRepository } from '@outcomes/domain/repositories/station-watch.repository';
 import type { TaskChangeShapeRepository } from '@outcomes/domain/repositories/task-change-shape.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import type { TaskFailuresRepository } from '@outcomes/domain/repositories/task-failures.repository';
@@ -28,6 +29,7 @@ export interface OutcomesHeld {
   readonly chats: ChatRecordRepository;
   readonly pullRequests: PullRequestRecordRepository;
   readonly shapes: TaskChangeShapeRepository;
+  readonly watches: StationWatchRepository;
   readonly reviews: PendingReviewsPort;
   readonly forgotten: ForgottenPort;
 }
@@ -92,6 +94,35 @@ export class ForgetOutcomes {
     )) {
       await this.lettingGo(record, (held) => held.withoutTask(taskId));
     }
+  }
+
+  async alertsOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
+    await this.transaction.run(() =>
+      this.held.forgotten.forgetTask(workspaceId, taskId),
+    );
+
+    for (const stationId of await this.held.watches.stationsHolding(taskId)) {
+      await this.transaction.run(async () => {
+        const watch = await this.held.watches.of(stationId, taskId);
+        const kept = watch?.withoutTask(taskId);
+
+        if (watch && kept && kept !== watch) {
+          await this.held.watches.save(kept);
+        }
+      });
+    }
+  }
+
+  alertsOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+    return this.ofTeam(workspaceId, teamId, () =>
+      this.held.watches.removeForTeam(workspaceId, teamId),
+    );
+  }
+
+  alertsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    return this.ofWorkspace(workspaceId, () =>
+      this.held.watches.removeForWorkspace(workspaceId),
+    );
   }
 
   runsOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {

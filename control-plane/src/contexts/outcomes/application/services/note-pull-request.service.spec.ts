@@ -6,6 +6,7 @@ import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-
 import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
 import {
   ChatRecordsInMemory,
   TaskFailuresInMemory,
@@ -122,6 +123,7 @@ const heldFor = () => ({
   chats: new ChatRecordsInMemory(),
   pullRequests: new PullRequestRecordsInMemory(),
   shapes: new TaskChangeShapesInMemory(),
+  watches: new StationWatchesInMemory(),
   reviews: pendingReviewsInMemory(),
   forgotten: forgottenInMemory(),
 });
@@ -302,6 +304,7 @@ describe('forgetting outcomes', () => {
         chats: new ChatRecordsInMemory(),
         pullRequests: new PullRequestRecordsInMemory(),
         shapes: new TaskChangeShapesInMemory(),
+        watches: new StationWatchesInMemory(),
         reviews: pendingReviewsInMemory(),
         forgotten: forgottenInMemory(),
       },
@@ -333,6 +336,7 @@ describe('forgetting outcomes', () => {
         chats: new ChatRecordsInMemory(),
         pullRequests: new PullRequestRecordsInMemory(),
         shapes: new TaskChangeShapesInMemory(),
+        watches: new StationWatchesInMemory(),
         reviews: pendingReviewsInMemory(),
         forgotten: forgottenInMemory(),
       },
@@ -358,6 +362,7 @@ describe('forgetting outcomes', () => {
         chats: new ChatRecordsInMemory(),
         pullRequests: new PullRequestRecordsInMemory(),
         shapes: new TaskChangeShapesInMemory(),
+        watches: new StationWatchesInMemory(),
         reviews: pendingReviewsInMemory(),
         forgotten: forgottenInMemory(),
       },

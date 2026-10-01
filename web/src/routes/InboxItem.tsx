@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router';
+import { AsideLayout } from '@/components/features/inbox/AsideLayout';
+import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
@@ -122,20 +124,26 @@ export function InboxItem() {
 
   if (item.aside?.form === 'memories') {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <PageHeader title={<Breadcrumbs segments={trail} />} />
+      <AsideLayout trail={trail}>
+        <MemoryReview
+          slug={slug}
+          teamId={item.teamId}
+          taskId={item.taskId}
+          runId={item.aside.about}
+        />
+      </AsideLayout>
+    );
+  }
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
-            <MemoryReview
-              slug={slug}
-              teamId={item.teamId}
-              taskId={item.taskId}
-              runId={item.aside.about}
-            />
-          </div>
-        </div>
-      </div>
+  if (item.aside?.form === 'alert') {
+    return (
+      <AsideLayout trail={trail}>
+        <StationAlertCard
+          slug={slug}
+          teamId={item.teamId}
+          alertId={item.aside.about}
+        />
+      </AsideLayout>
     );
   }
 

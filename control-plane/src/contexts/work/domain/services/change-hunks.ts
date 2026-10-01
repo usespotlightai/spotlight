@@ -183,3 +183,35 @@ export const hunksOf = (
     };
   });
 };
+
+interface FileChange {
+  readonly path: string | null;
+  readonly before: string;
+  readonly after: string;
+}
+
+const netPerPath = (changes: readonly FileChange[]): readonly FileChange[] => {
+  const net = new Map<string, FileChange>();
+  const unnamed: FileChange[] = [];
+
+  for (const change of changes) {
+    if (change.path === null) {
+      unnamed.push(change);
+      continue;
+    }
+
+    const first = net.get(change.path);
+    net.set(change.path, first ? { ...first, after: change.after } : change);
+  }
+
+  return [...net.values(), ...unnamed];
+};
+
+export const changedLinesOf = (changes: readonly FileChange[]): number =>
+  netPerPath(changes).reduce(
+    (sum, change) =>
+      sum +
+      editsOf(change.before, change.after).filter((each) => each.sign !== ' ')
+        .length,
+    0,
+  );

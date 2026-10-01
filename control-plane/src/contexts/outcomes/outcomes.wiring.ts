@@ -6,9 +6,17 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
+import {
+  TEAM_MEMORY_USE,
+  type TeamMemoryUsePort,
+} from '@memory/application/ports/team-memory-use.port';
 import type { Provider, Type } from '@nestjs/common';
 import { GradeRunCommand } from '@outcomes/application/commands/grade-run.command';
 import { GradeRunHandler } from '@outcomes/application/commands/handlers/grade-run.handler';
+import {
+  ALERT_ASIDES,
+  type AlertAsidesPort,
+} from '@outcomes/application/ports/alert-asides.port';
 import {
   EVIDENCE,
   type EvidencePort,
@@ -19,7 +27,12 @@ import {
   type GradesPort,
 } from '@outcomes/application/ports/grades.port';
 import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
-import { JUDGE_STANDING } from '@outcomes/application/ports/judge-standing.port';
+import {
+  JUDGE_STANDING,
+  type JudgeStandingPort,
+} from '@outcomes/application/ports/judge-standing.port';
+import { MEMORY_BENCHMARK } from '@outcomes/application/ports/memory-benchmark.port';
+import { MEMORY_USE } from '@outcomes/application/ports/memory-use.port';
 import {
   PEOPLE,
   type PeoplePort,
@@ -28,27 +41,36 @@ import { WORK, type WorkPort } from '@outcomes/application/ports/work.port';
 import { ListInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/list-insights-pull-requests.handler';
 import { ListInsightsRunsHandler } from '@outcomes/application/queries/handlers/list-insights-runs.handler';
 import { ListStationOutcomesHandler } from '@outcomes/application/queries/handlers/list-station-outcomes.handler';
+import { ReadInsightsChangesHandler } from '@outcomes/application/queries/handlers/read-insights-changes.handler';
 import { ReadInsightsCostHandler } from '@outcomes/application/queries/handlers/read-insights-cost.handler';
 import { ReadInsightsFlowHandler } from '@outcomes/application/queries/handlers/read-insights-flow.handler';
+import { ReadInsightsMemoryHandler } from '@outcomes/application/queries/handlers/read-insights-memory.handler';
 import { ReadInsightsOverviewHandler } from '@outcomes/application/queries/handlers/read-insights-overview.handler';
 import { ReadInsightsPeopleHandler } from '@outcomes/application/queries/handlers/read-insights-people.handler';
 import { ReadInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/read-insights-pull-requests.handler';
+import { ReadInsightsSetupsHandler } from '@outcomes/application/queries/handlers/read-insights-setups.handler';
 import { ReadInsightsStationsHandler } from '@outcomes/application/queries/handlers/read-insights-stations.handler';
 import { ReadInsightsToolsHandler } from '@outcomes/application/queries/handlers/read-insights-tools.handler';
 import { ReadRunScoresHandler } from '@outcomes/application/queries/handlers/read-run-scores.handler';
+import { ReadStationAlertHandler } from '@outcomes/application/queries/handlers/read-station-alert.handler';
 import { ReadStationJudgeHandler } from '@outcomes/application/queries/handlers/read-station-judge.handler';
 import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
 import { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
 import { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
+import { ReadInsightsChangesQuery } from '@outcomes/application/queries/read-insights-changes.query';
 import { ReadInsightsCostQuery } from '@outcomes/application/queries/read-insights-cost.query';
 import { ReadInsightsFlowQuery } from '@outcomes/application/queries/read-insights-flow.query';
+import { ReadInsightsMemoryQuery } from '@outcomes/application/queries/read-insights-memory.query';
 import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-insights-overview.query';
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
+import { ReadInsightsSetupsQuery } from '@outcomes/application/queries/read-insights-setups.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { ReadRunScoresQuery } from '@outcomes/application/queries/read-run-scores.query';
+import { ReadStationAlertQuery } from '@outcomes/application/queries/read-station-alert.query';
 import { ReadStationJudgeQuery } from '@outcomes/application/queries/read-station-judge.query';
+import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
@@ -74,10 +96,15 @@ import { RunScoresViews } from '@outcomes/application/services/run-scores-views.
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
+import { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
+import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { WorkJudgings } from '@outcomes/application/services/work-judgings.service';
 import { OUTCOMES_EVENT_TYPES } from '@outcomes/domain/event-types';
+import { AlertAsides } from '@outcomes/infrastructure/acl/alert-asides.adapter';
 import { Evidence } from '@outcomes/infrastructure/acl/evidence.adapter';
 import { Grades } from '@outcomes/infrastructure/acl/grades.adapter';
+import { MemoryUse } from '@outcomes/infrastructure/acl/memory-use.adapter';
+import { NoMemoryBenchmark } from '@outcomes/infrastructure/acl/no-memory-benchmark.adapter';
 import { People } from '@outcomes/infrastructure/acl/people.adapter';
 import { Work } from '@outcomes/infrastructure/acl/work.adapter';
 import { OpenRouterJudge } from '@outcomes/infrastructure/judging/openrouter-judge';
@@ -89,6 +116,7 @@ import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/d
 import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
+import { DrizzleStationWatchRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/station-watch.repository';
 import { DrizzleTaskChangeShapeRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
 import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
@@ -151,9 +179,12 @@ export const OUTCOMES_CONTROLLERS: readonly Type[] = [
 export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   {
     provide: WORK,
-    inject: [STATION_RUNS, LINE_RESOURCES],
-    useFactory: (stations: StationRunsPort, lines: LineResourcesPort) =>
-      new Work(stations, lines),
+    inject: [STATION_RUNS, LINE_RESOURCES, LOGGER],
+    useFactory: (
+      stations: StationRunsPort,
+      lines: LineResourcesPort,
+      logger: LoggerPort,
+    ) => new Work(stations, lines, logger),
   },
   {
     provide: PEOPLE,
@@ -172,6 +203,17 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     useFactory: (asides: TaskAsidesPort) => new Grades(asides),
   },
   {
+    provide: ALERT_ASIDES,
+    inject: [TASK_ASIDES],
+    useFactory: (asides: TaskAsidesPort) => new AlertAsides(asides),
+  },
+  {
+    provide: MEMORY_USE,
+    inject: [TEAM_MEMORY_USE],
+    useFactory: (memory: TeamMemoryUsePort) => new MemoryUse(memory),
+  },
+  { provide: MEMORY_BENCHMARK, useClass: NoMemoryBenchmark },
+  {
     provide: JUDGE,
     inject: [ENV],
     useFactory: (env: Env) =>
@@ -186,6 +228,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   DrizzleChatRecordRepository,
   DrizzlePullRequestRecordRepository,
   DrizzleTaskChangeShapeRepository,
+  DrizzleStationWatchRepository,
   DrizzleFirstSeen,
   DrizzleForgotten,
   DrizzlePendingReviews,
@@ -257,6 +300,71 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
         { records, deliveries, touches, failures, chats },
         clock,
       ),
+  },
+  {
+    provide: TrustedJudges,
+    inject: [JUDGE_STANDING, DrizzleScoreRepository],
+    useFactory: (standing: JudgeStandingPort, scores: DrizzleScoreRepository) =>
+      new TrustedJudges(standing, scores),
+  },
+  ...bindQueryHandler(ReadInsightsChangesQuery, ReadInsightsChangesHandler, [
+    TeamHistories,
+    TrustedJudges,
+    WORK,
+  ]),
+  ...bindQueryHandler(ReadInsightsSetupsQuery, ReadInsightsSetupsHandler, [
+    TeamHistories,
+    TrustedJudges,
+  ]),
+  ...bindQueryHandler(ReadInsightsMemoryQuery, ReadInsightsMemoryHandler, [
+    TeamHistories,
+    MEMORY_USE,
+    MEMORY_BENCHMARK,
+    PEOPLE,
+  ]),
+  ...bindQueryHandler(ReadStationAlertQuery, ReadStationAlertHandler, [
+    OutcomesAccess,
+    DrizzleStationWatchRepository,
+    DrizzleRunRecordRepository,
+    DrizzleTaskDeliveryRepository,
+  ]),
+  {
+    provide: WatchStations,
+    inject: [
+      WORK,
+      DrizzleRunRecordRepository,
+      DrizzleTaskDeliveryRepository,
+      DrizzleStationWatchRepository,
+      DrizzleForgotten,
+      TRANSACTION,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      work: WorkPort,
+      records: DrizzleRunRecordRepository,
+      deliveries: DrizzleTaskDeliveryRepository,
+      watches: DrizzleStationWatchRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) =>
+      new WatchStations(
+        work,
+        { records, deliveries, watches, forgotten },
+        transaction,
+        ids,
+        clock,
+      ),
+  },
+  {
+    provide: AlertInbox,
+    inject: [ALERT_ASIDES, DrizzleStationWatchRepository],
+    useFactory: (
+      asides: AlertAsidesPort,
+      watches: DrizzleStationWatchRepository,
+    ) => new AlertInbox(asides, watches),
   },
   ...bindQueryHandler(ReadInsightsOverviewQuery, ReadInsightsOverviewHandler, [
     TeamHistories,
@@ -597,6 +705,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       DrizzleChatRecordRepository,
       DrizzlePullRequestRecordRepository,
       DrizzleTaskChangeShapeRepository,
+      DrizzleStationWatchRepository,
       DrizzlePendingReviews,
       DrizzleForgotten,
       TRANSACTION,
@@ -611,6 +720,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       chats: DrizzleChatRecordRepository,
       pullRequests: DrizzlePullRequestRecordRepository,
       shapes: DrizzleTaskChangeShapeRepository,
+      watches: DrizzleStationWatchRepository,
       reviews: DrizzlePendingReviews,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
@@ -626,6 +736,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           chats,
           pullRequests,
           shapes,
+          watches,
           reviews,
           forgotten,
         },
@@ -655,6 +766,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       NoteChatStarted,
       NotePullRequestRecords,
       NoteChangeShaped,
+      WatchStations,
+      AlertInbox,
     ],
     useFactory: (
       types: EventTypes,
@@ -677,6 +790,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       chatting: NoteChatStarted,
       recording: NotePullRequestRecords,
       shaping: NoteChangeShaped,
+      watching: WatchStations,
+      alerting: AlertInbox,
     ) => {
       types.register('outcomes', OUTCOMES_EVENT_TYPES);
       subscribers.register(
@@ -699,6 +814,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           chatting,
           recording,
           shaping,
+          watching,
+          alerting,
         }),
       );
       return true;

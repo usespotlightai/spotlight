@@ -116,6 +116,7 @@ export class TaskAside extends EventRecorder {
       case 'memories':
         return 'seesTeam';
       case 'grade':
+      case 'alert':
         return 'readsTeamOutcomes';
     }
   }
@@ -154,6 +155,30 @@ export class TaskAside extends EventRecorder {
     const settled = this.with({ settledAt: now });
     settled.record(new TaskAsideSettled(this.id, this.taskId));
     return settled;
+  }
+
+  reopened(now: Date): TaskAside {
+    if (this.open) {
+      return this;
+    }
+
+    const reopened = new TaskAside(
+      this.id,
+      this.workspaceId,
+      this.taskId,
+      this.form,
+      this.about,
+      now,
+      [],
+      null,
+      this.version,
+    );
+
+    reopened.inheritEvents(this);
+    reopened.record(
+      new TaskAsideRaised(this.id, this.taskId, this.form, this.about),
+    );
+    return reopened;
   }
 
   private with(change: {

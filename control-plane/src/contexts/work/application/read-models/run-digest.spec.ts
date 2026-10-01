@@ -9,6 +9,7 @@ describe('together', () => {
     ms: null,
     steps,
     faults,
+    changedLines: 0,
     used: null,
     size: null,
     cost,

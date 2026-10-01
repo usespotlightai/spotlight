@@ -423,7 +423,7 @@ describe('Station', () => {
         .map((each) => each.textContent),
     ).toEqual([
       'Sent-back rate up 20 points in the last 20 runs, against the 20 before',
-      'Cost per run above $2.00 across the last 10 runs',
+      'Cost per run above 2.00 across the last 10 runs',
       'Accepted rate down 10 points in the last 20 runs, against the 20 before',
     ]);
   });

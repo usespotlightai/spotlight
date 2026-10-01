@@ -14,6 +14,7 @@ import type {
 } from '@work/application/ports/run-digest-reader.port';
 import type { RunDigestWriterPort } from '@work/application/ports/run-digest-writer.port';
 import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
+import { changedLinesOf } from '@work/domain/services/change-hunks';
 import { toolUseOf } from '@work/domain/services/tool-attribution';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { TERMINAL_RUN_STATES } from '@work/domain/value-objects/run-state';
@@ -33,6 +34,11 @@ const AT_A_TIME = 25;
 interface Worked {
   readonly ms: number | null;
   readonly statuses: readonly (string | null)[];
+  readonly changes: readonly {
+    readonly path: string | null;
+    readonly before: string;
+    readonly after: string;
+  }[];
   readonly used: number | null;
   readonly size: number | null;
   readonly cost: Money | null;
@@ -80,6 +86,7 @@ export const digestOf = (worked: Worked): RunDigest => ({
   ms: worked.ms,
   steps: worked.statuses.length,
   faults: worked.statuses.filter(faulted).length,
+  changedLines: changedLinesOf(worked.changes),
   used: worked.used,
   size: worked.size,
   cost: worked.cost,
@@ -190,15 +197,15 @@ export class DrizzleRunDigests
         .sort((one, other) => one - other)
         .map((each) => readings.get(`${id}:${each}`) ?? new Told());
       const spent = spentAcross(kept);
+      const steps = kept.flatMap((reading) => reading.steps());
       const took = kept
         .map((reading) => reading.ms())
         .filter((each) => each !== null);
 
       const digest = digestOf({
         ms: took.length > 0 ? took.reduce((sum, ms) => sum + ms, 0) : null,
-        statuses: kept.flatMap((reading) =>
-          reading.steps().map((step) => step.status),
-        ),
+        statuses: steps.map((step) => step.status),
+        changes: steps.flatMap((step) => (step.change ? [step.change] : [])),
         used: spent?.used ?? null,
         size: spent?.size ?? null,
         cost: spent?.cost ?? null,
@@ -215,6 +222,7 @@ export class DrizzleRunDigests
         ms: digest.ms,
         steps: digest.steps,
         faults: digest.faults,
+        changedLines: digest.changedLines,
         used: digest.used,
         size: digest.size,
         cost: digest.cost?.amount ?? null,
@@ -256,6 +264,7 @@ export class DrizzleRunDigests
         ms: runDigest.ms,
         steps: runDigest.steps,
         faults: runDigest.faults,
+        changedLines: runDigest.changedLines,
         used: runDigest.used,
         size: runDigest.size,
         cost: runDigest.cost,
@@ -279,6 +288,7 @@ export class DrizzleRunDigests
           ms: each.ms,
           steps: each.steps,
           faults: each.faults,
+          changedLines: each.changedLines,
           used: each.used,
           size: each.size,
           cost: Money.maybe(each.cost, each.currency),

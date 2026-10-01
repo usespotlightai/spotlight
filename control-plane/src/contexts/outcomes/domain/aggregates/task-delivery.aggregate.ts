@@ -1,4 +1,6 @@
+import { TaskDeliveryClosed } from '@outcomes/domain/events/task-delivery-closed.event';
 import type { DeliveryState } from '@outcomes/domain/value-objects/delivery-state';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -16,7 +18,7 @@ export const countsAsReview = (
   review: PullRequestReview,
 ): review is CountedReview => !review.byBot && review.at !== null;
 
-export class TaskDelivery {
+export class TaskDelivery extends EventRecorder {
   private constructor(
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
@@ -27,7 +29,9 @@ export class TaskDelivery {
     readonly firstReviewAt: Date | null,
     readonly closedAt: Date | null,
     readonly version: number,
-  ) {}
+  ) {
+    super();
+  }
 
   static opened(input: {
     taskId: TaskId;
@@ -77,21 +81,27 @@ export class TaskDelivery {
     return this.state === 'merged';
   }
 
+  get finished(): boolean {
+    return this.state !== 'open';
+  }
+
   reopenedAs(pullRequest: PullRequestUrl, at: Date): TaskDelivery {
     if (pullRequest.equals(this.pullRequest)) {
       return this;
     }
 
-    return new TaskDelivery(
-      this.taskId,
-      this.workspaceId,
-      this.teamId,
-      pullRequest,
-      'open',
-      at,
-      null,
-      null,
-      this.version,
+    return this.with(
+      new TaskDelivery(
+        this.taskId,
+        this.workspaceId,
+        this.teamId,
+        pullRequest,
+        'open',
+        at,
+        null,
+        null,
+        this.version,
+      ),
     );
   }
 
@@ -105,16 +115,18 @@ export class TaskDelivery {
       return this;
     }
 
-    return new TaskDelivery(
-      this.taskId,
-      this.workspaceId,
-      this.teamId,
-      this.pullRequest,
-      this.state,
-      this.openedAt,
-      review.at,
-      this.closedAt,
-      this.version,
+    return this.with(
+      new TaskDelivery(
+        this.taskId,
+        this.workspaceId,
+        this.teamId,
+        this.pullRequest,
+        this.state,
+        this.openedAt,
+        review.at,
+        this.closedAt,
+        this.version,
+      ),
     );
   }
 
@@ -136,16 +148,35 @@ export class TaskDelivery {
       return this;
     }
 
-    return new TaskDelivery(
-      this.taskId,
-      this.workspaceId,
-      this.teamId,
-      this.pullRequest,
-      state,
-      this.openedAt,
-      this.firstReviewAt,
-      input.at ?? this.closedAt,
-      this.version,
+    const closed = this.with(
+      new TaskDelivery(
+        this.taskId,
+        this.workspaceId,
+        this.teamId,
+        this.pullRequest,
+        state,
+        this.openedAt,
+        this.firstReviewAt,
+        input.at ?? this.closedAt,
+        this.version,
+      ),
     );
+
+    closed.record(
+      new TaskDeliveryClosed(
+        this.taskId,
+        this.workspaceId,
+        this.teamId,
+        closed.merged,
+      ),
+    );
+
+    return closed;
+  }
+
+  private with(next: TaskDelivery): TaskDelivery {
+    next.inheritEvents(this);
+
+    return next;
   }
 }

@@ -136,7 +136,7 @@ beforeAll(async () => {
   } as unknown as DomainEventDispatcher;
   judgings = new DrizzleJudgingRepository(context, dispatcher);
   scores = new DrizzleScoreRepository(context, dispatcher);
-  records = new DrizzleRunRecordRepository(context);
+  records = new DrizzleRunRecordRepository(context, dispatcher);
   reports = new StationJudgeReports(
     {
       holds: async () => true,
@@ -152,7 +152,7 @@ beforeAll(async () => {
     },
     scores,
     records,
-    new DrizzleTaskDeliveryRepository(context),
+    new DrizzleTaskDeliveryRepository(context, dispatcher),
   );
 }, 60_000);
 

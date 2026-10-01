@@ -189,6 +189,7 @@ beforeAll(async () => {
         58 * MINUTE,
         30,
         1,
+        120,
         50_000,
         200_000,
         Money.of(1.25, 'USD'),
@@ -506,6 +507,66 @@ describe('the team’s insights (e2e)', () => {
     expect(
       (await asOwner(insights('overview', 'period=7d&period=30d'))).status,
     ).toBe(422);
+  });
+
+  it('compares the team’s setups against what they cost, narrowed by station and run size, with judge scores only for one station', async () => {
+    const token = await issued(team, ['read']);
+
+    const all = await bearing(insights('setups'), token);
+    const medium = await asOwner(
+      insights(
+        'setups',
+        `period=7d&stationId=${team.stationId.value}&size=medium`,
+      ),
+    );
+    const small = await asOwner(insights('setups', 'period=7d&size=small'));
+
+    expect(all.status).toBe(200);
+    expect(all.body.setups).toEqual([
+      expect.objectContaining({
+        harness: 'claude-code',
+        model: 'sonnet',
+        effort: 'high',
+        profileKey: null,
+        costPerRun: 1.25,
+        currency: 'USD',
+        judge: null,
+        frontier: [],
+      }),
+    ]);
+    expect(all.body.judgeWithheld).toBe('no_station');
+    expect(medium.body.judgeWithheld).toBeNull();
+    expect(medium.body.setups[0].judge).toEqual({ mean: null, judged: 0 });
+    expect(all.body.sizes.map((each: { size: string }) => each.size)).toEqual([
+      'small',
+      'medium',
+      'large',
+    ]);
+    expect(medium.body.setups).toHaveLength(1);
+    expect(small.body.setups).toEqual([]);
+    expect((await asOwner(insights('setups', 'size=huge'))).status).toBe(422);
+  });
+
+  it('shows no config change while each station ran one config', async () => {
+    const answer = await asOwner(insights('changes'));
+
+    expect(answer.status).toBe(200);
+    expect(answer.body.markers).toEqual([]);
+    expect(answer.body.judges).toEqual([]);
+  });
+
+  it('sets runs with memories against runs without, with no benchmark yet', async () => {
+    const answer = await asOwner(insights('memory'));
+
+    expect(answer.status).toBe(200);
+    expect(answer.body).toMatchObject({
+      standing: 0,
+      memoriesBriefed: 0,
+      flagged: [],
+      benchmark: null,
+    });
+    expect(answer.body.withMemories.runs).toBe(0);
+    expect(answer.body.withoutMemories.runs).toBe(1);
   });
 
   it('narrows the runs by what the page drills down with', async () => {
@@ -901,6 +962,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
           task,
           MINUTE,
           4,
+          0,
           0,
           null,
           null,

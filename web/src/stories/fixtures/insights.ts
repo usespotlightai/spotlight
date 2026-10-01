@@ -27,6 +27,7 @@ import {
   type InsightsRuns,
   type InsightsStations,
 } from '@/lib/insights';
+import type { MeasureVerdict } from '@/lib/tally-comparison';
 import { teamSectionPath } from '@/lib/team';
 import { failQuery } from '@/stories/failQuery';
 import { NOT_ON_TEAM, SLUG, TEAM_ID, WORKSPACE } from '@/stories/fixtures/team';
@@ -412,7 +413,9 @@ const EMPTY_FLOW: InsightsFlow = {
   },
 };
 
-const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => ({
+export const tally = (
+  over: Partial<RunTallyResponseDto>,
+): RunTallyResponseDto => ({
   runs: 0,
   withdrawn: 0,
   failed: 0,
@@ -429,6 +432,22 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => ({
   medianMs: null,
   p90Ms: null,
   ...over,
+});
+
+export const measured = (
+  measure: MeasureVerdict['measure'],
+  before: number | null,
+  after: number | null,
+  verdict: MeasureVerdict['verdict'],
+  settled: { before?: number; after?: number; currency?: string } = {},
+): MeasureVerdict => ({
+  measure,
+  before,
+  after,
+  settledBefore: settled.before ?? 20,
+  settledAfter: settled.after ?? 20,
+  currency: measure === 'cost_per_run' ? (settled.currency ?? 'USD') : null,
+  verdict,
 });
 
 const report = (

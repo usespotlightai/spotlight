@@ -1,0 +1,75 @@
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
+import { InsightsTile } from '@/components/features/insights/InsightsTile';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import { FlaggedMemories } from '@/components/features/insights/memory/FlaggedMemories';
+import { MemoryBenchmarkCard } from '@/components/features/insights/memory/MemoryBenchmarkCard';
+import { MemorySkeleton } from '@/components/features/insights/memory/MemorySkeleton';
+import { NoMemories } from '@/components/features/insights/memory/NoMemories';
+import { TallyComparison } from '@/components/features/insights/TallyComparison';
+import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
+import { useInsightsMemory } from '@/hooks/api/useInsightsMemory';
+import type { InsightsPeriod } from '@/lib/insights';
+import { memoryTiles, usedNoMemory } from '@/lib/insights-memory';
+import { failed, loading } from '@/lib/query';
+
+type MemoryTabProps = {
+  slug: string;
+  teamId: string;
+  period: InsightsPeriod;
+};
+
+export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
+  const memory = useInsightsMemory(teamId, period);
+
+  if (loading(memory)) {
+    return <MemorySkeleton />;
+  }
+
+  if (failed(memory) || !memory.data) {
+    return <InsightsFailed what="The memory" query={memory} />;
+  }
+
+  const read = memory.data;
+
+  if (usedNoMemory(read)) {
+    return <NoMemories slug={slug} teamId={teamId} />;
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {read.truncated && <TruncatedNote />}
+
+      <InsightsTiles label="Memory use">
+        {memoryTiles(read).map((tile) => (
+          <InsightsTile
+            key={tile.id}
+            label={tile.label}
+            value={tile.value}
+            detail={tile.detail}
+          />
+        ))}
+      </InsightsTiles>
+
+      <InsightsCard
+        title="Runs with memories and without"
+        description="How runs that were briefed or read a memory turned out, against the rest of the period’s runs."
+      >
+        <TallyComparison
+          label="Runs without memories against runs with them"
+          oneLabel="Without"
+          otherLabel="With"
+          runs={{
+            one: read.withoutMemories.runs,
+            other: read.withMemories.runs,
+          }}
+          verdicts={read.verdicts}
+        />
+      </InsightsCard>
+
+      <FlaggedMemories slug={slug} teamId={teamId} flagged={read.flagged} />
+
+      <MemoryBenchmarkCard benchmark={read.benchmark} />
+    </div>
+  );
+}

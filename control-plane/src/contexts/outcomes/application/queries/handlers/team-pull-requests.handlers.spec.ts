@@ -100,6 +100,7 @@ const team = async () => {
       configsInOrder: async () => [],
       teamRepositories: async () => ['acme/api'],
       teamSkillKeys: async () => [],
+      alertsAt: async () => null,
     },
     { records: pullRequests, runs: records, shapes },
   );

@@ -18,6 +18,7 @@ import {
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { failed, loading } from '@/lib/query';
 import { stationShare } from '@/lib/station';
 import { linePath, teamPath } from '@/lib/team';
@@ -61,6 +62,8 @@ export function Station() {
     ...(station ? [{ label: station.name }] : []),
   ];
   const { trail, forward } = useTrail(base);
+
+  useScrollToHash(Boolean(station));
 
   if (loading(lines)) {
     return <StationSkeleton />;

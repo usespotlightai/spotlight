@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router';
 import { SettingsEmpty } from '@/components/features/settings/SettingsEmpty';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
@@ -7,23 +6,17 @@ import { TeamSkillRow } from '@/components/features/skills/TeamSkillRow';
 import { TeamSkillRowSkeleton } from '@/components/features/skills/TeamSkillRowSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { useTeamSkills } from '@/hooks/api/useTeamSkills';
+import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { failed, loading } from '@/lib/query';
-import { pointedSkill, skillAnchor } from '@/lib/skills';
+import { pointedSkill } from '@/lib/skills';
 
 export function TeamSkills() {
   const { teamId } = useParams();
   const skills = useTeamSkills(teamId);
   const { hash } = useLocation();
   const pointed = pointedSkill(hash);
-  const shown = Boolean(skills.data);
 
-  useEffect(() => {
-    if (shown && pointed) {
-      document
-        .getElementById(skillAnchor(pointed))
-        ?.scrollIntoView({ block: 'center' });
-    }
-  }, [shown, pointed]);
+  useScrollToHash(Boolean(skills.data));
 
   if (!teamId) {
     return null;

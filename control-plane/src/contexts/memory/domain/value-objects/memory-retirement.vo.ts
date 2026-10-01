@@ -61,6 +61,10 @@ export class MemoryRetirement {
     return this.supersededBy !== null;
   }
 
+  get flaggedWrong(): boolean {
+    return this.by !== null && !this.superseded;
+  }
+
   equals(other: MemoryRetirement): boolean {
     return (
       this.at.getTime() === other.at.getTime() &&

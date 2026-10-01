@@ -16,6 +16,7 @@ import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -48,6 +49,8 @@ export const endOf = (
     round?: number;
     harness?: string;
     model?: string | null;
+    effort?: string | null;
+    profileKey?: string | null;
     repositories?: readonly string[];
     skills?: readonly string[];
   } = {},
@@ -59,8 +62,8 @@ export const endOf = (
     setup: RunSetup.of({
       harness: change.harness ?? 'claude-code',
       model: change.model === undefined ? 'sonnet' : change.model,
-      effort: null,
-      profileKey: null,
+      effort: change.effort ?? null,
+      profileKey: change.profileKey ?? null,
       repositories: change.repositories ?? ['acme/api'],
       skills: change.skills ?? [],
     }),
@@ -77,12 +80,15 @@ export const costOf = (
     ms?: number | null;
     amount?: number | null;
     currency?: string | null;
+    steps?: number;
+    changedLines?: number;
   } = {},
 ): RunCost =>
   RunCost.of({
     ms: change.ms === undefined ? 60_000 : change.ms,
-    steps: 10,
+    steps: change.steps ?? 10,
     faults: 0,
+    changedLines: change.changedLines ?? 0,
     used: 1_000,
     amount: change.amount === undefined ? 0.5 : change.amount,
     currency: change.currency === undefined ? 'USD' : change.currency,
@@ -109,11 +115,13 @@ const endedTime = (record: RunRecord): number =>
 
 export class RunRecordsInMemory implements RunRecordRepository {
   readonly held = new Map<string, RunRecord>();
+  readonly raised: DomainEvent[] = [];
 
   async add(record: RunRecord): Promise<void> {
     if (this.held.has(record.runId.value)) {
       throw new RunRecordMovedOnError(record.runId.value);
     }
+    this.raised.push(...record.pullEvents());
     this.held.set(record.runId.value, record);
   }
 
@@ -123,6 +131,7 @@ export class RunRecordsInMemory implements RunRecordRepository {
     if (!held || held.version !== record.version) {
       throw new RunRecordMovedOnError(record.runId.value);
     }
+    this.raised.push(...record.pullEvents());
     this.held.set(
       record.runId.value,
       RunRecord.rehydrate({ ...record, version: record.version + 1 }),
@@ -263,11 +272,13 @@ export class RunRecordsInMemory implements RunRecordRepository {
 
 export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
   readonly held = new Map<string, TaskDelivery>();
+  readonly raised: DomainEvent[] = [];
 
   async add(delivery: TaskDelivery): Promise<void> {
     if (this.held.has(delivery.taskId.value)) {
       throw new TaskDeliveryMovedOnError(delivery.taskId.value);
     }
+    this.raised.push(...delivery.pullEvents());
     this.held.set(delivery.taskId.value, delivery);
   }
 
@@ -277,6 +288,7 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
     if (!held || held.version !== delivery.version) {
       throw new TaskDeliveryMovedOnError(delivery.taskId.value);
     }
+    this.raised.push(...delivery.pullEvents());
     this.held.set(
       delivery.taskId.value,
       TaskDelivery.rehydrate({ ...delivery, version: delivery.version + 1 }),

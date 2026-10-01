@@ -6,6 +6,7 @@ import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.s
 import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import { NotePullRequestRecords } from '@outcomes/application/services/note-pull-request-records.service';
 import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
+import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
 import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
 import {
   ChatRecordsInMemory,
@@ -47,6 +48,7 @@ const heldFor = () => ({
   chats: new ChatRecordsInMemory(),
   pullRequests: new PullRequestRecordsInMemory(),
   shapes: new TaskChangeShapesInMemory(),
+  watches: new StationWatchesInMemory(),
   reviews: pendingReviewsInMemory(),
   forgotten: forgottenInMemory(),
 });

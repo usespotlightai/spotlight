@@ -1,3 +1,5 @@
+import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
+import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
 import { InvalidOutcomeError } from '@outcomes/domain/exceptions/invalid-outcome.error';
 import type { CheckVerdict } from '@outcomes/domain/value-objects/check-verdict';
 import type { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
@@ -7,11 +9,12 @@ import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import type { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
 import type { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class RunRecord {
+export class RunRecord extends EventRecorder {
   private constructor(
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
@@ -25,7 +28,9 @@ export class RunRecord {
     readonly tools: RunTools | null,
     readonly refusals: readonly Refusal[],
     readonly version: number,
-  ) {}
+  ) {
+    super();
+  }
 
   static heardOf(
     runId: RunId,
@@ -111,7 +116,9 @@ export class RunRecord {
 
     this.refuseAnotherTask(end.place.taskId);
 
-    return this.with({ end, taskId: end.place.taskId });
+    const ended = this.with({ end, taskId: end.place.taskId });
+    ended.record(new RunRecordEnded(this.runId, this.workspaceId, end.place));
+    return ended;
   }
 
   supersededByItsTask(): RunRecord {
@@ -123,18 +130,18 @@ export class RunRecord {
       this.checks === null ||
       (this.checks === 'skipped' && verdict !== 'skipped')
     ) {
-      return this.with({ checks: verdict });
+      return this.settledWith({ checks: verdict });
     }
 
     return this;
   }
 
   actedOn(act: NextAct): RunRecord {
-    return this.next ? this : this.with({ next: act });
+    return this.next ? this : this.settledWith({ next: act });
   }
 
   digested(cost: RunCost, tools: RunTools): RunRecord {
-    return this.cost ? this : this.with({ cost, tools });
+    return this.cost ? this : this.settledWith({ cost, tools });
   }
 
   refused(refusal: Refusal): RunRecord {
@@ -160,6 +167,23 @@ export class RunRecord {
     }
   }
 
+  private settledWith(change: {
+    checks?: CheckVerdict;
+    next?: NextAct;
+    cost?: RunCost;
+    tools?: RunTools;
+  }): RunRecord {
+    const settled = this.with(change);
+
+    if (this.end) {
+      settled.record(
+        new RunRecordSettled(this.runId, this.workspaceId, this.end.place),
+      );
+    }
+
+    return settled;
+  }
+
   private with(change: {
     taskId?: TaskId;
     end?: RunEnd;
@@ -171,7 +195,7 @@ export class RunRecord {
     tools?: RunTools;
     refusals?: readonly Refusal[];
   }): RunRecord {
-    return new RunRecord(
+    const next = new RunRecord(
       this.runId,
       this.workspaceId,
       change.taskId ?? this.taskId,
@@ -185,5 +209,9 @@ export class RunRecord {
       change.refusals ?? this.refusals,
       this.version,
     );
+
+    next.inheritEvents(this);
+
+    return next;
   }
 }

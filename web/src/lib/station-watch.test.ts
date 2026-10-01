@@ -31,19 +31,22 @@ describe('alertPhrase', () => {
     );
   });
 
-  it('says a cost rising or falling in dollars', () => {
+  it('says a cost rising or falling as a bare amount, since a threshold names no currency', () => {
     expect(alertPhrase(alert('cost_per_run', { risesBy: 0.5, over: 10 }))).toBe(
-      'Cost per run up $0.50 in the last 10 runs, against the 10 before',
+      'Cost per run up 0.50 in the last 10 runs, against the 10 before',
     );
     expect(alertPhrase(alert('cost_per_run', { fallsBy: 0.5, over: 10 }))).toBe(
-      'Cost per run down $0.50 in the last 10 runs, against the 10 before',
+      'Cost per run down 0.50 in the last 10 runs, against the 10 before',
     );
   });
 
-  it('says a cost going above an amount across the last runs', () => {
+  it('says a cost going above an amount across the last runs, in the runs’ currency where known', () => {
     expect(alertPhrase(alert('cost_per_run', { above: 2, over: 10 }))).toBe(
-      'Cost per run above $2.00 across the last 10 runs',
+      'Cost per run above 2.00 across the last 10 runs',
     );
+    expect(
+      alertPhrase(alert('cost_per_run', { above: 2, over: 10 }), 'USD'),
+    ).toBe('Cost per run above $2.00 across the last 10 runs');
   });
 
   it('says a rate going below a percentage across the last runs', () => {

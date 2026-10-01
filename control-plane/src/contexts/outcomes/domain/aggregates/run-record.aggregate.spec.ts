@@ -1,4 +1,6 @@
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
+import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
 import { InvalidOutcomeError } from '@outcomes/domain/exceptions/invalid-outcome.error';
 import {
   costOf,
@@ -26,6 +28,48 @@ describe('RunRecord', () => {
 
     expect(heard.hasEnded).toBe(false);
     expect(heard.ending).toBeNull();
+  });
+
+  it('tells once that it ended, at the station it ended at, through later changes', () => {
+    const ended = RunRecord.heardOf(RUN, WORKSPACE)
+      .ended(endOf())
+      .ended(endOf({ stationId: 'station_2' }))
+      .actedOn(NextAct.of('approved', AT));
+
+    const events = ended.pullEvents();
+    expect(events.map((each) => each.kind)).toEqual([
+      'run-record.ended',
+      'run-record.settled',
+    ]);
+    expect(events[0]).toBeInstanceOf(RunRecordEnded);
+    expect((events[0] as RunRecordEnded).place.stationId).toBe('station_1');
+    expect(ended.pullEvents()).toEqual([]);
+  });
+
+  it('tells it settled once for each outcome it learns after it ended, and not for one it already knew', () => {
+    const heard = RunRecord.heardOf(RUN, WORKSPACE).actedOn(
+      NextAct.of('approved', AT),
+    );
+    expect(heard.pullEvents()).toEqual([]);
+
+    const learned = heard
+      .ended(endOf())
+      .actedOn(NextAct.of('sent-back', LATER))
+      .checked('skipped')
+      .checked('passed')
+      .checked('failed')
+      .digested(costOf(), RunTools.NONE)
+      .digested(costOf({ amount: 2 }), RunTools.NONE);
+
+    const events = learned.pullEvents();
+    expect(events.map((each) => each.kind)).toEqual([
+      'run-record.ended',
+      'run-record.settled',
+      'run-record.settled',
+      'run-record.settled',
+    ]);
+    expect(events[1]).toBeInstanceOf(RunRecordSettled);
+    expect((events[1] as RunRecordSettled).place.stationId).toBe('station_1');
   });
 
   it('keeps the first end it hears of', () => {

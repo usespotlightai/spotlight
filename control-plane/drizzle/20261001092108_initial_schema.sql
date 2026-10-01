@@ -18,6 +18,8 @@ CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'approved', 're
 CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> statement-breakpoint
 CREATE TYPE "public"."memory_standing" AS ENUM('stands', 'retired');--> statement-breakpoint
 CREATE TYPE "public"."memory_use_way" AS ENUM('briefed', 'recalled');--> statement-breakpoint
+CREATE TYPE "public"."alert_measure" AS ENUM('sent_back_rate', 'accepted_rate', 'checks_failed_rate', 'failed_rate', 'merged_rate', 'cost_per_run');--> statement-breakpoint
+CREATE TYPE "public"."alert_threshold" AS ENUM('risesBy', 'fallsBy', 'above', 'below');--> statement-breakpoint
 CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'ungrounded', 'errored', 'interrupted');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_record_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'approved', 'refused', 'sent-back');--> statement-breakpoint
@@ -27,7 +29,7 @@ CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number');--> statement-brea
 CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
 CREATE TYPE "public"."task_delivery_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'parked', 'completed', 'failed', 'superseded');--> statement-breakpoint
-CREATE TYPE "public"."aside_form" AS ENUM('memories', 'grade');--> statement-breakpoint
+CREATE TYPE "public"."aside_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
 CREATE SEQUENCE "public"."memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,
@@ -673,6 +675,7 @@ CREATE TABLE "run_record" (
 	"ms" integer,
 	"steps" integer,
 	"faults" integer,
+	"changed_lines" integer,
 	"used" integer,
 	"size" integer,
 	"cost" double precision,
@@ -704,6 +707,31 @@ CREATE TABLE "score" (
 	"seen" jsonb DEFAULT '{"steps":[],"hunks":[]}'::jsonb NOT NULL,
 	"by" text,
 	"at" timestamp NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "station_alert" (
+	"id" text PRIMARY KEY NOT NULL,
+	"station_id" text NOT NULL,
+	"measure" "alert_measure" NOT NULL,
+	"threshold" "alert_threshold" NOT NULL,
+	"amount" double precision NOT NULL,
+	"over" integer NOT NULL,
+	"value" double precision NOT NULL,
+	"baseline" double precision,
+	"run_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"raised_at" timestamp NOT NULL,
+	"recovered_at" timestamp,
+	"clear_runs" integer DEFAULT 0 NOT NULL,
+	"last_seen_run_id" text
+);
+--> statement-breakpoint
+CREATE TABLE "station_watch" (
+	"station_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1086,6 +1114,7 @@ CREATE TABLE "run_digest" (
 	"ms" integer,
 	"steps" integer DEFAULT 0 NOT NULL,
 	"faults" integer DEFAULT 0 NOT NULL,
+	"changed_lines" integer DEFAULT 0 NOT NULL,
 	"used" integer,
 	"size" integer,
 	"cost" double precision,
@@ -1223,6 +1252,7 @@ ALTER TABLE "workspace_token_trust" ADD CONSTRAINT "workspace_token_trust_worksp
 ALTER TABLE "hook_firing" ADD CONSTRAINT "hook_firing_hook_id_hook_definition_id_fk" FOREIGN KEY ("hook_id") REFERENCES "public"."hook_definition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_proposal" ADD CONSTRAINT "memory_proposal_draft_id_memory_draft_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."memory_draft"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_use" ADD CONSTRAINT "memory_use_memory_id_memory_id_fk" FOREIGN KEY ("memory_id") REFERENCES "public"."memory"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "station_alert" ADD CONSTRAINT "station_alert_station_id_station_watch_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station_watch"("station_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_grant" ADD CONSTRAINT "secret_grant_run_id_run_grants_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run_grants"("run_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1318,6 +1348,10 @@ CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","by") WH
 CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> statement-breakpoint
 CREATE INDEX "score_task_idx" ON "score" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_id");--> statement-breakpoint
+CREATE INDEX "station_alert_station_idx" ON "station_alert" USING btree ("station_id","raised_at");--> statement-breakpoint
+CREATE INDEX "station_alert_task_idx" ON "station_alert" USING btree ("task_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "station_alert_open_rule_idx" ON "station_alert" USING btree ("station_id","measure","threshold") WHERE "station_alert"."recovered_at" is null;--> statement-breakpoint
+CREATE INDEX "station_watch_team_idx" ON "station_watch" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "task_change_shape_team_idx" ON "task_change_shape" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "task_delivery_pull_request_idx" ON "task_delivery" USING btree ("workspace_id","pull_request");--> statement-breakpoint
 CREATE INDEX "task_delivery_team_idx" ON "task_delivery" USING btree ("team_id","opened_at");--> statement-breakpoint

@@ -1,4 +1,4 @@
-import { hunksOf } from '@work/domain/services/change-hunks';
+import { changedLinesOf, hunksOf } from '@work/domain/services/change-hunks';
 import { describe, expect, it } from 'vitest';
 
 const numbered = (count: number, change: Record<number, string> = {}) =>
@@ -75,5 +75,47 @@ describe('hunksOf', () => {
 
     expect(hunk?.lines).toEqual([' a', ' b', '+new', ' c']);
     expect(hunk?.header).toBe('@@ -1,3 +1,4 @@');
+  });
+});
+
+describe('changedLinesOf', () => {
+  it('counts a file edited several times by where it started and where it ended', () => {
+    expect(
+      changedLinesOf([
+        { path: 'a.ts', before: 'one\n', after: 'one\ntwo\n' },
+        { path: 'a.ts', before: 'one\ntwo\n', after: 'one\n' },
+        { path: 'b.ts', before: 'x\n', after: 'y\n' },
+        { path: 'b.ts', before: 'y\n', after: 'z\n' },
+      ]),
+    ).toBe(2);
+  });
+
+  it('counts each change without a path on its own', () => {
+    expect(
+      changedLinesOf([
+        { path: null, before: '', after: 'one\n' },
+        { path: null, before: 'one\n', after: '' },
+      ]),
+    ).toBe(2);
+  });
+
+  it('counts every line taken out and every line put in, across changes', () => {
+    expect(
+      changedLinesOf([
+        {
+          path: 'a.ts',
+          before: numbered(10),
+          after: numbered(10, { 5: 'five' }),
+        },
+        { path: 'b.ts', before: '', after: 'one\ntwo\n' },
+      ]),
+    ).toBe(4);
+  });
+
+  it('counts nothing where nothing changed', () => {
+    expect(
+      changedLinesOf([{ path: 'a.ts', before: 'same\n', after: 'same\n' }]),
+    ).toBe(0);
+    expect(changedLinesOf([])).toBe(0);
   });
 });

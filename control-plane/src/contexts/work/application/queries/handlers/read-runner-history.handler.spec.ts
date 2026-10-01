@@ -126,6 +126,7 @@ const reading = ({
       return runs.slice(0, wanted.most);
     },
     journalsOf: async (ids) => ids.map(journal),
+    alertsAt: async () => null,
   };
   const traces = {
     teamOfHeldRun: vi.fn().mockResolvedValue(team),
@@ -143,6 +144,7 @@ const reading = ({
             ms: 300_000,
             steps: 12,
             faults: 1,
+            changedLines: 0,
             used: 40_000,
             size: 200_000,
             cost: Money.of(0.42, 'USD'),

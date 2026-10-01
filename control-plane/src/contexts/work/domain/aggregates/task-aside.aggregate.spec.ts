@@ -60,6 +60,26 @@ describe('TaskAside', () => {
     expect(settled.settled(NOW)).toBe(settled);
   });
 
+  it('reopens unread once settled, says it was raised again, and leaves an open aside be', () => {
+    const settled = raised().readBy(ADA, NOW).settled(NOW);
+    settled.pullEvents();
+
+    const reopened = settled.reopened(LATER);
+
+    expect(reopened.open).toBe(true);
+    expect(reopened.raisedAt).toEqual(LATER);
+    expect(reopened.unreadBy(ADA)).toBe(true);
+    expect(reopened.pullEvents()).toEqual([
+      new TaskAsideRaised(
+        reopened.id,
+        reopened.taskId,
+        'memories',
+        AsideAbout.of('run_1'),
+      ),
+    ]);
+    expect(reopened.reopened(LATER)).toBe(reopened);
+  });
+
   it('says it settled', () => {
     const aside = raised();
     aside.pullEvents();
@@ -152,9 +172,28 @@ describe('TaskAside', () => {
       ).toBe(false);
     });
 
+    it('raises an alert to everyone who reads the team’s outcomes, whoever the task is assigned to', () => {
+      expect(attending({ form: 'alert', seesTeam: false })).toBe(true);
+      expect(attending({ form: 'alert', viewer: BEA, assignee: ADA })).toBe(
+        true,
+      );
+      expect(attending({ form: 'alert', readsTeamOutcomes: false })).toBe(
+        false,
+      );
+      expect(
+        attending({
+          form: 'alert',
+          viewer: ADA,
+          assignee: ADA,
+          readsTeamOutcomes: false,
+        }),
+      ).toBe(false);
+    });
+
     it('needs only the standing its form asks for', () => {
       expect(TaskAside.standingToAttend('memories')).toBe('seesTeam');
       expect(TaskAside.standingToAttend('grade')).toBe('readsTeamOutcomes');
+      expect(TaskAside.standingToAttend('alert')).toBe('readsTeamOutcomes');
     });
   });
 });

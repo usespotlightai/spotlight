@@ -46,6 +46,7 @@ const digests = {
           ms: 1_000,
           steps: 5,
           faults: 1,
+          changedLines: 0,
           used: null,
           size: null,
           cost: Money.of(0.5, 'USD'),

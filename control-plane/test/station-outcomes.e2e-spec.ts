@@ -5,6 +5,7 @@ import type {
 } from '@outcomes/application/ports/work.port';
 import { ListStationOutcomesHandler } from '@outcomes/application/queries/handlers/list-station-outcomes.handler';
 import { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
+import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
@@ -25,6 +26,7 @@ import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.se
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
+import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
@@ -33,6 +35,7 @@ import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/d
 import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
+import { DrizzleStationWatchRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/station-watch.repository';
 import { DrizzleTaskChangeShapeRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
 import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
@@ -116,6 +119,7 @@ const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId) ?? null,
   teamRepositories: async () => [],
   teamSkillKeys: async () => [],
+  alertsAt: async () => null,
   configsInOrder: async (fingerprints) =>
     fingerprints.map((fingerprint, index) => ({
       ...configOf(fingerprint, fingerprint === SONNET ? 'sonnet' : 'opus'),
@@ -199,11 +203,11 @@ const list = (viewer = 'user_ada') =>
 beforeAll(async () => {
   held = await openDatabase('station_outcomes');
   context = new DrizzleContext(held.db);
-  records = new DrizzleRunRecordRepository(context);
-  deliveries = new DrizzleTaskDeliveryRepository(context);
   const quiet = {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher;
+  records = new DrizzleRunRecordRepository(context, quiet);
+  deliveries = new DrizzleTaskDeliveryRepository(context, quiet);
   const judgings = new DrizzleJudgingRepository(context, quiet);
   const scores = new DrizzleScoreRepository(context, quiet);
   const touches = new DrizzleTaskTouchesRepository(context);
@@ -211,6 +215,7 @@ beforeAll(async () => {
   chats = new DrizzleChatRecordRepository(context);
   const pullRequests = new DrizzlePullRequestRecordRepository(context);
   const shapes = new DrizzleTaskChangeShapeRepository(context);
+  const watches = new DrizzleStationWatchRepository(context, quiet);
   const reviews = new DrizzlePendingReviews(context);
   forgotten = new DrizzleForgotten(context);
   subscribers = outcomesSubscribers({
@@ -237,6 +242,7 @@ beforeAll(async () => {
         chats,
         pullRequests,
         shapes,
+        watches,
         reviews,
         forgotten,
       },
@@ -280,6 +286,20 @@ beforeAll(async () => {
     chatting: new NoteChatStarted(chats, forgotten, context),
     recording: new NotePullRequestRecords(pullRequests, forgotten, context),
     shaping: new NoteChangeShaped(work, shapes, forgotten, context),
+    watching: new WatchStations(
+      work,
+      { records, deliveries, watches, forgotten },
+      context,
+      { generate: () => 'alert_1' },
+      { now: () => new Date(), sleep: async () => {} },
+    ),
+    alerting: new AlertInbox(
+      {
+        open: async () => {},
+        settle: async () => {},
+      },
+      watches,
+    ),
   });
   listing = new ListStationOutcomesHandler(
     new OutcomesAccess({

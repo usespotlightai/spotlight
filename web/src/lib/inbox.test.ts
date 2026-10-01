@@ -99,6 +99,22 @@ describe('previewOf', () => {
   it('says where it waits when nothing has been said', () => {
     expect(previewOf(item([]))).toBe('Waiting at Planning');
   });
+
+  it('says a station crossed its alert, and that it came back within it', () => {
+    const alert = (resolved: boolean) =>
+      ({
+        ...item([]),
+        resolved,
+        aside: { form: 'alert', about: 'alert_1' },
+      }) as InboxItem;
+
+    expect(previewOf(alert(false))).toBe(
+      'A station crossed one of its alert thresholds.',
+    );
+    expect(previewOf(alert(true))).toBe(
+      'The station is back within its alert.',
+    );
+  });
 });
 
 describe('decisionOwed', () => {

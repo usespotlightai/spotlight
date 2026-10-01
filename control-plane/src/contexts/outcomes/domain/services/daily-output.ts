@@ -84,16 +84,15 @@ export const outputCurrencyOf = (
   };
 };
 
-const firstRanAt = (record: RunRecord): Date | null =>
+export const firstRanAt = (record: RunRecord): Date | null =>
   record.end ? (record.end.startedAt ?? record.end.endedAt) : null;
 
-export const configMarkersOf = (
-  history: TeamHistory,
-  period: InsightsPeriod,
+export const configMarkersAlong = (
+  records: readonly RunRecord[],
 ): readonly ConfigMarker[] => {
   const seen = new Map<string, Set<string>>();
   const markers: ConfigMarker[] = [];
-  const byStart = endedWithin(history.records, period.lookback)
+  const byStart = records
     .flatMap((record) => {
       const at = firstRanAt(record);
       return at ? [{ record, at }] : [];
@@ -111,11 +110,7 @@ export const configMarkersOf = (
     const before = seen.get(end.place.stationId) ?? new Set<string>();
     seen.set(end.place.stationId, new Set([...before, fingerprint]));
 
-    if (
-      before.size > 0 &&
-      !before.has(fingerprint) &&
-      within(period.current, at)
-    ) {
+    if (before.size > 0 && !before.has(fingerprint)) {
       markers.push({
         lineId: end.place.lineId,
         stationId: end.place.stationId,
@@ -128,3 +123,11 @@ export const configMarkersOf = (
 
   return markers;
 };
+
+export const configMarkersOf = (
+  history: TeamHistory,
+  period: InsightsPeriod,
+): readonly ConfigMarker[] =>
+  configMarkersAlong(endedWithin(history.records, period.lookback)).filter(
+    (each) => within(period.current, each.firstRunAt),
+  );
