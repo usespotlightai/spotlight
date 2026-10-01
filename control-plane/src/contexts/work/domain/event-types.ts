@@ -10,6 +10,7 @@ import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunDigested } from '@work/domain/events/run-digested.event';
 import { RunLapsed } from '@work/domain/events/run-lapsed.event';
 import { RunParked } from '@work/domain/events/run-parked.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
@@ -26,7 +27,9 @@ import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
 import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
+import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
@@ -236,6 +239,9 @@ export const WORK_EVENT_TYPES = [
   RunBriefed,
   RunSuperseded,
   RunCompleted,
+  RunDigested,
+  TaskFailed,
+  TaskHandedOn,
   RunLapsed,
   RunParked,
   RunPaused,

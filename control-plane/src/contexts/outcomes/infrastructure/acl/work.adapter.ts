@@ -3,7 +3,6 @@ import type {
   EndedRun,
   WorkPort,
 } from '@outcomes/application/ports/work.port';
-import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import type { StationRunsPort } from '@work/application/ports/station-runs.port';
 
 export class Work implements WorkPort {
@@ -25,32 +24,15 @@ export class Work implements WorkPort {
       taskId: run.taskId,
       fingerprint: run.fingerprint,
       round: run.round,
+      harness: run.harness,
+      model: run.model,
+      effort: run.effort,
+      profileKey: run.profileKey,
+      repositories: run.repositories,
+      queuedAt: run.queuedAt,
+      startedAt: run.startedAt,
       endedAt: run.endedAt,
     };
-  }
-
-  async costsOf(
-    runIds: readonly string[],
-  ): Promise<ReadonlyMap<string, RunCost>> {
-    if (runIds.length === 0) {
-      return new Map();
-    }
-
-    const costs = await this.stations.costsOf(runIds);
-
-    return new Map(
-      [...costs].map(([runId, cost]) => [
-        runId,
-        RunCost.of({
-          ms: cost.ms,
-          steps: cost.steps,
-          faults: cost.faults,
-          used: cost.used,
-          amount: cost.cost,
-          currency: cost.currency,
-        }),
-      ]),
-    );
   }
 
   async configsInOrder(

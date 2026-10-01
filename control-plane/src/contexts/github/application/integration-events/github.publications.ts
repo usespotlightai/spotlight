@@ -1,10 +1,15 @@
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import type { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
+  PULL_REQUEST_REVIEWED,
+  type PullRequestReviewedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
 import {
   REVIEW_COMMENT_RECEIVED,
   type ReviewCommentReceivedIntegrationEvent,
@@ -63,6 +68,18 @@ export const GITHUB_PUBLICATIONS = [
       ...(event.merge
         ? { merged: true, mergeCommit: event.merge.commit }
         : { merged: false, mergeCommit: null }),
+    }),
+  ),
+  publishing<PullRequestReviewed>(
+    'pull-request.reviewed',
+    (event): PullRequestReviewedIntegrationEvent => ({
+      kind: PULL_REQUEST_REVIEWED,
+      workspaceId: event.workspaceId.value,
+      pullRequest: event.pullRequest,
+      state: event.state,
+      login: event.login,
+      byBot: event.byBot,
+      submittedAt: event.submittedAt?.toISOString() ?? null,
     }),
   ),
 ] as const;

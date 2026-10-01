@@ -38,9 +38,13 @@ const TALLY: StationTally = {
   accepted: 1,
   sentBack: 0,
   withdrawn: 0,
+  handedOn: 0,
   merged: 1,
   cost: { amount: 1.2, currency: 'USD' },
   medianMs: 180_000,
+  p90Ms: 180_000,
+  unpriced: 0,
+  mixedCurrencies: false,
 };
 
 const run = (over: Partial<StationRunOutcome>): StationRunOutcome => ({
@@ -60,6 +64,7 @@ const run = (over: Partial<StationRunOutcome>): StationRunOutcome => ({
   },
   checks: 'passed',
   next: { act: 'approved', at: new Date().toISOString() },
+  handedOn: null,
   delivery: 'merged',
   ...over,
 });

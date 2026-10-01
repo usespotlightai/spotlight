@@ -9,31 +9,45 @@ import { AskForJudging } from '@outcomes/application/services/ask-for-judging.se
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
+import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
+import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
+import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
+import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
+import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
+import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
-import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
+import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
+import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
+import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
+import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
+import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
 import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subscribers';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
+import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import { RUN_DIGESTED } from '@shared-kernel/application/integration-events/run-digested.integration-event';
 import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
+import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -80,6 +94,13 @@ const endedRun = (
     taskId: 'task_1',
     fingerprint: SONNET,
     round: 1,
+    harness: 'claude-code',
+    model: 'sonnet',
+    effort: null,
+    profileKey: null,
+    repositories: ['acme/api'],
+    queuedAt: new Date('2026-09-30T00:00:00.000Z'),
+    startedAt: null,
     ...change,
   };
   ended.set(runId, run);
@@ -88,22 +109,6 @@ const endedRun = (
 
 const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId) ?? null,
-  costsOf: async (runIds) =>
-    new Map(
-      runIds
-        .filter((runId) => ended.has(runId))
-        .map((runId) => [
-          runId,
-          RunCost.of({
-            ms: 60_000,
-            steps: 20,
-            faults: 1,
-            used: 8_000,
-            amount: 0.4,
-            currency: 'USD',
-          }),
-        ]),
-    ),
   configsInOrder: async (fingerprints) =>
     fingerprints.map((fingerprint, index) => ({
       ...configOf(fingerprint, fingerprint === SONNET ? 'sonnet' : 'opus'),
@@ -127,6 +132,9 @@ let records: DrizzleRunRecordRepository;
 let deliveries: DrizzleTaskDeliveryRepository;
 let subscribers: readonly DomainEventSubscriber[];
 let listing: ListStationOutcomesHandler;
+let context: DrizzleContext;
+let forgotten: DrizzleForgotten;
+let chats: DrizzleChatRecordRepository;
 
 const deliver = async (name: string, event: Record<string, unknown>) => {
   const subscriber = subscribers.find((each) => each.name === name);
@@ -138,18 +146,41 @@ const deliver = async (name: string, event: Record<string, unknown>) => {
   await subscriber.handle(event as never);
 };
 
-const runEnded = (runId: string, change: Record<string, unknown> = {}) =>
-  deliver('outcomes.record-ended-run', {
+const runEnded = async (
+  runId: string,
+  change: Record<string, unknown> = {},
+) => {
+  const taskId = ended.get(runId)?.taskId ?? 'task_1';
+
+  await deliver('outcomes.record-ended-run', {
     kind: RUN_ENDED,
     runId,
     workspaceId: WORKSPACE,
-    taskId: ended.get(runId)?.taskId ?? 'task_1',
+    taskId,
     stationId: 'station_1',
     outcome: 'completed',
     failure: null,
     stopped: false,
     ...change,
   });
+  await deliver('outcomes.record-run-cost', {
+    kind: RUN_DIGESTED,
+    runId,
+    workspaceId: WORKSPACE,
+    taskId,
+    ms: 60_000,
+    steps: 20,
+    faults: 1,
+    used: 8_000,
+    size: null,
+    cost: 0.4,
+    currency: 'USD',
+    inputTokens: null,
+    outputTokens: null,
+    cacheReadTokens: null,
+    cacheWriteTokens: null,
+  });
+};
 
 const list = (viewer = 'user_ada') =>
   listing.execute(
@@ -158,7 +189,7 @@ const list = (viewer = 'user_ada') =>
 
 beforeAll(async () => {
   held = await openDatabase('station_outcomes');
-  const context = new DrizzleContext(held.db);
+  context = new DrizzleContext(held.db);
   records = new DrizzleRunRecordRepository(context);
   deliveries = new DrizzleTaskDeliveryRepository(context);
   const quiet = {
@@ -166,18 +197,36 @@ beforeAll(async () => {
   } as unknown as DomainEventDispatcher;
   const judgings = new DrizzleJudgingRepository(context, quiet);
   const scores = new DrizzleScoreRepository(context, quiet);
+  const touches = new DrizzleTaskTouchesRepository(context);
+  const failures = new DrizzleTaskFailuresRepository(context);
+  chats = new DrizzleChatRecordRepository(context);
+  const reviews = new DrizzlePendingReviews(context);
+  forgotten = new DrizzleForgotten(context);
   subscribers = outcomesSubscribers({
-    ending: new NoteRunEnded(work, records, context),
-    superseding: new NoteRunSuperseded(records, context),
-    checking: new NoteChangeChecked(records, context),
-    acting: new NotePersonAct(records, context),
-    opening: new NotePullRequestOpened(deliveries, context),
+    ending: new NoteRunEnded(work, records, forgotten, context),
+    superseding: new NoteRunSuperseded(records, forgotten, context),
+    checking: new NoteChangeChecked(records, forgotten, context),
+    acting: new NotePersonAct(records, forgotten, context),
+    opening: new NotePullRequestOpened(
+      deliveries,
+      reviews,
+      forgotten,
+      context,
+      { now: () => new Date(), sleep: async () => {} },
+    ),
     closing: new NotePullRequestClosed(deliveries, context),
     forgetting: new ForgetOutcomes(
-      records,
-      deliveries,
-      judgings,
-      scores,
+      {
+        records,
+        deliveries,
+        judgings,
+        scores,
+        touches,
+        failures,
+        chats,
+        reviews,
+        forgotten,
+      },
       context,
     ),
     judging: new AskForJudging(
@@ -193,6 +242,7 @@ beforeAll(async () => {
         judge: async () => ({ value: true, reasons: [] }),
       },
       judgings,
+      forgotten,
       context,
       { now: () => new Date(), sleep: async () => {} },
     ),
@@ -203,9 +253,22 @@ beforeAll(async () => {
       ask: async () => {},
       settle: async () => {},
     }),
+    digesting: new NoteRunDigested(records, forgotten, context),
+    handingOn: new NoteRunHandedOn(records, forgotten, context),
+    reviewing: new NotePullRequestReviewed(
+      deliveries,
+      reviews,
+      forgotten,
+      context,
+      { now: () => new Date(), sleep: async () => {} },
+    ),
+    failing: new NoteTaskFailed(failures, forgotten, context),
+    touching: new NoteTaskTouch(touches, forgotten, context),
+    chatting: new NoteChatStarted(chats, forgotten, context),
   });
   listing = new ListStationOutcomesHandler(
     new OutcomesAccess({
+      namesOf: async () => new Map(),
       clearedOnTeam: async (_teamId, principal) =>
         principal.userId.equals(UserId.of('user_ada'))
           ? { workspaceId: WorkspaceId.of(WORKSPACE), by: principal.userId }
@@ -242,6 +305,7 @@ describe('how a station’s runs turned out', () => {
       workspaceId: WORKSPACE,
       stationId: 'station_1',
       act: 'sent-back',
+      by: 'user_ada',
       after: null,
       at: at(10).toISOString(),
     });
@@ -251,6 +315,7 @@ describe('how a station’s runs turned out', () => {
       workspaceId: WORKSPACE,
       stationId: 'station_1',
       act: 'closed',
+      by: 'user_ada',
       after: 'run_1',
       at: at(10).toISOString(),
     });
@@ -288,7 +353,9 @@ describe('how a station’s runs turned out', () => {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: WORKSPACE,
+      teamId: 'team_1',
       url: PULL,
+      at: at(12).toISOString(),
     });
     await deliver('outcomes.record-closed-pull-request', {
       kind: PULL_REQUEST_CLOSED,
@@ -347,9 +414,13 @@ describe('how a station’s runs turned out', () => {
           checksFailed: 0,
           accepted: 0,
           sentBack: 0,
+          handedOn: 0,
           merged: 1,
           cost: { amount: 0.8, currency: 'USD' },
+          unpriced: 0,
+          mixedCurrencies: false,
           medianMs: 60_000,
+          p90Ms: 60_000,
         },
       },
       {
@@ -366,9 +437,13 @@ describe('how a station’s runs turned out', () => {
           checksFailed: 1,
           accepted: 0,
           sentBack: 1,
+          handedOn: 0,
           merged: 1,
           cost: { amount: 0.4, currency: 'USD' },
+          unpriced: 0,
+          mixedCurrencies: false,
           medianMs: 60_000,
+          p90Ms: 60_000,
         },
       },
     ]);
@@ -407,6 +482,7 @@ describe('how a station’s runs turned out', () => {
       workspaceId: WORKSPACE,
       stationId: 'station_1',
       act: 'answered',
+      by: 'user_ada',
       after: 'run_9',
       at: at(14).toISOString(),
     });
@@ -419,5 +495,86 @@ describe('how a station’s runs turned out', () => {
     expect(await records.of(RunId.of('run_9'))).toBeNull();
     expect(await records.of(RunId.of('run_3'))).not.toBeNull();
     expect((await list()).groups.flatMap((each) => each.runs)).toHaveLength(1);
+  });
+
+  it('records nothing more of a deleted task, however late it is heard of', async () => {
+    await deliver('outcomes.record-next-person-act', {
+      kind: TASK_ACTED_ON,
+      taskId: 'task_1',
+      workspaceId: WORKSPACE,
+      stationId: 'station_1',
+      act: 'answered',
+      by: 'user_ada',
+      after: 'run_10',
+      at: at(15).toISOString(),
+    });
+    await deliver('outcomes.record-opened-pull-request', {
+      kind: PULL_REQUEST_OPENED,
+      taskId: 'task_1',
+      workspaceId: WORKSPACE,
+      teamId: 'team_1',
+      url: 'https://github.com/acme/api/pull/99',
+      at: at(15).toISOString(),
+    });
+
+    expect(await records.of(RunId.of('run_10'))).toBeNull();
+    expect(await deliveries.forTask(TaskId.of('task_1'))).toBeNull();
+  });
+
+  it('records nothing of a task heard of while its forgetting is under way, once the forgetting commits', async () => {
+    let locked: () => void = () => {};
+    let release: () => void = () => {};
+    const forgettingHolds = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const forgetting = context.run(async () => {
+      await forgotten.forgetTask(
+        WorkspaceId.of(WORKSPACE),
+        TaskId.of('task_9'),
+      );
+      locked();
+      await released;
+    });
+    await forgettingHolds;
+
+    const noting = deliver('outcomes.record-next-person-act', {
+      kind: TASK_ACTED_ON,
+      taskId: 'task_9',
+      workspaceId: WORKSPACE,
+      stationId: 'station_1',
+      act: 'answered',
+      by: 'user_ada',
+      after: 'run_90',
+      at: at(16).toISOString(),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    release();
+    await forgetting;
+    await noting;
+
+    expect(await records.of(RunId.of('run_90'))).toBeNull();
+  });
+
+  it('records nothing more of a disbanded team, however late it is heard of', async () => {
+    await deliver('outcomes.forget-chats-of-disbanded-team', {
+      kind: TEAM_DISBANDED,
+      workspaceId: WORKSPACE,
+      teamId: 'team_gone',
+      key: 'gone',
+    });
+
+    await deliver('outcomes.record-started-chat', {
+      kind: CHAT_STARTED,
+      chatId: 'chat_gone',
+      workspaceId: WORKSPACE,
+      teamId: 'team_gone',
+      by: 'user_ada',
+      at: at(16).toISOString(),
+    });
+
+    expect(await chats.of('chat_gone')).toBeNull();
   });
 });

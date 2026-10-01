@@ -267,6 +267,54 @@ describe('GitHubWebhookTranslation', () => {
       ).toMatchObject({ activity: 'commented' });
     });
 
+    it('hears a submitted review, its state, who wrote it and when', () => {
+      expect(
+        heard('pull_request_review', {
+          action: 'submitted',
+          pull_request: pull(),
+          review: {
+            state: 'APPROVED',
+            body: '',
+            user: { login: 'ada', type: 'User' },
+            submitted_at: '2026-09-21T09:30:00Z',
+          },
+        }).filter((each) => each.kind === 'pull-request-reviewed'),
+      ).toEqual([
+        {
+          kind: 'pull-request-reviewed',
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          state: 'approved',
+          login: 'ada',
+          byBot: false,
+          submittedAt: new Date('2026-09-21T09:30:00Z'),
+        },
+      ]);
+    });
+
+    it('hears no review that was only edited or dismissed', () => {
+      for (const action of ['edited', 'dismissed']) {
+        expect(
+          heard('pull_request_review', {
+            action,
+            pull_request: pull(),
+            review: { state: 'approved', user: { login: 'ada' } },
+          }).filter((each) => each.kind === 'pull-request-reviewed'),
+        ).toEqual([]);
+      }
+    });
+
+    it('hears no review in a state GitHub never sends, even one named like a property every object has', () => {
+      for (const state of ['constructor', 'toString', 'pending']) {
+        expect(
+          heard('pull_request_review', {
+            action: 'submitted',
+            pull_request: pull(),
+            review: { state, user: { login: 'ada' } },
+          }).filter((each) => each.kind === 'pull-request-reviewed'),
+        ).toEqual([]);
+      }
+    });
+
     it('reads a failing check suite by the branch it ran on', () => {
       expect(
         activity('check_suite', {

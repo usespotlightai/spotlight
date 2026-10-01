@@ -1,4 +1,8 @@
 import {
+  CHAT_STARTED,
+  type ChatStartedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
@@ -6,6 +10,10 @@ import {
   RUN_BRIEFED,
   type RunBriefedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-briefed.integration-event';
+import {
+  RUN_DIGESTED,
+  type RunDigestedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-digested.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -20,9 +28,21 @@ import {
   type TaskActedOnIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import {
+  TASK_ASKED,
+  type TaskAskedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-asked.integration-event';
+import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
+import {
+  TASK_FAILED,
+  type TaskFailedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-failed.integration-event';
+import {
+  TASK_HANDED_ON,
+  type TaskHandedOnIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-handed-on.integration-event';
 import {
   TASK_HANDED_TO_RUN,
   type TaskHandedToRunIntegrationEvent,
@@ -36,14 +56,19 @@ import {
   type TaskOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-opened.integration-event';
 import { publishing } from '@shared-kernel/application/ports/event-publication.port';
+import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunBriefed } from '@work/domain/events/run-briefed.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
+import type { RunDigested } from '@work/domain/events/run-digested.event';
 import type { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
+import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import type { TaskFailed } from '@work/domain/events/task-failed.event';
+import type { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
@@ -82,7 +107,9 @@ export const WORK_PUBLICATIONS = [
       kind: PULL_REQUEST_OPENED,
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
+      teamId: event.teamId.value,
       url: event.url.value,
+      at: event.at.toISOString(),
     }),
   ),
   publishing<TaskDeleted>(
@@ -108,6 +135,11 @@ export const WORK_PUBLICATIONS = [
       kind: TASK_OPENED,
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
+      teamId: event.teamId.value,
+      lineId: event.lineId.value,
+      stationId: event.stationId.value,
+      by: event.raisedBy?.value ?? null,
+      at: event.at.toISOString(),
     }),
   ),
   publishing<TaskMoved>(
@@ -150,7 +182,76 @@ export const WORK_PUBLICATIONS = [
       workspaceId: event.workspaceId.value,
       stationId: event.stationId.value,
       act: event.act,
+      by: event.by.value,
       after: event.after?.value ?? null,
+      at: event.at.toISOString(),
+    }),
+  ),
+  publishing<RunDigested>(
+    'run.digested',
+    (event): RunDigestedIntegrationEvent => ({
+      kind: RUN_DIGESTED,
+      runId: event.runId.value,
+      workspaceId: event.workspaceId.value,
+      taskId: event.taskId?.value ?? null,
+      ms: event.ms,
+      steps: event.steps,
+      faults: event.faults,
+      used: event.used,
+      size: event.size,
+      cost: event.cost?.amount ?? null,
+      currency: event.cost?.currency ?? null,
+      inputTokens: event.tokens.input,
+      outputTokens: event.tokens.output,
+      cacheReadTokens: event.tokens.cacheRead,
+      cacheWriteTokens: event.tokens.cacheWrite,
+    }),
+  ),
+  publishing<TaskHandedOn>(
+    'task.handed-on',
+    (event): TaskHandedOnIntegrationEvent => ({
+      kind: TASK_HANDED_ON,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      runId: event.runId.value,
+      from: event.from.value,
+      to: event.to.value,
+      at: event.at.toISOString(),
+    }),
+  ),
+  publishing<TaskFailed>(
+    'task.failed',
+    (event): TaskFailedIntegrationEvent => ({
+      kind: TASK_FAILED,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      teamId: event.teamId.value,
+      stationId: event.stationId.value,
+      runId: event.by?.value ?? null,
+      source: event.failure.source,
+      code: event.failure.code,
+      occurrences: event.failure.occurrences,
+      at: event.at.toISOString(),
+    }),
+  ),
+  publishing<TaskAsked>(
+    'task.asked',
+    (event): TaskAskedIntegrationEvent => ({
+      kind: TASK_ASKED,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      stationId: event.stationId.value,
+      at: event.at.toISOString(),
+    }),
+  ),
+  publishing<ChatStarted>(
+    'chat.started',
+    (event): ChatStartedIntegrationEvent => ({
+      kind: CHAT_STARTED,
+      chatId: event.chatId.value,
+      workspaceId: event.workspaceId.value,
+      teamId: event.teamId.value,
+      by: event.startedBy.value,
       at: event.at.toISOString(),
     }),
   ),

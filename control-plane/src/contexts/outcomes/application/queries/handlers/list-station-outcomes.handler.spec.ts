@@ -8,12 +8,14 @@ import { ListStationOutcomesQuery } from '@outcomes/application/queries/list-sta
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import {
-  costOf,
+  costedRecord,
   endedRecord,
   FIRST_CONFIG,
+  NOBODY_ELSE,
   RunRecordsInMemory,
   SECOND_CONFIG,
   TaskDeliveriesInMemory,
+  TEAM,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
@@ -48,13 +50,8 @@ const listing = async (member = true) => {
   const records = new RunRecordsInMemory();
   const deliveries = new TaskDeliveriesInMemory();
   const asked: string[][] = [];
-  const costed: string[][] = [];
   const work: WorkPort = {
     endedRun: async () => null,
-    costsOf: async (runIds) => {
-      costed.push([...runIds]);
-      return new Map(runIds.map((runId) => [runId, costOf({ amount: 0.25 })]));
-    },
     configsInOrder: async (fingerprints) => {
       asked.push([...fingerprints]);
       return fingerprints.map(
@@ -78,6 +75,7 @@ const listing = async (member = true) => {
     },
   };
   const access = new OutcomesAccess({
+    ...NOBODY_ELSE,
     clearedOnTeam: async () =>
       member ? { workspaceId: WORKSPACE, by: UserId.of('user_ada') } : null,
   });
@@ -86,7 +84,6 @@ const listing = async (member = true) => {
     records,
     deliveries,
     asked,
-    costed,
     list: (last: number | null = null, stationId = 'station_1') =>
       new ListStationOutcomesHandler(access, records, deliveries, work).execute(
         new ListStationOutcomesQuery(
@@ -164,7 +161,9 @@ describe('listing how a station’s runs turned out', () => {
       TaskDelivery.opened({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
+        teamId: TEAM,
         pullRequest,
+        at: at(4),
       }).closed({ pullRequest, merged: true, at: at(5) }),
     );
 
@@ -174,15 +173,20 @@ describe('listing how a station’s runs turned out', () => {
     expect(outcomes.groups[0]?.tally.merged).toBe(1);
   });
 
-  it('asks Work once for the costs of the runs it shows, and tallies them', async () => {
+  it('shows and tallies the cost each run’s record keeps', async () => {
     const listed = await listing();
-    await listed.records.add(endedRecord('run_1', { endedAt: at(1) }));
-    await listed.records.add(endedRecord('run_2', { endedAt: at(2) }));
+    await listed.records.add(
+      costedRecord('run_1', { endedAt: at(1), amount: 0.25 }),
+    );
+    await listed.records.add(
+      costedRecord('run_2', { endedAt: at(2), amount: 0.25 }),
+    );
+    await listed.records.add(endedRecord('run_3', { endedAt: at(3) }));
 
     const outcomes = await listed.list();
 
-    expect(listed.costed).toEqual([['run_2', 'run_1']]);
-    expect(outcomes.groups[0]?.runs[0]?.cost?.cost).toBe(0.25);
+    expect(outcomes.groups[0]?.runs[0]?.cost).toBeNull();
+    expect(outcomes.groups[0]?.runs[1]?.cost?.cost).toBe(0.25);
     expect(outcomes.groups[0]?.tally.cost).toEqual({
       amount: 0.5,
       currency: 'USD',

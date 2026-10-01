@@ -19,7 +19,9 @@ import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
+import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
@@ -92,11 +94,6 @@ export interface Saying {
   readonly attachments?: readonly Attachment[];
   readonly approval?: Approval | null;
   readonly failure?: TaskFailure | null;
-}
-
-export interface Placing {
-  readonly line: Line;
-  readonly rank: TaskRank;
 }
 
 export interface StandingApproval {
@@ -176,7 +173,11 @@ export class Task extends EventRecorder {
       new TaskOpened(
         task.id,
         task.workspaceId,
+        input.line.teamId,
+        input.line.id,
         task.stationId,
+        raisedBy,
+        input.now,
         input.heard ?? false,
         input.proposedIn ?? null,
       ),
@@ -358,10 +359,15 @@ export class Task extends EventRecorder {
       );
     }
 
-    const failure =
+    const raised =
       ending.handover.kind === 'review' ? ending.handover.failure : null;
+    const failure =
+      raised?.following(this.openFailure?.failure ?? null) ?? null;
+    const failing = failure
+      ? this.failing(failure, by, ending.saying.at, line)
+      : this;
 
-    return this.relocated(
+    const moved = failing.relocated(
       line,
       to,
       rank,
@@ -376,6 +382,29 @@ export class Task extends EventRecorder {
       },
       null,
     );
+
+    moved.record(
+      new TaskHandedOn(
+        this.id,
+        this.workspaceId,
+        by,
+        this.stationId,
+        to,
+        ending.saying.at,
+      ),
+    );
+
+    return moved;
+  }
+
+  private get openFailure(): TaskNote | undefined {
+    const open = this.trail.open;
+
+    return open
+      ? notesIn(open, this.notes)
+          .reverse()
+          .find((note) => note.failure !== null)
+      : undefined;
   }
 
   interrupted(saying: Saying): Task {
@@ -454,7 +483,7 @@ export class Task extends EventRecorder {
     return Branch.for(this.id);
   }
 
-  openedAt(by: RunId, url: PullRequestUrl): Task {
+  openedAt(by: RunId, url: PullRequestUrl, at: Date, line: Line): Task {
     this.refuseAnotherRun(by, 'open a pull request for it');
 
     if (this.pullRequest) {
@@ -464,7 +493,15 @@ export class Task extends EventRecorder {
     const opened = this.markedBy(Mark.pullRequest(url)).with({
       pullRequestLink: PullRequestLink.opened(url),
     });
-    opened.record(new PullRequestOpened(opened.id, opened.workspaceId, url));
+    opened.record(
+      new PullRequestOpened(
+        opened.id,
+        opened.workspaceId,
+        line.teamId,
+        url,
+        at,
+      ),
+    );
 
     return opened;
   }
@@ -630,7 +667,20 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.relocated(line, into.id, rank, saying, null);
+    const passed = this.relocated(line, into.id, rank, saying, null);
+
+    passed.record(
+      new TaskHandedOn(
+        this.id,
+        this.workspaceId,
+        by,
+        this.stationId,
+        into.id,
+        saying.at,
+      ),
+    );
+
+    return passed;
   }
 
   finishedHere(by: RunId, line: Line, saying: Saying): Task {
@@ -882,6 +932,7 @@ export class Task extends EventRecorder {
         asked.workspaceId,
         asked.stationId,
         asked.assignee,
+        saying.at,
       ),
     );
 
@@ -898,7 +949,8 @@ export class Task extends EventRecorder {
     failure: TaskFailure,
     saying: Saying,
     by: RunId | null,
-    heldBackOnto: Placing | null = null,
+    line: Line | null,
+    heldBackRank: TaskRank | null = null,
   ): Task {
     if (this.finished) {
       throw new InvalidTaskTransitionError(
@@ -912,49 +964,76 @@ export class Task extends EventRecorder {
 
     const heldBackTo = by || !this.running ? null : this.heldBackTo;
 
-    if (heldBackTo && heldBackOnto?.line.stationAt(heldBackTo)) {
-      return this.relocated(
-        heldBackOnto.line,
-        heldBackTo,
-        heldBackOnto.rank,
-        {
-          ...saying,
-          body: TaskNoteBody.movedAsHeldBack(
-            Task.stationOn(heldBackOnto.line, heldBackTo).name,
-            saying.body,
-          ),
-          form: 'failure',
-          failure,
-        },
-        null,
-      ).lettingGoOf(this.currentRunId);
+    if (heldBackTo && heldBackRank && line?.stationAt(heldBackTo)) {
+      return this.failing(failure, by, saying.at, line)
+        .relocated(
+          line,
+          heldBackTo,
+          heldBackRank,
+          {
+            ...saying,
+            body: TaskNoteBody.movedAsHeldBack(
+              Task.stationOn(line, heldBackTo).name,
+              saying.body,
+            ),
+            form: 'failure',
+            failure,
+          },
+          null,
+        )
+        .lettingGoOf(this.currentRunId);
     }
 
     const free = by ? this : this.stopped(saying.at);
-    const open = free.trail.open;
-    const earlier = open
-      ? notesIn(open, free.notes)
-          .reverse()
-          .find((note) => note.failure !== null)
-      : undefined;
+    const earlier = free.openFailure;
 
     if (free.awaitingReview && earlier?.failure?.sameAs(failure)) {
-      return free.with({
-        notes: free.notes.map((note) =>
-          note.equals(earlier) ? note.recurred() : note,
-        ),
-      });
+      return free
+        .with({
+          notes: free.notes.map((note) =>
+            note.equals(earlier) ? note.recurred() : note,
+          ),
+        })
+        .failing(earlier.failure.again(), by, saying.at, line);
     }
 
+    const following = failure.following(earlier?.failure ?? null);
     const reported: Saying = {
       ...saying,
       form: 'failure',
-      failure: failure.following(earlier?.failure ?? null),
+      failure: following,
     };
 
-    return free.awaitingReview
-      ? free.with(free.spoke(reported, 'said'))
-      : free.askedAbout(reported, by);
+    return (
+      free.awaitingReview
+        ? free.with(free.spoke(reported, 'said'))
+        : free.askedAbout(reported, by)
+    ).failing(following, by, saying.at, line);
+  }
+
+  private failing(
+    failure: TaskFailure,
+    by: RunId | null,
+    at: Date,
+    line: Line | null,
+  ): Task {
+    const failing = this.with({});
+
+    if (line) {
+      failing.record(
+        new TaskFailed(
+          failing.id,
+          failing.workspaceId,
+          line.teamId,
+          failing.stationId,
+          failure,
+          by,
+          at,
+        ),
+      );
+    }
+
+    return failing;
   }
 
   private stopped(at: Date): Task {

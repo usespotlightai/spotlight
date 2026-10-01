@@ -32,6 +32,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 import type { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
+import type { DigestRun } from '@work/application/events/handlers/digest-run.handler';
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
@@ -100,7 +101,7 @@ export const workSubscribers = (reactions: {
   pausedRuns: PausedRuns;
   pauseMarks: PauseMarks;
   chatOutcomes: RunOutcomes;
-  digests: RunOutcomes;
+  digests: DigestRun;
   provisioning: ProvisionTeam;
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
@@ -160,7 +161,16 @@ export const workSubscribers = (reactions: {
   ),
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),
-  ...reactingToOutcomes('work.digest-run', reactions.digests),
+  subscribing<RunCompleted>(
+    'work.digest-run.completed',
+    ['run.completed'],
+    (event) => reactions.digests.onRunCompleted(event),
+  ),
+  subscribing<RunAbandoned>(
+    'work.digest-run.abandoned',
+    ['run.abandoned'],
+    (event) => reactions.digests.onRunAbandoned(event),
+  ),
   subscribing<TeamCreatedIntegrationEvent>(
     'work.open-built-in-lines',
     [TEAM_CREATED],

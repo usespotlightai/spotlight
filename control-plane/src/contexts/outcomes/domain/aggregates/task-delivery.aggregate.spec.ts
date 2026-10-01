@@ -1,5 +1,5 @@
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import { WORKSPACE } from '@outcomes/domain/outcomes.fake-spec';
+import { TEAM, WORKSPACE } from '@outcomes/domain/outcomes.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -7,12 +7,15 @@ import { describe, expect, it } from 'vitest';
 const FIRST = PullRequestUrl.of('https://github.com/acme/api/pull/1');
 const SECOND = PullRequestUrl.of('https://github.com/acme/api/pull/2');
 const AT = new Date('2026-09-30T12:00:00.000Z');
+const OPENED = new Date('2026-09-30T10:00:00.000Z');
 
 const opened = () =>
   TaskDelivery.opened({
     taskId: TaskId.of('task_1'),
     workspaceId: WORKSPACE,
+    teamId: TEAM,
     pullRequest: FIRST,
+    at: OPENED,
   });
 
 describe('TaskDelivery', () => {
@@ -69,7 +72,7 @@ describe('TaskDelivery', () => {
   it('follows a new pull request the task opens, open again', () => {
     const reopened = opened()
       .closed({ pullRequest: FIRST, merged: false, at: AT })
-      .reopenedAs(SECOND);
+      .reopenedAs(SECOND, AT);
 
     expect(reopened.pullRequest.equals(SECOND)).toBe(true);
     expect(reopened.state).toBe('open');
@@ -83,6 +86,44 @@ describe('TaskDelivery', () => {
       at: AT,
     });
 
-    expect(merged.reopenedAs(FIRST)).toBe(merged);
+    expect(merged.reopenedAs(FIRST, AT)).toBe(merged);
+  });
+
+  it('dates its first review by a person, keeping the earliest', () => {
+    const reviewed = opened()
+      .reviewed({ pullRequest: FIRST, at: AT, byBot: false })
+      .reviewed({ pullRequest: FIRST, at: OPENED, byBot: false });
+
+    expect(reviewed.firstReviewAt).toEqual(OPENED);
+    expect(
+      reviewed.reviewed({
+        pullRequest: FIRST,
+        at: new Date('2026-09-30T13:00:00.000Z'),
+        byBot: false,
+      }),
+    ).toBe(reviewed);
+  });
+
+  it('counts no bot’s review, nor one of another pull request', () => {
+    const delivery = opened();
+
+    expect(delivery.reviewed({ pullRequest: FIRST, at: AT, byBot: true })).toBe(
+      delivery,
+    );
+    expect(
+      delivery.reviewed({ pullRequest: SECOND, at: AT, byBot: false }),
+    ).toBe(delivery);
+    expect(
+      delivery.reviewed({ pullRequest: FIRST, at: null, byBot: false }),
+    ).toBe(delivery);
+  });
+
+  it('starts over when the task opens a new pull request', () => {
+    const reopened = opened()
+      .reviewed({ pullRequest: FIRST, at: AT, byBot: false })
+      .reopenedAs(SECOND, AT);
+
+    expect(reopened.openedAt).toEqual(AT);
+    expect(reopened.firstReviewAt).toBeNull();
   });
 });

@@ -830,9 +830,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: STATION_RUNS,
-    inject: [STATION_RUN_READER, RUN_DIGESTS],
-    useFactory: (reader: StationRunReaderPort, digests: RunDigestReaderPort) =>
-      new StationRuns(reader, digests),
+    inject: [STATION_RUN_READER],
+    useFactory: (reader: StationRunReaderPort) => new StationRuns(reader),
   },
 
   { provide: RUN_EVENT_READER, useClass: DrizzleRunEventReader },
@@ -1219,6 +1218,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunnerHolds,
       ToolUsedHooks,
       RUN_JOURNAL,
+      RUN_DIGESTS,
     ],
     useFactory: (
       types: EventTypes,
@@ -1245,6 +1245,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ending: RunnerHolds,
       toolUsedHooks: ToolUsedHooks,
       journal: RunJournalPort,
+      digested: RunDigestReaderPort,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -1261,7 +1262,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           pausedRuns: new PausedRuns(tasks, runs),
           pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
-          digests: new DigestRun(digests),
+          digests: new DigestRun(digests, digested),
           provisioning: new ProvisionTeam(
             provisioningLines,
             tasks,
@@ -1609,6 +1610,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
       HOOKED_TASKS,
       LIFECYCLE_HOOKS,
+      CLOCK,
     ],
     useFactory: (
       tasks: DrizzleTaskRepository,
@@ -1617,6 +1619,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       hookedTasks: HookedTasksPort,
       hooks: LifecycleHooksPort,
+      clock: ClockPort,
     ) =>
       new OpenPullRequest(
         tasks,
@@ -1625,6 +1628,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         transaction,
         hookedTasks,
         hooks,
+        clock,
       ),
   },
 

@@ -7,7 +7,7 @@ import type {
   FingerprintGroupDto,
   StationOutcomesDto,
 } from '@outcomes/application/dto/station-outcomes.dto';
-import type { StationTally } from '@outcomes/domain/services/station-tally';
+import type { RunTally } from '@outcomes/domain/services/run-tally';
 import { CHECK_VERDICTS } from '@outcomes/domain/value-objects/check-verdict';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { PERSON_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
@@ -64,6 +64,22 @@ export class NextActResponseDto {
   }
 }
 
+export class HandedOnResponseDto {
+  @ApiProperty({
+    example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80',
+    description: 'The station the run moved its task on to',
+  })
+  readonly to: string;
+
+  @ApiProperty({ example: '2026-09-30T10:05:00.000Z' })
+  readonly at: string;
+
+  constructor(handedOn: { to: string; at: string }) {
+    this.to = handedOn.to;
+    this.at = handedOn.at;
+  }
+}
+
 export class StationRunOutcomeResponseDto {
   @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
   readonly runId: string;
@@ -110,6 +126,13 @@ export class StationRunOutcomeResponseDto {
   readonly next: NextActResponseDto | null;
 
   @ApiProperty({
+    type: HandedOnResponseDto,
+    nullable: true,
+    description: 'Where the run moved its task on to, if it did',
+  })
+  readonly handedOn: HandedOnResponseDto | null;
+
+  @ApiProperty({
     enum: [...DELIVERY_STATES, null],
     nullable: true,
     description: 'Where the task’s pull request stands, if it opened one',
@@ -126,6 +149,9 @@ export class StationRunOutcomeResponseDto {
     this.cost = outcome.cost ? new RunCostResponseDto(outcome.cost) : null;
     this.checks = outcome.checks;
     this.next = outcome.next ? new NextActResponseDto(outcome.next) : null;
+    this.handedOn = outcome.handedOn
+      ? new HandedOnResponseDto(outcome.handedOn)
+      : null;
     this.delivery = outcome.delivery;
   }
 }
@@ -143,7 +169,7 @@ export class SpendResponseDto {
   }
 }
 
-export class StationTallyResponseDto {
+export class RunTallyResponseDto {
   @ApiProperty({
     example: 12,
     description: 'Runs that ran; the rest of the tally counts only these',
@@ -181,6 +207,12 @@ export class StationTallyResponseDto {
   readonly sentBack: number;
 
   @ApiProperty({
+    example: 2,
+    description: 'Runs that moved their task on to another station',
+  })
+  readonly handedOn: number;
+
+  @ApiProperty({
     example: 4,
     description: 'Tasks among these runs whose pull request merged',
   })
@@ -193,10 +225,36 @@ export class StationTallyResponseDto {
   })
   readonly cost: SpendResponseDto | null;
 
-  @ApiProperty({ nullable: true, type: Number, example: 184_000 })
+  @ApiProperty({
+    example: 1,
+    description: 'Runs that ran with no price',
+  })
+  readonly unpriced: number;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the priced runs came in more than one currency, so nothing was summed',
+  })
+  readonly mixedCurrencies: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 184_000,
+    description: 'The median time the runs took, from their digests',
+  })
   readonly medianMs: number | null;
 
-  constructor(tally: StationTally) {
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 420_000,
+    description: 'The time nine in ten of the runs took no longer than',
+  })
+  readonly p90Ms: number | null;
+
+  constructor(tally: RunTally) {
     this.runs = tally.runs;
     this.withdrawn = tally.withdrawn;
     this.failed = tally.failed;
@@ -205,9 +263,13 @@ export class StationTallyResponseDto {
     this.checksFailed = tally.checksFailed;
     this.accepted = tally.accepted;
     this.sentBack = tally.sentBack;
+    this.handedOn = tally.handedOn;
     this.merged = tally.merged;
     this.cost = tally.cost ? new SpendResponseDto(tally.cost) : null;
+    this.unpriced = tally.unpriced;
+    this.mixedCurrencies = tally.mixedCurrencies;
     this.medianMs = tally.medianMs;
+    this.p90Ms = tally.p90Ms;
   }
 }
 
@@ -238,8 +300,8 @@ export class FingerprintGroupResponseDto {
   })
   readonly runs: readonly StationRunOutcomeResponseDto[];
 
-  @ApiProperty({ type: StationTallyResponseDto })
-  readonly tally: StationTallyResponseDto;
+  @ApiProperty({ type: RunTallyResponseDto })
+  readonly tally: RunTallyResponseDto;
 
   constructor(group: FingerprintGroupDto) {
     this.fingerprint = group.fingerprint;
@@ -252,7 +314,7 @@ export class FingerprintGroupResponseDto {
     this.runs = group.runs.map(
       (each) => new StationRunOutcomeResponseDto(each),
     );
-    this.tally = new StationTallyResponseDto(group.tally);
+    this.tally = new RunTallyResponseDto(group.tally);
   }
 }
 

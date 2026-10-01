@@ -6,14 +6,16 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { RANGES, rangeOf } from '@/lib/range';
+import { RANGES, type Range, rangeOf } from '@/lib/range';
 
 export function RangePicker({
   value,
   onChange,
+  ranges = RANGES,
 }: {
   value: string;
   onChange: (id: string) => void;
+  ranges?: readonly Range[];
 }) {
   const standing = rangeOf(value);
 
@@ -38,7 +40,7 @@ export function RangePicker({
           value={value}
           onValueChange={(next) => onChange(String(next))}
         >
-          {RANGES.map((range) => (
+          {ranges.map((range) => (
             <DropdownMenuRadioItem key={range.id} value={range.id}>
               <span className="w-9 shrink-0 rounded bg-muted px-1.5 py-0.5 text-center text-muted-foreground text-xs tabular-nums">
                 {range.short}

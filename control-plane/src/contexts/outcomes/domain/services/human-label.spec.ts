@@ -4,7 +4,11 @@ import {
   personGrade,
   RUBRIC_VERSION,
 } from '@outcomes/domain/judging.fake-spec';
-import { endedRecord, WORKSPACE } from '@outcomes/domain/outcomes.fake-spec';
+import {
+  endedRecord,
+  TEAM,
+  WORKSPACE,
+} from '@outcomes/domain/outcomes.fake-spec';
 import { humanLabelOf } from '@outcomes/domain/services/human-label';
 import {
   NextAct,
@@ -25,7 +29,9 @@ const delivered = (merged: boolean) =>
   TaskDelivery.opened({
     taskId: TaskId.of('task_1'),
     workspaceId: WORKSPACE,
+    teamId: TEAM,
     pullRequest: PULL,
+    at: AT,
   }).closed({ pullRequest: PULL, merged, at: AT });
 
 const labelled = (change: Partial<Parameters<typeof humanLabelOf>[0]>) =>

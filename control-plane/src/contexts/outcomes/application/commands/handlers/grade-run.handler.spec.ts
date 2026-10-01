@@ -13,6 +13,7 @@ import {
 import {
   endedRecord,
   inTransaction,
+  NOBODY_ELSE,
   RunRecordsInMemory,
   TaskDeliveriesInMemory,
   WORKSPACE,
@@ -59,6 +60,7 @@ const grading = async (
   let next = 0;
   const handler = new GradeRunHandler(
     new OutcomesAccess({
+      ...NOBODY_ELSE,
       clearedOnTeam: async (_teamId, principal) =>
         principal.userId.equals(UserId.of('user_stranger'))
           ? null

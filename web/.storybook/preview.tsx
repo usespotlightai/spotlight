@@ -36,6 +36,8 @@ const preview: Preview = {
             'Observability',
             ['Traces', 'Task trace'],
             'Memory',
+            'Insights',
+            ['Overview', 'Flow', 'Stations', 'People', 'Cost', 'Runs'],
             'Settings',
             ['General', 'Integrations', 'Skills'],
           ],

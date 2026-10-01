@@ -3,14 +3,18 @@ import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregat
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
 import { TaskDeliveryMovedOnError } from '@outcomes/domain/exceptions/task-delivery-moved-on.error';
 import type {
+  RunListing,
+  RunPage,
   RunRecordRepository,
   StationRecords,
+  TeamWindow,
 } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
+import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -18,7 +22,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const WORKSPACE = WorkspaceId.of('ws_1');
-const TEAM = TeamId.of('team_1');
+export const TEAM = TeamId.of('team_1');
 export const FIRST_CONFIG = 'a'.repeat(64);
 export const SECOND_CONFIG = 'b'.repeat(64);
 
@@ -36,15 +40,29 @@ export const endOf = (
     stationId?: string;
     fingerprint?: string | null;
     endedAt?: Date;
+    queuedAt?: Date | null;
+    startedAt?: Date | null;
     ending?: RunEnding;
     failure?: string | null;
     round?: number;
+    harness?: string;
+    model?: string | null;
+    repositories?: readonly string[];
   } = {},
 ): RunEnd =>
   RunEnd.of({
     place: placeOf(change.taskId, change.stationId),
     fingerprint:
       change.fingerprint === undefined ? FIRST_CONFIG : change.fingerprint,
+    setup: RunSetup.of({
+      harness: change.harness ?? 'claude-code',
+      model: change.model === undefined ? 'sonnet' : change.model,
+      effort: null,
+      profileKey: null,
+      repositories: change.repositories ?? ['acme/api'],
+    }),
+    queuedAt: change.queuedAt === undefined ? null : change.queuedAt,
+    startedAt: change.startedAt === undefined ? null : change.startedAt,
     endedAt: change.endedAt ?? new Date('2026-09-30T10:00:00.000Z'),
     ending: change.ending ?? 'completed',
     failure: change.failure ?? null,
@@ -72,6 +90,15 @@ export const endedRecord = (
   change: Parameters<typeof endOf>[0] = {},
 ): RunRecord =>
   RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(endOf(change));
+
+export const costedRecord = (
+  runId: string,
+  change: NonNullable<Parameters<typeof endOf>[0]> &
+    NonNullable<Parameters<typeof costOf>[0]> = {},
+): RunRecord => endedRecord(runId, change).digested(costOf(change));
+
+const endedTime = (record: RunRecord): number =>
+  record.end?.endedAt.getTime() ?? 0;
 
 export class RunRecordsInMemory implements RunRecordRepository {
   readonly held = new Map<string, RunRecord>();
@@ -144,6 +171,39 @@ export class RunRecordsInMemory implements RunRecordRepository {
       .slice(0, criteria.last);
   }
 
+  async endedForTeam(
+    window: TeamWindow,
+    most: number,
+  ): Promise<readonly RunRecord[]> {
+    const ended = this.endedIn(window);
+
+    return ended.slice(Math.max(ended.length - most, 0));
+  }
+
+  async listedForTeam(listing: RunListing): Promise<RunPage> {
+    const { filter } = listing;
+    const matching = this.endedIn(listing.window)
+      .filter((each) => {
+        const end = each.end;
+
+        return (
+          end !== null &&
+          (filter.stationId === null ||
+            end.place.stationId === filter.stationId) &&
+          (filter.lineId === null || end.place.lineId === filter.lineId) &&
+          (filter.outcome === null || each.ending === filter.outcome) &&
+          (filter.taskIds === null ||
+            filter.taskIds.includes(end.place.taskId.value))
+        );
+      })
+      .reverse();
+
+    return {
+      records: matching.slice(listing.offset, listing.offset + listing.limit),
+      total: matching.length,
+    };
+  }
+
   async removeForTask(taskId: TaskId): Promise<void> {
     for (const each of [...this.held.values()]) {
       if (each.taskId?.equals(taskId)) {
@@ -169,6 +229,18 @@ export class RunRecordsInMemory implements RunRecordRepository {
         this.held.delete(each.runId.value);
       }
     }
+  }
+
+  private endedIn(window: TeamWindow): RunRecord[] {
+    return this.ended()
+      .filter(
+        (each) =>
+          each.workspaceId.equals(window.workspaceId) &&
+          each.end?.place.teamId.equals(window.teamId) &&
+          endedTime(each) >= window.from.getTime() &&
+          endedTime(each) < window.to.getTime(),
+      )
+      .sort((a, b) => endedTime(a) - endedTime(b));
   }
 
   private ended(): RunRecord[] {
@@ -209,6 +281,34 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
     });
   }
 
+  async ofTeamBetween(
+    window: TeamWindow,
+    most: number,
+  ): Promise<readonly TaskDelivery[]> {
+    return [...this.held.values()]
+      .filter(
+        (each) =>
+          each.workspaceId.equals(window.workspaceId) &&
+          each.teamId.equals(window.teamId) &&
+          each.openedAt.getTime() < window.to.getTime() &&
+          (each.closedAt === null
+            ? each.openedAt.getTime() >= window.from.getTime()
+            : each.closedAt.getTime() >= window.from.getTime()),
+      )
+      .sort((a, b) => b.openedAt.getTime() - a.openedAt.getTime())
+      .slice(0, most);
+  }
+
+  async ofTeam(
+    workspaceId: WorkspaceId,
+    teamId: TeamId,
+  ): Promise<readonly TaskDelivery[]> {
+    return [...this.held.values()].filter(
+      (each) =>
+        each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId),
+    );
+  }
+
   async forPullRequest(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
@@ -226,6 +326,14 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
     this.held.delete(taskId.value);
   }
 
+  async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+    for (const each of [...this.held.values()]) {
+      if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
+        this.held.delete(each.taskId.value);
+      }
+    }
+  }
+
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
     for (const each of [...this.held.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
@@ -234,6 +342,21 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
     }
   }
 }
+
+export const SET_UP = {
+  harness: 'claude-code',
+  model: 'sonnet',
+  effort: null,
+  profileKey: null,
+  repositories: ['acme/api'],
+  queuedAt: new Date('2026-09-01T00:00:00.000Z'),
+  startedAt: null,
+};
+
+export const NOBODY_ELSE = {
+  clearedOnTeam: async () => null,
+  namesOf: async () => new Map<string, string>(),
+};
 
 export const inTransaction = {
   run: <T>(work: () => Promise<T>): Promise<T> => work(),

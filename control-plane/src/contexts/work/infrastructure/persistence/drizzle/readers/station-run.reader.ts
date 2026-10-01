@@ -44,6 +44,10 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
             and earlier.station_id = ${run.stationId}
             and earlier.created_at < ${run.createdAt}
         )`,
+        harness: run.harness,
+        config: run.stationConfig,
+        queuedAt: run.createdAt,
+        startedAt: run.startedAt,
         endedAt: run.endedAt,
       })
       .from(run)

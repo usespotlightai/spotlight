@@ -1,49 +1,88 @@
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
-import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
+import type {
+  EndedRunRow,
+  StationRunReaderPort,
+} from '@work/application/ports/station-run-reader.port';
 import { StationRuns } from '@work/application/services/station-runs.service';
-import { Money } from '@work/domain/value-objects/money.vo';
-import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { describe, expect, it } from 'vitest';
 
-const digests: RunDigestReaderPort = {
-  forRuns: async () =>
-    new Map([
-      [
-        'run_1',
-        {
-          ms: 60_000,
-          steps: 12,
-          faults: 1,
-          used: 40_000,
-          size: 200_000,
-          cost: Money.of(0.42, 'USD'),
-          tokens: Tokens.of({
-            input: 1_200,
-            output: 900,
-            cacheRead: 80_000,
-          }),
-        },
-      ],
-    ]),
-};
+const QUEUED = new Date('2026-09-30T09:00:00.000Z');
+const STARTED = new Date('2026-09-30T09:02:00.000Z');
+const ENDED = new Date('2026-09-30T09:10:00.000Z');
 
-describe('StationRuns.costsOf', () => {
-  it('hands on each token count, with what was never reported left unknown', async () => {
-    const stations = new StationRuns({} as StationRunReaderPort, digests);
+const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
+  runId: 'run_1',
+  workspaceId: 'ws_1',
+  teamId: 'team_1',
+  lineId: 'line_1',
+  stationId: 'station_1',
+  taskId: 'task_1',
+  fingerprint: null,
+  earlier: ['completed'],
+  harness: 'claude-code',
+  config: null,
+  queuedAt: QUEUED,
+  startedAt: STARTED,
+  endedAt: ENDED,
+  ...change,
+});
 
-    const costs = await stations.costsOf(['run_1']);
+const readingOnly = (found: EndedRunRow): StationRunReaderPort =>
+  ({ endedRun: async () => found }) as unknown as StationRunReaderPort;
 
-    expect(costs.get('run_1')).toEqual({
-      ms: 60_000,
-      steps: 12,
-      faults: 1,
-      used: 40_000,
-      cost: 0.42,
-      currency: 'USD',
-      inputTokens: 1_200,
-      outputTokens: 900,
-      cacheReadTokens: 80_000,
-      cacheWriteTokens: null,
+describe('StationRuns.ended', () => {
+  it('names the harness, model, effort, profile and repositories the run was configured with', async () => {
+    const stations = new StationRuns(
+      readingOnly(
+        row({
+          config: {
+            prompt: null,
+            harness: 'codex',
+            model: 'gpt-5',
+            effort: 'high',
+            profile: { key: 'careful', settings: {} },
+            image: null,
+            repositories: [
+              { name: 'acme/api', setup: null },
+              { name: 'acme/web', setup: 'npm ci' },
+            ],
+            skills: [],
+            tools: [],
+            decisions: false,
+            memories: false,
+          },
+        }),
+      ),
+    );
+
+    expect(await stations.ended('run_1')).toEqual({
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_1',
+      taskId: 'task_1',
+      fingerprint: null,
+      round: 2,
+      harness: 'codex',
+      model: 'gpt-5',
+      effort: 'high',
+      profileKey: 'careful',
+      repositories: ['acme/api', 'acme/web'],
+      queuedAt: QUEUED,
+      startedAt: STARTED,
+      endedAt: ENDED,
+    });
+  });
+
+  it('falls back on the harness the run ran on when it recorded no config', async () => {
+    const stations = new StationRuns(readingOnly(row()));
+
+    expect(await stations.ended('run_1')).toMatchObject({
+      harness: 'claude-code',
+      model: null,
+      effort: null,
+      profileKey: null,
+      repositories: [],
     });
   });
 });

@@ -1,3 +1,4 @@
+import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -8,6 +9,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export class NoteRunSuperseded {
   constructor(
     private readonly records: RunRecordRepository,
+    private readonly forgotten: ForgottenPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -17,9 +19,14 @@ export class NoteRunSuperseded {
     taskId: TaskId,
   ): Promise<void> {
     return this.transaction.run(async () => {
+      await this.forgotten.holding(workspaceId, taskId);
       const held = await this.records.of(runId);
 
       if (!held) {
+        if (await this.forgotten.forgot(workspaceId, taskId)) {
+          return;
+        }
+
         await this.records.add(
           RunRecord.heardOf(runId, workspaceId, taskId).supersededByItsTask(),
         );

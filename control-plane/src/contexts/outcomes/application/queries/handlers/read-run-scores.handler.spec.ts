@@ -14,6 +14,7 @@ import {
 } from '@outcomes/domain/judging.fake-spec';
 import {
   endedRecord,
+  NOBODY_ELSE,
   RunRecordsInMemory,
   TaskDeliveriesInMemory,
   WORKSPACE,
@@ -100,6 +101,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
 
   return new ReadRunScoresHandler(
     new OutcomesAccess({
+      ...NOBODY_ELSE,
       clearedOnTeam: async (_teamId, principal) => ({
         workspaceId: WORKSPACE,
         by: principal.userId,

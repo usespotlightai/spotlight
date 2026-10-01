@@ -25,13 +25,18 @@ export class RunOutcomes implements RunOutcomesPort {
     );
     return new Map(
       ended.flatMap((record) => {
-        const outcome = runOutcomeOf(record, deliveries, new Map());
+        const outcome = runOutcomeOf(record, deliveries);
 
         if (!outcome) {
           return [];
         }
 
-        const { taskId: _taskId, cost: _cost, ...shape } = outcome;
+        const {
+          taskId: _taskId,
+          cost: _cost,
+          handedOn: _handedOn,
+          ...shape
+        } = outcome;
 
         return [[outcome.runId, shape] as const];
       }),

@@ -1,6 +1,9 @@
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import { OutcomesClearance } from '@outcomes/domain/services/outcomes-clearance';
-import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import {
+  PersonPrincipal,
+  type Principal,
+} from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class OutcomesAccess {
@@ -16,6 +19,16 @@ export class OutcomesAccess {
         teamId,
         PersonPrincipal.of(UserId.of(viewerId)),
       ),
+    );
+  }
+
+  async clearanceFor(
+    teamId: string,
+    principal: Principal,
+  ): Promise<OutcomesClearance> {
+    return OutcomesClearance.onTeam(
+      teamId,
+      await this.people.clearedOnTeam(teamId, principal),
     );
   }
 }

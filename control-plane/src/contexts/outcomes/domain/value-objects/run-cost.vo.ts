@@ -5,13 +5,32 @@ export interface Spend {
   readonly currency: string;
 }
 
+export interface TokenCounts {
+  readonly input: number | null;
+  readonly output: number | null;
+  readonly cacheRead: number | null;
+  readonly cacheWrite: number | null;
+}
+
+const NO_TOKENS: TokenCounts = {
+  input: null,
+  output: null,
+  cacheRead: null,
+  cacheWrite: null,
+};
+
+const counted = (count: number | null): boolean =>
+  count === null || (Number.isSafeInteger(count) && count >= 0);
+
 export class RunCost {
   private constructor(
     readonly ms: number | null,
     readonly steps: number,
     readonly faults: number,
     readonly used: number | null,
+    readonly size: number | null,
     readonly spend: Spend | null,
+    readonly tokens: TokenCounts,
   ) {}
 
   static of(input: {
@@ -19,14 +38,28 @@ export class RunCost {
     steps: number;
     faults: number;
     used: number | null;
+    size?: number | null;
     amount: number | null;
     currency: string | null;
+    tokens?: TokenCounts;
   }): RunCost {
+    const tokens = input.tokens ?? NO_TOKENS;
+
     if (input.steps < 0 || input.faults < 0) {
       throw new InvalidOutcomeError('counts no fewer than no steps or faults');
     }
     if (input.ms !== null && input.ms < 0) {
       throw new InvalidOutcomeError('takes no less than no time');
+    }
+    if (input.amount !== null && !(input.amount >= 0)) {
+      throw new InvalidOutcomeError('costs nothing less than nothing');
+    }
+    if (
+      ![tokens.input, tokens.output, tokens.cacheRead, tokens.cacheWrite].every(
+        counted,
+      )
+    ) {
+      throw new InvalidOutcomeError('counts its tokens in whole numbers');
     }
 
     return new RunCost(
@@ -34,9 +67,11 @@ export class RunCost {
       input.steps,
       input.faults,
       input.used,
+      input.size ?? null,
       input.amount !== null && input.currency
         ? { amount: input.amount, currency: input.currency }
         : null,
+      tokens,
     );
   }
 }

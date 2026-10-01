@@ -2,11 +2,17 @@ import type { AskForJudging } from '@outcomes/application/services/ask-for-judgi
 import type { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import type { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import type { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
+import type { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
 import type { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import type { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import type { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
+import type { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
+import type { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import type { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
+import type { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
 import type { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
+import type { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
+import type { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import type { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
 import type { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import type { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
@@ -15,6 +21,10 @@ import {
   type ChangeCheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import {
+  CHAT_STARTED,
+  type ChatStartedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
@@ -22,6 +32,14 @@ import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import {
+  PULL_REQUEST_REVIEWED,
+  type PullRequestReviewedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
+import {
+  RUN_DIGESTED,
+  type RunDigestedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-digested.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -35,9 +53,25 @@ import {
   type TaskActedOnIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import {
+  TASK_ASKED,
+  type TaskAskedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-asked.integration-event';
+import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
+import {
+  TASK_FAILED,
+  type TaskFailedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-failed.integration-event';
+import {
+  TASK_HANDED_ON,
+  type TaskHandedOnIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-handed-on.integration-event';
+import {
+  TASK_OPENED,
+  type TaskOpenedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-opened.integration-event';
 import {
   TEAM_DISBANDED,
   type TeamDisbandedIntegrationEvent,
@@ -67,6 +101,12 @@ export interface OutcomesReactions {
   readonly judging: AskForJudging;
   readonly scoring: RecordJudgeScore;
   readonly grading: GradeAsides;
+  readonly digesting: NoteRunDigested;
+  readonly handingOn: NoteRunHandedOn;
+  readonly reviewing: NotePullRequestReviewed;
+  readonly failing: NoteTaskFailed;
+  readonly touching: NoteTaskTouch;
+  readonly chatting: NoteChatStarted;
 }
 
 export const outcomesSubscribers = (
@@ -130,11 +170,60 @@ export const outcomesSubscribers = (
     'outcomes.record-opened-pull-request',
     [PULL_REQUEST_OPENED],
     (event) =>
-      reactions.opening.opened(
-        TaskId.of(event.taskId),
-        WorkspaceId.of(event.workspaceId),
-        PullRequestUrl.of(event.url),
-      ),
+      reactions.opening.opened({
+        taskId: TaskId.of(event.taskId),
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        teamId: TeamId.of(event.teamId),
+        pullRequest: PullRequestUrl.of(event.url),
+        at: new Date(event.at),
+      }),
+  ),
+  subscribing<PullRequestReviewedIntegrationEvent>(
+    'outcomes.record-first-review',
+    [PULL_REQUEST_REVIEWED],
+    (event) =>
+      reactions.reviewing.reviewed({
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        pullRequest: PullRequestUrl.of(event.pullRequest),
+        byBot: event.byBot,
+        at: event.submittedAt ? new Date(event.submittedAt) : null,
+      }),
+  ),
+  subscribing<RunDigestedIntegrationEvent>(
+    'outcomes.record-run-cost',
+    [RUN_DIGESTED],
+    (event) =>
+      event.taskId ? reactions.digesting.digested(event) : Promise.resolve(),
+  ),
+  subscribing<TaskHandedOnIntegrationEvent>(
+    'outcomes.record-handed-on-run',
+    [TASK_HANDED_ON],
+    (event) => reactions.handingOn.handedOn(event),
+  ),
+  subscribing<TaskFailedIntegrationEvent>(
+    'outcomes.record-task-failure',
+    [TASK_FAILED],
+    (event) => reactions.failing.failed(event),
+  ),
+  subscribing<TaskOpenedIntegrationEvent>(
+    'outcomes.record-task-opening',
+    [TASK_OPENED],
+    (event) => reactions.touching.opened(event),
+  ),
+  subscribing<TaskAskedIntegrationEvent>(
+    'outcomes.record-inbox-ask',
+    [TASK_ASKED],
+    (event) => reactions.touching.asked(event),
+  ),
+  subscribing<TaskActedOnIntegrationEvent>(
+    'outcomes.record-person-touch',
+    [TASK_ACTED_ON],
+    (event) => reactions.touching.acted(event),
+  ),
+  subscribing<ChatStartedIntegrationEvent>(
+    'outcomes.record-started-chat',
+    [CHAT_STARTED],
+    (event) => reactions.chatting.started(event),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'outcomes.record-closed-pull-request',
@@ -150,24 +239,89 @@ export const outcomesSubscribers = (
   subscribing<TaskDeletedIntegrationEvent>(
     'outcomes.forget-runs-of-deleted-task',
     [TASK_DELETED],
-    (event) => reactions.forgetting.runsOfTask(TaskId.of(event.taskId)),
+    (event) =>
+      reactions.forgetting.runsOfTask(
+        WorkspaceId.of(event.workspaceId),
+        TaskId.of(event.taskId),
+      ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'outcomes.forget-delivery-of-deleted-task',
     [TASK_DELETED],
-    (event) => reactions.forgetting.deliveryOfTask(TaskId.of(event.taskId)),
+    (event) =>
+      reactions.forgetting.deliveryOfTask(
+        WorkspaceId.of(event.workspaceId),
+        TaskId.of(event.taskId),
+      ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'outcomes.forget-judgings-and-scores-of-deleted-task',
     [TASK_DELETED],
     (event) =>
-      reactions.forgetting.judgingsAndScoresOfTask(TaskId.of(event.taskId)),
+      reactions.forgetting.judgingsAndScoresOfTask(
+        WorkspaceId.of(event.workspaceId),
+        TaskId.of(event.taskId),
+      ),
+  ),
+  subscribing<TaskDeletedIntegrationEvent>(
+    'outcomes.forget-touches-of-deleted-task',
+    [TASK_DELETED],
+    (event) =>
+      reactions.forgetting.touchesOfTask(
+        WorkspaceId.of(event.workspaceId),
+        TaskId.of(event.taskId),
+      ),
+  ),
+  subscribing<TaskDeletedIntegrationEvent>(
+    'outcomes.forget-failures-of-deleted-task',
+    [TASK_DELETED],
+    (event) =>
+      reactions.forgetting.failuresOfTask(
+        WorkspaceId.of(event.workspaceId),
+        TaskId.of(event.taskId),
+      ),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'outcomes.forget-touches-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.forgetting.touchesOfTeam(
+        WorkspaceId.of(event.workspaceId),
+        TeamId.of(event.teamId),
+      ),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'outcomes.forget-chats-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.forgetting.chatsOfTeam(
+        WorkspaceId.of(event.workspaceId),
+        TeamId.of(event.teamId),
+      ),
   ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'outcomes.forget-judgings-and-scores-of-disbanded-team',
     [TEAM_DISBANDED],
     (event) =>
       reactions.forgetting.judgingsAndScoresOfTeam(
+        WorkspaceId.of(event.workspaceId),
+        TeamId.of(event.teamId),
+      ),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'outcomes.forget-failures-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.forgetting.failuresOfTeam(
+        WorkspaceId.of(event.workspaceId),
+        TeamId.of(event.teamId),
+      ),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'outcomes.forget-deliveries-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.forgetting.deliveriesOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
@@ -202,5 +356,27 @@ export const outcomesSubscribers = (
       reactions.forgetting.judgingsAndScoresOfWorkspace(
         WorkspaceId.of(event.workspaceId),
       ),
+  ),
+  subscribing<WorkspaceClosedIntegrationEvent>(
+    'outcomes.forget-touches-of-closed-workspace',
+    [WORKSPACE_CLOSED],
+    (event) =>
+      reactions.forgetting.touchesOfWorkspace(
+        WorkspaceId.of(event.workspaceId),
+      ),
+  ),
+  subscribing<WorkspaceClosedIntegrationEvent>(
+    'outcomes.forget-failures-of-closed-workspace',
+    [WORKSPACE_CLOSED],
+    (event) =>
+      reactions.forgetting.failuresOfWorkspace(
+        WorkspaceId.of(event.workspaceId),
+      ),
+  ),
+  subscribing<WorkspaceClosedIntegrationEvent>(
+    'outcomes.forget-chats-of-closed-workspace',
+    [WORKSPACE_CLOSED],
+    (event) =>
+      reactions.forgetting.chatsOfWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

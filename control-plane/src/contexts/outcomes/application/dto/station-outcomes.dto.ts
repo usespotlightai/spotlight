@@ -3,14 +3,14 @@ import type {
   ConfigPart,
   StationConfigView,
 } from '@outcomes/application/ports/work.port';
-import type { StationTally } from '@outcomes/domain/services/station-tally';
+import type { RunTally } from '@outcomes/domain/services/run-tally';
 
 export interface FingerprintGroupDto {
   readonly fingerprint: string | null;
   readonly config: StationConfigView | null;
   readonly changes: readonly ConfigPart[];
   readonly runs: readonly RunOutcomeDto[];
-  readonly tally: StationTally;
+  readonly tally: RunTally;
 }
 
 export interface StationOutcomesDto {

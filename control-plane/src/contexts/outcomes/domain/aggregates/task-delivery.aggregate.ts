@@ -1,14 +1,30 @@
 import type { DeliveryState } from '@outcomes/domain/value-objects/delivery-state';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export interface PullRequestReview {
+  readonly pullRequest: PullRequestUrl;
+  readonly at: Date | null;
+  readonly byBot: boolean;
+}
+
+export type CountedReview = PullRequestReview & { readonly at: Date };
+
+export const countsAsReview = (
+  review: PullRequestReview,
+): review is CountedReview => !review.byBot && review.at !== null;
 
 export class TaskDelivery {
   private constructor(
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
+    readonly teamId: TeamId,
     readonly pullRequest: PullRequestUrl,
     readonly state: DeliveryState,
+    readonly openedAt: Date,
+    readonly firstReviewAt: Date | null,
     readonly closedAt: Date | null,
     readonly version: number,
   ) {}
@@ -16,13 +32,18 @@ export class TaskDelivery {
   static opened(input: {
     taskId: TaskId;
     workspaceId: WorkspaceId;
+    teamId: TeamId;
     pullRequest: PullRequestUrl;
+    at: Date;
   }): TaskDelivery {
     return new TaskDelivery(
       input.taskId,
       input.workspaceId,
+      input.teamId,
       input.pullRequest,
       'open',
+      input.at,
+      null,
       null,
       0,
     );
@@ -31,22 +52,32 @@ export class TaskDelivery {
   static rehydrate(input: {
     taskId: TaskId;
     workspaceId: WorkspaceId;
+    teamId: TeamId;
     pullRequest: PullRequestUrl;
     state: DeliveryState;
+    openedAt: Date;
+    firstReviewAt: Date | null;
     closedAt: Date | null;
     version: number;
   }): TaskDelivery {
     return new TaskDelivery(
       input.taskId,
       input.workspaceId,
+      input.teamId,
       input.pullRequest,
       input.state,
+      input.openedAt,
+      input.firstReviewAt,
       input.closedAt,
       input.version,
     );
   }
 
-  reopenedAs(pullRequest: PullRequestUrl): TaskDelivery {
+  get merged(): boolean {
+    return this.state === 'merged';
+  }
+
+  reopenedAs(pullRequest: PullRequestUrl, at: Date): TaskDelivery {
     if (pullRequest.equals(this.pullRequest)) {
       return this;
     }
@@ -54,9 +85,35 @@ export class TaskDelivery {
     return new TaskDelivery(
       this.taskId,
       this.workspaceId,
+      this.teamId,
       pullRequest,
       'open',
+      at,
       null,
+      null,
+      this.version,
+    );
+  }
+
+  reviewed(review: PullRequestReview): TaskDelivery {
+    if (
+      !countsAsReview(review) ||
+      !review.pullRequest.equals(this.pullRequest) ||
+      (this.firstReviewAt !== null &&
+        this.firstReviewAt.getTime() <= review.at.getTime())
+    ) {
+      return this;
+    }
+
+    return new TaskDelivery(
+      this.taskId,
+      this.workspaceId,
+      this.teamId,
+      this.pullRequest,
+      this.state,
+      this.openedAt,
+      review.at,
+      this.closedAt,
       this.version,
     );
   }
@@ -82,8 +139,11 @@ export class TaskDelivery {
     return new TaskDelivery(
       this.taskId,
       this.workspaceId,
+      this.teamId,
       this.pullRequest,
       state,
+      this.openedAt,
+      this.firstReviewAt,
       input.at ?? this.closedAt,
       this.version,
     );

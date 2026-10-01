@@ -110,7 +110,13 @@ export class Chat extends EventRecorder {
     );
 
     chat.record(
-      new ChatStarted(chat.id, chat.workspaceId, chat.teamId, chat.startedBy),
+      new ChatStarted(
+        chat.id,
+        chat.workspaceId,
+        chat.teamId,
+        chat.startedBy,
+        chat.createdAt,
+      ),
     );
 
     return chat;

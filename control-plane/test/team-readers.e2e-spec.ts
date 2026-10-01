@@ -72,6 +72,21 @@ const readAside = (userId: string, asideId: string) =>
     .post(`${inbox()}/asides/${asideId}/read`)
     .set(TEST_USER_HEADER, userId);
 
+const overview = () =>
+  `/api/teams/${team.teamId.value}/insights/overview?period=7d`;
+
+const readToken = async (of = team): Promise<string> => {
+  const answer = await served(app)
+    .post(`/api/resources/workspaces/${of.workspaceId.value}/tokens`)
+    .set(TEST_USER_HEADER, of.owner.value)
+    .set('Idempotency-Key', randomUUID())
+    .send({ name: `readers-${randomUUID().slice(0, 6)}`, scopes: ['read'] });
+
+  expect(answer.status).toBe(201);
+
+  return answer.headers['spotlight-workspace-token'] as string;
+};
+
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
@@ -112,6 +127,7 @@ beforeAll(async () => {
     stationId: team.stationId.value,
     taskId: team.list.id.value,
     fingerprint: 'a'.repeat(64),
+    harness: 'claude-code',
     endedAt: new Date(),
     ending: 'completed',
     round: 1,
@@ -284,6 +300,50 @@ describe('who is asked to grade a team’s run in their inbox', () => {
     );
     expect(
       (await readAside(ELSEWHERE_IN_WORKSPACE, assignedElsewhere)).status,
+    ).toBe(404);
+  });
+});
+
+describe('who may read a team’s Insights', () => {
+  it('answers a member of the team', async () => {
+    expect((await as(team.owner.value, overview())).status).toBe(200);
+  });
+
+  it('answers an admin of the workspace who is not on the team', async () => {
+    expect((await as(ADMIN, overview())).status).toBe(200);
+  });
+
+  it('finds no team for a workspace member who is only on another team', async () => {
+    expect((await as(ELSEWHERE_IN_WORKSPACE, overview())).status).toBe(404);
+  });
+
+  it('answers a workspace token with the read scope', async () => {
+    const token = await readToken();
+
+    expect(
+      (
+        await served(app)
+          .get(overview())
+          .set('Authorization', `Bearer ${token}`)
+      ).status,
+    ).toBe(200);
+  });
+
+  it('finds no team for a workspace token from another workspace', async () => {
+    const token = await readToken(
+      await openTeam(
+        db,
+        app.get(DrizzleTaskRepository),
+        `elsewhere-${randomUUID().slice(0, 8)}`,
+      ),
+    );
+
+    expect(
+      (
+        await served(app)
+          .get(overview())
+          .set('Authorization', `Bearer ${token}`)
+      ).status,
     ).toBe(404);
   });
 });

@@ -2,19 +2,6 @@ import type { FingerprintedConfig } from '@work/application/contracts/station-co
 
 export const STATION_RUNS = Symbol('STATION_RUNS');
 
-export interface EndedRunCost {
-  readonly ms: number | null;
-  readonly steps: number;
-  readonly faults: number;
-  readonly used: number | null;
-  readonly cost: number | null;
-  readonly currency: string | null;
-  readonly inputTokens: number | null;
-  readonly outputTokens: number | null;
-  readonly cacheReadTokens: number | null;
-  readonly cacheWriteTokens: number | null;
-}
-
 export interface EndedStationRun {
   readonly runId: string;
   readonly workspaceId: string;
@@ -24,15 +11,18 @@ export interface EndedStationRun {
   readonly taskId: string;
   readonly fingerprint: string | null;
   readonly round: number;
+  readonly harness: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+  readonly profileKey: string | null;
+  readonly repositories: readonly string[];
+  readonly queuedAt: Date;
+  readonly startedAt: Date | null;
   readonly endedAt: Date;
 }
 
 export interface StationRunsPort {
   ended(runId: string): Promise<EndedStationRun | null>;
-
-  costsOf(
-    runIds: readonly string[],
-  ): Promise<ReadonlyMap<string, EndedRunCost>>;
 
   configsInOrder(
     fingerprints: readonly string[],

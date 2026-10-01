@@ -14,9 +14,13 @@ const tally = (over: Partial<StationTally>): StationTally => ({
   accepted: 0,
   sentBack: 0,
   withdrawn: 0,
+  handedOn: 0,
   merged: 0,
   cost: null,
   medianMs: null,
+  p90Ms: null,
+  unpriced: 0,
+  mixedCurrencies: false,
   ...over,
 });
 

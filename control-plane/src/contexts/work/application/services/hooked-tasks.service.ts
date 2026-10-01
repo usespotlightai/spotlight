@@ -17,7 +17,7 @@ import type {
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Placing, Task } from '@work/domain/aggregates/task.aggregate';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -30,6 +30,7 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const ATTEMPTS = 3;
@@ -158,7 +159,8 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
           voice: Voice.station(),
         },
         null,
-        await this.heldBackOnto(task, line),
+        line,
+        await this.heldBackRank(task),
       );
       const runId = failed.wantsRun(line)
         ? await this.dispatch.runIdFor({ task: failed, line })
@@ -170,16 +172,13 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
     });
   }
 
-  private async heldBackOnto(task: Task, line: Line): Promise<Placing | null> {
+  private async heldBackRank(task: Task): Promise<TaskRank | null> {
     const to = task.heldBackTo;
 
     return to
-      ? {
-          line,
-          rank: Placement.atTheTop(
-            (await this.placements.placementsAt(to)).map((each) => each.rank),
-          ),
-        }
+      ? Placement.atTheTop(
+          (await this.placements.placementsAt(to)).map((each) => each.rank),
+        )
       : null;
   }
 

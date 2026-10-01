@@ -1,3 +1,4 @@
+import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
 import type { EndedRun, WorkPort } from '@outcomes/application/ports/work.port';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
@@ -5,10 +6,12 @@ import {
   FIRST_CONFIG,
   inTransaction,
   RunRecordsInMemory,
+  SET_UP,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const TASK = TaskId.of('task_1');
@@ -25,25 +28,27 @@ const endedRun = (runId: string, change: Partial<EndedRun> = {}): EndedRun => ({
   taskId: 'task_1',
   fingerprint: FIRST_CONFIG,
   round: 1,
+  ...SET_UP,
   endedAt: at(10),
   ...change,
 });
 
 const noting = (runs: readonly EndedRun[]) => {
   const records = new RunRecordsInMemory();
+  const forgotten = forgottenInMemory();
   const work: WorkPort = {
     endedRun: async (runId) =>
       runs.find((each) => each.runId === runId) ?? null,
-    costsOf: async () => new Map(),
     configsInOrder: async () => [],
   };
 
   return {
     records,
-    service: new NoteRunEnded(work, records, inTransaction),
-    superseding: new NoteRunSuperseded(records, inTransaction),
+    forgotten,
+    service: new NoteRunEnded(work, records, forgotten, inTransaction),
+    superseding: new NoteRunSuperseded(records, forgotten, inTransaction),
     ended: (runId: string, outcome = 'completed', stopped = false) =>
-      new NoteRunEnded(work, records, inTransaction).ended({
+      new NoteRunEnded(work, records, forgotten, inTransaction).ended({
         runId,
         outcome,
         stopped,
@@ -140,5 +145,15 @@ describe('noting that a run ended', () => {
     const record = await noted.stored('run_9');
     expect(record?.taskId?.equals(TASK)).toBe(true);
     expect(record?.hasEnded).toBe(false);
+  });
+
+  it('records nothing of a run whose team was disbanded, and lets go of what it heard of the run before', async () => {
+    const noted = noting([endedRun('run_1')]);
+    await noted.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
+    await noted.forgotten.forgetTeam(WORKSPACE, TeamId.of('team_1'));
+
+    await noted.ended('run_1');
+
+    expect(noted.records.held.size).toBe(0);
   });
 });

@@ -1,4 +1,8 @@
 import {
+  PERSON_READER,
+  type PersonReaderPort,
+} from '@identity/application/ports/person-reader.port';
+import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
@@ -9,6 +13,7 @@ import {
   EVIDENCE,
   type EvidencePort,
 } from '@outcomes/application/ports/evidence.port';
+import { FIRST_SEEN } from '@outcomes/application/ports/first-seen.port';
 import {
   GRADES,
   type GradesPort,
@@ -20,26 +25,45 @@ import {
   type PeoplePort,
 } from '@outcomes/application/ports/people.port';
 import { WORK, type WorkPort } from '@outcomes/application/ports/work.port';
+import { ListInsightsRunsHandler } from '@outcomes/application/queries/handlers/list-insights-runs.handler';
 import { ListStationOutcomesHandler } from '@outcomes/application/queries/handlers/list-station-outcomes.handler';
+import { ReadInsightsCostHandler } from '@outcomes/application/queries/handlers/read-insights-cost.handler';
+import { ReadInsightsFlowHandler } from '@outcomes/application/queries/handlers/read-insights-flow.handler';
+import { ReadInsightsOverviewHandler } from '@outcomes/application/queries/handlers/read-insights-overview.handler';
+import { ReadInsightsPeopleHandler } from '@outcomes/application/queries/handlers/read-insights-people.handler';
+import { ReadInsightsStationsHandler } from '@outcomes/application/queries/handlers/read-insights-stations.handler';
 import { ReadRunScoresHandler } from '@outcomes/application/queries/handlers/read-run-scores.handler';
 import { ReadStationJudgeHandler } from '@outcomes/application/queries/handlers/read-station-judge.handler';
+import { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
 import { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
+import { ReadInsightsCostQuery } from '@outcomes/application/queries/read-insights-cost.query';
+import { ReadInsightsFlowQuery } from '@outcomes/application/queries/read-insights-flow.query';
+import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-insights-overview.query';
+import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
+import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadRunScoresQuery } from '@outcomes/application/queries/read-run-scores.query';
 import { ReadStationJudgeQuery } from '@outcomes/application/queries/read-station-judge.query';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
+import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
+import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
+import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
+import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
+import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
+import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { RunScoresViews } from '@outcomes/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
+import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { WorkJudgings } from '@outcomes/application/services/work-judgings.service';
 import { OUTCOMES_EVENT_TYPES } from '@outcomes/domain/event-types';
 import { Evidence } from '@outcomes/infrastructure/acl/evidence.adapter';
@@ -47,14 +71,21 @@ import { Grades } from '@outcomes/infrastructure/acl/grades.adapter';
 import { People } from '@outcomes/infrastructure/acl/people.adapter';
 import { Work } from '@outcomes/infrastructure/acl/work.adapter';
 import { OpenRouterJudge } from '@outcomes/infrastructure/judging/openrouter-judge';
+import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
+import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
+import { DrizzleFirstSeen } from '@outcomes/infrastructure/persistence/drizzle/readers/first-seen.reader';
+import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
+import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
+import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
 import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subscribers';
 import { RunScoresController } from '@outcomes/presentation/http/controllers/run-scores.controller';
 import { StationJudgeController } from '@outcomes/presentation/http/controllers/station-judge.controller';
 import { StationOutcomesController } from '@outcomes/presentation/http/controllers/station-outcomes.controller';
+import { TeamInsightsController } from '@outcomes/presentation/http/controllers/team-insights.controller';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
@@ -98,6 +129,7 @@ export const OUTCOMES_CONTROLLERS: readonly Type[] = [
   StationOutcomesController,
   StationJudgeController,
   RunScoresController,
+  TeamInsightsController,
 ];
 
 export const OUTCOMES_PROVIDERS: readonly Provider[] = [
@@ -108,8 +140,9 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: PEOPLE,
-    inject: [WORKSPACE_ACCESS],
-    useFactory: (access: WorkspaceAccessPort) => new People(access),
+    inject: [WORKSPACE_ACCESS, PERSON_READER],
+    useFactory: (access: WorkspaceAccessPort, people: PersonReaderPort) =>
+      new People(access, people),
   },
   {
     provide: EVIDENCE,
@@ -131,6 +164,13 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   DrizzleTaskDeliveryRepository,
   DrizzleJudgingRepository,
   DrizzleScoreRepository,
+  DrizzleTaskTouchesRepository,
+  DrizzleTaskFailuresRepository,
+  DrizzleChatRecordRepository,
+  DrizzleFirstSeen,
+  DrizzleForgotten,
+  DrizzlePendingReviews,
+  { provide: FIRST_SEEN, useExisting: DrizzleFirstSeen },
   {
     provide: StationJudgeReports,
     inject: [
@@ -173,6 +213,57 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       deliveries: DrizzleTaskDeliveryRepository,
     ) => new RunOutcomes(records, deliveries),
   },
+  {
+    provide: TeamHistories,
+    inject: [
+      OutcomesAccess,
+      DrizzleRunRecordRepository,
+      DrizzleTaskDeliveryRepository,
+      DrizzleTaskTouchesRepository,
+      DrizzleTaskFailuresRepository,
+      DrizzleChatRecordRepository,
+      CLOCK,
+    ],
+    useFactory: (
+      access: OutcomesAccess,
+      records: DrizzleRunRecordRepository,
+      deliveries: DrizzleTaskDeliveryRepository,
+      touches: DrizzleTaskTouchesRepository,
+      failures: DrizzleTaskFailuresRepository,
+      chats: DrizzleChatRecordRepository,
+      clock: ClockPort,
+    ) =>
+      new TeamHistories(
+        access,
+        { records, deliveries, touches, failures, chats },
+        clock,
+      ),
+  },
+  ...bindQueryHandler(ReadInsightsOverviewQuery, ReadInsightsOverviewHandler, [
+    TeamHistories,
+    PEOPLE,
+  ]),
+  ...bindQueryHandler(ReadInsightsFlowQuery, ReadInsightsFlowHandler, [
+    TeamHistories,
+  ]),
+  ...bindQueryHandler(ReadInsightsStationsQuery, ReadInsightsStationsHandler, [
+    TeamHistories,
+  ]),
+  ...bindQueryHandler(ReadInsightsPeopleQuery, ReadInsightsPeopleHandler, [
+    TeamHistories,
+    FIRST_SEEN,
+    PEOPLE,
+  ]),
+  ...bindQueryHandler(ReadInsightsCostQuery, ReadInsightsCostHandler, [
+    TeamHistories,
+  ]),
+  ...bindQueryHandler(ListInsightsRunsQuery, ListInsightsRunsHandler, [
+    TeamHistories,
+    DrizzleRunRecordRepository,
+    DrizzleTaskTouchesRepository,
+    DrizzleTaskDeliveryRepository,
+    PEOPLE,
+  ]),
   ...bindQueryHandler(ListStationOutcomesQuery, ListStationOutcomesHandler, [
     OutcomesAccess,
     DrizzleRunRecordRepository,
@@ -202,6 +293,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       EVIDENCE,
       JUDGE,
       DrizzleJudgingRepository,
+      DrizzleForgotten,
       TRANSACTION,
       CLOCK,
     ],
@@ -210,9 +302,19 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       evidence: EvidencePort,
       judge: JudgePort,
       judgings: DrizzleJudgingRepository,
+      forgotten: DrizzleForgotten,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new AskForJudging(work, evidence, judge, judgings, transaction, clock),
+    ) =>
+      new AskForJudging(
+        work,
+        evidence,
+        judge,
+        judgings,
+        forgotten,
+        transaction,
+        clock,
+      ),
   },
   {
     provide: WorkJudgings,
@@ -262,44 +364,64 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: NoteRunEnded,
-    inject: [WORK, DrizzleRunRecordRepository, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
+      forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NoteRunEnded(work, records, transaction),
+    ) => new NoteRunEnded(work, records, forgotten, transaction),
   },
   {
     provide: NoteRunSuperseded,
-    inject: [DrizzleRunRecordRepository, TRANSACTION],
+    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
+      forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NoteRunSuperseded(records, transaction),
+    ) => new NoteRunSuperseded(records, forgotten, transaction),
   },
   {
     provide: NoteChangeChecked,
-    inject: [DrizzleRunRecordRepository, TRANSACTION],
+    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
+      forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NoteChangeChecked(records, transaction),
+    ) => new NoteChangeChecked(records, forgotten, transaction),
   },
   {
     provide: NotePersonAct,
-    inject: [DrizzleRunRecordRepository, TRANSACTION],
+    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
+      forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NotePersonAct(records, transaction),
+    ) => new NotePersonAct(records, forgotten, transaction),
   },
   {
     provide: NotePullRequestOpened,
-    inject: [DrizzleTaskDeliveryRepository, TRANSACTION],
+    inject: [
+      DrizzleTaskDeliveryRepository,
+      DrizzlePendingReviews,
+      DrizzleForgotten,
+      TRANSACTION,
+      CLOCK,
+    ],
     useFactory: (
       deliveries: DrizzleTaskDeliveryRepository,
+      reviews: DrizzlePendingReviews,
+      forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NotePullRequestOpened(deliveries, transaction),
+      clock: ClockPort,
+    ) =>
+      new NotePullRequestOpened(
+        deliveries,
+        reviews,
+        forgotten,
+        transaction,
+        clock,
+      ),
   },
   {
     provide: NotePullRequestClosed,
@@ -310,12 +432,86 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new NotePullRequestClosed(deliveries, transaction),
   },
   {
+    provide: NoteRunDigested,
+    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      records: DrizzleRunRecordRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteRunDigested(records, forgotten, transaction),
+  },
+  {
+    provide: NoteRunHandedOn,
+    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      records: DrizzleRunRecordRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteRunHandedOn(records, forgotten, transaction),
+  },
+  {
+    provide: NotePullRequestReviewed,
+    inject: [
+      DrizzleTaskDeliveryRepository,
+      DrizzlePendingReviews,
+      DrizzleForgotten,
+      TRANSACTION,
+      CLOCK,
+    ],
+    useFactory: (
+      deliveries: DrizzleTaskDeliveryRepository,
+      reviews: DrizzlePendingReviews,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) =>
+      new NotePullRequestReviewed(
+        deliveries,
+        reviews,
+        forgotten,
+        transaction,
+        clock,
+      ),
+  },
+  {
+    provide: NoteTaskFailed,
+    inject: [DrizzleTaskFailuresRepository, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      failures: DrizzleTaskFailuresRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteTaskFailed(failures, forgotten, transaction),
+  },
+  {
+    provide: NoteTaskTouch,
+    inject: [DrizzleTaskTouchesRepository, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      touches: DrizzleTaskTouchesRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteTaskTouch(touches, forgotten, transaction),
+  },
+  {
+    provide: NoteChatStarted,
+    inject: [DrizzleChatRecordRepository, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      chats: DrizzleChatRecordRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteChatStarted(chats, forgotten, transaction),
+  },
+  {
     provide: ForgetOutcomes,
     inject: [
       DrizzleRunRecordRepository,
       DrizzleTaskDeliveryRepository,
       DrizzleJudgingRepository,
       DrizzleScoreRepository,
+      DrizzleTaskTouchesRepository,
+      DrizzleTaskFailuresRepository,
+      DrizzleChatRecordRepository,
+      DrizzlePendingReviews,
+      DrizzleForgotten,
       TRANSACTION,
     ],
     useFactory: (
@@ -323,8 +519,27 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       deliveries: DrizzleTaskDeliveryRepository,
       judgings: DrizzleJudgingRepository,
       scores: DrizzleScoreRepository,
+      touches: DrizzleTaskTouchesRepository,
+      failures: DrizzleTaskFailuresRepository,
+      chats: DrizzleChatRecordRepository,
+      reviews: DrizzlePendingReviews,
+      forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new ForgetOutcomes(records, deliveries, judgings, scores, transaction),
+    ) =>
+      new ForgetOutcomes(
+        {
+          records,
+          deliveries,
+          judgings,
+          scores,
+          touches,
+          failures,
+          chats,
+          reviews,
+          forgotten,
+        },
+        transaction,
+      ),
   },
   {
     provide: OUTCOMES_EVENTS,
@@ -341,6 +556,12 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       AskForJudging,
       RecordJudgeScore,
       GradeAsides,
+      NoteRunDigested,
+      NoteRunHandedOn,
+      NotePullRequestReviewed,
+      NoteTaskFailed,
+      NoteTaskTouch,
+      NoteChatStarted,
     ],
     useFactory: (
       types: EventTypes,
@@ -355,6 +576,12 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       judging: AskForJudging,
       scoring: RecordJudgeScore,
       grading: GradeAsides,
+      digesting: NoteRunDigested,
+      handingOn: NoteRunHandedOn,
+      reviewing: NotePullRequestReviewed,
+      failing: NoteTaskFailed,
+      touching: NoteTaskTouch,
+      chatting: NoteChatStarted,
     ) => {
       types.register('outcomes', OUTCOMES_EVENT_TYPES);
       subscribers.register(
@@ -369,6 +596,12 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           judging,
           scoring,
           grading,
+          digesting,
+          handingOn,
+          reviewing,
+          failing,
+          touching,
+          chatting,
         }),
       );
       return true;

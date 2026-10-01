@@ -1,4 +1,5 @@
 import type { EvidencePort } from '@outcomes/application/ports/evidence.port';
+import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { JudgePort } from '@outcomes/application/ports/judge.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
@@ -30,6 +31,7 @@ export class AskForJudging {
     private readonly evidence: EvidencePort,
     private readonly judge: JudgePort,
     private readonly judgings: JudgingRepository,
+    private readonly forgotten: ForgottenPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -61,19 +63,28 @@ export class AskForJudging {
     }
 
     await this.transaction.run(async () => {
-      if (await this.judgings.of(runId)) {
+      const workspaceId = WorkspaceId.of(run.workspaceId);
+      const taskId = TaskId.of(run.taskId);
+      const teamId = TeamId.of(run.teamId);
+
+      await this.forgotten.holding(workspaceId, taskId, teamId);
+
+      if (
+        (await this.judgings.of(runId)) ||
+        (await this.forgotten.forgot(workspaceId, taskId, teamId))
+      ) {
         return;
       }
 
       await this.judgings.add(
         Judging.asked({
           runId,
-          workspaceId: WorkspaceId.of(run.workspaceId),
+          workspaceId,
           place: RunPlace.of({
-            teamId: TeamId.of(run.teamId),
+            teamId,
             lineId: run.lineId,
             stationId: run.stationId,
-            taskId: TaskId.of(run.taskId),
+            taskId,
           }),
           fingerprint: run.fingerprint,
           rubric,

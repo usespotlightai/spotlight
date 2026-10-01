@@ -6,6 +6,7 @@ import {
   FIRST_CONFIG,
   RunRecordsInMemory,
   TaskDeliveriesInMemory,
+  TEAM,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
@@ -30,7 +31,9 @@ describe('RunOutcomes', () => {
       TaskDelivery.opened({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
+        teamId: TEAM,
         pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+        at: AT,
       }),
     );
 

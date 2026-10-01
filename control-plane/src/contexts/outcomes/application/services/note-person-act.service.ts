@@ -1,3 +1,4 @@
+import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import {
@@ -21,6 +22,7 @@ export interface PersonActed {
 export class NotePersonAct {
   constructor(
     private readonly records: RunRecordRepository,
+    private readonly forgotten: ForgottenPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -33,22 +35,29 @@ export class NotePersonAct {
 
     const next = NextAct.of(act, new Date(heard.at));
 
+    const workspaceId = WorkspaceId.of(heard.workspaceId);
+    const taskId = TaskId.of(heard.taskId);
+
     return this.transaction.run(async () => {
+      await this.forgotten.holding(workspaceId, taskId);
       const held = heard.after
         ? await this.records.of(RunId.of(heard.after))
         : await this.records.lastEndedOfTaskAt(
-            TaskId.of(heard.taskId),
+            taskId,
             heard.stationId,
             next.at,
           );
 
       if (!held) {
-        if (heard.after) {
+        if (
+          heard.after &&
+          !(await this.forgotten.forgot(workspaceId, taskId))
+        ) {
           await this.records.add(
             RunRecord.heardOf(
               RunId.of(heard.after),
-              WorkspaceId.of(heard.workspaceId),
-              TaskId.of(heard.taskId),
+              workspaceId,
+              taskId,
             ).actedOn(next),
           );
         }

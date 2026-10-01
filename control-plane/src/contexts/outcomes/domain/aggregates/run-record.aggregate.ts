@@ -1,6 +1,8 @@
 import { InvalidOutcomeError } from '@outcomes/domain/exceptions/invalid-outcome.error';
 import type { CheckVerdict } from '@outcomes/domain/value-objects/check-verdict';
+import type { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import type { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import type { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -16,6 +18,8 @@ export class RunRecord {
     readonly superseded: boolean,
     readonly checks: CheckVerdict | null,
     readonly next: NextAct | null,
+    readonly cost: RunCost | null,
+    readonly handedOn: HandedOn | null,
     readonly version: number,
   ) {}
 
@@ -32,6 +36,8 @@ export class RunRecord {
       false,
       null,
       null,
+      null,
+      null,
       0,
     );
   }
@@ -44,6 +50,8 @@ export class RunRecord {
     superseded: boolean;
     checks: CheckVerdict | null;
     next: NextAct | null;
+    cost: RunCost | null;
+    handedOn: HandedOn | null;
     version: number;
   }): RunRecord {
     if (
@@ -61,6 +69,8 @@ export class RunRecord {
       input.superseded,
       input.checks,
       input.next,
+      input.cost,
+      input.handedOn,
       input.version,
     );
   }
@@ -86,9 +96,7 @@ export class RunRecord {
       return this;
     }
 
-    if (this.taskId && !this.taskId.equals(end.place.taskId)) {
-      throw new InvalidOutcomeError('ends on the task it was heard of for');
-    }
+    this.refuseAnotherTask(end.place.taskId);
 
     return this.with({ end, taskId: end.place.taskId });
   }
@@ -112,12 +120,28 @@ export class RunRecord {
     return this.next ? this : this.with({ next: act });
   }
 
+  digested(cost: RunCost): RunRecord {
+    return this.cost ? this : this.with({ cost });
+  }
+
+  handedOnTo(handedOn: HandedOn): RunRecord {
+    return this.handedOn ? this : this.with({ handedOn });
+  }
+
+  private refuseAnotherTask(taskId: TaskId): void {
+    if (this.taskId && !this.taskId.equals(taskId)) {
+      throw new InvalidOutcomeError('ends on the task it was heard of for');
+    }
+  }
+
   private with(change: {
     taskId?: TaskId;
     end?: RunEnd;
     superseded?: boolean;
     checks?: CheckVerdict;
     next?: NextAct;
+    cost?: RunCost;
+    handedOn?: HandedOn;
   }): RunRecord {
     return new RunRecord(
       this.runId,
@@ -127,6 +151,8 @@ export class RunRecord {
       change.superseded ?? this.superseded,
       change.checks ?? this.checks,
       change.next ?? this.next,
+      change.cost ?? this.cost,
+      change.handedOn ?? this.handedOn,
       this.version,
     );
   }

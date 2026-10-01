@@ -179,6 +179,7 @@ export class DrizzleRunRepository implements RunRepository {
         failure: saved.outcome?.failure?.code ?? null,
         stopped: saved.outcome?.stopped ?? false,
         ranIn: saved.ranIn?.value ?? null,
+        startedAt: saved.startedAt,
         endedAt: endedAtFor(saved.state, sql`coalesce(${run.endedAt}, now())`),
         spec: RunSpecContract.toWire(saved.spec),
         parkedAttempts: [...saved.parkedAttempts],
@@ -343,5 +344,6 @@ const toRun = (row: Row): Run =>
       row.stationConfig && row.stationFingerprint
         ? StationConfig.rehydrate(row.stationConfig, row.stationFingerprint)
         : null,
+    startedAt: row.startedAt,
     version: row.version,
   });

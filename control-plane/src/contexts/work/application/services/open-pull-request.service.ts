@@ -1,4 +1,5 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -35,6 +36,7 @@ export class OpenPullRequest {
     private readonly transaction: TransactionPort,
     private readonly hookedTasks: HookedTasksPort,
     private readonly hooks: LifecycleHooksPort,
+    private readonly clock: ClockPort,
   ) {}
 
   async open(
@@ -98,6 +100,8 @@ export class OpenPullRequest {
       const marked = current.openedAt(
         target.runId,
         PullRequestUrl.of(opened.url),
+        this.clock.now(),
+        line,
       );
 
       await takeWornMarks(this.tasks, marked);

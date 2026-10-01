@@ -1,15 +1,28 @@
+import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
+import { pendingReviewsInMemory } from '@outcomes/application/ports/pending-reviews.fake-spec';
 import type { EndedRun } from '@outcomes/application/ports/work.port';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
+import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
+import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
+import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
+import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
+import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
+import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
 import { RunJudged } from '@outcomes/domain/events/run-judged.event';
+import {
+  ChatRecordsInMemory,
+  TaskFailuresInMemory,
+  TaskTouchesInMemory,
+} from '@outcomes/domain/insights.fake-spec';
 import {
   askedJudging,
   JudgingsInMemory,
@@ -22,18 +35,26 @@ import {
   FIRST_CONFIG,
   inTransaction,
   RunRecordsInMemory,
+  SET_UP,
   TaskDeliveriesInMemory,
 } from '@outcomes/domain/outcomes.fake-spec';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subscribers';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
+import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import { PULL_REQUEST_REVIEWED } from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
+import { RUN_DIGESTED } from '@shared-kernel/application/integration-events/run-digested.integration-event';
 import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { RUN_SUPERSEDED } from '@shared-kernel/application/integration-events/run-superseded.integration-event';
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
+import { TASK_ASKED } from '@shared-kernel/application/integration-events/task-asked.integration-event';
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
+import { TASK_FAILED } from '@shared-kernel/application/integration-events/task-failed.integration-event';
+import { TASK_HANDED_ON } from '@shared-kernel/application/integration-events/task-handed-on.integration-event';
+import { TASK_OPENED } from '@shared-kernel/application/integration-events/task-opened.integration-event';
 import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
 import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -51,12 +72,12 @@ const ENDED: EndedRun = {
   taskId: 'task_1',
   fingerprint: FIRST_CONFIG,
   round: 1,
+  ...SET_UP,
   endedAt: new Date('2026-09-30T10:00:00.000Z'),
 };
 
 const WORK = {
   endedRun: async (runId: string) => (runId === ENDED.runId ? ENDED : null),
-  costsOf: async () => new Map(),
   configsInOrder: async () => [],
 };
 
@@ -70,20 +91,38 @@ const subscribed = () => {
   const deliveries = new TaskDeliveriesInMemory();
   const judgings = new JudgingsInMemory();
   const scores = new ScoresInMemory();
+  const touches = new TaskTouchesInMemory();
+  const failures = new TaskFailuresInMemory();
+  const chats = new ChatRecordsInMemory();
+  const reviews = pendingReviewsInMemory();
+  const forgotten = forgottenInMemory();
   const asked: string[] = [];
   let next = 0;
   const subscribers = outcomesSubscribers({
-    ending: new NoteRunEnded(WORK, records, inTransaction),
-    superseding: new NoteRunSuperseded(records, inTransaction),
-    checking: new NoteChangeChecked(records, inTransaction),
-    acting: new NotePersonAct(records, inTransaction),
-    opening: new NotePullRequestOpened(deliveries, inTransaction),
+    ending: new NoteRunEnded(WORK, records, forgotten, inTransaction),
+    superseding: new NoteRunSuperseded(records, forgotten, inTransaction),
+    checking: new NoteChangeChecked(records, forgotten, inTransaction),
+    acting: new NotePersonAct(records, forgotten, inTransaction),
+    opening: new NotePullRequestOpened(
+      deliveries,
+      reviews,
+      forgotten,
+      inTransaction,
+      CLOCK,
+    ),
     closing: new NotePullRequestClosed(deliveries, inTransaction),
     forgetting: new ForgetOutcomes(
-      records,
-      deliveries,
-      judgings,
-      scores,
+      {
+        records,
+        deliveries,
+        judgings,
+        scores,
+        touches,
+        failures,
+        chats,
+        reviews,
+        forgotten,
+      },
       inTransaction,
     ),
     judging: new AskForJudging(
@@ -106,6 +145,7 @@ const subscribed = () => {
         judge: async () => ({ value: true, reasons: [] }),
       },
       judgings,
+      forgotten,
       inTransaction,
       CLOCK,
     ),
@@ -123,6 +163,18 @@ const subscribed = () => {
         asked.push(`settle ${taskId.value} ${runId.value}`);
       },
     }),
+    digesting: new NoteRunDigested(records, forgotten, inTransaction),
+    handingOn: new NoteRunHandedOn(records, forgotten, inTransaction),
+    reviewing: new NotePullRequestReviewed(
+      deliveries,
+      reviews,
+      forgotten,
+      inTransaction,
+      CLOCK,
+    ),
+    failing: new NoteTaskFailed(failures, forgotten, inTransaction),
+    touching: new NoteTaskTouch(touches, forgotten, inTransaction),
+    chatting: new NoteChatStarted(chats, forgotten, inTransaction),
   });
 
   const deliver = async (name: string, event: Record<string, unknown>) => {
@@ -140,6 +192,10 @@ const subscribed = () => {
     deliveries,
     judgings,
     scores,
+    touches,
+    failures,
+    chats,
+    reviews,
     asked,
     subscribers,
     deliver,
@@ -217,6 +273,7 @@ describe('outcomesSubscribers', () => {
       workspaceId: 'ws_1',
       stationId: 'station_1',
       act: 'sent-back',
+      by: 'user_ada',
       after: 'run_1',
       at: '2026-09-30T11:00:00.000Z',
     });
@@ -241,7 +298,9 @@ describe('outcomesSubscribers', () => {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
+      teamId: 'team_1',
       url: PULL,
+      at: '2026-09-30T10:30:00.000Z',
     });
     await heard.deliver('outcomes.record-closed-pull-request', {
       kind: PULL_REQUEST_CLOSED,
@@ -258,6 +317,243 @@ describe('outcomesSubscribers', () => {
     );
   });
 
+  it('keeps what a run cost and where it handed its task, heard before or after it ended', async () => {
+    const heard = subscribed();
+
+    await heard.deliver('outcomes.record-run-cost', {
+      kind: RUN_DIGESTED,
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+      taskId: 'task_1',
+      ms: 60_000,
+      steps: 12,
+      faults: 1,
+      used: 40_000,
+      size: 200_000,
+      cost: 0.42,
+      currency: 'USD',
+      inputTokens: 1_200,
+      outputTokens: 900,
+      cacheReadTokens: 80_000,
+      cacheWriteTokens: null,
+    });
+    await heard.deliver('outcomes.record-ended-run', runEnded());
+    await heard.deliver('outcomes.record-handed-on-run', {
+      kind: TASK_HANDED_ON,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      runId: 'run_1',
+      from: 'station_1',
+      to: 'station_2',
+      at: '2026-09-30T10:01:00.000Z',
+    });
+
+    const record = await heard.record();
+    expect(record?.cost?.spend).toEqual({ amount: 0.42, currency: 'USD' });
+    expect(record?.cost?.tokens).toEqual({
+      input: 1_200,
+      output: 900,
+      cacheRead: 80_000,
+      cacheWrite: null,
+    });
+    expect(record?.handedOn?.to).toBe('station_2');
+    expect(record?.end?.setup.harness).toBe('claude-code');
+  });
+
+  it('keeps no cost for a run that worked no task', async () => {
+    const heard = subscribed();
+
+    await heard.deliver('outcomes.record-run-cost', {
+      kind: RUN_DIGESTED,
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+      taskId: null,
+      ms: 60_000,
+      steps: 12,
+      faults: 1,
+      used: null,
+      size: null,
+      cost: 0.42,
+      currency: 'USD',
+      inputTokens: null,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+    });
+
+    expect(await heard.record()).toBeNull();
+  });
+
+  it('dates a pull request’s first review by a person, never a bot’s', async () => {
+    const heard = subscribed();
+    await heard.deliver('outcomes.record-opened-pull-request', {
+      kind: PULL_REQUEST_OPENED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      url: PULL,
+      at: '2026-09-30T10:30:00.000Z',
+    });
+    const reviewed = (byBot: boolean, submittedAt: string) =>
+      heard.deliver('outcomes.record-first-review', {
+        kind: PULL_REQUEST_REVIEWED,
+        workspaceId: 'ws_1',
+        pullRequest: PULL,
+        state: 'commented',
+        login: byBot ? 'spotlight[bot]' : 'ada',
+        byBot,
+        submittedAt,
+      });
+
+    await reviewed(true, '2026-09-30T10:40:00.000Z');
+    await reviewed(false, '2026-09-30T11:00:00.000Z');
+    await reviewed(false, '2026-09-30T12:00:00.000Z');
+
+    expect(
+      (await heard.deliveries.forTask(TaskId.of('task_1')))?.firstReviewAt,
+    ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
+  });
+
+  it('keeps every task failure heard, once each', async () => {
+    const heard = subscribed();
+    const failed = (occurrences: number, at: string) => ({
+      kind: TASK_FAILED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      stationId: 'station_1',
+      runId: null,
+      source: 'hook:notify',
+      code: 'loop',
+      occurrences,
+      at,
+    });
+
+    await heard.deliver(
+      'outcomes.record-task-failure',
+      failed(1, '2026-09-30T10:00:00.000Z'),
+    );
+    await heard.deliver(
+      'outcomes.record-task-failure',
+      failed(2, '2026-09-30T10:01:00.000Z'),
+    );
+    await heard.deliver(
+      'outcomes.record-task-failure',
+      failed(2, '2026-09-30T10:01:00.000Z'),
+    );
+
+    const kept = await heard.failures.of(TaskId.of('task_1'));
+    expect(kept?.occurrences.map((each) => each.occurrences)).toEqual([1, 2]);
+  });
+
+  it('keeps who opened a task, what it asked of people and what they did', async () => {
+    const heard = subscribed();
+
+    await heard.deliver('outcomes.record-inbox-ask', {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+    });
+    await heard.deliver('outcomes.record-task-opening', {
+      kind: TASK_OPENED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_0',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    });
+    await heard.deliver('outcomes.record-person-touch', {
+      kind: TASK_ACTED_ON,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      act: 'answered',
+      by: 'user_bob',
+      after: 'run_1',
+      at: '2026-09-30T10:20:00.000Z',
+    });
+
+    const touches = await heard.touches.of(TaskId.of('task_1'));
+    expect(touches?.opening?.by?.value).toBe('user_ada');
+    expect(touches?.waits()).toEqual([
+      {
+        stationId: 'station_1',
+        askedAt: new Date('2026-09-30T10:10:00.000Z'),
+        answeredAt: new Date('2026-09-30T10:20:00.000Z'),
+        answeredBy: 'user_bob',
+      },
+    ]);
+  });
+
+  it('keeps who started a chat, once', async () => {
+    const heard = subscribed();
+    const started = {
+      kind: CHAT_STARTED,
+      chatId: 'chat_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    };
+
+    await heard.deliver('outcomes.record-started-chat', started);
+    await heard.deliver('outcomes.record-started-chat', started);
+
+    expect(heard.chats.held.size).toBe(1);
+  });
+
+  it('forgets a deleted task’s touches and failures, and a closed workspace’s chats', async () => {
+    const heard = subscribed();
+    await heard.deliver('outcomes.record-inbox-ask', {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+    });
+    await heard.deliver('outcomes.record-task-failure', {
+      kind: TASK_FAILED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      stationId: 'station_1',
+      runId: 'run_1',
+      source: 'run',
+      code: 'exited',
+      occurrences: 1,
+      at: '2026-09-30T10:00:00.000Z',
+    });
+    await heard.deliver('outcomes.record-started-chat', {
+      kind: CHAT_STARTED,
+      chatId: 'chat_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    });
+    const deleted = {
+      kind: TASK_DELETED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+    };
+
+    await heard.deliver('outcomes.forget-touches-of-deleted-task', deleted);
+    await heard.deliver('outcomes.forget-failures-of-deleted-task', deleted);
+    await heard.deliver('outcomes.forget-chats-of-closed-workspace', {
+      kind: WORKSPACE_CLOSED,
+      workspaceId: 'ws_1',
+      slug: 'acme',
+    });
+
+    expect(heard.touches.held.size).toBe(0);
+    expect(heard.failures.held.size).toBe(0);
+    expect(heard.chats.held.size).toBe(0);
+  });
+
   it('forgets a deleted task’s runs and delivery', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.record-ended-run', runEnded());
@@ -265,7 +561,9 @@ describe('outcomesSubscribers', () => {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
+      teamId: 'team_1',
       url: PULL,
+      at: '2026-09-30T10:30:00.000Z',
     });
     const deleted = {
       kind: TASK_DELETED,
@@ -294,6 +592,264 @@ describe('outcomesSubscribers', () => {
     expect(await heard.record()).toBeNull();
   });
 
+  it('dates a pull request’s first review even when the review is heard before the opening', async () => {
+    const heard = subscribed();
+    await heard.deliver('outcomes.record-first-review', {
+      kind: PULL_REQUEST_REVIEWED,
+      workspaceId: 'ws_1',
+      pullRequest: PULL,
+      state: 'approved',
+      login: 'ada',
+      byBot: false,
+      submittedAt: '2026-09-30T11:00:00.000Z',
+    });
+
+    await heard.deliver('outcomes.record-opened-pull-request', {
+      kind: PULL_REQUEST_OPENED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      url: PULL,
+      at: '2026-09-30T10:30:00.000Z',
+    });
+
+    expect(
+      (await heard.deliveries.forTask(TaskId.of('task_1')))?.firstReviewAt,
+    ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
+    expect(heard.reviews.held.size).toBe(0);
+  });
+
+  it('forgets the failures and pull requests of a disbanded team', async () => {
+    const heard = subscribed();
+    await heard.deliver('outcomes.record-task-failure', {
+      kind: TASK_FAILED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      stationId: 'station_1',
+      runId: null,
+      source: 'hook:notify',
+      code: 'loop',
+      occurrences: 1,
+      at: '2026-09-30T10:00:00.000Z',
+    });
+    await heard.deliver('outcomes.record-opened-pull-request', {
+      kind: PULL_REQUEST_OPENED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      url: PULL,
+      at: '2026-09-30T10:30:00.000Z',
+    });
+    const disbanded = {
+      kind: TEAM_DISBANDED,
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      key: 'core',
+    };
+
+    await heard.deliver(
+      'outcomes.forget-failures-of-disbanded-team',
+      disbanded,
+    );
+    await heard.deliver(
+      'outcomes.forget-deliveries-of-disbanded-team',
+      disbanded,
+    );
+
+    expect(heard.failures.held.size).toBe(0);
+    expect(heard.deliveries.held.size).toBe(0);
+  });
+
+  it('records nothing more of a task heard of after it was deleted, whichever forgetting came first', async () => {
+    const heard = subscribed();
+    await heard.deliver('outcomes.forget-touches-of-deleted-task', {
+      kind: TASK_DELETED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+    });
+
+    await heard.deliver('outcomes.record-ended-run', runEnded());
+    await heard.deliver('outcomes.record-run-cost', {
+      kind: RUN_DIGESTED,
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+      taskId: 'task_1',
+      ms: 60_000,
+      steps: 12,
+      faults: 1,
+      used: null,
+      size: null,
+      cost: 0.42,
+      currency: 'USD',
+      inputTokens: null,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+    });
+    await heard.deliver('outcomes.record-handed-on-run', {
+      kind: TASK_HANDED_ON,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      runId: 'run_2',
+      from: 'station_1',
+      to: 'station_2',
+      at: '2026-09-30T10:01:00.000Z',
+    });
+    await heard.deliver('outcomes.record-checked-change', {
+      kind: CHANGE_CHECKED,
+      runId: 'run_3',
+      workspaceId: 'ws_1',
+      taskId: 'task_1',
+      passed: true,
+    });
+    await heard.deliver('outcomes.record-superseded-run', {
+      kind: RUN_SUPERSEDED,
+      runId: 'run_4',
+      workspaceId: 'ws_1',
+      taskId: 'task_1',
+    });
+    await heard.deliver('outcomes.record-next-person-act', {
+      kind: TASK_ACTED_ON,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      act: 'answered',
+      by: 'user_bob',
+      after: 'run_5',
+      at: '2026-09-30T10:20:00.000Z',
+    });
+    await heard.deliver('outcomes.record-inbox-ask', {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+    });
+    await heard.deliver('outcomes.record-task-failure', {
+      kind: TASK_FAILED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      stationId: 'station_1',
+      runId: null,
+      source: 'hook:notify',
+      code: 'loop',
+      occurrences: 1,
+      at: '2026-09-30T10:00:00.000Z',
+    });
+    await heard.deliver('outcomes.record-opened-pull-request', {
+      kind: PULL_REQUEST_OPENED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      url: PULL,
+      at: '2026-09-30T10:30:00.000Z',
+    });
+
+    expect(heard.records.held.size).toBe(0);
+    expect(heard.touches.held.size).toBe(0);
+    expect(heard.failures.held.size).toBe(0);
+    expect(heard.deliveries.held.size).toBe(0);
+  });
+
+  it('records nothing more of a team heard of after it was disbanded, and lets go of what it heard before it knew the team', async () => {
+    const heard = subscribed();
+    await heard.deliver('outcomes.record-inbox-ask', {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+    });
+    await heard.deliver('outcomes.forget-chats-of-disbanded-team', {
+      kind: TEAM_DISBANDED,
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      key: 'core',
+    });
+
+    await heard.deliver('outcomes.record-ended-run', runEnded());
+    await heard.deliver('outcomes.record-started-chat', {
+      kind: CHAT_STARTED,
+      chatId: 'chat_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    });
+    await heard.deliver('outcomes.record-task-opening', {
+      kind: TASK_OPENED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_0',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    });
+    await heard.deliver('outcomes.record-task-failure', {
+      kind: TASK_FAILED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      stationId: 'station_1',
+      runId: null,
+      source: 'hook:notify',
+      code: 'loop',
+      occurrences: 1,
+      at: '2026-09-30T10:00:00.000Z',
+    });
+
+    expect(heard.records.held.size).toBe(0);
+    expect(heard.chats.held.size).toBe(0);
+    expect(heard.touches.held.size).toBe(0);
+    expect(heard.failures.held.size).toBe(0);
+  });
+
+  it('records nothing more of a workspace heard of after it was closed', async () => {
+    const heard = subscribed();
+    await heard.deliver('outcomes.forget-chats-of-closed-workspace', {
+      kind: WORKSPACE_CLOSED,
+      workspaceId: 'ws_1',
+      slug: 'acme',
+    });
+
+    await heard.deliver('outcomes.record-ended-run', runEnded());
+    await heard.deliver('outcomes.record-started-chat', {
+      kind: CHAT_STARTED,
+      chatId: 'chat_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    });
+    await heard.deliver('outcomes.record-task-opening', {
+      kind: TASK_OPENED,
+      taskId: 'task_2',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_0',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    });
+    await heard.deliver('outcomes.record-first-review', {
+      kind: PULL_REQUEST_REVIEWED,
+      workspaceId: 'ws_1',
+      pullRequest: PULL,
+      state: 'approved',
+      login: 'ada',
+      byBot: false,
+      submittedAt: '2026-09-30T11:00:00.000Z',
+    });
+
+    expect(heard.records.held.size).toBe(0);
+    expect(heard.chats.held.size).toBe(0);
+    expect(heard.touches.held.size).toBe(0);
+    expect(heard.reviews.held.size).toBe(0);
+  });
+
   it('forgets everything of a closed workspace', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.record-ended-run', runEnded());
@@ -301,7 +857,9 @@ describe('outcomesSubscribers', () => {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
+      teamId: 'team_1',
       url: PULL,
+      at: '2026-09-30T10:30:00.000Z',
     });
     const closed = {
       kind: WORKSPACE_CLOSED,
@@ -370,6 +928,19 @@ describe('outcomesSubscribers', () => {
     expect(rest).toEqual([]);
     expect(score?.source).toBe('judge');
     expect(score?.value).toBe(1);
+  });
+
+  it('asks for no judging of a run heard to end after its task was deleted', async () => {
+    const heard = subscribed();
+    await heard.deliver('outcomes.forget-runs-of-deleted-task', {
+      kind: TASK_DELETED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+    });
+
+    await heard.deliver('outcomes.judge-ended-run', runEnded());
+
+    expect(heard.judgings.held.size).toBe(0);
   });
 
   it('records no score for a verdict heard after its task was deleted', async () => {

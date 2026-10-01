@@ -58,6 +58,7 @@ export const run = pgTable(
       .$type<BriefedMemoriesParts>()
       .notNull()
       .default({ briefed: [], cut: [] }),
+    startedAt: timestamp('started_at'),
     endedAt: timestamp('ended_at'),
     stationFingerprint: text('station_fingerprint'),
     stationConfig: jsonb('station_config').$type<StationConfigParts>(),

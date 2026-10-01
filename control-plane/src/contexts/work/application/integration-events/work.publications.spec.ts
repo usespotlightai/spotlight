@@ -1,23 +1,36 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
+import { ChatStarted } from '@work/domain/events/chat-started.event';
+import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunDigested } from '@work/domain/events/run-digested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
+import { TaskAsked } from '@work/domain/events/task-asked.event';
+import { TaskFailed } from '@work/domain/events/task-failed.event';
+import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { Money } from '@work/domain/value-objects/money.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
+import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { describe, expect, it } from 'vitest';
 
 const published = (event: DomainEvent) =>
@@ -35,13 +48,190 @@ const SUBJECT = RunSubject.task(
 );
 
 describe('WORK_PUBLICATIONS', () => {
-  it('publishes a task opening', () => {
+  it('publishes a task opening, on which team and line, by whom and when', () => {
     expect(
       published(
-        new TaskOpened(TASK, WORKSPACE, StationId.of('station_1'), false),
+        new TaskOpened(
+          TASK,
+          WORKSPACE,
+          TeamId.of('team_1'),
+          LineId.of('line_1'),
+          StationId.of('station_1'),
+          UserId.of('user_1'),
+          new Date('2026-09-26T09:00:00Z'),
+          false,
+        ),
       ),
     ).toEqual([
-      { kind: 'work.task-opened.v1', taskId: 'task_1', workspaceId: 'ws_1' },
+      {
+        kind: 'work.task-opened.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        lineId: 'line_1',
+        stationId: 'station_1',
+        by: 'user_1',
+        at: '2026-09-26T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes a pull request opening, and when', () => {
+    expect(
+      published(
+        new PullRequestOpened(
+          TASK,
+          WORKSPACE,
+          TeamId.of('team_1'),
+          PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+          new Date('2026-09-26T09:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.pull-request-opened.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        url: 'https://github.com/acme/api/pull/1',
+        at: '2026-09-26T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes what a run cost once it is digested', () => {
+    expect(
+      published(
+        new RunDigested(
+          RUN,
+          WORKSPACE,
+          TASK,
+          60_000,
+          12,
+          1,
+          40_000,
+          200_000,
+          Money.of(0.42, 'USD'),
+          Tokens.of({ input: 1_200, output: 900, cacheRead: 80_000 }),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.run-digested.v1',
+        runId: 'run_1',
+        workspaceId: 'ws_1',
+        taskId: 'task_1',
+        ms: 60_000,
+        steps: 12,
+        faults: 1,
+        used: 40_000,
+        size: 200_000,
+        cost: 0.42,
+        currency: 'USD',
+        inputTokens: 1_200,
+        outputTokens: 900,
+        cacheReadTokens: 80_000,
+        cacheWriteTokens: null,
+      },
+    ]);
+  });
+
+  it('publishes a run handing its task on to another station', () => {
+    expect(
+      published(
+        new TaskHandedOn(
+          TASK,
+          WORKSPACE,
+          RUN,
+          StationId.of('station_1'),
+          StationId.of('station_2'),
+          new Date('2026-09-26T09:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.task-handed-on.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        runId: 'run_1',
+        from: 'station_1',
+        to: 'station_2',
+        at: '2026-09-26T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes a task failure with its team, source, code and how often it repeated', () => {
+    expect(
+      published(
+        new TaskFailed(
+          TASK,
+          WORKSPACE,
+          TeamId.of('team_1'),
+          StationId.of('station_1'),
+          TaskFailure.fromHook('notify', 'loop').again().again(),
+          null,
+          new Date('2026-09-26T09:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.task-failed.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        stationId: 'station_1',
+        runId: null,
+        source: 'hook:notify',
+        code: 'loop',
+        occurrences: 3,
+        at: '2026-09-26T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes a task put to a person, and when', () => {
+    expect(
+      published(
+        new TaskAsked(
+          TASK,
+          WORKSPACE,
+          StationId.of('station_1'),
+          null,
+          new Date('2026-09-26T09:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.task-asked.v1',
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+        stationId: 'station_1',
+        at: '2026-09-26T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes who started a chat, on which team and when', () => {
+    expect(
+      published(
+        new ChatStarted(
+          ChatId.of('chat_1'),
+          WORKSPACE,
+          TeamId.of('team_1'),
+          UserId.of('user_1'),
+          new Date('2026-09-26T09:00:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.chat-started.v1',
+        chatId: 'chat_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        by: 'user_1',
+        at: '2026-09-26T09:00:00.000Z',
+      },
     ]);
   });
 
@@ -185,7 +375,7 @@ describe('WORK_PUBLICATIONS', () => {
     ]);
   });
 
-  it('publishes what a person did to a task, and after which run', () => {
+  it('publishes what a person did to a task, who did it and after which run', () => {
     expect(
       published(
         new TaskActedOn(
@@ -205,6 +395,7 @@ describe('WORK_PUBLICATIONS', () => {
         workspaceId: 'ws_1',
         stationId: 'station_1',
         act: 'sent-back',
+        by: 'user_1',
         after: 'run_1',
         at: '2026-09-26T09:00:00.000Z',
       },

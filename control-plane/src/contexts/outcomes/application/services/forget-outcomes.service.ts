@@ -1,62 +1,189 @@
+import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { PendingReviewsPort } from '@outcomes/application/ports/pending-reviews.port';
+import type { ChatRecordRepository } from '@outcomes/domain/repositories/chat-record.repository';
 import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
+import type { TaskFailuresRepository } from '@outcomes/domain/repositories/task-failures.repository';
+import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-touches.repository';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+export interface OutcomesHeld {
+  readonly records: RunRecordRepository;
+  readonly deliveries: TaskDeliveryRepository;
+  readonly judgings: JudgingRepository;
+  readonly scores: ScoreRepository;
+  readonly touches: TaskTouchesRepository;
+  readonly failures: TaskFailuresRepository;
+  readonly chats: ChatRecordRepository;
+  readonly reviews: PendingReviewsPort;
+  readonly forgotten: ForgottenPort;
+}
+
 export class ForgetOutcomes {
   constructor(
-    private readonly records: RunRecordRepository,
-    private readonly deliveries: TaskDeliveryRepository,
-    private readonly judgings: JudgingRepository,
-    private readonly scores: ScoreRepository,
+    private readonly held: OutcomesHeld,
     private readonly transaction: TransactionPort,
   ) {}
 
-  runsOfTask(taskId: TaskId): Promise<void> {
-    return this.records.removeForTask(taskId);
+  runsOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
+    return this.ofTask(workspaceId, taskId, () =>
+      this.held.records.removeForTask(taskId),
+    );
   }
 
-  deliveryOfTask(taskId: TaskId): Promise<void> {
-    return this.deliveries.removeForTask(taskId);
-  }
+  deliveryOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
+    return this.ofTask(workspaceId, taskId, async () => {
+      const delivery = await this.held.deliveries.forTask(taskId);
 
-  judgingsAndScoresOfTask(taskId: TaskId): Promise<void> {
-    return this.transaction.run(async () => {
-      await this.judgings.removeForTask(taskId);
-      await this.scores.removeForTask(taskId);
+      if (delivery) {
+        await this.held.reviews.release(workspaceId, delivery.pullRequest);
+      }
+
+      await this.held.deliveries.removeForTask(taskId);
     });
   }
 
+  judgingsAndScoresOfTask(
+    workspaceId: WorkspaceId,
+    taskId: TaskId,
+  ): Promise<void> {
+    return this.ofTask(workspaceId, taskId, async () => {
+      await this.held.judgings.removeForTask(taskId);
+      await this.held.scores.removeForTask(taskId);
+    });
+  }
+
+  touchesOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
+    return this.ofTask(workspaceId, taskId, () =>
+      this.held.touches.removeForTask(taskId),
+    );
+  }
+
+  failuresOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
+    return this.ofTask(workspaceId, taskId, () =>
+      this.held.failures.removeForTask(taskId),
+    );
+  }
+
   runsOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    return this.records.removeForTeam(workspaceId, teamId);
+    return this.ofTeam(workspaceId, teamId, () =>
+      this.held.records.removeForTeam(workspaceId, teamId),
+    );
+  }
+
+  deliveriesOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+    return this.ofTeam(workspaceId, teamId, async () => {
+      for (const delivery of await this.held.deliveries.ofTeam(
+        workspaceId,
+        teamId,
+      )) {
+        await this.held.reviews.release(workspaceId, delivery.pullRequest);
+      }
+
+      await this.held.deliveries.removeForTeam(workspaceId, teamId);
+    });
   }
 
   judgingsAndScoresOfTeam(
     workspaceId: WorkspaceId,
     teamId: TeamId,
   ): Promise<void> {
-    return this.transaction.run(async () => {
-      await this.judgings.removeForTeam(workspaceId, teamId);
-      await this.scores.removeForTeam(workspaceId, teamId);
+    return this.ofTeam(workspaceId, teamId, async () => {
+      await this.held.judgings.removeForTeam(workspaceId, teamId);
+      await this.held.scores.removeForTeam(workspaceId, teamId);
     });
   }
 
+  touchesOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+    return this.ofTeam(workspaceId, teamId, () =>
+      this.held.touches.removeForTeam(workspaceId, teamId),
+    );
+  }
+
+  failuresOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+    return this.ofTeam(workspaceId, teamId, () =>
+      this.held.failures.removeForTeam(workspaceId, teamId),
+    );
+  }
+
+  chatsOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+    return this.ofTeam(workspaceId, teamId, () =>
+      this.held.chats.removeForTeam(workspaceId, teamId),
+    );
+  }
+
   runsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    return this.records.removeForWorkspace(workspaceId);
+    return this.ofWorkspace(workspaceId, () =>
+      this.held.records.removeForWorkspace(workspaceId),
+    );
   }
 
   deliveriesOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    return this.deliveries.removeForWorkspace(workspaceId);
+    return this.ofWorkspace(workspaceId, async () => {
+      await this.held.deliveries.removeForWorkspace(workspaceId);
+      await this.held.reviews.releaseWorkspace(workspaceId);
+    });
   }
 
   judgingsAndScoresOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    return this.ofWorkspace(workspaceId, async () => {
+      await this.held.judgings.removeForWorkspace(workspaceId);
+      await this.held.scores.removeForWorkspace(workspaceId);
+    });
+  }
+
+  touchesOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    return this.ofWorkspace(workspaceId, () =>
+      this.held.touches.removeForWorkspace(workspaceId),
+    );
+  }
+
+  failuresOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    return this.ofWorkspace(workspaceId, () =>
+      this.held.failures.removeForWorkspace(workspaceId),
+    );
+  }
+
+  chatsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    return this.ofWorkspace(workspaceId, () =>
+      this.held.chats.removeForWorkspace(workspaceId),
+    );
+  }
+
+  private ofTask(
+    workspaceId: WorkspaceId,
+    taskId: TaskId,
+    remove: () => Promise<void>,
+  ): Promise<void> {
     return this.transaction.run(async () => {
-      await this.judgings.removeForWorkspace(workspaceId);
-      await this.scores.removeForWorkspace(workspaceId);
+      await this.held.forgotten.forgetTask(workspaceId, taskId);
+      await remove();
+    });
+  }
+
+  private ofTeam(
+    workspaceId: WorkspaceId,
+    teamId: TeamId,
+    remove: () => Promise<void>,
+  ): Promise<void> {
+    return this.transaction.run(async () => {
+      await this.held.forgotten.forgetTeam(workspaceId, teamId);
+      await remove();
+    });
+  }
+
+  private ofWorkspace(
+    workspaceId: WorkspaceId,
+    remove: () => Promise<void>,
+  ): Promise<void> {
+    return this.transaction.run(async () => {
+      await this.held.forgotten.forgetWorkspace(workspaceId);
+      await remove();
     });
   }
 }

@@ -122,6 +122,43 @@ describe('Run', () => {
     expect(run.leaseExpiresAt?.getTime()).toBeGreaterThan(noon.getTime());
   });
 
+  it('has not started once claimed, only once its runner says it started in its image', () => {
+    const later = at('2026-08-28T12:00:00.000Z');
+    const image = RunnerImage.of(
+      `ghcr.io/acme/widgets@sha256:${'e'.repeat(64)}`,
+    );
+
+    expect(queued().startedAt).toBeNull();
+    expect(claimed().startedAt).toBeNull();
+    expect(claimed().startedIn(runner(), image, later).startedAt).toEqual(
+      later,
+    );
+  });
+
+  it('keeps the start it was first told of while the same claim says it again', () => {
+    const later = at('2026-08-28T12:00:00.000Z');
+    const image = RunnerImage.of(
+      `ghcr.io/acme/widgets@sha256:${'e'.repeat(64)}`,
+    );
+
+    expect(
+      claimed()
+        .startedIn(runner(), image, noon)
+        .startedIn(runner(), image, later).startedAt,
+    ).toEqual(noon);
+  });
+
+  it('forgets its start when it goes back on the queue, so a run that never starts again has none', () => {
+    const image = RunnerImage.of(
+      `ghcr.io/acme/widgets@sha256:${'e'.repeat(64)}`,
+    );
+    const started = claimed().startedIn(runner(), image, noon);
+
+    expect(lostAndRequeued(started).startedAt).toBeNull();
+    expect(claimed().unclaimedBy(runner()).startedAt).toBeNull();
+    expect(started.handedBack(runner(), noon, 'no room').startedAt).toBeNull();
+  });
+
   it('leaves the run it was claimed from on the queue', () => {
     const waiting = queued();
 
@@ -549,6 +586,7 @@ describe('Run', () => {
       const started = claimed().startedIn(
         runner(),
         RunnerImage.of(`ghcr.io/acme/widgets@sha256:${'a'.repeat(64)}`),
+        noon,
       );
 
       expect(() => started.unclaimedBy(runner())).toThrow(
@@ -1036,21 +1074,25 @@ describe('Run', () => {
     });
 
     it('keeps the image its holder says it started in', () => {
-      expect(claimed().startedIn(runner(), pinned).ranIn).toBe(pinned);
+      expect(claimed().startedIn(runner(), pinned, noon).ranIn).toBe(pinned);
     });
 
     it('refuses the image from a runner that does not hold it, or while nobody does', () => {
-      expect(() => claimed().startedIn(runner('runner_2'), pinned)).toThrow(
-        InvalidRunTransitionError,
-      );
-      expect(() => queued().startedIn(runner(), pinned)).toThrow(
+      expect(() =>
+        claimed().startedIn(runner('runner_2'), pinned, noon),
+      ).toThrow(InvalidRunTransitionError);
+      expect(() => queued().startedIn(runner(), pinned, noon)).toThrow(
         InvalidRunTransitionError,
       );
     });
 
     it('refuses an image not named by its digest', () => {
       expect(() =>
-        claimed().startedIn(runner(), RunnerImage.of('ghcr.io/acme/widgets:1')),
+        claimed().startedIn(
+          runner(),
+          RunnerImage.of('ghcr.io/acme/widgets:1'),
+          noon,
+        ),
       ).toThrow(/by digest/);
     });
 
@@ -1065,17 +1107,18 @@ describe('Run', () => {
         ),
       }).claim(runner(), noon);
 
-      expect(inWidgets.startedIn(runner(), pinned).ranIn).toBe(pinned);
+      expect(inWidgets.startedIn(runner(), pinned, noon).ranIn).toBe(pinned);
       expect(() =>
         inWidgets.startedIn(
           runner(),
           RunnerImage.of(`ghcr.io/acme/other@sha256:${'e'.repeat(64)}`),
+          noon,
         ),
       ).toThrow(/runs in ghcr.io\/acme\/widgets:main/);
     });
 
     it('forgets the image once it goes back on the queue', () => {
-      const started = claimed().startedIn(runner(), pinned);
+      const started = claimed().startedIn(runner(), pinned, noon);
 
       expect(started.requeue(started.leaseExpiresAt as Date).ranIn).toBeNull();
     });

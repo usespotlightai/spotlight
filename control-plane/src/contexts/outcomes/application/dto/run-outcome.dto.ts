@@ -2,7 +2,6 @@ import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import type { CheckVerdict } from '@outcomes/domain/value-objects/check-verdict';
 import type { DeliveryState } from '@outcomes/domain/value-objects/delivery-state';
-import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
 
 export interface RunCostDto {
@@ -25,13 +24,13 @@ export interface RunOutcomeDto {
   readonly cost: RunCostDto | null;
   readonly checks: CheckVerdict | null;
   readonly next: { readonly act: string; readonly at: string } | null;
+  readonly handedOn: { readonly to: string; readonly at: string } | null;
   readonly delivery: DeliveryState | null;
 }
 
 export const runOutcomeOf = (
   record: RunRecord,
   deliveries: readonly TaskDelivery[],
-  costs: ReadonlyMap<string, RunCost>,
 ): RunOutcomeDto | null => {
   const end = record.end;
   const ending = record.ending;
@@ -40,7 +39,7 @@ export const runOutcomeOf = (
     return null;
   }
 
-  const cost = costs.get(record.runId.value) ?? null;
+  const cost = record.cost;
 
   return {
     runId: record.runId.value,
@@ -63,6 +62,9 @@ export const runOutcomeOf = (
     checks: record.checks,
     next: record.next
       ? { act: record.next.act, at: record.next.at.toISOString() }
+      : null,
+    handedOn: record.handedOn
+      ? { to: record.handedOn.to, at: record.handedOn.at.toISOString() }
       : null,
     delivery:
       deliveries.find((each) => each.taskId.equals(end.place.taskId))?.state ??

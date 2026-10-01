@@ -1,3 +1,4 @@
+import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { EndedRun, WorkPort } from '@outcomes/application/ports/work.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
@@ -7,6 +8,7 @@ import {
   type RunEnding,
 } from '@outcomes/domain/value-objects/run-ending';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
+import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -33,6 +35,15 @@ const endOf = (
       taskId: TaskId.of(run.taskId),
     }),
     fingerprint: run.fingerprint,
+    setup: RunSetup.of({
+      harness: run.harness,
+      model: run.model,
+      effort: run.effort,
+      profileKey: run.profileKey,
+      repositories: run.repositories,
+    }),
+    queuedAt: run.queuedAt,
+    startedAt: run.startedAt,
     endedAt: run.endedAt,
     ending,
     failure,
@@ -43,6 +54,7 @@ export class NoteRunEnded {
   constructor(
     private readonly work: WorkPort,
     private readonly records: RunRecordRepository,
+    private readonly forgotten: ForgottenPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -59,7 +71,12 @@ export class NoteRunEnded {
       return;
     }
 
+    const end = endOf(run, ending, heard.failure);
+    const { taskId, teamId } = end.place;
+    const workspaceId = WorkspaceId.of(run.workspaceId);
+
     await this.transaction.run(async () => {
+      await this.forgotten.holding(workspaceId, taskId, teamId);
       const runId = RunId.of(run.runId);
       const held = await this.records.of(runId);
 
@@ -67,16 +84,19 @@ export class NoteRunEnded {
         return;
       }
 
-      const end = endOf(run, ending, heard.failure);
+      if (await this.forgotten.forgot(workspaceId, taskId, teamId)) {
+        if (held) {
+          await this.records.removeForTask(taskId);
+        }
+        return;
+      }
 
       if (held) {
         await this.records.save(held.ended(end));
         return;
       }
 
-      await this.records.add(
-        RunRecord.heardOf(runId, WorkspaceId.of(run.workspaceId)).ended(end),
-      );
+      await this.records.add(RunRecord.heardOf(runId, workspaceId).ended(end));
     });
   }
 }

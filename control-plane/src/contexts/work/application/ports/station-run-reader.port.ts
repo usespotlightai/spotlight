@@ -14,6 +14,10 @@ export interface EndedRunRow {
   readonly taskId: string;
   readonly fingerprint: string | null;
   readonly earlier: readonly RunState[];
+  readonly harness: string;
+  readonly config: StationConfigParts | null;
+  readonly queuedAt: Date;
+  readonly startedAt: Date | null;
   readonly endedAt: Date;
 }
 

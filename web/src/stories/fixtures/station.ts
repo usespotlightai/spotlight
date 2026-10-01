@@ -164,6 +164,7 @@ const outcome = (
   },
   checks: 'passed',
   next: { act: 'approved', at: hoursAgo(1) },
+  handedOn: null,
   delivery: 'merged',
   ...over,
 });
@@ -214,9 +215,13 @@ const OUTCOMES: StationOutcomesResponseDto = {
         accepted: 2,
         sentBack: 0,
         withdrawn: 0,
+        handedOn: 0,
         merged: 2,
         cost: { amount: 2.71, currency: 'USD' },
         medianMs: 312_000,
+        p90Ms: 312_000,
+        unpriced: 0,
+        mixedCurrencies: false,
       },
       runs: [
         outcome({ runId: 'run_retries_3', endedAt: hoursAgo(0.3) }),
@@ -244,9 +249,13 @@ const OUTCOMES: StationOutcomesResponseDto = {
         accepted: 0,
         sentBack: 1,
         withdrawn: 0,
+        handedOn: 0,
         merged: 0,
         cost: { amount: 1.93, currency: 'USD' },
         medianMs: 541_000,
+        p90Ms: 541_000,
+        unpriced: 0,
+        mixedCurrencies: false,
       },
       runs: [
         outcome({

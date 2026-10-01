@@ -12,5 +12,6 @@ export class ChatStarted implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly teamId: TeamId,
     readonly startedBy: UserId,
+    readonly at: Date,
   ) {}
 }

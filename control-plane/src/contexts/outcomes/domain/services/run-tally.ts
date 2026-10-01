@@ -1,11 +1,13 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import type {
-  RunCost,
-  Spend,
-} from '@outcomes/domain/value-objects/run-cost.vo';
+import {
+  medianOf,
+  percentileOf,
+  spendingOf,
+} from '@outcomes/domain/services/measures';
+import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
 
-export interface StationTally {
+export interface RunTally {
   readonly runs: number;
   readonly withdrawn: number;
   readonly failed: number;
@@ -14,56 +16,32 @@ export interface StationTally {
   readonly checksFailed: number;
   readonly accepted: number;
   readonly sentBack: number;
+  readonly handedOn: number;
   readonly merged: number;
   readonly cost: Spend | null;
+  readonly unpriced: number;
+  readonly mixedCurrencies: boolean;
   readonly medianMs: number | null;
+  readonly p90Ms: number | null;
 }
-
-const medianOf = (values: readonly number[]): number | null => {
-  if (values.length === 0) {
-    return null;
-  }
-
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-
-  return sorted.length % 2 === 1
-    ? (sorted[middle] ?? null)
-    : Math.round(((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2);
-};
-
-const spentBy = (costs: readonly RunCost[]): Spend | null => {
-  const spends = costs.flatMap((each) => (each.spend ? [each.spend] : []));
-  const [first] = spends;
-
-  if (!first || spends.some((each) => each.currency !== first.currency)) {
-    return null;
-  }
-
-  return {
-    amount: spends.reduce((sum, each) => sum + each.amount, 0),
-    currency: first.currency,
-  };
-};
 
 const count = (
   records: readonly RunRecord[],
   holds: (record: RunRecord) => boolean,
 ): number => records.filter(holds).length;
 
-export const stationTally = (
+export const runTally = (
   records: readonly RunRecord[],
   deliveries: readonly TaskDelivery[],
-  costs: ReadonlyMap<string, RunCost>,
-): StationTally => {
+): RunTally => {
   const ran = records.filter((each) => each.ran);
   const tasks = new Set(
     ran.flatMap((each) => (each.taskId ? [each.taskId.value] : [])),
   );
-  const spent = ran.flatMap((each) => {
-    const cost = costs.get(each.runId.value);
-    return cost ? [cost] : [];
-  });
+  const spending = spendingOf(ran.map((each) => each.cost?.spend ?? null));
+  const took = ran.flatMap((each) =>
+    each.cost?.ms === null || each.cost?.ms === undefined ? [] : [each.cost.ms],
+  );
 
   return {
     runs: ran.length,
@@ -74,12 +52,14 @@ export const stationTally = (
     checksFailed: count(ran, (each) => each.checks === 'failed'),
     accepted: count(ran, (each) => each.next?.accepts === true),
     sentBack: count(ran, (each) => each.next?.sendsBack === true),
+    handedOn: count(ran, (each) => each.handedOn !== null),
     merged: deliveries.filter(
-      (each) => each.state === 'merged' && tasks.has(each.taskId.value),
+      (each) => each.merged && tasks.has(each.taskId.value),
     ).length,
-    cost: spentBy(spent),
-    medianMs: medianOf(
-      spent.flatMap((each) => (each.ms === null ? [] : [each.ms])),
-    ),
+    cost: spending.spend,
+    unpriced: spending.unpriced,
+    mixedCurrencies: spending.mixedCurrencies,
+    medianMs: medianOf(took),
+    p90Ms: percentileOf(took, 90),
   };
 };

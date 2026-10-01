@@ -1,4 +1,5 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import type { RunFilter } from '@outcomes/domain/services/run-filter';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -10,6 +11,25 @@ export interface StationRecords {
   readonly lineId: string | null;
   readonly stationId: string;
   readonly last: number;
+}
+
+export interface TeamWindow {
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly from: Date;
+  readonly to: Date;
+}
+
+export interface RunListing {
+  readonly window: TeamWindow;
+  readonly filter: RunFilter;
+  readonly offset: number;
+  readonly limit: number;
+}
+
+export interface RunPage {
+  readonly records: readonly RunRecord[];
+  readonly total: number;
 }
 
 export interface RunRecordRepository {
@@ -28,6 +48,10 @@ export interface RunRecordRepository {
   ): Promise<RunRecord | null>;
 
   lastAtStation(criteria: StationRecords): Promise<readonly RunRecord[]>;
+
+  endedForTeam(window: TeamWindow, most: number): Promise<readonly RunRecord[]>;
+
+  listedForTeam(listing: RunListing): Promise<RunPage>;
 
   removeForTask(taskId: TaskId): Promise<void>;
 

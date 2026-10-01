@@ -14,4 +14,25 @@ describe('RunEnd', () => {
     expect(() => endOf({ round: 0 })).toThrow(InvalidOutcomeError);
     expect(endOf({ round: 3 }).round).toBe(3);
   });
+
+  it('is queued, started and ended in that order', () => {
+    const queued = new Date('2026-09-30T09:00:00.000Z');
+    const started = new Date('2026-09-30T09:02:00.000Z');
+    const end = endOf({
+      queuedAt: queued,
+      startedAt: started,
+      endedAt: new Date('2026-09-30T09:10:00.000Z'),
+    });
+
+    expect(end.queuedMs).toBe(120_000);
+    expect(end.runningMs).toBe(480_000);
+    expect(() =>
+      endOf({ queuedAt: started, startedAt: queued, endedAt: started }),
+    ).toThrow(InvalidOutcomeError);
+  });
+
+  it('measures no wait it never saw start', () => {
+    expect(endOf({ queuedAt: null, startedAt: null }).queuedMs).toBeNull();
+    expect(endOf({ startedAt: null }).runningMs).toBeNull();
+  });
 });

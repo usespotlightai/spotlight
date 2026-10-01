@@ -5,6 +5,7 @@ import type {
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
@@ -233,6 +234,36 @@ describe('GitHubWebhooks', () => {
           'acme/api',
           { commit: 'c'.repeat(40) },
           closedAt,
+        ),
+      ]);
+    });
+
+    it('says a pull request was reviewed in the workspace', async () => {
+      const submittedAt = new Date('2026-09-21T09:30:00Z');
+      const { service, events } = hooks({
+        installation: '42',
+        heard: [
+          {
+            kind: 'pull-request-reviewed',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            state: 'changes-requested',
+            login: 'ada',
+            byBot: false,
+            submittedAt,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(events.dispatch).toHaveBeenCalledWith([
+        new PullRequestReviewed(
+          WORKSPACE,
+          'https://github.com/acme/api/pull/7',
+          'changes-requested',
+          'ada',
+          false,
+          submittedAt,
         ),
       ]);
     });

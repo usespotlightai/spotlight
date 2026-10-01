@@ -1,10 +1,12 @@
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { InvalidOutcomeError } from '@outcomes/domain/exceptions/invalid-outcome.error';
 import {
+  costOf,
   endedRecord,
   endOf,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
+import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -95,6 +97,8 @@ describe('RunRecord', () => {
       superseded: false,
       checks: null,
       next: null,
+      cost: null,
+      handedOn: null,
       version: 3,
     });
 
@@ -141,8 +145,29 @@ describe('RunRecord', () => {
         superseded: false,
         checks: null,
         next: null,
+        cost: null,
+        handedOn: null,
         version: 0,
       }),
     ).toThrow(InvalidOutcomeError);
+  });
+
+  it('keeps the first cost it hears of, before or after it ended', () => {
+    const digested = RunRecord.heardOf(RUN, WORKSPACE).digested(
+      costOf({ amount: 0.4 }),
+    );
+    const ended = digested.ended(endOf());
+
+    expect(ended.cost?.spend?.amount).toBe(0.4);
+    expect(ended.digested(costOf({ amount: 9 }))).toBe(ended);
+  });
+
+  it('keeps the first station it handed its task on to', () => {
+    const handed = endedRecord('run_1').handedOnTo(
+      HandedOn.of('station_2', AT),
+    );
+
+    expect(handed.handedOnTo(HandedOn.of('station_3', LATER))).toBe(handed);
+    expect(handed.handedOn?.to).toBe('station_2');
   });
 });

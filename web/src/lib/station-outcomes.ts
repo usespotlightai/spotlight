@@ -1,15 +1,15 @@
 import type {
   FingerprintGroupResponseDto,
+  RunTallyResponseDto,
   SpendResponseDto,
   StationOutcomesResponseDto,
   StationRunOutcomeResponseDto,
-  StationTallyResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
 
 export type StationRunOutcome = StationRunOutcomeResponseDto;
 
-export type StationTally = StationTallyResponseDto;
+export type StationTally = RunTallyResponseDto;
 
 export type FingerprintGroup = FingerprintGroupResponseDto;
 
@@ -79,11 +79,16 @@ export type TallyFigure = {
 const counted = (label: string, count: number): TallyFigure[] =>
   count > 0 ? [{ label, value: `${count}` }] : [];
 
+const costShown = (cost: SpendResponseDto | null): string =>
+  cost ? spentIn(cost.amount, cost.currency) : '–';
+
+const tookShown = (ms: number | null): string => (ms === null ? '–' : took(ms));
+
 const spend = (cost: SpendResponseDto | null): TallyFigure[] =>
-  cost ? [{ label: 'Cost', value: spentIn(cost.amount, cost.currency) }] : [];
+  cost ? [{ label: 'Cost', value: costShown(cost) }] : [];
 
 const median = (ms: number | null): TallyFigure[] =>
-  ms === null ? [] : [{ label: 'Median', value: took(ms) }];
+  ms === null ? [] : [{ label: 'Median', value: tookShown(ms) }];
 
 export const tallyFigures = (tally: StationTally): TallyFigure[] => [
   { label: tally.runs === 1 ? 'Run' : 'Runs', value: `${tally.runs}` },
@@ -97,4 +102,25 @@ export const tallyFigures = (tally: StationTally): TallyFigure[] => [
   ...counted('Withdrawn', tally.withdrawn),
   ...spend(tally.cost),
   ...median(tally.medianMs),
+];
+
+export type TallyColumn = {
+  readonly label: string;
+  readonly shown: (tally: StationTally) => string;
+};
+
+export const TALLY_COLUMNS: readonly TallyColumn[] = [
+  { label: 'Runs', shown: (tally) => `${tally.runs}` },
+  { label: 'Failed', shown: (tally) => `${tally.failed}` },
+  { label: 'Stopped', shown: (tally) => `${tally.stopped}` },
+  { label: 'Checks passed', shown: (tally) => `${tally.checksPassed}` },
+  { label: 'Checks failed', shown: (tally) => `${tally.checksFailed}` },
+  { label: 'Accepted', shown: (tally) => `${tally.accepted}` },
+  { label: 'Sent back', shown: (tally) => `${tally.sentBack}` },
+  { label: 'Handed on', shown: (tally) => `${tally.handedOn}` },
+  { label: 'Merged', shown: (tally) => `${tally.merged}` },
+  { label: 'Withdrawn', shown: (tally) => `${tally.withdrawn}` },
+  { label: 'Cost', shown: (tally) => costShown(tally.cost) },
+  { label: 'Median', shown: (tally) => tookShown(tally.medianMs) },
+  { label: 'p90', shown: (tally) => tookShown(tally.p90Ms) },
 ];

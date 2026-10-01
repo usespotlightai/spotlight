@@ -1,3 +1,4 @@
+import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import {
@@ -24,7 +25,11 @@ const acting = async (...runs: Ended[]) => {
     await records.add(endedRecord(runId, { endedAt: at(hour), ...change }));
   }
 
-  const service = new NotePersonAct(records, inTransaction);
+  const service = new NotePersonAct(
+    records,
+    forgottenInMemory(),
+    inTransaction,
+  );
 
   return {
     records,
@@ -138,12 +143,11 @@ describe('noting how a run’s change was checked', () => {
     const records = new RunRecordsInMemory();
     await records.add(endedRecord('run_1'));
 
-    await new NoteChangeChecked(records, inTransaction).checked(
-      RunId.of('run_1'),
-      WORKSPACE,
-      null,
-      false,
-    );
+    await new NoteChangeChecked(
+      records,
+      forgottenInMemory(),
+      inTransaction,
+    ).checked(RunId.of('run_1'), WORKSPACE, null, false);
 
     expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
   });
@@ -151,12 +155,11 @@ describe('noting how a run’s change was checked', () => {
   it('keeps a verdict heard before the run was heard to end', async () => {
     const records = new RunRecordsInMemory();
 
-    await new NoteChangeChecked(records, inTransaction).checked(
-      RunId.of('run_1'),
-      WORKSPACE,
-      TaskId.of('task_1'),
-      null,
-    );
+    await new NoteChangeChecked(
+      records,
+      forgottenInMemory(),
+      inTransaction,
+    ).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), null);
 
     const record = await records.of(RunId.of('run_1'));
     expect(record?.checks).toBe('skipped');

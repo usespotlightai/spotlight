@@ -15,7 +15,7 @@ import {
   type FingerprintGroup,
   fingerprintGroupsNewestFirst,
 } from '@outcomes/domain/services/fingerprint-groups';
-import { stationTally } from '@outcomes/domain/services/station-tally';
+import { runTally } from '@outcomes/domain/services/run-tally';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -74,9 +74,6 @@ export class ListStationOutcomesHandler
       const deliveries = await this.deliveries.forTasks(
         records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
       );
-      const costs = await this.work.costsOf(
-        records.map((each) => each.runId.value),
-      );
       const oldestFirst = [...fingerprintGroupsNewestFirst(records)].reverse();
       const configs = configsAlong(
         oldestFirst,
@@ -95,10 +92,10 @@ export class ListStationOutcomesHandler
           config: config?.config ?? null,
           changes: config?.changes ?? [],
           runs: group.records.flatMap((each) => {
-            const outcome = runOutcomeOf(each, deliveries, costs);
+            const outcome = runOutcomeOf(each, deliveries);
             return outcome ? [outcome] : [];
           }),
-          tally: stationTally(group.records, deliveries, costs),
+          tally: runTally(group.records, deliveries),
         };
       });
 

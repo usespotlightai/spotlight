@@ -526,6 +526,30 @@ CREATE TABLE "memory_use" (
 	CONSTRAINT "memory_use_memory_id_run_id_way_pk" PRIMARY KEY("memory_id","run_id","way")
 );
 --> statement-breakpoint
+CREATE TABLE "chat_record" (
+	"chat_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"started_by" text NOT NULL,
+	"started_at" timestamp NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "forgotten_task" (
+	"task_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "forgotten_team" (
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	CONSTRAINT "forgotten_team_workspace_id_team_id_pk" PRIMARY KEY("workspace_id","team_id")
+);
+--> statement-breakpoint
+CREATE TABLE "forgotten_workspace" (
+	"workspace_id" text PRIMARY KEY NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "judging" (
 	"run_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -546,6 +570,13 @@ CREATE TABLE "judging" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "pending_review" (
+	"workspace_id" text NOT NULL,
+	"pull_request" text NOT NULL,
+	"at" timestamp NOT NULL,
+	CONSTRAINT "pending_review_workspace_id_pull_request_at_pk" PRIMARY KEY("workspace_id","pull_request","at")
+);
+--> statement-breakpoint
 CREATE TABLE "run_record" (
 	"run_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -554,6 +585,13 @@ CREATE TABLE "run_record" (
 	"station_id" text,
 	"task_id" text,
 	"fingerprint" text,
+	"harness" text,
+	"model" text,
+	"effort" text,
+	"profile_key" text,
+	"repositories" jsonb,
+	"queued_at" timestamp,
+	"started_at" timestamp,
 	"ended_at" timestamp,
 	"ending" "run_record_ending",
 	"failure" text,
@@ -562,6 +600,20 @@ CREATE TABLE "run_record" (
 	"checks" "run_record_checks",
 	"next_act" "run_record_act",
 	"next_at" timestamp,
+	"handed_on_to" text,
+	"handed_on_at" timestamp,
+	"digested" boolean DEFAULT false NOT NULL,
+	"ms" integer,
+	"steps" integer,
+	"faults" integer,
+	"used" integer,
+	"size" integer,
+	"cost" double precision,
+	"currency" text,
+	"input_tokens" bigint,
+	"output_tokens" bigint,
+	"cache_read_tokens" bigint,
+	"cache_write_tokens" bigint,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -589,9 +641,35 @@ CREATE TABLE "score" (
 CREATE TABLE "task_delivery" (
 	"task_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
 	"pull_request" text NOT NULL,
 	"state" "task_delivery_state" DEFAULT 'open' NOT NULL,
+	"opened_at" timestamp NOT NULL,
+	"first_review_at" timestamp,
 	"closed_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "task_failures" (
+	"task_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"occurrences" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"last_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "task_touches" (
+	"task_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text,
+	"line_id" text,
+	"station_id" text,
+	"opened_by" text,
+	"opened_at" timestamp,
+	"asks" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"acts" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"touched_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -909,6 +987,7 @@ CREATE TABLE "run" (
 	"hand_backs" integer DEFAULT 0 NOT NULL,
 	"parked_attempts" integer[] DEFAULT '{}'::integer[] NOT NULL,
 	"briefed_memories" jsonb DEFAULT '{"briefed":[],"cut":[]}'::jsonb NOT NULL,
+	"started_at" timestamp,
 	"ended_at" timestamp,
 	"station_fingerprint" text,
 	"station_config" jsonb,
@@ -1135,9 +1214,13 @@ CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("draftin
 CREATE UNIQUE INDEX "memory_proposal_position_idx" ON "memory_proposal" USING btree ("draft_id","position");--> statement-breakpoint
 CREATE INDEX "memory_proposal_decided_idx" ON "memory_proposal" USING btree ("team_id","state","decided_at");--> statement-breakpoint
 CREATE INDEX "memory_use_run_idx" ON "memory_use" USING btree ("run_id","at");--> statement-breakpoint
+CREATE INDEX "chat_record_team_idx" ON "chat_record" USING btree ("team_id","started_at");--> statement-breakpoint
+CREATE INDEX "chat_record_workspace_idx" ON "chat_record" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "forgotten_task_workspace_idx" ON "forgotten_task" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "judging_owed_idx" ON "judging" USING btree ("asked_at") WHERE "judging"."owed";--> statement-breakpoint
 CREATE INDEX "judging_task_idx" ON "judging" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "judging_workspace_idx" ON "judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
+CREATE INDEX "run_record_team_idx" ON "run_record" USING btree ("team_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_station_idx" ON "run_record" USING btree ("station_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_task_idx" ON "run_record" USING btree ("task_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_workspace_idx" ON "run_record" USING btree ("workspace_id");--> statement-breakpoint
@@ -1147,6 +1230,11 @@ CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> 
 CREATE INDEX "score_task_idx" ON "score" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "task_delivery_pull_request_idx" ON "task_delivery" USING btree ("workspace_id","pull_request");--> statement-breakpoint
+CREATE INDEX "task_delivery_team_idx" ON "task_delivery" USING btree ("team_id","opened_at");--> statement-breakpoint
+CREATE INDEX "task_failures_last_idx" ON "task_failures" USING btree ("workspace_id","last_at");--> statement-breakpoint
+CREATE INDEX "task_failures_team_idx" ON "task_failures" USING btree ("team_id","last_at");--> statement-breakpoint
+CREATE INDEX "task_touches_team_idx" ON "task_touches" USING btree ("team_id","touched_at");--> statement-breakpoint
+CREATE INDEX "task_touches_workspace_idx" ON "task_touches" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint

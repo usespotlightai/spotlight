@@ -14,4 +14,6 @@ export interface PeoplePort {
     teamId: string,
     principal: Principal,
   ): Promise<Membership | null>;
+
+  namesOf(userIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
 }

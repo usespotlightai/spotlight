@@ -40,6 +40,14 @@ export type Heard =
       readonly closedAt: Date | null;
     }
   | {
+      readonly kind: 'pull-request-reviewed';
+      readonly pullRequest: string;
+      readonly state: 'approved' | 'changes-requested' | 'commented';
+      readonly login: string | null;
+      readonly byBot: boolean;
+      readonly submittedAt: Date | null;
+    }
+  | {
       readonly kind: 'pull-request-activity';
       readonly activity: PullRequestActivity;
     };

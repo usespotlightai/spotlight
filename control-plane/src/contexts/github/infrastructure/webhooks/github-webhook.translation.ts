@@ -21,7 +21,10 @@ interface Payload {
     readonly pull_request?: { readonly html_url?: unknown };
   };
   readonly comment?: Remark & ReviewComment;
-  readonly review?: Remark & { readonly state?: unknown };
+  readonly review?: Remark & {
+    readonly state?: unknown;
+    readonly submitted_at?: unknown;
+  };
   readonly check_suite?: {
     readonly conclusion?: unknown;
     readonly head_branch?: unknown;
@@ -271,6 +274,40 @@ const pullRequestClosed = (payload: Payload): Heard[] => {
   ];
 };
 
+type ReviewState = 'approved' | 'changes-requested' | 'commented';
+
+const REVIEW_STATES: ReadonlyMap<string, ReviewState> = new Map([
+  ['approved', 'approved'],
+  ['changes_requested', 'changes-requested'],
+  ['commented', 'commented'],
+]);
+
+const reviewStateOf = (state: unknown): ReviewState | null =>
+  typeof state === 'string'
+    ? (REVIEW_STATES.get(state.toLowerCase()) ?? null)
+    : null;
+
+const pullRequestReviewed = (payload: Payload): Heard[] => {
+  const review = payload.review;
+  const pullRequest = text(payload.pull_request?.html_url);
+  const state = reviewStateOf(review?.state);
+
+  if (payload.action !== 'submitted' || !review || !pullRequest || !state) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'pull-request-reviewed',
+      pullRequest,
+      state,
+      login: text(review.user?.login),
+      byBot: review.user?.type === 'Bot',
+      submittedAt: writtenAt(review.submitted_at),
+    },
+  ];
+};
+
 const heardIn = (event: string | undefined, payload: Payload): Heard[] => {
   if (event === 'installation') {
     return payload.action === 'deleted'
@@ -281,6 +318,7 @@ const heardIn = (event: string | undefined, payload: Payload): Heard[] => {
   return [
     ...(event === 'pull_request_review_comment' ? reviewComment(payload) : []),
     ...(event === 'pull_request' ? pullRequestClosed(payload) : []),
+    ...(event === 'pull_request_review' ? pullRequestReviewed(payload) : []),
     ...pullRequestActivity(event, payload),
   ];
 };

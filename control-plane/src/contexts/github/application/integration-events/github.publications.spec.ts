@@ -1,5 +1,6 @@
 import { GITHUB_PUBLICATIONS } from '@github/application/integration-events/github.publications';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -74,6 +75,31 @@ describe('GITHUB_PUBLICATIONS', () => {
         merged: true,
         mergeCommit: 'c'.repeat(40),
         closedAt: '2026-09-21T09:30:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes a submitted review, who wrote it and when', () => {
+    expect(
+      published(
+        new PullRequestReviewed(
+          WorkspaceId.of('ws_1'),
+          'https://github.com/acme/api/pull/7',
+          'approved',
+          'ada',
+          false,
+          new Date('2026-09-21T09:30:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'github.pull-request-reviewed.v1',
+        workspaceId: 'ws_1',
+        pullRequest: 'https://github.com/acme/api/pull/7',
+        state: 'approved',
+        login: 'ada',
+        byBot: false,
+        submittedAt: '2026-09-21T09:30:00.000Z',
       },
     ]);
   });

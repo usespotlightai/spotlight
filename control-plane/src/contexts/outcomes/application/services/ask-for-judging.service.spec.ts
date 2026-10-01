@@ -1,3 +1,4 @@
+import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
 import type { JudgePort } from '@outcomes/application/ports/judge.port';
 import type { EndedRun } from '@outcomes/application/ports/work.port';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
@@ -8,8 +9,11 @@ import {
 import {
   FIRST_CONFIG,
   inTransaction,
+  SET_UP,
 } from '@outcomes/domain/outcomes.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const ENDED: EndedRun = {
@@ -21,6 +25,7 @@ const ENDED: EndedRun = {
   taskId: 'task_1',
   fingerprint: FIRST_CONFIG,
   round: 1,
+  ...SET_UP,
   endedAt: new Date('2026-09-30T10:00:00.000Z'),
 };
 
@@ -34,6 +39,7 @@ const asking = (
   } = {},
 ) => {
   const judgings = new JudgingsInMemory();
+  const forgotten = forgottenInMemory();
   const judge: JudgePort = {
     available: change.available ?? true,
     model: 'some/model',
@@ -42,7 +48,6 @@ const asking = (
   const asks = new AskForJudging(
     {
       endedRun: async () => ENDED,
-      costsOf: async () => new Map(),
       configsInOrder: async () => [],
     },
     {
@@ -62,18 +67,41 @@ const asking = (
     },
     judge,
     judgings,
+    forgotten,
     inTransaction,
     { now: () => new Date('2026-09-30T10:05:00.000Z'), sleep: async () => {} },
   );
 
   return {
     judgings,
+    forgotten,
     ended: (outcome = 'completed', stopped = false) =>
       asks.runEnded({ runId: 'run_1', outcome, stopped, failure: null }),
   };
 };
 
 describe('AskForJudging', () => {
+  it('asks no verdict on a run heard to end after its task was deleted', async () => {
+    const heard = asking();
+    await heard.forgotten.forgetTask(
+      WorkspaceId.of('ws_1'),
+      TaskId.of('task_1'),
+    );
+
+    await heard.ended();
+
+    expect(heard.judgings.held.size).toBe(0);
+  });
+
+  it('asks no verdict on a run heard to end after its workspace was closed', async () => {
+    const heard = asking();
+    await heard.forgotten.forgetWorkspace(WorkspaceId.of('ws_1'));
+
+    await heard.ended();
+
+    expect(heard.judgings.held.size).toBe(0);
+  });
+
   it('asks for a verdict on a sampled run of a judged station, with its rubric', async () => {
     const heard = asking();
 

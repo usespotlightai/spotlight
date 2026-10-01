@@ -12,6 +12,7 @@ import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
+import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
@@ -100,6 +101,15 @@ const endedRecord = (runId: string) =>
     RunEnd.of({
       place: placeOf(`task_${runId}`),
       fingerprint: CONFIG,
+      setup: RunSetup.of({
+        harness: 'claude-code',
+        model: null,
+        effort: null,
+        profileKey: null,
+        repositories: [],
+      }),
+      queuedAt: null,
+      startedAt: null,
       endedAt: NOW,
       ending: 'completed',
       failure: null,

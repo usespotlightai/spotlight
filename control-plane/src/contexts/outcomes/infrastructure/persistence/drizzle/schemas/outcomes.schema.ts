@@ -1,7 +1,10 @@
 import { CHECK_VERDICTS } from '@outcomes/domain/value-objects/check-verdict';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { JUDGING_FAILURES } from '@outcomes/domain/value-objects/judging-failure.vo';
-import { PERSON_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
+import {
+  PERSON_ACTS,
+  type PersonAct,
+} from '@outcomes/domain/value-objects/next-act.vo';
 import { RUN_ENDINGS } from '@outcomes/domain/value-objects/run-ending';
 import { SCORE_KINDS } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SCORE_SOURCES } from '@outcomes/domain/value-objects/score-source';
@@ -11,12 +14,15 @@ import type {
 } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -35,6 +41,27 @@ export interface StoredCitation {
 export interface StoredSeen {
   readonly steps: readonly SeenStep[];
   readonly hunks: readonly SeenHunk[];
+}
+
+export interface StoredAsk {
+  readonly stationId: string;
+  readonly at: string;
+}
+
+export interface StoredAct {
+  readonly act: PersonAct;
+  readonly by: string;
+  readonly stationId: string;
+  readonly at: string;
+}
+
+export interface StoredOccurrence {
+  readonly stationId: string;
+  readonly runId: string | null;
+  readonly source: string;
+  readonly code: string;
+  readonly occurrences: number;
+  readonly at: string;
 }
 
 export interface StoredReason {
@@ -60,6 +87,13 @@ export const runRecord = pgTable(
     stationId: text('station_id'),
     taskId: text('task_id'),
     fingerprint: text('fingerprint'),
+    harness: text('harness'),
+    model: text('model'),
+    effort: text('effort'),
+    profileKey: text('profile_key'),
+    repositories: jsonb('repositories').$type<string[]>(),
+    queuedAt: timestamp('queued_at'),
+    startedAt: timestamp('started_at'),
     endedAt: timestamp('ended_at'),
     ending: runRecordEnding('ending'),
     failure: text('failure'),
@@ -68,9 +102,24 @@ export const runRecord = pgTable(
     checks: runRecordChecks('checks'),
     nextAct: runRecordAct('next_act'),
     nextAt: timestamp('next_at'),
+    handedOnTo: text('handed_on_to'),
+    handedOnAt: timestamp('handed_on_at'),
+    digested: boolean('digested').notNull().default(false),
+    ms: integer('ms'),
+    steps: integer('steps'),
+    faults: integer('faults'),
+    used: integer('used'),
+    size: integer('size'),
+    cost: doublePrecision('cost'),
+    currency: text('currency'),
+    inputTokens: bigint('input_tokens', { mode: 'number' }),
+    outputTokens: bigint('output_tokens', { mode: 'number' }),
+    cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
+    cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    index('run_record_team_idx').on(table.teamId, table.endedAt),
     index('run_record_station_idx').on(table.stationId, table.endedAt),
     index('run_record_task_idx').on(table.taskId, table.endedAt),
     index('run_record_workspace_idx').on(table.workspaceId),
@@ -82,8 +131,11 @@ export const taskDelivery = pgTable(
   {
     taskId: text('task_id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
     pullRequest: text('pull_request').notNull(),
     state: taskDeliveryState('state').notNull().default('open'),
+    openedAt: timestamp('opened_at').notNull(),
+    firstReviewAt: timestamp('first_review_at'),
     closedAt: timestamp('closed_at'),
     version: integer('version').notNull().default(0),
   },
@@ -92,6 +144,99 @@ export const taskDelivery = pgTable(
       table.workspaceId,
       table.pullRequest,
     ),
+    index('task_delivery_team_idx').on(table.teamId, table.openedAt),
+  ],
+);
+
+export const pendingReview = pgTable(
+  'pending_review',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    pullRequest: text('pull_request').notNull(),
+    at: timestamp('at').notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.workspaceId, table.pullRequest, table.at],
+    }),
+  ],
+);
+
+export const taskTouches = pgTable(
+  'task_touches',
+  {
+    taskId: text('task_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id'),
+    lineId: text('line_id'),
+    stationId: text('station_id'),
+    openedBy: text('opened_by'),
+    openedAt: timestamp('opened_at'),
+    asks: jsonb('asks').$type<StoredAsk[]>().notNull().default([]),
+    acts: jsonb('acts').$type<StoredAct[]>().notNull().default([]),
+    touchedAt: timestamp('touched_at'),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    index('task_touches_team_idx').on(table.teamId, table.touchedAt),
+    index('task_touches_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+export const taskFailures = pgTable(
+  'task_failures',
+  {
+    taskId: text('task_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    occurrences: jsonb('occurrences')
+      .$type<StoredOccurrence[]>()
+      .notNull()
+      .default([]),
+    lastAt: timestamp('last_at'),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    index('task_failures_last_idx').on(table.workspaceId, table.lastAt),
+    index('task_failures_team_idx').on(table.teamId, table.lastAt),
+  ],
+);
+
+export const forgottenTask = pgTable(
+  'forgotten_task',
+  {
+    taskId: text('task_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+  },
+  (table) => [index('forgotten_task_workspace_idx').on(table.workspaceId)],
+);
+
+export const forgottenWorkspace = pgTable('forgotten_workspace', {
+  workspaceId: text('workspace_id').primaryKey(),
+});
+
+export const forgottenTeam = pgTable(
+  'forgotten_team',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.workspaceId, table.teamId] })],
+);
+
+export const chatRecord = pgTable(
+  'chat_record',
+  {
+    chatId: text('chat_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    startedBy: text('started_by').notNull(),
+    startedAt: timestamp('started_at').notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    index('chat_record_team_idx').on(table.teamId, table.startedAt),
+    index('chat_record_workspace_idx').on(table.workspaceId),
   ],
 );
 

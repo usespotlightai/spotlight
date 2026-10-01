@@ -6,6 +6,7 @@ export type TaskActedOnIntegrationEvent = {
   readonly workspaceId: string;
   readonly stationId: string;
   readonly act: string;
+  readonly by: string;
   readonly after: string | null;
   readonly at: string;
 };

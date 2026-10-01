@@ -1,5 +1,3 @@
-import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
-
 export const WORK = Symbol('OUTCOMES_WORK');
 
 export interface EndedRun {
@@ -11,6 +9,13 @@ export interface EndedRun {
   readonly taskId: string;
   readonly fingerprint: string | null;
   readonly round: number;
+  readonly harness: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+  readonly profileKey: string | null;
+  readonly repositories: readonly string[];
+  readonly queuedAt: Date;
+  readonly startedAt: Date | null;
   readonly endedAt: Date;
 }
 
@@ -52,8 +57,6 @@ export interface ConfigInOrder {
 
 export interface WorkPort {
   endedRun(runId: string): Promise<EndedRun | null>;
-
-  costsOf(runIds: readonly string[]): Promise<ReadonlyMap<string, RunCost>>;
 
   configsInOrder(
     fingerprints: readonly string[],
