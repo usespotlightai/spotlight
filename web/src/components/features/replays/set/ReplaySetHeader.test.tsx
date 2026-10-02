@@ -20,6 +20,15 @@ vi.mock('@/hooks/api/useDeleteReplaySet', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useGuardChanges', () => ({
+  useGuardChanges: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
 const SET: ReplaySet = {
   id: 'set_1',
   lineId: 'line_1',
@@ -27,10 +36,11 @@ const SET: ReplaySet = {
   name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
+  guardsChanges: false,
   entries: [],
 };
 
-const renderHeader = (set: ReplaySet, replays: Replay[]) =>
+const renderHeader = (set: ReplaySet, replays: Replay[], searching = false) =>
   render(
     <MemoryRouter>
       <ReplaySetHeader
@@ -38,6 +48,8 @@ const renderHeader = (set: ReplaySet, replays: Replay[]) =>
         set={set}
         replays={replays}
         deletedTo="/w/acme"
+        replayCheck={null}
+        searching={searching}
       />
     </MemoryRouter>,
   );
@@ -55,7 +67,7 @@ describe('ReplaySetHeader', () => {
 
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
     expect(
-      screen.getByText(/can’t be deleted until that replay ends or is stopped/),
+      screen.getByText(/can’t be deleted until that ends or is stopped/),
     ).toBeInTheDocument();
   });
 
@@ -65,5 +77,14 @@ describe('ReplaySetHeader', () => {
     expect(screen.getByText(/takes no\s+more runs/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rename' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+  });
+
+  it('refuses to delete a set a search is using, and says its runs are frozen', () => {
+    renderHeader(SET, [], true);
+
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'A search of this set is under way, so its runs stay as they are',
+    );
   });
 });

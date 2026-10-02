@@ -24,6 +24,7 @@ import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.erro
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { Happening } from '@work/domain/value-objects/happening.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -32,6 +33,7 @@ import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -47,10 +49,20 @@ import { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import {
+  reactionRowsOf,
+  replayCheckRow,
+  repositoryRowsOf,
+  reviewsRow,
+  routeRowsOf,
+  skillRowsOf,
+  sourceRow,
+  stationColumnsOf,
+  toolRowsOf,
+} from '@work/infrastructure/lines/line-rows.of';
+import {
   line,
   lineReaction,
   lineRepository,
-  type ReviewsRow,
   station,
   stationRoute,
   stationSkill,
@@ -66,19 +78,6 @@ type Ways = {
   tools: Map<string, Tool[]>;
   skills: Map<string, SkillKey[]>;
 };
-
-const reviewsRow = (policy: ReviewPolicy | null): ReviewsRow | null =>
-  policy
-    ? {
-        start: policy.start,
-        mention: policy.mention,
-        skip: {
-          spotlight: policy.skip.spotlight,
-          drafts: policy.skip.drafts,
-          authors: [...policy.skip.authors],
-        },
-      }
-    : null;
 
 const toStation = (row: StationRow, ways: Ways): Station =>
   Station.of({
@@ -128,93 +127,20 @@ const toLine = (
     reactions,
     role: line.role ? LineRole.of(line.role) : null,
     reviews: line.reviews ? ReviewPolicy.of(line.reviews) : null,
+    replayCheck: line.replayCheck
+      ? ReplayCheckPolicy.of(line.replayCheck)
+      : null,
+    source: line.source ? ConfigSource.of(line.source) : null,
     placement: RunnerPlacement.of(line.runners),
     repositories,
     version: line.version,
   });
 
-const routeRowsOf = (line: Line) =>
-  line.stations.flatMap((each) =>
-    each.wayOut.stations.map((to) => ({
-      stationId: each.id.value,
-      toStationId: to.value,
-    })),
-  );
-
-const toolRowsOf = (line: Line) =>
-  line.stations.flatMap((each) =>
-    each.tools.map((tool, position) => ({
-      stationId: each.id.value,
-      tool: tool.value,
-      position,
-    })),
-  );
-
-const skillRowsOf = (line: Line) =>
-  line.stations.flatMap((each) =>
-    each.skills.map((skill, position) => ({
-      stationId: each.id.value,
-      skill: skill.value,
-      position,
-    })),
-  );
-
-const reactionRowsOf = (line: Line) =>
-  line.reactions.map((each) => ({
-    lineId: line.id.value,
-    happening: each.happening.value,
-    fromStationId: each.from?.value ?? null,
-    toStationId: each.to.value,
-  }));
-
-const repositoryRowsOf = (line: Line) =>
-  line.repositories.entries.map((each) => ({
-    lineId: line.id.value,
-    repository: each.repository.value,
-    image: each.image?.value ?? null,
-    setup: each.setup?.value ?? null,
-  }));
-
-const columnsOf = (each: Station) => ({
-  key: each.key.value,
-  name: each.name.value,
-  position: each.position,
-  color: each.color.value,
-  description: each.description?.value ?? null,
-  harness: each.harness?.value ?? null,
-  model: each.model?.value ?? null,
-  effort: each.effort?.value ?? null,
-  profile: each.profile?.value ?? null,
-  agentPrompt: each.agentPrompt?.value ?? null,
-  check: each.check?.value ?? null,
-  runners: [...each.placement.selectors],
-  diffs: each.diffs,
-  decisions: each.decisions,
-  memories: each.memories,
-  judge: each.judge
-    ? {
-        rubric: each.judge.rubric,
-        sample: each.judge.sample,
-        trust: each.judge.trust,
-      }
-    : null,
-  alerts: each.alerts.map((alert) => ({
-    measure: alert.measure,
-    risesBy: alert.risesBy,
-    above: alert.above,
-    fallsBy: alert.fallsBy,
-    below: alert.below,
-    over: alert.over,
-  })),
-  kind: each.kind,
-  finishes: each.wayOut.ends,
-});
-
 const rowsOf = (line: Line) =>
   line.stations.map((each) => ({
     id: each.id.value,
     lineId: line.id.value,
-    ...columnsOf(each),
+    ...stationColumnsOf(each),
   }));
 
 const roleTakenOr = (error: unknown, held: Line): unknown =>
@@ -247,6 +173,8 @@ export class DrizzleLineRepository implements LineRepository {
         name: added.name.value,
         role: added.role?.value ?? null,
         reviews: reviewsRow(added.reviews),
+        replayCheck: replayCheckRow(added.replayCheck),
+        source: sourceRow(added.source),
         runners: [...added.placement.selectors],
       });
     } catch (error) {
@@ -282,6 +210,8 @@ export class DrizzleLineRepository implements LineRepository {
         name: saved.name.value,
         role: saved.role?.value ?? null,
         reviews: reviewsRow(saved.reviews),
+        replayCheck: replayCheckRow(saved.replayCheck),
+        source: sourceRow(saved.source),
         runners: [...saved.placement.selectors],
       })
       .where(and(eq(line.id, saved.id.value), eq(line.version, saved.version)))
@@ -313,7 +243,7 @@ export class DrizzleLineRepository implements LineRepository {
     )) {
       await this.context.db
         .update(station)
-        .set(columnsOf(each))
+        .set(stationColumnsOf(each))
         .where(eq(station.id, each.id.value));
     }
 
@@ -324,7 +254,7 @@ export class DrizzleLineRepository implements LineRepository {
         added.map((each) => ({
           id: each.id.value,
           lineId: saved.id.value,
-          ...columnsOf(each),
+          ...stationColumnsOf(each),
         })),
       );
     }

@@ -43,6 +43,19 @@ describe('RunWorks, finding the repository a run’s change is checked in', () =
     ).toBeNull();
   });
 
+  it('finds nothing for a search, which changes no repository', async () => {
+    const search = {
+      workspaceId: WORKSPACE,
+      stationId: { value: 'station_1' },
+      isReplay: false,
+      isSearch: true,
+    };
+
+    expect(
+      await works(search).repositoryForCheck(RunId.of('run_1'), 'api'),
+    ).toBeNull();
+  });
+
   it('finds nothing for a run there is none of', async () => {
     expect(
       await works(null).repositoryForCheck(RunId.of('run_1'), 'api'),

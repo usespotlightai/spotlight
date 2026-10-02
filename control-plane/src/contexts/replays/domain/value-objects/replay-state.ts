@@ -7,3 +7,12 @@ export const REPLAY_STATES = [
 ] as const;
 
 export type ReplayState = (typeof REPLAY_STATES)[number];
+
+export const REPLAY_ENDS = [
+  'finished',
+  'stopped',
+  'over-budget',
+  'abandoned',
+] as const;
+
+export type ReplayEnd = (typeof REPLAY_ENDS)[number];

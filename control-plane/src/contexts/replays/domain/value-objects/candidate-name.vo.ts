@@ -4,7 +4,13 @@ const MOST_LENGTH = 100;
 
 const LIVE_PREFIX = 'Live config';
 
+const PLANNED_PREFIX = 'Planned change';
+
 const SEPARATOR = '/';
+
+const SEARCHED = /^[a-z0-9][a-z0-9-]{0,62}$/;
+
+export const SEED_NAME = 'seed';
 
 const CANDIDATE_NAME_SAYS = `is named in 1 to ${MOST_LENGTH} characters`;
 
@@ -41,8 +47,34 @@ export class CandidateName {
         `is named other than ${LIVE_PREFIX}, which names the snapshots Spotlight takes to replay as a baseline`,
       );
     }
+    if (raw.toLowerCase().startsWith(PLANNED_PREFIX.toLowerCase())) {
+      throw new InvalidCandidateError(
+        `is named other than ${PLANNED_PREFIX}, which names the changes Spotlight replays to check them`,
+      );
+    }
 
     return CandidateName.of(raw);
+  }
+
+  static searched(raw: string): CandidateName {
+    if (!SEARCHED.test(raw)) {
+      throw new InvalidCandidateError(
+        'found by a search is named in lowercase letters, digits and hyphens, starting with a letter or digit, in at most 63 characters',
+      );
+    }
+    if (raw === SEED_NAME) {
+      throw new InvalidCandidateError(
+        `found by a search is named other than ${SEED_NAME}, which names the live config the search started from`,
+      );
+    }
+
+    return new CandidateName(raw);
+  }
+
+  static planned(label: string | null, at: Date): CandidateName {
+    return new CandidateName(
+      `${PLANNED_PREFIX}, ${label ?? at.toISOString().slice(0, 10)}`,
+    );
   }
 
   static live(at: Date): CandidateName {

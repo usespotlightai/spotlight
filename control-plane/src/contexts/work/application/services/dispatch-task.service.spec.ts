@@ -279,6 +279,8 @@ const tracing = {
     `trace:${taskId.value}:${runId.value}`,
   forChat: (chatId: { value: string }, runId: { value: string }) =>
     `trace:${chatId.value}:${runId.value}`,
+  forSearch: (searchId: { value: string }, runId: { value: string }) =>
+    `trace:${searchId.value}:${runId.value}`,
 };
 
 let catalogGiving: CatalogGiving = { tools: [], skills: [], refused: [] };

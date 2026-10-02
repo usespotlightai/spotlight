@@ -100,6 +100,7 @@ const ready = () =>
     runId: RunId.of('run-1'),
     taskId: null,
     replay: false,
+    isSearch: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,

@@ -39,6 +39,7 @@ export interface StationRunsWanted {
   readonly since: Date | null;
   readonly until: Date | null;
   readonly most: number;
+  readonly excluding: readonly string[];
 }
 
 export interface StationRunRow {
@@ -78,6 +79,11 @@ export interface StationRunReaderPort {
   endedAt(
     stationId: string,
     wanted: StationRunsWanted,
+  ): Promise<readonly StationRunRow[]>;
+
+  endedAmong(
+    stationId: string,
+    runIds: readonly string[],
   ): Promise<readonly StationRunRow[]>;
 
   journalsOf(runIds: readonly string[]): Promise<readonly RunJournal[]>;

@@ -26,6 +26,7 @@ import {
 import { CommandBus } from '@nestjs/cqrs';
 import {
   ApiBody,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -65,6 +66,10 @@ export class RunnerMemoryController {
   @ApiBody({ type: RecallMemoriesRequestDto })
   @ApiOkResponse({ type: TeamMemoryResponseDto, isArray: true })
   @ApiUnprocessableEntityResponse({ description: 'Nothing to look for' })
+  @ApiConflictResponse({
+    description:
+      'The run is a search, which recalls nothing the team remembers',
+  })
   async recall(
     @Param('runId') runId: string,
     @Body() body: RecallMemoriesRequestDto | undefined,
@@ -88,6 +93,10 @@ export class RunnerMemoryController {
   @ApiParam({ name: 'handle', type: String, example: 'M-12' })
   @ApiOkResponse({ type: TeamMemoryDetailResponseDto })
   @ApiUnprocessableEntityResponse({ description: 'Not a handle like M-12' })
+  @ApiConflictResponse({
+    description:
+      'The run is a search, which recalls nothing the team remembers',
+  })
   async recallOne(
     @Param('runId') runId: string,
     @Param('handle') handle: string,
@@ -110,6 +119,10 @@ export class RunnerMemoryController {
   })
   @ApiBody({ type: RememberRequestDto })
   @ApiCreatedResponse({ type: ProposedMemoryResponseDto })
+  @ApiConflictResponse({
+    description:
+      'The run is a replay or a search, which remembers nothing for the team',
+  })
   @ApiUnprocessableEntityResponse({
     description:
       'An unknown kind or reach, a path outside the run’s repositories, or a chat run',

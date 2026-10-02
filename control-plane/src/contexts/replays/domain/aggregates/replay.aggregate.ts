@@ -3,6 +3,7 @@ import type {
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
@@ -21,8 +22,12 @@ import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
-import type { ReplayState } from '@replays/domain/value-objects/replay-state';
+import type {
+  ReplayEnd,
+  ReplayState,
+} from '@replays/domain/value-objects/replay-state';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
+import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -38,6 +43,7 @@ export interface ReplayedCandidate {
   readonly judges: boolean;
   readonly checksChanges: boolean;
   readonly rubricVersion: string | null;
+  readonly scoringDigest: string;
   isFor(stationId: string): boolean;
 }
 
@@ -50,7 +56,11 @@ interface State {
   readonly judges: boolean;
   readonly checked: boolean;
   readonly rubricVersion: string | null;
+  readonly scoringDigest: string;
   readonly ceiling: Spend;
+  readonly unpricedRate: Spend | null;
+  readonly among: readonly RunId[] | null;
+  readonly searchId: SearchId | null;
   readonly state: ReplayState;
   readonly entries: readonly ReplayEntry[];
   readonly startedAt: Date;
@@ -85,9 +95,13 @@ export class Replay extends EventRecorder {
     at: Date;
     by: Attribution;
     wanting?: WantedBaseline | null;
+    among?: readonly RunId[];
+    searchId?: SearchId;
+    unpricedRate?: Spend;
   }): Replay {
     const { set } = input;
     const wanting = input.wanting ?? null;
+    const among = input.among ?? null;
 
     set.stillAtItsStation();
 
@@ -114,6 +128,24 @@ export class Replay extends EventRecorder {
         'wants a baseline of the station’s live config only when it is no baseline itself',
       );
     }
+    if (among && (input.baseline || wanting)) {
+      throw new InvalidReplayError(
+        'replays its whole set when it is or wants a baseline',
+      );
+    }
+    if (
+      among &&
+      (among.length === 0 ||
+        among.some(
+          (run, place) =>
+            !set.holds(run) ||
+            among.findIndex((other) => other.equals(run)) !== place,
+        ))
+    ) {
+      throw new InvalidReplayError(
+        'replays some of its set’s runs, each once, when it replays only some',
+      );
+    }
 
     const started = new Replay({
       id: input.id,
@@ -124,15 +156,21 @@ export class Replay extends EventRecorder {
       judges: input.candidate.judges,
       checked: input.candidate.checksChanges,
       rubricVersion: input.candidate.rubricVersion,
+      scoringDigest: input.candidate.scoringDigest,
       ceiling: input.ceiling,
+      unpricedRate: input.unpricedRate ?? null,
+      among: among && [...among],
+      searchId: input.searchId ?? null,
       state: 'queued',
-      entries: set.entries.map((each, position) =>
-        ReplayEntry.waiting({
-          position,
-          original: each.runId,
-          taskId: each.taskId,
-        }),
-      ),
+      entries: set.entries
+        .filter((each) => !among || among.some((run) => run.equals(each.runId)))
+        .map((each, position) =>
+          ReplayEntry.waiting({
+            position,
+            original: each.runId,
+            taskId: each.taskId,
+          }),
+        ),
       startedAt: input.at,
       endedAt: null,
       stoppedAt: null,
@@ -165,6 +203,7 @@ export class Replay extends EventRecorder {
           wanting.id,
           wanting.candidate.id,
           input.ceiling,
+          input.unpricedRate ?? null,
         ),
       );
     }
@@ -216,6 +255,10 @@ export class Replay extends EventRecorder {
     return this.state.rubricVersion;
   }
 
+  get scoringDigest(): string {
+    return this.state.scoringDigest;
+  }
+
   get scoring(): Scoring {
     return { judges: this.state.judges, checks: this.state.checked };
   }
@@ -226,6 +269,14 @@ export class Replay extends EventRecorder {
 
   get current(): ReplayState {
     return this.state.state;
+  }
+
+  get among(): readonly RunId[] | null {
+    return this.state.among;
+  }
+
+  get searchId(): SearchId | null {
+    return this.state.searchId;
   }
 
   get entries(): readonly ReplayEntry[] {
@@ -253,26 +304,95 @@ export class Replay extends EventRecorder {
   }
 
   get spent(): Spend {
-    const ceiling = this.state.ceiling;
-
-    return (
-      this.everySpend.spends.find((each) => each.sameCurrencyAs(ceiling)) ??
-      Spend.none(ceiling.currency)
-    );
+    return this.spentIn(this.everySpend);
   }
 
   get spentElsewhere(): readonly Spend[] {
-    return this.everySpend.spends
-      .filter((each) => !each.sameCurrencyAs(this.state.ceiling))
-      .sort((one, other) => (one.currency < other.currency ? -1 : 1));
+    return this.spentElsewhereIn(this.everySpend);
+  }
+
+  get unpricedRate(): Spend | null {
+    return this.state.unpricedRate;
+  }
+
+  get unpricedRuns(): number {
+    const ceiling = this.state.ceiling;
+
+    return this.state.entries.reduce((count, entry) => {
+      const measures = entry.measures;
+      const called =
+        measures !== null &&
+        (measures.cost !== null ||
+          Object.values(measures.tokens).some((each) => each !== null));
+      const unpricedRun =
+        called && !measures?.cost?.sameCurrencyAs(ceiling) ? 1 : 0;
+
+      return (
+        count +
+        unpricedRun +
+        entry.modelSpends.reduce(
+          (calls, each) =>
+            calls +
+            each.unpriced +
+            each.spends.filter((spend) => !spend.sameCurrencyAs(ceiling))
+              .length,
+          0,
+        )
+      );
+    }, 0);
+  }
+
+  get charged(): Spend {
+    const rate = this.state.unpricedRate;
+
+    return rate
+      ? this.spent.plus(rate.scaled(this.unpricedRuns, 1))
+      : this.spent;
   }
 
   get unpricedCalls(): number {
     return this.everySpend.unpriced;
   }
 
+  spendAmong(among: readonly RunId[]): {
+    readonly spent: Spend;
+    readonly spentElsewhere: readonly Spend[];
+    readonly unpricedCalls: number;
+  } {
+    const spent = this.spendOf(
+      this.state.entries.filter((each) =>
+        among.some((run) => run.equals(each.original)),
+      ),
+    );
+
+    return {
+      spent: this.spentIn(spent),
+      spentElsewhere: this.spentElsewhereIn(spent),
+      unpricedCalls: spent.unpriced,
+    };
+  }
+
+  private spentIn(spent: ModelSpent): Spend {
+    const ceiling = this.state.ceiling;
+
+    return (
+      spent.spends.find((each) => each.sameCurrencyAs(ceiling)) ??
+      Spend.none(ceiling.currency)
+    );
+  }
+
+  private spentElsewhereIn(spent: ModelSpent): readonly Spend[] {
+    return spent.spends
+      .filter((each) => !each.sameCurrencyAs(this.state.ceiling))
+      .sort((one, other) => (one.currency < other.currency ? -1 : 1));
+  }
+
   private get everySpend(): ModelSpent {
-    return this.state.entries.reduce(
+    return this.spendOf(this.state.entries);
+  }
+
+  private spendOf(entries: readonly ReplayEntry[]): ModelSpent {
+    return entries.reduce(
       (spent, each) =>
         each.modelSpends.reduce(
           (held, model) => held.plus(model),
@@ -409,6 +529,9 @@ export class Replay extends EventRecorder {
     });
 
     stopped.record(new ReplayStopped(this.id, this.workspaceId, letGo));
+    if (this.isDispatching) {
+      stopped.record(this.endedAs('stopped'));
+    }
     stopped.record(
       new ReplayStopAsked(
         this.id,
@@ -430,8 +553,20 @@ export class Replay extends EventRecorder {
     if (letGo.length > 0) {
       abandoned.record(new ReplayStopped(this.id, this.workspaceId, letGo));
     }
+    if (this.isDispatching) {
+      abandoned.record(this.endedAs('abandoned'));
+    }
 
     return abandoned;
+  }
+
+  private endedAs(state: ReplayEnd): ReplayEnded {
+    return new ReplayEnded(
+      this.id,
+      this.workspaceId,
+      this.state.searchId,
+      state,
+    );
   }
 
   private get whatChanged() {
@@ -491,11 +626,11 @@ export class Replay extends EventRecorder {
       );
     }
 
-    return changed.overBudgetAt(at).finishedAt(at);
+    return changed.finishedAt(at).overBudgetAt(at);
   }
 
   private overBudgetAt(at: Date): Replay {
-    if (!this.isDispatching || !this.spent.reaches(this.state.ceiling)) {
+    if (!this.isDispatching || !this.charged.reaches(this.state.ceiling)) {
       return this;
     }
 
@@ -509,17 +644,26 @@ export class Replay extends EventRecorder {
     });
 
     over.record(new ReplayOverBudget(this.id, this.workspaceId, letGo));
+    over.record(this.endedAs('over-budget'));
 
     return over;
   }
 
   private finishedAt(at: Date): Replay {
-    return this.isDispatching &&
-      this.state.entries.every(
+    if (
+      !this.isDispatching ||
+      !this.state.entries.every(
         (each) => each.isSettled && each.concludedFor(this.scoring),
       )
-      ? this.with({ state: 'finished', endedAt: at })
-      : this;
+    ) {
+      return this;
+    }
+
+    const finished = this.with({ state: 'finished', endedAt: at });
+
+    finished.record(this.endedAs('finished'));
+
+    return finished;
   }
 
   private with(part: Partial<State>): Replay {

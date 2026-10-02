@@ -37,6 +37,8 @@ const ROWS: LineRows = {
     name: 'Delivery',
     role: null,
     reviews: null,
+    replayCheck: null,
+    source: null,
     runners: [],
   },
   stations: [
@@ -80,6 +82,41 @@ describe('renderLineRows', () => {
     expect(rendered.reactions).toEqual([
       { happening: 'github.pull_request.merged', to: 'completed' },
     ]);
+  });
+
+  it('renders the threshold a planned change is checked against only where the line has one', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      line: {
+        ...ROWS.line,
+        replayCheck: { mostRegressions: 1, ceiling: 12.5, currency: 'USD' },
+      },
+    });
+
+    expect(rendered.replayCheck).toEqual({
+      mostRegressions: 1,
+      ceiling: 12.5,
+      currency: 'USD',
+    });
+    expect(Object.keys(renderLineRows(ROWS))).not.toContain('replayCheck');
+    expect(compileLine(rendered).ok).toBe(true);
+  });
+
+  it('renders where the line’s Terraform lives only where it says', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      line: {
+        ...ROWS.line,
+        source: { repository: 'acme/platform', path: 'teams/core.tf' },
+      },
+    });
+
+    expect(rendered.source).toEqual({
+      repository: 'acme/platform',
+      path: 'teams/core.tf',
+    });
+    expect(Object.keys(renderLineRows(ROWS))).not.toContain('source');
+    expect(compileLine(rendered).ok).toBe(true);
   });
 
   it('leaves out what a station does not have', () => {

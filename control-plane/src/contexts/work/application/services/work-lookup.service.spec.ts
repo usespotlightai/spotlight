@@ -486,8 +486,9 @@ describe('WorkLookup, finding the run a runner holds', () => {
     held: boolean;
     chatId?: string | null;
     stationId?: string | null;
-    replayedFor?: TeamId;
+    ranFor?: TeamId;
     lineGone?: boolean;
+    isSearch?: boolean;
   }) =>
     new WorkLookup(
       {
@@ -497,8 +498,10 @@ describe('WorkLookup, finding the run a runner holds', () => {
           taskId: run.chatId ? null : TaskId.of('task_1'),
           chatId: run.chatId ? { value: run.chatId } : null,
           stationId: run.stationId ? { value: run.stationId } : null,
-          replayedFor: run.replayedFor ?? null,
-          replayedRepositories: [WEB],
+          ranFor: run.ranFor ?? null,
+          isSearch: run.isSearch ?? false,
+          isReplay: !run.isSearch,
+          ...(run.isSearch ? {} : { replayedRepositories: [WEB] }),
           isHeldBy: (by: RunnerId) => run.held && by.equals(RUNNER),
         }),
       } as unknown as RunRepository,
@@ -539,7 +542,7 @@ describe('WorkLookup, finding the run a runner holds', () => {
   it('names the team a replay runs for, and the repositories it replays, even once its station is gone', async () => {
     const held = await holding({
       held: true,
-      replayedFor: TEAM,
+      ranFor: TEAM,
       lineGone: true,
     });
 
@@ -550,12 +553,29 @@ describe('WorkLookup, finding the run a runner holds', () => {
 
     const atItsStation = await holding({
       held: true,
-      replayedFor: TEAM,
+      ranFor: TEAM,
       stationId: 'station_1',
     });
 
     expect(atItsStation?.lineId).toBe('line_1');
     expect(atItsStation?.stationId).toBe('station_1');
+  });
+
+  it('says a search searches, for its team at its station, with no repositories', async () => {
+    const held = await holding({
+      held: true,
+      ranFor: TEAM,
+      stationId: 'station_1',
+      isSearch: true,
+    });
+
+    expect(held?.isSearch).toBe(true);
+    expect(held?.teamId.equals(TEAM)).toBe(true);
+    expect(held?.stationId).toBe('station_1');
+    expect(held?.repositories).toEqual([]);
+    expect(
+      (await holding({ held: true, stationId: 'station_1' }))?.isSearch,
+    ).toBe(false);
   });
 
   it('names a chat’s own team for a chat’s run', async () => {

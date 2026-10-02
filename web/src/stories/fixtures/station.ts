@@ -48,6 +48,8 @@ const LINES: LineResponseDto[] = [
     name: 'Default',
     reactions: [],
     repositories: ['acme/api', 'acme/web'],
+    source: null,
+    replayCheck: null,
     stations: [
       station({
         id: 'station_backlog',

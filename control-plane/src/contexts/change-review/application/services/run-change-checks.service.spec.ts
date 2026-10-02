@@ -55,6 +55,7 @@ const stackOf = (
     runId: RUN,
     taskId: null,
     replay: true,
+    isSearch: false,
     workspaceId: WorkspaceId.of('ws-1'),
     repository: id,
     base: null,

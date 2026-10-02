@@ -7,14 +7,20 @@ import {
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { CandidateMovedOnError } from '@replays/domain/exceptions/candidate-moved-on.error';
 import { CandidateNameTakenError } from '@replays/domain/exceptions/candidate-name-taken.error';
+import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
+import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
+import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { replayCandidate } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
@@ -29,6 +35,25 @@ import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
 type CandidateRow = typeof replayCandidate.$inferSelect;
 
 const ADDRESS_INDEX = 'replay_candidate_address_idx';
+
+const SEARCH_NAME_INDEX = 'replay_candidate_search_name_idx';
+
+const searchOf = (row: CandidateRow) =>
+  row.searchId !== null && row.iteration !== null && row.hypothesis !== null
+    ? {
+        searchId: SearchId.of(row.searchId),
+        iteration: row.iteration,
+        hypothesis: Hypothesis.of(row.hypothesis),
+      }
+    : null;
+
+const referenceOf = (row: CandidateRow): PlannedReference | null =>
+  row.kind === 'planned'
+    ? PlannedReference.of({
+        commit: row.referenceCommit,
+        pullRequest: row.referencePullRequest,
+      })
+    : null;
 
 const addressOf = (row: CandidateRow): StationAddress => {
   const address = StationAddress.of(row.teamKey, row.lineKey, row.stationKey);
@@ -57,6 +82,11 @@ const toCandidate = (row: CandidateRow): Candidate =>
     kind: row.kind,
     block: StationBlock.of(row.station),
     fingerprint: StationFingerprint.of(row.fingerprint),
+    digests: StationDigests.of({
+      behaviour: row.behaviourDigest,
+      scoring: row.scoringDigest,
+    }),
+    line: row.lineFields ? PlannedLine.of(row.lineFields) : null,
     scoring: CandidateScoring.of({
       checksChanges: row.checksChanges,
       rubric: row.rubric,
@@ -66,6 +96,8 @@ const toCandidate = (row: CandidateRow): Candidate =>
       StationFingerprint.of(row.changedFrom),
       row.changes,
     ),
+    search: searchOf(row),
+    reference: referenceOf(row),
     createdAt: row.createdAt,
     version: row.version,
   });
@@ -184,11 +216,19 @@ export class DrizzleCandidateRepository implements CandidateRepository {
           kind: added.kind,
           station: { ...added.block.value },
           fingerprint: added.fingerprint.value,
+          behaviourDigest: added.digests.behaviour,
+          scoringDigest: added.digests.scoring,
+          lineFields: added.line?.value ?? null,
           checksChanges: added.scoring.checksChanges,
           rubric: added.scoring.rubric,
           rubricVersion: added.scoring.rubricVersion,
           changedFrom: added.changedFrom.from.value,
           changes: added.changedFrom.changes.map((each) => ({ ...each })),
+          searchId: added.search?.searchId.value ?? null,
+          iteration: added.search?.iteration ?? null,
+          hypothesis: added.search?.hypothesis.value ?? null,
+          referenceCommit: added.reference?.commit ?? null,
+          referencePullRequest: added.reference?.pullRequest ?? null,
           createdAt: added.createdAt,
           version: added.version,
         })
@@ -197,6 +237,9 @@ export class DrizzleCandidateRepository implements CandidateRepository {
         .catch((error: unknown) => {
           if (violates(error, UNIQUE_VIOLATION, ADDRESS_INDEX)) {
             throw new CandidateNameTakenError(added.address.toString());
+          }
+          if (violates(error, UNIQUE_VIOLATION, SEARCH_NAME_INDEX)) {
+            throw new SearchCandidateNameTakenError(added.name.value);
           }
           throw error;
         });

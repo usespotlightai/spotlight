@@ -1,6 +1,8 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
+import { KeptFromReplaysError } from '@memory/domain/exceptions/kept-from-replays.error';
+import { keptFromSearches } from '@memory/domain/services/search-reach';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -118,11 +120,12 @@ export class Remembering {
     taskId: TaskId | null;
     runId: RunId;
     replay: boolean;
+    isSearch: boolean;
   }): Remembering {
+    keptFromSearches(input, 'remember anything for the team');
+
     if (input.replay) {
-      throw new InvalidMemoryError(
-        'is never remembered from a replay, which leaves nothing behind but its own result',
-      );
+      throw new KeptFromReplaysError('remember anything for the team');
     }
 
     if (!input.taskId) {

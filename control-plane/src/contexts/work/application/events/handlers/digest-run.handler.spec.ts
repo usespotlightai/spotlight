@@ -14,12 +14,19 @@ import { ReplayDigested } from '@work/domain/events/replay-digested.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
+import { SearchDigested } from '@work/domain/events/search-digested.event';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { SearchId } from '@work/domain/value-objects/search-id.vo';
+import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { describe, expect, it } from 'vitest';
+
+const NO_SPEND = {
+  spendOf: async () => ({ costs: [], unpricedSessions: 0, called: false }),
+};
 
 const DIGEST: RunDigest = {
   ms: 60_000,
@@ -69,7 +76,16 @@ const digesting = (held: Map<string, RunDigest>) => {
     toolsFor: async (runId) => (held.has(runId.value) ? TOOLS : null),
   };
 
-  return { handler: new DigestRun(writer, reader, tools), ensured };
+  return {
+    handler: new DigestRun(writer, reader, tools, {
+      spendOf: async () => ({
+        costs: [DIGEST.cost as Money],
+        unpricedSessions: 0,
+        called: true,
+      }),
+    }),
+    ensured,
+  };
 };
 
 const ended = {
@@ -121,6 +137,7 @@ describe('DigestRun', () => {
       { ensure: async () => {}, catchUp: async () => {} },
       reader,
       { toolsFor: async () => null },
+      NO_SPEND,
     );
 
     expect(
@@ -166,6 +183,7 @@ describe('DigestRun', () => {
       { ensure: async () => {}, catchUp: async () => {} },
       { forRuns: async () => new Map() },
       { toolsFor: async () => null },
+      NO_SPEND,
     );
 
     expect(
@@ -179,6 +197,59 @@ describe('DigestRun', () => {
         0,
         null,
         null,
+        Tokens.UNREPORTED,
+      ),
+    ]);
+  });
+
+  const aSearch = {
+    ...ended,
+    taskId: null,
+    subject: RunSubject.search(
+      SearchId.of('search_1'),
+      SearchIteration.of(1),
+      StationId.of('station_1'),
+      TeamId.of('team_1'),
+    ),
+  };
+
+  it('says what a search run cost as a search’s digest, even when no digest could be written', async () => {
+    const { handler, ensured } = digesting(new Map());
+
+    expect(
+      await handler.onRunCompleted(aSearch as unknown as RunCompleted),
+    ).toEqual([
+      new SearchDigested(
+        ended.runId,
+        ended.workspaceId,
+        SearchId.of('search_1'),
+        60_000,
+        12,
+        [DIGEST.cost as Money],
+        0,
+        DIGEST.tokens,
+      ),
+    ]);
+    expect(ensured).toEqual(['run_1']);
+
+    const unwritten = new DigestRun(
+      { ensure: async () => {}, catchUp: async () => {} },
+      { forRuns: async () => new Map() },
+      { toolsFor: async () => null },
+      NO_SPEND,
+    );
+
+    expect(
+      await unwritten.onRunAbandoned(aSearch as unknown as RunAbandoned),
+    ).toEqual([
+      new SearchDigested(
+        ended.runId,
+        ended.workspaceId,
+        SearchId.of('search_1'),
+        null,
+        0,
+        [],
+        0,
         Tokens.UNREPORTED,
       ),
     ]);

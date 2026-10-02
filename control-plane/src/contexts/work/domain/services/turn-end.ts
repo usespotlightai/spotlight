@@ -71,7 +71,7 @@ export const turnEnded = (turn: {
 
   const asked = { run, task, line, outcome, declared: report.declared };
 
-  if (run.isReplay) {
+  if (run.leavesNothingBehind) {
     return {
       waiting: false,
       run: run.complete(by, outcome, report),

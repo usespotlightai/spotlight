@@ -63,6 +63,17 @@ export type HeldLineReviews = {
   readonly skip: HeldLineReviewSkips;
 };
 
+export type HeldLineReplayCheck = {
+  readonly mostRegressions: number;
+  readonly ceiling: number;
+  readonly currency: string;
+};
+
+export type HeldLineSource = {
+  readonly repository: string;
+  readonly path: string;
+};
+
 export type HeldLine = {
   readonly key: string;
   readonly name: string;
@@ -72,4 +83,6 @@ export type HeldLine = {
   readonly stations: readonly HeldLineStation[];
   readonly reactions: readonly HeldLineReaction[];
   readonly reviews?: HeldLineReviews;
+  readonly replayCheck?: HeldLineReplayCheck;
+  readonly source?: HeldLineSource;
 };

@@ -1,16 +1,26 @@
+import type { AbandonConfigPullRequests } from '@replays/application/services/abandon-config-pull-requests.service';
+import type { AbandonReplayChecks } from '@replays/application/services/abandon-replay-checks.service';
 import type { AbandonReplays } from '@replays/application/services/abandon-replays.service';
+import type { AbandonSearches } from '@replays/application/services/abandon-searches.service';
 import type { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
+import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
+import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import type { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
 import type { LetReplayRunsGo } from '@replays/application/services/let-replay-runs-go.service';
+import type { LetSearchGo } from '@replays/application/services/let-search-go.service';
 import type { NoteLineRedefined } from '@replays/application/services/note-line-redefined.service';
 import type { NoteReplayChangeReviewed } from '@replays/application/services/note-replay-change-reviewed.service';
 import type { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
 import type { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
 import type { NoteReplayJudged } from '@replays/application/services/note-replay-judged.service';
+import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import type { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abandonment-due.event';
+import type { ConfigPullRequestAbandonmentDue } from '@replays/domain/events/config-pull-request-abandonment-due.event';
 import type { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-due.event';
 import type { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import type { ReplayCheckAbandonmentDue } from '@replays/domain/events/replay-check-abandonment-due.event';
+import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import type { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
 import type { ReplaySetAbandonmentDue } from '@replays/domain/events/replay-set-abandonment-due.event';
@@ -19,6 +29,10 @@ import type { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-
 import type { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
 import type { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
+import type { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-due.event';
+import type { SearchEnded } from '@replays/domain/events/search-ended.event';
+import type { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
+import type { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import {
@@ -50,6 +64,14 @@ import {
   type ReplayStackSettledIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-stack-settled.integration-event';
 import {
+  SEARCH_RUN_DIGESTED,
+  type SearchRunDigestedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/search-run-digested.integration-event';
+import {
+  SEARCH_RUN_ENDED,
+  type SearchRunEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/search-run-ended.integration-event';
+import {
   TEAM_DISBANDED,
   type TeamDisbandedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
@@ -71,6 +93,13 @@ export interface ReplaysReactions {
   readonly abandoning: AbandonReplays;
   readonly redefining: NoteLineRedefined;
   readonly baselines: StartWantedBaseline;
+  readonly searching: NoteSearchProgress;
+  readonly iterating: DispatchSearchIteration;
+  readonly holdingOut: HoldOutSearch;
+  readonly lettingSearchesGo: LetSearchGo;
+  readonly abandoningSearches: AbandonSearches;
+  readonly abandoningChecks: AbandonReplayChecks;
+  readonly abandoningPullRequests: AbandonConfigPullRequests;
 }
 
 const spentOf = (event: {
@@ -213,5 +242,99 @@ export const replaysSubscribers = (
     'replays.note-sets-of-redefined-line',
     [LINE_REDEFINED],
     (event) => reactions.redefining.redefined(event.lineId),
+  ),
+  subscribing<ReplayEnded>(
+    'replays.note-search-replay-ended',
+    ['replays.replay-ended'],
+    (event) => reactions.searching.replayEnded(event),
+  ),
+  subscribing<SearchRunEndedIntegrationEvent>(
+    'replays.note-search-run-ended',
+    [SEARCH_RUN_ENDED],
+    (event) =>
+      reactions.searching.runEnded({
+        runId: event.runId,
+        outcome: event.outcome,
+        asked: event.asked,
+        started: event.started,
+      }),
+  ),
+  subscribing<SearchRunDigestedIntegrationEvent>(
+    'replays.note-search-run-digested',
+    [SEARCH_RUN_DIGESTED],
+    (event) => reactions.searching.digested(event.runId, spentOf(event)),
+  ),
+  subscribing<SearchIterationWanted>(
+    'replays.dispatch-search-iteration',
+    ['replays.search-iteration-wanted'],
+    (event) => reactions.iterating.wanted(event.searchId),
+  ),
+  subscribing<SearchHoldingOutWanted>(
+    'replays.hold-out-search',
+    ['replays.search-holding-out-wanted'],
+    (event) => reactions.holdingOut.wanted(event.searchId),
+  ),
+  subscribing<SearchEnded>(
+    'replays.let-ended-search-go',
+    ['replays.search-ended'],
+    (event) => reactions.lettingSearchesGo.ended(event),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'replays.abandon-searches-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.abandoningSearches.ofTeam(
+        TeamId.of(event.teamId),
+        WorkspaceId.of(event.workspaceId),
+      ),
+  ),
+  subscribing<SearchAbandonmentDue>(
+    'replays.abandon-search',
+    ['replays.search-abandonment-due'],
+    (event) => reactions.abandoningSearches.search(event.searchId),
+  ),
+  subscribing<ReplaySetDeleted>(
+    'replays.end-search-of-deleted-set',
+    ['replay-set.deleted'],
+    (event) => reactions.abandoningSearches.setGone(event.setId),
+  ),
+  subscribing<ReplaySetStationGone>(
+    'replays.end-search-of-gone-station',
+    ['replay-set.station-gone'],
+    (event) => reactions.abandoningSearches.stationGone(event.setId),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'replays.abandon-replay-checks-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.abandoningChecks.ofTeam(
+        TeamId.of(event.teamId),
+        WorkspaceId.of(event.workspaceId),
+      ),
+  ),
+  subscribing<ReplaySetDeleted>(
+    'replays.abandon-replay-checks-of-deleted-set',
+    ['replay-set.deleted'],
+    (event) => reactions.abandoningChecks.ofSet(event.setId, event.workspaceId),
+  ),
+  subscribing<ReplayCheckAbandonmentDue>(
+    'replays.abandon-replay-check',
+    ['replays.replay-check-abandonment-due'],
+    (event) => reactions.abandoningChecks.check(event.checkId),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'replays.abandon-config-pull-requests-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.abandoningPullRequests.ofTeam(
+        TeamId.of(event.teamId),
+        WorkspaceId.of(event.workspaceId),
+      ),
+  ),
+  subscribing<ConfigPullRequestAbandonmentDue>(
+    'replays.abandon-config-pull-request',
+    ['replays.config-pull-request-abandonment-due'],
+    (event) =>
+      reactions.abandoningPullRequests.pullRequest(event.pullRequestId),
   ),
 ];

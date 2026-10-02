@@ -15,6 +15,7 @@ import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
+import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import {
   NO_INDEX,
@@ -107,7 +108,8 @@ const DIFF = written(
 const RUN = {
   id: RunId.of('run-1'),
   taskId: null,
-  replay: false,
+  isReplay: false,
+  isSearch: false,
   workspaceId: WorkspaceId.of('workspace-1'),
 };
 
@@ -214,6 +216,19 @@ const drafting = (
 };
 
 describe('DraftChangeStack', () => {
+  it('drafts no stack for a search run, keeping nothing and asking no model', async () => {
+    const { service, saved, asked } = drafting();
+
+    await expect(
+      service.begin(
+        { ...RUN, isSearch: true },
+        { diff: DIFF, repository: 'web', base: null, request: null },
+      ),
+    ).rejects.toThrow(NoStackForSearchesError);
+    expect(saved).toEqual([]);
+    expect(asked).toEqual([]);
+  });
+
   it('keeps the draft, then settles it ready once the drafter places every change', async () => {
     const { service, saved, dispatched, asked, stacks } = drafting();
 

@@ -33,8 +33,6 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 const replayed = alias(run, 'replayed');
-const replayedAt = alias(station, 'replayed_at');
-const replayedLine = alias(line, 'replayed_line');
 
 @Injectable()
 export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
@@ -48,17 +46,16 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       .select({
         teamId: sql<
           string | null
-        >`coalesce(${chat.teamId}, ${line.teamId}, ${replayedLine.teamId})`,
+        >`coalesce(${chat.teamId}, ${line.teamId}, ${run.ranForTeamId})`,
         replayOf: run.replayOfRunId,
         replaysFrom: replayed.startedFromAt,
+        searchId: run.searchId,
       })
       .from(run)
       .leftJoin(chat, eq(chat.id, run.chatId))
       .leftJoin(task, eq(task.id, run.taskId))
       .leftJoin(station, eq(station.id, task.stationId))
       .leftJoin(line, eq(line.id, station.lineId))
-      .leftJoin(replayedAt, eq(replayedAt.id, run.stationId))
-      .leftJoin(replayedLine, eq(replayedLine.id, replayedAt.lineId))
       .leftJoin(replayed, eq(replayed.id, run.replayOfRunId))
       .where(
         and(
@@ -83,6 +80,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
     return {
       teamId: TeamId.of(row.teamId),
       replaysFrom: row.replayOf ? row.replaysFrom : null,
+      isSearch: row.searchId !== null,
     };
   }
 

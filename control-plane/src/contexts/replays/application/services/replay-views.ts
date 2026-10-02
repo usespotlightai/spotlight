@@ -6,6 +6,7 @@ import type {
   ModelSpentDto,
   ReplayDto,
   ReplayEntryDto,
+  ReplaySearchDto,
   ReplaySetDto,
   SpendDto,
 } from '@replays/application/dto/replays.dto';
@@ -15,17 +16,20 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Scoring } from '@replays/domain/services/entry-result';
 import { totalsOf } from '@replays/domain/services/replay-results';
+import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { Spend } from '@replays/domain/value-objects/spend.vo';
 
-const spendView = (spend: Spend): SpendDto => ({
+export const spendView = (spend: Spend): SpendDto => ({
   amount: spend.amount,
   currency: spend.currency,
 });
 
-const modelSpentView = (spent: ModelSpent | null): ModelSpentDto | null =>
+export const modelSpentView = (
+  spent: ModelSpent | null,
+): ModelSpentDto | null =>
   spent && {
     spends: spent.spends.map(spendView),
     unpriced: spent.unpriced,
@@ -139,6 +143,18 @@ export const candidateResourceView = (
   createdAt: candidate.createdAt.toISOString(),
 });
 
+export const replaySearchView = (
+  replay: Replay,
+  candidate: Candidate | null,
+): ReplaySearchDto | null =>
+  replay.searchId
+    ? {
+        searchId: replay.searchId.value,
+        candidateName:
+          candidate?.kind === 'searched' ? candidate.name.value : SEED_NAME,
+      }
+    : null;
+
 export const replayView = (
   replay: Replay,
   candidate: Candidate | null,
@@ -197,6 +213,7 @@ export const setView = (
   name: set.name.value,
   createdAt: set.createdAt.toISOString(),
   stationGone: set.isAtGoneStation,
+  guardsChanges: set.guardsChanges,
   entries: set.entries.map((entry) => {
     const now = replayable.find((each) => each.runId.equals(entry.runId));
 

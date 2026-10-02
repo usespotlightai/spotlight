@@ -1,4 +1,8 @@
 import { ProblemException } from '@platform/http/resources/problem.exception';
+import type {
+  SearchAgentAsked,
+  SearchBudgetAsked,
+} from '@replays/application/commands/start-search.command';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -22,16 +26,17 @@ export const textAt = (body: unknown, field: string, says: string): string => {
   return typeof held === 'string' ? held : refusedAt([field], says);
 };
 
-export const ceilingIn = (
-  body: unknown,
+const ceilingAt = (
+  held: unknown,
+  at: readonly string[],
+  what: string,
 ): { readonly amount: number; readonly currency: string } => {
-  const ceiling = fieldsOf(fieldsOf(body).ceiling);
-  const { amount, currency } = ceiling;
+  const { amount, currency } = fieldsOf(held);
 
   if (typeof amount !== 'number') {
     return refusedAt(
-      ['ceiling', 'amount'],
-      'is the most the replay may spend, as a number',
+      [...at, 'amount'],
+      `is the most the ${what} may spend, as a number`,
     );
   }
 
@@ -41,8 +46,115 @@ export const ceilingIn = (
       typeof currency === 'string'
         ? currency
         : refusedAt(
-            ['ceiling', 'currency'],
+            [...at, 'currency'],
             'is the currency it is counted in, as in USD',
+          ),
+  };
+};
+
+export const ceilingIn = (
+  body: unknown,
+): { readonly amount: number; readonly currency: string } =>
+  ceilingAt(fieldsOf(body).ceiling, ['ceiling'], 'replay');
+
+const countAt = (
+  held: Record<string, unknown>,
+  at: readonly string[],
+  says: string,
+): number => {
+  const count = held[at[at.length - 1] as string];
+
+  return typeof count === 'number' ? count : refusedAt(at, says);
+};
+
+const optionalTextAt = (
+  held: Record<string, unknown>,
+  at: readonly string[],
+  says: string,
+): string | null => {
+  const text = held[at[at.length - 1] as string];
+
+  if (text === undefined || text === null) {
+    return null;
+  }
+
+  return typeof text === 'string' ? text : refusedAt(at, says);
+};
+
+export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
+  const budget = fieldsOf(fieldsOf(body).budget);
+  const concurrency = budget.concurrency;
+
+  return {
+    iterations: countAt(
+      budget,
+      ['budget', 'iterations'],
+      'is how many times the search runs its agent, as a number',
+    ),
+    perIteration: countAt(
+      budget,
+      ['budget', 'perIteration'],
+      'is how many candidates each agent run may propose, as a number',
+    ),
+    ceiling: ceilingAt(budget.ceiling, ['budget', 'ceiling'], 'search'),
+    concurrency:
+      concurrency === undefined || concurrency === null
+        ? null
+        : countAt(
+            budget,
+            ['budget', 'concurrency'],
+            'is how many replay runs the search runs at once, as a number',
+          ),
+  };
+};
+
+export const searchAgentIn = (body: unknown): SearchAgentAsked => {
+  const agent = fieldsOf(fieldsOf(body).agent);
+  const harness = agent.harness;
+
+  return {
+    harness:
+      typeof harness === 'string'
+        ? harness
+        : refusedAt(
+            ['agent', 'harness'],
+            'names the harness the search’s agent runs on',
+          ),
+    model: optionalTextAt(
+      agent,
+      ['agent', 'model'],
+      'names the agent’s model, or is left out',
+    ),
+    effort: optionalTextAt(
+      agent,
+      ['agent', 'effort'],
+      'names the agent’s effort, or is left out',
+    ),
+  };
+};
+
+export const referenceIn = (
+  body: unknown,
+): {
+  readonly commit: string | null;
+  readonly pullRequest: number | null;
+} => {
+  const reference = fieldsOf(fieldsOf(body).reference);
+  const pullRequest = reference.pullRequest;
+
+  return {
+    commit: optionalTextAt(
+      reference,
+      ['reference', 'commit'],
+      'is the commit of the planned change, as a hex sha, or is left out',
+    ),
+    pullRequest:
+      pullRequest === undefined || pullRequest === null
+        ? null
+        : countAt(
+            reference,
+            ['reference', 'pullRequest'],
+            'is the number of the pull request that plans the change, or is left out',
           ),
   };
 };

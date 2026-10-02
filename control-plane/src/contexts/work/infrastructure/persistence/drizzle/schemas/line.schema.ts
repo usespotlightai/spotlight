@@ -11,6 +11,17 @@ export interface ReviewsRow {
   };
 }
 
+export interface ReplayCheckRow {
+  readonly mostRegressions: number;
+  readonly ceiling: number;
+  readonly currency: string;
+}
+
+export interface ConfigSourceRow {
+  readonly repository: string;
+  readonly path: string;
+}
+
 export interface StationJudgeRow {
   readonly rubric: string;
   readonly sample: number;
@@ -49,6 +60,8 @@ export const line = pgTable(
     name: text('name').notNull(),
     role: text('role'),
     reviews: jsonb('reviews').$type<ReviewsRow>(),
+    replayCheck: jsonb('replay_check').$type<ReplayCheckRow>(),
+    source: jsonb('source').$type<ConfigSourceRow>(),
     runners: jsonb('runners').$type<string[]>().notNull().default([]),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),

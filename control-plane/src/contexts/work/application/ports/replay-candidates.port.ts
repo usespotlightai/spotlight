@@ -4,6 +4,11 @@ import type { ConfigChangeShape } from '@work/application/contracts/station-conf
 
 export const REPLAY_CANDIDATES = Symbol('REPLAY_CANDIDATES');
 
+interface ReplaySource {
+  readonly repository: string;
+  readonly path: string;
+}
+
 export interface ReplayStation {
   readonly workspaceId: string;
   readonly teamId: string;
@@ -12,6 +17,7 @@ export interface ReplayStation {
   readonly stationId: string;
   readonly key: string;
   readonly name: string;
+  readonly source: ReplaySource | null;
 }
 
 export interface CandidateScoring {
@@ -20,21 +26,37 @@ export interface CandidateScoring {
   readonly rubricVersion: string | null;
 }
 
+export interface ConfigDigests {
+  readonly behaviour: string;
+  readonly scoring: string;
+}
+
 export type ExaminedCandidate =
   | {
       readonly ok: true;
       readonly fingerprint: string;
+      readonly digests: ConfigDigests;
+      readonly liveDigests: ConfigDigests;
       readonly scoring: CandidateScoring;
       readonly live: string;
       readonly changes: readonly ConfigChangeShape[];
+      readonly station: HeldLineStation;
     }
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
+
+export interface ReplayThreshold {
+  readonly mostRegressions: number;
+  readonly ceiling: number;
+  readonly currency: string;
+}
 
 export interface LiveStation {
   readonly lineKey: string;
   readonly station: HeldLineStation;
   readonly fingerprint: string;
   readonly scoring: CandidateScoring;
+  readonly digests: ConfigDigests;
+  readonly replayCheck: ReplayThreshold | null;
 }
 
 export interface ReplayCandidatesPort {
@@ -46,6 +68,7 @@ export interface ReplayCandidatesPort {
     lineId: string,
     stationId: string,
     station: unknown,
+    repositories?: unknown,
   ): Promise<ExaminedCandidate | null>;
 
   live(lineId: string, stationId: string): Promise<LiveStation | null>;

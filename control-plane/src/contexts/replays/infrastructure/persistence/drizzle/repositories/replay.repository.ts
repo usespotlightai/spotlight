@@ -19,6 +19,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { isReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import {
@@ -221,7 +222,14 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
     judges: row.judges,
     checked: row.checked,
     rubricVersion: row.rubricVersion,
+    scoringDigest: row.scoringDigest,
     ceiling: Spend.ceiling(row.ceilingAmount, row.ceilingCurrency),
+    unpricedRate:
+      row.unpricedRate === null
+        ? null
+        : Spend.of(row.unpricedRate, row.ceilingCurrency),
+    among: row.among ? row.among.map((each) => RunId.of(each)) : null,
+    searchId: row.searchId ? SearchId.of(row.searchId) : null,
     state: row.state,
     entries: entries
       .filter((each) => each.replayId === row.id)
@@ -310,6 +318,22 @@ export class DrizzleReplayRepository implements ReplayRepository {
 
   ofCandidate(candidateId: CandidateId): Promise<readonly Replay[]> {
     return this.withEntries(eq(replay.candidateId, candidateId.value));
+  }
+
+  ofSearch(searchId: SearchId): Promise<readonly Replay[]> {
+    return this.withEntries(eq(replay.searchId, searchId.value));
+  }
+
+  ofSearches(searchIds: readonly SearchId[]): Promise<readonly Replay[]> {
+    if (searchIds.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.withEntries(
+      inArray(replay.searchId, [
+        ...new Set(searchIds.map((each) => each.value)),
+      ]),
+    );
   }
 
   async teamsDispatching(): Promise<readonly TeamId[]> {
@@ -412,8 +436,12 @@ export class DrizzleReplayRepository implements ReplayRepository {
       judges: held.judges,
       checked: held.checked,
       rubricVersion: held.rubricVersion,
+      scoringDigest: held.scoringDigest,
       ceilingAmount: held.ceiling.amount,
+      unpricedRate: held.unpricedRate?.amount ?? null,
       ceilingCurrency: held.ceiling.currency,
+      among: held.among ? held.among.map((each) => each.value) : null,
+      searchId: held.searchId?.value ?? null,
       state: held.current,
       startedAt: held.startedAt,
       endedAt: held.endedAt,

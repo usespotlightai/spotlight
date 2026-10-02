@@ -4,6 +4,8 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { SearchId } from '@work/domain/value-objects/search-id.vo';
+import type { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 
@@ -13,6 +15,12 @@ export interface RunSubjectCases<T> {
   replay(
     original: RunId,
     taskId: TaskId,
+    stationId: StationId | null,
+    teamId: TeamId,
+  ): T;
+  search(
+    searchId: SearchId,
+    iteration: SearchIteration,
     stationId: StationId | null,
     teamId: TeamId,
   ): T;
@@ -31,7 +39,9 @@ export class RunSubject {
     readonly revision: TaskRevision | null,
     readonly replayOf: RunId | null = null,
     readonly replayedTaskId: TaskId | null = null,
-    readonly replayedFor: TeamId | null = null,
+    readonly ranFor: TeamId | null = null,
+    readonly searchId: SearchId | null = null,
+    readonly iteration: SearchIteration | null = null,
   ) {}
 
   static task(
@@ -63,6 +73,25 @@ export class RunSubject {
     );
   }
 
+  static search(
+    searchId: SearchId,
+    iteration: SearchIteration,
+    stationId: StationId | null,
+    teamId: TeamId,
+  ): RunSubject {
+    return new RunSubject(
+      null,
+      stationId,
+      null,
+      null,
+      null,
+      null,
+      teamId,
+      searchId,
+      iteration,
+    );
+  }
+
   static rehydrate(input: {
     taskId: TaskId | null;
     stationId: StationId | null;
@@ -70,20 +99,47 @@ export class RunSubject {
     revision: TaskRevision | null;
     replayOf?: RunId | null;
     replayedTaskId?: TaskId | null;
-    replayedFor?: TeamId | null;
+    ranFor?: TeamId | null;
+    searchId?: SearchId | null;
+    iteration?: SearchIteration | null;
   }): RunSubject | null {
     const replayOf = input.replayOf ?? null;
     const replayedTaskId = input.replayedTaskId ?? null;
-    const replayedFor = input.replayedFor ?? null;
+    const ranFor = input.ranFor ?? null;
+    const searchId = input.searchId ?? null;
+    const iteration = input.iteration ?? null;
 
-    if (replayOf || replayedTaskId || replayedFor) {
+    if (searchId || iteration) {
+      if (
+        input.taskId ||
+        input.chatId ||
+        input.revision ||
+        replayOf ||
+        replayedTaskId
+      ) {
+        throw new InconsistentStateError(
+          'run',
+          'searches while it works a task, chat or replay of its own',
+        );
+      }
+      if (!searchId || !iteration || !ranFor) {
+        throw new InconsistentStateError(
+          'run',
+          'searches without naming the search, its iteration and the team it searches for',
+        );
+      }
+
+      return RunSubject.search(searchId, iteration, input.stationId, ranFor);
+    }
+
+    if (replayOf || replayedTaskId || ranFor) {
       if (input.taskId || input.chatId || input.revision) {
         throw new InconsistentStateError(
           'run',
           'replays a run while it works a task or chat of its own',
         );
       }
-      if (!replayOf || !replayedTaskId || !replayedFor) {
+      if (!replayOf || !replayedTaskId || !ranFor) {
         throw new InconsistentStateError(
           'run',
           'replays a run without naming it, its task and the team it replays for',
@@ -94,7 +150,7 @@ export class RunSubject {
         replayOf,
         replayedTaskId,
         input.stationId,
-        replayedFor,
+        ranFor,
       );
     }
     if (input.chatId && (input.taskId || input.stationId)) {
@@ -129,6 +185,14 @@ export class RunSubject {
     return this.replayOf !== null;
   }
 
+  get isSearch(): boolean {
+    return this.searchId !== null;
+  }
+
+  get leavesNothingBehind(): boolean {
+    return this.isReplay || this.isSearch;
+  }
+
   get archiveHolder(): ArchiveHolder | null {
     if (this.chatId) {
       return { kind: 'chat', chatId: this.chatId };
@@ -138,12 +202,21 @@ export class RunSubject {
   }
 
   match<T>(cases: RunSubjectCases<T>): T {
+    if (this.searchId) {
+      return cases.search(
+        this.searchId,
+        this.iteration as SearchIteration,
+        this.stationId,
+        this.ranFor as TeamId,
+      );
+    }
+
     if (this.replayOf) {
       return cases.replay(
         this.replayOf,
         this.replayedTaskId as TaskId,
         this.stationId,
-        this.replayedFor as TeamId,
+        this.ranFor as TeamId,
       );
     }
 
@@ -164,7 +237,9 @@ export class RunSubject {
       same(this.revision, other.revision) &&
       same(this.replayOf, other.replayOf) &&
       same(this.replayedTaskId, other.replayedTaskId) &&
-      same(this.replayedFor, other.replayedFor)
+      same(this.ranFor, other.ranFor) &&
+      same(this.searchId, other.searchId) &&
+      same(this.iteration, other.iteration)
     );
   }
 }

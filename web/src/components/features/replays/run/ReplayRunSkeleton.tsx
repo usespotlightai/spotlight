@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ReplayRunFooter } from '@/components/features/replays/run/ReplayRunFooter';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
@@ -5,7 +6,13 @@ import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 
-export function ReplayRunSkeleton() {
+type ReplayRunSkeletonProps = {
+  footer?: ReactNode;
+};
+
+export function ReplayRunSkeleton({
+  footer = <ReplayRunFooter />,
+}: ReplayRunSkeletonProps) {
   return (
     <div
       role="status"
@@ -37,7 +44,7 @@ export function ReplayRunSkeleton() {
           </div>
         </div>
 
-        <ReplayRunFooter />
+        {footer}
       </ChangesPanel>
     </div>
   );

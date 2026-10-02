@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 const published = (event: DomainEvent) =>
   GITHUB_PUBLICATIONS.filter((each) => each.from === event.kind).map((each) =>
-    each.publish(event),
+    each.publish(event, new Date()),
   );
 
 describe('GITHUB_PUBLICATIONS', () => {

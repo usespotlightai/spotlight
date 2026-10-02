@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
+  LineReplayCheckSummary,
+  LineSourceSummary,
   StationAlertSummary,
   StationJudgeSummary,
 } from '@work/application/ports/line-reader.port';
@@ -233,6 +235,50 @@ export class ReactionResponseDto {
   }
 }
 
+export class LineSourceResponseDto {
+  @ApiProperty({
+    example: 'acme/platform',
+    description: 'The GitHub repository that holds the line’s Terraform',
+  })
+  readonly repository: string;
+
+  @ApiProperty({
+    example: 'teams/core/delivery.tf',
+    description:
+      'The Terraform file in it that holds the line, from the repository root',
+  })
+  readonly path: string;
+
+  constructor(source: LineSourceSummary) {
+    this.repository = source.repository;
+    this.path = source.path;
+  }
+}
+
+export class LineReplayCheckResponseDto {
+  @ApiProperty({
+    example: 0,
+    description:
+      'How many tasks a planned change may regress on and still pass `spotlight replay check`',
+  })
+  readonly mostRegressions: number;
+
+  @ApiProperty({
+    example: 10,
+    description: 'The most one check’s replay may spend',
+  })
+  readonly ceiling: number;
+
+  @ApiProperty({ example: 'USD', description: 'The currency of the ceiling' })
+  readonly currency: string;
+
+  constructor(check: LineReplayCheckSummary) {
+    this.mostRegressions = check.mostRegressions;
+    this.ceiling = check.ceiling;
+    this.currency = check.currency;
+  }
+}
+
 export class LineResponseDto {
   @ApiProperty({ example: '7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43' })
   readonly id: string;
@@ -260,6 +306,22 @@ export class LineResponseDto {
   })
   readonly repositories: string[];
 
+  @ApiProperty({
+    type: LineSourceResponseDto,
+    nullable: true,
+    description:
+      'Where the line’s Terraform lives, which Spotlight opens pull requests against when a person picks a better station config. Null when the line does not say.',
+  })
+  readonly source: LineSourceResponseDto | null;
+
+  @ApiProperty({
+    type: LineReplayCheckResponseDto,
+    nullable: true,
+    description:
+      'The threshold planned changes of the line’s stations are checked against, set through Terraform; null when the line checks none',
+  })
+  readonly replayCheck: LineReplayCheckResponseDto | null;
+
   constructor(
     id: string,
     key: string,
@@ -267,6 +329,8 @@ export class LineResponseDto {
     stations: StationResponseDto[],
     reactions: ReactionResponseDto[],
     repositories: string[],
+    source: LineSourceSummary | null,
+    replayCheck: LineReplayCheckSummary | null,
   ) {
     this.id = id;
     this.key = key;
@@ -274,5 +338,9 @@ export class LineResponseDto {
     this.stations = stations;
     this.reactions = reactions;
     this.repositories = repositories;
+    this.source = source ? new LineSourceResponseDto(source) : null;
+    this.replayCheck = replayCheck
+      ? new LineReplayCheckResponseDto(replayCheck)
+      : null;
   }
 }

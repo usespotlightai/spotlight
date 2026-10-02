@@ -145,6 +145,25 @@ describe('totalsOf', () => {
     expect(totals.successRate).toBeCloseTo(2 / 3);
   });
 
+  it('totals only the runs it is given, when given some', () => {
+    const replay = ran(
+      'replay_1',
+      ['passed', 'failed-run', 'passed', 'failed-check'],
+      [1, 2, 4, 8],
+    );
+    const totals = totalsOf(replay, [
+      RunId.of('original_0'),
+      RunId.of('original_1'),
+    ]);
+
+    expect(totals.entries).toBe(2);
+    expect(totals.scored).toBe(2);
+    expect(totals.successRate).toBe(0.5);
+    expect(totals.spent.amount).toBe(3);
+    expect(totalsOf(replay, [RunId.of('original_2')]).successRate).toBe(1);
+    expect(totalsOf(replay).spent.amount).toBe(15);
+  });
+
   it('counts runs whose cost was not reported as unpriced', () => {
     const replay = aReplay({ count: 1 })
       .reserving(1, runIds())
@@ -280,6 +299,25 @@ describe('comparedWith', () => {
     expect(compared[0]?.candidate.succeeded).toBeNull();
     expect(compared[0]?.regressed).toBe(false);
     expect(totalsOf(refused).unscored).toBe(1);
+  });
+
+  it('compares only the runs it is given, when given some', () => {
+    const baseline = ran('baseline', ['passed', 'passed', 'passed'], [], true);
+    const candidate = ran(
+      'candidate',
+      ['failed-run', 'passed', 'failed-run'],
+      [],
+    );
+    const compared = comparedWith(candidate, baseline, [
+      RunId.of('original_1'),
+      RunId.of('original_2'),
+    ]);
+
+    expect(compared.map((each) => each.original)).toEqual([
+      'original_2',
+      'original_1',
+    ]);
+    expect(compared.map((each) => each.regressed)).toEqual([true, false]);
   });
 
   it('has nothing to set a task against without a baseline', () => {

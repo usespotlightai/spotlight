@@ -14,13 +14,17 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   LineDetail,
   LineReaderPort,
+  LineReplayCheckSummary,
+  LineSourceSummary,
   StationSummary,
 } from '@work/application/ports/line-reader.port';
 import type { StationKind } from '@work/domain/entities/station.entity';
 import {
+  type ConfigSourceRow,
   line,
   lineReaction,
   lineRepository,
+  type ReplayCheckRow,
   type StationAlertRow,
   type StationJudgeRow,
   station,
@@ -64,6 +68,8 @@ type Row = {
   lineId: string;
   lineKey: string;
   lineName: string;
+  lineSource: ConfigSourceRow | null;
+  lineReplayCheck: ReplayCheckRow | null;
 } & { [K in keyof StationRow]: StationRow[K] | null };
 
 type ReactionRow = {
@@ -107,6 +113,8 @@ export class DrizzleLineReader implements LineReaderPort {
         lineId: line.id,
         lineKey: line.key,
         lineName: line.name,
+        lineSource: line.source,
+        lineReplayCheck: line.replayCheck,
         ...STATION_COLUMNS,
       })
       .from(line)
@@ -184,13 +192,29 @@ const group = (
 ): LineDetail[] => {
   const lines = new Map<
     string,
-    { key: string; name: string; stations: StationSummary[] }
+    {
+      key: string;
+      name: string;
+      source: LineSourceSummary | null;
+      replayCheck: LineReplayCheckSummary | null;
+      stations: StationSummary[];
+    }
   >();
 
   for (const row of rows) {
     const line = lines.get(row.lineId) ?? {
       key: row.lineKey,
       name: row.lineName,
+      source: row.lineSource
+        ? { repository: row.lineSource.repository, path: row.lineSource.path }
+        : null,
+      replayCheck: row.lineReplayCheck
+        ? {
+            mostRegressions: row.lineReplayCheck.mostRegressions,
+            ceiling: row.lineReplayCheck.ceiling,
+            currency: row.lineReplayCheck.currency,
+          }
+        : null,
       stations: [],
     };
 
@@ -212,5 +236,7 @@ const group = (
     repositories: working
       .filter((each) => each.lineId === id)
       .map((each) => each.repository),
+    source: line.source,
+    replayCheck: line.replayCheck,
   }));
 };

@@ -9,6 +9,7 @@ export interface ReplayOrder {
   readonly lineId: string;
   readonly stationId: string;
   readonly station: unknown;
+  readonly repositories?: unknown;
 }
 
 export type ReplayDispatched =

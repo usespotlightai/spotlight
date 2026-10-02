@@ -4,6 +4,7 @@ import type { ReplaysAccess } from '@replays/application/services/replays-access
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -16,6 +17,7 @@ export class DeleteReplaySetHandler
     private readonly access: ReplaysAccess,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
+    private readonly searches: SearchRepository,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -39,9 +41,12 @@ export class DeleteReplaySetHandler
         }
 
         const replays = await this.replays.ofSet(locked.id);
+        const searched = await this.searches.activeOfSet(locked.id);
 
         await this.sets.save(
-          locked.deleted(replays.some((each) => each.isUnderway)),
+          locked.deleted(
+            searched !== null || replays.some((each) => each.isUnderway),
+          ),
         );
       });
 

@@ -256,6 +256,10 @@ import {
 } from '@work/application/ports/line-compiler.port';
 import { LINE_IMAGES } from '@work/application/ports/line-images.port';
 import { LINE_READER } from '@work/application/ports/line-reader.port';
+import {
+  LINE_RENDERING,
+  type LineRenderingPort,
+} from '@work/application/ports/line-rendering.port';
 import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
 import {
@@ -301,6 +305,10 @@ import {
 } from '@work/application/ports/run-journal-reader.port';
 import { RUN_OUTCOMES } from '@work/application/ports/run-outcomes.port';
 import { RUN_READER } from '@work/application/ports/run-reader.port';
+import {
+  RUN_SPENDS,
+  type RunSpendReaderPort,
+} from '@work/application/ports/run-spend-reader.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import { RUN_STREAM } from '@work/application/ports/run-stream.port';
 import {
@@ -310,6 +318,10 @@ import {
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
 import { SANDBOX_REACH } from '@work/application/ports/sandbox-reach.port';
+import { SEARCH_AGENTS } from '@work/application/ports/search-agents.port';
+import { SEARCH_DISPATCH } from '@work/application/ports/search-dispatch.port';
+import { SEARCH_RUNS } from '@work/application/ports/search-runs.port';
+import { SEARCH_SIGHT } from '@work/application/ports/search-sight.port';
 import { STARTING_POINT_HOLDS } from '@work/application/ports/starting-point-holds.port';
 import {
   STATION_PROFILES,
@@ -400,6 +412,7 @@ import { ReadRunConversationHandler } from '@work/application/queries/handlers/r
 import { ReadRunEventsHandler } from '@work/application/queries/handlers/read-run-events.handler';
 import { ReadRunnerHistoryHandler } from '@work/application/queries/handlers/read-runner-history.handler';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
+import { ReadSearchRunHandler } from '@work/application/queries/handlers/read-search-run.handler';
 import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-task-journal.handler';
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
@@ -432,6 +445,7 @@ import { ReadRunConversationQuery } from '@work/application/queries/read-run-con
 import { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
+import { ReadSearchRunQuery } from '@work/application/queries/read-search-run.query';
 import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
@@ -452,6 +466,7 @@ import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
+import { DispatchSearch } from '@work/application/services/dispatch-search.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
@@ -484,6 +499,7 @@ import { RunLeases } from '@work/application/services/run-leases.service';
 import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { RunnerHolds } from '@work/application/services/runner-holds.service';
+import { SearchRuns } from '@work/application/services/search-runs.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
@@ -511,6 +527,7 @@ import {
 } from '@work/infrastructure/harnesses/built-in-harnesses';
 import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
+import { RowsLineRendering } from '@work/infrastructure/lines/rows-line-rendering';
 import { DrizzleHeardHappenings } from '@work/infrastructure/persistence/drizzle/ledgers/heard-happenings.ledger';
 import { DrizzleReplayRunClaims } from '@work/infrastructure/persistence/drizzle/ledgers/replay-run-claims.ledger';
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
@@ -533,6 +550,7 @@ import { DrizzleRunEventReader } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { DrizzleRunnerActivityReader } from '@work/infrastructure/persistence/drizzle/readers/runner-activity.reader';
 import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
+import { DrizzleSearchRunFacts } from '@work/infrastructure/persistence/drizzle/readers/search-run-facts.reader';
 import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzle/readers/station-run.reader';
 import { DrizzleStationTallies } from '@work/infrastructure/persistence/drizzle/readers/station-tallies.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
@@ -877,6 +895,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: RUN_DIGEST_WRITER, useExisting: DrizzleRunDigests },
   { provide: RUN_TOOLS, useExisting: DrizzleRunDigests },
+
+  { provide: RUN_SPENDS, useExisting: DrizzleRunDigests },
 
   { provide: STATION_RUN_READER, useClass: DrizzleStationRunReader },
 
@@ -1315,10 +1335,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: REPLAY_CANDIDATES,
-    inject: [CandidateLines],
-    useFactory: (candidates: CandidateLines) =>
-      new ReplayCandidates(candidates),
+    inject: [CandidateLines, LINE_RENDERING, CONTENT_DIGEST],
+    useFactory: (
+      candidates: CandidateLines,
+      rendering: LineRenderingPort,
+      digest: ContentDigestPort,
+    ) => new ReplayCandidates(candidates, rendering, digest),
   },
+
+  { provide: LINE_RENDERING, useClass: RowsLineRendering },
 
   {
     provide: REPLAYABLE_RUNS,
@@ -1328,6 +1353,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       DispatchReplay,
       STATION_RUN_READER,
+      RUN_DIGESTS,
       ID_GENERATOR,
       LOGGER,
     ],
@@ -1337,6 +1363,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: DrizzleLineRepository,
       dispatch: DispatchReplay,
       stationRuns: StationRunReaderPort,
+      digests: RunDigestReaderPort,
       ids: IdGeneratorPort,
       logger: LoggerPort,
     ) =>
@@ -1346,6 +1373,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         lines,
         dispatch,
         stationRuns,
+        digests,
         ids,
         logger,
       ),
@@ -1374,6 +1402,35 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: REPLAY_RUN_CLAIMS, useClass: DrizzleReplayRunClaims },
+
+  {
+    provide: SEARCH_DISPATCH,
+    inject: [
+      DrizzleRunRepository,
+      DrizzleLineRepository,
+      HARNESS_LAUNCH,
+      TRACE_PARENT,
+      TRANSACTION,
+      CLOCK,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      lines: DrizzleLineRepository,
+      launch: HarnessLaunchPort,
+      tracing: TraceParentPort,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new DispatchSearch(runs, lines, launch, tracing, transaction, clock),
+  },
+
+  {
+    provide: SEARCH_RUNS,
+    inject: [DrizzleRunRepository, DrizzleSearchRunFacts],
+    useFactory: (runs: DrizzleRunRepository, facts: DrizzleSearchRunFacts) =>
+      new SearchRuns(runs, facts),
+  },
+
+  DrizzleSearchRunFacts,
 
   DrizzleStartingPointHoldRepository,
 
@@ -1449,6 +1506,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUN_JOURNAL,
       RUN_DIGESTS,
       RUN_TOOLS,
+      RUN_SPENDS,
     ],
     useFactory: (
       types: EventTypes,
@@ -1477,6 +1535,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       journal: RunJournalPort,
       digested: RunDigestReaderPort,
       tools: RunToolsReaderPort,
+      spends: RunSpendReaderPort,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -1493,7 +1552,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           pausedRuns: new PausedRuns(tasks, runs),
           pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
-          digests: new DigestRun(digests, digested, tools),
+          digests: new DigestRun(digests, digested, tools, spends),
           provisioning: new ProvisionTeam(
             provisioningLines,
             tasks,
@@ -1528,6 +1587,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadRunConfigQuery, ReadRunConfigHandler, [
     WORKSPACE_ACCESS,
     RUN_READER,
+  ]),
+
+  ...bindQueryHandler(ReadSearchRunQuery, ReadSearchRunHandler, [
+    WORKSPACE_ACCESS,
+    RUN_READER,
+    RUN_JOURNAL_READER,
+    RUN_DIGESTS,
+    RUN_SPENDS,
+    SEARCH_AGENTS,
   ]),
 
   ...bindQueryHandler(ReadReplayRunQuery, ReadReplayRunHandler, [
@@ -1746,10 +1814,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     STATION_RUN_READER,
     RUN_OUTCOMES,
     RUN_DIGESTS,
+    SEARCH_SIGHT,
   ]),
 
   ...bindQueryHandler(ReadRunnerTraceQuery, ReadRunnerTraceHandler, [
     RUNNER_TRACE_READER,
+    SEARCH_SIGHT,
   ]),
 
   ...bindQueryHandler(ReadTaskJournalQuery, ReadTaskJournalHandler, [

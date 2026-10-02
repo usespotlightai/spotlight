@@ -686,10 +686,16 @@ describe('a candidate', () => {
     expect(await candidates.examine(DELIVERY, BUILD, live?.station)).toEqual({
       ok: true,
       fingerprint: live?.fingerprint,
+      digests: live?.digests,
+      liveDigests: live?.digests,
       live: live?.fingerprint,
       changes: [],
       scoring: { checksChanges: false, rubric: null, rubricVersion: null },
+      station: live?.station,
     });
+    expect(
+      changed?.ok && { ...changed.station, prompt: live?.station.prompt },
+    ).toEqual(live?.station);
     expect(live?.scoring).toEqual({
       checksChanges: false,
       rubric: null,

@@ -1,4 +1,5 @@
 import {
+  type HclAttribute,
   type HclBlock,
   HclExpression,
   type HclItem,
@@ -214,3 +215,17 @@ const aligned = (lines: readonly Line[]): string[] => {
 
 export const formatHcl = (blocks: readonly HclBlock[]): string =>
   `${aligned(bodyLines(blocks, 0)).join('\n')}\n`;
+
+export const formatHclValue = (
+  value: HclValue,
+  indent: number,
+  spans = true,
+): string => {
+  const { first, rest } = shown(value, indent, spans);
+
+  return [first, ...aligned(rest)].join('\n');
+};
+
+export const formatHclAttributes = (
+  attributes: readonly HclAttribute[],
+): readonly string[] => aligned(bodyLines(attributes, 0));

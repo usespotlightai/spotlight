@@ -4,6 +4,10 @@ const MODULE_PATH = '${path.module}';
 export class HclExpression {
   private constructor(readonly written: string) {}
 
+  static verbatim(written: string): HclExpression {
+    return new HclExpression(written);
+  }
+
   static traversal(...names: readonly string[]): HclExpression {
     return new HclExpression(names.join('.'));
   }

@@ -39,6 +39,8 @@ import {
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { SearchId } from '@work/domain/value-objects/search-id.vo';
+import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -101,7 +103,9 @@ export class DrizzleRunRepository implements RunRepository {
       stationId: added.stationId?.value ?? null,
       chatId: added.chatId?.value ?? null,
       replayOfRunId: added.replayOf?.value ?? null,
-      replayTeamId: added.subject?.replayedFor?.value ?? null,
+      ranForTeamId: added.ranFor?.value ?? null,
+      searchId: added.subject?.searchId?.value ?? null,
+      searchIteration: added.subject?.iteration?.value ?? null,
       taskRevision: added.subject?.revision?.value ?? null,
       state: added.state,
       spec: RunSpecContract.toWire(added.spec),
@@ -203,6 +207,11 @@ export class DrizzleRunRepository implements RunRepository {
         spec: RunSpecContract.toWire(saved.spec),
         parkedAttempts: [...saved.parkedAttempts],
         askedAPerson: saved.askedAPerson,
+        ...(saved.state === 'queued'
+          ? {
+              queuedAt: sql`case when ${run.state} = 'queued' then ${run.queuedAt} else now() end`,
+            }
+          : {}),
         ...startOf(saved),
         ...reservationOf(saved),
       })
@@ -361,7 +370,12 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
         row.taskRevision === null ? null : TaskRevision.of(row.taskRevision),
       replayOf: row.replayOfRunId ? RunId.of(row.replayOfRunId) : null,
       replayedTaskId: replayedTaskId ? TaskId.of(replayedTaskId) : null,
-      replayedFor: row.replayTeamId ? TeamId.of(row.replayTeamId) : null,
+      ranFor: row.ranForTeamId ? TeamId.of(row.ranForTeamId) : null,
+      searchId: row.searchId ? SearchId.of(row.searchId) : null,
+      iteration:
+        row.searchIteration === null
+          ? null
+          : SearchIteration.of(row.searchIteration),
     }),
     spec: specOf(row),
     placement: RunnerPlacement.ofClauses(

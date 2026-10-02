@@ -68,6 +68,8 @@ const LINES: LineResponseDto[] = [
     stations: STATIONS,
     reactions: [],
     repositories: ['acme/api', 'acme/worker'],
+    source: null,
+    replayCheck: null,
   },
 ];
 

@@ -21,6 +21,7 @@ import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import { SearchDigested } from '@work/domain/events/search-digested.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
@@ -36,6 +37,8 @@ import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { SearchId } from '@work/domain/value-objects/search-id.vo';
+import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
@@ -44,9 +47,11 @@ import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { describe, expect, it } from 'vitest';
 
+const RECORDED_AT = new Date('2026-10-02T09:30:00.000Z');
+
 const published = (event: DomainEvent) =>
   WORK_PUBLICATIONS.filter((each) => each.from === event.kind).map((each) =>
-    each.publish(event),
+    each.publish(event, RECORDED_AT),
   );
 
 const TASK = TaskId.of('task_1');
@@ -257,6 +262,38 @@ describe('WORK_PUBLICATIONS', () => {
         currency: 'USD',
         inputTokens: 1_200,
         outputTokens: 900,
+        cacheReadTokens: null,
+        cacheWriteTokens: null,
+      },
+    ]);
+  });
+
+  it('publishes what a search run cost as a search’s digest, naming its search', () => {
+    expect(
+      published(
+        new SearchDigested(
+          RUN,
+          WORKSPACE,
+          SearchId.of('search_1'),
+          30_000,
+          9,
+          [Money.of(0.12, 'USD')],
+          2,
+          Tokens.of({ input: 800, output: 400 }),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.search-run-digested.v1',
+        runId: 'run_1',
+        searchId: 'search_1',
+        workspaceId: 'ws_1',
+        ms: 30_000,
+        steps: 9,
+        spentCosts: [{ amount: 0.12, currency: 'USD' }],
+        unpricedCalls: 2,
+        inputTokens: 800,
+        outputTokens: 400,
         cacheReadTokens: null,
         cacheWriteTokens: null,
       },
@@ -511,6 +548,69 @@ describe('WORK_PUBLICATIONS', () => {
         (each) => each.kind,
       ),
     ).toEqual(['work.replay-ended.v1']);
+  });
+
+  it('publishes a search run’s end as a search’s, never as a run’s or a replay’s', () => {
+    const search = RunSubject.search(
+      SearchId.of('search_1'),
+      SearchIteration.of(2),
+      StationId.of('station_1'),
+      TeamId.of('team_1'),
+    );
+
+    expect(
+      published(
+        new RunCompleted(
+          RUN,
+          WORKSPACE,
+          search,
+          RunOutcome.of({ exitCode: 0, failed: false }),
+          null,
+          Declaration.of({ next: 'review' }),
+          null,
+          1,
+          true,
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.search-run-ended.v1',
+        runId: 'run_1',
+        searchId: 'search_1',
+        iteration: 2,
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        stationId: 'station_1',
+        outcome: 'completed',
+        failure: null,
+        asked: true,
+        stopped: false,
+        started: true,
+        endedAt: '2026-10-02T09:30:00.000Z',
+      },
+    ]);
+    expect(
+      published(
+        new RunAbandoned(RUN, WORKSPACE, search, 3, 3, false, 'runner-lost'),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'work.search-run-ended.v1',
+        outcome: 'abandoned',
+        failure: 'runner-lost',
+        asked: false,
+      }),
+    ]);
+    expect(published(new RunWithdrawn(RUN, WORKSPACE, search, 1))).toEqual([
+      expect.objectContaining({
+        kind: 'work.search-run-ended.v1',
+        outcome: 'withdrawn',
+        started: false,
+      }),
+    ]);
+    expect(published(new RunWithdrawn(RUN, WORKSPACE, search, 2))).toEqual([
+      expect.objectContaining({ outcome: 'withdrawn', started: true }),
+    ]);
   });
 
   it('publishes a run with no task as ending for no task', () => {

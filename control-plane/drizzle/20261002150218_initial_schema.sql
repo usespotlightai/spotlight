@@ -28,8 +28,14 @@ CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped
 CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number');--> statement-breakpoint
 CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
 CREATE TYPE "public"."task_delivery_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
-CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed');--> statement-breakpoint
+CREATE TYPE "public"."config_pull_request_refusal" AS ENUM('no-source', 'repository-unreachable', 'file-missing', 'file-unparsable', 'block-not-found', 'blocks-ambiguous', 'computed-attribute', 'drifted', 'edit-failed', 'branch-taken', 'file-unwritable', 'github-refused');--> statement-breakpoint
+CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'refused');--> statement-breakpoint
+CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed', 'searched', 'planned');--> statement-breakpoint
+CREATE TYPE "public"."replay_check_baseline" AS ENUM('awaiting', 'found', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_outcome" AS ENUM('completed', 'failed', 'abandoned', 'withdrawn');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_ending" AS ENUM('iterations-spent', 'ceiling-reached', 'stalled', 'stopped', 'station-gone', 'set-gone', 'seed-failed');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_iteration_state" AS ENUM('wanted', 'running', 'ended', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_state" AS ENUM('seeding', 'searching', 'holding-out', 'finished', 'stopped');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'over-budget');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'forgone', 'refused');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'parked', 'completed', 'failed', 'superseded');--> statement-breakpoint
@@ -805,6 +811,35 @@ CREATE TABLE "task_touches" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "config_pull_request" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"search_id" text NOT NULL,
+	"candidate_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"station_key" text NOT NULL,
+	"candidate_name" text NOT NULL,
+	"repository" text,
+	"path" text,
+	"branch" text NOT NULL,
+	"state" "config_pull_request_state" NOT NULL,
+	"url" text,
+	"refusal" "config_pull_request_refusal",
+	"refusal_message" text,
+	"refusal_attribute" text,
+	"refusal_expression" text,
+	"refusal_wanted" jsonb,
+	"attempts" integer NOT NULL,
+	"tries" integer NOT NULL,
+	"last_commit" text,
+	"due_at" timestamp,
+	"created_at" timestamp NOT NULL,
+	"updated_at" timestamp NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "replay" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -817,8 +852,12 @@ CREATE TABLE "replay" (
 	"judges" boolean NOT NULL,
 	"checked" boolean NOT NULL,
 	"rubric_version" text,
+	"scoring_digest" text NOT NULL,
 	"ceiling_amount" double precision NOT NULL,
 	"ceiling_currency" text NOT NULL,
+	"unpriced_rate" double precision,
+	"among" jsonb,
+	"search_id" text,
 	"state" "replay_state" NOT NULL,
 	"started_at" timestamp NOT NULL,
 	"ended_at" timestamp,
@@ -839,13 +878,49 @@ CREATE TABLE "replay_candidate" (
 	"kind" "replay_candidate_kind" NOT NULL,
 	"station" jsonb NOT NULL,
 	"fingerprint" text NOT NULL,
+	"behaviour_digest" text NOT NULL,
+	"scoring_digest" text NOT NULL,
+	"line_fields" jsonb,
 	"checks_changes" boolean NOT NULL,
 	"rubric" text,
 	"rubric_version" text,
 	"changed_from" text NOT NULL,
 	"changes" jsonb NOT NULL,
+	"search_id" text,
+	"iteration" integer,
+	"hypothesis" text,
+	"reference_commit" text,
+	"reference_pull_request" integer,
 	"created_at" timestamp NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "replay_check" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"station_key" text NOT NULL,
+	"set_id" text NOT NULL,
+	"set_entries" text NOT NULL,
+	"attempt" integer NOT NULL,
+	"candidate_id" text NOT NULL,
+	"replay_id" text NOT NULL,
+	"reference_commit" text,
+	"reference_pull_request" integer,
+	"live_fingerprint" text NOT NULL,
+	"candidate_fingerprint" text NOT NULL,
+	"live_behaviour" text NOT NULL,
+	"live_scoring" text NOT NULL,
+	"candidate_behaviour" text NOT NULL,
+	"candidate_scoring" text NOT NULL,
+	"most_regressions" integer NOT NULL,
+	"ceiling_amount" double precision NOT NULL,
+	"ceiling_currency" text NOT NULL,
+	"kept_live" jsonb NOT NULL,
+	"baseline" "replay_check_baseline" NOT NULL,
+	"created_at" timestamp NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "replay_entry" (
@@ -884,6 +959,44 @@ CREATE TABLE "replay_entry" (
 	CONSTRAINT "replay_entry_replay_id_position_pk" PRIMARY KEY("replay_id","position")
 );
 --> statement-breakpoint
+CREATE TABLE "replay_search" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"set_id" text NOT NULL,
+	"harness" text NOT NULL,
+	"model" text,
+	"effort" text,
+	"iterations" integer NOT NULL,
+	"per_iteration" integer NOT NULL,
+	"ceiling_amount" double precision NOT NULL,
+	"ceiling_currency" text NOT NULL,
+	"concurrency" integer NOT NULL,
+	"split" jsonb NOT NULL,
+	"seed_candidate_id" text NOT NULL,
+	"seed_fingerprint" text NOT NULL,
+	"seed_replay" jsonb NOT NULL,
+	"held_out" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"state" "replay_search_state" NOT NULL,
+	"ending" "replay_search_ending",
+	"started_at" timestamp NOT NULL,
+	"ended_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "replay_search_iteration" (
+	"search_id" text NOT NULL,
+	"number" integer NOT NULL,
+	"run_id" text NOT NULL,
+	"state" "replay_search_iteration_state" NOT NULL,
+	"proposals" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"agent_spent" jsonb,
+	CONSTRAINT "replay_search_iteration_search_id_number_pk" PRIMARY KEY("search_id","number")
+);
+--> statement-breakpoint
 CREATE TABLE "replay_set" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -891,6 +1004,7 @@ CREATE TABLE "replay_set" (
 	"line_id" text NOT NULL,
 	"station_id" text NOT NULL,
 	"name" text NOT NULL,
+	"guards_changes" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp NOT NULL,
 	"station_gone_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
@@ -1102,6 +1216,8 @@ CREATE TABLE "line" (
 	"name" text NOT NULL,
 	"role" text,
 	"reviews" jsonb,
+	"replay_check" jsonb,
+	"source" jsonb,
 	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
@@ -1209,7 +1325,9 @@ CREATE TABLE "run" (
 	"task_revision" integer,
 	"chat_id" text,
 	"replay_of_run_id" text,
-	"replay_team_id" text,
+	"ran_for_team_id" text,
+	"search_id" text,
+	"search_iteration" integer,
 	"station_id" text,
 	"state" "run_state" NOT NULL,
 	"spec" jsonb NOT NULL,
@@ -1245,6 +1363,7 @@ CREATE TABLE "run" (
 	"stopped" boolean DEFAULT false NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
+	"queued_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -1401,6 +1520,7 @@ ALTER TABLE "memory_proposal" ADD CONSTRAINT "memory_proposal_draft_id_memory_dr
 ALTER TABLE "memory_use" ADD CONSTRAINT "memory_use_memory_id_memory_id_fk" FOREIGN KEY ("memory_id") REFERENCES "public"."memory"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_alert" ADD CONSTRAINT "station_alert_station_id_station_watch_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station_watch"("station_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_entry" ADD CONSTRAINT "replay_entry_replay_id_replay_id_fk" FOREIGN KEY ("replay_id") REFERENCES "public"."replay"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "replay_search_iteration" ADD CONSTRAINT "replay_search_iteration_search_id_replay_search_id_fk" FOREIGN KEY ("search_id") REFERENCES "public"."replay_search"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_set_entry" ADD CONSTRAINT "replay_set_entry_set_id_replay_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."replay_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_grant" ADD CONSTRAINT "secret_grant_run_id_run_grants_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run_grants"("run_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1511,16 +1631,30 @@ CREATE INDEX "task_failures_last_idx" ON "task_failures" USING btree ("workspace
 CREATE INDEX "task_failures_team_idx" ON "task_failures" USING btree ("team_id","last_at");--> statement-breakpoint
 CREATE INDEX "task_touches_team_idx" ON "task_touches" USING btree ("team_id","touched_at");--> statement-breakpoint
 CREATE INDEX "task_touches_workspace_idx" ON "task_touches" USING btree ("workspace_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "config_pull_request_candidate_idx" ON "config_pull_request" USING btree ("search_id","candidate_id");--> statement-breakpoint
+CREATE INDEX "config_pull_request_team_idx" ON "config_pull_request" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX "config_pull_request_due_idx" ON "config_pull_request" USING btree ("due_at") WHERE "config_pull_request"."state" = 'opening';--> statement-breakpoint
 CREATE INDEX "replay_set_idx" ON "replay" USING btree ("set_id");--> statement-breakpoint
 CREATE INDEX "replay_candidate_idx" ON "replay" USING btree ("candidate_id");--> statement-breakpoint
 CREATE INDEX "replay_team_state_idx" ON "replay" USING btree ("team_id","state");--> statement-breakpoint
+CREATE INDEX "replay_search_idx" ON "replay" USING btree ("search_id");--> statement-breakpoint
 CREATE INDEX "replay_candidate_station_idx" ON "replay_candidate" USING btree ("station_id");--> statement-breakpoint
 CREATE INDEX "replay_candidate_team_idx" ON "replay_candidate" USING btree ("team_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "replay_candidate_address_idx" ON "replay_candidate" USING btree ("team_id","line_key","station_key","name") WHERE "replay_candidate"."kind" = 'proposed';--> statement-breakpoint
+CREATE UNIQUE INDEX "replay_candidate_search_name_idx" ON "replay_candidate" USING btree ("search_id","name") WHERE "replay_candidate"."kind" = 'searched';--> statement-breakpoint
+CREATE INDEX "replay_check_team_idx" ON "replay_check" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX "replay_check_awaiting_idx" ON "replay_check" USING btree ("created_at") WHERE "replay_check"."baseline" = 'awaiting';--> statement-breakpoint
+CREATE INDEX "replay_check_set_idx" ON "replay_check" USING btree ("set_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "replay_check_attempt_idx" ON "replay_check" USING btree ("station_id","candidate_behaviour","live_scoring","attempt");--> statement-breakpoint
 CREATE UNIQUE INDEX "replay_entry_run_idx" ON "replay_entry" USING btree ("run_id");--> statement-breakpoint
+CREATE INDEX "replay_search_team_idx" ON "replay_search" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX "replay_search_set_idx" ON "replay_search" USING btree ("set_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "replay_search_active_idx" ON "replay_search" USING btree ("station_id") WHERE "replay_search"."state" in ('seeding', 'searching', 'holding-out');--> statement-breakpoint
+CREATE UNIQUE INDEX "replay_search_iteration_run_idx" ON "replay_search_iteration" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "replay_set_station_idx" ON "replay_set" USING btree ("station_id");--> statement-breakpoint
 CREATE INDEX "replay_set_team_idx" ON "replay_set" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "replay_set_line_idx" ON "replay_set" USING btree ("line_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "replay_set_guards_changes_idx" ON "replay_set" USING btree ("station_id") WHERE "replay_set"."guards_changes";--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
@@ -1564,6 +1698,7 @@ CREATE INDEX "run_station_idx" ON "run" USING btree ("station_id","created_at");
 CREATE INDEX "run_station_fingerprint_idx" ON "run" USING btree ("station_fingerprint");--> statement-breakpoint
 CREATE INDEX "run_chat_idx" ON "run" USING btree ("chat_id");--> statement-breakpoint
 CREATE INDEX "run_replay_of_idx" ON "run" USING btree ("replay_of_run_id");--> statement-breakpoint
+CREATE INDEX "run_search_idx" ON "run" USING btree ("search_id");--> statement-breakpoint
 CREATE INDEX "run_reserved_idx" ON "run" USING btree ("reserved_for");--> statement-breakpoint
 CREATE INDEX "run_started_from_idx" ON "run" USING btree ("started_from_archive_id","started_from_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "task_aside_about_idx" ON "task_aside" USING btree ("task_id","form","about");--> statement-breakpoint

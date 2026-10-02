@@ -18,6 +18,7 @@ export interface ReplaySetDto {
   readonly name: string;
   readonly createdAt: string;
   readonly stationGone: boolean;
+  readonly guardsChanges: boolean;
   readonly entries: readonly ReplaySetEntryDto[];
 }
 
@@ -155,7 +156,13 @@ export interface EntryComparisonDto {
   readonly regressed: boolean;
 }
 
+export interface ReplaySearchDto {
+  readonly searchId: string;
+  readonly candidateName: string;
+}
+
 export interface ReplayDetailDto extends ReplayDto {
+  readonly search: ReplaySearchDto | null;
   readonly baselineReplayId: string | null;
   readonly comparison: readonly EntryComparisonDto[];
 }
@@ -170,6 +177,7 @@ export interface ReplayOfRunDto {
   readonly startedAsBaseline: boolean;
   readonly isBaseline: boolean;
   readonly state: string;
+  readonly search: ReplaySearchDto | null;
   readonly entry: ReplayEntryDto | null;
 }
 

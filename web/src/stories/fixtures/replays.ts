@@ -1,7 +1,9 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { lineKeys } from '@/hooks/api/useLines';
 import { replayableRunKeys } from '@/hooks/api/useReplayableRuns';
 import { replayCandidateKeys } from '@/hooks/api/useReplayCandidates';
 import { replayRunKeys } from '@/hooks/api/useReplayRun';
+import { replayCheckKeys } from '@/hooks/api/useReplaySetChecks';
 import { replaySetKeys } from '@/hooks/api/useReplaySets';
 import { replayKeys } from '@/hooks/api/useReplays';
 import { runConfigKeys } from '@/hooks/api/useRunConfig';
@@ -11,8 +13,10 @@ import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type {
   CandidateResponseDto,
   EntryComparisonResponseDto,
+  LineResponseDto,
   ReplayableRunResponseDto,
   ReplayCandidateResourceResponseDto,
+  ReplayCheckSummaryResponseDto,
   ReplayDetailResponseDto,
   ReplayEntryResponseDto,
   ReplayOfRunResponseDto,
@@ -136,6 +140,7 @@ const SET: ReplaySetResponseDto = {
   name: 'Queue fixes',
   createdAt: hoursAgo(30),
   stationGone: false,
+  guardsChanges: false,
   entries: [
     {
       ...ORIGINALS[0],
@@ -171,6 +176,7 @@ const EMPTY_SET: ReplaySetResponseDto = {
   name: 'Flaky checks',
   createdAt: hoursAgo(3),
   stationGone: false,
+  guardsChanges: false,
   entries: [],
 };
 
@@ -407,6 +413,7 @@ const compared = (
 const DETAIL: ReplayDetailResponseDto = {
   ...CANDIDATE_REPLAY,
   baselineReplayId: BASELINE_ID,
+  search: null,
   comparison: [
     compared(
       CANDIDATE_ENTRIES[1] as ReplayEntryResponseDto,
@@ -436,6 +443,7 @@ const DETAIL: ReplayDetailResponseDto = {
 const BASELINE_DETAIL: ReplayDetailResponseDto = {
   ...BASELINE,
   baselineReplayId: BASELINE_ID,
+  search: null,
   comparison: BASELINE_ENTRIES.map((each) => ({
     originalRunId: each.originalRunId,
     taskId: each.taskId,
@@ -522,16 +530,95 @@ const seedSetAround = (client: QueryClient) => {
 
 export const seedReplaySetAwaiting = seedSetAround;
 
-export const seedReplaySet = (client: QueryClient) => {
+const CHECKS: ReplayCheckSummaryResponseDto[] = [
+  {
+    id: 'check_3',
+    stationId: STATION_ID,
+    stationKey: 'implementation',
+    verdict: 'running',
+    undecidedBecause: null,
+    regressions: 0,
+    attempt: 1,
+    reference: { commit: '9f1c2ab7d3e4', pullRequest: 214 },
+    createdAt: hoursAgo(0.3),
+    replayUrl: null,
+  },
+  {
+    id: 'check_2',
+    stationId: STATION_ID,
+    stationKey: 'implementation',
+    verdict: 'failed',
+    undecidedBecause: null,
+    regressions: 2,
+    attempt: 1,
+    reference: { commit: '41d0e9c2b6aa', pullRequest: 209 },
+    createdAt: hoursAgo(20),
+    replayUrl: `/w/${SLUG}/team/${TEAM_ID}/lines/${LINE_ID}/stations/${STATION_ID}/replays/${REPLAY_ID}`,
+  },
+  {
+    id: 'check_1',
+    stationId: STATION_ID,
+    stationKey: 'implementation',
+    verdict: 'undecided',
+    undecidedBecause: 'over-ceiling',
+    regressions: 0,
+    attempt: 2,
+    reference: { commit: 'c07a55e1f9b2', pullRequest: null },
+    createdAt: hoursAgo(28),
+    replayUrl: null,
+  },
+];
+
+const checksPage = (checks: ReplayCheckSummaryResponseDto[]) => ({
+  pages: [checks],
+  pageParams: [undefined],
+});
+
+const withThreshold = (client: QueryClient) => {
+  const lines = client.getQueryData<LineResponseDto[]>(
+    lineKeys.forTeam(TEAM_ID),
+  );
+
+  client.setQueryData(
+    lineKeys.forTeam(TEAM_ID),
+    lines?.map((line) =>
+      line.id === LINE_ID
+        ? {
+            ...line,
+            replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+          }
+        : line,
+    ),
+  );
+};
+
+const seedSetWithReplays = (client: QueryClient) => {
   seedSetAround(client);
-  client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [SET, EMPTY_SET]);
+  withThreshold(client);
+  client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+    { ...SET, guardsChanges: true },
+    EMPTY_SET,
+  ]);
   client.setQueryData(replayKeys.forSet(SET_ID), [CANDIDATE_REPLAY, BASELINE]);
+};
+
+export const seedReplaySet = (client: QueryClient) => {
+  seedSetWithReplays(client);
+  client.setQueryData(replayCheckKeys.forSet(SET_ID), checksPage(CHECKS));
+};
+
+export const seedReplaySetChecksAwaiting = seedSetWithReplays;
+
+export const failReplaySetChecks = (client: QueryClient) => {
+  seedSetWithReplays(client);
+  failQuery(client, replayCheckKeys.forSet(SET_ID));
 };
 
 export const seedEmptyReplaySet = (client: QueryClient) => {
   seedSetAround(client);
   client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [SET, EMPTY_SET]);
   client.setQueryData(replayKeys.forSet(EMPTY_SET_ID), []);
+  client.setQueryData(replayCheckKeys.forSet(EMPTY_SET_ID), checksPage([]));
 };
 
 export const seedGoneReplaySet = (client: QueryClient) => {
@@ -675,6 +762,7 @@ const REPLAY_OF_RUN: ReplayOfRunResponseDto = {
   startedAsBaseline: false,
   isBaseline: false,
   state: 'running',
+  search: null,
   entry: CANDIDATE_ENTRIES[0] as ReplayEntryResponseDto,
 };
 

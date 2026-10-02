@@ -2,6 +2,7 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { dispatchedInTurn } from '@replays/domain/services/replay-dispatch';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -18,6 +19,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
   constructor(
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
+    private readonly searches: SearchRepository,
     private readonly work: WorkPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -46,9 +48,16 @@ export class DispatchReplayRuns implements OwedWorkPort {
 
   private reserveFor(team: TeamId): Promise<void> {
     return this.transaction.run(async () => {
+      const underway = await this.replays.underwayOfTeamLocked(team);
+      const searches = await this.searches.findMany(
+        underway.flatMap((each) => (each.searchId ? [each.searchId] : [])),
+      );
       const changed = dispatchedInTurn(
-        await this.replays.underwayOfTeamLocked(team),
+        underway,
         () => RunId.of(this.ids.generate()),
+        (searchId) =>
+          searches.find((each) => each.id.equals(searchId) && each.isActive)
+            ?.concurrency ?? 0,
       );
 
       for (const replay of changed) {
@@ -88,6 +97,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
       lineId: replay.station.lineId,
       stationId: replay.station.stationId,
       block: candidate.block,
+      line: candidate.line,
     });
 
     const held = await this.changed(replay, (fresh, now) =>

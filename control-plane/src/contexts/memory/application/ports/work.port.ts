@@ -31,6 +31,7 @@ export interface HeldRun extends RunSite {
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
   readonly replaysFrom: Date | null;
+  readonly isSearch: boolean;
 }
 
 export interface RememberedTask {

@@ -1,0 +1,93 @@
+import type { WorkPort } from '@replays/application/ports/work.port';
+import type { CheckReadings } from '@replays/application/services/check-readings.service';
+import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
+import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import { needsBaseline } from '@replays/domain/services/baseline';
+import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+
+export class EnsureCheckBaselines implements OwedWorkPort {
+  readonly name = 'EnsureCheckBaselines';
+
+  constructor(
+    private readonly checks: ReplayCheckRepository,
+    private readonly readings: CheckReadings,
+    private readonly sets: ReplaySetRepository,
+    private readonly replays: ReplayRepository,
+    private readonly work: WorkPort,
+    private readonly snapshots: LiveSnapshots,
+    private readonly ids: IdGeneratorPort,
+    private readonly clock: ClockPort,
+    private readonly transaction: TransactionPort,
+    private readonly logger: LoggerPort,
+  ) {}
+
+  async workDue(): Promise<void> {
+    for (const check of await this.checks.awaitingBaseline()) {
+      try {
+        await this.ensure(check);
+      } catch (error) {
+        this.logger.warn(
+          { checkId: check.id.value, error },
+          'A replay check’s baseline could not be ensured; it is tried again',
+        );
+      }
+    }
+  }
+
+  private async ensure(check: ReplayCheck): Promise<void> {
+    const { baseline, set, replay } = await this.readings.of(check);
+
+    if (baseline) {
+      await this.checks.save(check.baselineFound());
+      return;
+    }
+
+    const live =
+      set && !set.isAtGoneStation && replay
+        ? await this.work.live(set.station.lineId, set.station.stationId)
+        : null;
+
+    if (!live || live.digests.scoring !== check.liveDigests.scoring) {
+      await this.checks.save(check.baselineUnavailable());
+      return;
+    }
+
+    await this.transaction.run(async () => {
+      const locked = await this.sets.locked(check.setId);
+
+      if (
+        !locked ||
+        !needsBaseline(
+          locked,
+          await this.replays.ofSet(locked.id),
+          check.liveDigests.scoring,
+        )
+      ) {
+        return;
+      }
+
+      await this.replays.add(
+        Replay.started({
+          id: ReplayId.of(this.ids.generate()),
+          set: locked,
+          candidate: await this.snapshots.taken(locked),
+          baseline: true,
+          ceiling: check.threshold.ceiling,
+          unpricedRate: check.threshold.unpricedRunIn(locked.entries.length),
+          at: this.clock.now(),
+          by: Attribution.spotlight(locked.workspaceId),
+        }),
+      );
+    });
+  }
+}

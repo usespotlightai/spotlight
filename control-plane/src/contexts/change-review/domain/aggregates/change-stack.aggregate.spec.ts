@@ -1,5 +1,6 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
 import type { HunkLink } from '@change-review/domain/services/diff-facts';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import {
@@ -51,12 +52,17 @@ const DIFF = Diff.of([
 
 const NOW = new Date('2026-09-16T10:00:00Z');
 
-const drafting = (facts = StackFacts.none(), replay = false) =>
+const drafting = (
+  facts = StackFacts.none(),
+  replay = false,
+  isSearch = false,
+) =>
   ChangeStack.draft({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
     replay,
+    isSearch,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: ' web ',
     base: null,
@@ -132,6 +138,12 @@ describe('ChangeStack', () => {
       ]);
     });
 
+    it('is never drafted for a search run, which changes no repository', () => {
+      expect(() => drafting(StackFacts.none(), false, true)).toThrow(
+        NoStackForSearchesError,
+      );
+    });
+
     it('belongs to no task', () => {
       expect(() =>
         ChangeStack.draft({
@@ -139,6 +151,7 @@ describe('ChangeStack', () => {
           runId: RunId.of('run-1'),
           taskId: TaskId.of('task-1'),
           replay: true,
+          isSearch: false,
           workspaceId: WorkspaceId.of('workspace-1'),
           repository: 'web',
           base: null,

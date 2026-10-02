@@ -17,7 +17,15 @@ import {
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
-import { aReplay, aSet, STATION } from '@replays/domain/replays.fake-spec';
+import {
+  aReplay,
+  aSearch,
+  aSet,
+  BY,
+  NOW,
+  SEARCH_ID,
+  STATION,
+} from '@replays/domain/replays.fake-spec';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -117,9 +125,11 @@ describe('AddReplaySetEntryHandler', () => {
     new AddReplaySetEntryHandler(
       accessFor(memory, work),
       memory.setRepository,
+      memory.searchRepository,
       work,
       CLOCK,
       stationsFor(memory, work),
+      TRANSACTION,
     );
 
   beforeEach(async () => {
@@ -196,6 +206,8 @@ describe('RemoveReplaySetEntryHandler', () => {
     await new RemoveReplaySetEntryHandler(
       accessFor(memory, work),
       memory.setRepository,
+      memory.searchRepository,
+      TRANSACTION,
     ).execute(
       new RemoveReplaySetEntryCommand('team_1', 'set_1', 'original_0', PERSON),
     );
@@ -212,6 +224,7 @@ describe('DeleteReplaySetHandler', () => {
       accessFor(memory, work),
       memory.setRepository,
       memory.replayRepository,
+      memory.searchRepository,
       TRANSACTION,
     );
 
@@ -236,5 +249,78 @@ describe('DeleteReplaySetHandler', () => {
     );
 
     expect(memory.sets.size).toBe(0);
+  });
+});
+
+describe('a set under search', () => {
+  beforeEach(async () => {
+    const set = aSet(10);
+
+    await memory.setRepository.add(set);
+    await memory.searchRepository.add(aSearch({ set }));
+  });
+
+  it('takes no run, lets none go and is not deleted while the search is active', async () => {
+    expect(
+      await faultOf(
+        new AddReplaySetEntryHandler(
+          accessFor(memory, work),
+          memory.setRepository,
+          memory.searchRepository,
+          work,
+          CLOCK,
+          stationsFor(memory, work),
+          TRANSACTION,
+        ).execute(
+          new AddReplaySetEntryCommand('team_1', 'set_1', 'run_9', PERSON),
+        ),
+      ),
+    ).toBe('conflict');
+    expect(
+      await faultOf(
+        new RemoveReplaySetEntryHandler(
+          accessFor(memory, work),
+          memory.setRepository,
+          memory.searchRepository,
+          TRANSACTION,
+        ).execute(
+          new RemoveReplaySetEntryCommand(
+            'team_1',
+            'set_1',
+            'original_0',
+            PERSON,
+          ),
+        ),
+      ),
+    ).toBe('conflict');
+    expect(
+      await faultOf(
+        new DeleteReplaySetHandler(
+          accessFor(memory, work),
+          memory.setRepository,
+          memory.replayRepository,
+          memory.searchRepository,
+          TRANSACTION,
+        ).execute(new DeleteReplaySetCommand('team_1', 'set_1', PERSON)),
+      ),
+    ).toBe('conflict');
+  });
+
+  it('changes again once the search ended', async () => {
+    const search = await memory.searchRepository.find(SEARCH_ID);
+
+    await memory.searchRepository.save(
+      search?.stopped(NOW, BY) ?? expect.unreachable(),
+    );
+    await new RemoveReplaySetEntryHandler(
+      accessFor(memory, work),
+      memory.setRepository,
+      memory.searchRepository,
+      TRANSACTION,
+    ).execute(
+      new RemoveReplaySetEntryCommand('team_1', 'set_1', 'original_0', PERSON),
+    );
+
+    expect(memory.sets.get('set_1')?.runs).toHaveLength(9);
   });
 });

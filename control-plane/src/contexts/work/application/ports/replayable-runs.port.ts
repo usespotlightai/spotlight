@@ -33,6 +33,8 @@ export interface ReplayableRunsPort {
     runIds: readonly string[],
   ): Promise<readonly StandingRun[]>;
 
+  durations(runIds: readonly string[]): Promise<ReadonlyMap<string, number>>;
+
   recentAt(
     workspaceId: string,
     stationId: string,

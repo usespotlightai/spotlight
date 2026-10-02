@@ -18,6 +18,7 @@ import {
   RepositoryAccessPort,
 } from '@github/application/ports/repository-access.port';
 import { REPOSITORY_CATALOG } from '@github/application/ports/repository-catalog.port';
+import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
 import {
   WEBHOOK_SIGNATURE,
@@ -47,6 +48,7 @@ import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-p
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
 import { GitHubRemarks } from '@github/infrastructure/github/github-remarks';
 import { GitHubRepositoryCatalog } from '@github/infrastructure/github/github-repository.catalog';
+import { GitHubRepositoryContents } from '@github/infrastructure/github/github-repository-contents';
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
@@ -261,6 +263,13 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
     inject: [REPOSITORY_ACCESS],
     useFactory: (access: RepositoryAccessPort) =>
       new GitHubRepositoryCatalog(access),
+  },
+
+  {
+    provide: REPOSITORY_CONTENTS,
+    inject: [REPOSITORY_ACCESS],
+    useFactory: (access: RepositoryAccessPort) =>
+      new GitHubRepositoryContents(access),
   },
 
   {

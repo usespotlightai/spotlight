@@ -3,6 +3,7 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReadReplayQuery } from '@replays/application/queries/read-replay.query';
 import {
   entryView,
+  replaySearchView,
   replayView,
 } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
@@ -46,6 +47,7 @@ export class ReadReplayHandler
       return {
         ...replayView(replay, candidate, baseline),
         baselineReplayId: baseline?.id.value ?? null,
+        search: replaySearchView(replay, candidate),
         comparison: compared.map((each) => ({
           originalRunId: each.original,
           taskId: each.taskId,

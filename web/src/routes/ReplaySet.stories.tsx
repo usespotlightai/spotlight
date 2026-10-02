@@ -5,6 +5,7 @@ import { ReplaySet } from '@/routes/ReplaySet';
 import {
   EMPTY_SET_ID,
   failReplaySet,
+  failReplaySetChecks,
   LINE_ID,
   SET_ID,
   SLUG,
@@ -13,6 +14,7 @@ import {
   seedGoneReplaySet,
   seedReplaySet,
   seedReplaySetAwaiting,
+  seedReplaySetChecksAwaiting,
   TEAM_ID,
 } from '@/stories/fixtures/replays';
 import { StoryPage } from '@/stories/StoryPage';
@@ -80,6 +82,24 @@ export const StationGone: Story = {
   name: 'Station gone',
   render: () => (
     <StoryPage at={at} seed={seedGoneReplaySet}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ChecksLoading: Story = {
+  name: 'Checks loading',
+  render: () => (
+    <StoryPage at={at} seed={seedReplaySetChecksAwaiting}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ChecksFailed: Story = {
+  name: 'Checks error',
+  render: () => (
+    <StoryPage at={at} seed={failReplaySetChecks}>
       {routes}
     </StoryPage>
   ),

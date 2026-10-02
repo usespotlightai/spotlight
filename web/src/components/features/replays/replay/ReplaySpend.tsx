@@ -1,6 +1,6 @@
+import { CeilingBar } from '@/components/features/replays/CeilingBar';
 import { spendShown } from '@/lib/insights';
 import {
-  ceilingShare,
   overCeiling,
   type ReplayDetail,
   spendBreakdown,
@@ -19,7 +19,6 @@ type ReplaySpendProps = {
 
 export function ReplaySpend({ replay }: ReplaySpendProps) {
   const spent = replay.totals.spent;
-  const share = ceilingShare(spent, replay.ceiling);
   const over = overCeiling(spent, replay.ceiling);
   const parts = spendBreakdown(replay);
 
@@ -32,20 +31,7 @@ export function ReplaySpend({ replay }: ReplaySpendProps) {
         <span className="text-foreground tabular-nums">
           {spendOfCeiling(spent, replay.ceiling)}
         </span>
-        <span
-          aria-hidden
-          data-slot="ceiling-bar"
-          className="h-1.5 w-24 overflow-hidden rounded-full bg-muted"
-        >
-          <span
-            className={
-              share >= 1
-                ? 'block h-full bg-destructive'
-                : 'block h-full bg-foreground/60'
-            }
-            style={{ width: `${share * 100}%` }}
-          />
-        </span>
+        <CeilingBar spent={spent} ceiling={replay.ceiling} />
         {over && (
           <span className="text-destructive" title={OVER_CEILING_NOTE}>
             Over the ceiling by {spendShown(over)}

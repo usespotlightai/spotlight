@@ -42,6 +42,8 @@ const board: LineDetail = {
     },
   ],
   repositories: ['acme/api'],
+  replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+  source: { repository: 'acme/platform', path: 'teams/core.tf' },
 };
 
 const reader = (result: LineDetail[] | null): LineReaderPort => ({
@@ -83,6 +85,8 @@ describe('ListLinesHandler', () => {
           },
         ],
         repositories: ['acme/api'],
+        replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+        source: { repository: 'acme/platform', path: 'teams/core.tf' },
       },
     ]);
   });

@@ -36,7 +36,9 @@ export const run = pgTable(
       (): AnyPgColumn => run.id,
       { onDelete: 'cascade' },
     ),
-    replayTeamId: text('replay_team_id'),
+    ranForTeamId: text('ran_for_team_id'),
+    searchId: text('search_id'),
+    searchIteration: integer('search_iteration'),
     stationId: text('station_id').references(() => station.id, {
       onDelete: 'set null',
     }),
@@ -85,6 +87,7 @@ export const run = pgTable(
     stopped: boolean('stopped').notNull().default(false),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+    queuedAt: timestamp('queued_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
@@ -104,6 +107,7 @@ export const run = pgTable(
     index('run_station_fingerprint_idx').on(table.stationFingerprint),
     index('run_chat_idx').on(table.chatId),
     index('run_replay_of_idx').on(table.replayOfRunId),
+    index('run_search_idx').on(table.searchId),
     index('run_reserved_idx').on(table.reservedFor),
     index('run_started_from_idx').on(
       table.startedFromArchiveId,

@@ -4,6 +4,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { SearchId } from '@work/domain/value-objects/search-id.vo';
 
 const VERSION = '00';
 const SAMPLED = '01';
@@ -25,6 +26,10 @@ export class HashedTraceParent implements TraceParentPort {
 
   forChat(chatId: ChatId, runId: RunId): string {
     return this.named(`chat:${chatId.value}`, runId);
+  }
+
+  forSearch(searchId: SearchId, runId: RunId): string {
+    return this.named(`search:${searchId.value}`, runId);
   }
 
   private named(trail: string, runId: RunId): string {

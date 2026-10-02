@@ -4,13 +4,13 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 export interface EventPublication {
   readonly from: string;
 
-  publish(event: DomainEvent): IntegrationEvent;
+  publish(event: DomainEvent, at: Date): IntegrationEvent;
 }
 
 export const publishing = <E extends DomainEvent>(
   from: string,
-  publish: (event: E) => IntegrationEvent,
+  publish: (event: E, at: Date) => IntegrationEvent,
 ): EventPublication => ({
   from,
-  publish: (event) => publish(event as E),
+  publish: (event, at) => publish(event as E, at),
 });

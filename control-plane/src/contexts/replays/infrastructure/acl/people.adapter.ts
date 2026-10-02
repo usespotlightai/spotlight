@@ -1,5 +1,6 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type {
   PeoplePort,
   ReadableTeam,
@@ -13,6 +14,7 @@ export class People implements PeoplePort {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,
+    private readonly workspaces: WorkspaceReaderPort,
   ) {}
 
   async standingOn(
@@ -31,6 +33,10 @@ export class People implements PeoplePort {
 
   async teamKey(teamId: TeamId): Promise<string | null> {
     return (await this.teams.find(teamId))?.key ?? null;
+  }
+
+  workspaceSlug(workspaceId: WorkspaceId): Promise<string | null> {
+    return this.workspaces.slugOf(workspaceId.value);
   }
 
   async readableTeams(

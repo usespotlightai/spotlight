@@ -27,6 +27,13 @@ import {
   seedWaitingRun,
   TEAM_ID,
 } from '@/stories/fixtures/run';
+import {
+  failSearchRun,
+  SEARCH_RUN_ID,
+  seedEmptySearchRun,
+  seedSearchRun,
+  seedSearchRunAwaiting,
+} from '@/stories/fixtures/searches';
 import { StoryPage } from '@/stories/StoryPage';
 
 const routes = (
@@ -36,6 +43,8 @@ const routes = (
 const at = runPath(SLUG, TEAM_ID, RUN_ID);
 
 const replayAt = runPath(SLUG, TEAM_ID, REPLAY_RUN_ID);
+
+const searchAt = runPath(SLUG, TEAM_ID, SEARCH_RUN_ID);
 
 const meta = {
   title: 'Team/Runs/Run',
@@ -205,6 +214,42 @@ export const Replay: Story = {
   name: 'Replay run',
   render: () => (
     <StoryPage at={replayAt} seed={seedReplayRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const SearchLoading: Story = {
+  name: 'Search run loading',
+  render: () => (
+    <StoryPage at={searchAt} seed={seedSearchRunAwaiting}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const SearchEmpty: Story = {
+  name: 'Search run empty',
+  render: () => (
+    <StoryPage at={searchAt} seed={seedEmptySearchRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const SearchFailed: Story = {
+  name: 'Search run error',
+  render: () => (
+    <StoryPage at={searchAt} seed={failSearchRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Search: Story = {
+  name: 'Search run',
+  render: () => (
+    <StoryPage at={searchAt} seed={seedSearchRun}>
       {routes}
     </StoryPage>
   ),

@@ -1,0 +1,1544 @@
+{
+ "applyable": true,
+ "complete": true,
+ "configuration": {
+  "provider_config": {
+   "spotlight": {
+    "expressions": {
+     "token": {
+      "constant_value": "q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw"
+     },
+     "url": {
+      "constant_value": "http://127.0.0.1:9"
+     }
+    },
+    "full_name": "registry.terraform.io/usespotlightai/spotlight",
+    "name": "spotlight"
+   },
+   "terraform": {
+    "full_name": "terraform.io/builtin/terraform",
+    "name": "terraform"
+   }
+  },
+  "root_module": {
+   "resources": [
+    {
+     "address": "spotlight_line.delivery",
+     "expressions": {
+      "key": {
+       "constant_value": "delivery"
+      },
+      "name": {
+       "constant_value": "Delivery"
+      },
+      "repository": [
+       {
+        "name": {
+         "constant_value": "acme/api"
+        }
+       }
+      ],
+      "station": [
+       {
+        "key": {
+         "constant_value": "backlog"
+        },
+        "kind": {
+         "constant_value": "backlog"
+        },
+        "name": {
+         "constant_value": "Backlog"
+        },
+        "passes_to": {
+         "constant_value": [
+          "build"
+         ]
+        }
+       },
+       {
+        "alert": [
+         {
+          "measure": {
+           "constant_value": "sent_back_rate"
+          },
+          "over": {
+           "constant_value": 20
+          },
+          "rises_by": {
+           "constant_value": 0.2
+          }
+         }
+        ],
+        "check": {
+         "constant_value": "npm run lint"
+        },
+        "harness": {
+         "constant_value": "claude-code"
+        },
+        "judge": {
+         "rubric": {
+          "constant_value": "scores: yes-no\nDid it drain the queue?"
+         },
+         "sample": {
+          "constant_value": 0.5
+         },
+         "trust": {
+          "constant_value": 0.6
+         }
+        },
+        "key": {
+         "constant_value": "build"
+        },
+        "model": {
+         "constant_value": "claude-opus-4-5"
+        },
+        "name": {
+         "constant_value": "Build"
+        },
+        "passes_to": {
+         "constant_value": [
+          "review"
+         ]
+        },
+        "prompt": {
+         "constant_value": "Build it, then drain the queue."
+        }
+       },
+       {
+        "harness": {
+         "constant_value": "claude-code"
+        },
+        "key": {
+         "constant_value": "review"
+        },
+        "name": {
+         "constant_value": "Review"
+        },
+        "passes_to": {
+         "constant_value": [
+          "polish"
+         ]
+        },
+        "prompt": {
+         "references": [
+          "terraform_data.prompt.output",
+          "terraform_data.prompt"
+         ]
+        }
+       },
+       {
+        "harness": {
+         "constant_value": "claude-code"
+        },
+        "key": {
+         "constant_value": "polish"
+        },
+        "name": {
+         "constant_value": "Polish"
+        },
+        "passes_to": {
+         "constant_value": [
+          "completed"
+         ]
+        },
+        "prompt": {
+         "constant_value": "Polish it."
+        }
+       },
+       {
+        "ends": {
+         "constant_value": true
+        },
+        "key": {
+         "constant_value": "completed"
+        },
+        "kind": {
+         "constant_value": "completed"
+        },
+        "name": {
+         "constant_value": "Completed"
+        }
+       }
+      ],
+      "team_id": {
+       "constant_value": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+      }
+     },
+     "mode": "managed",
+     "name": "delivery",
+     "provider_config_key": "spotlight",
+     "schema_version": 0,
+     "type": "spotlight_line"
+    },
+    {
+     "address": "spotlight_line.fresh",
+     "expressions": {
+      "key": {
+       "constant_value": "fresh"
+      },
+      "name": {
+       "constant_value": "Fresh"
+      },
+      "station": [
+       {
+        "key": {
+         "constant_value": "backlog"
+        },
+        "kind": {
+         "constant_value": "backlog"
+        },
+        "name": {
+         "constant_value": "Backlog"
+        }
+       }
+      ],
+      "team_id": {
+       "constant_value": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+      }
+     },
+     "mode": "managed",
+     "name": "fresh",
+     "provider_config_key": "spotlight",
+     "schema_version": 0,
+     "type": "spotlight_line"
+    },
+    {
+     "address": "spotlight_line.renamed",
+     "expressions": {
+      "key": {
+       "constant_value": "renamed"
+      },
+      "name": {
+       "constant_value": "Renamed"
+      },
+      "station": [
+       {
+        "key": {
+         "constant_value": "backlog"
+        },
+        "kind": {
+         "constant_value": "backlog"
+        },
+        "name": {
+         "constant_value": "Backlog"
+        }
+       }
+      ],
+      "team_id": {
+       "constant_value": "1111e6d5-1f47-4c8b-9a3d-2b7e5f0c1d84"
+      }
+     },
+     "mode": "managed",
+     "name": "renamed",
+     "provider_config_key": "spotlight",
+     "schema_version": 0,
+     "type": "spotlight_line"
+    },
+    {
+     "address": "terraform_data.prompt",
+     "expressions": {
+      "input": {
+       "constant_value": "Review it."
+      }
+     },
+     "mode": "managed",
+     "name": "prompt",
+     "provider_config_key": "terraform",
+     "schema_version": 0,
+     "type": "terraform_data"
+    }
+   ]
+  }
+ },
+ "errored": false,
+ "format_version": "1.2",
+ "planned_values": {
+  "root_module": {
+   "resources": [
+    {
+     "address": "spotlight_line.delivery",
+     "mode": "managed",
+     "name": "delivery",
+     "provider_name": "registry.terraform.io/usespotlightai/spotlight",
+     "schema_version": 0,
+     "sensitive_values": {
+      "reaction": [],
+      "repository": [
+       {}
+      ],
+      "runners": [],
+      "station": [
+       {
+        "alert": [],
+        "passes_to": [
+         false
+        ],
+        "runners": [],
+        "skills": [],
+        "tools": []
+       },
+       {
+        "alert": [
+         {}
+        ],
+        "judge": {},
+        "passes_to": [
+         false
+        ],
+        "runners": [],
+        "skills": [],
+        "tools": []
+       },
+       {
+        "alert": [],
+        "passes_to": [
+         false
+        ],
+        "runners": [],
+        "skills": [],
+        "tools": []
+       },
+       {
+        "alert": [],
+        "passes_to": [
+         false
+        ],
+        "runners": [],
+        "skills": [],
+        "tools": []
+       },
+       {
+        "alert": [],
+        "passes_to": [],
+        "runners": [],
+        "skills": [],
+        "tools": []
+       }
+      ]
+     },
+     "type": "spotlight_line",
+     "values": {
+      "address": "core/delivery",
+      "id": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+      "key": "delivery",
+      "name": "Delivery",
+      "reaction": [],
+      "repository": [
+       {
+        "image": null,
+        "name": "acme/api",
+        "setup": null
+       }
+      ],
+      "reviews": null,
+      "role": null,
+      "runners": [],
+      "station": [
+       {
+        "alert": [],
+        "check": null,
+        "description": null,
+        "effort": null,
+        "ends": false,
+        "harness": null,
+        "judge": null,
+        "key": "backlog",
+        "kind": "backlog",
+        "model": null,
+        "name": "Backlog",
+        "passes_to": [
+         "build"
+        ],
+        "profile": null,
+        "prompt": null,
+        "runners": [],
+        "skills": [],
+        "tools": []
+       },
+       {
+        "alert": [
+         {
+          "above": null,
+          "below": null,
+          "falls_by": null,
+          "measure": "sent_back_rate",
+          "over": 20,
+          "rises_by": 0.2
+         }
+        ],
+        "check": "npm run lint",
+        "description": null,
+        "effort": null,
+        "ends": false,
+        "harness": "claude-code",
+        "judge": {
+         "rubric": "scores: yes-no\nDid it drain the queue?",
+         "sample": 0.5,
+         "trust": 0.6
+        },
+        "key": "build",
+        "kind": "work",
+        "model": "claude-opus-4-5",
+        "name": "Build",
+        "passes_to": [
+         "review"
+        ],
+        "profile": null,
+        "prompt": "Build it, then drain the queue.",
+        "runners": [],
+        "skills": [],
+        "tools": []
+       },
+       {
+        "alert": [],
+        "check": null,
+        "description": null,
+        "effort": null,
+        "ends": false,
+        "harness": "claude-code",
+        "judge": null,
+        "key": "review",
+        "kind": "work",
+        "model": null,
+        "name": "Review",
+        "passes_to": [
+         "polish"
+        ],
+        "profile": null,
+        "runners": [],
+        "skills": [],
+        "tools": []
+       },
+       {
+        "alert": [],
+        "check": null,
+        "description": null,
+        "effort": null,
+        "ends": false,
+        "harness": "claude-code",
+        "judge": null,
+        "key": "polish",
+        "kind": "work",
+        "model": null,
+        "name": "Polish",
+        "passes_to": [
+         "completed"
+        ],
+        "profile": null,
+        "prompt": "Polish it.",
+        "runners": [],
+        "skills": [],
+        "tools": []
+       },
+       {
+        "alert": [],
+        "check": null,
+        "description": null,
+        "effort": null,
+        "ends": true,
+        "harness": null,
+        "judge": null,
+        "key": "completed",
+        "kind": "completed",
+        "model": null,
+        "name": "Completed",
+        "passes_to": [],
+        "profile": null,
+        "prompt": null,
+        "runners": [],
+        "skills": [],
+        "tools": []
+       }
+      ],
+      "team_id": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+     }
+    },
+    {
+     "address": "spotlight_line.fresh",
+     "mode": "managed",
+     "name": "fresh",
+     "provider_name": "registry.terraform.io/usespotlightai/spotlight",
+     "schema_version": 0,
+     "sensitive_values": {
+      "reaction": [],
+      "repository": [],
+      "runners": [],
+      "station": [
+       {
+        "alert": [],
+        "passes_to": [],
+        "runners": [],
+        "skills": [],
+        "tools": []
+       }
+      ]
+     },
+     "type": "spotlight_line",
+     "values": {
+      "key": "fresh",
+      "name": "Fresh",
+      "reaction": [],
+      "repository": [],
+      "reviews": null,
+      "role": null,
+      "runners": [],
+      "station": [
+       {
+        "alert": [],
+        "check": null,
+        "description": null,
+        "effort": null,
+        "ends": false,
+        "harness": null,
+        "judge": null,
+        "key": "backlog",
+        "kind": "backlog",
+        "model": null,
+        "name": "Backlog",
+        "passes_to": [],
+        "profile": null,
+        "prompt": null,
+        "runners": [],
+        "skills": [],
+        "tools": []
+       }
+      ],
+      "team_id": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+     }
+    },
+    {
+     "address": "spotlight_line.renamed",
+     "mode": "managed",
+     "name": "renamed",
+     "provider_name": "registry.terraform.io/usespotlightai/spotlight",
+     "schema_version": 0,
+     "sensitive_values": {
+      "reaction": [],
+      "repository": [],
+      "runners": [],
+      "station": [
+       {
+        "alert": [],
+        "passes_to": [],
+        "runners": [],
+        "skills": [],
+        "tools": []
+       }
+      ]
+     },
+     "type": "spotlight_line",
+     "values": {
+      "key": "renamed",
+      "name": "Renamed",
+      "reaction": [],
+      "repository": [],
+      "reviews": null,
+      "role": null,
+      "runners": [],
+      "station": [
+       {
+        "alert": [],
+        "check": null,
+        "description": null,
+        "effort": null,
+        "ends": false,
+        "harness": null,
+        "judge": null,
+        "key": "backlog",
+        "kind": "backlog",
+        "model": null,
+        "name": "Backlog",
+        "passes_to": [],
+        "profile": null,
+        "prompt": null,
+        "runners": [],
+        "skills": [],
+        "tools": []
+       }
+      ],
+      "team_id": "1111e6d5-1f47-4c8b-9a3d-2b7e5f0c1d84"
+     }
+    },
+    {
+     "address": "terraform_data.prompt",
+     "mode": "managed",
+     "name": "prompt",
+     "provider_name": "terraform.io/builtin/terraform",
+     "schema_version": 0,
+     "sensitive_values": {},
+     "type": "terraform_data",
+     "values": {
+      "input": "Review it.",
+      "triggers_replace": null
+     }
+    }
+   ]
+  }
+ },
+ "prior_state": {
+  "format_version": "1.0",
+  "terraform_version": "1.12.1",
+  "values": {
+   "root_module": {
+    "resources": [
+     {
+      "address": "spotlight_line.delivery",
+      "mode": "managed",
+      "name": "delivery",
+      "provider_name": "registry.terraform.io/usespotlightai/spotlight",
+      "schema_version": 0,
+      "sensitive_values": {
+       "reaction": [],
+       "repository": [
+        {}
+       ],
+       "station": [
+        {
+         "alert": [],
+         "passes_to": [
+          false
+         ],
+         "skills": [],
+         "tools": []
+        },
+        {
+         "alert": [],
+         "passes_to": [
+          false
+         ],
+         "skills": [],
+         "tools": []
+        },
+        {
+         "alert": [],
+         "passes_to": [
+          false
+         ],
+         "skills": [],
+         "tools": []
+        },
+        {
+         "alert": [],
+         "passes_to": [
+          false
+         ],
+         "skills": [],
+         "tools": []
+        },
+        {
+         "alert": [],
+         "passes_to": [],
+         "skills": [],
+         "tools": []
+        }
+       ]
+      },
+      "type": "spotlight_line",
+      "values": {
+       "address": "core/delivery",
+       "id": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+       "key": "delivery",
+       "name": "Delivery",
+       "reaction": [],
+       "repository": [
+        {
+         "image": null,
+         "name": "acme/api",
+         "setup": null
+        }
+       ],
+       "reviews": null,
+       "role": null,
+       "runners": null,
+       "station": [
+        {
+         "alert": [],
+         "check": null,
+         "color": "#a3a8b0",
+         "decisions": false,
+         "description": null,
+         "diffs": false,
+         "effort": null,
+         "ends": false,
+         "harness": null,
+         "judge": null,
+         "key": "backlog",
+         "kind": "backlog",
+         "model": null,
+         "name": "Backlog",
+         "passes_to": [
+          "build"
+         ],
+         "profile": null,
+         "prompt": null,
+         "runners": null,
+         "skills": [],
+         "tools": []
+        },
+        {
+         "alert": [],
+         "check": "npm test",
+         "color": "#6d78d5",
+         "decisions": false,
+         "description": null,
+         "diffs": true,
+         "effort": null,
+         "ends": false,
+         "harness": "claude-code",
+         "judge": null,
+         "key": "build",
+         "kind": "work",
+         "model": "claude-opus-4-5",
+         "name": "Build",
+         "passes_to": [
+          "ship"
+         ],
+         "profile": null,
+         "prompt": "Build it.",
+         "runners": null,
+         "skills": [],
+         "tools": []
+        },
+        {
+         "alert": [],
+         "check": null,
+         "color": "#6d78d5",
+         "decisions": false,
+         "description": null,
+         "diffs": false,
+         "effort": null,
+         "ends": false,
+         "harness": "claude-code",
+         "judge": null,
+         "key": "ship",
+         "kind": "work",
+         "model": null,
+         "name": "Ship",
+         "passes_to": [
+          "review"
+         ],
+         "profile": null,
+         "prompt": "Ship it.",
+         "runners": null,
+         "skills": [],
+         "tools": []
+        },
+        {
+         "alert": [],
+         "check": null,
+         "color": "#6d78d5",
+         "decisions": false,
+         "description": null,
+         "diffs": false,
+         "effort": null,
+         "ends": false,
+         "harness": "claude-code",
+         "judge": null,
+         "key": "review",
+         "kind": "work",
+         "model": null,
+         "name": "Review",
+         "passes_to": [
+          "completed"
+         ],
+         "profile": null,
+         "prompt": "Review.",
+         "runners": null,
+         "skills": [],
+         "tools": []
+        },
+        {
+         "alert": [],
+         "check": null,
+         "color": "#3fb950",
+         "decisions": false,
+         "description": null,
+         "diffs": false,
+         "effort": null,
+         "ends": true,
+         "harness": null,
+         "judge": null,
+         "key": "completed",
+         "kind": "completed",
+         "model": null,
+         "name": "Completed",
+         "passes_to": [],
+         "profile": null,
+         "prompt": null,
+         "runners": null,
+         "skills": [],
+         "tools": []
+        }
+       ],
+       "team_id": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+       "version": 3
+      }
+     },
+     {
+      "address": "spotlight_line.renamed",
+      "mode": "managed",
+      "name": "renamed",
+      "provider_name": "registry.terraform.io/usespotlightai/spotlight",
+      "schema_version": 0,
+      "sensitive_values": {
+       "reaction": [],
+       "repository": [],
+       "station": [
+        {
+         "alert": [],
+         "passes_to": [],
+         "skills": [],
+         "tools": []
+        }
+       ]
+      },
+      "type": "spotlight_line",
+      "values": {
+       "address": "core/renamed",
+       "id": "7d1e2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+       "key": "renamed",
+       "name": "Renamed",
+       "reaction": [],
+       "repository": [],
+       "reviews": null,
+       "role": null,
+       "runners": null,
+       "station": [
+        {
+         "alert": [],
+         "check": null,
+         "color": "#a3a8b0",
+         "decisions": false,
+         "description": null,
+         "diffs": false,
+         "effort": null,
+         "ends": false,
+         "harness": null,
+         "judge": null,
+         "key": "backlog",
+         "kind": "backlog",
+         "model": null,
+         "name": "Backlog",
+         "passes_to": [],
+         "profile": null,
+         "prompt": null,
+         "runners": null,
+         "skills": [],
+         "tools": []
+        }
+       ],
+       "team_id": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+       "version": 3
+      }
+     }
+    ]
+   }
+  }
+ },
+ "relevant_attributes": [
+  {
+   "attribute": [
+    "output"
+   ],
+   "resource": "terraform_data.prompt"
+  }
+ ],
+ "resource_changes": [
+  {
+   "address": "spotlight_line.delivery",
+   "change": {
+    "actions": [
+     "update"
+    ],
+    "after": {
+     "address": "core/delivery",
+     "id": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+     "key": "delivery",
+     "name": "Delivery",
+     "reaction": [],
+     "repository": [
+      {
+       "image": null,
+       "name": "acme/api",
+       "setup": null
+      }
+     ],
+     "reviews": null,
+     "role": null,
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "check": null,
+       "description": null,
+       "effort": null,
+       "ends": false,
+       "harness": null,
+       "judge": null,
+       "key": "backlog",
+       "kind": "backlog",
+       "model": null,
+       "name": "Backlog",
+       "passes_to": [
+        "build"
+       ],
+       "profile": null,
+       "prompt": null,
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [
+        {
+         "above": null,
+         "below": null,
+         "falls_by": null,
+         "measure": "sent_back_rate",
+         "over": 20,
+         "rises_by": 0.2
+        }
+       ],
+       "check": "npm run lint",
+       "description": null,
+       "effort": null,
+       "ends": false,
+       "harness": "claude-code",
+       "judge": {
+        "rubric": "scores: yes-no\nDid it drain the queue?",
+        "sample": 0.5,
+        "trust": 0.6
+       },
+       "key": "build",
+       "kind": "work",
+       "model": "claude-opus-4-5",
+       "name": "Build",
+       "passes_to": [
+        "review"
+       ],
+       "profile": null,
+       "prompt": "Build it, then drain the queue.",
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "check": null,
+       "description": null,
+       "effort": null,
+       "ends": false,
+       "harness": "claude-code",
+       "judge": null,
+       "key": "review",
+       "kind": "work",
+       "model": null,
+       "name": "Review",
+       "passes_to": [
+        "polish"
+       ],
+       "profile": null,
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "check": null,
+       "description": null,
+       "effort": null,
+       "ends": false,
+       "harness": "claude-code",
+       "judge": null,
+       "key": "polish",
+       "kind": "work",
+       "model": null,
+       "name": "Polish",
+       "passes_to": [
+        "completed"
+       ],
+       "profile": null,
+       "prompt": "Polish it.",
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "check": null,
+       "description": null,
+       "effort": null,
+       "ends": true,
+       "harness": null,
+       "judge": null,
+       "key": "completed",
+       "kind": "completed",
+       "model": null,
+       "name": "Completed",
+       "passes_to": [],
+       "profile": null,
+       "prompt": null,
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ],
+     "team_id": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+    },
+    "after_sensitive": {
+     "reaction": [],
+     "repository": [
+      {}
+     ],
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "passes_to": [
+        false
+       ],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [
+        {}
+       ],
+       "judge": {},
+       "passes_to": [
+        false
+       ],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "passes_to": [
+        false
+       ],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "passes_to": [
+        false
+       ],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "passes_to": [],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ]
+    },
+    "after_unknown": {
+     "reaction": [],
+     "repository": [
+      {}
+     ],
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "color": true,
+       "decisions": true,
+       "diffs": true,
+       "passes_to": [
+        false
+       ],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [
+        {}
+       ],
+       "color": true,
+       "decisions": true,
+       "diffs": true,
+       "judge": {},
+       "passes_to": [
+        false
+       ],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "color": true,
+       "decisions": true,
+       "diffs": true,
+       "passes_to": [
+        false
+       ],
+       "prompt": true,
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "color": true,
+       "decisions": true,
+       "diffs": true,
+       "passes_to": [
+        false
+       ],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "color": true,
+       "decisions": true,
+       "diffs": true,
+       "passes_to": [],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ],
+     "version": true
+    },
+    "before": {
+     "address": "core/delivery",
+     "id": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+     "key": "delivery",
+     "name": "Delivery",
+     "reaction": [],
+     "repository": [
+      {
+       "image": null,
+       "name": "acme/api",
+       "setup": null
+      }
+     ],
+     "reviews": null,
+     "role": null,
+     "runners": null,
+     "station": [
+      {
+       "alert": [],
+       "check": null,
+       "color": "#a3a8b0",
+       "decisions": false,
+       "description": null,
+       "diffs": false,
+       "effort": null,
+       "ends": false,
+       "harness": null,
+       "judge": null,
+       "key": "backlog",
+       "kind": "backlog",
+       "model": null,
+       "name": "Backlog",
+       "passes_to": [
+        "build"
+       ],
+       "profile": null,
+       "prompt": null,
+       "runners": null,
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "check": "npm test",
+       "color": "#6d78d5",
+       "decisions": false,
+       "description": null,
+       "diffs": true,
+       "effort": null,
+       "ends": false,
+       "harness": "claude-code",
+       "judge": null,
+       "key": "build",
+       "kind": "work",
+       "model": "claude-opus-4-5",
+       "name": "Build",
+       "passes_to": [
+        "ship"
+       ],
+       "profile": null,
+       "prompt": "Build it.",
+       "runners": null,
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "check": null,
+       "color": "#6d78d5",
+       "decisions": false,
+       "description": null,
+       "diffs": false,
+       "effort": null,
+       "ends": false,
+       "harness": "claude-code",
+       "judge": null,
+       "key": "ship",
+       "kind": "work",
+       "model": null,
+       "name": "Ship",
+       "passes_to": [
+        "review"
+       ],
+       "profile": null,
+       "prompt": "Ship it.",
+       "runners": null,
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "check": null,
+       "color": "#6d78d5",
+       "decisions": false,
+       "description": null,
+       "diffs": false,
+       "effort": null,
+       "ends": false,
+       "harness": "claude-code",
+       "judge": null,
+       "key": "review",
+       "kind": "work",
+       "model": null,
+       "name": "Review",
+       "passes_to": [
+        "completed"
+       ],
+       "profile": null,
+       "prompt": "Review.",
+       "runners": null,
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "check": null,
+       "color": "#3fb950",
+       "decisions": false,
+       "description": null,
+       "diffs": false,
+       "effort": null,
+       "ends": true,
+       "harness": null,
+       "judge": null,
+       "key": "completed",
+       "kind": "completed",
+       "model": null,
+       "name": "Completed",
+       "passes_to": [],
+       "profile": null,
+       "prompt": null,
+       "runners": null,
+       "skills": [],
+       "tools": []
+      }
+     ],
+     "team_id": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+     "version": 3
+    },
+    "before_sensitive": {
+     "reaction": [],
+     "repository": [
+      {}
+     ],
+     "station": [
+      {
+       "alert": [],
+       "passes_to": [
+        false
+       ],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "passes_to": [
+        false
+       ],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "passes_to": [
+        false
+       ],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "passes_to": [
+        false
+       ],
+       "skills": [],
+       "tools": []
+      },
+      {
+       "alert": [],
+       "passes_to": [],
+       "skills": [],
+       "tools": []
+      }
+     ]
+    }
+   },
+   "mode": "managed",
+   "name": "delivery",
+   "provider_name": "registry.terraform.io/usespotlightai/spotlight",
+   "type": "spotlight_line"
+  },
+  {
+   "address": "spotlight_line.fresh",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "key": "fresh",
+     "name": "Fresh",
+     "reaction": [],
+     "repository": [],
+     "reviews": null,
+     "role": null,
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "check": null,
+       "description": null,
+       "effort": null,
+       "ends": false,
+       "harness": null,
+       "judge": null,
+       "key": "backlog",
+       "kind": "backlog",
+       "model": null,
+       "name": "Backlog",
+       "passes_to": [],
+       "profile": null,
+       "prompt": null,
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ],
+     "team_id": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+    },
+    "after_sensitive": {
+     "reaction": [],
+     "repository": [],
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "passes_to": [],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ]
+    },
+    "after_unknown": {
+     "address": true,
+     "id": true,
+     "reaction": [],
+     "repository": [],
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "color": true,
+       "decisions": true,
+       "diffs": true,
+       "passes_to": [],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ],
+     "version": true
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "mode": "managed",
+   "name": "fresh",
+   "provider_name": "registry.terraform.io/usespotlightai/spotlight",
+   "type": "spotlight_line"
+  },
+  {
+   "action_reason": "replace_because_cannot_update",
+   "address": "spotlight_line.renamed",
+   "change": {
+    "actions": [
+     "delete",
+     "create"
+    ],
+    "after": {
+     "key": "renamed",
+     "name": "Renamed",
+     "reaction": [],
+     "repository": [],
+     "reviews": null,
+     "role": null,
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "check": null,
+       "description": null,
+       "effort": null,
+       "ends": false,
+       "harness": null,
+       "judge": null,
+       "key": "backlog",
+       "kind": "backlog",
+       "model": null,
+       "name": "Backlog",
+       "passes_to": [],
+       "profile": null,
+       "prompt": null,
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ],
+     "team_id": "1111e6d5-1f47-4c8b-9a3d-2b7e5f0c1d84"
+    },
+    "after_sensitive": {
+     "reaction": [],
+     "repository": [],
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "passes_to": [],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ]
+    },
+    "after_unknown": {
+     "address": true,
+     "id": true,
+     "reaction": [],
+     "repository": [],
+     "runners": [],
+     "station": [
+      {
+       "alert": [],
+       "color": true,
+       "decisions": true,
+       "diffs": true,
+       "passes_to": [],
+       "runners": [],
+       "skills": [],
+       "tools": []
+      }
+     ],
+     "version": true
+    },
+    "before": {
+     "address": "core/renamed",
+     "id": "7d1e2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03",
+     "key": "renamed",
+     "name": "Renamed",
+     "reaction": [],
+     "repository": [],
+     "reviews": null,
+     "role": null,
+     "runners": null,
+     "station": [
+      {
+       "alert": [],
+       "check": null,
+       "color": "#a3a8b0",
+       "decisions": false,
+       "description": null,
+       "diffs": false,
+       "effort": null,
+       "ends": false,
+       "harness": null,
+       "judge": null,
+       "key": "backlog",
+       "kind": "backlog",
+       "model": null,
+       "name": "Backlog",
+       "passes_to": [],
+       "profile": null,
+       "prompt": null,
+       "runners": null,
+       "skills": [],
+       "tools": []
+      }
+     ],
+     "team_id": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+     "version": 3
+    },
+    "before_sensitive": {
+     "reaction": [],
+     "repository": [],
+     "station": [
+      {
+       "alert": [],
+       "passes_to": [],
+       "skills": [],
+       "tools": []
+      }
+     ]
+    },
+    "replace_paths": [
+     [
+      "team_id"
+     ]
+    ]
+   },
+   "mode": "managed",
+   "name": "renamed",
+   "provider_name": "registry.terraform.io/usespotlightai/spotlight",
+   "type": "spotlight_line"
+  },
+  {
+   "address": "terraform_data.prompt",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "input": "Review it.",
+     "triggers_replace": null
+    },
+    "after_sensitive": {},
+    "after_unknown": {
+     "id": true,
+     "output": true
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "mode": "managed",
+   "name": "prompt",
+   "provider_name": "terraform.io/builtin/terraform",
+   "type": "terraform_data"
+  }
+ ],
+ "terraform_version": "1.12.1",
+ "timestamp": "2026-10-02T12:08:39Z"
+}

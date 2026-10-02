@@ -10,7 +10,15 @@ import {
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { HeldLine } from '@work/application/contracts/held-line.contract';
 
-const UNHELD = ['workspace-token', 'replay-candidate', 'replay'] as const;
+const UNHELD = [
+  'workspace-token',
+  'replay-candidate',
+  'replay',
+  'replay-set',
+  'replay-search',
+  'replay-check',
+  'config-pull-request',
+] as const;
 
 export type HeldKind = Exclude<ConfiguredResource, (typeof UNHELD)[number]>;
 

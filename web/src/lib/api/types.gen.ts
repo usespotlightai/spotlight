@@ -106,6 +106,32 @@ export type ReactionResponseDto = {
   to: string;
 };
 
+export type LineSourceResponseDto = {
+  /**
+   * The GitHub repository that holds the line’s Terraform
+   */
+  repository: string;
+  /**
+   * The Terraform file in it that holds the line, from the repository root
+   */
+  path: string;
+};
+
+export type LineReplayCheckResponseDto = {
+  /**
+   * How many tasks a planned change may regress on and still pass `spotlight replay check`
+   */
+  mostRegressions: number;
+  /**
+   * The most one check’s replay may spend
+   */
+  ceiling: number;
+  /**
+   * The currency of the ceiling
+   */
+  currency: string;
+};
+
 export type LineResponseDto = {
   id: string;
   /**
@@ -119,6 +145,14 @@ export type LineResponseDto = {
    * The repositories a run on this line works in, as owner/name
    */
   repositories: Array<string>;
+  /**
+   * Where the line’s Terraform lives, which Spotlight opens pull requests against when a person picks a better station config. Null when the line does not say.
+   */
+  source: LineSourceResponseDto | null;
+  /**
+   * The threshold planned changes of the line’s stations are checked against, set through Terraform; null when the line checks none
+   */
+  replayCheck: LineReplayCheckResponseDto | null;
 };
 
 export type FieldErrorResponseDto = {
@@ -528,11 +562,71 @@ export type HistoryRunResponseDto = {
   trace: TaskTraceResponseDto;
 };
 
+export type HistoryCandidateRunResponseDto = {
+  /**
+   * The replay run of the candidate
+   */
+  runId: string;
+  /**
+   * The task run it replayed
+   */
+  original: string;
+  taskId: string;
+  title: string;
+  fingerprint: string | null;
+  state: string;
+  attempt: number;
+  harness: string;
+  startedAt: string;
+  endedAt: string;
+  /**
+   * What the replay cost; a replay run has no outcome of its own, so its cost stands beside the run
+   */
+  cost: RunCostResponseDto | null;
+  changes: Array<FileChangeResponseDto>;
+  trace: TaskTraceResponseDto;
+  /**
+   * Whether the replay succeeded; null while it is unscored
+   */
+  succeeded: boolean | null;
+  reasons: Array<string>;
+  verdict: string | null;
+};
+
+export type HistoryCandidateResponseDto = {
+  candidateName: string;
+  /**
+   * The SHA-256 naming the candidate’s config
+   */
+  fingerprint: string;
+  /**
+   * Why the search proposed the candidate
+   */
+  hypothesis: string;
+  /**
+   * The candidate’s station block, in the shape the line resource holds a station in
+   */
+  block: {
+    [key: string]: unknown;
+  };
+  runs: Array<HistoryCandidateRunResponseDto>;
+};
+
 export type RunnerHistoryResponseDto = {
   line: HistoryPlaceResponseDto;
   station: HistoryPlaceResponseDto;
   configs: Array<HistoryConfigResponseDto>;
   runs: Array<HistoryRunResponseDto>;
+  /**
+   * For a search run, the candidates it proposed and their replay runs; empty for any other run
+   */
+  candidates: Array<HistoryCandidateResponseDto>;
+  /**
+   * For a search run, the station block it started from; null for any other run
+   */
+  seedBlock: {
+    [key: string]: unknown;
+  } | null;
 };
 
 export type DeliverSaidRequestDto = {
@@ -1562,6 +1656,70 @@ export type ReplayRunResponseDto = {
   journals: Array<RunJournalResponseDto>;
 };
 
+export type SearchRunAgentResponseDto = {
+  harness: string;
+  model: string | null;
+  effort: string | null;
+};
+
+export type SearchRunCostResponseDto = {
+  amount: number;
+  currency: string;
+};
+
+export type SearchRunSpentResponseDto = {
+  /**
+   * What its model calls cost, one sum per currency, across every attempt
+   */
+  spentCosts: Array<SearchRunCostResponseDto>;
+  /**
+   * Model sessions that came back with no price; the search charges each its agent run’s whole share
+   */
+  unpricedCalls: number;
+};
+
+export type SearchRunResponseDto = {
+  id: string;
+  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  attempt: number;
+  exitCode: number | null;
+  startedAt: string;
+  updatedAt: string;
+  harness: string;
+  /**
+   * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
+   */
+  image: string | null;
+  /**
+   * Where it ran, which the task may since have left
+   */
+  station: RunStationResponseDto | null;
+  /**
+   * Set where it put the task to a person
+   */
+  review: RunReviewResponseDto | null;
+  /**
+   * The search this run is an iteration of
+   */
+  searchId: string;
+  iteration: number;
+  /**
+   * The harness, model and effort the search ran its agent on
+   */
+  agent: SearchRunAgentResponseDto | null;
+  /**
+   * How the run failed, once it did
+   */
+  failure: string | null;
+  endedAt: string | null;
+  spent: SearchRunSpentResponseDto;
+  spend: RunSpendResponseDto | null;
+  /**
+   * What it did and said, attempt by attempt
+   */
+  journals: Array<RunJournalResponseDto>;
+};
+
 export type ChatImprovingResponseDto = {
   lineId: string;
   lineKey: string;
@@ -2001,7 +2159,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'workspace-runners' | 'replay-candidate' | 'replay';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-set' | 'replay-search' | 'replay-check' | 'config-pull-request';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -5549,7 +5707,7 @@ export type ReplayCandidateResourceResponseDto = {
   /**
    * proposed by a person or a token; or live, a snapshot of the station’s config Spotlight takes to replay as a baseline, which only goes with its replays
    */
-  kind: 'live' | 'proposed';
+  kind: 'live' | 'proposed' | 'searched' | 'planned';
   /**
    * The station block it replays the station under, in the shape the line resource holds a station in
    */
@@ -5604,6 +5762,10 @@ export type ReplaySetResponseDto = {
    * Its station is gone from its line: it takes no more runs, starts no replays and keeps no archives; it may still be renamed, have runs taken out, or be deleted
    */
   stationGone: boolean;
+  /**
+   * Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set
+   */
+  guardsChanges: boolean;
   entries: Array<ReplaySetEntryResponseDto>;
 };
 
@@ -5642,7 +5804,7 @@ export type AddReplaySetEntryRequestDto = {
 export type CandidateResponseDto = {
   id: string;
   name: string;
-  kind: 'live' | 'proposed';
+  kind: 'live' | 'proposed' | 'searched' | 'planned';
   /**
    * The StationConfig fingerprint, as runs record it
    */
@@ -5883,6 +6045,17 @@ export type ReplayStartedResponseDto = {
   baseline: StartedBaselineResponseDto | null;
 };
 
+export type ReplaySearchResponseDto = {
+  /**
+   * The search the replay belongs to
+   */
+  searchId: string;
+  /**
+   * The candidate it replays in that search; seed for the live config the search started from
+   */
+  candidateName: string;
+};
+
 export type EntryComparisonResponseDto = {
   originalRunId: string;
   taskId: string;
@@ -5940,6 +6113,10 @@ export type ReplayDetailResponseDto = {
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
   /**
+   * The search it belongs to, when a search started it
+   */
+  search: ReplaySearchResponseDto | null;
+  /**
    * Per task against the set’s baseline, regressions first
    */
   comparison: Array<EntryComparisonResponseDto>;
@@ -5968,6 +6145,594 @@ export type ReplayOfRunResponseDto = {
    * The run’s entry in the replay, with its result
    */
   entry: ReplayEntryResponseDto | null;
+  /**
+   * The search its replay belongs to, when a search started it
+   */
+  search: ReplaySearchResponseDto | null;
+};
+
+export type SearchAgentResponseDto = {
+  harness: string;
+  model: string | null;
+  effort: string | null;
+};
+
+export type SearchBudgetResponseDto = {
+  iterations: number;
+  perIteration: number;
+  ceiling: SpendResponseDto;
+  concurrency: number;
+};
+
+export type SearchBestResponseDto = {
+  candidateId: string;
+  name: string;
+  /**
+   * Whether nothing the search found beat the live config
+   */
+  seed: boolean;
+  /**
+   * Its success rate on the searched tasks, 0 to 1
+   */
+  searchScore: number | null;
+  /**
+   * Its success rate on the held-out tasks, 0 to 1, once they are replayed
+   */
+  heldOutScore: number | null;
+  /**
+   * What it spent per searched run, in the search’s currency; unknown while any of its spend went unpriced or was in another currency
+   */
+  costPerRun: number | null;
+};
+
+export type SearchResponseDto = {
+  id: string;
+  lineId: string;
+  stationId: string;
+  setId: string;
+  /**
+   * seeding while the live config is replayed, searching while its agent proposes candidates, holding-out while the best are replayed on the held-out tasks, then finished or stopped
+   */
+  state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
+  /**
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config
+   */
+  ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
+  agent: SearchAgentResponseDto;
+  budget: SearchBudgetResponseDto;
+  /**
+   * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
+   */
+  spent: SpendResponseDto;
+  /**
+   * How many times its agent ran, or is running
+   */
+  iterationsRun: number;
+  /**
+   * How many candidates its agent proposed
+   */
+  proposed: number;
+  /**
+   * The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it
+   */
+  best: SearchBestResponseDto | null;
+  startedAt: string;
+  endedAt: string | null;
+};
+
+export type SearchBudgetRequestDto = {
+  /**
+   * How many times the search runs its agent
+   */
+  iterations: number;
+  /**
+   * How many candidates each agent run may propose
+   */
+  perIteration: number;
+  /**
+   * The most the whole search may spend: its replays and its agent’s runs
+   */
+  ceiling: StartReplayCeilingRequestDto;
+  /**
+   * How many of its replay runs it runs at once, beside the team’s own; 4 unless told
+   */
+  concurrency?: number;
+};
+
+export type EstimateSearchRequestDto = {
+  /**
+   * The replay set at the station to search on
+   */
+  setId: string;
+  budget: SearchBudgetRequestDto;
+};
+
+export type SearchRunsEstimateResponseDto = {
+  /**
+   * Replay runs of the live config, one per run
+   */
+  seed: number;
+  /**
+   * Replay runs of every candidate it may propose, on the searched tasks
+   */
+  searchReplays: number;
+  /**
+   * Replay runs of the best candidates on the held-out tasks
+   */
+  heldOutReplays: number;
+  /**
+   * Runs of its agent, one per iteration
+   */
+  agent: number;
+  total: number;
+};
+
+export type SearchAllotmentsResponseDto = {
+  /**
+   * The ceiling of its replay of the live config
+   */
+  seed: SpendResponseDto;
+  /**
+   * The ceiling of each candidate’s replay on searched tasks
+   */
+  searchReplay: SpendResponseDto;
+  /**
+   * The ceiling of each candidate’s replay on held-out tasks
+   */
+  heldOutReplay: SpendResponseDto;
+  /**
+   * What each agent run is expected to spend; one may overshoot it
+   */
+  agentRun: SpendResponseDto;
+};
+
+export type SearchEstimateResponseDto = {
+  /**
+   * Tasks its agent sees
+   */
+  searchedTasks: number;
+  /**
+   * Tasks it holds out, which its agent never sees
+   */
+  heldOutTasks: number;
+  /**
+   * The most runs it may start
+   */
+  runs: SearchRunsEstimateResponseDto;
+  /**
+   * The most it may spend
+   */
+  ceiling: SpendResponseDto;
+  perReplayAllotments: SearchAllotmentsResponseDto;
+  /**
+   * Roughly how long it takes at its concurrency, in milliseconds, from how long the set’s runs took; unknown when none of them was timed
+   */
+  estimatedDuration: number | null;
+};
+
+export type SearchAgentRequestDto = {
+  /**
+   * The harness the search’s agent runs on
+   */
+  harness: string;
+  model?: string | null;
+  effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+};
+
+export type StartSearchRequestDto = {
+  /**
+   * The replay set at the station to search on
+   */
+  setId: string;
+  budget: SearchBudgetRequestDto;
+  agent: SearchAgentRequestDto;
+};
+
+export type SearchStartedResponseDto = {
+  id: string;
+  /**
+   * The replay of the live config over the whole set, the search starts from; its agent runs once it ends
+   */
+  seedReplayId: string;
+};
+
+export type SearchSplitEntryResponseDto = {
+  runId: string;
+  taskId: string;
+};
+
+export type SearchSplitResponseDto = {
+  searchedTasks: number;
+  heldOutTasks: number;
+  /**
+   * The set’s runs its agent sees and its candidates replay
+   */
+  searched: Array<SearchSplitEntryResponseDto>;
+  /**
+   * The set’s runs its agent never sees, replayed only for the best candidates once it stops searching
+   */
+  heldOut: Array<SearchSplitEntryResponseDto>;
+};
+
+export type SearchIterationResponseDto = {
+  number: number;
+  /**
+   * The agent run of this iteration
+   */
+  runId: string;
+  /**
+   * wanted until its run is queued, running while its run is, then ended, or failed when its run failed, asked a person or could not start
+   */
+  state: 'wanted' | 'running' | 'ended' | 'failed';
+  /**
+   * How many candidates it tried to propose, those refused included
+   */
+  attempts: number;
+  /**
+   * The candidates it proposed, by id
+   */
+  proposed: Array<string>;
+  /**
+   * What its agent run spent, once digested
+   */
+  agentSpent: ModelSpentResponseDto | null;
+};
+
+export type ConfigPullRequestReasonResponseDto = {
+  /**
+   * Why Spotlight would not open it: the line names no source; the GitHub App cannot reach the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub refused
+   */
+  code: 'no-source' | 'repository-unreachable' | 'file-missing' | 'file-unparsable' | 'block-not-found' | 'blocks-ambiguous' | 'computed-attribute' | 'drifted' | 'edit-failed' | 'branch-taken' | 'file-unwritable' | 'github-refused';
+  message: string;
+  /**
+   * The station attribute it is about, where there is one
+   */
+  attribute: string | null;
+  /**
+   * The Terraform expression that computes the attribute, for a computed attribute
+   */
+  expression: string | null;
+  /**
+   * The value the candidate wants for a computed attribute, to set by hand
+   */
+  wanted: string | number | boolean | Array<unknown> | null;
+};
+
+export type CandidatePullRequestResponseDto = {
+  id: string;
+  state: 'opening' | 'opened' | 'refused';
+  /**
+   * The pull request, once it opened
+   */
+  url: string | null;
+  /**
+   * Why it was refused; null unless it was
+   */
+  reason: ConfigPullRequestReasonResponseDto | null;
+};
+
+export type SearchCandidateResponseDto = {
+  candidateId: string;
+  /**
+   * The slug its agent named it by (lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters); seed for the live config it started from
+   */
+  name: string;
+  /**
+   * Whether it is the live config it started from
+   */
+  seed: boolean;
+  /**
+   * The iteration that proposed it; none for the seed
+   */
+  iteration: number | null;
+  /**
+   * What its agent expected it to improve, and why
+   */
+  hypothesis: string | null;
+  fingerprint: string | null;
+  /**
+   * How its station config differs from the live config
+   */
+  changes: Array<StationChangeResponseDto>;
+  /**
+   * Its replay on the searched tasks; for the seed, its replay of the whole set
+   */
+  replayId: string;
+  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  /**
+   * Its replay on the held-out tasks, when it was on the frontier as the search stopped
+   */
+  heldOutReplayId: string | null;
+  heldOutReplayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  /**
+   * Its success rate on the searched tasks, 0 to 1
+   */
+  searchScore: number | null;
+  /**
+   * How many searched tasks it was scored on
+   */
+  searchScored: number;
+  /**
+   * Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished
+   */
+  heldOutScore: number | null;
+  /**
+   * What it spent per searched run; unknown while any of it went unpriced or was in another currency
+   */
+  costPerRun: number | null;
+  spent: SpendResponseDto;
+  /**
+   * Whether no other candidate, nor the seed, succeeds as often for less
+   */
+  onFrontier: boolean;
+  /**
+   * The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed
+   */
+  pullRequest: CandidatePullRequestResponseDto | null;
+};
+
+export type SearchDetailResponseDto = {
+  id: string;
+  lineId: string;
+  stationId: string;
+  setId: string;
+  /**
+   * seeding while the live config is replayed, searching while its agent proposes candidates, holding-out while the best are replayed on the held-out tasks, then finished or stopped
+   */
+  state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
+  /**
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config
+   */
+  ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
+  agent: SearchAgentResponseDto;
+  budget: SearchBudgetResponseDto;
+  /**
+   * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
+   */
+  spent: SpendResponseDto;
+  /**
+   * How many times its agent ran, or is running
+   */
+  iterationsRun: number;
+  /**
+   * How many candidates its agent proposed
+   */
+  proposed: number;
+  /**
+   * The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it
+   */
+  best: SearchBestResponseDto | null;
+  startedAt: string;
+  endedAt: string | null;
+  split: SearchSplitResponseDto;
+  iterations: Array<SearchIterationResponseDto>;
+  /**
+   * The live config the search started from; its search score counts the searched tasks only, its held-out score the held-out ones
+   */
+  seed: SearchCandidateResponseDto;
+  candidates: Array<SearchCandidateResponseDto>;
+  /**
+   * The candidates no other beats on both success and cost, by id, cheapest first; the seed always among them
+   */
+  frontier: Array<string>;
+};
+
+export type ConfigPullRequestResponseDto = {
+  id: string;
+  state: 'opening' | 'opened' | 'refused';
+  /**
+   * The pull request, once it opened
+   */
+  url: string | null;
+  /**
+   * Why it was refused; null unless it was
+   */
+  reason: ConfigPullRequestReasonResponseDto | null;
+  teamId: string;
+  searchId: string;
+  candidateId: string;
+  candidateName: string;
+  lineId: string;
+  stationId: string;
+  stationKey: string;
+  /**
+   * The repository the line’s source names, as it stood when it was picked; null when the line named none
+   */
+  repository: string | null;
+  path: string | null;
+  /**
+   * The branch Spotlight commits the change to
+   */
+  branch: string;
+  /**
+   * How many times a person picked it; each pick after a refusal tries again
+   */
+  attempts: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PlannedReferenceRequestDto = {
+  /**
+   * The commit that plans the change
+   */
+  commit?: string | null;
+  /**
+   * The pull request that plans the change
+   */
+  pullRequest?: number | null;
+};
+
+export type StartReplayCheckRequestDto = {
+  lineId: string;
+  stationKey: string;
+  /**
+   * The station block as the plan would apply it, as the line resource holds a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does
+   */
+  station: {
+    [key: string]: unknown;
+  };
+  /**
+   * The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource holds them
+   */
+  line?: {
+    [key: string]: unknown;
+  };
+  reference?: PlannedReferenceRequestDto;
+};
+
+export type ReplayCheckReferenceResponseDto = {
+  commit: string | null;
+  pullRequest: number | null;
+};
+
+export type ReplayCheckThresholdResponseDto = {
+  /**
+   * How many tasks the change may regress on and still pass, taken from the live line’s replay_check when the check started
+   */
+  mostRegressions: number;
+  /**
+   * The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay reaching its ceiling starts no more runs, though runs already going finish, so it may end a little over it
+   */
+  ceiling: SpendResponseDto;
+  /**
+   * What a run that reports no price, or a price in another currency, counts against the ceiling: the ceiling shared out over the set’s runs; null once the replay is gone
+   */
+  unpricedRun: SpendResponseDto | null;
+};
+
+export type ReplayCheckSideResponseDto = {
+  /**
+   * The replay’s state; null once it is gone
+   */
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  entries: number;
+  scored: number;
+  succeeded: number | null;
+  successRate: number | null;
+  spent: SpendResponseDto | null;
+};
+
+export type ReplayCheckReasonResponseDto = {
+  code: string;
+  detail: string | null;
+};
+
+export type ReplayCheckRegressionResponseDto = {
+  taskId: string;
+  originalRunId: string;
+  title: string | null;
+  candidate: 'pending' | 'succeeded' | 'failed' | 'unscored';
+  baseline: 'pending' | 'succeeded' | 'failed' | 'unscored' | null;
+  scoreDelta: number | null;
+  reasons: Array<ReplayCheckReasonResponseDto>;
+};
+
+export type ReplayCheckResponseDto = {
+  id: string;
+  teamId: string;
+  lineId: string;
+  stationId: string;
+  stationKey: string;
+  /**
+   * The replay set that guards the station’s changes
+   */
+  setId: string;
+  setName: string | null;
+  /**
+   * The planned candidate the check replays
+   */
+  candidateId: string;
+  replayId: string;
+  /**
+   * The replay of the live config it is compared with: the newest baseline of the set replaying the live config the check was started against; null while that baseline is still being started
+   */
+  baselineReplayId: string | null;
+  /**
+   * Counts the checks of the same change against the same live config, from 1; a new attempt starts when an earlier one cannot be reused
+   */
+  attempt: number;
+  reference: ReplayCheckReferenceResponseDto;
+  liveFingerprint: string;
+  candidateFingerprint: string;
+  /**
+   * What the plan changed of how runs are scored, which the check kept as the live station has it
+   */
+  keptLive: Array<'check' | 'judge' | 'diffs' | 'runners'>;
+  threshold: ReplayCheckThresholdResponseDto;
+  /**
+   * failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise
+   */
+  verdict: 'running' | 'passed' | 'failed' | 'undecided';
+  undecidedBecause: 'replay-gone' | 'stopped' | 'over-ceiling' | 'baseline-unfinished' | 'no-baseline' | 'too-few-scored' | null;
+  /**
+   * How many tasks the guarding set replays
+   */
+  tasks: number;
+  /**
+   * How many tasks were scored on both sides
+   */
+  compared: number;
+  candidate: ReplayCheckSideResponseDto;
+  baseline: ReplayCheckSideResponseDto;
+  regressions: Array<ReplayCheckRegressionResponseDto>;
+  /**
+   * Where the web app shows the check’s replay
+   */
+  replayUrl: string | null;
+  /**
+   * True when starting a check answered one this change already had against the same live config, set runs and threshold, rather than starting another; always false on a read
+   */
+  reused: boolean;
+  createdAt: string;
+};
+
+export type ReplayCheckSummaryResponseDto = {
+  id: string;
+  stationId: string;
+  stationKey: string;
+  verdict: 'running' | 'passed' | 'failed' | 'undecided';
+  undecidedBecause: 'replay-gone' | 'stopped' | 'over-ceiling' | 'baseline-unfinished' | 'no-baseline' | 'too-few-scored' | null;
+  /**
+   * How many tasks the change regressed on
+   */
+  regressions: number;
+  /**
+   * Counts the checks of the same change against the same live config, from 1
+   */
+  attempt: number;
+  reference: ReplayCheckReferenceResponseDto;
+  createdAt: string;
+  /**
+   * Where the web app shows the check’s replay
+   */
+  replayUrl: string | null;
+};
+
+export type ProposeSearchCandidateRequestDto = {
+  /**
+   * A slug unique in the search: lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters
+   */
+  name: string;
+  /**
+   * What the candidate is expected to improve, and why
+   */
+  hypothesis: string;
+  /**
+   * The station block, as the line holds it, changed only where a search may change it
+   */
+  station: {
+    [key: string]: unknown;
+  };
+};
+
+export type SearchCandidateProposedResponseDto = {
+  candidateId: string;
+  name: string;
+  /**
+   * Its replay on the search’s searched tasks, started now
+   */
+  replayId: string;
 };
 
 export type HookSigningRequestDtoWritable = {
@@ -7864,6 +8629,49 @@ export type ReadReplayRunResponses = {
 };
 
 export type ReadReplayRunResponse = ReadReplayRunResponses[keyof ReadReplayRunResponses];
+
+export type ReadSearchRunData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/search-runs/{runId}';
+};
+
+export type ReadSearchRunErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such search run of the team for a caller who may read it
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadSearchRunError = ReadSearchRunErrors[keyof ReadSearchRunErrors];
+
+export type ReadSearchRunResponses = {
+  200: SearchRunResponseDto;
+};
+
+export type ReadSearchRunResponse = ReadSearchRunResponses[keyof ReadSearchRunResponses];
 
 export type ListChatsData = {
   body?: never;
@@ -12580,6 +13388,10 @@ export type DraftChangeStackErrors = {
    * Not a run this runner worked
    */
   404: unknown;
+  /**
+   * The run is a search, which changes no repository
+   */
+  409: unknown;
 };
 
 export type DraftChangeStackResponses = {
@@ -13925,6 +14737,10 @@ export type RecallMemoriesErrors = {
    */
   404: unknown;
   /**
+   * The run is a search, which recalls nothing the team remembers
+   */
+  409: unknown;
+  /**
    * Nothing to look for
    */
   422: unknown;
@@ -13956,6 +14772,10 @@ export type RecallMemoryErrors = {
    */
   404: unknown;
   /**
+   * The run is a search, which recalls nothing the team remembers
+   */
+  409: unknown;
+  /**
    * Not a handle like M-12
    */
   422: unknown;
@@ -13985,6 +14805,10 @@ export type RememberErrors = {
    * No such run held by this runner
    */
   404: unknown;
+  /**
+   * The run is a replay or a search, which remembers nothing for the team
+   */
+  409: unknown;
   /**
    * An unknown kind or reach, a path outside the run’s repositories, or a chat run
    */
@@ -15432,6 +16256,110 @@ export type RemoveReplaySetEntryResponses = {
 
 export type RemoveReplaySetEntryResponse = RemoveReplaySetEntryResponses[keyof RemoveReplaySetEntryResponses];
 
+export type UnguardChangesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/guards-changes';
+};
+
+export type UnguardChangesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type UnguardChangesError = UnguardChangesErrors[keyof UnguardChangesErrors];
+
+export type UnguardChangesResponses = {
+  /**
+   * It no longer guards the station’s changes
+   */
+  204: void;
+};
+
+export type UnguardChangesResponse = UnguardChangesResponses[keyof UnguardChangesResponses];
+
+export type GuardChangesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/guards-changes';
+};
+
+export type GuardChangesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * Another set guards the station’s changes already, or the set’s station is gone
+   */
+  409: ProblemResponseDto;
+};
+
+export type GuardChangesError = GuardChangesErrors[keyof GuardChangesErrors];
+
+export type GuardChangesResponses = {
+  /**
+   * It guards the station’s changes
+   */
+  204: void;
+};
+
+export type GuardChangesResponse = GuardChangesResponses[keyof GuardChangesResponses];
+
 export type ListReplaysData = {
   body?: never;
   headers?: {
@@ -15665,3 +16593,597 @@ export type StopReplayResponses = {
 };
 
 export type StopReplayResponse = StopReplayResponses[keyof StopReplayResponses];
+
+export type ListSearchesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/searches';
+};
+
+export type ListSearchesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or search for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListSearchesError = ListSearchesErrors[keyof ListSearchesErrors];
+
+export type ListSearchesResponses = {
+  200: Array<SearchResponseDto>;
+};
+
+export type ListSearchesResponse = ListSearchesResponses[keyof ListSearchesResponses];
+
+export type StartSearchData = {
+  body: StartSearchRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/searches';
+};
+
+export type StartSearchErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or search for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * The station is being searched already, or its set’s station is gone
+   */
+  409: ProblemResponseDto;
+  /**
+   * A harness no runner starts, a budget out of bounds, a ceiling too low, or a set with too few tasks to hold some out
+   */
+  422: ProblemResponseDto;
+};
+
+export type StartSearchError = StartSearchErrors[keyof StartSearchErrors];
+
+export type StartSearchResponses = {
+  201: SearchStartedResponseDto;
+};
+
+export type StartSearchResponse = StartSearchResponses[keyof StartSearchResponses];
+
+export type EstimateSearchData = {
+  body: EstimateSearchRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/searches/estimate';
+};
+
+export type EstimateSearchErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or search for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * A budget out of bounds, a ceiling too low to give each replay a cent, or a set with too few tasks to hold some out
+   */
+  422: ProblemResponseDto;
+};
+
+export type EstimateSearchError = EstimateSearchErrors[keyof EstimateSearchErrors];
+
+export type EstimateSearchResponses = {
+  200: SearchEstimateResponseDto;
+};
+
+export type EstimateSearchResponse = EstimateSearchResponses[keyof EstimateSearchResponses];
+
+export type ListTeamSearchesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * At most this many, up to 200; 50 unless told
+     */
+    limit?: number;
+    /**
+     * Only searches started before this one, by its id; a search the team does not hold answers an empty page
+     */
+    before?: string;
+  };
+  url: '/teams/{teamId}/searches';
+};
+
+export type ListTeamSearchesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or search for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListTeamSearchesError = ListTeamSearchesErrors[keyof ListTeamSearchesErrors];
+
+export type ListTeamSearchesResponses = {
+  200: Array<SearchResponseDto>;
+};
+
+export type ListTeamSearchesResponse = ListTeamSearchesResponses[keyof ListTeamSearchesResponses];
+
+export type ReadSearchData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    searchId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/searches/{searchId}';
+};
+
+export type ReadSearchErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or search for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadSearchError = ReadSearchErrors[keyof ReadSearchErrors];
+
+export type ReadSearchResponses = {
+  200: SearchDetailResponseDto;
+};
+
+export type ReadSearchResponse = ReadSearchResponses[keyof ReadSearchResponses];
+
+export type PickSearchCandidateData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    searchId: string;
+    candidateId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/searches/{searchId}/candidates/{candidateId}/pick';
+};
+
+export type PickSearchCandidateErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or search for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * The seed, or a candidate whose replay on the searched tasks has not finished
+   */
+  409: ProblemResponseDto;
+};
+
+export type PickSearchCandidateError = PickSearchCandidateErrors[keyof PickSearchCandidateErrors];
+
+export type PickSearchCandidateResponses = {
+  /**
+   * Picked already; the pull request it opens or opened
+   */
+  200: ConfigPullRequestResponseDto;
+  /**
+   * Picked, or tried again after a refusal
+   */
+  201: ConfigPullRequestResponseDto;
+};
+
+export type PickSearchCandidateResponse = PickSearchCandidateResponses[keyof PickSearchCandidateResponses];
+
+export type StopSearchData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    searchId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/searches/{searchId}/stop';
+};
+
+export type StopSearchErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or search for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * The search has already ended
+   */
+  409: ProblemResponseDto;
+};
+
+export type StopSearchError = StopSearchErrors[keyof StopSearchErrors];
+
+export type StopSearchResponses = {
+  /**
+   * Stopped
+   */
+  204: void;
+};
+
+export type StopSearchResponse = StopSearchResponses[keyof StopSearchResponses];
+
+export type StartReplayCheckData = {
+  body: StartReplayCheckRequestDto;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per check asked for; a retry with the same key and body answers the check the first attempt started, and starts nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-checks';
+};
+
+export type StartReplayCheckErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station or check for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * The line has no replay_check, no replay set guards the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)
+   */
+  409: ProblemResponseDto;
+  /**
+   * The planned station is not one the line takes, naming each problem
+   */
+  422: ProblemResponseDto;
+};
+
+export type StartReplayCheckError = StartReplayCheckErrors[keyof StartReplayCheckErrors];
+
+export type StartReplayCheckResponses = {
+  /**
+   * The check this change already has against the same live config, set runs and threshold, while it runs, passed or failed; reused is true
+   */
+  200: ReplayCheckResponseDto;
+  /**
+   * The check started, as a read would answer it; or, on a retry with the same Idempotency-Key, the check the first attempt answered
+   */
+  201: ReplayCheckResponseDto;
+};
+
+export type StartReplayCheckResponse = StartReplayCheckResponses[keyof StartReplayCheckResponses];
+
+export type ListReplaySetChecksData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: {
+    /**
+     * At most this many, up to 200; 50 unless told
+     */
+    limit?: number;
+    /**
+     * Only checks started before this one, by its id; a check the set does not hold answers an empty page
+     */
+    before?: string;
+  };
+  url: '/teams/{teamId}/replay-sets/{setId}/replay-checks';
+};
+
+export type ListReplaySetChecksErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station or check for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListReplaySetChecksError = ListReplaySetChecksErrors[keyof ListReplaySetChecksErrors];
+
+export type ListReplaySetChecksResponses = {
+  200: Array<ReplayCheckSummaryResponseDto>;
+};
+
+export type ListReplaySetChecksResponse = ListReplaySetChecksResponses[keyof ListReplaySetChecksResponses];
+
+export type ReadReplayCheckData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    checkId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-checks/{checkId}';
+};
+
+export type ReadReplayCheckErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station or check for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadReplayCheckError = ReadReplayCheckErrors[keyof ReadReplayCheckErrors];
+
+export type ReadReplayCheckResponses = {
+  200: ReplayCheckResponseDto;
+};
+
+export type ReadReplayCheckResponse = ReadReplayCheckResponses[keyof ReadReplayCheckResponses];
+
+export type ProposeSearchCandidateData = {
+  body: ProposeSearchCandidateRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/search-candidates';
+};
+
+export type ProposeSearchCandidateErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The search no longer holds this run, or it is no search run this runner holds
+   */
+  404: ProblemResponseDto;
+  /**
+   * The iteration proposed all the candidates it may, or tried too often, or another iteration took the name
+   */
+  409: ProblemResponseDto;
+  /**
+   * A name that is no slug, no hypothesis, or a station block the line refuses or that changes what a search may not; errors name each problem’s path
+   */
+  422: ProblemResponseDto;
+};
+
+export type ProposeSearchCandidateError = ProposeSearchCandidateErrors[keyof ProposeSearchCandidateErrors];
+
+export type ProposeSearchCandidateResponses = {
+  201: SearchCandidateProposedResponseDto;
+};
+
+export type ProposeSearchCandidateResponse = ProposeSearchCandidateResponses[keyof ProposeSearchCandidateResponses];
+
+export type ReadConfigPullRequestData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    pullRequestId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/config-pull-requests/{pullRequestId}';
+};
+
+export type ReadConfigPullRequestErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team or config pull request for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadConfigPullRequestError = ReadConfigPullRequestErrors[keyof ReadConfigPullRequestErrors];
+
+export type ReadConfigPullRequestResponses = {
+  200: ConfigPullRequestResponseDto;
+};
+
+export type ReadConfigPullRequestResponse = ReadConfigPullRequestResponses[keyof ReadConfigPullRequestResponses];

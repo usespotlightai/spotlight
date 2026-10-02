@@ -57,6 +57,7 @@ type journal struct {
 	memoryErr        error
 	starts           []protocol.StartingPoint
 	startErr         error
+	proposed         []protocol.CandidateProposal
 }
 
 type remembered struct {
@@ -196,6 +197,15 @@ func (j *journal) Remember(
 	defer j.mu.Unlock()
 	j.remembered = append(j.remembered, remembered{asked: asked, journal: slices.Clone(j.events)})
 	return json.Marshal(map[string]string{"kind": asked.Kind, "body": asked.Body})
+}
+
+func (j *journal) ProposeCandidate(
+	_ context.Context, _ string, proposal protocol.CandidateProposal,
+) (json.RawMessage, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.proposed = append(j.proposed, proposal)
+	return json.Marshal(protocol.ProposedCandidate{CandidateID: "cand_1", Name: proposal.Name, ReplayID: "replay_1"})
 }
 
 func (j *journal) MemoryFiles(context.Context, string) ([]protocol.MemoryFile, error) {
@@ -418,6 +428,8 @@ type runOptions struct {
 	starting    bool
 	startErr    error
 	replay      *protocol.Replay
+	search      *protocol.SearchSpec
+	checkouts   []protocol.Checkout
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -459,6 +471,8 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			SettingFiles:  settings.settings,
 			StartingPoint: settings.starting,
 			Replay:        settings.replay,
+			Search:        settings.search,
+			Checkouts:     settings.checkouts,
 		},
 	}, session.Options{
 		Workspace:  settings.root,

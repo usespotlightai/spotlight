@@ -7,9 +7,14 @@ import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 type AddRunsButtonProps = {
   at: ReplayedStation;
   set: ReplaySet;
+  disabled?: boolean;
 };
 
-export function AddRunsButton({ at, set }: AddRunsButtonProps) {
+export function AddRunsButton({
+  at,
+  set,
+  disabled = false,
+}: AddRunsButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -19,6 +24,10 @@ export function AddRunsButton({ at, set }: AddRunsButtonProps) {
         variant="outline"
         size="sm"
         className="rounded-full bg-card shadow-none"
+        disabled={disabled}
+        title={
+          disabled ? 'The set is frozen while a search of it runs' : undefined
+        }
         onClick={() => setOpen(true)}
       >
         <Plus aria-hidden />

@@ -25,6 +25,7 @@ type channel struct {
 	history  func(asked protocol.HistoryRequest) (json.RawMessage, error)
 	recall   func(asked protocol.RecallRequest) (json.RawMessage, error)
 	remember func(asked protocol.Remembering) (json.RawMessage, error)
+	propose  func(asked protocol.CandidateProposal) (int, string)
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -75,6 +76,10 @@ func (h *channel) Memories(
 ) {
 	h.recall = recall
 	h.remember = remember
+}
+
+func (h *channel) Candidates(propose func(asked protocol.CandidateProposal) (int, string)) {
+	h.propose = propose
 }
 
 func (h *channel) Declared() *protocol.Outcome {
@@ -128,6 +133,22 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		answered(w)(h.remember(asked))
+	case r.URL.Path == protocol.HandoverCandidatePath:
+		if h.propose == nil {
+			refuse(w, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
+			return
+		}
+		var asked protocol.CandidateProposal
+		if json.NewDecoder(r.Body).Decode(&asked) != nil {
+			refuse(w, http.StatusBadRequest, "unreadable candidate")
+			return
+		}
+		status, body := h.propose(asked)
+		if strings.HasPrefix(body, "{") {
+			w.Header().Set("Content-Type", "application/json")
+		}
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
 	default:
 		h.outcome(w, r)
 	}

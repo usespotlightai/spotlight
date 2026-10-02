@@ -20,6 +20,7 @@ const ready = () =>
     runId: RunId.of('run-1'),
     taskId: null,
     replay: false,
+    isSearch: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -118,7 +119,8 @@ const announcing = (
           ended: false,
           completed: false,
           decisions: false,
-          replay: over.replay ?? false,
+          isReplay: over.replay ?? false,
+          isSearch: false,
         };
       },
       wasWorkedBy: async () => true,

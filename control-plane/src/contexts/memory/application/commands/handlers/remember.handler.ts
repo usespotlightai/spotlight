@@ -64,6 +64,7 @@ export class RememberHandler
         taskId: held.taskId,
         runId: held.id,
         replay: held.replaysFrom !== null,
+        isSearch: held.isSearch,
       });
 
       const [task, site, steps, supersedes] = await Promise.all([

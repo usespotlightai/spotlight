@@ -1,11 +1,7 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
+import { type Block, isBlock } from '@replays/domain/value-objects/block-shape';
 
 const MOST_CHARACTERS = 256_000;
-
-type Block = Readonly<Record<string, unknown>>;
-
-const isBlock = (held: unknown): held is Block =>
-  typeof held === 'object' && held !== null && !Array.isArray(held);
 
 export class StationBlock {
   private constructor(

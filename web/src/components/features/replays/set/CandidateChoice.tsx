@@ -1,5 +1,5 @@
 import { Fingerprint } from '@/components/shared/Fingerprint';
-import { cn } from '@/lib/utils';
+import { ChoiceCard } from '@/components/shared/form/ChoiceCard';
 
 type CandidateChoiceProps = {
   value: string;
@@ -21,22 +21,13 @@ export function CandidateChoice({
   onChange,
 }: CandidateChoiceProps) {
   return (
-    <label
-      className={cn(
-        'flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors',
-        checked ? 'border-input bg-accent' : 'border-border hover:bg-accent',
-        disabled && 'cursor-default opacity-60',
-      )}
+    <ChoiceCard
+      group="candidate"
+      value={value}
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
     >
-      <input
-        type="radio"
-        name="candidate"
-        value={value}
-        checked={checked}
-        disabled={disabled}
-        onChange={() => onChange(value)}
-        className="accent-foreground"
-      />
       <span className="min-w-0 flex-1 truncate text-foreground">{name}</span>
       {fingerprint && (
         <Fingerprint
@@ -49,6 +40,6 @@ export function CandidateChoice({
           {detail}
         </span>
       )}
-    </label>
+    </ChoiceCard>
   );
 }

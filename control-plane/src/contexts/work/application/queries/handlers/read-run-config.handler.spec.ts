@@ -57,6 +57,7 @@ const reading = (
     conversationFor: vi.fn(),
     configFor: vi.fn().mockResolvedValue(found),
     replayFor: vi.fn(),
+    searchRunFor: vi.fn(),
   } satisfies RunReaderPort).execute(
     new ReadRunConfigQuery('team_1', 'run_2', 'user_1'),
   );
@@ -66,7 +67,7 @@ describe('ReadRunConfigHandler', () => {
     const replayed = (teamId: string | null): RunConfigSummary => ({
       ran: null,
       before: null,
-      replayedIn: { workspaceId: 'ws_1', teamId },
+      ranForTeam: { workspaceId: 'ws_1', teamId },
     });
 
     expect(await reading(replayed('team_1'))).toEqual({
@@ -84,7 +85,7 @@ describe('ReadRunConfigHandler', () => {
 
   it('answers no config for a run that recorded none', async () => {
     expect(
-      await reading({ ran: null, before: null, replayedIn: null }),
+      await reading({ ran: null, before: null, ranForTeam: null }),
     ).toEqual({
       fingerprint: null,
       config: null,
@@ -96,7 +97,7 @@ describe('ReadRunConfigHandler', () => {
     const found = await reading({
       ran: configured('run_2', 'b', { effort: 'xhigh' }),
       before: configured('run_1', 'a'),
-      replayedIn: null,
+      ranForTeam: null,
     });
 
     expect(found?.fingerprint).toBe('b'.repeat(64));
@@ -120,7 +121,7 @@ describe('ReadRunConfigHandler', () => {
     const found = await reading({
       ran: configured('run_2', 'a'),
       before: configured('run_1', 'a'),
-      replayedIn: null,
+      ranForTeam: null,
     });
 
     expect(found?.changedSince).toBeNull();

@@ -46,7 +46,8 @@ const access = (
               ended: true,
               completed: true,
               decisions: false,
-              replay: false,
+              isReplay: false,
+              isSearch: false,
               ...over.run,
             },
       task: async (): Promise<ReviewedTask | null> =>

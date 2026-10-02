@@ -10,6 +10,7 @@ export const RUNNER_TRACE_READER = Symbol('RUNNER_TRACE_READER');
 export interface HeldRunStanding {
   readonly teamId: TeamId;
   readonly replaysFrom: Date | null;
+  readonly isSearch: boolean;
 }
 
 // Not viewer-scoped: callers must authorize the runner by team before reading.

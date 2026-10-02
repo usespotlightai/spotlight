@@ -138,6 +138,7 @@ export class ProposeCandidateHandler
                 name: named.name,
                 block: StationBlock.of(block),
                 fingerprint: examined.fingerprint,
+                digests: examined.digests,
                 scoring: examined.scoring,
                 changedFrom: examined.changedFrom,
                 at: this.clock.now(),

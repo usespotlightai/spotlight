@@ -30,6 +30,7 @@ const HELD: HeldRun = {
   stationId: 'station_1',
   repositories: [],
   replaysFrom: null,
+  isSearch: false,
 };
 
 const remembering = (held: HeldRun | null = HELD) => {

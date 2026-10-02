@@ -125,7 +125,11 @@ export class ReplayRuns implements ReplayDispatchPort {
       );
     }
 
-    const built = await this.candidates.withStation(standing, order.station);
+    const built = await this.candidates.withStation(
+      standing,
+      order.station,
+      order.repositories,
+    );
 
     if (!built.ok) {
       return unreplayable(

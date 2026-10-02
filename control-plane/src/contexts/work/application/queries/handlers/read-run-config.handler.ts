@@ -31,7 +31,7 @@ export class ReadRunConfigHandler
         UserId.of(query.viewerId),
       );
 
-      if (!found || !(await this.readsReplay(found.replayedIn, query))) {
+      if (!found || !(await this.readsAsTeam(found.ranForTeam, query))) {
         return null;
       }
 
@@ -60,11 +60,11 @@ export class ReadRunConfigHandler
     }
   }
 
-  private async readsReplay(
-    replayedIn: RunConfigSummary['replayedIn'],
+  private async readsAsTeam(
+    ranForTeam: RunConfigSummary['ranForTeam'],
     query: ReadRunConfigQuery,
   ): Promise<boolean> {
-    if (!replayedIn) {
+    if (!ranForTeam) {
       return true;
     }
 
@@ -75,8 +75,8 @@ export class ReadRunConfigHandler
 
     return (
       reader !== null &&
-      reader.workspaceId.value === replayedIn.workspaceId &&
-      reader.teamId.value === replayedIn.teamId
+      reader.workspaceId.value === ranForTeam.workspaceId &&
+      reader.teamId.value === ranForTeam.teamId
     );
   }
 }

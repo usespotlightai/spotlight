@@ -2,6 +2,14 @@ import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-
 
 const API = 'https://api.github.com';
 
+const TIMEOUT_MS = 30_000;
+
+const TOO_MANY = 429;
+
+const FORBIDDEN = 403;
+
+const SERVER_ERROR = 500;
+
 interface Refusal {
   readonly message?: string;
   readonly errors?: { readonly message?: string }[];
@@ -13,6 +21,7 @@ export const call = (
   init: RequestInit = {},
 ): Promise<Response> =>
   fetch(`${API}${path}`, {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     ...init,
     headers: {
       authorization: `Bearer ${token}`,
@@ -22,6 +31,20 @@ export const call = (
       ...init.headers,
     },
   });
+
+const retryable = (response: Response, body: Refusal): boolean => {
+  const headers = response.headers as Headers | undefined;
+  const rateLimited =
+    headers?.get?.('x-ratelimit-remaining') === '0' ||
+    Boolean(headers?.get?.('retry-after')) ||
+    /rate limit/i.test(body.message ?? '');
+
+  return (
+    response.status === TOO_MANY ||
+    response.status >= SERVER_ERROR ||
+    (response.status === FORBIDDEN && rateLimited)
+  );
+};
 
 export const answered = async <T>(
   response: Response,
@@ -33,6 +56,8 @@ export const answered = async <T>(
     throw new UpstreamRefusedError(
       asking,
       body.errors?.[0]?.message ?? body.message ?? `${response.status}`,
+      response.status,
+      retryable(response, body),
     );
   }
 

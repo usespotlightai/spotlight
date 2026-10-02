@@ -2,6 +2,7 @@ import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
 import { ReplaySpend } from '@/components/features/replays/replay/ReplaySpend';
 import { StopReplayButton } from '@/components/features/replays/replay/StopReplayButton';
 import { SuccessAgainstBaseline } from '@/components/features/replays/SuccessAgainstBaseline';
+import { SearchOrigin } from '@/components/features/searches/SearchOrigin';
 import { Fingerprint } from '@/components/shared/Fingerprint';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -57,6 +58,11 @@ export function ReplayHeader({
             {setName ?? 'its set'}
           </TrailLink>
         </span>
+        {replay.search && (
+          <span>
+            · replays <SearchOrigin at={at} search={replay.search} />
+          </span>
+        )}
         <span>· started {since(replay.startedAt)}</span>
         {replay.candidate && (
           <span className="flex items-center gap-1">

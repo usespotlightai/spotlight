@@ -81,6 +81,8 @@ const DELIVERY: HeldLine = {
       to: 'implementation',
     },
   ],
+  replayCheck: { mostRegressions: 1, ceiling: 12.5, currency: 'USD' },
+  source: { repository: 'acme/platform', path: 'teams/core/delivery.tf' },
 };
 
 const REVIEW: HeldLine = {

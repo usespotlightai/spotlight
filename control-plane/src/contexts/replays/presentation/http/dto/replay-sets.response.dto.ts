@@ -87,6 +87,12 @@ export class ReplaySetResponseDto {
   })
   readonly stationGone: boolean;
 
+  @ApiProperty({
+    description:
+      'Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set',
+  })
+  readonly guardsChanges: boolean;
+
   @ApiProperty({ type: ReplaySetEntryResponseDto, isArray: true })
   readonly entries: ReplaySetEntryResponseDto[];
 
@@ -97,6 +103,7 @@ export class ReplaySetResponseDto {
     this.name = set.name;
     this.createdAt = set.createdAt;
     this.stationGone = set.stationGone;
+    this.guardsChanges = set.guardsChanges;
     this.entries = set.entries.map(
       (each) => new ReplaySetEntryResponseDto(each),
     );

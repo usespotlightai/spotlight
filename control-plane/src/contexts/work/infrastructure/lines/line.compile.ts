@@ -13,11 +13,14 @@ import type {
   LineCompilerPort,
 } from '@work/application/ports/line-compiler.port';
 import { LINES, lineAt } from '@work/application/rendering/line-problems';
+import { InvalidConfigSourceError } from '@work/domain/exceptions/invalid-config-source.error';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
+import { InvalidReplayCheckPolicyError } from '@work/domain/exceptions/invalid-replay-check-policy.error';
 import { InvalidStationAlertError } from '@work/domain/exceptions/invalid-station-alert.error';
 import { InvalidStationJudgeError } from '@work/domain/exceptions/invalid-station-judge.error';
 import type { LinePart } from '@work/domain/services/line-layout';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { Happening } from '@work/domain/value-objects/happening.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -28,6 +31,7 @@ import {
 } from '@work/domain/value-objects/line-plan.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
+import { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -285,6 +289,44 @@ export const compileLine = (held: unknown): CompiledLine => {
     );
   }
 
+  let replayCheck: ReplayCheckPolicy | null = null;
+
+  try {
+    replayCheck = definition.replayCheck
+      ? ReplayCheckPolicy.of(definition.replayCheck)
+      : null;
+  } catch (error) {
+    problems.push(
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(
+          error instanceof InvalidReplayCheckPolicyError
+            ? ['replayCheck', error.field]
+            : ['replayCheck'],
+        ),
+        reason: reasoned(error),
+      }),
+    );
+  }
+
+  let source: ConfigSource | null = null;
+
+  try {
+    source = definition.source ? ConfigSource.of(definition.source) : null;
+  } catch (error) {
+    problems.push(
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(
+          error instanceof InvalidConfigSourceError
+            ? ['source', error.field]
+            : ['source'],
+        ),
+        reason: reasoned(error),
+      }),
+    );
+  }
+
   let placement = RunnerPlacement.anywhere();
 
   try {
@@ -331,6 +373,8 @@ export const compileLine = (held: unknown): CompiledLine => {
         repositories,
         reviews,
         placement,
+        replayCheck,
+        source,
       }),
     };
   } catch (error) {

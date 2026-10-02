@@ -1,6 +1,7 @@
 import type { WithdrawCandidateCommand } from '@replays/application/commands/withdraw-candidate.command';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
+import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
 import { CandidateMovedOnError } from '@replays/domain/exceptions/candidate-moved-on.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
@@ -81,7 +82,8 @@ export class WithdrawCandidateHandler
 
       if (
         error instanceof CandidateUnderwayError ||
-        error instanceof CandidateIsLiveError
+        error instanceof CandidateIsLiveError ||
+        error instanceof CandidateKeptBySpotlightError
       ) {
         return { outcome: 'in-use', reason: error.message };
       }

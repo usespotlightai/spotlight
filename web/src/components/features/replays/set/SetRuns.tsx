@@ -10,10 +10,13 @@ import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 type SetRunsProps = {
   at: ReplayedStation;
   set: ReplaySet;
+  frozen: boolean;
 };
 
-export function SetRuns({ at, set }: SetRunsProps) {
-  const add = set.stationGone ? undefined : <AddRunsButton at={at} set={set} />;
+export function SetRuns({ at, set, frozen }: SetRunsProps) {
+  const add = set.stationGone ? undefined : (
+    <AddRunsButton at={at} set={set} disabled={frozen} />
+  );
 
   return (
     <section aria-labelledby="set-runs" className="flex flex-col gap-2">
@@ -34,7 +37,13 @@ export function SetRuns({ at, set }: SetRunsProps) {
       ) : (
         <CardList label="Runs in the set">
           {set.entries.map((entry) => (
-            <SetRunRow key={entry.runId} at={at} setId={set.id} entry={entry} />
+            <SetRunRow
+              key={entry.runId}
+              at={at}
+              setId={set.id}
+              entry={entry}
+              frozen={frozen}
+            />
           ))}
         </CardList>
       )}

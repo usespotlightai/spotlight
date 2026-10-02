@@ -16,6 +16,44 @@ type History struct {
 	Station HistoryPlace    `json:"station"`
 	Configs []HistoryConfig `json:"configs"`
 	Runs    []HistoryRun    `json:"runs"`
+
+	Candidates []HistoryCandidate `json:"candidates,omitempty"`
+	SeedBlock  json.RawMessage    `json:"seedBlock,omitempty"`
+}
+
+type HistoryCandidate struct {
+	CandidateName string          `json:"candidateName"`
+	Fingerprint   string          `json:"fingerprint"`
+	Hypothesis    string          `json:"hypothesis"`
+	Block         json.RawMessage `json:"block"`
+	Runs          []CandidateRun  `json:"runs"`
+}
+
+type CandidateRun struct {
+	RunID       string          `json:"runId"`
+	Original    string          `json:"original"`
+	TaskID      string          `json:"taskId"`
+	Title       string          `json:"title"`
+	Fingerprint *string         `json:"fingerprint"`
+	State       string          `json:"state"`
+	Attempt     int             `json:"attempt"`
+	Harness     string          `json:"harness"`
+	StartedAt   *string         `json:"startedAt"`
+	EndedAt     *string         `json:"endedAt"`
+	Cost        *RunCost        `json:"cost"`
+	Changes     []HistoryChange `json:"changes"`
+	Trace       Trace           `json:"trace"`
+	Succeeded   *bool           `json:"succeeded"`
+	Reasons     []string        `json:"reasons"`
+	Verdict     *string         `json:"verdict"`
+}
+
+func (r CandidateRun) Run() HistoryRun {
+	return HistoryRun{
+		RunID: r.RunID, TaskID: r.TaskID, Title: r.Title, Fingerprint: r.Fingerprint,
+		State: r.State, Attempt: r.Attempt, Harness: r.Harness,
+		StartedAt: r.StartedAt, EndedAt: r.EndedAt, Changes: r.Changes, Trace: r.Trace,
+	}
 }
 
 type HistoryPlace struct {

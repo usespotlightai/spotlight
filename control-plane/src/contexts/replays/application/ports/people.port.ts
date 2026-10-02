@@ -13,6 +13,8 @@ export interface PeoplePort {
 
   teamKey(teamId: TeamId): Promise<string | null>;
 
+  workspaceSlug(workspaceId: WorkspaceId): Promise<string | null>;
+
   readableTeams(
     workspaceId: string,
     principal: Principal,

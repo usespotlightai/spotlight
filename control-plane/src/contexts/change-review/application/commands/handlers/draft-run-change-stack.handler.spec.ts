@@ -21,6 +21,7 @@ const drafting = (
     worked?: boolean;
     checking?: CheckingPlan | null;
     replay?: boolean;
+    isSearch?: boolean;
   } = {},
 ) => {
   const begin = vi.fn(async () => ({}) as never);
@@ -34,7 +35,8 @@ const drafting = (
       ended: false,
       completed: false,
       decisions: false,
-      replay: over.replay === true,
+      isReplay: over.replay === true,
+      isSearch: over.isSearch === true,
     }),
     wasWorkedBy: async () => over.worked !== false,
     reasoning: async () => null,
@@ -82,7 +84,8 @@ describe('DraftRunChangeStackHandler', () => {
       {
         id: RunId.of(RUN),
         taskId: TaskId.of('task_1'),
-        replay: false,
+        isReplay: false,
+        isSearch: false,
         workspaceId: WorkspaceId.of('ws_1'),
       },
       {
@@ -160,7 +163,8 @@ describe('DraftRunChangeStackHandler', () => {
       {
         id: RunId.of(RUN),
         taskId: null,
-        replay: true,
+        isReplay: true,
+        isSearch: false,
         workspaceId: WorkspaceId.of('ws_1'),
       },
       expect.objectContaining({

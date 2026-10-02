@@ -42,7 +42,7 @@ export class ListCandidatesHandler
 
       return held
         .filter(
-          (each) => !each.isLive && (!at || each.stationAddress.equals(at)),
+          (each) => each.isProposed && (!at || each.stationAddress.equals(at)),
         )
         .map(candidateResourceView);
     } catch (error) {

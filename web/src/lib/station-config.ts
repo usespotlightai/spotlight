@@ -1,4 +1,7 @@
-import type { ConfigChangeResponseDto } from '@/lib/api';
+import type {
+  ConfigChangeResponseDto,
+  StationChangeResponseDto,
+} from '@/lib/api';
 import { imageShown } from '@/lib/run';
 import { sharePercent } from '@/lib/station-watch';
 
@@ -24,8 +27,15 @@ const PART_LABELS: Record<ConfigChange['part'], string> = {
   judge: 'Judge',
 };
 
-export const isConfigPart = (part: string): part is ConfigChange['part'] =>
+const isConfigPart = (part: string): part is ConfigChange['part'] =>
   Object.hasOwn(PART_LABELS, part);
+
+export const configChangesOf = (
+  changes: readonly StationChangeResponseDto[],
+): ConfigChange[] =>
+  changes.flatMap(({ part, ...rest }) =>
+    isConfigPart(part) ? [{ ...rest, part }] : [],
+  );
 
 const SWITCHES: readonly ConfigChange['part'][] = ['decisions', 'memories'];
 

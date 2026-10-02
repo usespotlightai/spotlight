@@ -13,6 +13,7 @@ import {
   toolsRefused,
 } from '@work/domain/services/station-gives';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import type { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { Happening } from '@work/domain/value-objects/happening.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -20,6 +21,7 @@ import type { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
+import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import type { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { reviewsOn } from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -109,6 +111,8 @@ export class LinePlan {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
+    readonly replayCheck: ReplayCheckPolicy | null,
+    readonly source: ConfigSource | null,
   ) {}
 
   static of(input: {
@@ -120,6 +124,8 @@ export class LinePlan {
     repositories?: readonly WorkedRepository[];
     reviews?: ReviewPolicy | null;
     placement?: RunnerPlacement;
+    replayCheck?: ReplayCheckPolicy | null;
+    source?: ConfigSource | null;
   }): LinePlan {
     const reactions = input.reactions ?? [];
     const laid = stationsRefused(
@@ -211,6 +217,8 @@ export class LinePlan {
       repositories,
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
+      input.replayCheck ?? null,
+      input.source ?? null,
     );
   }
 

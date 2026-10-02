@@ -18,7 +18,7 @@ import type { Delta } from '@/lib/insights';
 import { percentShown } from '@/lib/judge';
 import type { ReplayState } from '@/lib/replay-words';
 import { stationPath } from '@/lib/station';
-import { type ConfigChange, isConfigPart } from '@/lib/station-config';
+import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
 export type ReplaySet = ReplaySetResponseDto;
 export type ReplaySetEntry = ReplaySetEntryResponseDto;
@@ -241,9 +241,7 @@ export const candidatesInOrder = (
   );
 
 export const changesOf = (candidate: ReplayCandidate): ConfigChange[] =>
-  candidate.changedFrom.changes.flatMap(({ part, ...rest }) =>
-    isConfigPart(part) ? [{ ...rest, part }] : [],
-  );
+  configChangesOf(candidate.changedFrom.changes);
 
 export const stationAddress = (
   teamKey: string,

@@ -80,6 +80,8 @@ describe('LineMapper.lineToDto', () => {
       ],
       reactions: [],
       repositories: [],
+      source: null,
+      replayCheck: null,
     });
   });
 });

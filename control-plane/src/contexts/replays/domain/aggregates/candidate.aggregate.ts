@@ -2,6 +2,7 @@ import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggr
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
 import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
+import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
 import { CandidateMovedOnError } from '@replays/domain/exceptions/candidate-moved-on.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
@@ -10,11 +11,17 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
+import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
+import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
+import type { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -28,10 +35,20 @@ interface State {
   readonly kind: CandidateKind;
   readonly block: StationBlock;
   readonly fingerprint: StationFingerprint;
+  readonly digests: StationDigests;
   readonly scoring: CandidateScoring;
   readonly changedFrom: StationChanges;
+  readonly line: PlannedLine | null;
+  readonly search: CandidateSearch | null;
+  readonly reference: PlannedReference | null;
   readonly createdAt: Date;
   readonly version: number;
+}
+
+export interface CandidateSearch {
+  readonly searchId: SearchId;
+  readonly iteration: number;
+  readonly hypothesis: Hypothesis;
 }
 
 interface Proposal {
@@ -40,6 +57,7 @@ interface Proposal {
   readonly address: StationAddress;
   readonly block: StationBlock;
   readonly fingerprint: StationFingerprint;
+  readonly digests: StationDigests;
   readonly scoring: CandidateScoring;
   readonly at: Date;
 }
@@ -86,11 +104,53 @@ export class Candidate extends EventRecorder {
     );
   }
 
+  static searched(
+    input: Proposal & {
+      name: string;
+      changedFrom: StationChanges;
+      search: CandidateSearch;
+    },
+  ): Candidate {
+    if (
+      !Number.isInteger(input.search.iteration) ||
+      input.search.iteration < 1
+    ) {
+      throw new InvalidCandidateError(
+        'found by a search names the iteration that found it, from 1 up',
+      );
+    }
+
+    return Candidate.made(
+      input,
+      CandidateName.searched(input.name),
+      'searched',
+      input.changedFrom,
+      { search: input.search },
+    );
+  }
+
+  static planned(
+    input: Proposal & {
+      changedFrom: StationChanges;
+      reference: PlannedReference;
+      line: PlannedLine | null;
+    },
+  ): Candidate {
+    return Candidate.made(
+      input,
+      CandidateName.planned(input.reference.label, input.at),
+      'planned',
+      input.changedFrom,
+      { reference: input.reference, line: input.line },
+    );
+  }
+
   private static made(
     input: Proposal,
     name: CandidateName,
     kind: CandidateKind,
     changedFrom: StationChanges,
+    origin: Partial<Pick<State, 'search' | 'reference' | 'line'>> = {},
   ): Candidate {
     if (input.block.key !== input.address.stationKey) {
       throw new InvalidCandidateError(
@@ -106,14 +166,37 @@ export class Candidate extends EventRecorder {
       kind,
       block: input.block,
       fingerprint: input.fingerprint,
+      digests: input.digests,
       scoring: input.scoring,
       changedFrom,
+      line: origin.line ?? null,
+      search: origin.search ?? null,
+      reference: origin.reference ?? null,
       createdAt: input.at,
       version: 0,
     });
   }
 
   static rehydrate(state: State): Candidate {
+    if ((state.kind === 'searched') !== (state.search !== null)) {
+      throw new InconsistentStateError(
+        'candidate',
+        'names the search that found it when, and only when, a search did',
+      );
+    }
+    if (state.line !== null && state.kind !== 'planned') {
+      throw new InconsistentStateError(
+        'candidate',
+        'plans its line’s repositories only when it checks a planned change',
+      );
+    }
+    if ((state.kind === 'planned') !== (state.reference !== null)) {
+      throw new InconsistentStateError(
+        'candidate',
+        'names the change it checks when, and only when, it checks one',
+      );
+    }
+
     return new Candidate(state);
   }
 
@@ -157,6 +240,18 @@ export class Candidate extends EventRecorder {
     return this.state.kind === 'live';
   }
 
+  get isProposed(): boolean {
+    return this.state.kind === 'proposed';
+  }
+
+  get search(): CandidateSearch | null {
+    return this.state.search;
+  }
+
+  get reference(): PlannedReference | null {
+    return this.state.reference;
+  }
+
   get block(): StationBlock {
     return this.state.block;
   }
@@ -185,6 +280,18 @@ export class Candidate extends EventRecorder {
     return this.state.fingerprint;
   }
 
+  get digests(): StationDigests {
+    return this.state.digests;
+  }
+
+  get scoringDigest(): string {
+    return this.state.digests.scoring;
+  }
+
+  get line(): PlannedLine | null {
+    return this.state.line;
+  }
+
   get changedFrom(): StationChanges {
     return this.state.changedFrom;
   }
@@ -207,6 +314,9 @@ export class Candidate extends EventRecorder {
     if (this.isLive) {
       throw new CandidateIsLiveError(this.id.value);
     }
+    if (!this.isProposed) {
+      throw new CandidateKeptBySpotlightError(this.id.value);
+    }
     if (underway) {
       throw new CandidateUnderwayError(this.id.value);
     }
@@ -215,9 +325,9 @@ export class Candidate extends EventRecorder {
   }
 
   abandoned(): Candidate {
-    return this.isLive
-      ? new Candidate(this.state, true)
-      : this.gone(Attribution.spotlight(this.workspaceId));
+    return this.isProposed
+      ? this.gone(Attribution.spotlight(this.workspaceId))
+      : new Candidate(this.state, true);
   }
 
   isFor(stationId: string): boolean {

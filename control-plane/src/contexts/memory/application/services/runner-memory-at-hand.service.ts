@@ -1,6 +1,7 @@
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { HeldRun, WorkPort } from '@memory/application/ports/work.port';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
+import { keptFromSearches } from '@memory/domain/services/search-reach';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -19,6 +20,14 @@ export class RunnerMemoryAtHand {
     if (!held) {
       throw new UnknownRunError(runId);
     }
+
+    return held;
+  }
+
+  async recalling(runId: string, runnerId: string): Promise<HeldRun> {
+    const held = await this.held(runId, runnerId);
+
+    keptFromSearches(held, 'recall what the team remembers');
 
     return held;
   }

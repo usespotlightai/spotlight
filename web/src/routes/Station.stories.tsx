@@ -10,6 +10,13 @@ import {
   seedStationWithoutReplays,
 } from '@/stories/fixtures/replays';
 import {
+  failStationSearches,
+  refuseStationSearches,
+  seedStationSearches,
+  seedStationSearchesAwaiting,
+  seedStationWithoutSearches,
+} from '@/stories/fixtures/searches';
+import {
   failStation,
   failStationJudge,
   failStationOutcomes,
@@ -188,6 +195,66 @@ export const Replays: Story = {
     <StoryPage
       at={{ pathname: at, hash: '#replays' }}
       seed={seedStationReplays}
+    >
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const SearchesLoading: Story = {
+  name: 'Searches loading',
+  render: () => (
+    <StoryPage
+      at={{ pathname: at, hash: '#searches' }}
+      seed={seedStationSearchesAwaiting}
+    >
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const SearchesEmpty: Story = {
+  name: 'Searches empty',
+  render: () => (
+    <StoryPage
+      at={{ pathname: at, hash: '#searches' }}
+      seed={seedStationWithoutSearches}
+    >
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const SearchesFailed: Story = {
+  name: 'Searches error',
+  render: () => (
+    <StoryPage
+      at={{ pathname: at, hash: '#searches' }}
+      seed={failStationSearches}
+    >
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const SearchesMembersOnly: Story = {
+  name: 'Searches members only',
+  render: () => (
+    <StoryPage
+      at={{ pathname: at, hash: '#searches' }}
+      seed={refuseStationSearches}
+    >
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Searches: Story = {
+  name: 'Searches',
+  render: () => (
+    <StoryPage
+      at={{ pathname: at, hash: '#searches' }}
+      seed={seedStationSearches}
     >
       {routes}
     </StoryPage>

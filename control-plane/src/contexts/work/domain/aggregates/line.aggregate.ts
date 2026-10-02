@@ -34,6 +34,7 @@ import {
 } from '@work/domain/services/line-layout';
 import type { TasksStanding } from '@work/domain/services/reconcile-line';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import type { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type { Happening } from '@work/domain/value-objects/happening.vo';
@@ -47,6 +48,7 @@ import type {
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
+import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import type { ReviewAsked } from '@work/domain/value-objects/review-asked.vo';
 import {
   type ReviewPolicy,
@@ -70,6 +72,8 @@ export interface LineLayout {
   readonly repositories?: readonly WorkedRepository[];
   readonly reviews?: ReviewPolicy | null;
   readonly placement?: RunnerPlacement;
+  readonly replayCheck?: ReplayCheckPolicy | null;
+  readonly source?: ConfigSource | null;
 }
 
 interface LineIdentity {
@@ -91,6 +95,8 @@ export class Line extends EventRecorder {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
+    readonly replayCheck: ReplayCheckPolicy | null,
+    readonly source: ConfigSource | null,
     readonly version: number,
     readonly isRetired = false,
   ) {
@@ -243,6 +249,8 @@ export class Line extends EventRecorder {
       repositories,
       layout.reviews ?? null,
       layout.placement ?? RunnerPlacement.anywhere(),
+      layout.replayCheck ?? null,
+      layout.source ?? null,
       version,
     );
   }
@@ -309,6 +317,8 @@ export class Line extends EventRecorder {
       this.repositories,
       this.reviews,
       this.placement,
+      this.replayCheck,
+      this.source,
       this.version,
       true,
     );
@@ -344,6 +354,9 @@ export class Line extends EventRecorder {
         repositories: part.repositories ?? this.repositories.entries,
         reviews: part.reviews !== undefined ? part.reviews : this.reviews,
         placement: part.placement ?? this.placement,
+        replayCheck:
+          part.replayCheck !== undefined ? part.replayCheck : this.replayCheck,
+        source: part.source !== undefined ? part.source : this.source,
       },
       this.version,
     );

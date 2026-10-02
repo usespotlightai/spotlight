@@ -21,6 +21,7 @@ import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import { SearchDigested } from '@work/domain/events/search-digested.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
@@ -59,6 +60,7 @@ import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
@@ -96,6 +98,7 @@ import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { Remark } from '@work/domain/value-objects/remark.vo';
+import { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
@@ -107,6 +110,8 @@ import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { Said } from '@work/domain/value-objects/said.vo';
+import { SearchId } from '@work/domain/value-objects/search-id.vo';
+import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { Signing } from '@work/domain/value-objects/signing.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
@@ -184,6 +189,8 @@ export const WORK_EVENT_TYPES = [
   LineRole,
   PullRequestLink,
   RepositorySetup,
+  ReplayCheckPolicy,
+  ConfigSource,
   ReviewPolicy,
   Mark,
   MessagePosition,
@@ -208,6 +215,8 @@ export const WORK_EVENT_TYPES = [
   RunSpec,
   RunSubject,
   Said,
+  SearchId,
+  SearchIteration,
   Signing,
   SkillKey,
   StationAlert,
@@ -258,6 +267,7 @@ export const WORK_EVENT_TYPES = [
   RunCompleted,
   RunDigested,
   ReplayDigested,
+  SearchDigested,
   TaskFailed,
   TaskHandedOn,
   RunLapsed,

@@ -16,9 +16,9 @@ export class EventPublications {
     }
   }
 
-  of(event: DomainEvent): readonly IntegrationEvent[] {
+  of(event: DomainEvent, at: Date): readonly IntegrationEvent[] {
     return (this.#from.get(event.kind) ?? []).map((each) =>
-      each.publish(event),
+      each.publish(event, at),
     );
   }
 }

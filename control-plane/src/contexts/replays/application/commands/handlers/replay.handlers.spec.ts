@@ -9,13 +9,13 @@ import {
   FakeWork,
   IDS,
   InMemoryReplays,
-  peopleWho,
-  QUIET,
+  snapshotsFor,
   stationsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import {
@@ -35,8 +35,7 @@ const CEILING = { amount: 5, currency: 'USD' };
 const starting = (mayPlan = true) =>
   new StartReplayHandler(
     accessFor(memory, work, mayPlan),
-    peopleWho(mayPlan),
-    work,
+    snapshotsFor(memory, work, mayPlan),
     memory.candidateRepository,
     memory.setRepository,
     memory.replayRepository,
@@ -44,7 +43,6 @@ const starting = (mayPlan = true) =>
     CLOCK,
     TRANSACTION,
     stationsFor(memory, work),
-    QUIET,
   );
 
 const baselines = () =>
@@ -267,8 +265,9 @@ describe('StopReplayHandler', () => {
     ).execute(new StopReplayCommand('team_1', 'replay_1', ACTOR));
 
     expect(memory.replays.get('replay_1')?.current).toBe('stopped');
-    expect(memory.events.slice(-2).map((each) => each.constructor)).toEqual([
+    expect(memory.events.slice(-3).map((each) => each.constructor)).toEqual([
       ReplayStopped,
+      ReplayEnded,
       ReplayStopAsked,
     ]);
   });
