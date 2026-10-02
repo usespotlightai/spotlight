@@ -42,7 +42,7 @@ export const MOST_MEMORY_BODY = 1_000;
 
 export const MOST_RETIRE_REASON = 500;
 
-export const KIND_LABELS: Record<string, string> = {
+export const KIND_LABELS: Record<MemoryKind, string> = {
   rationale: 'Rationale',
   'rejected-approach': 'Rejected approach',
   failure: 'Failure',
@@ -51,7 +51,7 @@ export const KIND_LABELS: Record<string, string> = {
   correction: 'Correction',
 };
 
-const REACH_LABELS: Record<string, string> = {
+const REACH_LABELS: Record<ProposedMemory['reach'], string> = {
   team: 'the whole team',
   line: 'this line',
   station: 'this station',
@@ -80,7 +80,7 @@ export const approvableTogether = (
   memories.filter((each) => undecided(each) && !fromOutside(each));
 
 export const reachOf = (memory: ProposedMemory): string => {
-  const where = REACH_LABELS[memory.reach] ?? memory.reach;
+  const where = REACH_LABELS[memory.reach];
 
   if (!memory.repository) {
     return `Applies to ${where}`;
@@ -119,7 +119,7 @@ export const kindOf = (raw: string | null): MemoryKind =>
 
 export const KIND_OPTIONS = KINDS.map((value) => ({
   value,
-  label: KIND_LABELS[value] ?? value,
+  label: KIND_LABELS[value],
 }));
 
 export const STANDING_VIEWS = [
@@ -163,7 +163,7 @@ export const paramsOf = (filter: MemoryFilter): Record<string, string> =>
 export const narrowed = (filter: MemoryFilter): boolean =>
   FILTERED.some((key) => Boolean(filter[key]));
 
-export const SOURCE_LABELS: Record<string, string> = {
+export const SOURCE_LABELS: Record<TeamMemory['source'], string> = {
   person: 'From a person',
   run: 'From a run',
   outside: 'From outside the team',

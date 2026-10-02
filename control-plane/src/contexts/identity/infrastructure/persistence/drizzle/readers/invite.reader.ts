@@ -67,7 +67,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
     return rows.map((row) => ({
       id: row.id,
       email: row.email,
-      invitedBy: row.invitedBy ?? '',
+      invitedBy: row.invitedBy,
       invitedAt: row.invitedAt,
       expiresAt: row.expiresAt,
       standing: 'open' as const,
@@ -100,7 +100,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
       email: found.email,
       teamName: found.teamName,
       workspaceName: found.workspaceName,
-      invitedBy: found.invitedBy ?? '',
+      invitedBy: found.invitedBy,
       standing: standingOf(found),
     };
   }

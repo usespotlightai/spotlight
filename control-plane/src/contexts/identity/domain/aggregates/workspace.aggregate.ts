@@ -80,7 +80,7 @@ export class Workspace extends EventRecorder {
     name: WorkspaceName;
     slug: WorkspaceSlug;
     members: readonly WorkspaceMember[];
-    version?: number;
+    version: number;
   }): Workspace {
     if (input.members.length === 0) {
       throw new InconsistentStateError('workspace', 'has no members at all');
@@ -94,7 +94,7 @@ export class Workspace extends EventRecorder {
       input.name,
       input.slug,
       input.members,
-      input.version ?? 0,
+      input.version,
     );
   }
 

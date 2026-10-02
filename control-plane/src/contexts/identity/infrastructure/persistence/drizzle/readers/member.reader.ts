@@ -76,7 +76,7 @@ export class DrizzleMemberReader implements MemberReaderPort {
     return {
       members: rows.map((row) => ({
         id: row.id,
-        name: row.name ?? '',
+        name: row.name,
         image: row.image,
         role: row.role,
       })),

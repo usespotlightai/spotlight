@@ -236,7 +236,7 @@ export class DrizzleRunReader implements RunReaderPort {
       attachments: attachmentsOf(attached, found.taskId).own,
       station: worked({ ...found }, held),
       createdAt: found.createdAt,
-      briefing: spec?.briefing ?? null,
+      briefing: spec.briefing,
       working: holding && !awaitsAPerson(told),
       notes: said,
     };

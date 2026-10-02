@@ -185,6 +185,7 @@ const runEnded = async (
     ms: 60_000,
     steps: 20,
     faults: 1,
+    changedLines: 0,
     used: 8_000,
     size: null,
     cost: 0.4,

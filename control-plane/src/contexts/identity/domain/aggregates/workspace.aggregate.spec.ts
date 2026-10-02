@@ -78,6 +78,7 @@ describe('Workspace', () => {
           { userId: OWNER, role: WorkspaceRole.owner },
           { userId: UserId.of(user), role },
         ],
+        version: 0,
       });
 
     it('says what a person is here, and nothing of one who is not', () => {
@@ -119,6 +120,7 @@ describe('Workspace', () => {
         { userId: ADMIN, role: WorkspaceRole.admin },
         { userId: MEMBER, role: WorkspaceRole.member },
       ],
+      version: 0,
     });
 
     it('lets an owner or an admin administer it, and nobody else', () => {
@@ -175,6 +177,7 @@ describe('Workspace', () => {
         name: WorkspaceName.of('Acme'),
         slug: WorkspaceSlug.of('acme'),
         members: members.map((each) => ({ userId: each.id, role: each.role })),
+        version: 0,
       });
 
     const staff = () =>
@@ -465,6 +468,7 @@ describe('Workspace', () => {
         { userId: UserId.of('admin'), role: WorkspaceRole.admin },
         { userId: UserId.of('member'), role: WorkspaceRole.member },
       ],
+      version: 0,
     });
 
     const person = (id: string) => PersonPrincipal.of(UserId.of(id));

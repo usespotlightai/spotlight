@@ -76,7 +76,7 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
       teamId: found.teamId,
       teamKey: found.teamKey,
       id: found.id,
-      headers: (found.headers ?? {}) as WebhookHeaders,
+      headers: found.headers as WebhookHeaders,
       body: found.body,
       attempts: found.attempts,
     };

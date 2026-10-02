@@ -42,16 +42,23 @@ export class CausalChain {
   }
 
   static read(stored: unknown): CausalChain {
-    if (!stored || typeof stored !== 'object') {
+    if (stored === null) {
       return CausalChain.none();
     }
 
-    const { links, depth } = stored as { links?: unknown; depth?: unknown };
+    const { links, depth } = (stored ?? {}) as {
+      links?: unknown;
+      depth?: unknown;
+    };
 
-    return CausalChain.rehydrate({
-      links: Array.isArray(links) ? links : [],
-      depth: typeof depth === 'number' ? depth : 0,
-    });
+    if (!Array.isArray(links) || typeof depth !== 'number') {
+      throw new InconsistentStateError(
+        'causal chain',
+        'is not a list of links with a depth',
+      );
+    }
+
+    return CausalChain.rehydrate({ links, depth });
   }
 
   private static linkOf(link: CauseLink): CauseLink {

@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import type { Continuity } from '@work/domain/value-objects/continuity.vo';
 import {
@@ -390,11 +391,18 @@ export const RunSpecContract = {
     return spec.value;
   },
 
-  from(raw: unknown): RunSpec | null {
+  from(raw: unknown): RunSpec {
     try {
       return read(raw);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof InvalidRunSpecError) {
+        throw new InconsistentStateError(
+          'run',
+          `has a spec that no longer reads: ${error.message}`,
+        );
+      }
+
+      throw error;
     }
   },
 };

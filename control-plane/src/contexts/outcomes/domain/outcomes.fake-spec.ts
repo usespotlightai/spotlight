@@ -90,8 +90,10 @@ export const costOf = (
     faults: 0,
     changedLines: change.changedLines ?? 0,
     used: 1_000,
+    size: null,
     amount: change.amount === undefined ? 0.5 : change.amount,
     currency: change.currency === undefined ? 'USD' : change.currency,
+    tokens: { input: null, output: null, cacheRead: null, cacheWrite: null },
   });
 
 export const endedRecord = (

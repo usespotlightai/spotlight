@@ -26,8 +26,8 @@ interface SkillInput {
   readonly folder?: SkillFolderSize;
   readonly description: string;
   readonly instructions: string;
-  readonly secrets?: readonly SkillSecret[];
-  readonly tools?: readonly ToolName[];
+  readonly secrets: readonly SkillSecret[];
+  readonly tools: readonly ToolName[];
 }
 
 export class Skill {
@@ -103,8 +103,8 @@ export class Skill {
       input.key,
       description,
       instructions,
-      input.secrets ?? [],
-      input.tools ?? [],
+      input.secrets,
+      input.tools,
       isShipped,
     );
   }

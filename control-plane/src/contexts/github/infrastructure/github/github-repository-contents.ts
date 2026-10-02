@@ -53,6 +53,10 @@ interface Sha {
   readonly sha?: string;
 }
 
+interface BlobContents {
+  readonly content: string;
+}
+
 interface Commit {
   readonly tree?: Sha;
 }
@@ -270,12 +274,12 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     sha: string,
     token: string,
   ): Promise<string> {
-    const found = await answered<Contents>(
+    const found = await answered<BlobContents>(
       await call(`${this.at(repository)}/git/blobs/${sha}`, token),
       `GitHub would not hand over the blob ${sha}`,
     );
 
-    return decoded(found.content ?? '');
+    return decoded(found.content);
   }
 
   private async defaultBranch(
@@ -288,12 +292,12 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       throw new RepositoryUnreachableError(repository.value);
     }
 
-    const found = await answered<{ default_branch?: string }>(
+    const found = await answered<{ default_branch: string }>(
       response,
       `GitHub would not say what ${repository.value} merges into`,
     );
 
-    return found.default_branch ?? 'main';
+    return found.default_branch;
   }
 
   private at(repository: Repository): string {

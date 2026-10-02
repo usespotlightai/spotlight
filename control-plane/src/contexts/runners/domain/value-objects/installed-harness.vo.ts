@@ -22,7 +22,7 @@ export class InstalledHarness {
   static of(
     id: HarnessId,
     models: readonly HarnessModel[],
-    version: HarnessVersion | null = null,
+    version: HarnessVersion | null,
   ): InstalledHarness {
     return new InstalledHarness(
       id,

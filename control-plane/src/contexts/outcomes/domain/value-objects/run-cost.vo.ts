@@ -12,13 +12,6 @@ export interface TokenCounts {
   readonly cacheWrite: number | null;
 }
 
-const NO_TOKENS: TokenCounts = {
-  input: null,
-  output: null,
-  cacheRead: null,
-  cacheWrite: null,
-};
-
 const counted = (count: number | null): boolean =>
   count === null || (Number.isSafeInteger(count) && count >= 0);
 
@@ -38,15 +31,14 @@ export class RunCost {
     ms: number | null;
     steps: number;
     faults: number;
-    changedLines?: number;
+    changedLines: number;
     used: number | null;
-    size?: number | null;
+    size: number | null;
     amount: number | null;
     currency: string | null;
-    tokens?: TokenCounts;
+    tokens: TokenCounts;
   }): RunCost {
-    const tokens = input.tokens ?? NO_TOKENS;
-    const changedLines = input.changedLines ?? 0;
+    const { tokens, changedLines } = input;
 
     if (input.steps < 0 || input.faults < 0) {
       throw new InvalidOutcomeError('counts no fewer than no steps or faults');
@@ -76,7 +68,7 @@ export class RunCost {
       input.faults,
       changedLines,
       input.used,
-      input.size ?? null,
+      input.size,
       input.amount !== null && input.currency
         ? { amount: input.amount, currency: input.currency }
         : null,

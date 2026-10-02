@@ -67,14 +67,14 @@ const replayedMark = (props: unknown) => (
 
 type SetupScatterProps = {
   points: readonly SetupPoint[];
-  replayed?: readonly ReplayedPoint[];
+  replayed: readonly ReplayedPoint[];
   measure: OutcomeMeasure;
   currency: string;
 };
 
 export function SetupScatter({
   points,
-  replayed = [],
+  replayed,
   measure,
   currency,
 }: SetupScatterProps) {

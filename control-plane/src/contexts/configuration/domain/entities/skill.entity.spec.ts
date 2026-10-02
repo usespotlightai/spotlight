@@ -20,6 +20,8 @@ const defined = (over: {
       characters: over.characters ?? 10,
       limits: LIMITS,
     },
+    secrets: [],
+    tools: [],
   });
 
 describe('Skill', () => {

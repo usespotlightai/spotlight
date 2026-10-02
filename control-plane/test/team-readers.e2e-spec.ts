@@ -128,6 +128,8 @@ beforeAll(async () => {
     taskId: team.list.id.value,
     fingerprint: 'a'.repeat(64),
     harness: 'claude-code',
+    repositories: [],
+    skills: [],
     endedAt: new Date(),
     ending: 'completed',
     round: 1,

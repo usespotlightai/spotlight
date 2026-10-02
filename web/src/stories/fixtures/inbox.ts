@@ -287,7 +287,7 @@ const JOURNAL: RunJournalResponseDto[] = [
       spokeTo: null,
       endedAt: '2026-09-15T09:48:00.000Z',
     },
-    spent: { used: 38_412, size: 200_000 },
+    spent: { used: 38_412, size: 200_000, cost: null, currency: null },
     steps: [
       step({
         kind: 'thought',
@@ -314,7 +314,7 @@ const JOURNAL: RunJournalResponseDto[] = [
       spokeTo: null,
       endedAt: '2026-09-15T10:31:00.000Z',
     },
-    spent: { used: 61_950, size: 200_000 },
+    spent: { used: 61_950, size: 200_000, cost: null, currency: null },
     steps: [
       step({
         tool: 'execute',
@@ -339,7 +339,7 @@ const RELEASE_NOTE_JOURNAL: RunJournalResponseDto[] = [
       spokeTo: null,
       endedAt: '2026-09-15T11:10:00.000Z',
     },
-    spent: { used: 21_304, size: 200_000 },
+    spent: { used: 21_304, size: 200_000, cost: null, currency: null },
     steps: [
       step({
         kind: 'thought',

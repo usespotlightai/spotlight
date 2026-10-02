@@ -43,9 +43,7 @@ export function ProposedMemoryCard({
       className="flex flex-col gap-3 rounded-xl border border-border bg-card px-3 py-3"
     >
       <div className="flex items-center gap-2">
-        <Pill className="px-1.5 py-0">
-          {KIND_LABELS[memory.kind] ?? memory.kind}
-        </Pill>
+        <Pill className="px-1.5 py-0">{KIND_LABELS[memory.kind]}</Pill>
         <p className="min-w-0 truncate text-muted-foreground text-xs">
           {reachOf(memory)}
           {askedByAgent(memory) && ' · the agent asked to keep this'}

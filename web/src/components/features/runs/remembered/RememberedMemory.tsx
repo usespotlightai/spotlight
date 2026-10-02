@@ -33,9 +33,7 @@ export function RememberedMemory({
         >
           {memory.handle}
         </TrailLink>
-        <Pill className="px-1.5 py-0">
-          {KIND_LABELS[memory.kind] ?? memory.kind}
-        </Pill>
+        <Pill className="px-1.5 py-0">{KIND_LABELS[memory.kind]}</Pill>
         {cut && <Pill className="px-1.5 py-0">Cut by the cap</Pill>}
         <span className="flex-1" />
         {memory.standing === 'stands' && (

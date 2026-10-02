@@ -7,14 +7,10 @@ import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 type AddRunsButtonProps = {
   at: ReplayedStation;
   set: ReplaySet;
-  disabled?: boolean;
+  disabled: boolean;
 };
 
-export function AddRunsButton({
-  at,
-  set,
-  disabled = false,
-}: AddRunsButtonProps) {
+export function AddRunsButton({ at, set, disabled }: AddRunsButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (

@@ -27,10 +27,20 @@ type Row = typeof hookFiring.$inferSelect;
 const isCode = (code: string): code is HookFailureCode =>
   Object.keys(HOOK_FAILURES).includes(code);
 
-const failureOf = (row: Row): HookFailure | null =>
-  row.failure && isCode(row.failure)
-    ? HookFailure.of(row.failure, row.failed ?? '')
-    : null;
+const failureOf = (row: Row): HookFailure | null => {
+  if (row.failure === null) {
+    return null;
+  }
+
+  if (!isCode(row.failure) || row.failed === null) {
+    throw new InconsistentStateError(
+      'hook firing',
+      `failed in a way no hook can (${row.id})`,
+    );
+  }
+
+  return HookFailure.of(row.failure, row.failed);
+};
 
 const progressOf = (row: Row): HookFiringProgress => {
   if (row.state === 'pending') {

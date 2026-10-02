@@ -224,7 +224,7 @@ func (h *Host) pulled(ctx context.Context, image string) (sandbox.Image, error) 
 
 	auth, err := h.opts.Registry.For(image)
 	if err != nil {
-		h.log.Warn("could not read the registry credentials, so it pulls anonymously", "image", image, "error", err)
+		return sandbox.Image{}, err
 	}
 
 	if err := h.engine.Pull(ctx, image, auth); err != nil {

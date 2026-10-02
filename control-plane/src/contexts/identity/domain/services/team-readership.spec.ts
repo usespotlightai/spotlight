@@ -1,6 +1,7 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { TeamReadership } from '@identity/domain/services/team-readership';
+import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
@@ -32,14 +33,17 @@ const ACME = Workspace.rehydrate({
     { userId: ON_PLATFORM, role: WorkspaceRole.member },
     { userId: ON_PAYMENTS, role: WorkspaceRole.member },
   ],
+  version: 0,
 });
 
 const team = (name: string, members: readonly UserId[], workspace = 'ws_1') =>
   Team.rehydrate({
     id: TeamId.of(`team_${name.toLowerCase()}`),
     workspaceId: WorkspaceId.of(workspace),
+    key: TeamKey.from(name),
     name: TeamName.of(name),
     members,
+    version: 0,
   });
 
 const PLATFORM = team('Platform', [OWNER, ON_PLATFORM]);

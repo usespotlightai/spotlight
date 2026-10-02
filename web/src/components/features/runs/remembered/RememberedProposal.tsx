@@ -34,9 +34,7 @@ export function RememberedProposal({
             {proposal.handle}
           </TrailLink>
         )}
-        <Pill className="px-1.5 py-0">
-          {KIND_LABELS[proposal.kind] ?? proposal.kind}
-        </Pill>
+        <Pill className="px-1.5 py-0">{KIND_LABELS[proposal.kind]}</Pill>
         <span>{proposalStateOf(proposal)}</span>
         {askedByAgent(proposal) && <span>· the agent asked to keep it</span>}
         <span className="flex-1" />

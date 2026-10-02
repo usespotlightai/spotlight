@@ -111,7 +111,7 @@ export function GradeRun({
             slug,
             teamId,
             runId,
-            stationId: scores.data?.stationId,
+            stationId: scores.data.stationId,
             value,
           })
         }

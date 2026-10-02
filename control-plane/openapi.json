@@ -25216,7 +25216,9 @@
         },
         "required": [
           "used",
-          "size"
+          "size",
+          "cost",
+          "currency"
         ]
       },
       "RunJournalResponseDto": {
@@ -25267,7 +25269,9 @@
           "attempt",
           "steps",
           "spans",
-          "marks"
+          "ms",
+          "marks",
+          "spent"
         ]
       },
       "GrantAttachmentUploadRequestDto": {
@@ -25973,7 +25977,6 @@
           },
           "briefing": {
             "type": "string",
-            "nullable": true,
             "description": "What the run was given, word for word"
           },
           "working": {

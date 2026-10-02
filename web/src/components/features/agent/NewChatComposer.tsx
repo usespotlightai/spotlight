@@ -15,16 +15,16 @@ const HARNESS_KEY = 'spotlight.chat-harness';
 type NewChatComposerProps = {
   slug: string;
   teamId: string;
-  traces?: readonly SharedTrace[];
-  improving?: ImprovedStation | null;
+  traces: readonly SharedTrace[];
+  improving: ImprovedStation | null;
   onStarted: (chatId: string) => void;
 };
 
 export function NewChatComposer({
   slug,
   teamId,
-  traces: handed = [],
-  improving: handedStation = null,
+  traces: handed,
+  improving: handedStation,
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();

@@ -17,6 +17,8 @@ const GRAFANA: SkillFolder = {
     key: SkillKey.of('grafana-dashboards'),
     description: 'Reading this team’s dashboards.',
     instructions: 'Dashboards are at https://grafana.acme.dev.',
+    secrets: [],
+    tools: [],
   }),
   files: [
     {

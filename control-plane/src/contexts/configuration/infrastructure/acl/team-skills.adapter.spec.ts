@@ -36,6 +36,8 @@ const MIGRATIONS: SkillFolder = {
     key: SkillKey.of('our-migrations'),
     description: 'Writing a migration here.',
     instructions: 'Generate it; never write the SQL.',
+    secrets: [],
+    tools: [],
   }),
   files: [
     { path: 'SKILL.md', text: '---\nname: our-migrations\n---\n' },
@@ -48,6 +50,8 @@ const FRONTEND: SkillFolder = {
     key: SkillKey.of('frontend'),
     description: 'Working on the web app.',
     instructions: 'Keep components small.',
+    secrets: [],
+    tools: [],
   }),
   files: [{ path: 'SKILL.md', text: '---\nname: frontend\n---\n' }],
 };

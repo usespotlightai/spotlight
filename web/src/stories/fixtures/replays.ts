@@ -719,7 +719,7 @@ const REPLAY_RUN: ReplayRunResponseDto = {
         spokeTo: null,
         endedAt: hoursAgo(0.6),
       },
-      spent: { used: 48_000, size: 200_000 },
+      spent: { used: 48_000, size: 200_000, cost: null, currency: null },
       steps: [
         {
           kind: 'thought',

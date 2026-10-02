@@ -41,14 +41,25 @@ describe('JwksCache', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('answers with nothing where the host is unreachable', async () => {
+  it('fails where the host is unreachable, and asks again next time', async () => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockRejectedValueOnce(new Error('unreachable'))
+      .mockImplementation(answering());
+    const cache = new JwksCache(1000, fetch, () => 0);
+
+    await expect(cache.keys('https://issuer/jwks.json')).rejects.toThrow(
+      'unreachable',
+    );
+    expect((await cache.keys('https://issuer/jwks.json')).has('k1')).toBe(true);
+  });
+
+  it('fails where the host answers with an error', async () => {
     const cache = new JwksCache(
       1000,
-      vi.fn(async () => {
-        throw new Error('unreachable');
-      }),
+      vi.fn(async () => new Response('down', { status: 503 })),
     );
 
-    expect((await cache.keys('https://issuer/jwks.json')).size).toBe(0);
+    await expect(cache.keys('https://issuer/jwks.json')).rejects.toThrow('503');
   });
 });

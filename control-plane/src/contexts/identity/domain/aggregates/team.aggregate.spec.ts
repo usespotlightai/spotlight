@@ -68,8 +68,10 @@ describe('Team', () => {
       Team.rehydrate({
         id: open().id,
         workspaceId: WORKSPACE,
+        key: TeamKey.of('platform'),
         name: TeamName.of('Platform'),
         members: [OWNER],
+        version: 0,
       }).pullEvents(),
     ).toEqual([]);
   });
@@ -95,6 +97,7 @@ describe('Team', () => {
     const read = Team.rehydrate({
       id: TeamId.of('team_1'),
       workspaceId: WORKSPACE,
+      key: TeamKey.of('platform'),
       name: TeamName.of('Platform'),
       members: [OWNER],
       version: 4,
@@ -109,8 +112,10 @@ describe('Team', () => {
       Team.rehydrate({
         id: TeamId.of('team_1'),
         workspaceId: WORKSPACE,
+        key: TeamKey.of('platform'),
         name: TeamName.of('Platform'),
         members: [],
+        version: 0,
       }),
     ).toThrow(/no members/);
   });

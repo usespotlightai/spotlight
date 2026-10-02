@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 type SettingsPageProps = {
   title: string;
-  description?: ReactNode;
+  description: ReactNode;
   children: ReactNode;
 };
 
@@ -19,11 +19,9 @@ export function SettingsPage({
             {title}
           </h1>
 
-          {description && (
-            <p className="text-muted-foreground text-sm leading-6">
-              {description}
-            </p>
-          )}
+          <p className="text-muted-foreground text-sm leading-6">
+            {description}
+          </p>
         </div>
 
         {children}

@@ -138,7 +138,7 @@ const JOURNAL: RunJournalResponseDto[] = [
       spokeTo: null,
       endedAt: minutesAgo(22),
     },
-    spent: { used: 61_950, size: 200_000 },
+    spent: { used: 61_950, size: 200_000, cost: null, currency: null },
     steps: [
       step({
         kind: 'thought',

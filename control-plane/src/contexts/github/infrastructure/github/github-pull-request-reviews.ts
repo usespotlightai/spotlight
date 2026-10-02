@@ -344,7 +344,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
   ): Promise<T> {
     const personal =
       on.by.kind === 'person'
-        ? await this.personal.tokenFor(on.by.userId, 'github').catch(() => null)
+        ? await this.personal.tokenFor(on.by.userId, 'github')
         : null;
 
     if (personal) {

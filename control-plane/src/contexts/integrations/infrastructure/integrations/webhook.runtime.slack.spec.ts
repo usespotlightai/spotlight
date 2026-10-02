@@ -5,7 +5,10 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
-import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
+import {
+  credentialsFor,
+  signingFor,
+} from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -106,8 +109,11 @@ const runtime = (secret: string | null = SIGNING) =>
   new WebhookRuntime(
     compiled(),
     WORKSPACE,
-    secret === null ? new Map() : new Map([['SLACK_SIGNING_SECRET', secret]]),
+    signingFor(secret === null ? {} : { SLACK_SIGNING_SECRET: secret }),
     () => NOW * 1000,
+    { keys: async () => new Map() },
+    {} as HttpOutbound,
+    credentialsFor(),
   );
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
@@ -151,8 +157,10 @@ describe('the Slack webhook runtime', () => {
       );
     });
 
-    it('refuses one where the workspace set no secret', async () => {
-      expect(await runtime(null).verifies(delivered(mention))).toBe(false);
+    it('fails one where the workspace holds no such secret', async () => {
+      await expect(runtime(null).verifies(delivered(mention))).rejects.toThrow(
+        'The workspace holds no secret named SLACK_SIGNING_SECRET',
+      );
     });
 
     it('refuses a replay outside the freshness window', async () => {
@@ -281,9 +289,9 @@ webhook:
       const runtime = new WebhookRuntime(
         read.readable,
         WORKSPACE,
-        new Map(),
+        signingFor(),
         () => NOW * 1000,
-        null,
+        { keys: async () => new Map() },
         { run } as unknown as HttpOutbound,
         SLACK,
       );

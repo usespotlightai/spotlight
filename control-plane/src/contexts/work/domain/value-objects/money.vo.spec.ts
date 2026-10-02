@@ -1,4 +1,5 @@
 import { InvalidMoneyError } from '@work/domain/exceptions/invalid-money.error';
+import { InvalidStationNameError } from '@work/domain/exceptions/invalid-station-name.error';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
@@ -32,10 +33,11 @@ describe('Money', () => {
 });
 
 describe('StationName.maybe', () => {
-  it('reads back what was written, and nothing where it cannot', () => {
+  it('reads back what was written, nothing where nothing was, and refuses what is no name', () => {
     expect(StationName.maybe('Implementation')?.value).toBe('Implementation');
-    expect(StationName.maybe('  ')).toBeNull();
     expect(StationName.maybe(null)).toBeNull();
-    expect(StationName.maybe('x'.repeat(200))).toBeNull();
+    expect(() => StationName.maybe('x'.repeat(200))).toThrow(
+      InvalidStationNameError,
+    );
   });
 });

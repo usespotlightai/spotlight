@@ -9,6 +9,7 @@ import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import type { BuiltInSecretStore } from '@secrets/infrastructure/sources/built-in-secret.store';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
@@ -24,13 +25,23 @@ const collided = (error: unknown): boolean =>
 
 type Row = typeof secret.$inferSelect;
 
-const sourceOf = (row: Row): SecretSource =>
-  row.source === 'aws-secrets-manager'
-    ? SecretSource.awsSecretsManager({
-        secretId: row.sourceSecretId ?? '',
-        field: row.sourceField,
-      })
-    : SecretSource.builtIn();
+const sourceOf = (row: Row): SecretSource => {
+  if (row.source !== 'aws-secrets-manager') {
+    return SecretSource.builtIn();
+  }
+
+  if (row.sourceSecretId === null) {
+    throw new InconsistentStateError(
+      'secret',
+      'reads from AWS Secrets Manager without naming the secret there',
+    );
+  }
+
+  return SecretSource.awsSecretsManager({
+    secretId: row.sourceSecretId,
+    field: row.sourceField,
+  });
+};
 
 const rehydrated = (row: Row): Secret =>
   Secret.rehydrate({

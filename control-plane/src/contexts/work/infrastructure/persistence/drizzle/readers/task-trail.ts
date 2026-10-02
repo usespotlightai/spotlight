@@ -336,11 +336,7 @@ export const briefingsFor = async (
     .where(inArray(run.id, named));
 
   for (const row of rows) {
-    const spec = RunSpecContract.from(row.spec);
-
-    if (spec) {
-      given.set(row.id, spec.briefing);
-    }
+    given.set(row.id, RunSpecContract.from(row.spec).briefing);
   }
 
   return given;

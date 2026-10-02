@@ -1,3 +1,4 @@
+import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 
 export const SECRET_INJECTION = Symbol('SECRET_INJECTION');
@@ -13,6 +14,11 @@ export interface RunRequest extends SpotlightRequest {
   readonly attempt: number;
 }
 
+export interface VerifyingRequest {
+  readonly workspaceId: string;
+  readonly secret: string;
+}
+
 export interface RunGrant {
   readonly workspaceId: string;
   readonly runId: string;
@@ -26,4 +32,6 @@ export interface SecretInjectionPort {
   forRun(request: RunRequest): Promise<WornSecrets>;
 
   forSpotlight(request: SpotlightRequest): Promise<WornSecrets>;
+
+  forVerifying(request: VerifyingRequest): Promise<VerifyingSecret>;
 }

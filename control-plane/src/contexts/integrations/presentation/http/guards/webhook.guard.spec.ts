@@ -15,9 +15,7 @@ const source = (verifies: (delivered: Delivered) => boolean) =>
   ({
     key: 'github',
     happenings: [],
-    verifies: vi.fn((delivered: Delivered) =>
-      Promise.resolve(verifies(delivered)),
-    ),
+    verifies: vi.fn(async (delivered: Delivered) => verifies(delivered)),
     delivery: () => 'delivery_1',
     routes: async () => null,
     read: async () => [],
@@ -31,6 +29,12 @@ const asking = (
   const context = {
     switchToHttp: () => ({ getRequest: () => request }),
   } as unknown as ExecutionContext;
+  const logger = {
+    warn: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
 
   return {
     guard: new WebhookGuard(
@@ -57,8 +61,10 @@ const asking = (
         listForMember: async () => [],
         findForMember: async () => null,
       },
+      logger,
     ),
     context,
+    logger,
   };
 };
 
@@ -107,6 +113,24 @@ describe('WebhookGuard', () => {
 
     await expect(guard.canActivate(context)).rejects.toThrow(
       UnauthorizedException,
+    );
+  });
+
+  it('turns away a delivery it could not verify, telling only the log why', async () => {
+    const github = source(() => {
+      throw new Error('The workspace holds no secret named GITHUB_SECRET');
+    });
+    const { guard, context, logger } = asking(delivered(), [github]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      {
+        source: 'github',
+        error: 'The workspace holds no secret named GITHUB_SECRET',
+      },
+      'A webhook delivery could not be verified',
     );
   });
 

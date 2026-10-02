@@ -5,6 +5,11 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
+import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import {
+  credentialsFor,
+  signingFor,
+} from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -37,6 +42,22 @@ const EVENT = `
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
 
+const NO_KEYS: JwksResolver = { keys: async () => new Map() };
+
+const runtimeOf = (
+  readable: ReadableIntegration,
+  jwks: JwksResolver = NO_KEYS,
+) =>
+  new WebhookRuntime(
+    readable,
+    WORKSPACE,
+    signingFor(),
+    () => NOW * 1000,
+    jwks,
+    {} as HttpOutbound,
+    credentialsFor(),
+  );
+
 describe('verifying an ed25519 signature', () => {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const der = publicKey.export({ type: 'spki', format: 'der' });
@@ -53,13 +74,7 @@ webhook:
       signed: '\${{ headers["x-signature-timestamp"] + raw }}'
 ${EVENT}`;
 
-  const runtime = () =>
-    new WebhookRuntime(
-      compiled(DISCORD),
-      WORKSPACE,
-      new Map(),
-      () => NOW * 1000,
-    );
+  const runtime = () => runtimeOf(compiled(DISCORD));
 
   const signed = (body: unknown, ts = '170') => {
     const message = Buffer.concat([Buffer.from(ts), raw(body)]);
@@ -116,8 +131,7 @@ ${pem
   .join('\n')}
 ${EVENT}`;
 
-  const runtime = () =>
-    new WebhookRuntime(compiled(RSA), WORKSPACE, new Map(), () => NOW * 1000);
+  const runtime = () => runtimeOf(compiled(RSA));
 
   it('takes one the host really signed over the raw body', async () => {
     const body = { hello: 'world' };
@@ -153,14 +167,7 @@ webhook:
       header: authorization
 ${EVENT}`;
 
-  const runtime = () =>
-    new WebhookRuntime(
-      compiled(JWT),
-      WORKSPACE,
-      new Map(),
-      () => NOW * 1000,
-      jwks,
-    );
+  const runtime = () => runtimeOf(compiled(JWT), jwks);
 
   const b64 = (value: unknown) =>
     Buffer.from(JSON.stringify(value)).toString('base64url');

@@ -5,6 +5,7 @@ import { InviteAccepted } from '@identity/domain/events/invite-accepted.event';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
+import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
@@ -36,6 +37,7 @@ const joining = (found = true) => {
               name: WorkspaceName.of('Acme'),
               slug: WorkspaceSlug.of('acme'),
               members: [{ userId: LEON, role: WorkspaceRole.owner }],
+              version: 0,
             })
           : null,
       save: savedWorkspace,
@@ -46,8 +48,10 @@ const joining = (found = true) => {
           ? Team.rehydrate({
               id: TeamId.of('team_1'),
               workspaceId: WorkspaceId.of('ws_1'),
+              key: TeamKey.of('platform'),
               name: TeamName.of('Platform'),
               members: [LEON],
+              version: 0,
             })
           : null,
       save: savedTeam,

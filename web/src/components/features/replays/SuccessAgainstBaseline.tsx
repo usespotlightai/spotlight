@@ -4,13 +4,13 @@ import { cn } from '@/lib/utils';
 
 type SuccessAgainstBaselineProps = {
   success: SuccessComparison;
-  isBaseline?: boolean;
+  isBaseline: boolean;
   className?: string;
 };
 
 export function SuccessAgainstBaseline({
   success,
-  isBaseline = false,
+  isBaseline,
   className,
 }: SuccessAgainstBaselineProps) {
   return (
