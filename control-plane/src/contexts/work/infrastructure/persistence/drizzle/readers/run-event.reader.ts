@@ -5,6 +5,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -65,15 +66,39 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
         id: run.id,
         attempt: run.attempt,
         workspaceId: run.workspaceId,
+        replayOfRunId: run.replayOfRunId,
+        replayTeamId: run.replayTeamId,
       })
       .from(run)
       .where(eq(run.id, runId.value))
       .limit(1);
 
-    return found &&
-      (await this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId)))
+    return found && (await this.mayWatch(found, viewerId))
       ? { id: found.id, attempt: found.attempt }
       : null;
+  }
+
+  private async mayWatch(
+    found: {
+      workspaceId: string;
+      replayOfRunId: string | null;
+      replayTeamId: string | null;
+    },
+    viewerId: UserId,
+  ): Promise<boolean> {
+    if (!found.replayOfRunId) {
+      return this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId));
+    }
+    if (!found.replayTeamId) {
+      return false;
+    }
+
+    const reader = await this.access.clearanceAsTeamReader(
+      found.replayTeamId,
+      PersonPrincipal.of(viewerId),
+    );
+
+    return reader?.workspaceId.value === found.workspaceId;
   }
 
   async eventsSince(

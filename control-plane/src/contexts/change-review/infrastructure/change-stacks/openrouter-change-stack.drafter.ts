@@ -1,5 +1,7 @@
+import { DraftingError } from '@change-review/application/errors/drafting.error';
 import type {
   ChangeStackDraft,
+  ChangeStackDrafted,
   ChangeStackDrafterPort,
 } from '@change-review/application/ports/change-stack-drafter.port';
 import type {
@@ -9,15 +11,13 @@ import type {
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
 import type { StackRevision } from '@change-review/domain/services/stack-revision';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
-import {
-  COHORT_KINDS,
-  type ProposedCohort,
-} from '@change-review/domain/value-objects/stack-cohort.vo';
+import { COHORT_KINDS } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import {
   askForJson,
   type Fetch,
   JsonShape,
+  OpenRouterUnansweredError,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
@@ -209,7 +209,7 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
     facts,
     problems,
     reordering,
-  }: ChangeStackDraft): Promise<readonly ProposedCohort[]> {
+  }: ChangeStackDraft): Promise<ChangeStackDrafted> {
     if (!this.apiKey) {
       throw new Error('No OpenRouter API key is set for change stacks');
     }
@@ -227,7 +227,7 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
       .filter(Boolean)
       .join('\n\n');
 
-    const { cohorts } = await askForJson({
+    const { answer, usage } = await askForJson({
       apiKey: this.apiKey,
       model: this.model,
       fetch: this.fetch,
@@ -235,15 +235,22 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
       system: SYSTEM,
       asked,
       most: MOST_OUTPUT,
+    }).catch((error: unknown) => {
+      throw error instanceof OpenRouterUnansweredError
+        ? new DraftingError(error.message, error.usage)
+        : error;
     });
 
-    return cohorts.map((cohort) => ({
-      ...cohort,
-      layers: cohort.layers.map(({ files, ranges, ...layer }) => ({
-        ...layer,
-        ranges: ranges.map((range) => ({ hunk: HunkId.of(range.hunk) })),
-        notes: files,
+    return {
+      cohorts: answer.cohorts.map((cohort) => ({
+        ...cohort,
+        layers: cohort.layers.map(({ files, ranges, ...layer }) => ({
+          ...layer,
+          ranges: ranges.map((range) => ({ hunk: HunkId.of(range.hunk) })),
+          notes: files,
+        })),
       })),
-    }));
+      usage,
+    };
   }
 }

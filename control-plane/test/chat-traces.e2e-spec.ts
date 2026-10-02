@@ -138,7 +138,7 @@ describe('traces shared in a chat', () => {
     const runId = await taskRun('team_3');
 
     expect(
-      (await traces.teamOfHeldRun(runId, RunnerId.of(RUNNER)))?.value,
+      (await traces.heldRunStanding(runId, RunnerId.of(RUNNER)))?.teamId.value,
     ).toBe('team_3');
   });
 
@@ -160,7 +160,7 @@ describe('traces shared in a chat', () => {
     const runId = await chatRun('claimed');
 
     expect(
-      (await traces.teamOfHeldRun(runId, RunnerId.of(RUNNER)))?.value,
+      (await traces.heldRunStanding(runId, RunnerId.of(RUNNER)))?.teamId.value,
     ).toBe('team_1');
   });
 
@@ -169,10 +169,10 @@ describe('traces shared in a chat', () => {
     const finished = await chatRun('completed');
 
     await expect(
-      traces.teamOfHeldRun(claimed, RunnerId.of('runner_2')),
+      traces.heldRunStanding(claimed, RunnerId.of('runner_2')),
     ).resolves.toBeNull();
     await expect(
-      traces.teamOfHeldRun(finished, RunnerId.of(RUNNER)),
+      traces.heldRunStanding(finished, RunnerId.of(RUNNER)),
     ).resolves.toBeNull();
   });
 });

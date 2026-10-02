@@ -148,6 +148,7 @@ const asking = (start: Task, subject?: RunSubject) => {
           }).handedTo(RunId.of('run_1'), NOW),
       } as unknown as ChatRepository,
       { holding: async () => LINE } as unknown as LineRepository,
+      { of: async () => null },
       { now: () => NOW, sleep: async () => {} },
     ),
     {

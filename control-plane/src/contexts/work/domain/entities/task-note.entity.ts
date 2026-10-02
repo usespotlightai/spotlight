@@ -129,7 +129,7 @@ export class TaskNote {
       : this;
   }
 
-  recurred(): TaskNote {
+  recurred(as: TaskFailure): TaskNote {
     return this.failure
       ? new TaskNote(
           this.position,
@@ -145,7 +145,7 @@ export class TaskNote {
           this.form,
           this.attachments,
           this.approval,
-          this.failure.again(),
+          as,
           this.heldBack,
         )
       : this;

@@ -21,6 +21,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -31,11 +32,20 @@ import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
 
 type Row = typeof changeStack.$inferSelect;
 
+const usageRow = (spent: ModelUsage) => ({
+  calls: spent.calls,
+  inputTokens: spent.inputTokens,
+  outputTokens: spent.outputTokens,
+  costs: spent.costs.map((each) => ({ ...each })),
+  unpriced: spent.unpriced,
+});
+
 const toChangeStack = (row: Row): ChangeStack =>
   ChangeStack.rehydrate({
     id: ChangeStackId.of(row.id),
     runId: RunId.of(row.runId),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
+    replay: row.replay,
     workspaceId: WorkspaceId.of(row.workspaceId),
     repository: row.repository ? RepositoryName.of(row.repository) : null,
     base: row.baseCommit ? BaseCommit.of(row.baseCommit) : null,
@@ -60,6 +70,7 @@ const toChangeStack = (row: Row): ChangeStack =>
         )
       : null,
     reordering: row.reordering,
+    spent: ModelUsage.rehydrate(row.spent),
     version: row.version,
   });
 
@@ -83,6 +94,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       id: added.id.value,
       runId: added.runId.value,
       taskId: added.taskId?.value ?? null,
+      replay: added.replay,
       workspaceId: added.workspaceId.value,
       repository: added.repository?.value ?? null,
       baseCommit: added.base?.value ?? null,
@@ -100,6 +112,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       checkPlacement: added.request?.placement.clauses ?? [],
       checkPlacementImage: added.request?.placement.image?.value ?? null,
       reordering: added.reordering,
+      spent: usageRow(added.spent),
       version: added.version,
     });
   }
@@ -123,6 +136,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         workAttempts: saved.work.attempts,
         workDueAt: saved.work.dueAt,
         reordering: saved.reordering,
+        spent: usageRow(saved.spent),
       })
       .where(
         and(
@@ -145,6 +159,16 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       .limit(1);
 
     return row ? toChangeStack(row) : null;
+  }
+
+  async ofRun(runId: RunId): Promise<readonly ChangeStack[]> {
+    const rows = await this.context.db
+      .select()
+      .from(changeStack)
+      .where(eq(changeStack.runId, runId.value))
+      .orderBy(asc(changeStack.draftedAt), asc(changeStack.id));
+
+    return rows.map(toChangeStack);
   }
 
   async dueForWork(now: Date): Promise<ChangeStack | null> {

@@ -17,7 +17,11 @@ import { describe, expect, it, vi } from 'vitest';
 const RUN = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 
 const drafting = (
-  over: { worked?: boolean; checking?: CheckingPlan | null } = {},
+  over: {
+    worked?: boolean;
+    checking?: CheckingPlan | null;
+    replay?: boolean;
+  } = {},
 ) => {
   const begin = vi.fn(async () => ({}) as never);
 
@@ -25,11 +29,12 @@ const drafting = (
     run: async () => ({
       id: RunId.of(RUN),
       workspaceId: WorkspaceId.of('ws_1'),
-      taskId: TaskId.of('task_1'),
+      taskId: over.replay ? null : TaskId.of('task_1'),
       checking: over.checking ?? null,
       ended: false,
       completed: false,
       decisions: false,
+      replay: over.replay === true,
     }),
     wasWorkedBy: async () => over.worked !== false,
     reasoning: async () => null,
@@ -77,6 +82,7 @@ describe('DraftRunChangeStackHandler', () => {
       {
         id: RunId.of(RUN),
         taskId: TaskId.of('task_1'),
+        replay: false,
         workspaceId: WorkspaceId.of('ws_1'),
       },
       {
@@ -143,5 +149,23 @@ describe('DraftRunChangeStackHandler', () => {
 
     await expect(handler.execute(handed())).rejects.toThrow(UseCaseFault);
     expect(begin).not.toHaveBeenCalled();
+  });
+
+  it('drafts a replay’s change as the replay’s own, with the check its run was dispatched with', async () => {
+    const { handler, begin } = drafting({ checking, replay: true });
+
+    await handler.execute(handed());
+
+    expect(begin).toHaveBeenCalledWith(
+      {
+        id: RunId.of(RUN),
+        taskId: null,
+        replay: true,
+        workspaceId: WorkspaceId.of('ws_1'),
+      },
+      expect.objectContaining({
+        request: CheckRequest.of('npm test', 'npm ci', placement),
+      }),
+    );
   });
 });

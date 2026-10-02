@@ -1,6 +1,5 @@
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 import type { SkillBrief } from '@work/application/dto/ready-skill.dto';
-import type { BriefedDecision } from '@work/application/ports/task-decisions.port';
 import type {
   BriefedMemory,
   MemoryFolder,
@@ -8,9 +7,13 @@ import type {
 import { Attached } from '@work/application/rendering/attached';
 import { Learned } from '@work/application/rendering/learned';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { OpenRemark, Task } from '@work/domain/aggregates/task.aggregate';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
-import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
+import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
+import type {
+  BriefedRemark,
+  BriefedTask,
+  DecisionOnRecord,
+} from '@work/domain/value-objects/briefed-task.vo';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
 import { RemarkHandle } from '@work/domain/value-objects/remark-handle.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -45,7 +48,7 @@ const closing = (line: Line, stationId: StationId): string => {
     .join('\n\n');
 };
 
-const answering = (task: Task): string | null => {
+const answering = (task: BriefedTask): string | null => {
   const open = task.openRemarks;
 
   if (open.length === 0) {
@@ -53,16 +56,12 @@ const answering = (task: Task): string | null => {
   }
 
   const listed = open.map((each) =>
-    [
-      `- \`${RemarkHandle.for(each.at)}\``,
-      each.said.place,
-      each.said.body || null,
-    ]
+    [`- \`${RemarkHandle.for(each.at)}\``, each.place, each.body || null]
       .filter(Boolean)
       .join(' — '),
   );
 
-  const one = RemarkHandle.for((open[0] as OpenRemark).at);
+  const one = RemarkHandle.for((open[0] as BriefedRemark).at);
 
   return [
     '## Answering the pull request',
@@ -98,7 +97,7 @@ const labelled = (kind: string): string => {
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
-const recorded = (decision: BriefedDecision): string =>
+const recorded = (decision: DecisionOnRecord): string =>
   [
     `- **${labelled(decision.kind)}** · ${decision.title} — ${decision.why} (${decision.paths.map((path) => `\`${path}\``).join(', ')})`,
     ...decision.disputes.map(
@@ -106,7 +105,7 @@ const recorded = (decision: BriefedDecision): string =>
     ),
   ].join('\n');
 
-const onRecord = (decisions: readonly BriefedDecision[]): string | null =>
+const onRecord = (decisions: readonly DecisionOnRecord[]): string | null =>
   decisions.length > 0
     ? [
         '## Decisions on record',
@@ -131,8 +130,8 @@ const SAYING_DECISIONS = [
 const KEPT_WORKSPACE =
   'The task keeps this workspace from one run and station to the next, so work an earlier one left, committed or not, may already be here.';
 
-const workspaceOf = (task: Task, line: Line): string | null => {
-  const repositories = repositoriesWorkedOn(task, line);
+const workspaceOf = (task: BriefedTask, line: Line): string | null => {
+  const repositories = repositoriesReviewedOrAll(task.reviewing, line);
 
   if (repositories.length === 0) {
     return null;
@@ -159,27 +158,26 @@ const workspaceOf = (task: Task, line: Line): string | null => {
 
 export const TaskBriefing = {
   brief(input: {
-    task: Task;
+    task: BriefedTask;
     line: Line;
     skills: readonly SkillBrief[];
     listedIn: string | null;
-    decisions: readonly BriefedDecision[];
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
   }): string {
     const station = input.line.stationAt(input.task.stationId);
     const notes = input.task.notes.map(
       (note) =>
-        `### ${note.station.value}\n\n${Attached.beside(note.body.value, note.attachments)}`,
+        `### ${note.station}\n\n${Attached.beside(note.body, note.attachments)}`,
     );
 
     return [
       station?.agentPrompt?.value.trim(),
-      `## ${input.task.title.value}`,
-      input.task.description?.value,
+      `## ${input.task.title}`,
+      input.task.description,
       Attached.listed(input.task.attachments),
       notes.length > 0 ? ['## Already done', ...notes].join('\n\n') : null,
-      onRecord(input.decisions),
+      onRecord(input.task.decisions),
       Learned.section(input.memories),
       Learned.rest({
         folder: input.memoryFolder,

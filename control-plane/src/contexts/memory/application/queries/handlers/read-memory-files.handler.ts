@@ -23,7 +23,7 @@ export class ReadMemoryFilesHandler
   async execute(query: ReadMemoryFilesQuery): Promise<MemoryFileDto[]> {
     try {
       const held = await this.atHand.held(query.runId, query.runnerId);
-      const applying = await this.inReach.at(held);
+      const applying = await this.inReach.at(held, held.replaysFrom);
       const [lines, replaced] = await Promise.all([
         this.work.linesOf(held.teamId),
         this.memories.findAll(

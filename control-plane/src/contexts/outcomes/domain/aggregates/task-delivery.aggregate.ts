@@ -77,6 +77,29 @@ export class TaskDelivery extends EventRecorder {
     );
   }
 
+  asOf(at: Date): TaskDelivery | null {
+    const known = (when: Date | null): boolean =>
+      when !== null && when.getTime() <= at.getTime();
+
+    if (!known(this.openedAt)) {
+      return null;
+    }
+
+    const closed = this.finished && known(this.closedAt);
+
+    return new TaskDelivery(
+      this.taskId,
+      this.workspaceId,
+      this.teamId,
+      this.pullRequest,
+      closed ? this.state : 'open',
+      this.openedAt,
+      known(this.firstReviewAt) ? this.firstReviewAt : null,
+      closed ? this.closedAt : null,
+      this.version,
+    );
+  }
+
   get merged(): boolean {
     return this.state === 'merged';
   }

@@ -181,7 +181,24 @@ export class Memory extends EventRecorder {
   }
 
   standsOn(teamId: TeamId): boolean {
-    return this.stands && this.state.scope.teamId.equals(teamId);
+    return this.stands && this.isTeams(teamId);
+  }
+
+  isTeams(teamId: TeamId): boolean {
+    return this.state.scope.teamId.equals(teamId);
+  }
+
+  stoodAt(at: Date): boolean {
+    const retired = this.state.retirement?.at ?? null;
+
+    return (
+      this.state.approval.at.getTime() <= at.getTime() &&
+      (retired === null || retired.getTime() > at.getTime())
+    );
+  }
+
+  stoodOn(teamId: TeamId, at: Date): boolean {
+    return this.isTeams(teamId) && this.stoodAt(at);
   }
 
   appliesAt(site: RunSite): boolean {

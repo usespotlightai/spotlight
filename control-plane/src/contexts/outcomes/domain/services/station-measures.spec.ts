@@ -10,6 +10,8 @@ import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+
 const at = (hour: number) => day('2026-09-30', hour);
 
 const through = (
@@ -46,9 +48,11 @@ describe('measureOf', () => {
     const records = [
       endedRecord('run_1', { taskId: 'task_1', endedAt: at(1) }).checked(
         'failed',
+        HEARD_AT,
       ),
       endedRecord('run_2', { taskId: 'task_1', endedAt: at(2) }).checked(
         'passed',
+        HEARD_AT,
       ),
       endedRecord('run_3', { taskId: 'task_2', endedAt: at(3) }),
     ];
@@ -178,8 +182,12 @@ describe('readingOf, among settled runs', () => {
     const records = [
       endedRecord('run_3', { taskId: 'task_3', endedAt: at(3) }).checked(
         'skipped',
+        HEARD_AT,
       ),
-      costedRecord('run_2', { amount: 3, endedAt: at(2) }).checked('failed'),
+      costedRecord('run_2', { amount: 3, endedAt: at(2) }).checked(
+        'failed',
+        HEARD_AT,
+      ),
     ];
 
     expect(readingOf(checks, records, [])).toEqual(through('run_2', 1));

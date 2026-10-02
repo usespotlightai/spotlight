@@ -3,7 +3,10 @@ import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { HandoverFor } from '@work/domain/services/handover-for';
-import { routeAfterRun } from '@work/domain/services/route-after-run';
+import {
+  putsItToAPerson,
+  routeAfterRun,
+} from '@work/domain/services/route-after-run';
 import type { Declaration } from '@work/domain/value-objects/declaration.vo';
 import type { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -36,9 +39,7 @@ const asksAPerson = (turn: Turn): boolean => {
 
   const routing = routeAfterRun(handoverOf(task, turn), line, task);
 
-  return (
-    task.awaitingReview || (routing.kind === 'ask' && routing.failure === null)
-  );
+  return task.awaitingReview || putsItToAPerson(routing);
 };
 
 export const turnWaits = (
@@ -69,6 +70,15 @@ export const turnEnded = (turn: {
   const { run, by, task, line, outcome, report, kept, now } = turn;
 
   const asked = { run, task, line, outcome, declared: report.declared };
+
+  if (run.isReplay) {
+    return {
+      waiting: false,
+      run: run.complete(by, outcome, report),
+      task: null,
+    };
+  }
+
   const waits = turnWaits({ ...asked, by, mayBeWithheld: false });
 
   if (waits && run.pausedBy(by)) {

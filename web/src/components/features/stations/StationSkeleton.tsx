@@ -1,16 +1,9 @@
-import { ChevronRight } from 'lucide-react';
 import { StationLayout } from '@/components/features/stations/StationLayout';
 import { StationSection } from '@/components/features/stations/StationSection';
+import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-
-const CRUMB = (
-  <ChevronRight
-    className="size-3.5 shrink-0 text-muted-foreground"
-    aria-hidden
-  />
-);
 
 export function StationSkeleton() {
   return (
@@ -24,9 +17,9 @@ export function StationSkeleton() {
           <>
             <Skeleton className="size-6 rounded" />
             <SkeletonLine className="w-20" />
-            {CRUMB}
+            <CrumbSeparator />
             <SkeletonLine className="w-16" />
-            {CRUMB}
+            <CrumbSeparator />
             <SkeletonLine className="w-16" />
           </>
         }

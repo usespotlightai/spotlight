@@ -244,12 +244,14 @@ export const outcomesSubscribers = (
     'outcomes.record-checked-change',
     [CHANGE_CHECKED],
     (event) =>
-      reactions.checking.checked(
-        RunId.of(event.runId),
-        WorkspaceId.of(event.workspaceId),
-        event.taskId ? TaskId.of(event.taskId) : null,
-        event.passed,
-      ),
+      event.taskId
+        ? reactions.checking.checked(
+            RunId.of(event.runId),
+            WorkspaceId.of(event.workspaceId),
+            TaskId.of(event.taskId),
+            event.passed,
+          )
+        : Promise.resolve(),
   ),
   subscribing<TaskActedOnIntegrationEvent>(
     'outcomes.record-next-person-act',

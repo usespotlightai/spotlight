@@ -145,6 +145,19 @@ const givenUp = () => {
   return ended;
 };
 
+const timedOut = () => {
+  const runner = RunnerId.of('runner_1');
+  let ended = queued();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    ended.pullEvents();
+    ended =
+      attempt < 2
+        ? ended.claim(runner, NOW).requeue(LATER)
+        : ended.claim(runner, NOW).timedOut(runner, NOW);
+  }
+  return ended;
+};
+
 let saved: Task | undefined;
 let savedRun: Run | undefined;
 let storedRun: Run | null = null;
@@ -339,6 +352,13 @@ describe('HandOver', () => {
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes[0]?.body.value).toContain('3 attempts');
     expect(saved?.notes[0]?.failure?.code).toBe('runner-lost');
+  });
+
+  it('names the run’s last failure when it was given up on after timing out', async () => {
+    await handOver(timedOut());
+
+    expect(saved?.notes[0]?.body.value).toContain('3 attempts');
+    expect(saved?.notes[0]?.failure?.code).toBe('timed-out');
   });
 
   it('hands over even where the task has since gone missing', async () => {

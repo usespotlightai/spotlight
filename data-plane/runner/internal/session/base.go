@@ -15,13 +15,7 @@ func markBases(ctx context.Context, dir string, checkouts []protocol.Checkout, l
 	marked := make(map[string]string, len(checkouts))
 
 	for _, checkout := range checkouts {
-		repository := filepath.Join(dir, checkout.Path)
-		git := func(args ...string) (string, error) {
-			output, err := exec.CommandContext(ctx, "git",
-				append([]string{"-c", "safe.directory=*", "-C", repository}, args...)...,
-			).CombinedOutput()
-			return strings.TrimSpace(string(output)), err
-		}
+		git := gitIn(ctx, filepath.Join(dir, checkout.Path))
 
 		base := "HEAD"
 		if left, err := git("merge-base", "HEAD", "refs/remotes/origin/HEAD"); err == nil && left != "" {
@@ -47,4 +41,13 @@ func markBases(ctx context.Context, dir string, checkouts []protocol.Checkout, l
 	}
 
 	return marked
+}
+
+func gitIn(ctx context.Context, repository string) func(args ...string) (string, error) {
+	return func(args ...string) (string, error) {
+		output, err := exec.CommandContext(ctx, "git",
+			append([]string{"-c", "safe.directory=*", "-C", repository}, args...)...,
+		).CombinedOutput()
+		return strings.TrimSpace(string(output)), err
+	}
 }

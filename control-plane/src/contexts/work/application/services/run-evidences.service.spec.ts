@@ -5,6 +5,7 @@ import type {
   JournalStep,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
+import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { RunEvidences } from '@work/application/services/run-evidences.service';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -69,14 +70,25 @@ const journal: RunJournal = {
   spent: null,
 };
 
+const TASK_RUN = {
+  id: RunId.of('run_1'),
+  taskId: TaskId.of('task_1'),
+  replayOf: null,
+  spec: { checkoutFolders: ['api'] },
+};
+
+const REPLAY = {
+  id: RunId.of('replay_1'),
+  taskId: null,
+  replayOf: RunId.of('run_1'),
+  spec: { checkoutFolders: ['api'] },
+};
+
 const evidences = (judge: StationJudge | null = null) =>
   new RunEvidences(
     {
-      findById: async () => ({
-        id: RunId.of('run_1'),
-        taskId: TaskId.of('task_1'),
-        spec: { checkoutFolders: ['api'] },
-      }),
+      findById: async (id: RunId) =>
+        [TASK_RUN, REPLAY].find((each) => each.id.equals(id)) ?? null,
     } as unknown as RunRepository,
     {
       find: async () => ({
@@ -98,6 +110,15 @@ const evidences = (judge: StationJudge | null = null) =>
         { ...journal, attempt: 2, steps: journal.steps.slice(2) },
       ],
     } as unknown as RunJournalReaderPort,
+    {
+      of: async (runId: RunId) =>
+        runId.equals(TASK_RUN.id)
+          ? {
+              title: 'Retry uploads, as briefed',
+              description: 'They failed then.',
+            }
+          : null,
+    } as unknown as BriefedTasksPort,
     { sha256: (text: string) => `sha of ${text}` },
   );
 
@@ -110,6 +131,20 @@ describe('RunEvidences', () => {
     expect(evidence?.steps.map((each) => each.index)).toEqual([0, 1, 2]);
     expect(evidence?.steps[1]?.given?.length).toBeLessThan(2_100);
     expect(evidence?.steps[1]?.tool).toBe('edit');
+  });
+
+  it('tells a replay by the task its original was briefed with, and by its own steps and changes', async () => {
+    const evidence = await evidences().of('replay_1');
+
+    expect(evidence).toMatchObject({
+      runId: 'replay_1',
+      taskId: 'task_1',
+      title: 'Retry uploads, as briefed',
+      description: 'They failed then.',
+    });
+    expect(evidence?.hunks.map((each) => each.id)).toEqual([
+      'api/src/uploads.ts#1',
+    ]);
   });
 
   it('cuts the run’s file changes into hunks named by path and place', async () => {

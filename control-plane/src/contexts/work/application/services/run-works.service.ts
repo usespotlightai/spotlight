@@ -3,7 +3,9 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import { ChatRunWork } from '@work/application/services/chat-run-work';
+import { ReplayRunWork } from '@work/application/services/replay-run-work';
 import type { RunWork } from '@work/application/services/run-work';
 import { TaskRunWork } from '@work/application/services/task-run-work';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
@@ -32,6 +34,7 @@ export class RunWorks {
     private readonly tasks: TaskRepository,
     private readonly chats: ChatRepository,
     private readonly lines: LineRepository,
+    private readonly briefedTasks: BriefedTasksPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -45,6 +48,12 @@ export class RunWorks {
     run.assertHeldBy(RunnerId.of(runnerId));
 
     return { run, work: await this.workOf(run) };
+  }
+
+  async workHeldBy(runId: string, runnerId: string): Promise<RunWork | null> {
+    const run = await this.runs.findById(RunId.of(runId));
+
+    return run?.isHeldBy(RunnerId.of(runnerId)) ? this.workOf(run) : null;
   }
 
   async stillOn(attempt: RunAttempt, runnerId: string): Promise<void> {
@@ -63,6 +72,14 @@ export class RunWorks {
   ): Promise<CheckedRepository | null> {
     const run = await this.runs.findById(runId);
 
+    if (run?.isReplay) {
+      const replayed = run.replayedRepository(name);
+
+      return replayed
+        ? { workspaceId: run.workspaceId, repository: replayed }
+        : null;
+    }
+
     if (!run?.stationId) {
       return null;
     }
@@ -71,6 +88,7 @@ export class RunWorks {
       (await run.subject?.match<Promise<Task | null>>({
         task: (taskId) => this.tasks.find(taskId),
         chat: async () => null,
+        replay: async () => null,
       })) ?? null;
     const line = await this.lines.holding(run.stationId);
     const repository = line ? repositoryWorkedOnNamed(name, task, line) : null;
@@ -96,6 +114,8 @@ export class RunWorks {
 
         return chat ? new ChatRunWork(run, chat, this.chats) : null;
       },
+      replay: async (original) =>
+        new ReplayRunWork(run, await this.briefedTasks.of(original), this.runs),
     });
   }
 }

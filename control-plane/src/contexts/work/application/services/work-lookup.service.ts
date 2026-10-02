@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -90,7 +91,7 @@ export class WorkLookup implements WorkLookupPort {
       id: run.id,
       workspaceId: run.workspaceId,
       taskId: run.taskId,
-      check: station?.check?.value ?? null,
+      check: run.spec.check,
       setups: run.spec.checkoutSetups,
       placement: run.placement,
       decisions: station?.decisions ?? false,
@@ -98,6 +99,7 @@ export class WorkLookup implements WorkLookupPort {
       briefedWith: run.briefedWith.value,
       ended: run.hasEnded,
       completed: run.hasCompleted,
+      replay: run.isReplay,
     };
   }
 
@@ -198,9 +200,27 @@ export class WorkLookup implements WorkLookupPort {
         id: run.id,
         workspaceId: run.workspaceId,
         taskId: run.taskId,
+        replaysFrom: await this.replaysFrom(run),
         ...site,
       }
     );
+  }
+
+  private async replaysFrom(run: Run): Promise<Date | null> {
+    if (!run.replayOf) {
+      return null;
+    }
+
+    const started = (await this.runs.findById(run.replayOf))?.startedFrom;
+
+    if (!started) {
+      throw new InconsistentStateError(
+        'run',
+        `replays a run that never said where it started (${run.id.value})`,
+      );
+    }
+
+    return started.at;
   }
 
   async siteOfRun(runId: RunId): Promise<RunSite | null> {
@@ -232,6 +252,16 @@ export class WorkLookup implements WorkLookupPort {
     }
 
     const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const replayedFor = run.replayedFor;
+
+    if (replayedFor) {
+      return {
+        teamId: replayedFor,
+        lineId: line?.teamId.equals(replayedFor) ? line.id.value : null,
+        stationId: line ? (run.stationId?.value ?? null) : null,
+        repositories: run.replayedRepositories,
+      };
+    }
 
     return (
       line &&

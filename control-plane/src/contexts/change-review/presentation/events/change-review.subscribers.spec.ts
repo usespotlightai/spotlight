@@ -304,6 +304,7 @@ describe('change review hearing a stack’s check end', () => {
         null,
         WorkspaceId.of('ws_1'),
         true,
+        false,
       ),
     );
 

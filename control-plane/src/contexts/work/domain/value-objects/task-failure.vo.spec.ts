@@ -19,6 +19,23 @@ describe('TaskFailure', () => {
     ).toBe(false);
   });
 
+  it('counts a run lost and a run that timed out as one repeating failure, named for the latest', () => {
+    const lost = TaskFailure.fromRun('runner-lost');
+    const timedOut = TaskFailure.fromRun('timed-out').following(lost);
+
+    expect([timedOut.code, timedOut.occurrences]).toEqual(['timed-out', 2]);
+
+    const lostAgain = TaskFailure.fromRun('runner-lost').following(timedOut);
+
+    expect([lostAgain.code, lostAgain.occurrences]).toEqual(['runner-lost', 3]);
+    expect(TaskFailure.fromRun('exited').following(lost).occurrences).toBe(1);
+    expect(
+      TaskFailure.fromHook('notify', 'timed-out').following(
+        TaskFailure.fromHook('notify', 'runner-lost'),
+      ).occurrences,
+    ).toBe(1);
+  });
+
   it('refuses a failure that says nothing of what went wrong, or of which hook', () => {
     expect(() => TaskFailure.fromRun(' ')).toThrow(InvalidTaskFailureError);
     expect(() => TaskFailure.fromHook(' ', 'loop')).toThrow(

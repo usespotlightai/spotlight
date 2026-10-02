@@ -1,5 +1,6 @@
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RememberCommand } from '@memory/application/commands/remember.command';
+import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { HeldRun, WorkPort } from '@memory/application/ports/work.port';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
@@ -28,6 +29,7 @@ const HELD: HeldRun = {
   lineId: 'line_1',
   stationId: 'station_1',
   repositories: [],
+  replaysFrom: null,
 };
 
 const remembering = (held: HeldRun | null = HELD) => {
@@ -56,7 +58,11 @@ const remembering = (held: HeldRun | null = HELD) => {
   } as unknown as WorkPort;
 
   const handler = new RememberHandler(
-    new RunnerMemoryAtHand(work),
+    new RunnerMemoryAtHand(
+      work,
+      { record: async () => {} } as unknown as MemoryUsesPort,
+      { now: () => NOW, sleep: async () => {} },
+    ),
     work,
     {
       forTask: async () => null,

@@ -1,9 +1,11 @@
 import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type { RunDigestWriterPort } from '@work/application/ports/run-digest-writer.port';
 import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
+import { ReplayDigested } from '@work/domain/events/replay-digested.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
+import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 
 export class DigestRun {
@@ -13,18 +15,43 @@ export class DigestRun {
     private readonly tools: RunToolsReaderPort,
   ) {}
 
-  onRunCompleted(event: RunCompleted): Promise<readonly RunDigested[]> {
+  onRunCompleted(
+    event: RunCompleted,
+  ): Promise<readonly (RunDigested | ReplayDigested)[]> {
     return this.digested(event);
   }
 
-  onRunAbandoned(event: RunAbandoned): Promise<readonly RunDigested[]> {
+  onRunAbandoned(
+    event: RunAbandoned,
+  ): Promise<readonly (RunDigested | ReplayDigested)[]> {
     return this.digested(event);
   }
 
   private async digested(
     event: RunCompleted | RunAbandoned,
-  ): Promise<readonly RunDigested[]> {
+  ): Promise<readonly (RunDigested | ReplayDigested)[]> {
     await this.digests.ensure([event.runId]);
+
+    const replayOf = event.subject?.replayOf;
+
+    if (replayOf) {
+      const digest = (await this.written.forRuns([event.runId])).get(
+        event.runId.value,
+      );
+
+      return [
+        new ReplayDigested(
+          event.runId,
+          event.workspaceId,
+          replayOf,
+          digest?.ms ?? null,
+          digest?.steps ?? 0,
+          digest?.changedLines ?? null,
+          digest?.cost ?? null,
+          digest?.tokens ?? Tokens.UNREPORTED,
+        ),
+      ];
+    }
 
     const digest = (await this.written.forRuns([event.runId])).get(
       event.runId.value,

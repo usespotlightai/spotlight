@@ -23,6 +23,7 @@ const waiting = (stack: string) =>
     stackId: ChangeStackId.of(stack),
     runId: RunId.of(`run_of_${stack}`),
     taskId: null,
+    replay: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
     entries: [],

@@ -287,6 +287,27 @@ func TestChecksOutARefTheCloneDoesNotHold(t *testing.T) {
 	}
 }
 
+func TestChecksOutACommitOnlyTheRestoredCheckoutHolds(t *testing.T) {
+	f := setUp(t)
+	f.restored(t, "spotlight/task-1")
+	write(t, filepath.Join(f.tree(), "local.md"), "never pushed\n")
+	git(t, f.tree(), "add", "--all")
+	git(t, f.tree(), "-c", "user.name=Someone", "-c", "user.email=someone@example.com", "commit", "--quiet", "--message", "local")
+	local := git(t, f.tree(), "rev-parse", "HEAD")
+	git(t, f.tree(), "switch", "--quiet", "--detach", "HEAD~1")
+
+	replayed := f.checkout("")
+	replayed.Ref = local
+
+	if said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{replayed}, f.options()); err != nil {
+		t.Fatalf("prepare: %v\n%s", err, said)
+	}
+
+	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != local {
+		t.Errorf("at %s, want the commit only the restored checkout holds, %s", got, local)
+	}
+}
+
 func TestClonesFromTheHostsMirrorWithoutDependingOnIt(t *testing.T) {
 	f := setUp(t)
 	mirrors := filepath.Join(filepath.Dir(f.workspace), "mirrors")

@@ -1,0 +1,230 @@
+import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
+import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
+import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
+import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
+import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
+import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import type { StationCatalog } from '@work/application/services/station-catalog.service';
+import { StationOrdering } from '@work/application/services/station-ordering';
+import type { StationSkills } from '@work/application/services/station-skills.service';
+import type { Line } from '@work/domain/aggregates/line.aggregate';
+import { Run } from '@work/domain/aggregates/run.aggregate';
+import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
+import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
+import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
+import {
+  type ReplayPlan,
+  replayPlanFor,
+} from '@work/domain/services/replay-plan';
+import { REPLAY_PRIORITY } from '@work/domain/services/replay-priority';
+import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+
+export interface ReplayAsked {
+  readonly original: RunId;
+  readonly candidate: Line;
+  readonly id?: RunId;
+}
+
+export class DispatchReplay {
+  private readonly ordering: StationOrdering;
+
+  constructor(
+    private readonly runs: RunRepository,
+    private readonly archives: WorkspaceArchiveRepository,
+    private readonly tasks: TaskRepository,
+    private readonly briefedTasks: BriefedTasksPort,
+    private readonly ids: IdGeneratorPort,
+    harnesses: HarnessCatalog,
+    launch: HarnessLaunchPort,
+    private readonly tracing: TraceParentPort,
+    builtInSkills: BuiltInSkillsPort,
+    teamSkills: StationSkills,
+    catalog: StationCatalog,
+    profiles: StationProfilesPort,
+    private readonly memories: MemoriesBriefedBeforePort,
+    private readonly files: AttachmentStorePort,
+    digest: ContentDigestPort,
+  ) {
+    this.ordering = new StationOrdering(
+      harnesses,
+      launch,
+      builtInSkills,
+      teamSkills,
+      catalog,
+      profiles,
+      digest,
+    );
+  }
+
+  async enqueue({
+    original,
+    candidate,
+    id: asked,
+  }: ReplayAsked): Promise<RunId> {
+    if (asked && (await this.alreadyQueued(asked, original))) {
+      return asked;
+    }
+
+    const replayed = await this.runs.findById(original);
+
+    if (!replayed) {
+      throw new UnreplayableRunError(
+        original.value,
+        'unknown-run',
+        'there is no such run',
+      );
+    }
+
+    const id = asked ?? RunId.of(this.ids.generate());
+    const plan = await this.planned(replayed, candidate, id);
+    const ordered = await this.ordering.orderedForReplay(candidate, plan.at);
+
+    if (!ordered) {
+      throw new UnreplayableRunError(
+        original.value,
+        'cannot-start',
+        'the candidate station runs no harness a runner can start',
+      );
+    }
+
+    const { order, folders, home } = ordered;
+    const memories = await this.memories.again(
+      {
+        teamId: candidate.teamId,
+        lineId: candidate.id.value,
+        stationId: plan.at.stationId.value,
+        repositories: repositoriesReviewedOrAll(
+          plan.briefed.reviewing,
+          candidate,
+        ),
+      },
+      replayed.briefedWith.value,
+      plan.startedAt,
+    );
+    const briefing = TaskBriefing.brief({
+      task: plan.briefed,
+      line: candidate,
+      skills: folders.map((each) => each.skill),
+      listedIn: home.readByHarness ? null : home.directory,
+      memories: memories.briefed,
+      memoryFolder: memories.folder,
+    });
+
+    const queued = Run.enqueue({
+      id,
+      workspaceId: replayed.workspaceId,
+      harness: order.harness.id,
+      priority: REPLAY_PRIORITY,
+      subject: plan.subject,
+      placement: order.placement,
+      briefedWith: BriefedMemories.of({
+        briefed: memories.briefed,
+        cut: memories.cut,
+      }),
+      configuredAs: this.ordering.configuredAs(ordered, candidate),
+      spec: RunSpec.of({
+        ...this.ordering.laid(ordered, {
+          briefing,
+          naming: this.tracing.for(plan.taskId, id),
+          attachments: plan.briefed.allAttachments,
+        }),
+        replay: plan.replay,
+      }),
+    });
+
+    await this.runs.add(order.refusal ? queued.refused(order.refusal) : queued);
+
+    return id;
+  }
+
+  async planned(
+    replayed: Run,
+    candidate: Line,
+    id: RunId,
+  ): Promise<ReplayPlan> {
+    const plan = replayPlanFor({
+      original: replayed,
+      briefed: await this.briefedTasks.of(replayed.id),
+      candidate,
+      id,
+    });
+
+    if (!(await this.tasks.find(plan.taskId))) {
+      throw new UnreplayableRunError(
+        replayed.id.value,
+        'task-gone',
+        'the task it worked was deleted',
+      );
+    }
+
+    await this.stillKept(replayed, plan);
+    await this.attachmentsStillKept(replayed, plan);
+
+    return plan;
+  }
+
+  async alreadyQueued(id: RunId, original: RunId): Promise<boolean> {
+    const queued = await this.runs.findById(id);
+
+    if (!queued) {
+      return false;
+    }
+
+    if (!queued.replayOf?.equals(original)) {
+      throw new InconsistentStateError(
+        'run',
+        `${id.value} is already a run of something other than a replay of ${original.value}`,
+      );
+    }
+
+    return true;
+  }
+
+  private async attachmentsStillKept(
+    replayed: Run,
+    plan: ReplayPlan,
+  ): Promise<void> {
+    await this.files
+      .received(
+        replayed.workspaceId,
+        plan.briefed.allAttachments.map((each) => each.id),
+      )
+      .catch((error: unknown) => {
+        if (error instanceof InvalidAttachmentError) {
+          throw new UnreplayableRunError(
+            replayed.id.value,
+            'attachments-gone',
+            'a file its task was briefed with is no longer kept',
+          );
+        }
+        throw error;
+      });
+  }
+
+  private async stillKept(replayed: Run, plan: ReplayPlan): Promise<void> {
+    if (!plan.archive) {
+      return;
+    }
+
+    const archive = await this.archives.find(plan.archive);
+
+    if (!archive?.isKeptIn(replayed.workspaceId)) {
+      throw new UnreplayableRunError(
+        replayed.id.value,
+        'archive-gone',
+        `the workspace archive it started from (${plan.archive.value}) is no longer kept`,
+      );
+    }
+  }
+}

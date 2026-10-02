@@ -146,6 +146,7 @@ describe('WorkLookup, looking up a run', () => {
             briefing: 'Retry uploads',
             handover: { options: [], noteLimit: 0 },
             continuity: { key: 'task_1' },
+            check: 'npm run verify',
           }),
         }),
       } as unknown as RunRepository,
@@ -163,6 +164,11 @@ describe('WorkLookup, looking up a run', () => {
   ) => lookingUpAt(key, state, placement).run(RunId.of('run_1'));
 
   const placeAt = (key: string) => lookingUpAt(key).placeOf(RunId.of('run_1'));
+
+  it('hands a check the command its run was dispatched with, not the station’s as it stands now', async () => {
+    expect((await runAt('implementation'))?.check).toBe('npm run verify');
+    expect((await runAt('gone'))?.check).toBe('npm run verify');
+  });
 
   it('hands a check the setup each checkout carried into its run', async () => {
     expect((await runAt('spec'))?.setups.get('api')).toBe('npm ci');
@@ -480,6 +486,8 @@ describe('WorkLookup, finding the run a runner holds', () => {
     held: boolean;
     chatId?: string | null;
     stationId?: string | null;
+    replayedFor?: TeamId;
+    lineGone?: boolean;
   }) =>
     new WorkLookup(
       {
@@ -489,16 +497,21 @@ describe('WorkLookup, finding the run a runner holds', () => {
           taskId: run.chatId ? null : TaskId.of('task_1'),
           chatId: run.chatId ? { value: run.chatId } : null,
           stationId: run.stationId ? { value: run.stationId } : null,
+          replayedFor: run.replayedFor ?? null,
+          replayedRepositories: [WEB],
           isHeldBy: (by: RunnerId) => run.held && by.equals(RUNNER),
         }),
       } as unknown as RunRepository,
       { find: async () => null } as unknown as TaskRepository,
       {
-        holding: async () => ({
-          teamId: TEAM,
-          id: { value: 'line_1' },
-          repositories: { all: [API] },
-        }),
+        holding: async () =>
+          run.lineGone
+            ? null
+            : {
+                teamId: TEAM,
+                id: { value: 'line_1' },
+                repositories: { all: [API] },
+              },
       } as unknown as LineRepository,
       {
         find: async () => ({
@@ -521,6 +534,28 @@ describe('WorkLookup, finding the run a runner holds', () => {
     expect(held?.repositories).toEqual([API]);
     expect(held?.taskId?.value).toBe('task_1');
     expect(held?.workspaceId.equals(WORKSPACE)).toBe(true);
+  });
+
+  it('names the team a replay runs for, and the repositories it replays, even once its station is gone', async () => {
+    const held = await holding({
+      held: true,
+      replayedFor: TEAM,
+      lineGone: true,
+    });
+
+    expect(held?.teamId.equals(TEAM)).toBe(true);
+    expect(held?.lineId).toBeNull();
+    expect(held?.stationId).toBeNull();
+    expect(held?.repositories).toEqual([WEB]);
+
+    const atItsStation = await holding({
+      held: true,
+      replayedFor: TEAM,
+      stationId: 'station_1',
+    });
+
+    expect(atItsStation?.lineId).toBe('line_1');
+    expect(atItsStation?.stationId).toBe('station_1');
   });
 
   it('names a chat’s own team for a chat’s run', async () => {

@@ -17,6 +17,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type {
   ConfiguredRun,
+  ReplayRunSummary,
   RunConfigSummary,
   RunConversationSummary,
   RunReaderPort,
@@ -253,6 +254,8 @@ export class DrizzleRunReader implements RunReaderPort {
         fingerprint: run.stationFingerprint,
         parts: run.stationConfig,
         workspaceId: run.workspaceId,
+        replayOfRunId: run.replayOfRunId,
+        replayTeamId: run.replayTeamId,
       })
       .from(run)
       .where(eq(run.id, runId.value))
@@ -265,10 +268,21 @@ export class DrizzleRunReader implements RunReaderPort {
       return null;
     }
 
-    const ran = configured(found);
+    const ran =
+      found.fingerprint && found.parts
+        ? {
+            runId: found.runId,
+            fingerprint: found.fingerprint,
+            parts: found.parts,
+          }
+        : null;
 
-    if (!ran || !found.stationId) {
-      return { ran, before: null };
+    const replayedIn = found.replayOfRunId
+      ? { workspaceId: found.workspaceId, teamId: found.replayTeamId }
+      : null;
+
+    if (!ran || !found.stationId || !found.taskId) {
+      return { ran, before: null, replayedIn };
     }
 
     const [earlier] = await this.db
@@ -283,15 +297,88 @@ export class DrizzleRunReader implements RunReaderPort {
         and(
           eq(run.stationId, found.stationId),
           lt(run.createdAt, found.createdAt),
+          isNotNull(run.taskId),
           isNotNull(run.stationFingerprint),
         ),
       )
       .orderBy(desc(run.createdAt))
       .limit(1);
 
-    return { ran, before: earlier ? configured(earlier) : null };
+    return {
+      ran,
+      before: earlier ? configured(earlier) : null,
+      replayedIn,
+    };
+  }
+
+  async replayFor(
+    teamId: TeamId,
+    workspaceId: WorkspaceId,
+    runId: RunId,
+  ): Promise<ReplayRunSummary | null> {
+    const [found] = await this.db
+      .select({
+        id: run.id,
+        state: run.state,
+        attempt: run.attempt,
+        exitCode: run.exitCode,
+        startedAt: run.createdAt,
+        updatedAt: run.updatedAt,
+        harness: run.harness,
+        image: run.ranIn,
+        stationId: ranAt.id,
+        stationName: ranAt.name,
+        stationColor: ranAt.color,
+        stationPosition: ranAt.position,
+        stationLineId: ranAt.lineId,
+        replayTeamId: run.replayTeamId,
+        workspaceId: run.workspaceId,
+        originalRunId: run.replayOfRunId,
+        originalTaskId: original.taskId,
+        originalTitle: task.title,
+      })
+      .from(run)
+      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
+      .leftJoin(line, eq(line.id, ranAt.lineId))
+      .leftJoin(original, eq(original.id, run.replayOfRunId))
+      .leftJoin(task, eq(task.id, original.taskId))
+      .where(and(eq(run.id, runId.value), isNotNull(run.replayOfRunId)))
+      .limit(1);
+
+    if (
+      !found?.originalRunId ||
+      found.replayTeamId !== teamId.value ||
+      found.workspaceId !== workspaceId.value
+    ) {
+      return null;
+    }
+
+    const held = await stationsPerLine(
+      this.db,
+      found.stationLineId ? [found.stationLineId] : [],
+    );
+
+    return {
+      id: found.id,
+      state: found.state,
+      attempt: found.attempt,
+      exitCode: found.exitCode,
+      startedAt: found.startedAt,
+      updatedAt: found.updatedAt,
+      harness: found.harness,
+      image: found.image,
+      station: worked(found, held),
+      review: null,
+      original: {
+        runId: found.originalRunId,
+        taskId: found.originalTaskId,
+        title: found.originalTitle,
+      },
+    };
   }
 }
+
+const original = alias(run, 'original');
 
 const configured = (row: {
   runId: string;

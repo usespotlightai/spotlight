@@ -36,7 +36,10 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type {
+  KeptWithRun,
+  RunRepository,
+} from '@work/domain/repositories/run.repository';
 import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
@@ -55,6 +58,7 @@ import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -187,10 +191,12 @@ const task = (stationId: string, title = 'Fix the queue') =>
   });
 
 let queued: Run[] = [];
+let kept: KeptWithRun[] = [];
 
 const runs = {
-  add: async (run: Run) => {
+  add: async (run: Run, alongside: KeptWithRun = {}) => {
     queued.push(run);
+    kept.push(alongside);
   },
 } as unknown as RunRepository;
 
@@ -359,6 +365,7 @@ describe('DispatchTask', () => {
     remembered = { briefed: [], cut: [], folder: null };
     touchedOnTask = [];
     queued = [];
+    kept = [];
     catalogGiving = { tools: [], skills: [], refused: [] };
     catalogAsked = [];
   });
@@ -570,6 +577,28 @@ describe('DispatchTask', () => {
       ]);
     });
 
+    it('records the station’s check on the run its change is drafted from, so later edits to the station leave it be', async () => {
+      const checking = (diffs: boolean) =>
+        Station.of({
+          id: StationId.of('station_2'),
+          key: StationKey.of('triage'),
+          name: StationName.of('Triage'),
+          position: 1,
+          color: StationColor.of('#a3a8b0'),
+          harness: DEV.id,
+          wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+          kind: 'work',
+          diffs,
+          check: StationCheck.of('npm test'),
+        });
+
+      await dispatch(checking(true));
+      await dispatch(checking(false));
+
+      expect(written(queued[0]).check).toBe('npm test');
+      expect(written(queued[1]).check).toBeUndefined();
+    });
+
     it('places the run in the image the line’s repositories name', async () => {
       await dispatch(stations[1] as Station, undefined, [
         WorkedRepository.of(Repository.of('acme/api'), {
@@ -765,6 +794,25 @@ describe('DispatchTask', () => {
     }
   });
 
+  it('records on the run the task exactly as it was briefed', async () => {
+    const station = stations[1] as Station;
+    const worked = task(station.id.value, 'Drain the queue');
+
+    await dispatch(station, worked);
+
+    const run = queued[0] as Run;
+
+    expect(kept[0]?.briefed?.equals(worked.briefed)).toBe(true);
+    expect(kept[0]?.briefed?.title).toBe('Drain the queue');
+    expect(written(run).briefing).toContain('## Drain the queue');
+  });
+
+  it('asks the runner to say where the run started', async () => {
+    await dispatch(stations[1] as Station);
+
+    expect(written(queued[0]).startingPoint).toBe(true);
+  });
+
   describe('carrying on where the last run stopped', () => {
     const continuityOf = (at: number) => {
       const run = queued[at];
@@ -834,6 +882,7 @@ describe('DispatchTask, the skills a run is given', () => {
 
   beforeEach(() => {
     queued = [];
+    kept = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
     keptSkills = [];
   });
@@ -875,6 +924,7 @@ describe('DispatchTask, the team’s own skills', () => {
 
   beforeEach(() => {
     queued = [];
+    kept = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
     offeredTools = [];
     offeredAsked = 0;
@@ -948,6 +998,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
   beforeEach(() => {
     queued = [];
+    kept = [];
     offeredTools = [];
     offeredAsked = 0;
   });
@@ -1082,6 +1133,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       repositories?: readonly Worked[],
     ) => {
       queued = [];
+      kept = [];
       await dispatch(station, task(station.id.value, title), repositories);
       const config = queued[0]?.configuredAs;
 

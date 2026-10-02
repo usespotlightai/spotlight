@@ -9,6 +9,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
+import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import {
@@ -52,6 +53,7 @@ export const SHARED_KERNEL_EVENT_TYPES = [
   HarnessModel,
   IdempotencyKey,
   LatencyHistogram,
+  ModelUsage,
   OwedWork,
   PersonPrincipal,
   PullRequestUrl,

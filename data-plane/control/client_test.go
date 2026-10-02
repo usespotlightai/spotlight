@@ -506,6 +506,40 @@ func TestAsksToKeepTheWorkspaceThenSealsIt(t *testing.T) {
 	}
 }
 
+func TestSaysWhereTheRunStartedNamingAnArchiveOrNone(t *testing.T) {
+	var path string
+	var bodies []string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		path = r.Method + " " + r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, string(body))
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	archive := "archive_1"
+	checkouts := []protocol.StartedCheckout{{Path: "api", Commit: strings.Repeat("a", 40)}}
+
+	if err := client.RecordStartingPoint(context.Background(), "run_1", protocol.StartingPoint{Attempt: 1, ArchiveID: &archive, Checkouts: checkouts}); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if err := client.RecordStartingPoint(context.Background(), "run_1", protocol.StartingPoint{Attempt: 2, Checkouts: []protocol.StartedCheckout{}}); err != nil {
+		t.Fatalf("record afresh: %v", err)
+	}
+
+	if path != "POST /api/runs/run_1/starting-point" {
+		t.Errorf("said it at %s", path)
+	}
+	want := []string{
+		`{"attempt":1,"archiveId":"archive_1","checkouts":[{"path":"api","commit":"` + strings.Repeat("a", 40) + `"}]}`,
+		`{"attempt":2,"archiveId":null,"checkouts":[]}`,
+	}
+	for at, body := range bodies {
+		if strings.TrimSpace(body) != want[at] {
+			t.Errorf("said %s, want %s", body, want[at])
+		}
+	}
+}
+
 func TestSaysWhyTheWorkspaceCannotBeKept(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, `{"message":"A workspace archive cannot be kept, because this deployment has nowhere to keep one"}`, http.StatusUnprocessableEntity)

@@ -4,6 +4,7 @@ import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.v
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -11,6 +12,7 @@ import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-plac
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
@@ -24,13 +26,18 @@ import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
+import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
+import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import type { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
+import type { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -42,11 +49,22 @@ import {
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import type { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import type { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
+import {
+  type ReportedStart,
+  StartingPoint,
+} from '@work/domain/value-objects/starting-point.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
+import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 const LEASE_DURATION_MS = 60_000;
+
+export interface RunStart {
+  readonly restored: RestoredArchive | null;
+  readonly checkouts: readonly StartedCheckout[];
+}
 
 const LOST = RunFailure.of('runner-lost').retry;
 
@@ -81,6 +99,8 @@ export class Run extends EventRecorder {
     readonly parkedAttempts: readonly number[] = [],
     readonly configuredAs: StationConfig | null = null,
     readonly startedAt: Date | null = null,
+    readonly startedFrom: StartingPoint | null = null,
+    readonly askedAPerson: boolean = false,
     readonly version: number = 0,
   ) {
     super();
@@ -96,6 +116,7 @@ export class Run extends EventRecorder {
     placement?: RunnerPlacement;
     briefedWith?: BriefedMemories;
     configuredAs?: StationConfig | null;
+    briefedTask?: BriefedTask | null;
   }): Run {
     const run = new Run(
       input.id,
@@ -120,13 +141,33 @@ export class Run extends EventRecorder {
       input.configuredAs ?? null,
     );
 
+    if (run.isReplay !== run.spec.isReplay) {
+      throw new InvalidRunTransitionError(
+        'replays a run only with a spec that says what it replays, and the other way round',
+      );
+    }
+
     if (run.configuredAs && !run.stationId) {
       throw new InvalidRunTransitionError(
         'cannot record a station config on a run that works at no station',
       );
     }
 
-    if (run.briefedWith.briefed.length > 0) {
+    const briefed = input.briefedTask ?? null;
+
+    if (briefed && !run.taskId) {
+      throw new InvalidRunTransitionError(
+        'cannot record the task it was briefed with when it works no task',
+      );
+    }
+
+    if (briefed && !run.stationId?.equals(briefed.stationId)) {
+      throw new InvalidRunTransitionError(
+        'cannot record a task briefed at a station other than the one it works at',
+      );
+    }
+
+    if (run.briefedWith.briefed.length > 0 && !run.isReplay) {
       run.record(new RunBriefed(run.id, run.workspaceId, run.briefedWith));
     }
 
@@ -155,6 +196,8 @@ export class Run extends EventRecorder {
     parkedAttempts?: readonly number[];
     configuredAs?: StationConfig | null;
     startedAt?: Date | null;
+    startedFrom?: StartingPoint | null;
+    askedAPerson?: boolean;
     version?: number;
   }): Run {
     Run.guardReconstituted(input);
@@ -181,6 +224,8 @@ export class Run extends EventRecorder {
       [...(input.parkedAttempts ?? [])],
       input.configuredAs ?? null,
       input.startedAt ?? null,
+      input.startedFrom ?? null,
+      input.askedAPerson ?? false,
       input.version ?? 0,
     );
   }
@@ -190,9 +235,37 @@ export class Run extends EventRecorder {
     claimedBy: RunnerId | null;
     leaseExpiresAt: Date | null;
     attempt: number;
+    subject: RunSubject | null;
+    spec: RunSpec;
+    startedFrom?: StartingPoint | null;
+    askedAPerson?: boolean;
   }): void {
     if (input.attempt < 1) {
       throw new InconsistentStateError('run', 'has no attempt to its name');
+    }
+    if ((input.subject?.isReplay ?? false) !== input.spec.isReplay) {
+      throw new InconsistentStateError(
+        'run',
+        'replays a run with a spec that does not say what it replays, or the other way round',
+      );
+    }
+    if (input.askedAPerson && !input.subject?.isReplay) {
+      throw new InconsistentStateError(
+        'run',
+        'asked a person itself though it is no replay',
+      );
+    }
+    if (input.startedFrom && !input.subject?.taskId) {
+      throw new InconsistentStateError(
+        'run',
+        'started from somewhere though it works no task',
+      );
+    }
+    if (input.startedFrom && input.startedFrom.attempt > input.attempt) {
+      throw new InconsistentStateError(
+        'run',
+        'started from somewhere on an attempt it has not made yet',
+      );
     }
     if (isHeld(input.state) && !input.claimedBy) {
       throw new InconsistentStateError('run', `is ${input.state} by nobody`);
@@ -224,6 +297,20 @@ export class Run extends EventRecorder {
 
   get chatId(): ChatId | null {
     return this.subject?.chatId ?? null;
+  }
+
+  get isReplay(): boolean {
+    return this.subject?.isReplay ?? false;
+  }
+
+  get replayOf(): RunId | null {
+    return this.subject?.replayOf ?? null;
+  }
+
+  get restoresArchive(): WorkspaceArchiveId | null {
+    const archive = this.spec.replay?.archive ?? null;
+
+    return archive ? WorkspaceArchiveId.of(archive) : null;
   }
 
   get continuity(): ContinuityKey | null {
@@ -367,6 +454,7 @@ export class Run extends EventRecorder {
         null,
         null,
         this.attempt,
+        failed.askedAPerson,
       ),
     );
 
@@ -380,13 +468,23 @@ export class Run extends EventRecorder {
       );
     }
 
+    return this.lostTo(now, RunOutcome.lost);
+  }
+
+  timedOut(by: RunnerId, now: Date): Run {
+    this.requireHeldBy(by, 'time out');
+
+    return this.lostTo(now, RunOutcome.timedOut);
+  }
+
+  private lostTo(now: Date, outcome: (attempts: number) => RunOutcome): Run {
     const next =
       this.state === 'waiting'
         ? this.leftWaiting(null)
         : this.stopRequested
           ? this.endedAsStopped(null)
-          : LOST.exhaustedAfter(this.lapses)
-            ? this.givenUp(RunOutcome.lost(this.lapses))
+          : LOST.exhaustedAfter(this.lapses) || this.askedAPerson
+            ? this.givenUp(outcome(this.lapses))
             : this.backOnTheQueue();
 
     if (this.claimedBy) {
@@ -423,6 +521,8 @@ export class Run extends EventRecorder {
         this.subject,
         this.attempt,
         this.lapses,
+        this.askedAPerson,
+        outcome.failure?.code ?? null,
       ),
     );
 
@@ -481,6 +581,68 @@ export class Run extends EventRecorder {
     return this.with({ ranIn: image, startedAt: this.startedAt ?? now });
   }
 
+  startsFrom(
+    attempt: RunAttempt,
+    by: RunnerId,
+    started: RunStart,
+    now: Date,
+  ): Run {
+    this.assertStillOn(attempt, by);
+    this.requireWorkedBy(by, 'record where it started');
+
+    if (!this.taskId) {
+      throw new InvalidRunTransitionError(
+        'records where it started only when it works a task',
+      );
+    }
+
+    const { restored } = started;
+
+    if (restored && !restored.restores(this.workspaceId, this.restoresFrom)) {
+      throw new InvalidStartingPointError(
+        `names archive ${restored.id.value}, which this run could not have restored`,
+      );
+    }
+
+    const reported: ReportedStart = {
+      archive: restored?.id ?? null,
+      checkouts: started.checkouts,
+    };
+
+    if (this.startedFrom) {
+      if (this.startedFrom.attempt < this.attempt) {
+        return this;
+      }
+
+      if (this.startedFrom.sameAs(reported)) {
+        return this;
+      }
+
+      throw new InvalidRunTransitionError(
+        'already recorded where it started, and somewhere else',
+      );
+    }
+
+    const point = StartingPoint.of({
+      ...reported,
+      attempt: this.attempt,
+      at: now,
+    });
+    const wanted = [...this.spec.checkoutFolders].sort();
+    const told = point.paths;
+
+    if (
+      wanted.length !== told.length ||
+      wanted.some((each, at) => each !== told[at])
+    ) {
+      throw new InvalidStartingPointError(
+        `names the checkouts the run was given (${wanted.join(', ') || 'none'}), not ${told.join(', ') || 'none'}`,
+      );
+    }
+
+    return this.with({ startedFrom: point });
+  }
+
   renewLease(by: RunnerId, now: Date): Run {
     this.requireHeldBy(by, 'renew the lease on');
 
@@ -498,6 +660,8 @@ export class Run extends EventRecorder {
       state: endingIn(outcome),
       outcome,
       leaseExpiresAt: null,
+      askedAPerson:
+        this.askedAPerson || this.replayAsksAfter(outcome, said.declared),
     });
 
     ended.record(
@@ -510,10 +674,66 @@ export class Run extends EventRecorder {
         said.declared ?? null,
         said.session ?? null,
         this.attempt,
+        ended.askedAPerson,
       ),
     );
 
     return ended;
+  }
+
+  private replayAsksAfter(
+    outcome: RunOutcome,
+    declared: Declaration | null,
+  ): boolean {
+    const replay = this.spec.replay;
+
+    if (!replay || !outcome.handsOver) {
+      return false;
+    }
+
+    return !(
+      declared && replay.movesOnAfter.includes(declared.next.toLowerCase())
+    );
+  }
+
+  replayedRepository(name: string): Repository | null {
+    const checkout = this.spec.replay?.checkouts.find(
+      (each) => each.path === name,
+    );
+
+    return checkout ? Repository.of(checkout.repository) : null;
+  }
+
+  get replayedRepositories(): readonly Repository[] {
+    return (this.spec.replay?.checkouts ?? []).map((each) =>
+      Repository.of(each.repository),
+    );
+  }
+
+  get replayedFor(): TeamId | null {
+    return this.subject?.replayedFor ?? null;
+  }
+
+  get hearsHooks(): boolean {
+    return !this.isReplay;
+  }
+
+  mayReachBeyondItself(what: string): void {
+    if (this.isReplay) {
+      throw new KeptFromReplaysError(what);
+    }
+  }
+
+  askedAPersonBy(by: RunnerId): Run {
+    this.requireWorkedBy(by, 'ask a person on');
+
+    if (!this.isReplay) {
+      throw new InvalidRunTransitionError(
+        'asks a person through what it works, not of itself',
+      );
+    }
+
+    return this.askedAPerson ? this : this.with({ askedAPerson: true });
   }
 
   paused(
@@ -523,6 +743,12 @@ export class Run extends EventRecorder {
     now: Date,
   ): Run {
     this.requireWorkedBy(by, 'pause');
+
+    if (this.isReplay) {
+      throw new InvalidRunTransitionError(
+        'is a replay, and a replay never waits for a person',
+      );
+    }
 
     if (!outcome.handsOver) {
       throw new InvalidRunTransitionError(
@@ -671,6 +897,7 @@ export class Run extends EventRecorder {
         null,
         null,
         this.attempt,
+        ended.askedAPerson,
       ),
     );
 
@@ -696,6 +923,7 @@ export class Run extends EventRecorder {
         null,
         null,
         this.attempt,
+        refused.askedAPerson,
       ),
     );
 
@@ -750,6 +978,7 @@ export class Run extends EventRecorder {
         null,
         null,
         this.attempt,
+        ended.askedAPerson,
       ),
     );
 
@@ -795,6 +1024,7 @@ export class Run extends EventRecorder {
         null,
         null,
         this.attempt,
+        ended.askedAPerson,
       ),
     );
 
@@ -812,7 +1042,13 @@ export class Run extends EventRecorder {
     const withdrawn = this.endedQueued(outcome);
 
     withdrawn.record(
-      new RunWithdrawn(this.id, this.workspaceId, this.subject, this.attempt),
+      new RunWithdrawn(
+        this.id,
+        this.workspaceId,
+        this.subject,
+        this.attempt,
+        this.askedAPerson,
+      ),
     );
 
     return withdrawn;
@@ -949,6 +1185,8 @@ export class Run extends EventRecorder {
     spec?: RunSpec;
     parkedAttempts?: readonly number[];
     startedAt?: Date | null;
+    startedFrom?: StartingPoint | null;
+    askedAPerson?: boolean;
   }): Run {
     const next = new Run(
       this.id,
@@ -976,6 +1214,8 @@ export class Run extends EventRecorder {
       part.parkedAttempts ?? this.parkedAttempts,
       this.configuredAs,
       part.startedAt !== undefined ? part.startedAt : this.startedAt,
+      part.startedFrom !== undefined ? part.startedFrom : this.startedFrom,
+      part.askedAPerson ?? this.askedAPerson,
       this.version,
     );
 

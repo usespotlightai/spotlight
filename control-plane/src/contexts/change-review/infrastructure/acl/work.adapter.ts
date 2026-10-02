@@ -45,6 +45,7 @@ export class Work implements WorkPort {
         ended: run.ended,
         completed: run.completed,
         decisions: run.decisions,
+        replay: run.replay,
       }
     );
   }

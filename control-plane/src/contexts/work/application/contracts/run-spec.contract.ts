@@ -13,6 +13,7 @@ import {
   type RunFile,
   type RunHarnessSetup,
   type RunMcpServer,
+  type RunReplay,
   RunSpec,
   type RunSpecParts,
   type RunToolInput,
@@ -222,6 +223,31 @@ const continuityOf = (raw: unknown): RunContinuity => {
   };
 };
 
+const replayOf = (raw: unknown): RunReplay => {
+  const given = objectAt(raw, 'what it replays');
+
+  return {
+    archive:
+      given.archive === null
+        ? null
+        : stringAt(given.archive, 'the archive a replay starts from'),
+    checkouts: listAt(given.checkouts, 'what a replay checks out', (each) => {
+      const checkout = objectAt(each, 'what a replay checks out');
+
+      return {
+        path: stringAt(checkout.path, 'what a replay checks out'),
+        commit: stringAt(checkout.commit, 'what a replay checks out'),
+        repository: stringAt(checkout.repository, 'what a replay checks out'),
+      };
+    }),
+    movesOnAfter: listAt(
+      given.movesOnAfter,
+      'what a replay moves on after',
+      (each) => stringAt(each, 'what a replay moves on after'),
+    ),
+  };
+};
+
 const handoverOf = (raw: unknown) => {
   const given = objectAt(raw, 'what may be handed over to');
 
@@ -271,6 +297,10 @@ const read = (raw: unknown): RunSpec => {
   );
 
   const diffs = given.diffs;
+  const check = optionalStringAt(given.check, 'what checks its change');
+  const startingPoint = given.startingPoint;
+  const replay =
+    given.replay === undefined ? undefined : replayOf(given.replay);
   const harnessSetup =
     given.harnessSetup === undefined
       ? undefined
@@ -292,9 +322,19 @@ const read = (raw: unknown): RunSpec => {
       : {
           diffs: booleanAt(diffs, 'whether it reports the diff it leaves'),
         }),
+    ...(check === undefined ? {} : { check }),
+    ...(startingPoint === undefined
+      ? {}
+      : {
+          startingPoint: booleanAt(
+            startingPoint,
+            'whether it reports where it started',
+          ),
+        }),
     ...(harnessSetup ? { harnessSetup } : {}),
     ...(settingFiles ? { settingFiles } : {}),
     ...(wears ? { wears } : {}),
+    ...(replay ? { replay } : {}),
   });
 };
 

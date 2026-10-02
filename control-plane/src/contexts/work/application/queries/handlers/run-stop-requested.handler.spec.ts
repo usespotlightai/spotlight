@@ -7,7 +7,6 @@ const asking = (stopping: Record<string, string>) =>
     pendingFor: async () => [],
     stopRequestedFor: async (runId, runnerId) =>
       stopping[runId.value] === runnerId.value,
-    attachmentFor: async () => null,
   });
 
 describe('RunStopRequestedHandler', () => {

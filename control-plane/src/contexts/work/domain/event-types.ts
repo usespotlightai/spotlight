@@ -8,6 +8,7 @@ import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
+import { ReplayDigested } from '@work/domain/events/replay-digested.event';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
@@ -50,6 +51,7 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
@@ -94,7 +96,9 @@ import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { Remark } from '@work/domain/value-objects/remark.vo';
+import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
@@ -105,6 +109,8 @@ import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { Said } from '@work/domain/value-objects/said.vo';
 import { Signing } from '@work/domain/value-objects/signing.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
+import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
@@ -182,6 +188,7 @@ export const WORK_EVENT_TYPES = [
   Mark,
   MessagePosition,
   Money,
+  ReplayRunClaim,
   Tokens,
   ToolUse,
   CalledTool,
@@ -230,6 +237,10 @@ export const WORK_EVENT_TYPES = [
   AsideAbout,
   AsideRead,
   BriefedMemories,
+  BriefedTask,
+  RestoredArchive,
+  StartedCheckout,
+  StartingPoint,
   ChatHandedToRun,
   ChatStarted,
   LineRepositoriesChanged,
@@ -246,6 +257,7 @@ export const WORK_EVENT_TYPES = [
   RunSuperseded,
   RunCompleted,
   RunDigested,
+  ReplayDigested,
   TaskFailed,
   TaskHandedOn,
   RunLapsed,

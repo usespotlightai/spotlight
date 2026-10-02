@@ -23,7 +23,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleStationRunReader implements StationRunReaderPort {
@@ -154,6 +154,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
             ? undefined
             : eq(run.stationFingerprint, wanted.fingerprint),
           wanted.since === null ? undefined : gte(run.createdAt, wanted.since),
+          wanted.until === null ? undefined : lt(run.endedAt, wanted.until),
         ),
       )
       .orderBy(desc(run.createdAt))

@@ -42,11 +42,17 @@ export class CompleteRunHandler
     try {
       const runId = RunId.of(command.runId);
       const runnerId = RunnerId.of(command.runnerId);
+
+      if (command.timedOut) {
+        return await this.retrying(() => this.timedOut(runId, runnerId));
+      }
+
       const outcome = command.stopped
         ? RunOutcome.stopped(command.exitCode)
         : RunOutcome.of({
             exitCode: command.exitCode,
             failed: command.failed,
+            unprepared: command.unprepared,
             message: command.message,
           });
       const declared =
@@ -67,20 +73,41 @@ export class CompleteRunHandler
           : null,
       });
 
-      for (let attempt = 1; ; attempt++) {
-        try {
-          return await this.transaction.run(() =>
-            this.ended(runId, runnerId, outcome, said, command.kept),
-          );
-        } catch (error) {
-          if (!movedOn(error) || attempt >= ATTEMPTS) {
-            throw error;
-          }
-        }
-      }
+      return await this.retrying(() =>
+        this.ended(runId, runnerId, outcome, said, command.kept),
+      );
     } catch (error) {
       rethrowAsFault(error);
     }
+  }
+
+  private async retrying(
+    work: () => Promise<RunCompletionDto>,
+  ): Promise<RunCompletionDto> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.transaction.run(work);
+      } catch (error) {
+        if (!movedOn(error) || attempt >= ATTEMPTS) {
+          throw error;
+        }
+      }
+    }
+  }
+
+  private async timedOut(
+    runId: RunId,
+    by: RunnerId,
+  ): Promise<RunCompletionDto> {
+    const run = await this.runs.findById(runId);
+
+    if (!run) {
+      throw new UnknownRunError(`there is no run ${runId.value}`);
+    }
+
+    await this.runs.save(run.timedOut(by, this.clock.now()));
+
+    return { waiting: false };
   }
 
   private async ended(
@@ -128,7 +155,8 @@ export class CompleteRunHandler
     const run = await this.runs.findById(runId);
 
     if (
-      !run?.taskId ||
+      !run?.hearsHooks ||
+      !run.taskId ||
       run.hasEnded ||
       !run.wasWorkedBy(runnerId) ||
       run.pausedBy(runnerId)

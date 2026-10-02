@@ -21,5 +21,8 @@ export interface RunOutcomeShape {
 }
 
 export interface RunOutcomesPort {
-  of(runIds: readonly string[]): Promise<ReadonlyMap<string, RunOutcomeShape>>;
+  of(
+    runIds: readonly string[],
+    asOf: Date | null,
+  ): Promise<ReadonlyMap<string, RunOutcomeShape>>;
 }

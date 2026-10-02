@@ -1,8 +1,9 @@
-const PROVIDER = /^terraform-provider\/([0-9A-Za-z][0-9A-Za-z.+-]{0,63})$/;
+const VERSIONED =
+  /^(terraform-provider|cli)\/([0-9A-Za-z][0-9A-Za-z.+-]{0,63})$/;
 
 const WEB = 'web';
 
-export type ClientKind = 'terraform-provider' | 'web' | 'unknown';
+export type ClientKind = 'terraform-provider' | 'cli' | 'web' | 'unknown';
 
 export class Client {
   private constructor(
@@ -17,10 +18,10 @@ export class Client {
       return new Client('web', null);
     }
 
-    const provider = PROVIDER.exec(held);
+    const versioned = VERSIONED.exec(held);
 
-    return provider
-      ? new Client('terraform-provider', provider[1] as string)
+    return versioned
+      ? new Client(versioned[1] as ClientKind, versioned[2] as string)
       : new Client('unknown', null);
   }
 

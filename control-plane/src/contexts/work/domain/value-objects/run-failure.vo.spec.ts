@@ -8,11 +8,13 @@ import { describe, expect, it } from 'vitest';
 describe('RunFailure', () => {
   it.each([
     ['exited', false, 1],
+    ['unprepared', false, 1],
     ['refused', false, 1],
     ['unprovisioned', false, 1],
     ['superseded', false, 1],
     ['hooks-unanswered', true, 6],
     ['runner-lost', true, 3],
+    ['timed-out', true, 3],
   ])(
     'states whether a run that %s may be retried (%s, %i attempts in all)',
     (code, retries, most) => {
@@ -31,6 +33,8 @@ describe('RunFailure', () => {
         'refused',
         'runner-lost',
         'superseded',
+        'timed-out',
+        'unprepared',
         'unprovisioned',
       ].sort(),
     );

@@ -1,5 +1,6 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { JournalStep } from '@work/application/contracts/run-journal.contract';
+import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
 import type {
   EvidencedHunk,
@@ -9,6 +10,7 @@ import type {
   StationJudgeSettings,
 } from '@work/application/ports/run-evidence.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -17,6 +19,12 @@ import { workspacePath } from '@work/domain/services/workspace-path';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 
 const MOST_TEXT = 4_000;
+
+interface AskedOfRun {
+  readonly taskId: string;
+  readonly title: string;
+  readonly description: string | null;
+}
 
 const MOST_TOLD = 2_000;
 
@@ -71,6 +79,7 @@ export class RunEvidences implements RunEvidencePort {
     private readonly tasks: TaskRepository,
     private readonly lines: LineRepository,
     private readonly journals: RunJournalReaderPort,
+    private readonly briefed: BriefedTasksPort,
     private readonly digest: ContentDigestPort,
   ) {}
 
@@ -82,10 +91,10 @@ export class RunEvidences implements RunEvidencePort {
 
   async of(runId: string): Promise<EvidencedRun | null> {
     const run = await this.runs.findById(RunId.of(runId));
-    const task = run?.taskId ? await this.tasks.find(run.taskId) : null;
+    const asked = run ? await this.askedOf(run) : null;
     const attempts = run ? await this.journals.attemptsOfRun(run.id) : [];
 
-    if (!run || !task || attempts.length === 0) {
+    if (!run || !asked || attempts.length === 0) {
       return null;
     }
 
@@ -93,12 +102,37 @@ export class RunEvidences implements RunEvidencePort {
 
     return {
       runId: run.id.value,
-      taskId: task.id.value,
-      title: task.title.value,
-      description: task.description?.value ?? null,
+      ...asked,
       steps: steps.map(evidenced),
       hunks: hunksIn(steps, run.spec.checkoutFolders),
     };
+  }
+
+  private async askedOf(run: Run): Promise<AskedOfRun | null> {
+    if (run.replayOf) {
+      const [original, briefed] = await Promise.all([
+        this.runs.findById(run.replayOf),
+        this.briefed.of(run.replayOf),
+      ]);
+
+      return original?.taskId && briefed
+        ? {
+            taskId: original.taskId.value,
+            title: briefed.title,
+            description: briefed.description,
+          }
+        : null;
+    }
+
+    const task = run.taskId ? await this.tasks.find(run.taskId) : null;
+
+    return (
+      task && {
+        taskId: task.id.value,
+        title: task.title.value,
+        description: task.description?.value ?? null,
+      }
+    );
   }
 
   async judgeAt(stationId: string): Promise<StationJudgeSettings | null> {

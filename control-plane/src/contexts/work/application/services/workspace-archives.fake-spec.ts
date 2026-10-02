@@ -31,6 +31,7 @@ export const aHeldRun = (
     runner?: string;
     session?: string | null;
     carriesOn?: boolean;
+    checkouts?: readonly string[];
   } = {},
 ): Run =>
   Run.enqueue({
@@ -46,6 +47,14 @@ export const aHeldRun = (
             TaskRevision.of(1),
           ),
     spec: RunSpec.of({
+      ...(over.checkouts
+        ? {
+            checkouts: over.checkouts.map((path) => ({
+              remote: 'spotlight:repository',
+              path,
+            })),
+          }
+        : {}),
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'keep the workspace',
       handover: { options: [], noteLimit: 4_000 },

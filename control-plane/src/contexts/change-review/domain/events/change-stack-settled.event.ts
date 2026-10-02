@@ -8,5 +8,6 @@ export class ChangeStackSettled implements DomainEvent {
   constructor(
     readonly stackId: ChangeStackId,
     readonly runId: RunId,
+    readonly replay: boolean,
   ) {}
 }

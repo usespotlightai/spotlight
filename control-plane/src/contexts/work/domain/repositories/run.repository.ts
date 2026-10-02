@@ -4,6 +4,7 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
+import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 
 type Claims = 'any' | 'reserved';
 
@@ -15,8 +16,12 @@ export interface Claimant {
   readonly claims: Claims;
 }
 
+export interface KeptWithRun {
+  readonly briefed?: BriefedTask;
+}
+
 export interface RunRepository {
-  add(run: Run): Promise<void>;
+  add(run: Run, kept?: KeptWithRun): Promise<void>;
 
   // Must be atomic and follow ClaimOrder: concurrent runners must never claim the same run.
   claimNext(by: Claimant, now: Date): Promise<Run | null>;

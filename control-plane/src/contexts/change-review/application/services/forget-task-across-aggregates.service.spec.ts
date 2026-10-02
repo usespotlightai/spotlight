@@ -27,6 +27,7 @@ const checkOf = (stack: string) =>
     stackId: ChangeStackId.of(stack),
     runId: RunId.of('run_1'),
     taskId: TASK,
+    replay: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
     entries: [],

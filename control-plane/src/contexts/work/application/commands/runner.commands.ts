@@ -26,6 +26,21 @@ export class RecordRunImageCommand {
   ) {}
 }
 
+export interface ReportedCheckout {
+  readonly path: string;
+  readonly commit: string;
+}
+
+export class RecordStartingPointCommand {
+  constructor(
+    readonly runId: string,
+    readonly runnerId: string,
+    readonly attempt: number,
+    readonly archiveId: string | null,
+    readonly checkouts: readonly ReportedCheckout[] | null,
+  ) {}
+}
+
 export interface AppendedJournalEntry {
   readonly seq: number;
   readonly type: string;
@@ -53,6 +68,8 @@ export class CompleteRunCommand {
     readonly sessionId?: string | null,
     readonly stopped: boolean = false,
     readonly kept: boolean = false,
+    readonly unprepared: boolean = false,
+    readonly timedOut: boolean = false,
   ) {}
 }
 

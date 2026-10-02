@@ -21,6 +21,10 @@ export class ContinuityKey {
     return ContinuityKey.of(`chat-${chatId}`);
   }
 
+  static forReplay(runId: string): ContinuityKey {
+    return ContinuityKey.of(`replay-${runId}`);
+  }
+
   equals(other: ContinuityKey): boolean {
     return this.value === other.value;
   }

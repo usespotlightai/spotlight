@@ -65,13 +65,20 @@ describe('RemoveReleasedArchives', () => {
     const { archives, store, service } = await setUp(async () => [
       {
         id: WorkspaceArchiveId.of('gone'),
-        facts: { holder: null, supersededAt: null },
+        facts: {
+          holder: null,
+          supersededAt: null,
+          lastStartedFromAt: null,
+          pinned: false,
+        },
       },
       {
         id: WorkspaceArchiveId.of('held'),
         facts: {
           holder: { kind: 'task', finished: false, changedAt: later(0) },
           supersededAt: null,
+          lastStartedFromAt: null,
+          pinned: false,
         },
       },
     ]);
@@ -89,6 +96,8 @@ describe('RemoveReleasedArchives', () => {
         facts: {
           holder: { kind: 'task', finished: false, changedAt: later(0) },
           supersededAt: null,
+          lastStartedFromAt: null,
+          pinned: false,
         },
       },
     ]);
@@ -107,11 +116,21 @@ describe('RemoveReleasedArchives', () => {
     const { archives, store, service, logger } = await setUp(async () => [
       {
         id: WorkspaceArchiveId.of('gone'),
-        facts: { holder: null, supersededAt: null },
+        facts: {
+          holder: null,
+          supersededAt: null,
+          lastStartedFromAt: null,
+          pinned: false,
+        },
       },
       {
         id: WorkspaceArchiveId.of('held'),
-        facts: { holder: null, supersededAt: null },
+        facts: {
+          holder: null,
+          supersededAt: null,
+          lastStartedFromAt: null,
+          pinned: false,
+        },
       },
     ]);
     const remove = store.remove.bind(store);

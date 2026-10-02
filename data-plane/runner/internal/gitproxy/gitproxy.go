@@ -19,7 +19,7 @@ type Serving struct {
 	server   *http.Server
 }
 
-func Serve(controlPlane, token, runID string) (*Serving, error) {
+func Serve(controlPlane, token, runID string, fetchOnly bool) (*Serving, error) {
 	base, err := url.Parse(controlPlane)
 	if err != nil || !base.IsAbs() {
 		return nil, fmt.Errorf("control plane url %q is not absolute", controlPlane)
@@ -36,7 +36,7 @@ func Serve(controlPlane, token, runID string) (*Serving, error) {
 		Remote:   fmt.Sprintf("http://%s/%s", listener.Addr().String(), runID),
 		listener: listener,
 		server: &http.Server{
-			Handler:           forwarding(base, token, prefix),
+			Handler:           forwarding(base, token, prefix, fetchOnly),
 			ReadHeaderTimeout: 30 * time.Second,
 		},
 	}
@@ -63,12 +63,23 @@ func (s *Serving) Close() error {
 	return nil
 }
 
-func forwarding(base *url.URL, token, prefix string) http.Handler {
+const receivePack = "git-receive-pack"
+
+func pushes(r *http.Request) bool {
+	return strings.HasSuffix(r.URL.Path, "/"+receivePack) || r.URL.Query().Get("service") == receivePack
+}
+
+func forwarding(base *url.URL, token, prefix string, fetchOnly bool) http.Handler {
 	client := &http.Client{}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, prefix) {
 			http.NotFound(w, r)
+			return
+		}
+
+		if fetchOnly && pushes(r) {
+			http.Error(w, "this run may only fetch", http.StatusForbidden)
 			return
 		}
 

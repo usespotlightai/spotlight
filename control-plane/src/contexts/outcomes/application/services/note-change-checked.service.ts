@@ -2,6 +2,7 @@ import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import { verdictOf } from '@outcomes/domain/value-objects/check-verdict';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -12,6 +13,7 @@ export class NoteChangeChecked {
     private readonly records: RunRecordRepository,
     private readonly forgotten: ForgottenPort,
     private readonly transaction: TransactionPort,
+    private readonly clock: ClockPort,
   ) {}
 
   checked(
@@ -32,12 +34,15 @@ export class NoteChangeChecked {
         }
 
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).checked(verdict),
+          RunRecord.heardOf(runId, workspaceId, taskId).checked(
+            verdict,
+            this.clock.now(),
+          ),
         );
         return;
       }
 
-      const checked = held.checked(verdict);
+      const checked = held.checked(verdict, this.clock.now());
 
       if (checked !== held) {
         await this.records.save(checked);

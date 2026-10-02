@@ -3,6 +3,13 @@ import { Route } from 'react-router';
 import { stationPath } from '@/lib/station';
 import { Station } from '@/routes/Station';
 import {
+  failStationReplays,
+  refuseStationReplays,
+  seedStationReplays,
+  seedStationReplaysAwaiting,
+  seedStationWithoutReplays,
+} from '@/stories/fixtures/replays';
+import {
   failStation,
   failStationJudge,
   failStationOutcomes,
@@ -134,6 +141,54 @@ export const JudgeHidden: Story = {
   name: 'Judge hidden',
   render: () => (
     <StoryPage at={at} seed={seedStationJudgeHidden}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ReplaysLoading: Story = {
+  name: 'Replays loading',
+  render: () => (
+    <StoryPage at={at} seed={seedStationReplaysAwaiting}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ReplaysEmpty: Story = {
+  name: 'Replays empty',
+  render: () => (
+    <StoryPage at={at} seed={seedStationWithoutReplays}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ReplaysFailed: Story = {
+  name: 'Replays error',
+  render: () => (
+    <StoryPage at={at} seed={failStationReplays}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ReplaysMembersOnly: Story = {
+  name: 'Replays members only',
+  render: () => (
+    <StoryPage at={at} seed={refuseStationReplays}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Replays: Story = {
+  name: 'Replays',
+  render: () => (
+    <StoryPage
+      at={{ pathname: at, hash: '#replays' }}
+      seed={seedStationReplays}
+    >
       {routes}
     </StoryPage>
   ),

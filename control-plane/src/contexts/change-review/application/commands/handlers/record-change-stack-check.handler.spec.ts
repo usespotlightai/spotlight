@@ -65,6 +65,7 @@ const ready = () =>
     id: ChangeStackId.of(STACK),
     runId: RunId.of(RUN),
     taskId: null,
+    replay: false,
     workspaceId: WorkspaceId.of('ws_1'),
     repository: null,
     base: null,
@@ -79,6 +80,7 @@ const checkFor = (stack: ChangeStack) =>
     stackId: stack.id,
     runId: stack.runId,
     taskId: null,
+    replay: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),
     entries: stack.entries(),
@@ -94,6 +96,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     find: async () => stack,
     dueForWork: async () => null,
     removeForTask: async () => undefined,
+    ofRun: async () => [],
   };
 
   const checks: StackCheckRepository = {

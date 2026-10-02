@@ -40,16 +40,24 @@ func newKeeper(run protocol.Run, space *workspace.Workspace, journal *journalWri
 	}
 }
 
-func (k *keeper) carriesOn() bool {
-	return k.run.Spec.Continuity.Key != ""
+func (k *keeper) replays() bool {
+	return k.run.Spec.Replay != nil
 }
 
-func (k *keeper) restore(ctx context.Context) {
-	if !k.carriesOn() {
-		return
+func (k *keeper) carriesOn() bool {
+	return !k.replays() && k.run.Spec.Continuity.Key != ""
+}
+
+func (k *keeper) restore(ctx context.Context) error {
+	if k.replays() {
+		return k.restoreReplayed(ctx)
 	}
 
-	k.leased(ctx, k.restored)
+	if k.carriesOn() {
+		k.leased(ctx, k.restored)
+	}
+
+	return nil
 }
 
 func (k *keeper) restored(ctx context.Context) {
@@ -62,10 +70,49 @@ func (k *keeper) restored(ctx context.Context) {
 		return
 	}
 
-	fetched, err := archive.Fetch(ctx, *held, k.scratch)
-	if err != nil {
+	if err := k.unpacked(ctx, *held); err != nil {
 		k.say(restoreStep, "Started afresh: %v", err)
 		return
+	}
+
+	k.say(restoreStep, "Restored the workspace the last run left (%s)", sized(held.Size))
+}
+
+func (k *keeper) restoreReplayed(ctx context.Context) error {
+	wanted := k.run.Spec.Replay.Archive
+	if wanted == nil {
+		return nil
+	}
+
+	var err error
+	k.leased(ctx, func(ctx context.Context) {
+		err = k.restoredExactly(ctx, *wanted)
+	})
+
+	return err
+}
+
+func (k *keeper) restoredExactly(ctx context.Context, wanted string) error {
+	held, err := k.control.WorkspaceArchive(ctx, k.run.ID)
+	if err != nil {
+		return fmt.Errorf("read the archive the replay starts from: %w", err)
+	}
+	if held == nil || held.ID != wanted {
+		return fmt.Errorf("the archive the replay starts from, %s, is no longer kept", wanted)
+	}
+
+	if err := k.unpacked(ctx, *held); err != nil {
+		return fmt.Errorf("restore the archive the replay starts from: %w", err)
+	}
+
+	k.say(restoreStep, "Restored the workspace the replayed run started from (%s)", sized(held.Size))
+	return nil
+}
+
+func (k *keeper) unpacked(ctx context.Context, held protocol.HeldArchive) error {
+	fetched, err := archive.Fetch(ctx, held, k.scratch)
+	if err != nil {
+		return err
 	}
 	defer func() {
 		if err := fetched.Remove(); err != nil {
@@ -74,19 +121,17 @@ func (k *keeper) restored(ctx context.Context) {
 	}()
 
 	if err := k.space.Clear(k.rebuilt(ctx)); err != nil {
-		k.say(restoreStep, "Started afresh: %v", err)
 		k.emptied()
-		return
+		return err
 	}
 
 	if err := fetched.UnpackInto(k.space.Dir); err != nil {
-		k.say(restoreStep, "Started afresh: %v", err)
 		k.emptied()
-		return
+		return err
 	}
 
 	k.restoredFrom = held.ID
-	k.say(restoreStep, "Restored the workspace the last run left (%s)", sized(held.Size))
+	return nil
 }
 
 func (k *keeper) settled() {

@@ -401,6 +401,64 @@ describe('CompleteRunHandler', () => {
     expect(saved[0]?.outcome?.stopped).toBe(true);
   });
 
+  describe('a run its host stopped for running past its time', () => {
+    const RUNNER = RunnerId.of('runner_1');
+    const timedOut = new CompleteRunCommand(
+      'run_1',
+      'runner_1',
+      -1,
+      true,
+      'Its sandbox ran past the host’s limit',
+      null,
+      null,
+      false,
+      false,
+      false,
+      true,
+    );
+    const lastAttempt = () =>
+      held()
+        .timedOut(RUNNER, NOW)
+        .claim(RUNNER, NOW)
+        .timedOut(RUNNER, NOW)
+        .claim(RUNNER, NOW);
+
+    it('goes back on the queue, as a lapsed run does', async () => {
+      const saved: Run[] = [];
+
+      await completing(async (run) => void saved.push(run)).execute(timedOut);
+
+      expect(saved[0]?.state).toBe('queued');
+    });
+
+    it('is given up on as timed out at its last attempt', async () => {
+      const saved: Run[] = [];
+
+      await completing(async (run) => void saved.push(run), undefined, null, {
+        tasks: [],
+        run: lastAttempt,
+      }).execute(timedOut);
+
+      expect(saved[0]?.outcome?.failure?.code).toBe('timed-out');
+    });
+
+    it('tries again when the run moved on as it was told, as by the lease its host was still renewing', async () => {
+      const saved: Run[] = [];
+      let tries = 0;
+
+      await completing(async (run) => {
+        tries += 1;
+        if (tries === 1) {
+          throw new RunMovedOnError(run.id.value);
+        }
+        saved.push(run);
+      }).execute(timedOut);
+
+      expect(tries).toBe(2);
+      expect(saved[0]?.state).toBe('queued');
+    });
+  });
+
   it('reports a run that moved on while it was completing as a conflict', async () => {
     await expect(
       completing(async (run) => {

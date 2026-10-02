@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,6 +52,33 @@ vi.mock('@/hooks/api/useSession', () => ({
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({
     data: { teams: [{ id: 'team_1', name: 'Platform' }] },
+  }),
+}));
+
+const replayRun = vi.fn((): unknown => undefined);
+const replayRunMissing = vi.fn(() => true);
+const replayOfRun = vi.fn((): unknown => undefined);
+
+vi.mock('@/hooks/api/useReplayRun', () => ({
+  replayRunKeys: {
+    forRun: () => ['replay-run'],
+    replayOf: () => ['replay-run', 'replay'],
+  },
+  useReplayRun: () => ({
+    data: replayRun(),
+    isPending: replayRun() === undefined,
+    errorUpdateCount: replayRunMissing() ? 1 : 0,
+    error: replayRunMissing() ? { status: 404 } : null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/api/useReplayOfRun', () => ({
+  useReplayOfRun: () => ({
+    data: replayOfRun(),
+    isPending: replayOfRun() === undefined,
+    errorUpdateCount: 0,
   }),
 }));
 
@@ -201,6 +228,9 @@ describe('Run', () => {
     refetchConversation.mockReset();
     journal.mockReturnValue([]);
     journalFailing.mockReturnValue(false);
+    replayRun.mockReturnValue(undefined);
+    replayRunMissing.mockReturnValue(true);
+    replayOfRun.mockReturnValue(undefined);
   });
 
   describe('while it loads', () => {
@@ -455,6 +485,76 @@ describe('Run', () => {
     expect(
       screen.getByText('There is no such run for this team.'),
     ).toBeInTheDocument();
+  });
+
+  describe('a replay run', () => {
+    const replay = (over: Record<string, unknown> = {}) => ({
+      ...run({ id: 'run_1', taskId: null, taskTitle: null }),
+      original: {
+        runId: 'run_original',
+        taskId: 'task_1',
+        title: 'Fix the queue',
+      },
+      spend: null,
+      journals: [{ runId: 'run_1', attempt: 1, steps: [step], spans: [] }],
+      ...over,
+    });
+
+    beforeEach(() => {
+      runs.mockReturnValue([run({ id: 'run_2' })]);
+      replayRun.mockReturnValue(replay());
+      replayRunMissing.mockReturnValue(false);
+      replayOfRun.mockReturnValue({
+        replayId: 'replay_1',
+        setId: 'set_1',
+        setName: 'Queue fixes',
+        lineId: 'line_1',
+        stationId: 'station_3',
+        candidate: {
+          id: 'candidate_1',
+          name: 'Shorter prompt',
+          kind: 'proposed',
+          fingerprint: 'abc',
+          station: {},
+          createdAt: '2026-08-29T09:00:00.000Z',
+        },
+        startedAsBaseline: false,
+        isBaseline: false,
+        state: 'running',
+        entry: null,
+      });
+    });
+
+    it('says which run it replays, and leads to it', () => {
+      const { container } = renderRun();
+      const banner = container.querySelector(
+        '[data-slot="replay-run-banner"]',
+      ) as HTMLElement;
+
+      expect(
+        within(banner).getByRole('link', { name: 'Fix the queue' }),
+      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_original');
+    });
+
+    it('names its candidate and leads to its replay', () => {
+      renderRun();
+
+      expect(screen.getByText('Shorter prompt')).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'a replay of Queue fixes' }),
+      ).toHaveAttribute(
+        'href',
+        '/w/acme/team/team_1/lines/line_1/stations/station_3/replays/replay_1',
+      );
+    });
+
+    it('shows what it did, but offers no way to talk to it', () => {
+      renderRun();
+
+      expect(screen.getByText('queue-stats --all')).toBeInTheDocument();
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(screen.getByText(/Nobody can talk to it/)).toBeInTheDocument();
+    });
   });
 
   it('shows what the station said', () => {

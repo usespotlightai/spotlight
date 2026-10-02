@@ -20,7 +20,7 @@ CREATE TYPE "public"."memory_standing" AS ENUM('stands', 'retired');--> statemen
 CREATE TYPE "public"."memory_use_way" AS ENUM('briefed', 'recalled');--> statement-breakpoint
 CREATE TYPE "public"."alert_measure" AS ENUM('sent_back_rate', 'accepted_rate', 'checks_failed_rate', 'failed_rate', 'merged_rate', 'cost_per_run');--> statement-breakpoint
 CREATE TYPE "public"."alert_threshold" AS ENUM('risesBy', 'fallsBy', 'above', 'below');--> statement-breakpoint
-CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'ungrounded', 'errored', 'interrupted');--> statement-breakpoint
+CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'ungrounded', 'errored', 'interrupted', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_record_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'approved', 'refused', 'sent-back');--> statement-breakpoint
 CREATE TYPE "public"."run_record_checks" AS ENUM('passed', 'failed', 'skipped');--> statement-breakpoint
@@ -28,6 +28,10 @@ CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped
 CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number');--> statement-breakpoint
 CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
 CREATE TYPE "public"."task_delivery_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
+CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed');--> statement-breakpoint
+CREATE TYPE "public"."replay_run_outcome" AS ENUM('completed', 'failed', 'abandoned', 'withdrawn');--> statement-breakpoint
+CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'over-budget');--> statement-breakpoint
+CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'forgone', 'refused');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'parked', 'completed', 'failed', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."aside_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
 CREATE SEQUENCE "public"."memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
@@ -80,6 +84,7 @@ CREATE TABLE "change_stack" (
 	"id" text PRIMARY KEY NOT NULL,
 	"run_id" text NOT NULL,
 	"task_id" text,
+	"replay" boolean DEFAULT false NOT NULL,
 	"workspace_id" text NOT NULL,
 	"repository" text,
 	"base_commit" text,
@@ -95,6 +100,7 @@ CREATE TABLE "change_stack" (
 	"check_placement" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"check_placement_image" text,
 	"reordering" boolean DEFAULT false NOT NULL,
+	"spent" jsonb NOT NULL,
 	"work_attempts" integer DEFAULT 0 NOT NULL,
 	"work_due_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
@@ -198,6 +204,7 @@ CREATE TABLE "stack_check" (
 	"stack_id" text PRIMARY KEY NOT NULL,
 	"run_id" text NOT NULL,
 	"task_id" text,
+	"replay" boolean DEFAULT false NOT NULL,
 	"workspace_id" text NOT NULL,
 	"command" text NOT NULL,
 	"setup" text,
@@ -556,6 +563,23 @@ CREATE TABLE "memory_use" (
 	CONSTRAINT "memory_use_memory_id_run_id_way_pk" PRIMARY KEY("memory_id","run_id","way")
 );
 --> statement-breakpoint
+CREATE TABLE "change_judging" (
+	"run_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"rubric" text NOT NULL,
+	"reference_run_id" text,
+	"spent" jsonb NOT NULL,
+	"asked_at" timestamp NOT NULL,
+	"owed" boolean NOT NULL,
+	"work_attempts" integer DEFAULT 0 NOT NULL,
+	"work_due_at" timestamp,
+	"judged_at" timestamp,
+	"failure" "judging_failure",
+	"failed_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "chat_record" (
 	"chat_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -665,8 +689,9 @@ CREATE TABLE "run_record" (
 	"ending" "run_record_ending",
 	"failure" text,
 	"round" integer,
-	"superseded" boolean DEFAULT false NOT NULL,
+	"superseded_at" timestamp,
 	"checks" "run_record_checks",
+	"checked_at" timestamp,
 	"next_act" "run_record_act",
 	"next_at" timestamp,
 	"handed_on_to" text,
@@ -778,6 +803,105 @@ CREATE TABLE "task_touches" (
 	"acts" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"touched_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "replay" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"set_id" text NOT NULL,
+	"candidate_id" text NOT NULL,
+	"baseline" boolean NOT NULL,
+	"judges" boolean NOT NULL,
+	"checked" boolean NOT NULL,
+	"rubric_version" text,
+	"ceiling_amount" double precision NOT NULL,
+	"ceiling_currency" text NOT NULL,
+	"state" "replay_state" NOT NULL,
+	"started_at" timestamp NOT NULL,
+	"ended_at" timestamp,
+	"stopped_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "replay_candidate" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"team_key" text NOT NULL,
+	"line_key" text NOT NULL,
+	"station_key" text NOT NULL,
+	"name" text NOT NULL,
+	"kind" "replay_candidate_kind" NOT NULL,
+	"station" jsonb NOT NULL,
+	"fingerprint" text NOT NULL,
+	"checks_changes" boolean NOT NULL,
+	"rubric" text,
+	"rubric_version" text,
+	"changed_from" text NOT NULL,
+	"changes" jsonb NOT NULL,
+	"created_at" timestamp NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "replay_entry" (
+	"replay_id" text NOT NULL,
+	"position" integer NOT NULL,
+	"original_run_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"run_id" text,
+	"queued" boolean DEFAULT false NOT NULL,
+	"fingerprint" text,
+	"queue_attempts" integer DEFAULT 0 NOT NULL,
+	"refusal" text,
+	"not_run" boolean DEFAULT false NOT NULL,
+	"outcome" "replay_run_outcome",
+	"failure" text,
+	"stopped" boolean,
+	"asked" boolean,
+	"next" text,
+	"ended_at" timestamp,
+	"measured" boolean DEFAULT false NOT NULL,
+	"ms" double precision,
+	"steps" integer,
+	"changed_lines" integer,
+	"cost_amount" double precision,
+	"cost_currency" text,
+	"input_tokens" bigint,
+	"output_tokens" bigint,
+	"cache_read_tokens" bigint,
+	"cache_write_tokens" bigint,
+	"checks" jsonb,
+	"drafting_spent" jsonb,
+	"judging_spent" jsonb,
+	"judging" jsonb,
+	"succeeded" boolean,
+	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	CONSTRAINT "replay_entry_replay_id_position_pk" PRIMARY KEY("replay_id","position")
+);
+--> statement-breakpoint
+CREATE TABLE "replay_set" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"name" text NOT NULL,
+	"created_at" timestamp NOT NULL,
+	"station_gone_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "replay_set_entry" (
+	"set_id" text NOT NULL,
+	"run_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"added_at" timestamp NOT NULL,
+	CONSTRAINT "replay_set_entry_set_id_run_id_pk" PRIMARY KEY("set_id","run_id")
 );
 --> statement-breakpoint
 CREATE TABLE "pool_token" (
@@ -1068,6 +1192,14 @@ CREATE TABLE "network_call" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "replay_run_claim" (
+	"run_id" text PRIMARY KEY NOT NULL,
+	"claimed_as" "replay_run_claimed" NOT NULL,
+	"refusal" text,
+	"reason" text,
+	"claimed_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "run" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -1076,6 +1208,8 @@ CREATE TABLE "run" (
 	"task_id" text,
 	"task_revision" integer,
 	"chat_id" text,
+	"replay_of_run_id" text,
+	"replay_team_id" text,
 	"station_id" text,
 	"state" "run_state" NOT NULL,
 	"spec" jsonb NOT NULL,
@@ -1098,6 +1232,12 @@ CREATE TABLE "run" (
 	"ended_at" timestamp,
 	"station_fingerprint" text,
 	"station_config" jsonb,
+	"briefed_task" jsonb,
+	"started_from_archive_id" text,
+	"started_from_checkouts" jsonb,
+	"started_from_attempt" integer,
+	"started_from_at" timestamp,
+	"asked_a_person" boolean DEFAULT false NOT NULL,
 	"claimable_from" timestamp,
 	"exit_code" integer,
 	"message" text,
@@ -1137,6 +1277,13 @@ CREATE TABLE "run_event" (
 	"message" text,
 	"data" text,
 	CONSTRAINT "run_event_run_id_attempt_seq_pk" PRIMARY KEY("run_id","attempt","seq")
+);
+--> statement-breakpoint
+CREATE TABLE "starting_point_hold" (
+	"holder" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"run_ids" text[] DEFAULT '{}'::text[] NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "task_aside" (
@@ -1253,6 +1400,8 @@ ALTER TABLE "hook_firing" ADD CONSTRAINT "hook_firing_hook_id_hook_definition_id
 ALTER TABLE "memory_proposal" ADD CONSTRAINT "memory_proposal_draft_id_memory_draft_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."memory_draft"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_use" ADD CONSTRAINT "memory_use_memory_id_memory_id_fk" FOREIGN KEY ("memory_id") REFERENCES "public"."memory"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_alert" ADD CONSTRAINT "station_alert_station_id_station_watch_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station_watch"("station_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "replay_entry" ADD CONSTRAINT "replay_entry_replay_id_replay_id_fk" FOREIGN KEY ("replay_id") REFERENCES "public"."replay"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "replay_set_entry" ADD CONSTRAINT "replay_set_entry_set_id_replay_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."replay_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_grant" ADD CONSTRAINT "secret_grant_run_id_run_grants_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run_grants"("run_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1268,6 +1417,7 @@ ALTER TABLE "station_route" ADD CONSTRAINT "station_route_station_id_station_id_
 ALTER TABLE "station_route" ADD CONSTRAINT "station_route_to_station_id_station_id_fk" FOREIGN KEY ("to_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_skill" ADD CONSTRAINT "station_skill_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_tool" ADD CONSTRAINT "station_tool_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run" ADD CONSTRAINT "run_replay_of_run_id_run_id_fk" FOREIGN KEY ("replay_of_run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run" ADD CONSTRAINT "run_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_digest" ADD CONSTRAINT "run_digest_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_event" ADD CONSTRAINT "run_event_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1327,6 +1477,8 @@ CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("draftin
 CREATE UNIQUE INDEX "memory_proposal_position_idx" ON "memory_proposal" USING btree ("draft_id","position");--> statement-breakpoint
 CREATE INDEX "memory_proposal_decided_idx" ON "memory_proposal" USING btree ("team_id","state","decided_at");--> statement-breakpoint
 CREATE INDEX "memory_use_run_idx" ON "memory_use" USING btree ("run_id","at");--> statement-breakpoint
+CREATE INDEX "change_judging_owed_idx" ON "change_judging" USING btree ("asked_at") WHERE "change_judging"."owed";--> statement-breakpoint
+CREATE INDEX "change_judging_workspace_idx" ON "change_judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "chat_record_team_idx" ON "chat_record" USING btree ("team_id","started_at");--> statement-breakpoint
 CREATE INDEX "chat_record_workspace_idx" ON "chat_record" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "forgotten_pull_request_updated_idx" ON "forgotten_pull_request" USING btree ("updated_at");--> statement-breakpoint
@@ -1359,6 +1511,16 @@ CREATE INDEX "task_failures_last_idx" ON "task_failures" USING btree ("workspace
 CREATE INDEX "task_failures_team_idx" ON "task_failures" USING btree ("team_id","last_at");--> statement-breakpoint
 CREATE INDEX "task_touches_team_idx" ON "task_touches" USING btree ("team_id","touched_at");--> statement-breakpoint
 CREATE INDEX "task_touches_workspace_idx" ON "task_touches" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "replay_set_idx" ON "replay" USING btree ("set_id");--> statement-breakpoint
+CREATE INDEX "replay_candidate_idx" ON "replay" USING btree ("candidate_id");--> statement-breakpoint
+CREATE INDEX "replay_team_state_idx" ON "replay" USING btree ("team_id","state");--> statement-breakpoint
+CREATE INDEX "replay_candidate_station_idx" ON "replay_candidate" USING btree ("station_id");--> statement-breakpoint
+CREATE INDEX "replay_candidate_team_idx" ON "replay_candidate" USING btree ("team_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "replay_candidate_address_idx" ON "replay_candidate" USING btree ("team_id","line_key","station_key","name") WHERE "replay_candidate"."kind" = 'proposed';--> statement-breakpoint
+CREATE UNIQUE INDEX "replay_entry_run_idx" ON "replay_entry" USING btree ("run_id");--> statement-breakpoint
+CREATE INDEX "replay_set_station_idx" ON "replay_set" USING btree ("station_id");--> statement-breakpoint
+CREATE INDEX "replay_set_team_idx" ON "replay_set" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX "replay_set_line_idx" ON "replay_set" USING btree ("line_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
@@ -1401,7 +1563,9 @@ CREATE INDEX "run_task_idx" ON "run" USING btree ("task_id");--> statement-break
 CREATE INDEX "run_station_idx" ON "run" USING btree ("station_id","created_at");--> statement-breakpoint
 CREATE INDEX "run_station_fingerprint_idx" ON "run" USING btree ("station_fingerprint");--> statement-breakpoint
 CREATE INDEX "run_chat_idx" ON "run" USING btree ("chat_id");--> statement-breakpoint
+CREATE INDEX "run_replay_of_idx" ON "run" USING btree ("replay_of_run_id");--> statement-breakpoint
 CREATE INDEX "run_reserved_idx" ON "run" USING btree ("reserved_for");--> statement-breakpoint
+CREATE INDEX "run_started_from_idx" ON "run" USING btree ("started_from_archive_id","started_from_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "task_aside_about_idx" ON "task_aside" USING btree ("task_id","form","about");--> statement-breakpoint
 CREATE INDEX "task_aside_workspace_idx" ON "task_aside" USING btree ("workspace_id","settled_at");--> statement-breakpoint
 CREATE INDEX "task_station_idx" ON "task" USING btree ("station_id","rank");--> statement-breakpoint

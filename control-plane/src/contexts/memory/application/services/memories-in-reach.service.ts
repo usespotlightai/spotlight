@@ -12,32 +12,44 @@ export class MemoriesInReach {
     private readonly relevance: MemoryRelevancePort,
   ) {}
 
-  async at(site: RunSite): Promise<Memory[]> {
-    const applying = (await this.memories.mayReach(site)).filter((each) =>
-      each.appliesAt(site),
+  async at(site: RunSite, standingAt: Date | null = null): Promise<Memory[]> {
+    const applying = (await this.memories.mayReach(site, standingAt)).filter(
+      (each) => each.appliesAt(site),
     );
 
-    return this.current(applying);
+    return this.current(applying, standingAt);
   }
 
   async recalled(
     teamId: TeamId,
     words: RecallWords,
     most: number,
+    standingAt: Date | null = null,
   ): Promise<Memory[]> {
     const found = (
       await this.memories.findAll(
-        await this.relevance.recall(teamId, words, most),
+        await this.relevance.recall(teamId, words, most, standingAt),
       )
-    ).filter((each) => each.standsOn(teamId));
+    ).filter((each) =>
+      standingAt ? each.stoodOn(teamId, standingAt) : each.standsOn(teamId),
+    );
 
-    return this.current(found);
+    return this.current(found, standingAt);
   }
 
-  private async current(memories: readonly Memory[]): Promise<Memory[]> {
+  private async current(
+    memories: readonly Memory[],
+    standingAt: Date | null,
+  ): Promise<Memory[]> {
+    const successors = await this.memories.successorsOf(
+      memories.map((each) => each.id),
+    );
+
     return withoutSuperseded(
       memories,
-      await this.memories.successorsOf(memories.map((each) => each.id)),
+      standingAt
+        ? successors.filter((each) => each.stoodAt(standingAt))
+        : successors,
     );
   }
 }

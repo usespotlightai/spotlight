@@ -114,7 +114,17 @@ export class Remembering {
     private readonly runId: RunId,
   ) {}
 
-  static of(input: { taskId: TaskId | null; runId: RunId }): Remembering {
+  static of(input: {
+    taskId: TaskId | null;
+    runId: RunId;
+    replay: boolean;
+  }): Remembering {
+    if (input.replay) {
+      throw new InvalidMemoryError(
+        'is never remembered from a replay, which leaves nothing behind but its own result',
+      );
+    }
+
     if (!input.taskId) {
       throw new InvalidMemoryError(
         "is remembered only from a task's run; in a chat, ask the person to write it on the team's Memory page",

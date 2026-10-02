@@ -1,0 +1,22 @@
+import type {
+  BriefedPlace,
+  BriefingSelection,
+} from '@work/application/ports/team-memories.port';
+
+export const MEMORIES_BRIEFED_BEFORE = Symbol('MEMORIES_BRIEFED_BEFORE');
+
+export interface NamedMemory {
+  readonly id: string;
+  readonly handle: string;
+}
+
+export interface MemoriesBriefedBeforePort {
+  again(
+    place: BriefedPlace,
+    chosen: {
+      readonly briefed: readonly NamedMemory[];
+      readonly cut: readonly NamedMemory[];
+    },
+    asOf: Date,
+  ): Promise<BriefingSelection>;
+}

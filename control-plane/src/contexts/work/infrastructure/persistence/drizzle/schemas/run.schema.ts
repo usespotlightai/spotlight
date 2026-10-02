@@ -1,9 +1,12 @@
 import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
+import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
 import { RUN_STATES } from '@work/domain/value-objects/run-state';
+import type { StartedCheckoutParts } from '@work/domain/value-objects/started-checkout.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   doublePrecision,
@@ -29,6 +32,11 @@ export const run = pgTable(
     taskId: text('task_id'),
     taskRevision: integer('task_revision'),
     chatId: text('chat_id'),
+    replayOfRunId: text('replay_of_run_id').references(
+      (): AnyPgColumn => run.id,
+      { onDelete: 'cascade' },
+    ),
+    replayTeamId: text('replay_team_id'),
     stationId: text('station_id').references(() => station.id, {
       onDelete: 'set null',
     }),
@@ -62,6 +70,14 @@ export const run = pgTable(
     endedAt: timestamp('ended_at'),
     stationFingerprint: text('station_fingerprint'),
     stationConfig: jsonb('station_config').$type<StationConfigParts>(),
+    briefedTask: jsonb('briefed_task').$type<BriefedTaskParts>(),
+    startedFromArchiveId: text('started_from_archive_id'),
+    startedFromCheckouts: jsonb('started_from_checkouts').$type<
+      readonly StartedCheckoutParts[]
+    >(),
+    startedFromAttempt: integer('started_from_attempt'),
+    startedFromAt: timestamp('started_from_at'),
+    askedAPerson: boolean('asked_a_person').notNull().default(false),
     claimableFrom: timestamp('claimable_from'),
     exitCode: integer('exit_code'),
     message: text('message'),
@@ -87,7 +103,12 @@ export const run = pgTable(
     index('run_station_idx').on(table.stationId, table.createdAt),
     index('run_station_fingerprint_idx').on(table.stationFingerprint),
     index('run_chat_idx').on(table.chatId),
+    index('run_replay_of_idx').on(table.replayOfRunId),
     index('run_reserved_idx').on(table.reservedFor),
+    index('run_started_from_idx').on(
+      table.startedFromArchiveId,
+      table.startedFromAt,
+    ),
   ],
 );
 

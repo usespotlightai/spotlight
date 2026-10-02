@@ -24,6 +24,9 @@ const PART_LABELS: Record<ConfigChange['part'], string> = {
   judge: 'Judge',
 };
 
+export const isConfigPart = (part: string): part is ConfigChange['part'] =>
+  Object.hasOwn(PART_LABELS, part);
+
 const SWITCHES: readonly ConfigChange['part'][] = ['decisions', 'memories'];
 
 const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {

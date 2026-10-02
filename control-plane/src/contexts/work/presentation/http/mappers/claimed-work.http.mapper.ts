@@ -14,6 +14,7 @@ export const ClaimedWorkHttpMapper = {
         new ClaimedRunResponseDto(
           claimed.run.id,
           claimed.run.harness,
+          claimed.run.attempt,
           claimed.run.spec,
         ),
         null,

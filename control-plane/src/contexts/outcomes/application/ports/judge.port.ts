@@ -1,9 +1,11 @@
-import type { Verdict } from '@outcomes/domain/aggregates/judging.aggregate';
+import type { Verdict } from '@outcomes/domain/services/grounded-verdict';
 import type {
   JudgedHunk,
   JudgedStep,
+  ReferenceChange,
 } from '@outcomes/domain/services/judge-evidence';
 import type { ScoreKind } from '@outcomes/domain/value-objects/score-scale.vo';
+import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
 export const JUDGE = Symbol('OUTCOMES_JUDGE');
 
@@ -16,6 +18,12 @@ export interface JudgeAsk {
   readonly stepsLeftOut: number;
   readonly hunks: readonly JudgedHunk[];
   readonly hunksLeftOut: number;
+  readonly reference: ReferenceChange | null;
+}
+
+export interface JudgeAnswer {
+  readonly verdict: Verdict;
+  readonly usage: ModelCall | null;
 }
 
 export interface JudgePort {
@@ -23,5 +31,5 @@ export interface JudgePort {
 
   readonly model: string;
 
-  judge(ask: JudgeAsk): Promise<Verdict>;
+  judge(ask: JudgeAsk): Promise<JudgeAnswer>;
 }

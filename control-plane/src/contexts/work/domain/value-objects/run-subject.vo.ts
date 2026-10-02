@@ -1,5 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -8,7 +10,18 @@ import type { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 export interface RunSubjectCases<T> {
   task(taskId: TaskId, stationId: StationId | null, revision: TaskRevision): T;
   chat(chatId: ChatId): T;
+  replay(
+    original: RunId,
+    taskId: TaskId,
+    stationId: StationId | null,
+    teamId: TeamId,
+  ): T;
 }
+
+const same = <V extends { equals(other: V): boolean }>(
+  a: V | null,
+  b: V | null,
+): boolean => (a === null ? b === null : b !== null && a.equals(b));
 
 export class RunSubject {
   private constructor(
@@ -16,6 +29,9 @@ export class RunSubject {
     readonly stationId: StationId | null,
     readonly chatId: ChatId | null,
     readonly revision: TaskRevision | null,
+    readonly replayOf: RunId | null = null,
+    readonly replayedTaskId: TaskId | null = null,
+    readonly replayedFor: TeamId | null = null,
   ) {}
 
   static task(
@@ -30,12 +46,57 @@ export class RunSubject {
     return new RunSubject(null, null, chatId, null);
   }
 
+  static replay(
+    original: RunId,
+    taskId: TaskId,
+    stationId: StationId | null,
+    teamId: TeamId,
+  ): RunSubject {
+    return new RunSubject(
+      null,
+      stationId,
+      null,
+      null,
+      original,
+      taskId,
+      teamId,
+    );
+  }
+
   static rehydrate(input: {
     taskId: TaskId | null;
     stationId: StationId | null;
     chatId: ChatId | null;
     revision: TaskRevision | null;
+    replayOf?: RunId | null;
+    replayedTaskId?: TaskId | null;
+    replayedFor?: TeamId | null;
   }): RunSubject | null {
+    const replayOf = input.replayOf ?? null;
+    const replayedTaskId = input.replayedTaskId ?? null;
+    const replayedFor = input.replayedFor ?? null;
+
+    if (replayOf || replayedTaskId || replayedFor) {
+      if (input.taskId || input.chatId || input.revision) {
+        throw new InconsistentStateError(
+          'run',
+          'replays a run while it works a task or chat of its own',
+        );
+      }
+      if (!replayOf || !replayedTaskId || !replayedFor) {
+        throw new InconsistentStateError(
+          'run',
+          'replays a run without naming it, its task and the team it replays for',
+        );
+      }
+
+      return RunSubject.replay(
+        replayOf,
+        replayedTaskId,
+        input.stationId,
+        replayedFor,
+      );
+    }
     if (input.chatId && (input.taskId || input.stationId)) {
       throw new InconsistentStateError(
         'run',
@@ -64,6 +125,10 @@ export class RunSubject {
     return null;
   }
 
+  get isReplay(): boolean {
+    return this.replayOf !== null;
+  }
+
   get archiveHolder(): ArchiveHolder | null {
     if (this.chatId) {
       return { kind: 'chat', chatId: this.chatId };
@@ -73,6 +138,15 @@ export class RunSubject {
   }
 
   match<T>(cases: RunSubjectCases<T>): T {
+    if (this.replayOf) {
+      return cases.replay(
+        this.replayOf,
+        this.replayedTaskId as TaskId,
+        this.stationId,
+        this.replayedFor as TeamId,
+      );
+    }
+
     return this.chatId
       ? cases.chat(this.chatId)
       : cases.task(
@@ -83,16 +157,14 @@ export class RunSubject {
   }
 
   equals(other: RunSubject): boolean {
-    const same = <V extends { equals(other: V): boolean }>(
-      a: V | null,
-      b: V | null,
-    ): boolean => (a === null ? b === null : b !== null && a.equals(b));
-
     return (
       same(this.taskId, other.taskId) &&
       same(this.stationId, other.stationId) &&
       same(this.chatId, other.chatId) &&
-      same(this.revision, other.revision)
+      same(this.revision, other.revision) &&
+      same(this.replayOf, other.replayOf) &&
+      same(this.replayedTaskId, other.replayedTaskId) &&
+      same(this.replayedFor, other.replayedFor)
     );
   }
 }

@@ -30,6 +30,7 @@ const shared = {
       '@change-review': resolve(__dirname, 'src/contexts/change-review'),
       '@memory': resolve(__dirname, 'src/contexts/memory'),
       '@outcomes': resolve(__dirname, 'src/contexts/outcomes'),
+      '@replays': resolve(__dirname, 'src/contexts/replays'),
       '@github': resolve(__dirname, 'src/contexts/github'),
       '@integrations': resolve(__dirname, 'src/contexts/integrations'),
       '@configuration': resolve(__dirname, 'src/contexts/configuration'),

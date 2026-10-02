@@ -14,6 +14,8 @@ export const CONFIGURED_RESOURCES = [
   'runner-trust',
   'runner-pool',
   'workspace-runners',
+  'replay-candidate',
+  'replay',
 ] as const;
 
 export type ConfiguredResource = (typeof CONFIGURED_RESOURCES)[number];

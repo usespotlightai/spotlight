@@ -374,7 +374,7 @@ const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
   ],
 };
 
-const seedPlace = (client: QueryClient) => {
+export const seedStationPlace = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
   client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
@@ -382,7 +382,7 @@ const seedPlace = (client: QueryClient) => {
 };
 
 const seedJudgeAround = (client: QueryClient) => {
-  seedPlace(client);
+  seedStationPlace(client);
   client.setQueryData(stationOutcomeKeys.forStation(STATION_ID), OUTCOMES);
 };
 
@@ -428,7 +428,7 @@ export const refuseStationJudge = (client: QueryClient) => {
 };
 
 const seedAround = (client: QueryClient) => {
-  seedPlace(client);
+  seedStationPlace(client);
   client.setQueryData(stationJudgeKeys.forStation(STATION_ID), JUDGE_AGREEMENT);
 };
 

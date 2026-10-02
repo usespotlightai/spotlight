@@ -3,9 +3,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  HeldAttachment,
   HeldRunReaderPort,
   PendingSaying,
 } from '@work/application/ports/held-run-reader.port';
@@ -70,35 +68,9 @@ export class DrizzleHeldRunReader implements HeldRunReaderPort {
     return held?.stopRequestedAt != null;
   }
 
-  async attachmentFor(
-    runId: RunId,
-    runnerId: RunnerId,
-    attachmentId: string,
-  ): Promise<HeldAttachment | null> {
-    const held = await this.held(runId, runnerId);
-
-    if (!held) {
-      return null;
-    }
-
-    const found = held.taskId
-      ? await this.attachedToTask(held.taskId, attachmentId)
-      : held.chatId
-        ? await this.attachedInChat(held.chatId, attachmentId)
-        : null;
-
-    return found
-      ? {
-          workspaceId: WorkspaceId.of(held.workspaceId),
-          attachment: Attachment.rehydrate(found),
-        }
-      : null;
-  }
-
   private async held(runId: RunId, runnerId: RunnerId) {
     const [row] = await this.db
       .select({
-        workspaceId: run.workspaceId,
         taskId: run.taskId,
         chatId: run.chatId,
         stopRequestedAt: run.stopRequestedAt,
@@ -109,46 +81,6 @@ export class DrizzleHeldRunReader implements HeldRunReaderPort {
           eq(run.id, runId.value),
           eq(run.claimedBy, runnerId.value),
           inArray(run.state, [...HELD_RUN_STATES]),
-        ),
-      )
-      .limit(1);
-
-    return row ?? null;
-  }
-
-  private async attachedToTask(taskId: string, attachmentId: string) {
-    const [row] = await this.db
-      .select({
-        id: taskAttachment.id,
-        name: taskAttachment.name,
-        contentType: taskAttachment.contentType,
-        size: taskAttachment.size,
-      })
-      .from(taskAttachment)
-      .where(
-        and(
-          eq(taskAttachment.taskId, taskId),
-          eq(taskAttachment.id, attachmentId),
-        ),
-      )
-      .limit(1);
-
-    return row ?? null;
-  }
-
-  private async attachedInChat(chatId: string, attachmentId: string) {
-    const [row] = await this.db
-      .select({
-        id: chatAttachment.id,
-        name: chatAttachment.name,
-        contentType: chatAttachment.contentType,
-        size: chatAttachment.size,
-      })
-      .from(chatAttachment)
-      .where(
-        and(
-          eq(chatAttachment.chatId, chatId),
-          eq(chatAttachment.id, attachmentId),
         ),
       )
       .limit(1);

@@ -209,7 +209,7 @@ An image is built `FROM` the runner image, in the user's own CI:
   already its.
 
 ```dockerfile
-FROM ghcr.io/usespotlightai/spotlight-runner:20260926-01
+FROM ghcr.io/usespotlightai/spotlight-runner:20261002-01
 USER agent
 RUN git clone https://github.com/acme/web /workspace/web
 WORKDIR /workspace/web
@@ -218,7 +218,7 @@ USER root
 ```
 
 ```dockerfile
-FROM ghcr.io/usespotlightai/spotlight-runner:20260926-01
+FROM ghcr.io/usespotlightai/spotlight-runner:20261002-01
 RUN apt-get update && apt-get install -y --no-install-recommends python3-venv \
     && rm -rf /var/lib/apt/lists/*
 USER agent
@@ -230,7 +230,7 @@ USER root
 
 ```dockerfile
 FROM golang:1.26-bookworm AS go
-FROM ghcr.io/usespotlightai/spotlight-runner:20260926-01
+FROM ghcr.io/usespotlightai/spotlight-runner:20261002-01
 COPY --from=go /usr/local/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH GOPATH=/home/agent/go
 USER agent
@@ -240,7 +240,7 @@ USER root
 ```
 
 ```dockerfile
-FROM ghcr.io/usespotlightai/spotlight-runner:20260926-01
+FROM ghcr.io/usespotlightai/spotlight-runner:20261002-01
 USER agent
 RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
 ENV PATH=/home/agent/.cargo/bin:$PATH CARGO_TARGET_DIR=/home/agent/target

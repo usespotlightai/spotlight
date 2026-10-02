@@ -12,6 +12,8 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+
 const AT = new Date('2026-09-30T12:00:00.000Z');
 const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/1');
 
@@ -29,14 +31,14 @@ describe('runTally', () => {
     const tally = runTally(
       [
         endedRecord('run_1', { ending: 'failed', failure: 'exited' })
-          .checked('failed')
+          .checked('failed', HEARD_AT)
           .actedOn(NextAct.of('sent-back', AT)),
         endedRecord('run_2', { ending: 'stopped' }),
         endedRecord('run_3')
-          .checked('passed')
+          .checked('passed', HEARD_AT)
           .actedOn(NextAct.of('approved', AT)),
         endedRecord('run_4')
-          .checked('skipped')
+          .checked('skipped', HEARD_AT)
           .actedOn(NextAct.of('closed', AT)),
         endedRecord('run_5').actedOn(NextAct.of('refused', AT)),
       ],
@@ -77,7 +79,7 @@ describe('runTally', () => {
     const tally = runTally(
       [
         costedRecord('run_1', { ending: 'withdrawn', ms: 1, amount: 9 })
-          .supersededByItsTask()
+          .supersededByItsTask(HEARD_AT)
           .actedOn(NextAct.of('closed', AT)),
         costedRecord('run_2', { ending: 'failed', ms: 40_000, amount: 0.5 }),
       ],

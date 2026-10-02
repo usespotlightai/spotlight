@@ -12,6 +12,7 @@ import {
   SHA256,
   storedAs,
 } from '@work/domain/aggregates/workspace-archive.fake-spec';
+import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
 import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-workspace-archive.error';
 import { InvalidWorkspaceArchiveTransitionError } from '@work/domain/exceptions/invalid-workspace-archive-transition.error';
 import { WorkspaceArchiveNotUploadedError } from '@work/domain/exceptions/workspace-archive-not-uploaded.error';
@@ -38,11 +39,18 @@ const conversing: HolderState = {
   changedAt: later(0),
 };
 
-const held: ArchiveFacts = { holder: carryingOn, supersededAt: null };
+const held: ArchiveFacts = {
+  holder: carryingOn,
+  supersededAt: null,
+  lastStartedFromAt: null,
+  pinned: false,
+};
 
 const standing = (holder: HolderState): ArchiveFacts => ({
   holder,
   supersededAt: null,
+  lastStartedFromAt: null,
+  pinned: false,
 });
 
 const finished = standing({
@@ -132,6 +140,8 @@ describe('WorkspaceArchive', () => {
       aSealedArchive().removableAt(later(1), {
         holder: null,
         supersededAt: null,
+        lastStartedFromAt: null,
+        pinned: false,
       }),
     ).toBe(true);
   });
@@ -178,8 +188,134 @@ describe('WorkspaceArchive', () => {
     ).toBe(true);
   });
 
+  describe('once a task run started from it', () => {
+    const startedFrom = (
+      at: Date,
+      facts: ArchiveFacts = held,
+    ): ArchiveFacts => ({
+      ...facts,
+      lastStartedFromAt: at,
+    });
+
+    it('is kept for thirty days after the latest such run started, though a newer one is sealed', () => {
+      const facts = startedFrom(later(2 * DAY), {
+        ...held,
+        supersededAt: later(DAY),
+      });
+
+      expect(aSealedArchive().removableAt(later(32 * DAY - 1), facts)).toBe(
+        false,
+      );
+      expect(aSealedArchive().removableAt(later(32 * DAY), facts)).toBe(true);
+    });
+
+    it('is kept for thirty days though its task finished long before', () => {
+      const facts = startedFrom(later(DAY), finished);
+
+      expect(aSealedArchive().removableAt(later(31 * DAY - 1), facts)).toBe(
+        false,
+      );
+      expect(aSealedArchive().removableAt(later(31 * DAY), facts)).toBe(true);
+    });
+
+    it('is still kept while its task carries on, after the thirty days', () => {
+      expect(
+        aSealedArchive().removableAt(later(365 * DAY), startedFrom(later(DAY))),
+      ).toBe(false);
+    });
+
+    it('is removed at once when its task is gone', () => {
+      expect(
+        aSealedArchive().removableAt(
+          later(DAY + 1),
+          startedFrom(later(DAY), {
+            holder: null,
+            supersededAt: null,
+            lastStartedFromAt: null,
+            pinned: false,
+          }),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  describe('while a replay set pins it', () => {
+    const pinned = (facts: ArchiveFacts): ArchiveFacts => ({
+      ...facts,
+      lastStartedFromAt: later(DAY),
+      pinned: true,
+    });
+
+    it('is kept long after the thirty days, though a newer one is sealed and its task finished', () => {
+      expect(
+        aSealedArchive().removableAt(
+          later(365 * DAY),
+          pinned({ ...finished, supersededAt: later(DAY) }),
+        ),
+      ).toBe(false);
+    });
+
+    it('is removed at once when its task is gone', () => {
+      expect(
+        aSealedArchive().removableAt(
+          later(DAY + 1),
+          pinned({
+            holder: null,
+            supersededAt: null,
+            lastStartedFromAt: null,
+            pinned: false,
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    it('is kept only the thirty days once the set lets it go', () => {
+      const released = { ...pinned(finished), pinned: false };
+
+      expect(aSealedArchive().removableAt(later(31 * DAY - 1), released)).toBe(
+        false,
+      );
+      expect(aSealedArchive().removableAt(later(31 * DAY), released)).toBe(
+        true,
+      );
+    });
+  });
+
+  it('vouches for itself as restored into a run of the same workspace and work, once sealed', () => {
+    const work = ContinuityKey.forTask('task_1');
+    const restored = aSealedArchive().restoredInto(
+      WorkspaceId.of('ws_1'),
+      work,
+    );
+
+    expect(restored.id.value).toBe('archive_1');
+    expect(restored.restores(WorkspaceId.of('ws_1'), work)).toBe(true);
+  });
+
+  it('refuses to vouch for a restore it could not have been', () => {
+    const work = ContinuityKey.forTask('task_1');
+
+    for (const refused of [
+      () => anArchive().restoredInto(WorkspaceId.of('ws_1'), work),
+      () => aSealedArchive().restoredInto(WorkspaceId.of('ws_2'), work),
+      () =>
+        aSealedArchive().restoredInto(
+          WorkspaceId.of('ws_1'),
+          ContinuityKey.forTask('task_2'),
+        ),
+      () => aSealedArchive().restoredInto(WorkspaceId.of('ws_1'), null),
+    ]) {
+      expect(refused).toThrow(InvalidStartingPointError);
+    }
+  });
+
   it('is discarded when removed once no later run will restore it', () => {
-    const gone: ArchiveFacts = { holder: null, supersededAt: null };
+    const gone: ArchiveFacts = {
+      holder: null,
+      supersededAt: null,
+      lastStartedFromAt: null,
+      pinned: false,
+    };
 
     expect(aSealedArchive().removed(later(1), gone).isDiscarded).toBe(true);
   });
@@ -200,18 +336,23 @@ describe('WorkspaceArchive', () => {
       grantedUnsealedBy: later(7 * DAY),
       supersededBy: later(8 * DAY - HOUR),
       letGoBy: later(DAY),
+      startedFromBy: later(8 * DAY - 30 * DAY),
     });
     expect(anArchive().removableAt(later(DAY), held)).toBe(true);
     expect(
       aSealedArchive().removableAt(later(8 * DAY), {
         holder: { kind: 'task', finished: true, changedAt: later(DAY) },
         supersededAt: null,
+        lastStartedFromAt: null,
+        pinned: false,
       }),
     ).toBe(true);
     expect(
       aSealedArchive().removableAt(later(8 * DAY), {
         holder: carryingOn,
         supersededAt: later(8 * DAY - HOUR),
+        lastStartedFromAt: null,
+        pinned: false,
       }),
     ).toBe(true);
   });

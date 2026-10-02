@@ -8,11 +8,14 @@ export interface TouchedFile {
   readonly path: string;
 }
 
-export interface BriefingPlace {
+export interface BriefedPlace {
   readonly teamId: TeamId;
   readonly lineId: string | null;
   readonly stationId: string | null;
   readonly repositories: readonly Repository[];
+}
+
+export interface BriefingPlace extends BriefedPlace {
   readonly about: string;
   touched(): Promise<readonly TouchedFile[]>;
 }

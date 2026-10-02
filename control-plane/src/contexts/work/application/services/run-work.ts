@@ -1,5 +1,6 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { GitService } from '@work/application/ports/git-gateway.port';
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
@@ -18,7 +19,10 @@ export interface RunWork {
   readonly workspaceId: WorkspaceId;
   deliverUpTo(position: number, at: Date): Promise<void>;
   gave(attachmentId: string): Attachment | null;
-  repositoryNamed(name: string): Promise<Repository | null>;
+  repositoryNamed(
+    name: string,
+    service: GitService,
+  ): Promise<Repository | null>;
   toolContext(): Promise<ToolContext>;
   clearFor(declared: DeclaredTool, call: ToolCall): Promise<Cleared>;
   clearPermission(

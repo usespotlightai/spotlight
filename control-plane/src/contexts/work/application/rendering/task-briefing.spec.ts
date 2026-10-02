@@ -160,11 +160,10 @@ const brief = (
   memoryFolder: MemoryFolder | null = null,
 ) =>
   TaskBriefing.brief({
-    task: worked ?? task(station.id.value),
+    task: (worked ?? task(station.id.value)).briefed.withDecisions(decisions),
     line: held(station, at('station_2', 'Spec', 1)),
     skills: shipped,
     listedIn: null,
-    decisions,
     memories,
     memoryFolder,
   });
@@ -348,11 +347,10 @@ describe('TaskBriefing', () => {
   describe('the skills a run is given', () => {
     const listed = (station: Station) =>
       TaskBriefing.brief({
-        task: task(station.id.value),
+        task: task(station.id.value).briefed,
         line: held(station, at('station_2', 'Spec', 1)),
         skills: shipped,
         listedIn: '.spotlight/skills',
-        decisions: [],
         memories: [],
         memoryFolder: null,
       });
@@ -525,11 +523,10 @@ describe('TaskBriefing', () => {
 
     const briefed = (worked: Task) =>
       TaskBriefing.brief({
-        task: worked,
+        task: worked.briefed,
         line: inBoth(),
         skills: shipped,
         listedIn: null,
-        decisions: [],
         memories: [],
         memoryFolder: null,
       });

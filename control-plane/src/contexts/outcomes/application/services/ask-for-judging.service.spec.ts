@@ -43,7 +43,10 @@ const asking = (
   const judge: JudgePort = {
     available: change.available ?? true,
     model: 'some/model',
-    judge: async () => ({ value: true, reasons: [] }),
+    judge: async () => ({
+      verdict: { value: true, reasons: [] },
+      usage: null,
+    }),
   };
   const asks = new AskForJudging(
     {

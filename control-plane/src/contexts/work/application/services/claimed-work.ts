@@ -7,6 +7,7 @@ export const claimedRun = (run: Run): ClaimedWorkDto => ({
   run: {
     id: run.id.value,
     harness: run.harness.value,
+    attempt: run.attempt,
     spec: RunSpecContract.toWire(run.spec),
   },
 });

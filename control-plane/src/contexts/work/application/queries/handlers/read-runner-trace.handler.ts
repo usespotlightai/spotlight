@@ -11,6 +11,7 @@ import {
   traceOf,
   type WorkedRun,
 } from '@work/application/read-models/trace-of';
+import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -24,15 +25,19 @@ export class ReadRunnerTraceHandler
     try {
       const target = TaskId.of(query.taskId);
 
-      const [mine, theirs] = await Promise.all([
-        this.traces.teamOfHeldRun(
+      const [held, theirs] = await Promise.all([
+        this.traces.heldRunStanding(
           RunId.of(query.runId),
           RunnerId.of(query.runnerId),
         ),
         this.traces.teamOfTask(target),
       ]);
 
-      if (!TraceAccess.sameTeam(mine, theirs)) {
+      if (held?.replaysFrom) {
+        throw new KeptFromReplaysError('read a task’s trace');
+      }
+
+      if (!TraceAccess.sameTeam(held?.teamId ?? null, theirs)) {
         return null;
       }
 

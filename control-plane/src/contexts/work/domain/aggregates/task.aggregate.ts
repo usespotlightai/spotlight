@@ -48,6 +48,7 @@ import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.
 import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { Clearance } from '@work/domain/value-objects/clearance';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
@@ -828,6 +829,26 @@ export class Task extends EventRecorder {
     );
   }
 
+  get briefed(): BriefedTask {
+    return BriefedTask.of({
+      stationId: this.stationId,
+      title: this.title.value,
+      description: this.description?.value ?? null,
+      reviewing: this.reviewedHead?.repository ?? null,
+      attachments: this.attachments,
+      notes: this.notes.map((note) => ({
+        station: note.station.value,
+        body: note.body.value,
+        attachments: note.attachments,
+      })),
+      openRemarks: this.openRemarks.map((each) => ({
+        at: each.at,
+        place: each.said.place,
+        body: each.said.body,
+      })),
+    });
+  }
+
   remarkAt(at: NotePosition): Remark {
     const remark = this.notes[at.value]?.open
       ? this.notes[at.value]?.remark
@@ -996,13 +1017,15 @@ export class Task extends EventRecorder {
     const earlier = free.openFailure;
 
     if (free.awaitingReview && earlier?.failure?.sameAs(failure)) {
+      const recurred = failure.following(earlier.failure);
+
       return free
         .with({
           notes: free.notes.map((note) =>
-            note.equals(earlier) ? note.recurred() : note,
+            note.equals(earlier) ? note.recurred(recurred) : note,
           ),
         })
-        .failing(earlier.failure.again(), by, saying.at, line);
+        .failing(recurred, by, saying.at, line);
     }
 
     const following = failure.following(earlier?.failure ?? null);

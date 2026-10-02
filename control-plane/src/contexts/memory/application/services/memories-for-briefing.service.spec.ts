@@ -58,6 +58,7 @@ const briefing = (
     ),
     relevance,
     { runsUsing: async () => new Map() } as unknown as MemoryUsesPort,
+    { findAll: async () => held } as unknown as MemoryRepository,
   );
 
   return {

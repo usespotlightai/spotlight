@@ -23,6 +23,7 @@
       "@change-review/*": ["./src/contexts/change-review/*"],
       "@memory/*": ["./src/contexts/memory/*"],
       "@outcomes/*": ["./src/contexts/outcomes/*"],
+      "@replays/*": ["./src/contexts/replays/*"],
       "@github/*": ["./src/contexts/github/*"],
       "@integrations/*": ["./src/contexts/integrations/*"],
       "@configuration/*": ["./src/contexts/configuration/*"],

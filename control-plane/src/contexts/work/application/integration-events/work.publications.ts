@@ -15,6 +15,14 @@ import {
   type PullRequestReviewTakenIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import {
+  REPLAY_DIGESTED,
+  type ReplayDigestedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/replay-digested.integration-event';
+import {
+  REPLAY_ENDED,
+  type ReplayEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/replay-ended.integration-event';
+import {
   RUN_BRIEFED,
   type RunBriefedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-briefed.integration-event';
@@ -69,6 +77,7 @@ import type { LineRedefined } from '@work/domain/events/line-redefined.event';
 import type { LineRetired } from '@work/domain/events/line-retired.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
+import type { ReplayDigested } from '@work/domain/events/replay-digested.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunBriefed } from '@work/domain/events/run-briefed.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
@@ -83,24 +92,53 @@ import type { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
+import type { Declaration } from '@work/domain/value-objects/declaration.vo';
+
+interface Ending {
+  readonly failure: string | null;
+  readonly stopped: boolean;
+  readonly asked: boolean;
+  readonly declared: Declaration | null;
+}
+
+const UNSAID: Ending = {
+  failure: null,
+  stopped: false,
+  asked: false,
+  declared: null,
+};
 
 const ended = (
   event: RunCompleted | RunAbandoned | RunWithdrawn,
   outcome: RunEnding,
-  { failure, stopped }: { failure: string | null; stopped: boolean } = {
-    failure: null,
-    stopped: false,
-  },
-): RunEndedIntegrationEvent => ({
-  kind: RUN_ENDED,
-  runId: event.runId.value,
-  workspaceId: event.workspaceId.value,
-  taskId: event.taskId?.value ?? null,
-  stationId: event.subject?.stationId?.value ?? null,
-  outcome,
-  failure,
-  stopped,
-});
+  ending: Ending = UNSAID,
+): RunEndedIntegrationEvent | ReplayEndedIntegrationEvent => {
+  const replayOf = event.subject?.replayOf ?? null;
+
+  return replayOf
+    ? {
+        kind: REPLAY_ENDED,
+        runId: event.runId.value,
+        replayOf: replayOf.value,
+        workspaceId: event.workspaceId.value,
+        outcome,
+        failure: ending.failure,
+        stopped: ending.stopped,
+        asked: ending.asked,
+        next: ending.declared?.next || null,
+        note: ending.declared?.note || null,
+      }
+    : {
+        kind: RUN_ENDED,
+        runId: event.runId.value,
+        workspaceId: event.workspaceId.value,
+        taskId: event.taskId?.value ?? null,
+        stationId: event.subject?.stationId?.value ?? null,
+        outcome,
+        failure: ending.failure,
+        stopped: ending.stopped,
+      };
+};
 
 const redefined = (
   event: LineRedefined | LineRetired,
@@ -187,13 +225,19 @@ export const WORK_PUBLICATIONS = [
     ended(event, event.outcome.failed ? 'failed' : 'completed', {
       failure: event.outcome.failure?.code ?? null,
       stopped: event.outcome.stopped,
+      asked: event.asked === true,
+      declared: event.declared,
     }),
   ),
   publishing<RunAbandoned>('run.abandoned', (event) =>
-    ended(event, 'abandoned'),
+    ended(event, 'abandoned', {
+      ...UNSAID,
+      failure: event.failure,
+      asked: event.asked === true,
+    }),
   ),
   publishing<RunWithdrawn>('run.withdrawn', (event) =>
-    ended(event, 'withdrawn'),
+    ended(event, 'withdrawn', { ...UNSAID, asked: event.asked === true }),
   ),
   publishing<RunSuperseded>(
     'run.superseded',
@@ -246,6 +290,24 @@ export const WORK_PUBLICATIONS = [
         lastCallFailed: each.lastCallFailed,
       })),
       skillsRead: [...event.tools.skills],
+    }),
+  ),
+  publishing<ReplayDigested>(
+    'replay.digested',
+    (event): ReplayDigestedIntegrationEvent => ({
+      kind: REPLAY_DIGESTED,
+      runId: event.runId.value,
+      replayOf: event.replayOf.value,
+      workspaceId: event.workspaceId.value,
+      ms: event.ms,
+      steps: event.steps,
+      changedLines: event.changedLines,
+      cost: event.cost?.amount ?? null,
+      currency: event.cost?.currency ?? null,
+      inputTokens: event.tokens.input,
+      outputTokens: event.tokens.output,
+      cacheReadTokens: event.tokens.cacheRead,
+      cacheWriteTokens: event.tokens.cacheWrite,
     }),
   ),
   publishing<TaskHandedOn>(

@@ -35,7 +35,12 @@ export class DraftRunChangeStackHandler
       }
 
       await this.drafting.begin(
-        { id: run.id, taskId: run.taskId, workspaceId: run.workspaceId },
+        {
+          id: run.id,
+          taskId: run.taskId,
+          replay: run.replay,
+          workspaceId: run.workspaceId,
+        },
         {
           diff: command.diff,
           repository: command.repository,

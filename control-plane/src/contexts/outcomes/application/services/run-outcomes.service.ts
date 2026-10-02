@@ -15,14 +15,22 @@ export class RunOutcomes implements RunOutcomesPort {
 
   async of(
     runIds: readonly string[],
+    asOf: Date | null,
   ): Promise<ReadonlyMap<string, RunOutcomeShape>> {
-    const records = await this.records.ofRuns(
-      runIds.filter((each) => each.trim()).map(RunId.of),
-    );
+    const records = (
+      await this.records.ofRuns(
+        runIds.filter((each) => each.trim()).map(RunId.of),
+      )
+    ).map((each) => (asOf ? each.asOf(asOf) : each));
     const ended = records.filter((each) => each.hasEnded);
-    const deliveries = await this.deliveries.forTasks(
-      ended.flatMap((each) => (each.taskId ? [each.taskId] : [])),
-    );
+    const deliveries = (
+      await this.deliveries.forTasks(
+        ended.flatMap((each) => (each.taskId ? [each.taskId] : [])),
+      )
+    ).flatMap((each) => {
+      const known = asOf ? each.asOf(asOf) : each;
+      return known ? [known] : [];
+    });
     return new Map(
       ended.flatMap((record) => {
         const outcome = runOutcomeOf(record, deliveries);

@@ -317,3 +317,50 @@ func TestHoldsTheRunWhileItKeepsTheWorkspace(t *testing.T) {
 		t.Errorf("the lease was renewed %d times during a five-second upload of a run asked to stop", kept.renewedMidPut)
 	}
 }
+
+func TestSaysWhereATaskRunStartedFromTheArchiveItRestored(t *testing.T) {
+	kept := newKeptArchives(t)
+	reporting := func(o *runOptions) {
+		o.archives = kept
+		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.starting = true
+	}
+
+	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"), reporting)
+	second := run(t, harness(t, `said = "read";`, "end_turn"), reporting)
+
+	if len(first.starts) != 1 || first.starts[0].ArchiveID != nil {
+		t.Errorf("the first run said it started from %+v, want no archive", first.starts)
+	}
+	if len(second.starts) != 1 || second.starts[0].ArchiveID == nil || *second.starts[0].ArchiveID != kept.newest().ID {
+		t.Errorf("the next run said it started from %+v, want the archive it restored", second.starts)
+	}
+	if got := step(t, second, "start"); got != "" {
+		t.Errorf("a start it could record said %q", got)
+	}
+}
+
+func TestSaysNothingOfWhereARunStartedUnlessAsked(t *testing.T) {
+	written := run(t, harness(t, `said = "worked";`, "end_turn"))
+
+	if len(written.starts) != 0 {
+		t.Errorf("a run not asked said it started from %+v", written.starts)
+	}
+}
+
+func TestRunsOnWhenWhereItStartedCannotBeRecorded(t *testing.T) {
+	written := run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) {
+		o.starting = true
+		o.startErr = errors.New("409 Conflict: a run records where it started only when it works a task")
+	})
+
+	if got := step(t, written, "start"); !strings.HasPrefix(got, "Where the run started was not recorded: ") || !strings.Contains(got, "409") {
+		t.Errorf("said %q about where it started", got)
+	}
+	if written.done == nil || written.done.Failed {
+		t.Errorf("a start it could not record failed the run: %+v", written.done)
+	}
+	if got := said(t, written); got != "worked" {
+		t.Errorf("heard %q", got)
+	}
+}

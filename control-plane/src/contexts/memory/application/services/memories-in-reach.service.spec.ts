@@ -127,6 +127,38 @@ describe('MemoriesInReach', () => {
       'M-5',
       'M-2',
     ]);
-    expect(recall).toHaveBeenCalledWith(TEAM, words, 10);
+    expect(recall).toHaveBeenCalledWith(TEAM, words, 10, null);
+  });
+
+  it('recalls for a replay only what stood when the run it replays started', async () => {
+    const later = (hours: number) =>
+      new Date(AT.getTime() + hours * 60 * 60_000);
+    const old = kept(1);
+    const correction = old.correctedAs({
+      id: MemoryId.of('memory_2'),
+      handle: MemoryHandle.of(2),
+      kind: old.kind,
+      body: MemoryBody.of('Memory 2.'),
+      scope: old.scope,
+      by: MemoryDecision.of({ by: UserId.of('user_1'), at: later(2) }),
+    });
+    const superseded = old.supersededBy(correction.id, later(2));
+    const { memories, recall } = inReach({
+      held: [superseded, correction],
+      successors: [correction],
+      recalled: [superseded, correction].map((each) => each.id),
+    });
+    const words = RecallWords.of('branches');
+
+    expect(handles(await memories.recalled(TEAM, words, 10, later(1)))).toEqual(
+      ['M-1'],
+    );
+    expect(handles(await memories.recalled(TEAM, words, 10, later(3)))).toEqual(
+      ['M-2'],
+    );
+    expect(handles(await memories.recalled(TEAM, words, 10, AT))).toEqual([
+      'M-1',
+    ]);
+    expect(recall).toHaveBeenCalledWith(TEAM, words, 10, later(1));
   });
 });

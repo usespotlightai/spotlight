@@ -1,3 +1,4 @@
+import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
@@ -117,12 +118,12 @@ export const HandoverFor = {
     );
   },
 
-  exhausted(attempts: number): Handover {
+  exhausted(attempts: number, failure: RunFailureCode): Handover {
     return Handover.failed(
       TaskNoteBody.of(
         `The run was given up on after ${attempts} attempts without finishing.`,
       ),
-      TaskFailure.fromRun('runner-lost'),
+      TaskFailure.fromRun(failure),
     );
   },
 

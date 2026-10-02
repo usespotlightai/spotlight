@@ -1,5 +1,6 @@
 import { useParams } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { StationReplays } from '@/components/features/replays/station/StationReplays';
 import { FixedSettings } from '@/components/features/stations/FixedSettings';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
 import { StationOutcomes } from '@/components/features/stations/outcomes/StationOutcomes';
@@ -177,6 +178,12 @@ export function Station() {
               teamId={teamId}
               lineId={line.id}
               stationId={station.id}
+            />
+
+            <StationReplays
+              at={{ slug, teamId, lineId: line.id, stationId: station.id }}
+              lineKey={line.key}
+              stationKey={station.key}
             />
           </>
         ) : (

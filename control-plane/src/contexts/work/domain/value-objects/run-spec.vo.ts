@@ -70,6 +70,18 @@ export interface RunAttachment {
   readonly path: string;
 }
 
+interface RunReplayCheckout {
+  readonly path: string;
+  readonly commit: string;
+  readonly repository: string;
+}
+
+export interface RunReplay {
+  readonly archive: string | null;
+  readonly checkouts: readonly RunReplayCheckout[];
+  readonly movesOnAfter: readonly string[];
+}
+
 export interface RunSpecParts {
   readonly checkouts?: readonly RunCheckout[];
   readonly command: RunCommand;
@@ -82,9 +94,12 @@ export interface RunSpecParts {
   readonly catalog?: readonly string[];
   readonly attachments?: readonly RunAttachment[];
   readonly diffs?: boolean;
+  readonly check?: string;
+  readonly startingPoint?: boolean;
   readonly harnessSetup?: RunHarnessSetup;
   readonly settingFiles?: readonly string[];
   readonly wears?: readonly string[];
+  readonly replay?: RunReplay;
 }
 
 const outside = (path: string): boolean =>
@@ -178,6 +193,8 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ? { attachments: parts.attachments.map(({ id, path }) => ({ id, path })) }
     : {}),
   ...(parts.diffs === undefined ? {} : { diffs: parts.diffs }),
+  ...(parts.check !== undefined ? { check: parts.check } : {}),
+  ...(parts.startingPoint ? { startingPoint: true } : {}),
   ...(parts.harnessSetup
     ? { harnessSetup: setupCopied(parts.harnessSetup) }
     : {}),
@@ -185,7 +202,64 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ? { settingFiles: [...parts.settingFiles] }
     : {}),
   ...(parts.wears?.length ? { wears: [...parts.wears] } : {}),
+  ...(parts.replay
+    ? {
+        replay: {
+          archive: parts.replay.archive,
+          checkouts: parts.replay.checkouts.map(
+            ({ path, commit, repository }) => ({ path, commit, repository }),
+          ),
+          movesOnAfter: [...parts.replay.movesOnAfter],
+        },
+      }
+    : {}),
 });
+
+const replayRefusal = (parts: RunSpecParts): string | null => {
+  const replay = parts.replay;
+
+  if (!replay) {
+    return null;
+  }
+
+  if (
+    (parts.wears?.length ?? 0) > 0 ||
+    (parts.manifest?.length ?? 0) > 0 ||
+    (parts.catalog?.length ?? 0) > 0 ||
+    (parts.harnessSetup?.mcpServers.length ?? 0) > 0
+  ) {
+    return 'must give a replay no tools, MCP servers or secrets';
+  }
+
+  if (parts.startingPoint) {
+    return 'must not have a replay report where it started';
+  }
+
+  if (parts.continuity.sessionId || parts.continuity.resumes) {
+    return 'must start a replay in a conversation of its own';
+  }
+
+  const checkouts = parts.checkouts ?? [];
+  const replayed = new Map(
+    replay.checkouts.map((each) => [each.path, each.commit]),
+  );
+
+  if (
+    replayed.size !== replay.checkouts.length ||
+    checkouts.length !== replayed.size ||
+    checkouts.some(
+      (each) =>
+        each.path === undefined ||
+        each.branch !== undefined ||
+        each.ref === undefined ||
+        replayed.get(each.path) !== each.ref,
+    )
+  ) {
+    return 'must check a replay’s repositories out at the commits it replays, and nothing else';
+  }
+
+  return null;
+};
 
 const samePart = (a: unknown, b: unknown): boolean => {
   if (a === b) {
@@ -284,7 +358,25 @@ export class RunSpec {
       }
     }
 
+    if (parts.check !== undefined && blank(parts.check)) {
+      throw new InvalidRunSpecError('must say what checks its change');
+    }
+
+    const refused = replayRefusal(parts);
+
+    if (refused) {
+      throw new InvalidRunSpecError(refused);
+    }
+
     return new RunSpec(copied(parts));
+  }
+
+  get replay(): RunReplay | null {
+    return copied(this.parts).replay ?? null;
+  }
+
+  get isReplay(): boolean {
+    return this.parts.replay !== undefined;
   }
 
   get briefing(): string {
@@ -336,6 +428,10 @@ export class RunSpec {
 
   get wears(): readonly SecretName[] {
     return (this.parts.wears ?? []).map((each) => SecretName.of(each));
+  }
+
+  get check(): string | null {
+    return this.parts.check ?? null;
   }
 
   get checkoutSetups(): ReadonlyMap<string, string> {

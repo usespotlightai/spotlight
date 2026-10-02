@@ -67,6 +67,7 @@ const drafting = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    replay: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -100,6 +101,7 @@ const QUIET: LoggerPort = {
 const working = (
   held: ChangeStack,
   answer: () => Promise<readonly ProposedCohort[]>,
+  available = true,
 ) => {
   let stored = held;
   let now = NOW;
@@ -113,7 +115,10 @@ const working = (
     dueForWork: async (at: Date) =>
       stored.owesWork && stored.work.dueBy(at) ? stored : null,
   } as unknown as ChangeStackRepository;
-  const drafter: ChangeStackDrafterPort = { available: true, draft };
+  const drafter: ChangeStackDrafterPort = {
+    available,
+    draft: async () => ({ cohorts: await draft(), usage: null }),
+  };
   const clock = { now: () => now, sleep: async () => undefined };
 
   const checks = {
@@ -150,6 +155,23 @@ const working = (
 };
 
 describe('WorkChangeStacks', () => {
+  it('still settles a stack left drafting once the model to draft it is gone, failing it as undrafted', async () => {
+    const worked = working(
+      drafting(),
+      async () => {
+        throw new Error('No OpenRouter API key is set for change stacks');
+      },
+      false,
+    );
+
+    for (let day = 0; day < MOST_WORK_ATTEMPTS; day += 1) {
+      await worked.turn(new Date(NOW.getTime() + day * DAY));
+    }
+
+    expect(worked.draft).toHaveBeenCalledTimes(MOST_WORK_ATTEMPTS);
+    expect(worked.stored().state).toBe('failed');
+  });
+
   it('drafts a stack that is drafting, leasing it while it does', async () => {
     let leasedWhileDrafting = false;
     const worked = working(drafting(), async () => {

@@ -56,6 +56,7 @@ export class StackCheck extends EventRecorder {
     readonly stackId: ChangeStackId,
     readonly runId: RunId,
     readonly taskId: TaskId | null,
+    readonly replay: boolean,
     readonly workspaceId: WorkspaceId,
     readonly request: CheckRequest,
     readonly phase: CheckPhase,
@@ -75,6 +76,7 @@ export class StackCheck extends EventRecorder {
     stackId: ChangeStackId;
     runId: RunId;
     taskId: TaskId | null;
+    replay: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
     entries: readonly CheckEntry[];
@@ -84,6 +86,7 @@ export class StackCheck extends EventRecorder {
       input.stackId,
       input.runId,
       input.taskId,
+      input.replay,
       input.workspaceId,
       input.request,
       'waiting',
@@ -102,6 +105,7 @@ export class StackCheck extends EventRecorder {
     stackId: ChangeStackId;
     runId: RunId;
     taskId: TaskId | null;
+    replay: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
     phase: CheckPhase;
@@ -133,6 +137,7 @@ export class StackCheck extends EventRecorder {
       input.stackId,
       input.runId,
       input.taskId,
+      input.replay,
       input.workspaceId,
       input.request,
       input.phase,
@@ -429,6 +434,7 @@ export class StackCheck extends EventRecorder {
         this.taskId,
         this.workspaceId,
         this.outcome?.whole?.passed ?? null,
+        this.replay,
       ),
     );
 
@@ -473,6 +479,7 @@ export class StackCheck extends EventRecorder {
             outcome.state === 'checked'
               ? (outcome.whole?.passed ?? null)
               : null,
+            this.replay,
           ),
     );
 
@@ -515,6 +522,7 @@ export class StackCheck extends EventRecorder {
       this.stackId,
       this.runId,
       this.taskId,
+      this.replay,
       this.workspaceId,
       this.request,
       change.phase ?? this.phase,

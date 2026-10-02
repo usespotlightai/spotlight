@@ -1,3 +1,4 @@
+import { DraftingError } from '@change-review/application/errors/drafting.error';
 import type {
   ChangeStackDraft,
   ChangeStackDrafterPort,
@@ -106,6 +107,7 @@ const DIFF = written(
 const RUN = {
   id: RunId.of('run-1'),
   taskId: null,
+  replay: false,
   workspaceId: WorkspaceId.of('workspace-1'),
 };
 
@@ -163,6 +165,7 @@ const drafting = (
       [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
     dueForWork: async () => null,
     removeForTask: async () => undefined,
+    ofRun: async () => [],
   };
 
   const drafter: ChangeStackDrafterPort = {
@@ -174,7 +177,14 @@ const drafting = (
       if (!answer || answer instanceof Error) {
         throw answer ?? new Error('Asked too often');
       }
-      return answer;
+      return {
+        cohorts: answer,
+        usage: {
+          inputTokens: 1_000,
+          outputTokens: 200,
+          cost: { amount: 0.01, currency: 'USD' },
+        },
+      };
     },
   };
 
@@ -243,6 +253,11 @@ describe('DraftChangeStack', () => {
       asked.map((each) => each.problems.map((problem) => problem.message)),
     ).toEqual([[], ['leaves h2 out']]);
     expect(saved[saved.length - 1]?.state).toBe('ready');
+    expect(saved[saved.length - 1]?.spent).toMatchObject({
+      calls: 2,
+      inputTokens: 2_000,
+      costs: [{ amount: 0.02, currency: 'USD' }],
+    });
   });
 
   it('fails the draft where the stack keeps breaking the rules', async () => {
@@ -256,6 +271,7 @@ describe('DraftChangeStack', () => {
     expect(saved[saved.length - 1]?.failure).toBe(
       'The drafted stack did not place every change in order.',
     );
+    expect(saved[saved.length - 1]?.spent.calls).toBe(2);
   });
 
   it('leaves the draft to be tried again where the drafter cannot answer', async () => {
@@ -267,7 +283,38 @@ describe('DraftChangeStack', () => {
       request: null,
     });
 
-    await expect(service.drafted(stack)).rejects.toThrow('overloaded');
+    const left = await service.drafted(stack);
+
+    expect(left.state).toBe('drafting');
+    expect(left.spent.calls).toBe(0);
+  });
+
+  it('keeps what every attempt spent when a later one fails, an unreadable answer included', async () => {
+    const { service } = drafting({
+      answers: [
+        [cohort(['h1'])],
+        new DraftingError('length', {
+          inputTokens: 1_000,
+          outputTokens: 4_000,
+          cost: { amount: 0.05, currency: 'USD' },
+        }),
+      ],
+    });
+    const stack = await service.begin(RUN, {
+      diff: DIFF,
+      repository: null,
+      base: null,
+      request: null,
+    });
+
+    const left = await service.drafted(stack);
+
+    expect(left.state).toBe('drafting');
+    expect(left.spent).toMatchObject({
+      calls: 2,
+      outputTokens: 4_200,
+      costs: [{ amount: 0.06, currency: 'USD' }],
+    });
   });
 
   it('refuses where this deployment cannot draft stacks', async () => {
@@ -514,6 +561,7 @@ describe('ReorderChangeStack', () => {
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
+      replay: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
       entries: ready.entries(),
@@ -597,8 +645,8 @@ describe('ReorderChangeStack', () => {
       new Error('overloaded'),
     ]);
 
-    await expect(service.reordered(reordering, check)).rejects.toThrow(
-      'overloaded',
-    );
+    const left = await service.reordered(reordering, check);
+
+    expect(left.reordering).toBe(true);
   });
 });

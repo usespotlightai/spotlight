@@ -70,6 +70,7 @@ import {
   type ReviewOutboxPort,
 } from '@change-review/application/ports/review-outbox.port';
 import { REVIEW_READER } from '@change-review/application/ports/review-reader.port';
+import { RUN_CHANGE_CHECKS } from '@change-review/application/ports/run-change-checks.port';
 import {
   SYMBOL_INDEXER,
   type SymbolIndexerPort,
@@ -107,6 +108,7 @@ import { ProvisionChangeStackChecks } from '@change-review/application/services/
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
 import { ReviewAccess } from '@change-review/application/services/review-access.service';
+import { RunChangeChecks } from '@change-review/application/services/run-change-checks.service';
 import { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
 import { SettleOverdueChecks } from '@change-review/application/services/settle-overdue-checks.service';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
@@ -283,6 +285,15 @@ const adapters: Provider[] = [
       patches: PatchWriterPort,
       transaction: TransactionPort,
     ) => new ClaimChangeStackCheck(checks, stacks, patches, transaction),
+  },
+  {
+    provide: RUN_CHANGE_CHECKS,
+    inject: [DrizzleChangeStackRepository, DrizzleStackCheckRepository, CLOCK],
+    useFactory: (
+      stacks: DrizzleChangeStackRepository,
+      checks: DrizzleStackCheckRepository,
+      clock: ClockPort,
+    ) => new RunChangeChecks(stacks, checks, clock),
   },
   {
     provide: StackCheckReactions,

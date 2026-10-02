@@ -15,6 +15,8 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
 describe('RunOutcomes', () => {
@@ -23,7 +25,7 @@ describe('RunOutcomes', () => {
     const deliveries = new TaskDeliveriesInMemory();
     await records.add(
       endedRecord('run_1', { round: 2 })
-        .checked('passed')
+        .checked('passed', HEARD_AT)
         .actedOn(NextAct.of('approved', AT)),
     );
     await records.add(RunRecord.heardOf(RunId.of('run_2'), WORKSPACE));
@@ -37,11 +39,10 @@ describe('RunOutcomes', () => {
       }),
     );
 
-    const outcomes = await new RunOutcomes(records, deliveries).of([
-      'run_1',
-      'run_2',
-      'run_3',
-    ]);
+    const outcomes = await new RunOutcomes(records, deliveries).of(
+      ['run_1', 'run_2', 'run_3'],
+      null,
+    );
 
     expect([...outcomes.keys()]).toEqual(['run_1']);
     expect(outcomes.get('run_1')).toEqual({
@@ -61,8 +62,53 @@ describe('RunOutcomes', () => {
     const outcomes = await new RunOutcomes(
       new RunRecordsInMemory(),
       new TaskDeliveriesInMemory(),
-    ).of([]);
+    ).of([], null);
 
     expect(outcomes.size).toBe(0);
+  });
+
+  it('tells a replay only what was known when the run it replays started', async () => {
+    const records = new RunRecordsInMemory();
+    const deliveries = new TaskDeliveriesInMemory();
+    const later = (hours: number) =>
+      new Date(AT.getTime() + hours * 60 * 60_000);
+    const pullRequest = PullRequestUrl.of('https://github.com/acme/api/pull/1');
+    await records.add(
+      endedRecord('run_1', { round: 2 })
+        .checked('passed', later(2))
+        .actedOn(NextAct.of('approved', later(3)))
+        .supersededByItsTask(later(4)),
+    );
+    await deliveries.add(
+      TaskDelivery.opened({
+        taskId: TaskId.of('task_1'),
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        pullRequest,
+        at: later(1),
+      }).closed({ pullRequest, merged: true, at: later(5) }),
+    );
+    const of = (asOf: Date) =>
+      new RunOutcomes(records, deliveries)
+        .of(['run_1'], asOf)
+        .then((outcomes) => outcomes.get('run_1'));
+
+    expect(await of(AT)).toMatchObject({
+      ending: 'completed',
+      checks: null,
+      next: null,
+      delivery: null,
+    });
+    expect(await of(later(2))).toMatchObject({
+      checks: 'passed',
+      next: null,
+      delivery: 'open',
+    });
+    expect(await of(later(6))).toMatchObject({
+      ending: 'superseded',
+      checks: 'passed',
+      next: { act: 'approved' },
+      delivery: 'merged',
+    });
   });
 });

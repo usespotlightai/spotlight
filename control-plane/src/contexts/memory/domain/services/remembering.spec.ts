@@ -73,6 +73,7 @@ const proposed = (
   Remembering.of({
     taskId: TaskId.of('task_1'),
     runId: RunId.of('run_1'),
+    replay: false,
   }).proposalOf({
     id: MemoryId.of('memory_1'),
     remembered: asked(change),
@@ -83,8 +84,14 @@ const proposed = (
 describe('Remembering, what an agent asks its team to keep', () => {
   it('is only for a task’s run, sending a chat to the person instead', () => {
     expect(() =>
-      Remembering.of({ taskId: null, runId: RunId.of('run_1') }),
+      Remembering.of({ taskId: null, runId: RunId.of('run_1'), replay: false }),
     ).toThrow(/only from a task's run/);
+  });
+
+  it('is never for a replay, which leaves nothing behind', () => {
+    expect(() =>
+      Remembering.of({ taskId: null, runId: RunId.of('run_1'), replay: true }),
+    ).toThrow(/never remembered from a replay/);
   });
 
   it('rests on the step the agent remembered it from, as the run’s own', () => {

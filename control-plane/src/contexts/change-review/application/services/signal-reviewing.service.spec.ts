@@ -54,6 +54,7 @@ const signalling = (
         ended: ended.some((each) => each.equals(runId)),
         completed: false,
         decisions: false,
+        replay: false,
       }),
     } as unknown as WorkPort,
     { isConnected: async () => over.connected ?? true },

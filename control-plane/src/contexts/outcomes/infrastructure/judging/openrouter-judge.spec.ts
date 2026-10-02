@@ -36,6 +36,7 @@ const ASK: JudgeAsk = {
     },
   ],
   hunksLeftOut: 0,
+  reference: null,
 };
 
 const REASONS = [
@@ -78,7 +79,10 @@ describe('judging a run through OpenRouter', () => {
     const body = JSON.parse(String(asked[0]?.body));
     const system = body.messages[0].content as string;
     const evidence = JSON.parse(body.messages[1].content as string);
-    expect(verdict).toEqual({ value: true, reasons: REASONS });
+    expect(verdict).toEqual({
+      verdict: { value: true, reasons: REASONS },
+      usage: null,
+    });
     expect(body.model).toBe('some/model');
     expect(body.response_format.json_schema.name).toBe('yes_no_verdict');
     expect(system).toContain(
@@ -156,7 +160,7 @@ describe('judging a run through OpenRouter', () => {
 
     const verdict = await judging(fetch, { ...ASK, scale: 'number' });
 
-    expect(verdict.value).toBe(4);
+    expect(verdict.verdict.value).toBe(4);
     expect(
       JSON.parse(String(asked[0]?.body)).response_format.json_schema.name,
     ).toBe('number_verdict');
@@ -192,9 +196,96 @@ describe('judging a run through OpenRouter', () => {
     });
   });
 
+  it('hands back what a cut-short answer cost, since it is billed all the same', async () => {
+    const { fetch } = answering(
+      new Response(
+        JSON.stringify({
+          choices: [{ finish_reason: 'length', message: { content: '{' } }],
+          usage: { prompt_tokens: 900, completion_tokens: 4_000, cost: 0.04 },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(judging(fetch)).rejects.toMatchObject({
+      trouble: 'unreadable',
+      usage: {
+        inputTokens: 900,
+        outputTokens: 4_000,
+        cost: { amount: 0.04, currency: 'USD' },
+      },
+    });
+  });
+
   it('refuses without an API key', async () => {
     await expect(
       new OpenRouterJudge(undefined, 'some/model').judge(ASK),
     ).rejects.toBeInstanceOf(JudgingError);
+  });
+
+  it('hands the change people accepted as a reference to compare with, never to cite', async () => {
+    const { asked, fetch } = answering(
+      completed(JSON.stringify({ passes: true, reasons: REASONS })),
+    );
+
+    await judging(fetch, {
+      ...ASK,
+      reference: {
+        hunks: [
+          {
+            id: 'api/src/uploads.ts#1',
+            path: 'api/src/uploads.ts',
+            header: '@@ -1 +1 @@',
+            lines: ['-upload()', '+queue(upload)'],
+          },
+        ],
+        hunksLeftOut: 2,
+      },
+    });
+
+    const body = JSON.parse(String(asked[0]?.body));
+    const system = body.messages[0].content as string;
+    const evidence = JSON.parse(body.messages[1].content as string);
+    expect(system).toContain('"reference": the change people accepted');
+    expect(system).toContain('never a hunk of the reference');
+    expect(evidence.reference).toEqual({
+      hunks: [
+        {
+          id: 'api/src/uploads.ts#1',
+          path: 'api/src/uploads.ts',
+          header: '@@ -1 +1 @@',
+          lines: ['-upload()', '+queue(upload)'],
+        },
+      ],
+      left_out: { hunks: 2 },
+    });
+  });
+
+  it('asks for what the call cost, and hands it back with the verdict', async () => {
+    const { asked, fetch } = answering(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: 'stop',
+              message: {
+                content: JSON.stringify({ passes: true, reasons: REASONS }),
+              },
+            },
+          ],
+          usage: { prompt_tokens: 1_200, completion_tokens: 90, cost: 0.004 },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const judged = await judging(fetch);
+
+    expect(JSON.parse(String(asked[0]?.body)).usage).toEqual({ include: true });
+    expect(judged.usage).toEqual({
+      inputTokens: 1_200,
+      outputTokens: 90,
+      cost: { amount: 0.004, currency: 'USD' },
+    });
   });
 });

@@ -175,13 +175,14 @@ export class TaskController {
   @ApiOkResponse({ type: RunConfigResponseDto })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   async config(
+    @Param('teamId') teamId: string,
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunConfigResponseDto> {
     const found = await this.queryBus.execute<
       ReadRunConfigQuery,
       RunConfigDto | null
-    >(new ReadRunConfigQuery(runId, user.id));
+    >(new ReadRunConfigQuery(teamId, runId, user.id));
 
     if (!found) {
       throw new NotFoundException();

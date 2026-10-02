@@ -1,6 +1,7 @@
 import { CHANGE_REVIEW_PUBLICATIONS } from '@change-review/application/integration-events/change-review.publications';
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
+import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -14,6 +15,7 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
       RunId.of('run_1'),
       TaskId.of('task_1'),
       WorkspaceId.of('ws_1'),
+      false,
       false,
     );
 
@@ -61,6 +63,50 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
         changeTitles: ['Fix retries'],
         changeIntents: ['Stop dropping uploads'],
         at: '2026-09-30T10:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes a replay’s checked change as its own, never as a task’s', () => {
+    const checked = new ChangeStackChecked(
+      ChangeStackId.of('stack_1'),
+      RunId.of('replay_1'),
+      null,
+      WorkspaceId.of('ws_1'),
+      true,
+      true,
+    );
+
+    expect(
+      CHANGE_REVIEW_PUBLICATIONS.filter(
+        (each) => each.from === checked.kind,
+      ).map((each) => each.publish(checked)),
+    ).toEqual([
+      {
+        kind: 'change-review.replay-change-checked.v1',
+        runId: 'replay_1',
+        workspaceId: 'ws_1',
+        passed: true,
+      },
+    ]);
+  });
+
+  it('publishes that a replay’s stack settled, so its replay can take it up', () => {
+    const settled = new ReplayStackSettled(
+      ChangeStackId.of('stack_1'),
+      RunId.of('replay_1'),
+      WorkspaceId.of('ws_1'),
+    );
+
+    expect(
+      CHANGE_REVIEW_PUBLICATIONS.filter(
+        (each) => each.from === settled.kind,
+      ).map((each) => each.publish(settled)),
+    ).toEqual([
+      {
+        kind: 'change-review.replay-stack-settled.v1',
+        runId: 'replay_1',
+        workspaceId: 'ws_1',
       },
     ]);
   });

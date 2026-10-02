@@ -102,10 +102,14 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 	}
 
 	if checkout.Ref != "" {
-		if err := git("fetch", "--quiet", "origin", checkout.Ref); err != nil {
-			return err
+		at := checkout.Ref
+		if git("cat-file", "-e", checkout.Ref+"^{commit}") != nil {
+			if err := git("fetch", "--quiet", "origin", checkout.Ref); err != nil {
+				return err
+			}
+			at = "FETCH_HEAD"
 		}
-		if err := git("checkout", "--quiet", "--detach", "FETCH_HEAD"); err != nil {
+		if err := git("checkout", "--quiet", "--detach", at); err != nil {
 			return err
 		}
 		start = "HEAD"

@@ -99,6 +99,7 @@ const ready = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    replay: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,

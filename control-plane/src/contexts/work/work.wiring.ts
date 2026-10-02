@@ -134,6 +134,7 @@ import { ParkRunHandler } from '@work/application/commands/handlers/park-run.han
 import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-inbox-aside.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
+import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
@@ -160,6 +161,7 @@ import {
   EnqueueRunCommand,
   ParkRunCommand,
   RecordRunImageCommand,
+  RecordStartingPointCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
@@ -189,6 +191,10 @@ import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
+import {
+  BRIEFED_TASKS,
+  type BriefedTasksPort,
+} from '@work/application/ports/briefed-tasks.port';
 import {
   BUILT_IN_SKILLS,
   type BuiltInSkillsPort,
@@ -244,10 +250,18 @@ import {
   LIFECYCLE_HOOKS,
   type LifecycleHooksPort,
 } from '@work/application/ports/lifecycle-hooks.port';
-import { LINE_COMPILER } from '@work/application/ports/line-compiler.port';
+import {
+  LINE_COMPILER,
+  type LineCompilerPort,
+} from '@work/application/ports/line-compiler.port';
 import { LINE_IMAGES } from '@work/application/ports/line-images.port';
 import { LINE_READER } from '@work/application/ports/line-reader.port';
+import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
+import {
+  MEMORIES_BRIEFED_BEFORE,
+  type MemoriesBriefedBeforePort,
+} from '@work/application/ports/memories-briefed-before.port';
 import { NETWORK_CALLS } from '@work/application/ports/network-calls.port';
 import {
   OUTBOUND_TASK_NOTIFIER,
@@ -258,6 +272,17 @@ import {
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
 import { QUEUED_PLACEMENTS } from '@work/application/ports/queued-placements.port';
+import { REPLAY_CANDIDATES } from '@work/application/ports/replay-candidates.port';
+import { REPLAY_DISPATCH } from '@work/application/ports/replay-dispatch.port';
+import {
+  REPLAY_FACTS,
+  type ReplayFactsPort,
+} from '@work/application/ports/replay-facts.port';
+import {
+  REPLAY_RUN_CLAIMS,
+  type ReplayRunClaimsPort,
+} from '@work/application/ports/replay-run-claims.port';
+import { REPLAYABLE_RUNS } from '@work/application/ports/replayable-runs.port';
 import {
   RUN_DIGESTS,
   type RunDigestReaderPort,
@@ -285,6 +310,7 @@ import {
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
 import { SANDBOX_REACH } from '@work/application/ports/sandbox-reach.port';
+import { STARTING_POINT_HOLDS } from '@work/application/ports/starting-point-holds.port';
 import {
   STATION_PROFILES,
   type StationProfilesPort,
@@ -367,6 +393,7 @@ import { ReadAttachmentHandler } from '@work/application/queries/handlers/read-a
 import { ReadChatHandler } from '@work/application/queries/handlers/read-chat.handler';
 import { ReadChatJournalHandler } from '@work/application/queries/handlers/read-chat-journal.handler';
 import { ReadLineHandler } from '@work/application/queries/handlers/read-line.handler';
+import { ReadReplayRunHandler } from '@work/application/queries/handlers/read-replay-run.handler';
 import { ReadRunAttachmentHandler } from '@work/application/queries/handlers/read-run-attachment.handler';
 import { ReadRunConfigHandler } from '@work/application/queries/handlers/read-run-config.handler';
 import { ReadRunConversationHandler } from '@work/application/queries/handlers/read-run-conversation.handler';
@@ -398,6 +425,7 @@ import { PendingMessagesQuery } from '@work/application/queries/pending-messages
 import { PoolQueueQuery } from '@work/application/queries/pool.queries';
 import { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
 import { ReadLineQuery } from '@work/application/queries/read-line.query';
+import { ReadReplayRunQuery } from '@work/application/queries/read-replay-run.query';
 import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
 import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
@@ -416,15 +444,18 @@ import {
   BuiltInTools,
   type BuiltInToolUse,
 } from '@work/application/services/built-in-tools.service';
+import { CandidateLines } from '@work/application/services/candidate-lines.service';
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
 import { ChatAtHand } from '@work/application/services/chat-at-hand.service';
 import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
+import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
+import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
@@ -442,6 +473,9 @@ import { PullRequestToolUse } from '@work/application/services/pull-request.tool
 import { RaiseTask } from '@work/application/services/raise-task';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import { RemoveReleasedArchives } from '@work/application/services/remove-released-archives.service';
+import { ReplayCandidates } from '@work/application/services/replay-candidates.service';
+import { ReplayRuns } from '@work/application/services/replay-runs.service';
+import { ReplayableRuns } from '@work/application/services/replayable-runs.service';
 import { ReviewToolUse } from '@work/application/services/review.tool-use';
 import { ReviewCommentToolUse } from '@work/application/services/review-comment.tool-use';
 import { RunAtHand } from '@work/application/services/run-at-hand.service';
@@ -452,6 +486,7 @@ import { RunWorks } from '@work/application/services/run-works.service';
 import { RunnerHolds } from '@work/application/services/runner-holds.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
+import { StationOrdering } from '@work/application/services/station-ordering';
 import { StationRuns } from '@work/application/services/station-runs.service';
 import { StationSkills } from '@work/application/services/station-skills.service';
 import { TaskAsides } from '@work/application/services/task-asides.service';
@@ -477,10 +512,12 @@ import {
 import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { DrizzleHeardHappenings } from '@work/infrastructure/persistence/drizzle/ledgers/heard-happenings.ledger';
+import { DrizzleReplayRunClaims } from '@work/infrastructure/persistence/drizzle/ledgers/replay-run-claims.ledger';
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
+import { DrizzleBriefedTasks } from '@work/infrastructure/persistence/drizzle/readers/briefed-tasks.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleGivenAtStations } from '@work/infrastructure/persistence/drizzle/readers/given-at-stations.reader';
 import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
@@ -490,6 +527,7 @@ import { DrizzleLineImages } from '@work/infrastructure/persistence/drizzle/read
 import { DrizzleLineResources } from '@work/infrastructure/persistence/drizzle/readers/line-resources.reader';
 import { DrizzleLinesHeld } from '@work/infrastructure/persistence/drizzle/readers/lines-held.reader';
 import { DrizzleQueuedPlacements } from '@work/infrastructure/persistence/drizzle/readers/queued-placements.reader';
+import { DrizzleReplayFacts } from '@work/infrastructure/persistence/drizzle/readers/replay-facts.reader';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunEventReader } from '@work/infrastructure/persistence/drizzle/readers/run-event.reader';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
@@ -505,6 +543,7 @@ import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
+import { DrizzleStartingPointHoldRepository } from '@work/infrastructure/persistence/drizzle/repositories/starting-point-hold.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleTaskAsideRepository } from '@work/infrastructure/persistence/drizzle/repositories/task-aside.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
@@ -525,6 +564,7 @@ import { LineController } from '@work/presentation/http/controllers/line.control
 import { LineResourceController } from '@work/presentation/http/controllers/line-resource.controller';
 import { OnboardingController } from '@work/presentation/http/controllers/onboarding.controller';
 import { PoolController } from '@work/presentation/http/controllers/pool.controller';
+import { ReplayRunController } from '@work/presentation/http/controllers/replay-run.controller';
 import { RunController } from '@work/presentation/http/controllers/run.controller';
 import { RunStreamController } from '@work/presentation/http/controllers/run-stream.controller';
 import { RunnerController } from '@work/presentation/http/controllers/runner.controller';
@@ -556,6 +596,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
   AttachmentController,
   GitController,
   TaskController,
+  ReplayRunController,
   ChatController,
   OnboardingController,
 ];
@@ -597,6 +638,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleTaskRepository,
       DrizzleLineRepository,
       RUN_JOURNAL_READER,
+      BRIEFED_TASKS,
       CONTENT_DIGEST,
     ],
     useFactory: (
@@ -604,8 +646,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
       journals: RunJournalReaderPort,
+      briefed: BriefedTasksPort,
       digest: ContentDigestPort,
-    ) => new RunEvidences(runs, tasks, lines, journals, digest),
+    ) => new RunEvidences(runs, tasks, lines, journals, briefed, digest),
   },
 
   DrizzleRunRepository,
@@ -774,6 +817,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: ARCHIVE_STANDINGS, useClass: DrizzleArchiveStandings },
+  { provide: BRIEFED_TASKS, useClass: DrizzleBriefedTasks },
 
   { provide: CHAT_READER, useClass: DrizzleChatReader },
 
@@ -1001,6 +1045,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleTaskRepository,
       DrizzleChatRepository,
       DrizzleLineRepository,
+      BRIEFED_TASKS,
       CLOCK,
     ],
     useFactory: (
@@ -1008,8 +1053,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tasks: DrizzleTaskRepository,
       chats: DrizzleChatRepository,
       lines: DrizzleLineRepository,
+      briefedTasks: BriefedTasksPort,
       clock: ClockPort,
-    ) => new RunWorks(runs, tasks, chats, lines, clock),
+    ) => new RunWorks(runs, tasks, chats, lines, briefedTasks, clock),
   },
 
   {
@@ -1167,6 +1213,180 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: DispatchReplay,
+    inject: [
+      DrizzleRunRepository,
+      DrizzleWorkspaceArchiveRepository,
+      DrizzleTaskRepository,
+      BRIEFED_TASKS,
+      ID_GENERATOR,
+      BuiltInHarnesses,
+      HARNESS_LAUNCH,
+      TRACE_PARENT,
+      BUILT_IN_SKILLS,
+      StationSkills,
+      StationCatalog,
+      STATION_PROFILES,
+      MEMORIES_BRIEFED_BEFORE,
+      ATTACHMENT_STORE,
+      CONTENT_DIGEST,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      archives: DrizzleWorkspaceArchiveRepository,
+      tasks: DrizzleTaskRepository,
+      briefedTasks: BriefedTasksPort,
+      ids: CryptoIdGenerator,
+      harnesses: BuiltInHarnesses,
+      launch: HarnessLaunchPort,
+      tracing: TraceParentPort,
+      skills: BuiltInSkillsPort,
+      teamSkills: StationSkills,
+      catalog: StationCatalog,
+      profiles: StationProfilesPort,
+      memories: MemoriesBriefedBeforePort,
+      files: AttachmentStorePort,
+      digest: ContentDigestPort,
+    ) =>
+      new DispatchReplay(
+        runs,
+        archives,
+        tasks,
+        briefedTasks,
+        ids,
+        harnesses,
+        launch,
+        tracing,
+        skills,
+        teamSkills,
+        catalog,
+        profiles,
+        memories,
+        files,
+        digest,
+      ),
+  },
+
+  {
+    provide: CandidateLines,
+    inject: [
+      DrizzleLineRepository,
+      LINE_RESOURCES,
+      LINE_COMPILER,
+      StationCatalog,
+      BuiltInHarnesses,
+      HARNESS_LAUNCH,
+      BUILT_IN_SKILLS,
+      StationSkills,
+      STATION_PROFILES,
+      CONTENT_DIGEST,
+      ID_GENERATOR,
+    ],
+    useFactory: (
+      lines: DrizzleLineRepository,
+      resources: LineResourcesPort,
+      compiler: LineCompilerPort,
+      catalog: StationCatalog,
+      harnesses: BuiltInHarnesses,
+      launch: HarnessLaunchPort,
+      skills: BuiltInSkillsPort,
+      teamSkills: StationSkills,
+      profiles: StationProfilesPort,
+      digest: ContentDigestPort,
+      ids: IdGeneratorPort,
+    ) =>
+      new CandidateLines(
+        lines,
+        resources,
+        compiler,
+        catalog,
+        new StationOrdering(
+          harnesses,
+          launch,
+          skills,
+          teamSkills,
+          catalog,
+          profiles,
+          digest,
+        ),
+        ids,
+      ),
+  },
+
+  {
+    provide: REPLAY_CANDIDATES,
+    inject: [CandidateLines],
+    useFactory: (candidates: CandidateLines) =>
+      new ReplayCandidates(candidates),
+  },
+
+  {
+    provide: REPLAYABLE_RUNS,
+    inject: [
+      REPLAY_FACTS,
+      DrizzleRunRepository,
+      DrizzleLineRepository,
+      DispatchReplay,
+      STATION_RUN_READER,
+      ID_GENERATOR,
+      LOGGER,
+    ],
+    useFactory: (
+      facts: ReplayFactsPort,
+      runs: DrizzleRunRepository,
+      lines: DrizzleLineRepository,
+      dispatch: DispatchReplay,
+      stationRuns: StationRunReaderPort,
+      ids: IdGeneratorPort,
+      logger: LoggerPort,
+    ) =>
+      new ReplayableRuns(
+        facts,
+        runs,
+        lines,
+        dispatch,
+        stationRuns,
+        ids,
+        logger,
+      ),
+  },
+
+  { provide: REPLAY_FACTS, useClass: DrizzleReplayFacts },
+
+  {
+    provide: REPLAY_DISPATCH,
+    inject: [
+      DrizzleRunRepository,
+      REPLAY_RUN_CLAIMS,
+      CandidateLines,
+      DispatchReplay,
+      TRANSACTION,
+      CLOCK,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      claims: ReplayRunClaimsPort,
+      candidates: CandidateLines,
+      dispatch: DispatchReplay,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new ReplayRuns(runs, claims, candidates, dispatch, transaction, clock),
+  },
+
+  { provide: REPLAY_RUN_CLAIMS, useClass: DrizzleReplayRunClaims },
+
+  DrizzleStartingPointHoldRepository,
+
+  {
+    provide: STARTING_POINT_HOLDS,
+    inject: [DrizzleStartingPointHoldRepository, TRANSACTION],
+    useFactory: (
+      holds: DrizzleStartingPointHoldRepository,
+      transaction: TransactionPort,
+    ) => new HoldStartingPoints(holds, transaction),
+  },
+
+  {
     provide: TouchedFiles,
     inject: [RUN_JOURNAL_READER, PULL_REQUESTS, LOGGER, CLOCK],
     useFactory: (
@@ -1305,7 +1525,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ListTeamRunsQuery, ListTeamRunsHandler, [RUN_READER]),
 
-  ...bindQueryHandler(ReadRunConfigQuery, ReadRunConfigHandler, [RUN_READER]),
+  ...bindQueryHandler(ReadRunConfigQuery, ReadRunConfigHandler, [
+    WORKSPACE_ACCESS,
+    RUN_READER,
+  ]),
+
+  ...bindQueryHandler(ReadReplayRunQuery, ReadReplayRunHandler, [
+    WORKSPACE_ACCESS,
+    RUN_READER,
+    RUN_JOURNAL_READER,
+    RUN_DIGESTS,
+  ]),
 
   ...bindQueryHandler(ReadRunConversationQuery, ReadRunConversationHandler, [
     RUN_READER,
@@ -1319,7 +1549,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindQueryHandler(ReadRunAttachmentQuery, ReadRunAttachmentHandler, [
-    HELD_RUN_READER,
+    RunWorks,
     ATTACHMENT_STORE,
   ]),
 
@@ -1343,6 +1573,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleWorkspaceArchiveRepository,
       WORKSPACE_ARCHIVE_STORE,
       ID_GENERATOR,
+      CLOCK,
+    ],
+  ),
+
+  ...bindCommandHandler(
+    RecordStartingPointCommand,
+    RecordStartingPointHandler,
+    [
+      DrizzleRunRepository,
+      DrizzleWorkspaceArchiveRepository,
+      RUNNER_PRESENCE,
       CLOCK,
     ],
   ),

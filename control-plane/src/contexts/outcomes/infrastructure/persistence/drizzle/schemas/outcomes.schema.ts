@@ -128,8 +128,9 @@ export const runRecord = pgTable(
     ending: runRecordEnding('ending'),
     failure: text('failure'),
     round: integer('round'),
-    superseded: boolean('superseded').notNull().default(false),
+    supersededAt: timestamp('superseded_at'),
     checks: runRecordChecks('checks'),
+    checkedAt: timestamp('checked_at'),
     nextAct: runRecordAct('next_act'),
     nextAt: timestamp('next_at'),
     handedOnTo: text('handed_on_to'),
@@ -377,6 +378,43 @@ export const judging = pgTable(
     index('judging_owed_idx').on(table.askedAt).where(sql`${table.owed}`),
     index('judging_task_idx').on(table.taskId),
     index('judging_workspace_idx').on(table.workspaceId, table.teamId),
+  ],
+);
+
+export interface StoredModelSpend {
+  readonly calls: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly costs: readonly {
+    readonly amount: number;
+    readonly currency: string;
+  }[];
+  readonly unpriced: number;
+}
+
+export const changeJudging = pgTable(
+  'change_judging',
+  {
+    runId: text('run_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    rubric: text('rubric').notNull(),
+    referenceRunId: text('reference_run_id'),
+    spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
+    askedAt: timestamp('asked_at').notNull(),
+    owed: boolean('owed').notNull(),
+    workAttempts: integer('work_attempts').notNull().default(0),
+    workDueAt: timestamp('work_due_at'),
+    judgedAt: timestamp('judged_at'),
+    failure: judgingFailure('failure'),
+    failedAt: timestamp('failed_at'),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    index('change_judging_owed_idx')
+      .on(table.askedAt)
+      .where(sql`${table.owed}`),
+    index('change_judging_workspace_idx').on(table.workspaceId, table.teamId),
   ],
 );
 

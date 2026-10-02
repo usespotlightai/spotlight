@@ -1,6 +1,7 @@
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DigestRun } from '@work/application/events/handlers/digest-run.handler';
 import type {
@@ -9,10 +10,13 @@ import type {
 } from '@work/application/ports/run-digest-reader.port';
 import type { RunDigestWriterPort } from '@work/application/ports/run-digest-writer.port';
 import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
+import { ReplayDigested } from '@work/domain/events/replay-digested.event';
 import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
 import { Money } from '@work/domain/value-objects/money.vo';
+import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { describe, expect, it } from 'vitest';
@@ -122,5 +126,61 @@ describe('DigestRun', () => {
     expect(
       await handler.onRunCompleted(ended as unknown as RunCompleted),
     ).toEqual([]);
+  });
+
+  const aReplay = {
+    ...ended,
+    taskId: null,
+    subject: RunSubject.replay(
+      RunId.of('run_0'),
+      TaskId.of('task_1'),
+      StationId.of('station_1'),
+      TeamId.of('team_1'),
+    ),
+  };
+
+  it('says what a replay cost as a replay’s digest, so no cost reaches a task', async () => {
+    const { handler, ensured } = digesting(new Map());
+
+    const raised = await handler.onRunCompleted(
+      aReplay as unknown as RunCompleted,
+    );
+
+    expect(ensured).toEqual(['run_1']);
+    expect(raised).toEqual([
+      new ReplayDigested(
+        ended.runId,
+        ended.workspaceId,
+        RunId.of('run_0'),
+        60_000,
+        12,
+        DIGEST.changedLines,
+        DIGEST.cost,
+        DIGEST.tokens,
+      ),
+    ]);
+  });
+
+  it('still says a replay was digested when no digest could be written, so its result is never awaited forever', async () => {
+    const handler = new DigestRun(
+      { ensure: async () => {}, catchUp: async () => {} },
+      { forRuns: async () => new Map() },
+      { toolsFor: async () => null },
+    );
+
+    expect(
+      await handler.onRunAbandoned(aReplay as unknown as RunAbandoned),
+    ).toEqual([
+      new ReplayDigested(
+        ended.runId,
+        ended.workspaceId,
+        RunId.of('run_0'),
+        null,
+        0,
+        null,
+        null,
+        Tokens.UNREPORTED,
+      ),
+    ]);
   });
 });

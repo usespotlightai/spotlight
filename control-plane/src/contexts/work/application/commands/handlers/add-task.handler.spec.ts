@@ -89,11 +89,10 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
       harness: station.harness.value,
       priority: station.position,
       brief: TaskBriefing.brief({
-        task,
+        task: task.briefed,
         line,
         skills: [],
         listedIn: null,
-        decisions: [],
         memories: [],
         memoryFolder: null,
       }),

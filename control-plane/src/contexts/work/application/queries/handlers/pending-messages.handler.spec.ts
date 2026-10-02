@@ -50,7 +50,6 @@ const reading = (run: Run = working()) =>
             ]
           : null,
       stopRequestedFor: async () => false,
-      attachmentFor: async () => null,
     },
   );
 

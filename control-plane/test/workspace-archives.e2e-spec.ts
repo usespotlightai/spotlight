@@ -188,7 +188,12 @@ describe('keeping workspace archives', () => {
 
     const sealed = (await archives.find(granted.id)) as WorkspaceArchive;
     await archives.save(
-      sealed.removed(NOW, { holder: null, supersededAt: null }),
+      sealed.removed(NOW, {
+        holder: null,
+        supersededAt: null,
+        lastStartedFromAt: null,
+        pinned: false,
+      }),
     );
 
     await expect(archives.find(granted.id)).resolves.toBeNull();
@@ -285,6 +290,74 @@ describe('keeping workspace archives', () => {
       const facts = due.get(id.id.value);
 
       expect(facts && archive.removableAt(NOW, facts)).toBe(true);
+    }
+  });
+
+  it('keeps an archive a task run started from for thirty days after the latest such start', async () => {
+    const startedFrom = async (archive: WorkspaceArchive, at: Date) => {
+      await db.insert(schema.run).values({
+        id: randomUUID(),
+        workspaceId: 'ws_1',
+        harness: 'dev',
+        state: 'completed',
+        spec: {},
+        startedFromArchiveId: archive.id.value,
+        startedFromCheckouts: [],
+        startedFromAttempt: 1,
+        startedFromAt: at,
+      });
+    };
+    const finished = { finishedAt: ago(40 * DAY), updatedAt: ago(40 * DAY) };
+
+    const startedLately = await kept(forTask(await aTask(finished)), {
+      grantedAt: ago(40 * DAY),
+      sealedAt: ago(40 * DAY),
+    });
+    await startedFrom(startedLately, ago(35 * DAY));
+    await startedFrom(startedLately, ago(5 * DAY));
+
+    const startedLongAgo = await kept(forTask(await aTask(finished)), {
+      grantedAt: ago(40 * DAY),
+      sealedAt: ago(40 * DAY),
+    });
+    await startedFrom(startedLongAgo, ago(31 * DAY));
+
+    const superseding = await aTask();
+    const supersededButStarted = await kept(forTask(superseding), {
+      grantedAt: ago(3 * HOUR),
+      sealedAt: ago(3 * HOUR),
+    });
+    await kept(forTask(superseding), {
+      grantedAt: ago(2 * HOUR),
+      sealedAt: ago(2 * HOUR),
+    });
+    await startedFrom(supersededButStarted, ago(DAY));
+
+    const ofADeletedTask = await kept(forTask(randomUUID()), {
+      grantedAt: ago(2 * DAY),
+      sealedAt: ago(2 * DAY),
+    });
+    await startedFrom(ofADeletedTask, ago(DAY));
+
+    const due = await dueNow();
+
+    expect(due.has(startedLately.id.value)).toBe(false);
+    expect(due.has(supersededButStarted.id.value)).toBe(false);
+    expect(due.get(startedLongAgo.id.value)?.lastStartedFromAt).toEqual(
+      ago(31 * DAY),
+    );
+    expect(due.get(ofADeletedTask.id.value)).toEqual({
+      holder: null,
+      supersededAt: null,
+      lastStartedFromAt: ago(DAY),
+      pinned: false,
+    });
+
+    for (const archive of [startedLongAgo, ofADeletedTask]) {
+      const found = (await archives.find(archive.id)) as WorkspaceArchive;
+      const facts = due.get(archive.id.value);
+
+      expect(facts && found.removableAt(NOW, facts)).toBe(true);
     }
   });
 

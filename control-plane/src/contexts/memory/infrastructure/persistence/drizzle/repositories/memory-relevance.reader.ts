@@ -1,6 +1,7 @@
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
+import { standingWhen } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -44,6 +45,7 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
     teamId: TeamId,
     words: RecallWords,
     most: number,
+    standingAt: Date | null = null,
   ): Promise<readonly MemoryId[]> {
     const document = sql`to_tsvector('english', ${memory.body})`;
     const asked = sql`websearch_to_tsquery('english', ${words.value})`;
@@ -53,7 +55,7 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
       .where(
         and(
           eq(memory.teamId, teamId.value),
-          eq(memory.standing, 'stands'),
+          standingWhen(standingAt),
           sql`${document} @@ ${asked}`,
         ),
       )

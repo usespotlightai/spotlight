@@ -33,9 +33,16 @@ import * as schema from './schema';
 
 type Body = Readonly<Record<string, unknown>>;
 
+interface Bearer {
+  readonly bearer: string;
+}
+
+type Caller = string | Bearer | null;
+
 export interface ResourceFixture {
   readonly admin: string;
   readonly viewer: string;
+  readonly viewerToken?: string;
   readonly collection: string;
   readonly item: (id: string) => string;
   readonly importing: (address: string) => string;
@@ -55,6 +62,7 @@ export interface ResourceFixture {
 export interface ResourceUnderTest {
   readonly kind: string;
   readonly open: (app: INestApplication) => Promise<ResourceFixture>;
+  readonly operations?: readonly ResourceOperation[];
 }
 
 interface DocumentedOperation {
@@ -117,14 +125,26 @@ const header = (operation: DocumentedOperation, name: string) =>
   );
 
 export function conformsAsResource(resource: ResourceUnderTest): void {
+  const operations = resource.operations ?? RESOURCE_OPERATIONS;
+  const updates = operations.includes('update');
+
   describe(`the ${resource.kind} resource, held to the resource conventions (e2e)`, () => {
     let app: INestApplication;
     let fixture: ResourceFixture;
 
-    const as = (user: string | null) => {
+    const as = (user: Caller) => {
       const http = served(app);
-      const signed = <T extends Test>(test: T): T =>
-        (user ? test.set(TEST_USER_HEADER, user) : test) as T;
+      const signed = <T extends Test>(test: T): T => {
+        if (user === null) {
+          return test;
+        }
+
+        return (
+          typeof user === 'string'
+            ? test.set(TEST_USER_HEADER, user)
+            : test.set('Authorization', `Bearer ${user.bearer}`)
+        ) as T;
+      };
 
       return {
         create: (body: Body, key: string | null = randomUUID()) => {
@@ -242,13 +262,11 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     });
 
     it('documents each convention in the OpenAPI spec, on every operation', () => {
-      const operations = documented(app, resource.kind);
+      const served = documented(app, resource.kind);
 
-      expect([...operations.keys()].sort()).toEqual(
-        [...RESOURCE_OPERATIONS].sort(),
-      );
+      expect([...served.keys()].sort()).toEqual([...operations].sort());
 
-      for (const [name, operation] of operations) {
+      for (const [name, operation] of served) {
         expect(header(operation, 'Spotlight-Api-Version'), name).toBeDefined();
 
         const statuses =
@@ -282,20 +300,20 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
           ),
       );
 
-      for (const [name, operation] of operations) {
+      for (const [name, operation] of served) {
         expect(
           everyId.filter((each) => each === operation.operationId),
           `${name} is the only ${operation.operationId}`,
         ).toHaveLength(1);
       }
 
-      const create = operations.get('create') as DocumentedOperation;
-      const update = operations.get('update') as DocumentedOperation;
-      const remove = operations.get('delete') as DocumentedOperation;
-      const importing = operations.get('import') as DocumentedOperation;
+      const create = served.get('create') as DocumentedOperation;
+      const update = served.get('update');
+      const remove = served.get('delete') as DocumentedOperation;
+      const importing = served.get('import') as DocumentedOperation;
 
-      const read = answeredSchema(operations.get('read'));
-      const list = answeredSchema(operations.get('list'));
+      const read = answeredSchema(served.get('read'));
+      const list = answeredSchema(served.get('list'));
       const schemas = buildOpenApiDocument(app).components?.schemas ?? {};
 
       expect(read).toBeDefined();
@@ -307,17 +325,22 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       });
 
       expect(header(create, 'Idempotency-Key')?.required).toBe(true);
-      expect(header(update, 'If-Match')?.required).toBe(true);
       expect(header(remove, 'If-Match')?.required).toBe(true);
       expect(
         importing.parameters?.find((each) => each.name === 'address'),
       ).toMatchObject({ in: 'query', required: true });
 
+      if (update) {
+        expect(header(update, 'If-Match')?.required).toBe(true);
+      }
+
       for (const [operation, statuses] of [
         [create, ['403', '409', '422']],
-        [update, ['403', '409', '422', '428']],
+        ...(update ? [[update, ['403', '409', '422', '428']] as const] : []),
         [remove, ['403', '409', '428']],
       ] as const) {
+        expect(operation).toBeDefined();
+
         for (const status of statuses) {
           expect(operation.responses[status]?.content).toHaveProperty([
             PROBLEM_CONTENT_TYPE,
@@ -348,20 +371,23 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       expect(read.headers.etag).toBe(`"${made.version}"`);
     });
 
-    it('keeps its id through a change, while its version rises', async () => {
-      const made = await created();
-      const changed = await admin().update(
-        made.id,
-        fixture.changed,
-        made.version,
-      );
+    it.skipIf(!updates)(
+      'keeps its id through a change, while its version rises',
+      async () => {
+        const made = await created();
+        const changed = await admin().update(
+          made.id,
+          fixture.changed,
+          made.version,
+        );
 
-      expect(changed.status).toBe(200);
-      expect(changed.body.id).toBe(made.id);
-      expect(changed.body.version).toBeGreaterThan(made.version);
-      expect(changed.headers.etag).toBe(`"${changed.body.version}"`);
-      expect((await admin().read(made.id)).body).toEqual(changed.body);
-    });
+        expect(changed.status).toBe(200);
+        expect(changed.body.id).toBe(made.id);
+        expect(changed.body.version).toBeGreaterThan(made.version);
+        expect(changed.headers.etag).toBe(`"${changed.body.version}"`);
+        expect((await admin().read(made.id)).body).toEqual(changed.body);
+      },
+    );
 
     it('answers an import by address as a read would', async () => {
       const made = await created();
@@ -473,11 +499,13 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     it('refuses a change or delete that does not say which version it is of', async () => {
       const made = await created();
 
-      problem(
-        await admin().update(made.id, fixture.changed, null),
-        428,
-        'precondition-required',
-      );
+      if (updates) {
+        problem(
+          await admin().update(made.id, fixture.changed, null),
+          428,
+          'precondition-required',
+        );
+      }
       problem(
         await admin().remove(made.id, null),
         428,
@@ -485,37 +513,58 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       );
     });
 
-    it('refuses a change to a version no longer current, naming the current one', async () => {
-      const made = await created();
-      const changed = await admin().update(
-        made.id,
-        fixture.changed,
-        made.version,
-      );
-      const stale = problem(
-        await admin().update(made.id, fixture.changedAgain, made.version),
-        409,
-        'moved-on',
-      );
+    it.skipIf(!updates)(
+      'refuses a change to a version no longer current, naming the current one',
+      async () => {
+        const made = await created();
+        const changed = await admin().update(
+          made.id,
+          fixture.changed,
+          made.version,
+        );
+        const stale = problem(
+          await admin().update(made.id, fixture.changedAgain, made.version),
+          409,
+          'moved-on',
+        );
 
-      expect(stale.currentVersion).toBe(changed.body.version);
-    });
+        expect(stale.currentVersion).toBe(changed.body.version);
+      },
+    );
 
-    it('lets one of two concurrent writes through, and refuses the other with the current version', async () => {
-      const made = await created();
-      const writes = await Promise.all([
-        admin().update(made.id, fixture.changed, made.version),
-        admin().update(made.id, fixture.changedAgain, made.version),
-      ]);
-      const [won, lost] = [...writes].sort((a, b) => a.status - b.status);
+    it.skipIf(updates)(
+      'lets one of two concurrent deletes through, and finds nothing for the other',
+      async () => {
+        const made = await created();
+        const deletes = await Promise.all([
+          admin().remove(made.id, made.version),
+          admin().remove(made.id, made.version),
+        ]);
+        const [won, lost] = [...deletes].sort((a, b) => a.status - b.status);
 
-      expect(won?.status).toBe(200);
-      expect(lost?.headers.etag).toBe(`"${won?.body.version}"`);
-      expect(problem(lost as Response, 409, 'moved-on').currentVersion).toBe(
-        won?.body.version,
-      );
-      expect((await admin().read(made.id)).body).toEqual(won?.body);
-    });
+        expect(won?.status).toBe(204);
+        problem(lost as Response, 404, 'not-found');
+      },
+    );
+
+    it.skipIf(!updates)(
+      'lets one of two concurrent writes through, and refuses the other with the current version',
+      async () => {
+        const made = await created();
+        const writes = await Promise.all([
+          admin().update(made.id, fixture.changed, made.version),
+          admin().update(made.id, fixture.changedAgain, made.version),
+        ]);
+        const [won, lost] = [...writes].sort((a, b) => a.status - b.status);
+
+        expect(won?.status).toBe(200);
+        expect(lost?.headers.etag).toBe(`"${won?.body.version}"`);
+        expect(problem(lost as Response, 409, 'moved-on').currentVersion).toBe(
+          won?.body.version,
+        );
+        expect((await admin().read(made.id)).body).toEqual(won?.body);
+      },
+    );
 
     it('refuses an invalid create or change, pointing at the field', async () => {
       const refused = problem(
@@ -527,6 +576,10 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       expect(refused.errors).toContainEqual(
         expect.objectContaining({ path: fixture.invalid.path }),
       );
+
+      if (!updates) {
+        return;
+      }
 
       const made = await created();
       const unchanged = problem(
@@ -543,15 +596,18 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
 
     it('deletes only the version it was asked to, and is gone after', async () => {
       const made = await created();
-      const changed = await admin().update(
-        made.id,
-        fixture.changed,
-        made.version,
-      );
+      const current = updates
+        ? (await admin().update(made.id, fixture.changed, made.version)).body
+            .version
+        : made.version;
+      const stale = updates ? made.version : made.version + 1;
 
-      problem(await admin().remove(made.id, made.version), 409, 'moved-on');
+      expect(
+        problem(await admin().remove(made.id, stale), 409, 'moved-on')
+          .currentVersion,
+      ).toBe(current);
 
-      const removed = await admin().remove(made.id, changed.body.version);
+      const removed = await admin().remove(made.id, current);
 
       expect(removed.status).toBe(204);
       problem(await admin().read(made.id), 404, 'not-found');
@@ -565,7 +621,9 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
 
     it('lets someone who may not configure it read it, and nothing more', async () => {
       const made = await created();
-      const viewer = as(fixture.viewer);
+      const viewer = as(
+        fixture.viewerToken ? { bearer: fixture.viewerToken } : fixture.viewer,
+      );
 
       await fixture.admit?.(made);
 
@@ -578,11 +636,15 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         ...(fixture.anyoneCreates
           ? []
           : [problem(await viewer.create(fixture.changed), 403, 'forbidden')]),
-        problem(
-          await viewer.update(made.id, fixture.changed, made.version),
-          403,
-          'forbidden',
-        ),
+        ...(updates
+          ? [
+              problem(
+                await viewer.update(made.id, fixture.changed, made.version),
+                403,
+                'forbidden',
+              ),
+            ]
+          : []),
         problem(await viewer.remove(made.id, made.version), 403, 'forbidden'),
       ];
 

@@ -9,6 +9,8 @@ describe('Client', () => {
       'terraform-provider',
       '1.2.3-rc.1+build',
     ],
+    ['cli/0.4.2', 'cli', '0.4.2'],
+    ['cli/dev', 'cli', 'dev'],
     [' web ', 'web', null],
   ])('knows %s as it names itself', (header, kind, version) => {
     expect(Client.named(header)).toMatchObject({ kind, version });
@@ -20,6 +22,7 @@ describe('Client', () => {
     ['curl/8.0'],
     ['terraform-provider/'],
     ['terraform-provider/1 2'],
+    ['cli/'],
   ])('is unknown when %o names nothing it knows', (header) => {
     expect(Client.named(header).toString()).toBe('unknown');
   });

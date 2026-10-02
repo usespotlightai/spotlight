@@ -14,6 +14,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+
 const at = (hour: number) =>
   new Date(`2026-09-30T${String(hour).padStart(2, '0')}:00:00.000Z`);
 
@@ -210,11 +212,10 @@ describe('noting how a run’s change was checked', () => {
     const records = new RunRecordsInMemory();
     await records.add(endedRecord('run_1'));
 
-    await new NoteChangeChecked(
-      records,
-      forgottenInMemory(),
-      inTransaction,
-    ).checked(RunId.of('run_1'), WORKSPACE, null, false);
+    await new NoteChangeChecked(records, forgottenInMemory(), inTransaction, {
+      now: () => HEARD_AT,
+      sleep: async () => {},
+    }).checked(RunId.of('run_1'), WORKSPACE, null, false);
 
     expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
   });
@@ -222,11 +223,10 @@ describe('noting how a run’s change was checked', () => {
   it('keeps a verdict heard before the run was heard to end', async () => {
     const records = new RunRecordsInMemory();
 
-    await new NoteChangeChecked(
-      records,
-      forgottenInMemory(),
-      inTransaction,
-    ).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), null);
+    await new NoteChangeChecked(records, forgottenInMemory(), inTransaction, {
+      now: () => HEARD_AT,
+      sleep: async () => {},
+    }).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), null);
 
     const record = await records.of(RunId.of('run_1'));
     expect(record?.checks).toBe('skipped');

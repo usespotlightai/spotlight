@@ -2,6 +2,7 @@ import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { PendingReviewsPort } from '@outcomes/application/ports/pending-reviews.port';
 import type { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
+import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import type { ChatRecordRepository } from '@outcomes/domain/repositories/chat-record.repository';
 import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
 import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
@@ -23,6 +24,7 @@ export interface OutcomesHeld {
   readonly records: RunRecordRepository;
   readonly deliveries: TaskDeliveryRepository;
   readonly judgings: JudgingRepository;
+  readonly changeJudgings: ChangeJudgingRepository;
   readonly scores: ScoreRepository;
   readonly touches: TaskTouchesRepository;
   readonly failures: TaskFailuresRepository;
@@ -150,6 +152,7 @@ export class ForgetOutcomes {
   ): Promise<void> {
     return this.ofTeam(workspaceId, teamId, async () => {
       await this.held.judgings.removeForTeam(workspaceId, teamId);
+      await this.held.changeJudgings.removeForTeam(workspaceId, teamId);
       await this.held.scores.removeForTeam(workspaceId, teamId);
     });
   }
@@ -204,6 +207,7 @@ export class ForgetOutcomes {
   judgingsAndScoresOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, async () => {
       await this.held.judgings.removeForWorkspace(workspaceId);
+      await this.held.changeJudgings.removeForWorkspace(workspaceId);
       await this.held.scores.removeForWorkspace(workspaceId);
     });
   }
