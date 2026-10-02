@@ -241,6 +241,7 @@ export const replay = pgTable(
     index('replay_set_idx').on(table.setId),
     index('replay_candidate_idx').on(table.candidateId),
     index('replay_team_state_idx').on(table.teamId, table.state),
+    index('replay_team_started_idx').on(table.teamId, table.startedAt),
     index('replay_search_idx').on(table.searchId),
   ],
 );

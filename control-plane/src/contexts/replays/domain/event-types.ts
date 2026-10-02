@@ -50,6 +50,7 @@ import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
@@ -121,6 +122,7 @@ export const REPLAYS_EVENT_TYPES = [
   SearchStopAsked,
   ReplayCheckId,
   ReplayThreshold,
+  ReplayedPeriod,
   ReplayCheckStarted,
   ReplayCheckAbandonmentDue,
   StationDigests,

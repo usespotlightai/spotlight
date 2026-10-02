@@ -44,6 +44,7 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import { baselineOf } from '@replays/domain/services/baseline';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStanding } from '@replays/domain/value-objects/change-checks.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -98,6 +99,11 @@ export class InMemoryReplays {
       this.sets.set(set.id.value, set);
     },
     locked: async (id: ReplaySetId) => this.sets.get(id.value) ?? null,
+    findMany: async (ids) =>
+      ids.flatMap((id) => {
+        const found = this.sets.get(id.value);
+        return found ? [found] : [];
+      }),
     ofLine: async (lineId) =>
       [...this.sets.values()].filter((each) => each.station.lineId === lineId),
     ofTeam: async (teamId) =>
@@ -167,6 +173,26 @@ export class InMemoryReplays {
       [...this.replays.values()].filter((each) =>
         searchIds.some((id) => each.searchId?.equals(id) ?? false),
       ),
+    baselinesOfSets: async (setIds) =>
+      setIds.flatMap((id) => {
+        const found = baselineOf(
+          [...this.replays.values()].filter((each) => each.setId.equals(id)),
+        );
+        return found ? [found] : [];
+      }),
+    ofTeamStartedSince: async (teamId, since, most) =>
+      [...this.replays.values()]
+        .filter(
+          (each) =>
+            each.teamId.equals(teamId) &&
+            each.startedAt.getTime() >= since.getTime(),
+        )
+        .sort(
+          (one, other) =>
+            other.startedAt.getTime() - one.startedAt.getTime() ||
+            (one.id.value < other.id.value ? 1 : -1),
+        )
+        .slice(0, most),
     teamsDispatching: async () => {
       const teams = new Map<string, TeamId>();
       for (const each of this.replays.values()) {
@@ -208,6 +234,12 @@ export class InMemoryReplays {
         const found = this.searches.get(id.value);
         return found ? [found] : [];
       }),
+    ofSetsStartedSince: async (setIds, since) =>
+      [...this.searches.values()].filter(
+        (each) =>
+          setIds.some((id) => each.setId.equals(id)) &&
+          each.startedAt.getTime() >= since.getTime(),
+      ),
     ranAs: async (run) =>
       [...this.searches.values()].find(
         (each) => each.iterationOf(run) !== null,
@@ -536,6 +568,12 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   async ofSearch(searchId: { value: string }) {
     return [...this.kept.values()].filter(
       (each) => each.searchId.value === searchId.value,
+    );
+  }
+
+  async ofSearches(searchIds: readonly { value: string }[]) {
+    return [...this.kept.values()].filter((each) =>
+      searchIds.some((id) => id.value === each.searchId.value),
     );
   }
 

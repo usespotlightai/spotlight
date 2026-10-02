@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamInsights } from '@/components/features/insights/TeamInsights';
+import type { InsightsCandidates } from '@/lib/insights-candidates';
 import type { InsightsChanges, InsightsSetups } from '@/lib/insights-changes';
+import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
 
 type Held = {
   data: unknown;
@@ -21,9 +23,15 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
   refetch: vi.fn(),
 });
 
-const answer: { changes: Held; setups: Held; asked: unknown[] } = {
+const answer: {
+  changes: Held;
+  setups: Held;
+  candidates: Held;
+  asked: unknown[];
+} = {
   changes: held(undefined),
   setups: held(undefined),
+  candidates: held(undefined),
   asked: [],
 };
 
@@ -35,6 +43,10 @@ vi.mock('@/hooks/api/useInsightsSetups', () => ({
     answer.asked.push(narrowed);
     return answer.setups;
   },
+}));
+vi.mock('@/hooks/api/useInsightsCandidates', () => ({
+  insightsCandidatesKeys: { forTeam: () => ['insights', 'candidates'] },
+  useInsightsCandidates: () => answer.candidates,
 }));
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({
@@ -191,6 +203,26 @@ const SETUPS = {
   judges: CHANGES.judges,
 } as unknown as InsightsSetups;
 
+const REPLAYED = {
+  ...CANDIDATES,
+  stations: [
+    {
+      ...CANDIDATES.stations[0],
+      lineId: 'line_1',
+      stationId: 'station_impl',
+    },
+  ],
+} as InsightsCandidates;
+
+const narrowingTo = async (station: string) => {
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Station: Every station' }),
+  );
+  await userEvent.click(
+    await screen.findByRole('menuitemradio', { name: station }),
+  );
+};
+
 const showing = () =>
   render(
     <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?tab=changes']}>
@@ -206,6 +238,7 @@ const showing = () =>
 beforeEach(() => {
   answer.changes = held(CHANGES);
   answer.setups = held(SETUPS);
+  answer.candidates = held(REPLAYED);
   answer.asked = [];
 });
 
@@ -362,5 +395,159 @@ describe('the Changes tab', () => {
     );
 
     expect(answer.asked.at(-1)).toEqual({ stationId: null, size: 'large' });
+  });
+
+  it('asks for a station before setting replayed candidates beside the setups', () => {
+    showing();
+
+    expect(
+      screen.getByText(
+        'Pick a station to see its replayed candidates beside its live setups.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="replayed-legend"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('sets a narrowed station’s replayed candidates beside its setups, marked apart and noted as replay success', async () => {
+    showing();
+
+    await narrowingTo('Implementation');
+
+    expect(
+      document.querySelector('[data-slot="replayed-legend"]'),
+    ).toHaveTextContent(/Replayed:.*Live config, replayed/);
+    expect(
+      screen.getByText(
+        /Accepted against cost per run; replayed points show replay success on past tasks instead/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="replayed-note"]'),
+    ).toHaveTextContent(
+      /replay success on up to 18 runs of past tasks, scored by each candidate’s own checks and judge — not the live outcome the other points show/,
+    );
+  });
+
+  it('lists the replayed rows in their own section of the table, leaving out the unpriced', async () => {
+    showing();
+
+    await narrowingTo('Implementation');
+    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+
+    const replayed = screen.getByRole('table', { name: 'Replayed candidates' });
+    expect(
+      within(replayed).getByRole('row', { name: /Live config, replayed/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(replayed).getByRole('row', { name: /opus-with-migrations-skill/ }),
+    ).toHaveTextContent('67% of 7 held-out runs');
+    expect(
+      within(replayed).queryByRole('row', { name: /cursor-careful-profile/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('table', { name: 'Harness, model, effort and profile' }),
+    ).toBeInTheDocument();
+  });
+
+  it('leaves out replayed candidates priced in another currency than the setups', async () => {
+    answer.setups = held({ ...SETUPS, currency: 'EUR' });
+
+    showing();
+    await narrowingTo('Implementation');
+
+    expect(
+      document.querySelector('[data-slot="replayed-legend"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="replayed-note"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="other-currency"]'),
+    ).toHaveTextContent(
+      'Priced in another currency, so not shown: Live config, replayed (the search’s tasks) (55%), opus-with-migrations-skill (72%), sonnet-terse-prompt (50%).',
+    );
+  });
+
+  it('says why each replayed candidate it leaves out is left out, and that task size does not narrow them', async () => {
+    showing();
+    await narrowingTo('Implementation');
+
+    expect(document.querySelector('[data-slot="unpriced"]')).toHaveTextContent(
+      'Not priced, so not shown: cursor-careful-profile (61%).',
+    );
+    expect(
+      document.querySelector('[data-slot="unfinished"]'),
+    ).toHaveTextContent(
+      'Not finished, so not shown: sonnet-plan-first (running).',
+    );
+    expect(
+      document.querySelector('[data-slot="replayed-note"]'),
+    ).toHaveTextContent('The task-size filter does not apply to them.');
+  });
+
+  it('hides replayed points while the chart shows an outcome where lower is better', async () => {
+    showing();
+    await narrowingTo('Implementation');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Outcome: Accepted' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitemradio', { name: 'Sent back' }),
+    );
+
+    expect(
+      document.querySelector('[data-slot="replayed-legend"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="replayed-note"]'),
+    ).toHaveTextContent(
+      'Replayed points show success, so they’re hidden while the chart shows Sent back.',
+    );
+  });
+
+  it('says so where the station’s replayed candidates have no priced live setup to sit beside', async () => {
+    answer.setups = held({
+      ...SETUPS,
+      setups: SETUPS.setups.map((each) => ({ ...each, costPerRun: null })),
+    });
+
+    showing();
+    await narrowingTo('Implementation');
+
+    expect(
+      document.querySelector('[data-slot="replayed-note"]'),
+    ).toHaveTextContent(
+      'This station’s replayed candidates are not drawn, as no live setup here has a priced outcome to set them beside.',
+    );
+  });
+
+  it('keeps quiet about replayed candidates where the team replayed none', () => {
+    answer.candidates = held({ ...REPLAYED, stations: [] });
+
+    showing();
+
+    expect(
+      screen.queryByText(/Pick a station to see its replayed candidates/),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the tab whole when the replayed candidates could not be loaded', async () => {
+    answer.candidates = held(undefined, 1);
+
+    showing();
+    await narrowingTo('Implementation');
+
+    expect(
+      screen.getByText('The replayed candidates could not be loaded.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: 'Config changes' }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+    expect(answer.candidates.refetch).toHaveBeenCalled();
   });
 });

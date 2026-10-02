@@ -7,8 +7,15 @@ import {
   YAxis,
   ZAxis,
 } from 'recharts';
+import { ReplayedLegend } from '@/components/features/insights/candidates/ReplayedLegend';
+import {
+  ReplayedPointMark,
+  type ReplayedPointMarkProps,
+} from '@/components/features/insights/candidates/ReplayedPointMark';
+import { ReplayedPointSaid } from '@/components/features/insights/candidates/ReplayedPointSaid';
 import { spentIn } from '@/lib/inbox';
 import { countShown, shareShown } from '@/lib/insights';
+import type { ReplayedPoint } from '@/lib/insights-candidates';
 import {
   frontierOf,
   type OutcomeMeasure,
@@ -25,7 +32,7 @@ const Said = ({
   currency,
 }: {
   active?: boolean;
-  payload?: { payload: SetupPoint }[];
+  payload?: { payload: SetupPoint | ReplayedPoint }[];
   measure: OutcomeMeasure;
   currency: string;
 }) => {
@@ -33,6 +40,10 @@ const Said = ({
 
   if (!active || !point) {
     return null;
+  }
+
+  if ('mark' in point) {
+    return <ReplayedPointSaid point={point} currency={currency} />;
   }
 
   return (
@@ -50,19 +61,29 @@ const Said = ({
   );
 };
 
+const replayedMark = (props: unknown) => (
+  <ReplayedPointMark {...(props as ReplayedPointMarkProps)} hollow />
+);
+
 type SetupScatterProps = {
   points: readonly SetupPoint[];
+  replayed?: readonly ReplayedPoint[];
   measure: OutcomeMeasure;
   currency: string;
 };
 
-export function SetupScatter({ points, measure, currency }: SetupScatterProps) {
+export function SetupScatter({
+  points,
+  replayed = [],
+  measure,
+  currency,
+}: SetupScatterProps) {
   const frontier = frontierOf(points);
   const rest = points.filter((each) => !each.frontier);
 
   return (
     <figure data-slot="setup-scatter" className="flex flex-col gap-1">
-      <figcaption className="flex items-center gap-3 text-muted-foreground text-xs">
+      <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
         <span className="flex items-center gap-1">
           <span aria-hidden className="size-2 rounded-full bg-primary" />
           On the frontier
@@ -71,6 +92,15 @@ export function SetupScatter({ points, measure, currency }: SetupScatterProps) {
           <span aria-hidden className="size-2 rounded-full bg-chart-1" />
           Other setups
         </span>
+        {replayed.length > 0 && (
+          <span
+            data-slot="replayed-legend"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1"
+          >
+            <span className="font-medium text-foreground">Replayed:</span>
+            <ReplayedLegend points={replayed} hollow />
+          </span>
+        )}
       </figcaption>
       <div className="[&_*:focus:not(:focus-visible)]:outline-none">
         <ResponsiveContainer width="100%" height={HEIGHT}>
@@ -91,9 +121,21 @@ export function SetupScatter({ points, measure, currency }: SetupScatterProps) {
               domain={[0, 1]}
               tickLine={false}
               axisLine={false}
-              width={40}
+              width={replayed.length > 0 ? 56 : 40}
               tick={{ fill: 'var(--faint)', fontSize: 10 }}
               tickFormatter={(value: number) => shareShown(value)}
+              label={
+                replayed.length > 0
+                  ? {
+                      value: `${outcomeLabel(measure)} · replay success`,
+                      angle: -90,
+                      position: 'insideLeft',
+                      fill: 'var(--muted-foreground)',
+                      fontSize: 10,
+                      style: { textAnchor: 'middle' },
+                    }
+                  : undefined
+              }
             />
             <ZAxis type="number" dataKey="runs" range={[40, 240]} />
             <Tooltip
@@ -115,6 +157,14 @@ export function SetupScatter({ points, measure, currency }: SetupScatterProps) {
               lineType="joint"
               isAnimationActive={false}
             />
+            {replayed.length > 0 && (
+              <Scatter
+                name="Replayed"
+                data={replayed}
+                shape={replayedMark}
+                isAnimationActive={false}
+              />
+            )}
           </ScatterChart>
         </ResponsiveContainer>
       </div>

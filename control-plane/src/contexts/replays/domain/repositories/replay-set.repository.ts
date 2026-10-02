@@ -5,6 +5,8 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 export interface ReplaySetRepository {
   find(id: ReplaySetId): Promise<ReplaySet | null>;
 
+  findMany(ids: readonly ReplaySetId[]): Promise<readonly ReplaySet[]>;
+
   locked(id: ReplaySetId): Promise<ReplaySet | null>;
 
   ofLine(lineId: string): Promise<readonly ReplaySet[]>;

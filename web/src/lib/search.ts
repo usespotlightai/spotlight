@@ -82,6 +82,16 @@ export const typedIn = (inputs: BudgetInputs, field: SearchField): boolean => {
 export const searchPath = (at: ReplayedStation, searchId: string): string =>
   `${stationPath(at.slug, at.teamId, at.lineId, at.stationId)}/searches/${encodeURIComponent(searchId)}`;
 
+export const searchCandidateAnchor = (candidateId: string): string =>
+  `candidate-${candidateId}`;
+
+export const searchCandidatePath = (
+  at: ReplayedStation,
+  searchId: string,
+  candidateId: string,
+): string =>
+  `${searchPath(at, searchId)}#${searchCandidateAnchor(candidateId)}`;
+
 export const searchesAnchorPath = (at: ReplayedStation): string =>
   `${stationPath(at.slug, at.teamId, at.lineId, at.stationId)}#${SEARCHES_ANCHOR}`;
 

@@ -5,6 +5,7 @@ import { SetupComparison } from '@/components/features/insights/changes/SetupCom
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
+import { useInsightsCandidates } from '@/hooks/api/useInsightsCandidates';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
 import {
   type SetupsNarrowed,
@@ -28,6 +29,7 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
   const [measure, setMeasure] = useState<OutcomeMeasure>(DEFAULT_OUTCOME);
   const changes = useInsightsChanges(teamId, period);
   const setups = useInsightsSetups(teamId, period, narrowed);
+  const candidates = useInsightsCandidates(teamId, period);
 
   if (loading(changes) || loading(setups)) {
     return <ChangesSkeleton />;
@@ -71,6 +73,7 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
         slug={slug}
         teamId={teamId}
         setups={setups.data}
+        candidates={candidates}
         narrowed={narrowed}
         measure={measure}
         names={names}

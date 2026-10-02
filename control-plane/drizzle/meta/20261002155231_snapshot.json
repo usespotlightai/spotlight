@@ -1,5 +1,5 @@
 {
-  "id": "f3f7797b-65a5-414e-8053-87ec4a6366b2",
+  "id": "eaf87c15-d2a7-431e-b5f4-11e843c55f81",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -7170,6 +7170,27 @@
             },
             {
               "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_team_started_idx": {
+          "name": "replay_team_started_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

@@ -1,8 +1,15 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const STANDS: readonly string[] = ['queued', 'running', 'finished'];
+export const STANDING_BASELINE_STATES = [
+  'queued',
+  'running',
+  'finished',
+] as const satisfies readonly ReplayState[];
+
+const STANDS: readonly string[] = STANDING_BASELINE_STATES;
 
 const newestFirst = (one: Replay, other: Replay): number =>
   other.startedAt.getTime() - one.startedAt.getTime();

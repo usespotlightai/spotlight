@@ -6,6 +6,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { ScatterMark } from '@/components/shared/ScatterMark';
 import { spentIn } from '@/lib/inbox';
 import { shareShown } from '@/lib/insights';
 import type { FrontierPoint } from '@/lib/search';
@@ -55,26 +56,14 @@ type MarkProps = {
   payload?: FrontierPoint;
 };
 
-const SIZE = 4;
-
-const Mark = ({ cx, cy, fill, payload }: MarkProps) => {
-  if (cx === undefined || cy === undefined) {
-    return null;
-  }
-
-  return payload?.seed ? (
-    <rect
-      x={cx - SIZE}
-      y={cy - SIZE}
-      width={SIZE * 2}
-      height={SIZE * 2}
-      transform={`rotate(45 ${cx} ${cy})`}
-      fill="var(--foreground)"
-    />
-  ) : (
-    <circle cx={cx} cy={cy} r={SIZE} fill={fill} />
-  );
-};
+const Mark = ({ cx, cy, fill, payload }: MarkProps) => (
+  <ScatterMark
+    cx={cx}
+    cy={cy}
+    fill={payload?.seed ? 'var(--foreground)' : fill}
+    shape={payload?.seed ? 'diamond' : 'circle'}
+  />
+);
 
 type FrontierChartProps = {
   points: readonly FrontierPoint[];

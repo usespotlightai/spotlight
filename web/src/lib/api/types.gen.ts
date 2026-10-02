@@ -6735,6 +6735,248 @@ export type SearchCandidateProposedResponseDto = {
   replayId: string;
 };
 
+export type ReplayedPeriodResponseDto = {
+  name: '7d' | '30d' | '90d';
+  /**
+   * The first UTC day it looks at, from its start
+   */
+  from: string;
+  /**
+   * The start of the UTC day after today, which it stops short of
+   */
+  to: string;
+};
+
+export type ReplaySetHealthResponseDto = {
+  /**
+   * How many distinct tasks its runs worked; fewer than its runs when a task was worked more than once
+   */
+  tasks: number;
+  /**
+   * How many past runs the set holds now
+   */
+  runs: number;
+  /**
+   * When the oldest of its runs ended; null while none of them has an end
+   */
+  oldestRunEndedAt: string | null;
+  /**
+   * When the newest of its runs ended; null while none of them has an end
+   */
+  newestRunEndedAt: string | null;
+  /**
+   * When a task was last added to it; null while it holds none
+   */
+  lastAddedAt: string | null;
+};
+
+export type ReplayedBaselineResponseDto = {
+  replayId: string;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  /**
+   * The fingerprint of the live config it replayed
+   */
+  fingerprint: string | null;
+  /**
+   * How many of its runs it was scored on
+   */
+  scored: number;
+  /**
+   * A success rate, 0 to 1, of the past runs it was scored on, each a replay of one past run; a task worked twice counts twice
+   */
+  successRate: number | null;
+  /**
+   * What it spent per scored run; unknown while any of it went unpriced or was in another currency
+   */
+  costPerRun: number | null;
+  currency: string;
+  endedAt: string | null;
+};
+
+export type ReplayedHeldOutResponseDto = {
+  replayId: string;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  /**
+   * Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished
+   */
+  score: number | null;
+  /**
+   * How many distinct tasks the search held out
+   */
+  tasks: number;
+  /**
+   * How many held-out runs its held-out replay was scored on: the runs its held-out score covers
+   */
+  runs: number;
+};
+
+export type ReplayedLiveResponseDto = {
+  /**
+   * A success rate, 0 to 1, of the past runs it was scored on, each a replay of one past run; a task worked twice counts twice
+   */
+  successRate: number | null;
+  /**
+   * What it spent per scored run; unknown while any of it went unpriced or was in another currency
+   */
+  costPerRun: number | null;
+  /**
+   * The baseline’s currency, which its cost per run is in; it may differ from the candidate’s
+   */
+  currency: string;
+};
+
+export type ReplayedSeedResponseDto = {
+  /**
+   * The live config’s success rate on the searched runs, 0 to 1, as the search page shows the seed’s search score
+   */
+  successRate: number | null;
+  /**
+   * What it spent per scored run; unknown while any of it went unpriced or was in another currency
+   */
+  costPerRun: number | null;
+  /**
+   * How many searched runs it was scored on
+   */
+  scored: number;
+};
+
+export type ReplayedSearchResponseDto = {
+  searchId: string;
+  state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
+  startedAt: string;
+  /**
+   * The live config the search started from, scored on the same searched runs as its candidates, in the candidate’s currency
+   */
+  seed: ReplayedSeedResponseDto;
+};
+
+export type ReplayedCandidateResponseDto = {
+  candidateId: string;
+  name: string;
+  /**
+   * Found by a search, or proposed by a person or Terraform; pull-request checks are left out
+   */
+  kind: 'searched' | 'proposed';
+  /**
+   * What the search agent expected it to improve, and why; null unless searched
+   */
+  hypothesis: string | null;
+  fingerprint: string | null;
+  /**
+   * How its station config differs from the live config
+   */
+  changes: Array<StationChangeResponseDto>;
+  /**
+   * Its replay: on the searched tasks when searched, of the whole set when proposed
+   */
+  replayId: string;
+  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  /**
+   * When the replay shown started: for a proposed candidate, its newest finished replay in the period, else its newest; null while a searched candidate’s replay cannot be found
+   */
+  replayedAt: string | null;
+  /**
+   * How many distinct tasks its replay covers: the searched ones when searched
+   */
+  tasks: number;
+  /**
+   * How many past runs its replay covers; more than its tasks when a task was worked more than once
+   */
+  runs: number;
+  /**
+   * Its replay success rate, 0 to 1, over all the runs it was scored on, scored by its own checks and judge; not how live runs went. The search score when searched, as its search page shows it; as its replay page totals it when proposed
+   */
+  successRate: number | null;
+  /**
+   * How many of its runs it was scored on
+   */
+  scored: number;
+  /**
+   * Its replay on the tasks the search held out, when it was on the frontier as the search stopped; apart from its search score
+   */
+  heldOut: ReplayedHeldOutResponseDto | null;
+  /**
+   * What it spent per scored run; unknown while any of it went unpriced or was in another currency
+   */
+  costPerRun: number | null;
+  currency: string;
+  /**
+   * How the set’s baseline, the live config replayed, did on the compared runs only: those of the candidate’s runs it replayed too; null without a baseline
+   */
+  live: ReplayedLiveResponseDto | null;
+  /**
+   * The candidate’s own success rate on the compared runs only, 0 to 1, to set beside live; null without a baseline
+   */
+  successRateOnCompared: number | null;
+  /**
+   * What the candidate spent per run on the compared runs only, in its own currency, to set beside live; unknown while any of it went unpriced, and null without a baseline
+   */
+  costPerRunOnCompared: number | null;
+  /**
+   * Compared runs it did worse on than the baseline, as the replay page counts them; null without a baseline
+   */
+  regressions: number | null;
+  /**
+   * How many of its runs the baseline replayed too: the runs live and successRateOnCompared cover
+   */
+  compared: number;
+  /**
+   * Whether no other candidate of its search, nor the seed, succeeds as often for less; null unless searched
+   */
+  onFrontier: boolean | null;
+  /**
+   * The search that found it; null unless searched
+   */
+  search: ReplayedSearchResponseDto | null;
+  /**
+   * The pull request Spotlight opens once a person picks it from its search; null until then
+   */
+  pullRequest: CandidatePullRequestResponseDto | null;
+};
+
+export type ReplayedSetResponseDto = {
+  setId: string;
+  name: string;
+  /**
+   * Whether its station has left its line
+   */
+  stationGone: boolean;
+  /**
+   * Whether it checks every pull request that changes its station
+   */
+  guardsChanges: boolean;
+  /**
+   * How the set stands now, whatever the period
+   */
+  health: ReplaySetHealthResponseDto;
+  /**
+   * The live config replayed over the set, its newest standing baseline whatever the period; null while it has none
+   */
+  baseline: ReplayedBaselineResponseDto | null;
+  /**
+   * Candidates replayed over it in the period, newest first: searched ones whose search started in it, proposed ones whose replay did
+   */
+  candidates: Array<ReplayedCandidateResponseDto>;
+};
+
+export type ReplayedStationResponseDto = {
+  lineId: string;
+  stationId: string;
+  sets: Array<ReplayedSetResponseDto>;
+};
+
+export type ReplayedCandidatesResponseDto = {
+  period: ReplayedPeriodResponseDto;
+  /**
+   * Whether the team replayed more in the period than one answer covers, so the oldest are left out
+   */
+  truncated: boolean;
+  /**
+   * Stations with a candidate replayed in the period, newest first
+   */
+  stations: Array<ReplayedStationResponseDto>;
+};
+
 export type HookSigningRequestDtoWritable = {
   /**
    * The HMAC secret, whsec_ and 24 to 64 base64 bytes; write-only, sent when secretVersion changes
@@ -17187,3 +17429,54 @@ export type ReadConfigPullRequestResponses = {
 };
 
 export type ReadConfigPullRequestResponse = ReadConfigPullRequestResponses[keyof ReadConfigPullRequestResponses];
+
+export type ReadReplayedCandidatesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/replayed-candidates';
+};
+
+export type ReadReplayedCandidatesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * No such period
+   */
+  422: ProblemResponseDto;
+};
+
+export type ReadReplayedCandidatesError = ReadReplayedCandidatesErrors[keyof ReadReplayedCandidatesErrors];
+
+export type ReadReplayedCandidatesResponses = {
+  200: ReplayedCandidatesResponseDto;
+};
+
+export type ReadReplayedCandidatesResponse = ReadReplayedCandidatesResponses[keyof ReadReplayedCandidatesResponses];

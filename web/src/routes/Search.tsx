@@ -18,6 +18,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { useTeamReplaySets } from '@/hooks/api/useReplaySets';
 import { useSearch } from '@/hooks/api/useSearch';
 import { useSearches } from '@/hooks/api/useSearches';
+import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
@@ -55,6 +56,7 @@ export function Search() {
       : []),
   ];
   const { trail, forward } = useTrail(base);
+  useScrollToHash(Boolean(found && at));
 
   if (loading(search)) {
     return <SearchSkeleton known={trail} />;

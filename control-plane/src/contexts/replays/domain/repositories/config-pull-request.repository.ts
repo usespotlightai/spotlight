@@ -14,6 +14,10 @@ export interface ConfigPullRequestRepository {
 
   ofSearch(searchId: SearchId): Promise<readonly ConfigPullRequest[]>;
 
+  ofSearches(
+    searchIds: readonly SearchId[],
+  ): Promise<readonly ConfigPullRequest[]>;
+
   ofTeam(teamId: TeamId): Promise<readonly ConfigPullRequest[]>;
 
   due(now: Date): Promise<readonly ConfigPullRequest[]>;

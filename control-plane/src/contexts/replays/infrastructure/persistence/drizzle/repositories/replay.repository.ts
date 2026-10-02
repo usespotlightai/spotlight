@@ -3,6 +3,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayMovedOnError } from '@replays/domain/exceptions/replay-moved-on.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import { STANDING_BASELINE_STATES } from '@replays/domain/services/baseline';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
@@ -40,8 +41,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import {
   and,
   asc,
+  desc,
   eq,
   exists,
+  gte,
   inArray,
   isNotNull,
   isNull,
@@ -336,6 +339,47 @@ export class DrizzleReplayRepository implements ReplayRepository {
     );
   }
 
+  async baselinesOfSets(
+    setIds: readonly ReplaySetId[],
+  ): Promise<readonly Replay[]> {
+    if (setIds.length === 0) {
+      return [];
+    }
+
+    return this.hydrated(
+      await this.context.db
+        .selectDistinctOn([replay.setId])
+        .from(replay)
+        .where(
+          and(
+            inArray(replay.setId, [
+              ...new Set(setIds.map((each) => each.value)),
+            ]),
+            eq(replay.baseline, true),
+            inArray(replay.state, [...STANDING_BASELINE_STATES]),
+          ),
+        )
+        .orderBy(asc(replay.setId), desc(replay.startedAt), asc(replay.id)),
+    );
+  }
+
+  async ofTeamStartedSince(
+    teamId: TeamId,
+    since: Date,
+    most: number,
+  ): Promise<readonly Replay[]> {
+    return this.hydrated(
+      await this.context.db
+        .select()
+        .from(replay)
+        .where(
+          and(eq(replay.teamId, teamId.value), gte(replay.startedAt, since)),
+        )
+        .orderBy(desc(replay.startedAt), desc(replay.id))
+        .limit(most),
+    );
+  }
+
   async teamsDispatching(): Promise<readonly TeamId[]> {
     const rows = await this.context.db
       .selectDistinct({ teamId: replay.teamId })
@@ -467,8 +511,12 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .from(replay)
       .where(where)
       .orderBy(asc(replay.startedAt), asc(replay.id));
-    const rows = locked ? await query.for('update') : await query;
+    return this.hydrated(locked ? await query.for('update') : await query);
+  }
 
+  private async hydrated(
+    rows: readonly ReplayRow[],
+  ): Promise<readonly Replay[]> {
     if (rows.length === 0) {
       return [];
     }

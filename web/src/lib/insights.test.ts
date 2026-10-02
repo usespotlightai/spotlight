@@ -123,6 +123,20 @@ describe('the insights view in the address', () => {
     ).toEqual({});
   });
 
+  it('reads the Candidates tab with the period alone, no filters or page', () => {
+    const view = viewOf(
+      new URLSearchParams('tab=candidates&period=7d&stationId=s&page=3'),
+    );
+
+    expect(view).toEqual({
+      tab: 'candidates',
+      period: '7d',
+      filter: {},
+      page: 1,
+    });
+    expect(paramsOf(view)).toEqual({ tab: 'candidates', period: '7d' });
+  });
+
   it('writes only what differs from the defaults', () => {
     expect(
       paramsOf({ tab: 'overview', period: '30d', filter: {}, page: 1 }),

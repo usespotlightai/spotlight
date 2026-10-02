@@ -50,6 +50,7 @@ const preview: Preview = {
               'Stations',
               'Changes',
               'Before and after',
+              'Candidates',
               'People',
               'Cost',
               'Tools',

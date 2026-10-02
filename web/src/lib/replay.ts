@@ -117,11 +117,16 @@ const pointsShown = (points: number): string =>
 export const successAgainst = (
   replay: Pick<Replay, 'id' | 'totals'>,
   baseline: Pick<Replay, 'id' | 'totals'> | null,
-): SuccessComparison => {
-  const now = replay.totals.successRate;
-  const against =
-    baseline && baseline.id !== replay.id ? baseline.totals.successRate : null;
+): SuccessComparison =>
+  successBetween(
+    replay.totals.successRate,
+    baseline && baseline.id !== replay.id ? baseline.totals.successRate : null,
+  );
 
+export const successBetween = (
+  now: number | null,
+  against: number | null,
+): SuccessComparison => {
   if (now === null || against === null) {
     return {
       now: successShown(now),

@@ -31,7 +31,7 @@ interface Scored {
   readonly spent: Spend;
 }
 
-const scoredOn = (
+export const scoredOn = (
   replay: Replay | null,
   among: readonly RunId[] | null,
   currency: string,
