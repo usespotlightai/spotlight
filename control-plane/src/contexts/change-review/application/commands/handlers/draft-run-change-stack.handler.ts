@@ -38,7 +38,8 @@ export class DraftRunChangeStackHandler
         {
           id: run.id,
           taskId: run.taskId,
-          replay: run.replay,
+          isReplay: run.isReplay,
+          isSearch: run.isSearch,
           workspaceId: run.workspaceId,
         },
         {

@@ -1,24 +1,32 @@
+import { createHash } from 'node:crypto';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import {
   type ReplayedStation,
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Search } from '@replays/domain/aggregates/search.aggregate';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
+import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { RunOutcome } from '@replays/domain/value-objects/replay-ending';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
+import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
+import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
+import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -40,6 +48,16 @@ export const STATION: ReplayedStation = {
 export const FINGERPRINT = StationFingerprint.of('a'.repeat(64));
 
 export const LIVE_FINGERPRINT = StationFingerprint.of('b'.repeat(64));
+
+export const DIGESTS = StationDigests.of({
+  behaviour: '1'.repeat(64),
+  scoring: '2'.repeat(64),
+});
+
+export const LIVE_DIGESTS = StationDigests.of({
+  behaviour: 'd'.repeat(64),
+  scoring: 'e'.repeat(64),
+});
 
 export const AT = StationAddress.of(
   'core',
@@ -86,6 +104,7 @@ export const candidateOf = (
       ...(check ? { diffs: true, check } : {}),
     }),
     fingerprint: FINGERPRINT,
+    digests: kind === 'live' ? LIVE_DIGESTS : DIGESTS,
     scoring: CandidateScoring.of({
       checksChanges: check !== null,
       rubric,
@@ -121,7 +140,7 @@ const entriesOf = (count: number): ReplaySetEntry[] =>
     }),
   );
 
-export const aSet = (count = 0): ReplaySet =>
+export const aSet = (count = 0, id = 'set_1'): ReplaySet =>
   entriesOf(count).reduce(
     (set, entry) =>
       set.withEntry(
@@ -133,9 +152,10 @@ export const aSet = (count = 0): ReplaySet =>
           reason: null,
         },
         NOW,
+        false,
       ),
     ReplaySet.opened({
-      id: ReplaySetId.of('set_1'),
+      id: ReplaySetId.of(id),
       station: STATION,
       name: ReplaySetName.of('Queue fixes'),
       at: NOW,
@@ -157,6 +177,8 @@ export const aReplay = (
     candidate?: Candidate;
     baseline?: boolean;
     at?: Date;
+    among?: readonly RunId[];
+    searchId?: SearchId;
   } = {},
 ): Replay => {
   const started = Replay.started({
@@ -167,6 +189,8 @@ export const aReplay = (
     ceiling: Spend.ceiling(input.ceiling ?? 10, 'USD'),
     at: input.at ?? NOW,
     by: BY,
+    ...(input.among ? { among: input.among } : {}),
+    ...(input.searchId ? { searchId: input.searchId } : {}),
   });
 
   started.pullEvents();
@@ -222,3 +246,122 @@ export const settledAs = (
     .ended(run, endOf(outcome))
     .reviewed(run, ChangeChecks.of([]), null, later(60_000))
     .measured(run, measuresOf(cost), later(61_000));
+
+export const sha256 = (text: string): string =>
+  createHash('sha256').update(text, 'utf8').digest('hex');
+
+export const SEARCH_ID = SearchId.of('search_1');
+
+export const AGENT = SearchAgent.of({
+  harness: 'claude-code',
+  model: 'opus',
+  effort: 'high',
+});
+
+export const aBudget = (
+  input: Partial<{
+    iterations: number;
+    perIteration: number;
+    ceiling: number;
+    concurrency: number;
+  }> = {},
+): SearchBudget =>
+  SearchBudget.of({
+    iterations: input.iterations ?? 3,
+    perIteration: input.perIteration ?? 2,
+    ceiling: Spend.ceiling(input.ceiling ?? 100, 'USD'),
+    ...(input.concurrency ? { concurrency: input.concurrency } : {}),
+  });
+
+export const aSearch = (
+  input: {
+    id?: string;
+    count?: number;
+    budget?: SearchBudget;
+    set?: ReplaySet;
+  } = {},
+): Search => {
+  const set = input.set ?? aSet(input.count ?? 10);
+  const id = input.id ? SearchId.of(input.id) : SEARCH_ID;
+  const started = Search.started({
+    id,
+    set,
+    agent: AGENT,
+    budget: input.budget ?? aBudget(),
+    split: HeldOutSplit.drawn({
+      searchId: id,
+      entries: set.entries,
+      digest: sha256,
+    }),
+    seed: {
+      candidate: candidateOf('live'),
+      replayId: ReplayId.of('replay_seed'),
+    },
+    at: NOW,
+    by: BY,
+  });
+
+  started.pullEvents();
+
+  return started;
+};
+
+let nextSearchRun = 0;
+
+export const searchRunIds = (): (() => RunId) => {
+  nextSearchRun = 0;
+  return () => RunId.of(`search_run_${++nextSearchRun}`);
+};
+
+const PASSED = ChangeChecks.of([
+  {
+    repository: 'api',
+    state: 'passed',
+    skip: null,
+    failedAt: [],
+    spent: ModelSpent.of([], 0),
+  },
+]);
+
+export const replayFor = (
+  set: ReplaySet,
+  id: string,
+  candidateId: string,
+  among: readonly RunId[] | null,
+  live = false,
+): Replay => {
+  const started = Replay.started({
+    id: ReplayId.of(id),
+    set,
+    candidate: candidateOf(live ? 'live' : 'proposed', candidateId),
+    baseline: live,
+    ceiling: Spend.ceiling(100, 'USD'),
+    at: NOW,
+    by: BY,
+    searchId: SEARCH_ID,
+    ...(among ? { among } : {}),
+  });
+
+  started.pullEvents();
+
+  return started;
+};
+
+export const replayedAs = (
+  replay: Replay,
+  outcomeOf: (original: string) => RunOutcome,
+  cost: number | null = 1,
+  currency = 'USD',
+): Replay => {
+  const reserved = replay.reserving(replay.entries.length, runIds());
+
+  return reserved.entries.reduce((held, entry) => {
+    const run = entry.run as RunId;
+
+    return held
+      .confirmed(run, FINGERPRINT, NOW)
+      .ended(run, endOf(outcomeOf(entry.original.value)))
+      .reviewed(run, PASSED, null, later(60_000))
+      .measured(run, measuresOf(cost, 60_000, 10, currency), later(61_000));
+  }, reserved);
+};

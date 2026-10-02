@@ -1,0 +1,212 @@
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TRACE_PARENT_VAR } from '@work/application/contracts/run-spec.contract';
+import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type {
+  SearchAgent,
+  SearchAgentRefusal,
+  SearchDispatched,
+  SearchDispatchPort,
+  SearchOrder,
+  UnclaimedWithdrawal,
+} from '@work/application/ports/search-dispatch.port';
+import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
+import { Run } from '@work/domain/aggregates/run.aggregate';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { SEARCH_PRIORITY } from '@work/domain/services/search-priority';
+import { EFFORTS, Effort } from '@work/domain/value-objects/effort.vo';
+import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { SearchId } from '@work/domain/value-objects/search-id.vo';
+import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
+
+const QUEUED: SearchDispatched = { outcome: 'queued' };
+
+const STOPPED = 'Its search was stopped before a runner took it up.';
+
+const LEFT_UNCLAIMED = 'No runner took it up in time, so its search let it go.';
+
+const ENDED: UnclaimedWithdrawal = { outcome: 'ended' };
+
+const CLAIMED: UnclaimedWithdrawal = { outcome: 'claimed' };
+
+const MOST_MODEL = 60;
+
+const unstartable = (reason: string): SearchDispatched => ({
+  outcome: 'unstartable',
+  reason,
+});
+
+const holds = (made: () => unknown): boolean => {
+  try {
+    made();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export class DispatchSearch implements SearchDispatchPort {
+  constructor(
+    private readonly runs: RunRepository,
+    private readonly lines: LineRepository,
+    private readonly launch: HarnessLaunchPort,
+    private readonly tracing: TraceParentPort,
+    private readonly transaction: TransactionPort,
+    private readonly clock: ClockPort,
+  ) {}
+
+  refusalOf(agent: SearchAgent): SearchAgentRefusal | null {
+    const known = this.launch.catalogue().map((each) => each.id);
+
+    if (!known.includes(agent.harness)) {
+      return {
+        field: 'harness',
+        reason: `names a harness a runner can start: ${known.join(', ')}`,
+      };
+    }
+    const { model, effort } = agent;
+
+    if (model !== null && !holds(() => HarnessModel.of(model))) {
+      return {
+        field: 'model',
+        reason: `names the model in 1 to ${MOST_MODEL} characters, or leaves it out`,
+      };
+    }
+    if (effort !== null && !holds(() => Effort.of(effort))) {
+      return {
+        field: 'effort',
+        reason: `is one of ${EFFORTS.join(', ')}, or left out`,
+      };
+    }
+
+    return null;
+  }
+
+  enqueue(order: SearchOrder): Promise<SearchDispatched> {
+    return this.transaction.run(async () => {
+      const id = RunId.of(order.id);
+      const searchId = SearchId.of(order.searchId);
+      const iteration = SearchIteration.of(order.iteration);
+
+      if (await this.alreadyQueued(id, searchId, iteration)) {
+        return QUEUED;
+      }
+
+      const stationId = StationId.of(order.stationId);
+      const line = await this.lines.find(LineId.of(order.lineId));
+
+      if (!line || line.isRetired || !line.stationAt(stationId)?.isWorked) {
+        return unstartable('the line no longer has the station it searches');
+      }
+
+      const harness = HarnessId.of(order.agent.harness);
+      const command = this.launch.commandFor(harness, {
+        model: order.agent.model ? HarnessModel.of(order.agent.model) : null,
+        effort: order.agent.effort ? Effort.of(order.agent.effort) : null,
+      });
+
+      if (!command) {
+        return unstartable(
+          `no runner can start ${harness.value}, the harness it searches with`,
+        );
+      }
+
+      await this.runs.add(
+        Run.enqueue({
+          id,
+          workspaceId: line.workspaceId,
+          harness,
+          priority: SEARCH_PRIORITY,
+          subject: RunSubject.search(
+            searchId,
+            iteration,
+            stationId,
+            line.teamId,
+          ),
+          placement: line.placementOf(stationId),
+          spec: RunSpec.of({
+            command: command.started({
+              [TRACE_PARENT_VAR]: this.tracing.forSearch(searchId, id),
+            }),
+            briefing: order.briefing,
+            handover: { options: [], noteLimit: 0 },
+            continuity: { key: `search-${id.value}` },
+            search: {},
+          }),
+        }),
+      );
+
+      return QUEUED;
+    });
+  }
+
+  withdraw(runId: string): Promise<void> {
+    return this.transaction.run(async () => {
+      const run = await this.runs.findById(RunId.of(runId));
+
+      if (!run?.isSearch || run.hasEnded) {
+        return;
+      }
+
+      const changed =
+        run.state === 'queued'
+          ? run.withdrawn(STOPPED)
+          : run.letGo(this.clock.now());
+
+      if (changed !== run) {
+        await this.runs.save(changed);
+      }
+    });
+  }
+
+  withdrawUnclaimed(runId: string): Promise<UnclaimedWithdrawal> {
+    return this.transaction.run(async () => {
+      const run = await this.runs.findById(RunId.of(runId));
+
+      if (!run?.isSearch || run.hasEnded) {
+        return ENDED;
+      }
+      if (run.state !== 'queued') {
+        return CLAIMED;
+      }
+
+      await this.runs.save(run.withdrawn(LEFT_UNCLAIMED));
+
+      return { outcome: 'withdrawn', started: run.attempt > 1 } as const;
+    });
+  }
+
+  private async alreadyQueued(
+    id: RunId,
+    searchId: SearchId,
+    iteration: SearchIteration,
+  ): Promise<boolean> {
+    const queued = await this.runs.findById(id);
+
+    if (!queued) {
+      return false;
+    }
+
+    const subject = queued.subject;
+
+    if (
+      !subject?.searchId?.equals(searchId) ||
+      !subject.iteration?.equals(iteration)
+    ) {
+      throw new InconsistentStateError(
+        'run',
+        `${id.value} is already a run of something other than iteration ${iteration.value} of search ${searchId.value}`,
+      );
+    }
+
+    return true;
+  }
+}

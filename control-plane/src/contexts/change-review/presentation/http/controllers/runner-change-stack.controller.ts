@@ -43,6 +43,9 @@ export class RunnerChangeStackController {
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: 'Not a run this runner worked' })
+  @ApiConflictResponse({
+    description: 'The run is a search, which changes no repository',
+  })
   async draftChangeStack(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,

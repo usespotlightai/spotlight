@@ -26,7 +26,9 @@ export class ReadCandidateHandler
         ? await this.people.standingOn(candidate.teamId.value, query.principal)
         : null;
 
-      return candidate && standing ? candidateResourceView(candidate) : null;
+      return candidate && standing && (candidate.isProposed || candidate.isLive)
+        ? candidateResourceView(candidate)
+        : null;
     } catch (error) {
       rethrowAsFault(error);
     }

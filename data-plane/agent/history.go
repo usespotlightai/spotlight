@@ -37,7 +37,7 @@ func historyCmd(args []string, out io.Writer) error {
 	if key == "" {
 		return fmt.Errorf("--station is required\n%s", historyUsage)
 	}
-	if !oneSegment(key) {
+	if !protocol.OneSegment(key) {
 		return fmt.Errorf("%q is not a station key\n%s", key, historyUsage)
 	}
 	if *last < 0 {
@@ -77,6 +77,13 @@ func historyCmd(args []string, out io.Writer) error {
 		history.Line.Key, history.Station.Key,
 		len(history.Configs), plural(len(history.Configs), "config", "configs"),
 	)
+	if len(history.Candidates) > 0 {
+		fmt.Fprintf(
+			out, "%d %s proposed so far, under %s\n",
+			len(history.Candidates), plural(len(history.Candidates), "candidate", "candidates"),
+			filepath.Join(dir, "candidates"),
+		)
+	}
 	fmt.Fprintf(out, "Search it with your own tools: grep -r <term> %s\n", dir)
 
 	return nil
@@ -112,13 +119,34 @@ func fetchHistory(asked protocol.HistoryRequest) (protocol.History, error) {
 
 func writeHistory(dir string, history protocol.History) error {
 	for _, config := range history.Configs {
-		if !oneSegment(config.Fingerprint) {
+		if !protocol.OneSegment(config.Fingerprint) {
 			return fmt.Errorf("Spotlight named a config %q", config.Fingerprint)
 		}
 	}
 	for _, run := range history.Runs {
-		if !oneSegment(run.RunID) {
+		if !protocol.OneSegment(run.RunID) {
 			return fmt.Errorf("Spotlight named a run %q", run.RunID)
+		}
+	}
+	named := map[string]bool{}
+	for _, candidate := range history.Candidates {
+		if !protocol.OneSegment(candidate.CandidateName) {
+			return fmt.Errorf("Spotlight named a candidate %q", candidate.CandidateName)
+		}
+		folded := strings.ToLower(candidate.CandidateName)
+		if named[folded] {
+			return fmt.Errorf("Spotlight named two candidates %q", candidate.CandidateName)
+		}
+		named[folded] = true
+		replayed := map[string]bool{}
+		for _, run := range candidate.Runs {
+			if !protocol.OneSegment(run.Original) {
+				return fmt.Errorf("Spotlight named a replayed run %q", run.Original)
+			}
+			if replayed[run.Original] {
+				return fmt.Errorf("Spotlight named run %q twice among candidate %s's replays", run.Original, candidate.CandidateName)
+			}
+			replayed[run.Original] = true
 		}
 	}
 
@@ -126,7 +154,7 @@ func writeHistory(dir string, history protocol.History) error {
 		return fmt.Errorf("clear %s: %w", dir, err)
 	}
 
-	files := map[string]string{"index.md": historyIndex(history)}
+	files := map[string]string{"index.md": historyIndex(history) + candidatesIndex(history)}
 
 	for _, config := range history.Configs {
 		written, err := configYAML(config.Fingerprint, config.Config)
@@ -134,6 +162,10 @@ func writeHistory(dir string, history protocol.History) error {
 			return fmt.Errorf("write config %s: %w", config.Fingerprint, err)
 		}
 		files[filepath.Join("configs", config.Fingerprint+".yml")] = written
+	}
+
+	if err := searchFiles(files, history); err != nil {
+		return err
 	}
 
 	for _, run := range history.Runs {
@@ -326,9 +358,4 @@ func plural(count int, one, many string) string {
 	}
 
 	return many
-}
-
-func oneSegment(name string) bool {
-	return name != "" && name != "." && name != ".." &&
-		!strings.ContainsAny(name, `/\`) && name == strings.TrimSpace(name)
 }

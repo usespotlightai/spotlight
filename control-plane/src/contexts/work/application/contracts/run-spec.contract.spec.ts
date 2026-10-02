@@ -75,6 +75,19 @@ describe('RunSpecContract wire', () => {
     );
   });
 
+  it('round-trips a search to an empty search block, and refuses one that is no object', () => {
+    const searching = parts({
+      handover: { options: [], noteLimit: 0 },
+      continuity: { key: 'search-run_1' },
+      search: {},
+    });
+
+    expect(
+      RunSpecContract.toWire(RunSpecContract.from(searching) as never),
+    ).toEqual(searching);
+    expect(RunSpecContract.from(parts({ search: true }))).toBeNull();
+  });
+
   it('keeps no empty list of secrets worn', () => {
     expect(
       RunSpecContract.from(parts({ wears: [] }))?.value.wears,

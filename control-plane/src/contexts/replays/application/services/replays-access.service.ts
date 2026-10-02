@@ -5,15 +5,19 @@ import type {
 } from '@replays/application/ports/work.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { UnknownReplayError } from '@replays/domain/exceptions/unknown-replay.error';
 import { UnknownReplayRunError } from '@replays/domain/exceptions/unknown-replay-run.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
+import { UnknownSearchError } from '@replays/domain/exceptions/unknown-search.error';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { ReplaysClearance } from '@replays/domain/services/replays-clearance';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -23,6 +27,7 @@ export class ReplaysAccess {
     private readonly work: WorkPort,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
+    private readonly searches: SearchRepository,
   ) {}
 
   async clearance(
@@ -84,6 +89,19 @@ export class ReplaysAccess {
     }
 
     return replay;
+  }
+
+  async searchOn(
+    clearance: ReplaysClearance,
+    searchId: string,
+  ): Promise<Search> {
+    const search = await this.searches.find(SearchId.of(searchId));
+
+    if (!search || !clearance.sees(search.station)) {
+      throw new UnknownSearchError(searchId);
+    }
+
+    return search;
   }
 
   async replayRanAs(clearance: ReplaysClearance, run: RunId): Promise<Replay> {

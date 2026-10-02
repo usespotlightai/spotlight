@@ -1,16 +1,23 @@
 import { DeleteReplaySetButton } from '@/components/features/replays/set/DeleteReplaySetButton';
+import { GuardsChangesToggle } from '@/components/features/replays/set/GuardsChangesToggle';
 import { RenameReplaySetButton } from '@/components/features/replays/set/RenameReplaySetButton';
 import { anyUnderway, type Replay, type ReplaySet } from '@/lib/replay';
 import { since } from '@/lib/runner';
+import type { LineReplayCheck } from '@/lib/search';
 
 const UNDELETABLE =
-  'A replay of this set is running, so it can’t be deleted until that replay ends or is stopped.';
+  'A replay or search of this set is running, so it can’t be deleted until that ends or is stopped.';
+
+const FROZEN =
+  'A search of this set is under way, so its runs stay as they are until the search ends or is stopped.';
 
 type ReplaySetHeaderProps = {
   teamId: string;
   set: ReplaySet;
   replays: readonly Replay[];
   deletedTo: string;
+  replayCheck: LineReplayCheck | null | undefined;
+  searching: boolean;
 };
 
 export function ReplaySetHeader({
@@ -18,9 +25,11 @@ export function ReplaySetHeader({
   set,
   replays,
   deletedTo,
+  replayCheck,
+  searching,
 }: ReplaySetHeaderProps) {
   const runs = set.entries.length;
-  const running = anyUnderway(replays);
+  const running = anyUnderway(replays) || searching;
 
   return (
     <div className="flex flex-col gap-3">
@@ -44,6 +53,12 @@ export function ReplaySetHeader({
         {runs === 1 ? '1 run' : `${runs} runs`} · opened {since(set.createdAt)}
       </p>
 
+      <GuardsChangesToggle
+        teamId={teamId}
+        set={set}
+        replayCheck={replayCheck}
+      />
+
       {set.stationGone && (
         <p
           role="note"
@@ -57,6 +72,12 @@ export function ReplaySetHeader({
 
       {running && (
         <p className="text-muted-foreground text-xs">{UNDELETABLE}</p>
+      )}
+
+      {searching && (
+        <p role="note" className="text-muted-foreground text-xs">
+          {FROZEN}
+        </p>
       )}
     </div>
   );

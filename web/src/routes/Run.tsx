@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
-import { ReplayRun } from '@/components/features/replays/run/ReplayRun';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { RunActivity } from '@/components/features/runs/RunActivity';
@@ -16,6 +15,7 @@ import { RunSpend } from '@/components/features/runs/RunSpend';
 import { RunWaiting } from '@/components/features/runs/RunWaiting';
 import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
+import { UntaskedRunOf } from '@/components/features/runs/UntaskedRunOf';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -154,7 +154,7 @@ export function Run() {
   }
 
   if (!run) {
-    return <ReplayRun slug={slug} teamId={teamId} runId={runId} />;
+    return <UntaskedRunOf slug={slug} teamId={teamId} runId={runId} />;
   }
 
   const here = run.station?.name === said?.station?.name;

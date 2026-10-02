@@ -66,6 +66,7 @@ const ready = () =>
     runId: RunId.of(RUN),
     taskId: null,
     replay: false,
+    isSearch: false,
     workspaceId: WorkspaceId.of('ws_1'),
     repository: null,
     base: null,

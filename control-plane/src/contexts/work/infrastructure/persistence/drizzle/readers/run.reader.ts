@@ -22,6 +22,7 @@ import type {
   RunConversationSummary,
   RunReaderPort,
   RunStationSummary,
+  SearchRunSummary,
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
@@ -255,7 +256,8 @@ export class DrizzleRunReader implements RunReaderPort {
         parts: run.stationConfig,
         workspaceId: run.workspaceId,
         replayOfRunId: run.replayOfRunId,
-        replayTeamId: run.replayTeamId,
+        searchId: run.searchId,
+        ranForTeamId: run.ranForTeamId,
       })
       .from(run)
       .where(eq(run.id, runId.value))
@@ -277,12 +279,13 @@ export class DrizzleRunReader implements RunReaderPort {
           }
         : null;
 
-    const replayedIn = found.replayOfRunId
-      ? { workspaceId: found.workspaceId, teamId: found.replayTeamId }
-      : null;
+    const ranForTeam =
+      found.replayOfRunId || found.searchId
+        ? { workspaceId: found.workspaceId, teamId: found.ranForTeamId }
+        : null;
 
     if (!ran || !found.stationId || !found.taskId) {
-      return { ran, before: null, replayedIn };
+      return { ran, before: null, ranForTeam };
     }
 
     const [earlier] = await this.db
@@ -307,7 +310,71 @@ export class DrizzleRunReader implements RunReaderPort {
     return {
       ran,
       before: earlier ? configured(earlier) : null,
-      replayedIn,
+      ranForTeam,
+    };
+  }
+
+  async searchRunFor(
+    teamId: TeamId,
+    workspaceId: WorkspaceId,
+    runId: RunId,
+  ): Promise<SearchRunSummary | null> {
+    const [found] = await this.db
+      .select({
+        id: run.id,
+        state: run.state,
+        attempt: run.attempt,
+        exitCode: run.exitCode,
+        startedAt: run.createdAt,
+        updatedAt: run.updatedAt,
+        endedAt: run.endedAt,
+        failure: run.failure,
+        harness: run.harness,
+        image: run.ranIn,
+        stationId: ranAt.id,
+        stationName: ranAt.name,
+        stationColor: ranAt.color,
+        stationPosition: ranAt.position,
+        stationLineId: ranAt.lineId,
+        ranForTeamId: run.ranForTeamId,
+        workspaceId: run.workspaceId,
+        searchId: run.searchId,
+        iteration: run.searchIteration,
+      })
+      .from(run)
+      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
+      .where(and(eq(run.id, runId.value), isNotNull(run.searchId)))
+      .limit(1);
+
+    if (
+      !found?.searchId ||
+      found.iteration === null ||
+      found.ranForTeamId !== teamId.value ||
+      found.workspaceId !== workspaceId.value
+    ) {
+      return null;
+    }
+
+    const held = await stationsPerLine(
+      this.db,
+      found.stationLineId ? [found.stationLineId] : [],
+    );
+
+    return {
+      id: found.id,
+      state: found.state,
+      attempt: found.attempt,
+      exitCode: found.exitCode,
+      startedAt: found.startedAt,
+      updatedAt: found.updatedAt,
+      harness: found.harness,
+      image: found.image,
+      station: worked(found, held),
+      review: null,
+      searchId: found.searchId,
+      iteration: found.iteration,
+      failure: found.failure,
+      endedAt: found.endedAt,
     };
   }
 
@@ -331,7 +398,7 @@ export class DrizzleRunReader implements RunReaderPort {
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
         stationLineId: ranAt.lineId,
-        replayTeamId: run.replayTeamId,
+        ranForTeamId: run.ranForTeamId,
         workspaceId: run.workspaceId,
         originalRunId: run.replayOfRunId,
         originalTaskId: original.taskId,
@@ -347,7 +414,7 @@ export class DrizzleRunReader implements RunReaderPort {
 
     if (
       !found?.originalRunId ||
-      found.replayTeamId !== teamId.value ||
+      found.ranForTeamId !== teamId.value ||
       found.workspaceId !== workspaceId.value
     ) {
       return null;

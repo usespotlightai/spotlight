@@ -74,6 +74,25 @@ vi.mock('@/hooks/api/useReplayRun', () => ({
   }),
 }));
 
+const searchRun = vi.fn((): unknown => undefined);
+
+vi.mock('@/hooks/api/useSearchRun', () => ({
+  useSearchRun: () => ({
+    data: searchRun(),
+    isPending: false,
+    errorUpdateCount: searchRun() ? 0 : 1,
+    error: searchRun() ? null : { status: 404 },
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/api/useSearches', () => ({
+  useSearches: () => ({
+    data: [{ id: 'search_1', startedAt: '2026-08-29T09:00:00.000Z' }],
+  }),
+}));
+
 vi.mock('@/hooks/api/useReplayOfRun', () => ({
   useReplayOfRun: () => ({
     data: replayOfRun(),
@@ -231,6 +250,7 @@ describe('Run', () => {
     replayRun.mockReturnValue(undefined);
     replayRunMissing.mockReturnValue(true);
     replayOfRun.mockReturnValue(undefined);
+    searchRun.mockReturnValue(undefined);
   });
 
   describe('while it loads', () => {
@@ -841,6 +861,42 @@ describe('Run', () => {
         screen.getByText('Implementation is working…'),
       ).toBeInTheDocument();
       expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('a search run', () => {
+    beforeEach(() => {
+      runs.mockReturnValue([run({ id: 'run_2' })]);
+      searchRun.mockReturnValue({
+        ...run({ id: 'run_1', taskId: null, taskTitle: null }),
+        searchId: 'search_1',
+        iteration: 2,
+        agent: { harness: 'claude-code', model: 'opus', effort: null },
+        failure: 'runner-lost',
+        endedAt: '2026-08-29T10:00:00.000Z',
+        spent: {
+          spentCosts: [{ amount: 0.5, currency: 'USD' }],
+          unpricedCalls: 1,
+        },
+        spend: null,
+        journals: [{ runId: 'run_1', attempt: 1, steps: [step], spans: [] }],
+      });
+    });
+
+    it('says which iteration of which search it is, and what it spent', () => {
+      const { container } = renderRun();
+      const banner = container.querySelector(
+        '[data-slot="search-run-banner"]',
+      ) as HTMLElement;
+
+      expect(banner).toHaveTextContent('Iteration 2 of');
+      expect(banner).toHaveTextContent('$0.50 · 1 model call not priced');
+      expect(banner).toHaveTextContent(
+        'It failed: the runner was lost, so it goes unscored',
+      );
+      expect(
+        screen.getByText(/A search’s agent runs on its own/),
+      ).toBeInTheDocument();
     });
   });
 });

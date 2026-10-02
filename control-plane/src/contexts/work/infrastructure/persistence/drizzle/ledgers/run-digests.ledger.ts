@@ -13,6 +13,10 @@ import type {
   RunDigestReaderPort,
 } from '@work/application/ports/run-digest-reader.port';
 import type { RunDigestWriterPort } from '@work/application/ports/run-digest-writer.port';
+import type {
+  RunSpend,
+  RunSpendReaderPort,
+} from '@work/application/ports/run-spend-reader.port';
 import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
 import { changedLinesOf } from '@work/domain/services/change-hunks';
 import { toolUseOf } from '@work/domain/services/tool-attribution';
@@ -82,6 +86,35 @@ export const spentAcross = (readings: readonly Told[]): RunSpent | null => {
     : null;
 };
 
+export const spendAcross = (readings: readonly Told[]): RunSpend => {
+  const bySession = new Map<string, RunSpent>();
+
+  for (const reading of readings) {
+    for (const [session, spent] of reading.spentBySession()) {
+      bySession.set(session, spent);
+    }
+  }
+
+  const sessions = [...bySession.values()];
+  const costs = new Map<string, Money>();
+
+  for (const each of sessions) {
+    if (each.cost) {
+      const held = costs.get(each.cost.currency);
+
+      costs.set(each.cost.currency, held ? held.plus(each.cost) : each.cost);
+    }
+  }
+
+  return {
+    costs: [...costs.values()],
+    unpricedSessions: sessions.filter((each) => each.cost === null).length,
+    called:
+      sessions.length > 0 ||
+      readings.some((reading) => !reading.tokens().equals(Tokens.UNREPORTED)),
+  };
+};
+
 export const digestOf = (worked: Worked): RunDigest => ({
   ms: worked.ms,
   steps: worked.statuses.length,
@@ -105,12 +138,39 @@ const chunked = <T>(all: readonly T[], size: number): T[][] => {
 
 @Injectable()
 export class DrizzleRunDigests
-  implements RunDigestReaderPort, RunDigestWriterPort, RunToolsReaderPort
+  implements
+    RunDigestReaderPort,
+    RunDigestWriterPort,
+    RunToolsReaderPort,
+    RunSpendReaderPort
 {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(HARNESS_LAUNCH) private readonly launch: HarnessLaunchPort,
   ) {}
+
+  async spendOf(runId: RunId): Promise<RunSpend> {
+    const told = await this.db
+      .select({
+        attempt: runJournalEntry.attempt,
+        type: runJournalEntry.type,
+        at: runJournalEntry.at,
+        message: runJournalEntry.message,
+        data: runJournalEntry.data,
+      })
+      .from(runJournalEntry)
+      .where(eq(runJournalEntry.runId, runId.value))
+      .orderBy(asc(runJournalEntry.attempt), asc(runJournalEntry.seq));
+    const readings = new Map<number, Told>();
+
+    for (const row of told) {
+      const reading = readings.get(row.attempt) ?? new Told();
+      reading.take(row);
+      readings.set(row.attempt, reading);
+    }
+
+    return spendAcross([...readings.values()]);
+  }
 
   async ensure(runIds: readonly RunId[]): Promise<void> {
     const ids = [...new Set(runIds.map((each) => each.value))];

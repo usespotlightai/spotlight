@@ -82,6 +82,8 @@ export interface RunReplay {
   readonly movesOnAfter: readonly string[];
 }
 
+export type RunSearch = Readonly<Record<string, never>>;
+
 export interface RunSpecParts {
   readonly checkouts?: readonly RunCheckout[];
   readonly command: RunCommand;
@@ -100,6 +102,7 @@ export interface RunSpecParts {
   readonly settingFiles?: readonly string[];
   readonly wears?: readonly string[];
   readonly replay?: RunReplay;
+  readonly search?: RunSearch;
 }
 
 const outside = (path: string): boolean =>
@@ -213,6 +216,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
         },
       }
     : {}),
+  ...(parts.search ? { search: {} } : {}),
 });
 
 const replayRefusal = (parts: RunSpecParts): string | null => {
@@ -256,6 +260,60 @@ const replayRefusal = (parts: RunSpecParts): string | null => {
     )
   ) {
     return 'must check a replay’s repositories out at the commits it replays, and nothing else';
+  }
+
+  return null;
+};
+
+const searchRefusal = (parts: RunSpecParts): string | null => {
+  if (!parts.search) {
+    return null;
+  }
+
+  if (parts.replay) {
+    return 'must not replay a run and search at once';
+  }
+
+  if ((parts.checkouts?.length ?? 0) > 0) {
+    return 'must give a search no checkouts';
+  }
+
+  if (
+    (parts.wears?.length ?? 0) > 0 ||
+    (parts.manifest?.length ?? 0) > 0 ||
+    (parts.catalog?.length ?? 0) > 0 ||
+    (parts.harnessSetup?.mcpServers.length ?? 0) > 0
+  ) {
+    return 'must give a search no tools, MCP servers or secrets';
+  }
+
+  if ((parts.attachments?.length ?? 0) > 0) {
+    return 'must give a search no attachments';
+  }
+
+  if (
+    (parts.skills?.length ?? 0) > 0 ||
+    (parts.skillHomes?.length ?? 0) > 0 ||
+    (parts.settingFiles?.length ?? 0) > 0 ||
+    parts.harnessSetup
+  ) {
+    return 'must give a search no skills or harness settings';
+  }
+
+  if (parts.diffs || parts.check !== undefined) {
+    return 'must not have a search hand over a diff or check a change';
+  }
+
+  if (parts.handover.options.length > 0 || parts.handover.noteLimit > 0) {
+    return 'must give a search nothing to hand over to';
+  }
+
+  if (parts.startingPoint) {
+    return 'must not have a search report where it started';
+  }
+
+  if (parts.continuity.sessionId || parts.continuity.resumes) {
+    return 'must start a search in a conversation of its own';
   }
 
   return null;
@@ -362,7 +420,7 @@ export class RunSpec {
       throw new InvalidRunSpecError('must say what checks its change');
     }
 
-    const refused = replayRefusal(parts);
+    const refused = replayRefusal(parts) ?? searchRefusal(parts);
 
     if (refused) {
       throw new InvalidRunSpecError(refused);
@@ -377,6 +435,10 @@ export class RunSpec {
 
   get isReplay(): boolean {
     return this.parts.replay !== undefined;
+  }
+
+  get isSearch(): boolean {
+    return this.parts.search !== undefined;
   }
 
   get briefing(): string {

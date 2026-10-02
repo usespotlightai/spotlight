@@ -253,24 +253,28 @@ describe('the station config a run ran with', () => {
       since: null,
       until: null,
       most: 10,
+      excluding: [],
     });
     const sinceMid = await stationRuns.endedAt(stationId, {
       fingerprint: null,
       since: new Date('2026-09-10T00:00:00Z'),
       until: null,
       most: 10,
+      excluding: [],
     });
     const untilMid = await stationRuns.endedAt(stationId, {
       fingerprint: null,
       since: null,
       until: new Date('2026-09-10T00:00:00Z'),
       most: 10,
+      excluding: [],
     });
     const ofOld = await stationRuns.endedAt(stationId, {
       fingerprint: 'c'.repeat(64),
       since: null,
       until: null,
       most: 10,
+      excluding: [],
     });
 
     expect(all.map((each) => each.runId)).toEqual([recent.runId, old.runId]);

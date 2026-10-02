@@ -220,4 +220,70 @@ describe('RunSpec', () => {
       }
     });
   });
+
+  describe('a search', () => {
+    const searching = (over: Partial<RunSpecParts> = {}): RunSpecParts =>
+      parts({
+        handover: { options: [], noteLimit: 0 },
+        continuity: { key: 'search-run_1' },
+        search: {},
+        ...over,
+      });
+
+    it('says it searches, and carries that through', () => {
+      const spec = RunSpec.of(searching());
+
+      expect(spec.isSearch).toBe(true);
+      expect(spec.isReplay).toBe(false);
+      expect(spec.value.search).toEqual({});
+      expect(RunSpec.of(parts()).isSearch).toBe(false);
+    });
+
+    it('gives a search no checkouts, tools, MCP servers, secrets, attachments, skills or harness settings', () => {
+      for (const given of [
+        { checkouts: [{ remote: 'spotlight:repository', path: 'api' }] },
+        { wears: ['LINEAR_API_KEY'] },
+        {
+          manifest: [{ name: 'core.comment', description: 'x', inputs: [] }],
+        },
+        { catalog: ['catalog.web-search@1.1.0'] },
+        {
+          harnessSetup: {
+            files: [],
+            mcpServers: [{ name: 'linear', command: 'npx', args: [], env: [] }],
+            asks: [],
+          },
+        },
+        { attachments: [{ id: 'file_1', path: 'brief.png' }] },
+        { skills: [{ path: '.claude/skills/x/SKILL.md', text: '# X' }] },
+        { skillHomes: ['.claude/skills'] },
+        { settingFiles: ['.claude/settings.json'] },
+        {
+          harnessSetup: {
+            files: [{ path: 'settings.json', text: '{}' }],
+            mcpServers: [],
+            asks: [],
+          },
+        },
+      ]) {
+        expect(() => RunSpec.of(searching(given))).toThrow(InvalidRunSpecError);
+      }
+    });
+
+    it('never reports where it started, carries on a conversation, replays at once, hands over a diff, checks a change or hands work on', () => {
+      for (const given of [
+        { startingPoint: true },
+        { continuity: { key: 'search-run_1', sessionId: 's_1' } },
+        {
+          replay: { archive: null, checkouts: [], movesOnAfter: [] },
+        },
+        { diffs: true },
+        { check: 'npm test' },
+        { handover: { options: ['review'], noteLimit: 0 } },
+        { handover: { options: [], noteLimit: 4_000 } },
+      ]) {
+        expect(() => RunSpec.of(searching(given))).toThrow(InvalidRunSpecError);
+      }
+    });
+  });
 });

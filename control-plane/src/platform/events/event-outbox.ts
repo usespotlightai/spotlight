@@ -67,7 +67,7 @@ export class EventOutbox implements DomainEventDispatcher {
 
       for (const event of events.flatMap((each) => [
         each,
-        ...this.publications.of(each),
+        ...this.publications.of(each, at),
       ])) {
         const id = this.ids.generate();
         const listening = this.subscribers.listeningTo(event.kind);

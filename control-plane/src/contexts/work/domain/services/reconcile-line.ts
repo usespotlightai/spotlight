@@ -125,6 +125,8 @@ const assemble = (
     repositories: plan.repositories.entries,
     reviews: plan.reviews,
     placement: plan.placement,
+    replayCheck: plan.replayCheck,
+    source: plan.source,
     stations,
     reactions: plan.reactions.map((planned) =>
       Reaction.of({

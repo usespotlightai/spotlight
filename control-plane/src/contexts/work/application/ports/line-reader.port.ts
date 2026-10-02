@@ -40,6 +40,17 @@ interface ReactionSummary {
   readonly to: string;
 }
 
+export interface LineSourceSummary {
+  readonly repository: string;
+  readonly path: string;
+}
+
+export interface LineReplayCheckSummary {
+  readonly mostRegressions: number;
+  readonly ceiling: number;
+  readonly currency: string;
+}
+
 export interface LineDetail {
   readonly id: string;
   readonly key: string;
@@ -47,6 +58,8 @@ export interface LineDetail {
   readonly stations: readonly StationSummary[];
   readonly reactions: readonly ReactionSummary[];
   readonly repositories: readonly string[];
+  readonly source: LineSourceSummary | null;
+  readonly replayCheck: LineReplayCheckSummary | null;
 }
 
 export const LINE_READER = Symbol('LINE_READER');

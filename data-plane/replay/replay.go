@@ -18,7 +18,8 @@ const Usage = `  spotlight replay propose --station <team/line/station> --name <
   spotlight replay stop --team <key> <replay id>
       each takes --json; reads SPOTLIGHT_URL and SPOTLIGHT_API_TOKEN, a workspace
       token that may plan (read is enough to list, show and follow); status and
-      watch exit 2 when the candidate regresses on a task its baseline did well`
+      watch exit 2 when the candidate regresses on a task its baseline did well
+` + CheckUsage
 
 const (
 	urlVar   = "SPOTLIGHT_URL"
@@ -37,6 +38,10 @@ type cli struct {
 }
 
 func Main(args []string, version string) int {
+	if len(args) > 0 && args[0] == "check" {
+		return check(args[1:], os.Stdin, os.Stdout, os.Stderr, os.Getenv, version, time.Sleep, time.Now)
+	}
+
 	err := run(args, os.Stdin, os.Stdout, version)
 
 	switch {

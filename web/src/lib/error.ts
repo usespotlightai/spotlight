@@ -28,8 +28,12 @@ export function messageOf(
   return fallback;
 }
 
-export const notFound = (thrown: unknown): boolean => {
+const answered = (thrown: unknown, status: number): boolean => {
   const said = thrown as { statusCode?: unknown; status?: unknown } | null;
 
-  return said?.statusCode === 404 || said?.status === 404;
+  return said?.statusCode === status || said?.status === status;
 };
+
+export const notFound = (thrown: unknown): boolean => answered(thrown, 404);
+
+export const conflicted = (thrown: unknown): boolean => answered(thrown, 409);

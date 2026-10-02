@@ -14,7 +14,7 @@ const AT = new Date('2026-10-02T10:00:00.000Z');
 
 const published = (event: ChangeJudged | ChangeJudgingFailed) =>
   OUTCOMES_PUBLICATIONS.filter((each) => each.from === event.kind).map((each) =>
-    each.publish(event),
+    each.publish(event, new Date()),
   );
 
 describe('OUTCOMES_PUBLICATIONS', () => {

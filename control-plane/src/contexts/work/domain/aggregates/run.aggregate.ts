@@ -28,6 +28,7 @@ import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
 import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
+import { KeptFromSearchesError } from '@work/domain/exceptions/kept-from-searches.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -147,6 +148,12 @@ export class Run extends EventRecorder {
       );
     }
 
+    if (run.isSearch !== run.spec.isSearch) {
+      throw new InvalidRunTransitionError(
+        'searches only with a spec that says it searches, and the other way round',
+      );
+    }
+
     if (run.configuredAs && !run.stationId) {
       throw new InvalidRunTransitionError(
         'cannot record a station config on a run that works at no station',
@@ -164,6 +171,12 @@ export class Run extends EventRecorder {
     if (briefed && !run.stationId?.equals(briefed.stationId)) {
       throw new InvalidRunTransitionError(
         'cannot record a task briefed at a station other than the one it works at',
+      );
+    }
+
+    if (run.briefedWith.briefed.length > 0 && run.isSearch) {
+      throw new InvalidRunTransitionError(
+        'cannot brief a search with what the team remembers',
       );
     }
 
@@ -249,10 +262,16 @@ export class Run extends EventRecorder {
         'replays a run with a spec that does not say what it replays, or the other way round',
       );
     }
-    if (input.askedAPerson && !input.subject?.isReplay) {
+    if ((input.subject?.isSearch ?? false) !== input.spec.isSearch) {
       throw new InconsistentStateError(
         'run',
-        'asked a person itself though it is no replay',
+        'searches with a spec that does not say it searches, or the other way round',
+      );
+    }
+    if (input.askedAPerson && !input.subject?.leavesNothingBehind) {
+      throw new InconsistentStateError(
+        'run',
+        'asked a person itself though it is no replay or search',
       );
     }
     if (input.startedFrom && !input.subject?.taskId) {
@@ -305,6 +324,14 @@ export class Run extends EventRecorder {
 
   get replayOf(): RunId | null {
     return this.subject?.replayOf ?? null;
+  }
+
+  get isSearch(): boolean {
+    return this.subject?.isSearch ?? false;
+  }
+
+  get leavesNothingBehind(): boolean {
+    return this.subject?.leavesNothingBehind ?? false;
   }
 
   get restoresArchive(): WorkspaceArchiveId | null {
@@ -710,24 +737,27 @@ export class Run extends EventRecorder {
     );
   }
 
-  get replayedFor(): TeamId | null {
-    return this.subject?.replayedFor ?? null;
+  get ranFor(): TeamId | null {
+    return this.subject?.ranFor ?? null;
   }
 
   get hearsHooks(): boolean {
-    return !this.isReplay;
+    return !this.leavesNothingBehind;
   }
 
   mayReachBeyondItself(what: string): void {
     if (this.isReplay) {
       throw new KeptFromReplaysError(what);
     }
+    if (this.isSearch) {
+      throw new KeptFromSearchesError(what);
+    }
   }
 
   askedAPersonBy(by: RunnerId): Run {
     this.requireWorkedBy(by, 'ask a person on');
 
-    if (!this.isReplay) {
+    if (!this.leavesNothingBehind) {
       throw new InvalidRunTransitionError(
         'asks a person through what it works, not of itself',
       );
@@ -744,9 +774,9 @@ export class Run extends EventRecorder {
   ): Run {
     this.requireWorkedBy(by, 'pause');
 
-    if (this.isReplay) {
+    if (this.leavesNothingBehind) {
       throw new InvalidRunTransitionError(
-        'is a replay, and a replay never waits for a person',
+        'is a replay or a search, and neither ever waits for a person',
       );
     }
 

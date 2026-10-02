@@ -58,6 +58,23 @@ export class Spend {
     return new Spend(this.micros + other.micros, this.currency);
   }
 
+  scaled(parts: number, of: number): Spend {
+    if (
+      !Number.isInteger(parts) ||
+      !Number.isInteger(of) ||
+      parts < 0 ||
+      of <= 0
+    ) {
+      throw new InvalidSpendError('is shared out in whole parts');
+    }
+
+    return new Spend(Math.floor((this.micros * parts) / of), this.currency);
+  }
+
+  isWithin(ceiling: Spend): boolean {
+    return this.sameCurrencyAs(ceiling) && this.micros <= ceiling.micros;
+  }
+
   reaches(ceiling: Spend): boolean {
     return this.sameCurrencyAs(ceiling) && this.micros >= ceiling.micros;
   }

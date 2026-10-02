@@ -67,10 +67,10 @@ export interface ConfiguredRun extends RanConfig {
 export interface RunConfigSummary {
   readonly ran: RanConfig | null;
   readonly before: ConfiguredRun | null;
-  readonly replayedIn: ReplayedIn | null;
+  readonly ranForTeam: RanForTeam | null;
 }
 
-interface ReplayedIn {
+interface RanForTeam {
   readonly workspaceId: string;
   readonly teamId: string | null;
 }
@@ -83,6 +83,13 @@ interface ReplayedRunSummary {
 
 export interface ReplayRunSummary extends TaskRunSummary {
   readonly original: ReplayedRunSummary;
+}
+
+export interface SearchRunSummary extends TaskRunSummary {
+  readonly searchId: string;
+  readonly iteration: number;
+  readonly failure: string | null;
+  readonly endedAt: Date | null;
 }
 
 export const RUN_READER = Symbol('RUN_READER');
@@ -104,4 +111,10 @@ export interface RunReaderPort {
     workspaceId: WorkspaceId,
     runId: RunId,
   ): Promise<ReplayRunSummary | null>;
+
+  searchRunFor(
+    teamId: TeamId,
+    workspaceId: WorkspaceId,
+    runId: RunId,
+  ): Promise<SearchRunSummary | null>;
 }

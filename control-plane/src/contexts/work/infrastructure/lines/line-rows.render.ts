@@ -77,7 +77,7 @@ interface Given {
 export interface LineRows {
   readonly line: Pick<
     typeof line.$inferSelect,
-    'key' | 'name' | 'role' | 'reviews' | 'runners'
+    'key' | 'name' | 'role' | 'reviews' | 'replayCheck' | 'source' | 'runners'
   >;
   readonly stations: readonly StationRow[];
   readonly routes: readonly Pick<
@@ -196,6 +196,23 @@ export const renderLineRows = (
               drafts: rows.line.reviews.skip.drafts,
               authors: [...rows.line.reviews.skip.authors],
             },
+          },
+        }
+      : {}),
+    ...(rows.line.replayCheck
+      ? {
+          replayCheck: {
+            mostRegressions: rows.line.replayCheck.mostRegressions,
+            ceiling: rows.line.replayCheck.ceiling,
+            currency: rows.line.replayCheck.currency,
+          },
+        }
+      : {}),
+    ...(rows.line.source
+      ? {
+          source: {
+            repository: rows.line.source.repository,
+            path: rows.line.source.path,
           },
         }
       : {}),

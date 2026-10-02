@@ -241,6 +241,82 @@ describe('compileLine', () => {
     );
   });
 
+  it('reads the threshold a planned change is checked against, filling in what it leaves out', () => {
+    const compiled = compileLine({
+      ...DELIVERY,
+      replayCheck: { mostRegressions: 2, currency: 'eur' },
+    });
+
+    expect(compiled.ok && compiled.line.replayCheck).toMatchObject({
+      mostRegressions: 2,
+      ceiling: 10,
+      currency: 'EUR',
+    });
+    const unchecked = compileLine(DELIVERY);
+
+    expect(unchecked.ok && unchecked.line.replayCheck).toBeNull();
+  });
+
+  it('points at the threshold setting it refuses', () => {
+    expect(
+      dottedOf(
+        refused({ ...DELIVERY, replayCheck: { mostRegressions: 1.5 } })[0]
+          ?.field,
+      ),
+    ).toBe('replayCheck.mostRegressions');
+    expect(
+      dottedOf(
+        refused({ ...DELIVERY, replayCheck: { ceiling: 1_001 } })[0]?.field,
+      ),
+    ).toBe('replayCheck.ceiling');
+    expect(
+      dottedOf(
+        refused({ ...DELIVERY, replayCheck: { currency: 'dollars' } })[0]
+          ?.field,
+      ),
+    ).toBe('replayCheck.currency');
+  });
+
+  it('reads where the line’s Terraform lives, taking no source as none', () => {
+    const compiled = compileLine({
+      ...DELIVERY,
+      source: { repository: 'acme/platform', path: 'teams/core/delivery.tf' },
+    });
+
+    expect(compiled.ok && compiled.line.source?.repository.value).toBe(
+      'acme/platform',
+    );
+    expect(compiled.ok && compiled.line.source?.path).toBe(
+      'teams/core/delivery.tf',
+    );
+    for (const unset of [DELIVERY, { ...DELIVERY, source: null }]) {
+      const read = compileLine(unset);
+
+      expect(read.ok && read.line.source).toBeNull();
+    }
+  });
+
+  it('points at the source setting it refuses', () => {
+    const at = (source: object) =>
+      dottedOf(refused({ ...DELIVERY, source })[0]?.field);
+
+    expect(at({ repository: 'platform', path: 'main.tf' })).toBe(
+      'source.repository',
+    );
+    expect(at({ repository: 'acme/platform', path: '/main.tf' })).toBe(
+      'source.path',
+    );
+    expect(at({ repository: 'acme/platform', path: 'teams/../main.tf' })).toBe(
+      'source.path',
+    );
+    expect(at({ repository: 'acme/platform', path: 'teams/core.md' })).toBe(
+      'source.path',
+    );
+    expect(at({ repository: 'acme/platform', path: 'teams//core.tf' })).toBe(
+      'source.path',
+    );
+  });
+
   it('places every problem at the line it is about', () => {
     expect(refused({ ...DELIVERY, name: '' })[0]).toMatchObject({
       path: 'lines/delivery',

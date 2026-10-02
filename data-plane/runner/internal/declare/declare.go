@@ -33,6 +33,8 @@ type Recaller func(ctx context.Context, asked protocol.RecallRequest) (json.RawM
 
 type Rememberer func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error)
 
+type Proposer func(ctx context.Context, proposal protocol.CandidateProposal) (json.RawMessage, error)
+
 type Refusal struct {
 	Because string
 }
@@ -43,6 +45,10 @@ func (r *Refusal) Refused() (string, bool) { return r.Because, true }
 
 type refusing interface {
 	Refused() (string, bool)
+}
+
+type unfit interface {
+	Unfit() ([]protocol.FieldError, bool)
 }
 
 type Server struct {
@@ -59,6 +65,7 @@ type Server struct {
 	history   Historian
 	recall    Recaller
 	remember  Rememberer
+	propose   Proposer
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -127,6 +134,10 @@ func (s *Server) Memories(recall Recaller, remember Rememberer) {
 	s.remember = remember
 }
 
+func (s *Server) Candidates(propose Proposer) {
+	s.propose = propose
+}
+
 func (s *Server) Spoken() <-chan struct{} {
 	return s.spoken
 }
@@ -192,6 +203,11 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	if path.Clean(request.URL.Path) == protocol.HandoverRememberPath {
 		s.remembered(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.HandoverCandidatePath {
+		s.proposed(writer, request)
 		return
 	}
 
@@ -300,6 +316,14 @@ func (s *Server) remark(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	if err := s.answer(request.Context(), said); err != nil {
+		var refused refusing
+		if errors.As(err, &refused) {
+			if because, ok := refused.Refused(); ok {
+				refuse(writer, http.StatusUnprocessableEntity, because)
+				return
+			}
+		}
+
 		refuse(writer, http.StatusBadGateway, err.Error())
 		return
 	}
@@ -393,6 +417,55 @@ func (s *Server) remembered(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	s.answered(writer, func() (json.RawMessage, error) { return s.remember(request.Context(), remembered) })
+}
+
+func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
+	if s.propose == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
+		return
+	}
+
+	var proposal protocol.CandidateProposal
+	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&proposal); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable candidate")
+		return
+	}
+
+	if !protocol.IsCandidateName(proposal.Name) {
+		refuse(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
+			"%q cannot name a candidate: a name is a slug of lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters", proposal.Name,
+		))
+		return
+	}
+
+	if strings.TrimSpace(proposal.Hypothesis) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say what you expect the candidate to change")
+		return
+	}
+
+	if !jsonObject(proposal.Station) {
+		refuse(writer, http.StatusUnprocessableEntity, "the station block is a JSON object, as the line resource holds a station")
+		return
+	}
+
+	answer, err := s.propose(request.Context(), proposal)
+
+	var found unfit
+	if err != nil && errors.As(err, &found) {
+		if errs, ok := found.Unfit(); ok {
+			writer.Header().Set("Content-Type", "application/problem+json")
+			writer.WriteHeader(http.StatusUnprocessableEntity)
+			_ = json.NewEncoder(writer).Encode(protocol.FieldErrors{Errors: errs})
+			return
+		}
+	}
+
+	s.answered(writer, func() (json.RawMessage, error) { return answer, err })
+}
+
+func jsonObject(raw json.RawMessage) bool {
+	var object map[string]json.RawMessage
+	return json.Unmarshal(raw, &object) == nil && object != nil
 }
 
 func (s *Server) answered(writer http.ResponseWriter, asking func() (json.RawMessage, error)) {

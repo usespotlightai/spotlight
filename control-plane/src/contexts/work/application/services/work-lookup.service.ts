@@ -100,6 +100,7 @@ export class WorkLookup implements WorkLookupPort {
       ended: run.hasEnded,
       completed: run.hasCompleted,
       replay: run.isReplay,
+      isSearch: run.isSearch,
     };
   }
 
@@ -201,6 +202,7 @@ export class WorkLookup implements WorkLookupPort {
         workspaceId: run.workspaceId,
         taskId: run.taskId,
         replaysFrom: await this.replaysFrom(run),
+        isSearch: run.isSearch,
         ...site,
       }
     );
@@ -252,14 +254,14 @@ export class WorkLookup implements WorkLookupPort {
     }
 
     const line = run.stationId ? await this.lines.holding(run.stationId) : null;
-    const replayedFor = run.replayedFor;
+    const ranFor = run.ranFor;
 
-    if (replayedFor) {
+    if (ranFor) {
       return {
-        teamId: replayedFor,
-        lineId: line?.teamId.equals(replayedFor) ? line.id.value : null,
+        teamId: ranFor,
+        lineId: line?.teamId.equals(ranFor) ? line.id.value : null,
         stationId: line ? (run.stationId?.value ?? null) : null,
-        repositories: run.replayedRepositories,
+        repositories: run.isReplay ? run.replayedRepositories : [],
       };
     }
 

@@ -3,6 +3,7 @@ import type { ReadReplayOfRunQuery } from '@replays/application/queries/read-rep
 import {
   candidateView,
   entryView,
+  replaySearchView,
 } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
@@ -48,6 +49,7 @@ export class ReadReplayOfRunHandler
         startedAsBaseline: replay.baseline,
         isBaseline: baselineOf(ofSet)?.id.equals(replay.id) ?? false,
         state: replay.current,
+        search: replaySearchView(replay, candidate),
         entry: entry ? entryView(entry, replay.scoring) : null,
       };
     } catch (error) {

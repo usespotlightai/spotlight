@@ -23,7 +23,20 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  lt,
+  notInArray,
+  sql,
+} from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+
+const replayed = alias(run, 'replayed');
 
 @Injectable()
 export class DrizzleStationRunReader implements StationRunReaderPort {
@@ -155,6 +168,9 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
             : eq(run.stationFingerprint, wanted.fingerprint),
           wanted.since === null ? undefined : gte(run.createdAt, wanted.since),
           wanted.until === null ? undefined : lt(run.endedAt, wanted.until),
+          wanted.excluding.length === 0
+            ? undefined
+            : notInArray(run.taskId, [...wanted.excluding]),
         ),
       )
       .orderBy(desc(run.createdAt))
@@ -164,6 +180,47 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       row.taskId && row.endedAt
         ? [{ ...row, taskId: row.taskId, endedAt: row.endedAt }]
         : [],
+    );
+  }
+
+  async endedAmong(
+    stationId: string,
+    runIds: readonly string[],
+  ): Promise<readonly StationRunRow[]> {
+    if (runIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.db
+      .select({
+        runId: run.id,
+        taskId: task.id,
+        title: task.title,
+        fingerprint: run.stationFingerprint,
+        state: run.state,
+        attempt: run.attempt,
+        harness: run.harness,
+        startedAt: run.createdAt,
+        endedAt: run.endedAt,
+      })
+      .from(run)
+      .leftJoin(replayed, eq(replayed.id, run.replayOfRunId))
+      .innerJoin(
+        task,
+        eq(task.id, sql`coalesce(${run.taskId}, ${replayed.taskId})`),
+      )
+      .where(
+        and(
+          inArray(run.id, [...runIds]),
+          eq(run.stationId, stationId),
+          inArray(run.state, [...TERMINAL_RUN_STATES]),
+          isNotNull(run.endedAt),
+        ),
+      )
+      .orderBy(desc(run.createdAt));
+
+    return rows.flatMap((row) =>
+      row.endedAt ? [{ ...row, endedAt: row.endedAt }] : [],
     );
   }
 

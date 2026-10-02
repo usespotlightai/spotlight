@@ -385,6 +385,8 @@ const LINES: LineResponseDto[] = [
     ],
     reactions: [],
     repositories: ['acme/api', 'acme/worker'],
+    source: null,
+    replayCheck: null,
   },
 ];
 

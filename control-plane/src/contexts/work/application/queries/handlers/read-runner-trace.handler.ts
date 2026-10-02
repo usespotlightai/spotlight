@@ -5,8 +5,13 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
-import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
+import type {
+  HeldRunStanding,
+  RunnerTraceReaderPort,
+} from '@work/application/ports/runner-trace-reader.port';
+import type { SearchSightPort } from '@work/application/ports/search-sight.port';
 import type { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
+import { SightedHistory } from '@work/application/read-models/sighted-history';
 import {
   traceOf,
   type WorkedRun,
@@ -19,7 +24,10 @@ import { StationName } from '@work/domain/value-objects/station-name.vo';
 export class ReadRunnerTraceHandler
   implements QueryHandlerPort<ReadRunnerTraceQuery, TaskTraceDto | null>
 {
-  constructor(private readonly traces: RunnerTraceReaderPort) {}
+  constructor(
+    private readonly traces: RunnerTraceReaderPort,
+    private readonly sights: SearchSightPort,
+  ) {}
 
   async execute(query: ReadRunnerTraceQuery): Promise<TaskTraceDto | null> {
     try {
@@ -41,10 +49,23 @@ export class ReadRunnerTraceHandler
         return null;
       }
 
-      const [found, told] = await Promise.all([
+      const sighted = await this.sightedBy(query.runId, held);
+
+      if (sighted.hides(query)) {
+        return null;
+      }
+
+      const [ran, told] = await Promise.all([
         this.traces.runsForTask(target),
         this.traces.journalsForTask(target),
       ]);
+      const found = ran.filter((run) =>
+        sighted.seesRunAt(run.station?.id ?? null),
+      );
+
+      if (sighted.isSearch && found.length === 0) {
+        return null;
+      }
 
       const byRun = new Map(told.map((journal) => [journal.runId, journal]));
 
@@ -63,5 +84,14 @@ export class ReadRunnerTraceHandler
     } catch (error) {
       rethrowAsFault(error);
     }
+  }
+
+  private async sightedBy(
+    runId: string,
+    held: HeldRunStanding | null,
+  ): Promise<SightedHistory> {
+    return held?.isSearch
+      ? SightedHistory.through(await this.sights.of(runId))
+      : SightedHistory.unsighted();
   }
 }

@@ -101,6 +101,17 @@ const reviewsSchema = z.object({
     .default({}),
 });
 
+const replayCheckSchema = z.object({
+  mostRegressions: z.number().default(0),
+  ceiling: z.number().default(10),
+  currency: z.string().default('USD'),
+});
+
+const sourceSchema = z.object({
+  repository: z.string(),
+  path: z.string(),
+});
+
 export const lineSchema = z.object({
   key: identifier(LineKey.of),
   name: z.string().min(1, 'is what this line is called'),
@@ -114,6 +125,11 @@ export const lineSchema = z.object({
     ),
   reactions: z.array(reactionSchema).default([]),
   reviews: reviewsSchema.optional(),
+  replayCheck: replayCheckSchema.optional(),
+  source: z.preprocess(
+    (source) => source ?? undefined,
+    sourceSchema.optional(),
+  ),
   runners: z.array(z.string()).optional(),
 });
 

@@ -65,6 +65,8 @@ const LINES: LineResponseDto[] = [
     name: 'Delivery',
     reactions: [],
     repositories: ['acme/api', 'acme/web'],
+    source: null,
+    replayCheck: null,
     stations: [
       station({
         id: 'station_backlog',

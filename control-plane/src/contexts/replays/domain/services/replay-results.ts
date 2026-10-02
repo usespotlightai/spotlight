@@ -2,6 +2,7 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { Spend } from '@replays/domain/value-objects/spend.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayTotals {
   readonly entries: number;
@@ -70,8 +71,27 @@ const NO_ENDINGS: Record<ReplayEnding, number> = {
   'not-run': 0,
 };
 
-export const totalsOf = (replay: Replay): ReplayTotals => {
-  const settled = replay.entries.filter((each) => each.isSettled);
+const within = (
+  entries: readonly ReplayEntry[],
+  among: readonly RunId[] | null,
+): readonly ReplayEntry[] =>
+  among
+    ? entries.filter((each) => among.some((run) => run.equals(each.original)))
+    : entries;
+
+export const totalsOf = (
+  replay: Replay,
+  among: readonly RunId[] | null = null,
+): ReplayTotals => {
+  const entries = within(replay.entries, among);
+  const spend = among
+    ? replay.spendAmong(among)
+    : {
+        spent: replay.spent,
+        spentElsewhere: replay.spentElsewhere,
+        unpricedCalls: replay.unpricedCalls,
+      };
+  const settled = entries.filter((each) => each.isSettled);
   const measured = settled.flatMap((each) =>
     each.measures ? [each.measures] : [],
   );
@@ -91,17 +111,17 @@ export const totalsOf = (replay: Replay): ReplayTotals => {
   const times = measured.flatMap((each) => (each.ms === null ? [] : [each.ms]));
 
   return {
-    entries: replay.entries.length,
+    entries: entries.length,
     settled: settled.length,
     endings,
     succeeded: judged.length > 0 ? succeeded : null,
     successRate: judged.length > 0 ? succeeded / judged.length : null,
     scored: judged.length,
     unscored: concluded.length - judged.length,
-    spent: replay.spent,
-    spentElsewhere: replay.spentElsewhere,
+    spent: spend.spent,
+    spentElsewhere: spend.spentElsewhere,
     unpriced: measured.filter((each) => !each.cost).length,
-    unpricedCalls: replay.unpricedCalls,
+    unpricedCalls: spend.unpricedCalls,
     steps: measured.reduce((sum, each) => sum + each.steps, 0),
     medianSteps: median(measured.map((each) => each.steps)),
     ms: times.reduce((sum, each) => sum + each, 0),
@@ -160,10 +180,11 @@ const regressedFrom = (
 export const comparedWith = (
   candidate: Replay,
   baseline: Replay | null,
+  among: readonly RunId[] | null = null,
 ): readonly EntryComparison[] => {
   const currency = candidate.ceiling.currency;
 
-  return candidate.entries
+  return within(candidate.entries, among)
     .map((entry) => {
       const against =
         baseline?.entries.find((each) =>

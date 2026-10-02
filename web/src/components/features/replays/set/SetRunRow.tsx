@@ -17,9 +17,10 @@ type SetRunRowProps = {
   at: ReplayedStation;
   setId: string;
   entry: ReplaySetEntry;
+  frozen: boolean;
 };
 
-export function SetRunRow({ at, setId, entry }: SetRunRowProps) {
+export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
   const remove = useRemoveReplaySetEntry();
   const title = titleShown(entry.title);
 
@@ -42,7 +43,7 @@ export function SetRunRow({ at, setId, entry }: SetRunRowProps) {
           size="icon-sm"
           className="ml-auto shrink-0"
           aria-label={`Take ${title} out of the set`}
-          disabled={remove.isPending}
+          disabled={remove.isPending || frozen}
           onClick={() =>
             remove.mutate({ teamId: at.teamId, setId, runId: entry.runId })
           }

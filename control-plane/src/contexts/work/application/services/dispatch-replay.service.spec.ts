@@ -293,6 +293,7 @@ const dispatching = () =>
     {
       for: (taskId, runId) => `trace:${taskId.value}:${runId.value}`,
       forChat: (chatId, runId) => `trace:${chatId.value}:${runId.value}`,
+      forSearch: (searchId, runId) => `trace:${searchId.value}:${runId.value}`,
     },
     { named: () => null },
     { readyAt: async () => [] } as unknown as StationSkills,

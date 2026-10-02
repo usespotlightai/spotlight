@@ -66,6 +66,7 @@ type Spec struct {
 	HarnessSetup  HarnessSetup   `json:"harnessSetup,omitzero"`
 	SettingFiles  []string       `json:"settingFiles,omitempty"`
 	Replay        *Replay        `json:"replay,omitempty"`
+	Search        *SearchSpec    `json:"search,omitempty"`
 }
 
 type Replay struct {

@@ -35,6 +35,7 @@ const settled = () =>
     runId: RunId.of('run_1'),
     taskId: null,
     replay: false,
+    isSearch: false,
     workspaceId: WorkspaceId.of('ws_1'),
     repository: null,
     base: null,

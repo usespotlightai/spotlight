@@ -36,7 +36,7 @@ const preview: Preview = {
             'Agent',
             ['Chats', 'Chat'],
             'Lines',
-            ['Board', 'Station', 'Replay set', 'Replay', 'Task'],
+            ['Board', 'Station', 'Replay set', 'Replay', 'Search', 'Task'],
             'Runs',
             ['All runs', 'Run', 'Change stack'],
             'Observability',

@@ -603,7 +603,12 @@ describe('MemoryDraft', () => {
       body = 'Uploads retry in the request, not from a queue.',
       id = 'memory_asked',
     ) =>
-      Remembering.of({ taskId: TASK, runId, replay: false }).proposalOf({
+      Remembering.of({
+        taskId: TASK,
+        runId,
+        replay: false,
+        isSearch: false,
+      }).proposalOf({
         id: MemoryId.of(id),
         remembered: {
           kind: 'rationale',

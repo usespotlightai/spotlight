@@ -1,16 +1,14 @@
 import type { StartReplayCommand } from '@replays/application/commands/start-replay.command';
 import type { ReplayStarted } from '@replays/application/dto/replay-outcomes.dto';
-import type { PeoplePort } from '@replays/application/ports/people.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SetStations } from '@replays/application/services/set-stations.service';
-import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
+import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplaySetBaselineMovedError } from '@replays/domain/exceptions/replay-set-baseline-moved.error';
 import { UnknownCandidateError } from '@replays/domain/exceptions/unknown-candidate.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
-import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
@@ -19,13 +17,11 @@ import type { ReplaysClearance } from '@replays/domain/services/replays-clearanc
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
@@ -36,8 +32,7 @@ export class StartReplayHandler
 {
   constructor(
     private readonly access: ReplaysAccess,
-    private readonly people: PeoplePort,
-    private readonly work: WorkPort,
+    private readonly snapshots: LiveSnapshots,
     private readonly candidates: CandidateRepository,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
@@ -45,7 +40,6 @@ export class StartReplayHandler
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
     private readonly stations: SetStations,
-    private readonly logger: LoggerPort,
   ) {}
 
   async execute(command: StartReplayCommand): Promise<ReplayStarted> {
@@ -71,11 +65,14 @@ export class StartReplayHandler
         command.candidate === LIVE
           ? null
           : await this.proposed(clearance, seen, command.candidate);
+      const liveScoring = await this.snapshots.scoringOf(seen);
       const wantedBefore = needsBaseline(
         seen,
         await this.replays.ofSet(seen.id),
+        liveScoring,
       );
-      const live = !asked || wantedBefore ? await this.live(seen) : null;
+      const live =
+        !asked || wantedBefore ? await this.snapshots.taken(seen) : null;
       const candidate = asked ?? (live as Candidate);
       const id = ReplayId.of(this.ids.generate());
       const baselineId = ReplayId.of(this.ids.generate());
@@ -91,7 +88,11 @@ export class StartReplayHandler
               throw new UnknownReplaySetError(command.setId);
             }
 
-            const needed = needsBaseline(set, await this.replays.ofSet(set.id));
+            const needed = needsBaseline(
+              set,
+              await this.replays.ofSet(set.id),
+              liveScoring,
+            );
 
             if (needed && asked && !live) {
               throw new ReplaySetBaselineMovedError(set.id.value);
@@ -151,30 +152,15 @@ export class StartReplayHandler
     try {
       started = await start();
     } catch (error) {
-      await this.letGoOf(live);
+      await this.snapshots.letGo(live);
       throw error;
     }
 
     if (!replaysLive && !started.wanted) {
-      await this.letGoOf(live);
+      await this.snapshots.letGo(live);
     }
 
     return started;
-  }
-
-  private async letGoOf(live: Candidate | null): Promise<void> {
-    if (!live) {
-      return;
-    }
-
-    try {
-      await this.transaction.run(() => this.candidates.save(live.abandoned()));
-    } catch (error) {
-      this.logger.warn(
-        { candidateId: live.id.value, error },
-        'A live snapshot no replay used could not be let go of; it stays unused',
-      );
-    }
   }
 
   private async proposed(
@@ -193,37 +179,5 @@ export class StartReplayHandler
     }
 
     return candidate;
-  }
-
-  private async live(set: ReplaySet): Promise<Candidate> {
-    const { lineId, stationId } = set.station;
-    const config = await this.work.live(lineId, stationId);
-
-    if (!config) {
-      throw new UnknownStationError(stationId);
-    }
-
-    const teamKey = await this.people.teamKey(set.teamId);
-    const address = teamKey
-      ? StationAddress.of(teamKey, config.lineKey, config.block.key)
-      : null;
-
-    if (!address) {
-      throw new UnknownStationError(stationId);
-    }
-
-    const live = Candidate.live({
-      id: CandidateId.of(this.ids.generate()),
-      station: set.station,
-      address,
-      block: config.block,
-      fingerprint: config.fingerprint,
-      scoring: config.scoring,
-      at: this.clock.now(),
-    });
-
-    await this.candidates.add(live);
-
-    return live;
   }
 }

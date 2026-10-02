@@ -20,7 +20,7 @@ export class RecallMemoryHandler
   async execute(command: RecallMemoryCommand): Promise<TeamMemoryDetailDto> {
     try {
       const handle = MemoryHandle.parse(command.handle);
-      const held = await this.atHand.held(command.runId, command.runnerId);
+      const held = await this.atHand.recalling(command.runId, command.runnerId);
       const memory = await this.memories.withHandle(held.teamId, handle);
 
       if (

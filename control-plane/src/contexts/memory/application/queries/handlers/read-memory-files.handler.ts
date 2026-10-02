@@ -6,6 +6,7 @@ import { memoryFilesOf } from '@memory/application/rendering/memory-files';
 import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import type { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import { reachesMemories } from '@memory/domain/services/search-reach';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -23,6 +24,11 @@ export class ReadMemoryFilesHandler
   async execute(query: ReadMemoryFilesQuery): Promise<MemoryFileDto[]> {
     try {
       const held = await this.atHand.held(query.runId, query.runnerId);
+
+      if (!reachesMemories(held)) {
+        return [];
+      }
+
       const applying = await this.inReach.at(held, held.replaysFrom);
       const [lines, replaced] = await Promise.all([
         this.work.linesOf(held.teamId),

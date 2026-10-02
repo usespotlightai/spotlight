@@ -67,7 +67,8 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
         attempt: run.attempt,
         workspaceId: run.workspaceId,
         replayOfRunId: run.replayOfRunId,
-        replayTeamId: run.replayTeamId,
+        searchId: run.searchId,
+        ranForTeamId: run.ranForTeamId,
       })
       .from(run)
       .where(eq(run.id, runId.value))
@@ -82,19 +83,20 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
     found: {
       workspaceId: string;
       replayOfRunId: string | null;
-      replayTeamId: string | null;
+      searchId: string | null;
+      ranForTeamId: string | null;
     },
     viewerId: UserId,
   ): Promise<boolean> {
-    if (!found.replayOfRunId) {
+    if (!found.replayOfRunId && !found.searchId) {
       return this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId));
     }
-    if (!found.replayTeamId) {
+    if (!found.ranForTeamId) {
       return false;
     }
 
     const reader = await this.access.clearanceAsTeamReader(
-      found.replayTeamId,
+      found.ranForTeamId,
       PersonPrincipal.of(viewerId),
     );
 

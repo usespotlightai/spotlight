@@ -2,6 +2,7 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
 import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
+import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
 import { CandidateMovedOnError } from '@replays/domain/exceptions/candidate-moved-on.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
@@ -9,6 +10,7 @@ import {
   AT,
   BY,
   candidateOf,
+  DIGESTS,
   FINGERPRINT,
   LIVE_FINGERPRINT,
   NOW,
@@ -18,11 +20,15 @@ import {
 import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -83,6 +89,7 @@ describe('Candidate', () => {
         name: CandidateName.of('Renamed'),
         block: StationBlock.of({ key: 'ship' }),
         fingerprint: FINGERPRINT,
+        digests: DIGESTS,
         scoring: UNSCORED,
         changedFrom: StationChanges.none(LIVE_FINGERPRINT),
         at: NOW,
@@ -181,6 +188,159 @@ describe('Candidate', () => {
     expect(StationBlock.of({ key: 'build', prompt: 'Go' }).value).toEqual({
       key: 'build',
       prompt: 'Go',
+    });
+  });
+
+  describe('made by Spotlight', () => {
+    const made = {
+      station: STATION,
+      address: AT,
+      block: StationBlock.of({ key: 'build', name: 'Build', prompt: 'Go.' }),
+      fingerprint: FINGERPRINT,
+      digests: DIGESTS,
+      scoring: UNSCORED,
+      at: NOW,
+    };
+
+    const searched = (name = 'terse-prompt', iteration = 2) =>
+      Candidate.searched({
+        ...made,
+        id: CandidateId.of('candidate_searched'),
+        name,
+        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+        search: {
+          searchId: SearchId.of('search_1'),
+          iteration,
+          hypothesis: Hypothesis.of('  A shorter prompt keeps it on task.  '),
+        },
+      });
+
+    const planned = (reference = PlannedReference.of({ pullRequest: 42 })) =>
+      Candidate.planned({
+        ...made,
+        id: CandidateId.of('candidate_planned'),
+        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+        reference,
+        line: null,
+      });
+
+    it('is found by a search, naming the search, its iteration and hypothesis, without an audit record', () => {
+      const candidate = searched();
+
+      expect(candidate.kind).toBe('searched');
+      expect(candidate.isProposed).toBe(false);
+      expect(candidate.name.value).toBe('terse-prompt');
+      expect(candidate.search?.searchId.value).toBe('search_1');
+      expect(candidate.search?.iteration).toBe(2);
+      expect(candidate.search?.hypothesis.value).toBe(
+        'A shorter prompt keeps it on task.',
+      );
+      expect(candidate.pullEvents()).toEqual([]);
+    });
+
+    it('is named as a slug when a search finds it', () => {
+      for (const name of ['a', 'terse-prompt', '0-shot', 'x'.repeat(63)]) {
+        expect(CandidateName.searched(name).value).toBe(name);
+      }
+      for (const refused of [
+        '',
+        '-lead',
+        'Upper',
+        'with space',
+        'a/b',
+        'a.b',
+        '..',
+        'x'.repeat(64),
+      ]) {
+        expect(() => CandidateName.searched(refused)).toThrow(
+          InvalidCandidateError,
+        );
+      }
+      expect(() => searched('terse', 0)).toThrow(InvalidCandidateError);
+    });
+
+    it('says what it hopes for in 1 to 4,000 characters', () => {
+      expect(Hypothesis.of('x'.repeat(4_000)).value).toHaveLength(4_000);
+      for (const refused of ['', '   ', 'x'.repeat(4_001)]) {
+        expect(() => Hypothesis.of(refused)).toThrow(InvalidCandidateError);
+      }
+    });
+
+    it('is planned in a change, named for its pull request or commit', () => {
+      expect(planned().kind).toBe('planned');
+      expect(planned().name.value).toBe('Planned change, PR #42');
+      expect(planned().reference?.pullRequest).toBe(42);
+      expect(
+        planned(PlannedReference.of({ commit: 'ABCDEF0123456' })).name.value,
+      ).toBe('Planned change, abcdef0');
+      expect(planned(PlannedReference.of({})).name.value).toBe(
+        'Planned change, 2026-10-01',
+      );
+      expect(() => PlannedReference.of({ commit: 'not-a-sha' })).toThrow(
+        InvalidCandidateError,
+      );
+      expect(() => PlannedReference.of({ pullRequest: 0 })).toThrow(
+        InvalidCandidateError,
+      );
+      expect(() => CandidateName.proposed('Planned change, PR #1')).toThrow(
+        InvalidCandidateError,
+      );
+    });
+
+    it('is never withdrawn by a person, and goes quietly when abandoned', () => {
+      for (const candidate of [searched(), planned()]) {
+        expect(() => candidate.withdrawn(false, BY)).toThrow(
+          CandidateKeptBySpotlightError,
+        );
+
+        const abandoned = candidate.abandoned();
+
+        expect(abandoned.isAbandoned).toBe(true);
+        expect(abandoned.pullEvents()).toEqual([]);
+      }
+    });
+
+    it('is stored with what made it, and only that', () => {
+      const candidate = searched();
+      const state = {
+        id: candidate.id,
+        station: candidate.station,
+        address: candidate.stationAddress,
+        name: candidate.name,
+        block: candidate.block,
+        fingerprint: candidate.fingerprint,
+        digests: candidate.digests,
+        line: null,
+        scoring: candidate.scoring,
+        changedFrom: candidate.changedFrom,
+        createdAt: NOW,
+        version: 0,
+      };
+
+      expect(() =>
+        Candidate.rehydrate({
+          ...state,
+          kind: 'searched',
+          search: null,
+          reference: null,
+        }),
+      ).toThrow(InconsistentStateError);
+      expect(() =>
+        Candidate.rehydrate({
+          ...state,
+          kind: 'proposed',
+          search: candidate.search,
+          reference: null,
+        }),
+      ).toThrow(InconsistentStateError);
+      expect(() =>
+        Candidate.rehydrate({
+          ...state,
+          kind: 'planned',
+          search: null,
+          reference: null,
+        }),
+      ).toThrow(InconsistentStateError);
     });
   });
 });

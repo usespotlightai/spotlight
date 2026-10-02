@@ -297,6 +297,75 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
+  it('keeps the threshold a planned change is checked against, filling in what it leaves out, and forgets it once left out', async () => {
+    const made = await create({
+      ...DELIVERY,
+      replayCheck: { mostRegressions: 1, currency: 'eur' },
+    });
+    const dropped = await change(made.body.id, made.body.version, DELIVERY);
+
+    expect(made.status).toBe(201);
+    expect(made.body.definition.replayCheck).toEqual({
+      mostRegressions: 1,
+      ceiling: 10,
+      currency: 'EUR',
+    });
+    expect(dropped.status).toBe(200);
+    expect(dropped.body.definition).not.toHaveProperty('replayCheck');
+  });
+
+  it('refuses a threshold setting at its field', async () => {
+    for (const [replayCheck, path] of [
+      [{ mostRegressions: -1 }, 'replayCheck.mostRegressions'],
+      [{ ceiling: 0 }, 'replayCheck.ceiling'],
+      [{ currency: 'dollars' }, 'replayCheck.currency'],
+    ] as const) {
+      const refused = await create({ ...DELIVERY, replayCheck });
+
+      expect(refused.status).toBe(422);
+      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+    }
+  });
+
+  it('keeps where the line’s Terraform lives, shows it on the team’s lines, and forgets it once set to null', async () => {
+    const source = {
+      repository: 'acme/platform',
+      path: 'teams/core/delivery.tf',
+    };
+    const made = await create({ ...DELIVERY, source });
+    const teamId = fixture.collection.split('/')[4];
+    const listed = await served(app)
+      .get(`/api/teams/${teamId}/lines`)
+      .set(TEST_USER_HEADER, fixture.admin);
+    const dropped = await change(made.body.id, made.body.version, {
+      ...DELIVERY,
+      source: null,
+    });
+
+    expect(made.status).toBe(201);
+    expect(made.body.definition.source).toEqual(source);
+    expect(
+      (listed.body as { id: string; source: unknown }[]).find(
+        (each) => each.id === made.body.id,
+      )?.source,
+    ).toEqual(source);
+    expect(dropped.status).toBe(200);
+    expect(dropped.body.definition).not.toHaveProperty('source');
+  });
+
+  it('refuses a source setting at its field', async () => {
+    for (const [source, path] of [
+      [{ repository: 'platform', path: 'main.tf' }, 'source.repository'],
+      [{ repository: 'acme/platform', path: '../main.tf' }, 'source.path'],
+      [{ repository: 'acme/platform', path: 'main.hcl' }, 'source.path'],
+    ] as const) {
+      const refused = await create({ ...DELIVERY, source });
+
+      expect(refused.status).toBe(422);
+      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+    }
+  });
+
   it('keeps the image and setup each repository names, and reads them back as written', async () => {
     const written = {
       ...DELIVERY,

@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 const published = (events: readonly DomainEvent[]) =>
   events.flatMap((event) =>
     RUNNERS_PUBLICATIONS.filter((each) => each.from === event.kind).map(
-      (each) => each.publish(event),
+      (each) => each.publish(event, new Date()),
     ),
   );
 

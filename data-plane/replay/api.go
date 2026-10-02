@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"usespotlight.ai/data-plane/protocol"
 )
 
 const (
@@ -18,23 +20,22 @@ const (
 	idempotencyHeader = "Idempotency-Key"
 )
 
+type tokenSource func(renewed bool) (string, error)
+
 type api struct {
 	base    string
-	token   string
+	tokens  tokenSource
+	renews  bool
 	version string
 	http    *http.Client
 }
 
-type fieldError struct {
-	Path    string `json:"path"`
-	Message string `json:"message"`
-}
-
 type problem struct {
-	Status int          `json:"status"`
-	Title  string       `json:"title"`
-	Detail string       `json:"detail"`
-	Errors []fieldError `json:"errors"`
+	Type   string                `json:"type"`
+	Status int                   `json:"status"`
+	Title  string                `json:"title"`
+	Detail string                `json:"detail"`
+	Errors []protocol.FieldError `json:"errors"`
 }
 
 type answered struct {
@@ -62,9 +63,14 @@ func (a *answered) Error() string {
 }
 
 func newAPI(base, token, version string) *api {
+	return newAPIWith(base, version, func(bool) (string, error) { return token, nil }, false)
+}
+
+func newAPIWith(base, version string, tokens tokenSource, renews bool) *api {
 	return &api{
 		base:    strings.TrimSuffix(base, "/"),
-		token:   token,
+		tokens:  tokens,
+		renews:  renews,
 		version: version,
 		http:    &http.Client{Timeout: 2 * time.Minute},
 	}
@@ -91,7 +97,11 @@ func (a *api) post(path string, body, into any) error {
 }
 
 func (a *api) create(path string, body, into any) error {
-	once := map[string]string{idempotencyHeader: newKey()}
+	return a.createOnce(path, newKey(), body, into)
+}
+
+func (a *api) createOnce(path, key string, body, into any) error {
+	once := map[string]string{idempotencyHeader: key}
 
 	err := a.call(http.MethodPost, path, body, once, into)
 	if transient(err) {
@@ -102,12 +112,33 @@ func (a *api) create(path string, body, into any) error {
 }
 
 func (a *api) call(method, path string, body any, headers map[string]string, into any) error {
-	var sent io.Reader
+	var written []byte
 	if body != nil {
-		written, err := json.Marshal(body)
+		marshalled, err := json.Marshal(body)
 		if err != nil {
 			return err
 		}
+		written = marshalled
+	}
+
+	err := a.attempt(method, path, written, headers, into, false)
+
+	var refused *answered
+	if a.renews && errors.As(err, &refused) && refused.status == http.StatusUnauthorized {
+		err = a.attempt(method, path, written, headers, into, true)
+	}
+
+	return err
+}
+
+func (a *api) attempt(method, path string, written []byte, headers map[string]string, into any, renewed bool) error {
+	token, err := a.tokens(renewed)
+	if err != nil {
+		return err
+	}
+
+	var sent io.Reader
+	if written != nil {
 		sent = bytes.NewReader(written)
 	}
 
@@ -115,10 +146,10 @@ func (a *api) call(method, path string, body any, headers map[string]string, int
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Authorization", "Bearer "+a.token)
+	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set(clientHeader, "cli/"+a.version)
-	if body != nil {
+	if written != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
 	for name, value := range headers {

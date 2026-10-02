@@ -22,11 +22,14 @@ import { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
 import {
+  aBudget,
   aReplay,
+  aSearch,
   aSet,
   BY,
   candidateOf,
   later,
+  NOW,
   RUBRIC,
   STATION,
 } from '@replays/domain/replays.fake-spec';
@@ -53,6 +56,7 @@ const dispatching = () =>
   new DispatchReplayRuns(
     memory.replayRepository,
     memory.candidateRepository,
+    memory.searchRepository,
     work,
     IDS,
     CLOCK,
@@ -98,6 +102,33 @@ describe('DispatchReplayRuns', () => {
       memory.replays.get('replay_1')?.entries.map((each) => each.refusal),
     ).toEqual(['archive-gone', 'archive-gone']);
     expect(memory.replays.get('replay_1')?.current).toBe('finished');
+  });
+
+  it('queues a search’s replay runs at the search’s own concurrency, only while the search is active', async () => {
+    const search = aSearch({ budget: aBudget({ concurrency: 3 }) });
+
+    await memory.searchRepository.add(search);
+    await memory.replayRepository.add(aReplay({ id: 'replay_team', count: 4 }));
+    await memory.replayRepository.add(
+      aReplay({ id: 'replay_search', count: 5, searchId: search.id }),
+    );
+
+    await dispatching().workDue();
+
+    const queued = (id: string) =>
+      memory.replays.get(id)?.entries.filter((each) => each.run !== null)
+        .length;
+
+    expect(queued('replay_team')).toBe(REPLAY_RUNS_AT_ONCE);
+    expect(queued('replay_search')).toBe(3);
+
+    await memory.searchRepository.save(search.stopped(NOW, BY));
+    await memory.replayRepository.add(
+      aReplay({ id: 'replay_late', count: 2, searchId: search.id }),
+    );
+    await dispatching().workDue();
+
+    expect(queued('replay_late')).toBe(0);
   });
 });
 
@@ -338,6 +369,7 @@ describe('AbandonReplays', () => {
 
     expect(memory.events.map((each) => each.kind)).toEqual([
       'replay.stopped',
+      'replays.replay-ended',
       'replay-set.deleted',
       'replays.candidate-withdrawn',
     ]);

@@ -125,6 +125,17 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     from      = "implementation"
     to        = "implementation"
   }
+
+  replay_check {
+    most_regressions = 1
+    ceiling          = 12.5
+    currency         = "USD"
+  }
+
+  source {
+    repository = "acme/platform"
+    path       = "teams/core/delivery.tf"
+  }
 }
 `;
 
@@ -500,6 +511,12 @@ describe('workspaceTerraform', () => {
       ].join('\n'),
     );
     expect(LINE_RESOURCE).not.toContain('reviews');
+    expect(resourceHcl(HELD, heldAs('line', 'core/review')).hcl).not.toContain(
+      'replay_check',
+    );
+    expect(resourceHcl(HELD, heldAs('line', 'core/review')).hcl).not.toContain(
+      'source {',
+    );
   });
 
   it('writes a hook with its match, condition, vars, signing and steps, keeping its expressions from Terraform', () => {

@@ -22,7 +22,7 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
     expect(
       CHANGE_REVIEW_PUBLICATIONS.filter(
         (each) => each.from === checked.kind,
-      ).map((each) => each.publish(checked)),
+      ).map((each) => each.publish(checked, new Date())),
     ).toEqual([
       {
         kind: 'change-review.change-checked.v1',
@@ -53,7 +53,7 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
     expect(
       CHANGE_REVIEW_PUBLICATIONS.filter(
         (each) => each.from === shaped.kind,
-      ).map((each) => each.publish(shaped)),
+      ).map((each) => each.publish(shaped, new Date())),
     ).toEqual([
       {
         kind: 'change-review.change-stack-shaped.v1',
@@ -80,7 +80,7 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
     expect(
       CHANGE_REVIEW_PUBLICATIONS.filter(
         (each) => each.from === checked.kind,
-      ).map((each) => each.publish(checked)),
+      ).map((each) => each.publish(checked, new Date())),
     ).toEqual([
       {
         kind: 'change-review.replay-change-checked.v1',
@@ -101,7 +101,7 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
     expect(
       CHANGE_REVIEW_PUBLICATIONS.filter(
         (each) => each.from === settled.kind,
-      ).map((each) => each.publish(settled)),
+      ).map((each) => each.publish(settled, new Date())),
     ).toEqual([
       {
         kind: 'change-review.replay-stack-settled.v1',

@@ -1,4 +1,9 @@
-import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import type { ConfigPullRequestDto } from '@replays/application/dto/config-pull-requests.dto';
+import type {
+  Forbidden,
+  ResourceCreated,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
+import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 type Planned<T> = T | Forbidden;
 
@@ -28,3 +33,44 @@ export type ReplayStarted = Planned<{
 }>;
 
 export type ReplayStoppedOutcome = Planned<{ readonly outcome: 'stopped' }>;
+
+export interface SearchRefused {
+  readonly outcome: 'invalid';
+  readonly problems: readonly ConfigurationProblem[];
+}
+
+export type SearchStartedOutcome = Planned<
+  | {
+      readonly outcome: 'started';
+      readonly id: string;
+      readonly seedReplayId: string;
+    }
+  | SearchRefused
+>;
+
+export type SearchStoppedOutcome = Planned<{ readonly outcome: 'stopped' }>;
+
+export type SearchCandidateProposed =
+  | {
+      readonly outcome: 'proposed';
+      readonly candidateId: string;
+      readonly name: string;
+      readonly replayId: string;
+    }
+  | {
+      readonly outcome: 'invalid';
+      readonly problems: readonly ConfigurationProblem[];
+    };
+
+export type ReplayCheckStartedOutcome =
+  | ResourceCreated
+  | { readonly outcome: 'reused'; readonly id: string }
+  | {
+      readonly outcome: 'unchanged';
+      readonly keptLive: readonly string[];
+    };
+
+export type CandidatePicked = Planned<{
+  readonly outcome: 'picked' | 'already';
+  readonly pullRequest: ConfigPullRequestDto;
+}>;

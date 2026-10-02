@@ -1,5 +1,5 @@
 {
-  "id": "ea4ffb07-79d3-4658-9ba2-0303e6757f64",
+  "id": "f3f7797b-65a5-414e-8053-87ec4a6366b2",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -6764,6 +6764,231 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.config_pull_request": {
+      "name": "config_pull_request",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "search_id": {
+          "name": "search_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_id": {
+          "name": "candidate_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "line_id": {
+          "name": "line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "station_key": {
+          "name": "station_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_name": {
+          "name": "candidate_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "branch": {
+          "name": "branch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "config_pull_request_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refusal": {
+          "name": "refusal",
+          "type": "config_pull_request_refusal",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refusal_message": {
+          "name": "refusal_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refusal_attribute": {
+          "name": "refusal_attribute",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refusal_expression": {
+          "name": "refusal_expression",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refusal_wanted": {
+          "name": "refusal_wanted",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tries": {
+          "name": "tries",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_commit": {
+          "name": "last_commit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "due_at": {
+          "name": "due_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "config_pull_request_candidate_idx": {
+          "name": "config_pull_request_candidate_idx",
+          "columns": [
+            {
+              "expression": "search_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "candidate_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "config_pull_request_team_idx": {
+          "name": "config_pull_request_team_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "config_pull_request_due_idx": {
+          "name": "config_pull_request_due_idx",
+          "columns": [
+            {
+              "expression": "due_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"config_pull_request\".\"state\" = 'opening'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.replay": {
       "name": "replay",
       "schema": "",
@@ -6834,6 +7059,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "scoring_digest": {
+          "name": "scoring_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "ceiling_amount": {
           "name": "ceiling_amount",
           "type": "double precision",
@@ -6845,6 +7076,24 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "unpriced_rate": {
+          "name": "unpriced_rate",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "among": {
+          "name": "among",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "search_id": {
+          "name": "search_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "state": {
           "name": "state",
@@ -6921,6 +7170,21 @@
             },
             {
               "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_search_idx": {
+          "name": "replay_search_idx",
+          "columns": [
+            {
+              "expression": "search_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7016,6 +7280,24 @@
           "primaryKey": false,
           "notNull": true
         },
+        "behaviour_digest": {
+          "name": "behaviour_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scoring_digest": {
+          "name": "scoring_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "line_fields": {
+          "name": "line_fields",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "checks_changes": {
           "name": "checks_changes",
           "type": "boolean",
@@ -7045,6 +7327,36 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "search_id": {
+          "name": "search_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "iteration": {
+          "name": "iteration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hypothesis": {
+          "name": "hypothesis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reference_commit": {
+          "name": "reference_commit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reference_pull_request": {
+          "name": "reference_pull_request",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -7121,6 +7433,272 @@
           ],
           "isUnique": true,
           "where": "\"replay_candidate\".\"kind\" = 'proposed'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_candidate_search_name_idx": {
+          "name": "replay_candidate_search_name_idx",
+          "columns": [
+            {
+              "expression": "search_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"replay_candidate\".\"kind\" = 'searched'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.replay_check": {
+      "name": "replay_check",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "line_id": {
+          "name": "line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "station_key": {
+          "name": "station_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_id": {
+          "name": "set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_entries": {
+          "name": "set_entries",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempt": {
+          "name": "attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_id": {
+          "name": "candidate_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "replay_id": {
+          "name": "replay_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference_commit": {
+          "name": "reference_commit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reference_pull_request": {
+          "name": "reference_pull_request",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "live_fingerprint": {
+          "name": "live_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_fingerprint": {
+          "name": "candidate_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "live_behaviour": {
+          "name": "live_behaviour",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "live_scoring": {
+          "name": "live_scoring",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_behaviour": {
+          "name": "candidate_behaviour",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_scoring": {
+          "name": "candidate_scoring",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "most_regressions": {
+          "name": "most_regressions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ceiling_amount": {
+          "name": "ceiling_amount",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ceiling_currency": {
+          "name": "ceiling_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kept_live": {
+          "name": "kept_live",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "baseline": {
+          "name": "baseline",
+          "type": "replay_check_baseline",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "replay_check_team_idx": {
+          "name": "replay_check_team_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_check_awaiting_idx": {
+          "name": "replay_check_awaiting_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"replay_check\".\"baseline\" = 'awaiting'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_check_set_idx": {
+          "name": "replay_check_set_idx",
+          "columns": [
+            {
+              "expression": "set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_check_attempt_idx": {
+          "name": "replay_check_attempt_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "candidate_behaviour",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "live_scoring",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "attempt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -7382,6 +7960,310 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.replay_search": {
+      "name": "replay_search",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "line_id": {
+          "name": "line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "station_id": {
+          "name": "station_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_id": {
+          "name": "set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "harness": {
+          "name": "harness",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effort": {
+          "name": "effort",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "iterations": {
+          "name": "iterations",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "per_iteration": {
+          "name": "per_iteration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ceiling_amount": {
+          "name": "ceiling_amount",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ceiling_currency": {
+          "name": "ceiling_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "concurrency": {
+          "name": "concurrency",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "split": {
+          "name": "split",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seed_candidate_id": {
+          "name": "seed_candidate_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seed_fingerprint": {
+          "name": "seed_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seed_replay": {
+          "name": "seed_replay",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "held_out": {
+          "name": "held_out",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "state": {
+          "name": "state",
+          "type": "replay_search_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ending": {
+          "name": "ending",
+          "type": "replay_search_ending",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "replay_search_team_idx": {
+          "name": "replay_search_team_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_search_set_idx": {
+          "name": "replay_search_set_idx",
+          "columns": [
+            {
+              "expression": "set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_search_active_idx": {
+          "name": "replay_search_active_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"replay_search\".\"state\" in ('seeding', 'searching', 'holding-out')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.replay_search_iteration": {
+      "name": "replay_search_iteration",
+      "schema": "",
+      "columns": {
+        "search_id": {
+          "name": "search_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "replay_search_iteration_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proposals": {
+          "name": "proposals",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "agent_spent": {
+          "name": "agent_spent",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "replay_search_iteration_run_idx": {
+          "name": "replay_search_iteration_run_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "replay_search_iteration_search_id_replay_search_id_fk": {
+          "name": "replay_search_iteration_search_id_replay_search_id_fk",
+          "tableFrom": "replay_search_iteration",
+          "tableTo": "replay_search",
+          "columnsFrom": [
+            "search_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "replay_search_iteration_search_id_number_pk": {
+          "name": "replay_search_iteration_search_id_number_pk",
+          "columns": [
+            "search_id",
+            "number"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.replay_set": {
       "name": "replay_set",
       "schema": "",
@@ -7421,6 +8303,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "guards_changes": {
+          "name": "guards_changes",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -7484,6 +8373,22 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_set_guards_changes_idx": {
+          "name": "replay_set_guards_changes_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"replay_set\".\"guards_changes\"",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -9129,6 +10034,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "replay_check": {
+          "name": "replay_check",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "runners": {
           "name": "runners",
           "type": "jsonb",
@@ -10157,9 +11074,21 @@
           "primaryKey": false,
           "notNull": false
         },
-        "replay_team_id": {
-          "name": "replay_team_id",
+        "ran_for_team_id": {
+          "name": "ran_for_team_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "search_id": {
+          "name": "search_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "search_iteration": {
+          "name": "search_iteration",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
@@ -10384,6 +11313,13 @@
           "notNull": true,
           "default": "now()"
         },
+        "queued_at": {
+          "name": "queued_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp",
@@ -10527,6 +11463,21 @@
           "columns": [
             {
               "expression": "replay_of_run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_search_idx": {
+          "name": "run_search_idx",
+          "columns": [
+            {
+              "expression": "search_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -12013,12 +12964,50 @@
         "closed"
       ]
     },
+    "public.config_pull_request_refusal": {
+      "name": "config_pull_request_refusal",
+      "schema": "public",
+      "values": [
+        "no-source",
+        "repository-unreachable",
+        "file-missing",
+        "file-unparsable",
+        "block-not-found",
+        "blocks-ambiguous",
+        "computed-attribute",
+        "drifted",
+        "edit-failed",
+        "branch-taken",
+        "file-unwritable",
+        "github-refused"
+      ]
+    },
+    "public.config_pull_request_state": {
+      "name": "config_pull_request_state",
+      "schema": "public",
+      "values": [
+        "opening",
+        "opened",
+        "refused"
+      ]
+    },
     "public.replay_candidate_kind": {
       "name": "replay_candidate_kind",
       "schema": "public",
       "values": [
         "live",
-        "proposed"
+        "proposed",
+        "searched",
+        "planned"
+      ]
+    },
+    "public.replay_check_baseline": {
+      "name": "replay_check_baseline",
+      "schema": "public",
+      "values": [
+        "awaiting",
+        "found",
+        "unavailable"
       ]
     },
     "public.replay_run_outcome": {
@@ -12029,6 +13018,40 @@
         "failed",
         "abandoned",
         "withdrawn"
+      ]
+    },
+    "public.replay_search_ending": {
+      "name": "replay_search_ending",
+      "schema": "public",
+      "values": [
+        "iterations-spent",
+        "ceiling-reached",
+        "stalled",
+        "stopped",
+        "station-gone",
+        "set-gone",
+        "seed-failed"
+      ]
+    },
+    "public.replay_search_iteration_state": {
+      "name": "replay_search_iteration_state",
+      "schema": "public",
+      "values": [
+        "wanted",
+        "running",
+        "ended",
+        "failed"
+      ]
+    },
+    "public.replay_search_state": {
+      "name": "replay_search_state",
+      "schema": "public",
+      "values": [
+        "seeding",
+        "searching",
+        "holding-out",
+        "finished",
+        "stopped"
       ]
     },
     "public.replay_state": {

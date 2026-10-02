@@ -140,6 +140,22 @@ vi.mock('@/hooks/api/useReplaySets', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useSearches', () => ({
+  useSearches: () => ({
+    data: [],
+    isPending: false,
+    errorUpdateCount: 0,
+  }),
+}));
+
+vi.mock('@/hooks/api/useSearchEstimate', () => ({
+  useSearchEstimate: () => ({ data: undefined, isFetching: false }),
+}));
+
+vi.mock('@/hooks/api/useStartSearch', () => ({
+  useStartSearch: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+}));
+
 vi.mock('@/hooks/api/useOpenReplaySet', () => ({
   useOpenReplaySet: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -539,11 +555,29 @@ describe('Station', () => {
     ).toBeInTheDocument();
   });
 
+  it('offers to search once there is a replay set to search on', () => {
+    renderAt('station_2');
+
+    expect(
+      screen.getByRole('heading', { name: 'Searches' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('No searches yet')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Open a replay set first' }),
+    ).toHaveAttribute('href', '#replays');
+    expect(
+      screen.getByText(/does not say where its Terraform lives/),
+    ).toBeInTheDocument();
+  });
+
   it('offers no replays where nothing runs', () => {
     renderAt('station_3');
 
     expect(
       screen.queryByRole('heading', { name: 'Replays' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Searches' }),
     ).not.toBeInTheDocument();
   });
 

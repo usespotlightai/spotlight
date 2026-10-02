@@ -33,7 +33,8 @@ const ATTEMPTS = 2;
 export interface DraftingRun {
   readonly id: RunId;
   readonly taskId: TaskId | null;
-  readonly replay: boolean;
+  readonly isReplay: boolean;
+  readonly isSearch: boolean;
   readonly workspaceId: WorkspaceId;
 }
 
@@ -58,10 +59,6 @@ export class DraftChangeStack {
       request: CheckRequest | null;
     },
   ): Promise<ChangeStack> {
-    if (!this.drafter.available) {
-      throw new ChangeStacksUnavailableError();
-    }
-
     const id = ChangeStackId.of(this.ids.generate());
     const { diff, sources } = this.reader.read(input.diff);
     const index = await this.indexOf(id, sources);
@@ -70,7 +67,8 @@ export class DraftChangeStack {
       id,
       runId: run.id,
       taskId: run.taskId,
-      replay: run.replay,
+      replay: run.isReplay,
+      isSearch: run.isSearch,
       workspaceId: run.workspaceId,
       repository: input.repository,
       base: input.base,
@@ -79,6 +77,10 @@ export class DraftChangeStack {
       request: input.request,
       now: this.clock.now(),
     });
+
+    if (!this.drafter.available) {
+      throw new ChangeStacksUnavailableError();
+    }
 
     await this.stacks.add(stack);
 

@@ -23,6 +23,8 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 const STATION = FieldPath.of(['station']);
 
+const LINE = FieldPath.of(['line']);
+
 const NO_TASKS_STANDING: ReadonlyMap<string, number> = new Map();
 
 export interface StandingStation {
@@ -48,15 +50,22 @@ const rerooted =
   (place: number) =>
   (problem: ConfigurationProblem): ConfigurationProblem => {
     const [first, at, ...rest] = problem.field.segments;
+    const moved = (to: FieldPath) =>
+      ConfigurationProblem.of({
+        path: problem.path,
+        at: to,
+        reason: problem.reason,
+        severity: problem.severity,
+      });
 
-    return first === 'stations' && at === place
-      ? ConfigurationProblem.of({
-          path: problem.path,
-          at: STATION.to(...rest),
-          reason: problem.reason,
-          severity: problem.severity,
-        })
-      : problem;
+    if (first === 'stations' && at === place) {
+      return moved(STATION.to(...rest));
+    }
+    if (first === 'repositories') {
+      return moved(LINE.to(...problem.field.segments));
+    }
+
+    return problem;
   };
 
 export class CandidateLines {
@@ -99,6 +108,7 @@ export class CandidateLines {
   async withStation(
     { line, station, kept }: StandingStation,
     block: unknown,
+    repositories?: unknown,
   ): Promise<CandidateLine> {
     const place = kept.definition.stations.findIndex(
       (each) => each.key === station.key.value,
@@ -128,6 +138,7 @@ export class CandidateLines {
 
     const compiled = this.compiler.compile({
       ...kept.definition,
+      ...(repositories === undefined ? {} : { repositories }),
       stations: kept.definition.stations.map((each, at) =>
         at === place ? block : each,
       ),

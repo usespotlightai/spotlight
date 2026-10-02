@@ -10,6 +10,7 @@ import type {
   ReplayDto,
   ReplayEntryDto,
   ReplayOfRunDto,
+  ReplaySearchDto,
   ReplayTotalsDto,
   SpendDto,
 } from '@replays/application/dto/replays.dto';
@@ -613,9 +614,33 @@ export class EntryComparisonResponseDto {
   }
 }
 
+export class ReplaySearchResponseDto {
+  @ApiProperty({ description: 'The search the replay belongs to' })
+  readonly searchId: string;
+
+  @ApiProperty({
+    example: 'terse-prompt',
+    description:
+      'The candidate it replays in that search; seed for the live config the search started from',
+  })
+  readonly candidateName: string;
+
+  constructor(search: ReplaySearchDto) {
+    this.searchId = search.searchId;
+    this.candidateName = search.candidateName;
+  }
+}
+
 export class ReplayDetailResponseDto extends ReplayResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly baselineReplayId: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: ReplaySearchResponseDto,
+    description: 'The search it belongs to, when a search started it',
+  })
+  readonly search: ReplaySearchResponseDto | null;
 
   @ApiProperty({
     type: EntryComparisonResponseDto,
@@ -627,6 +652,9 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
   constructor(replay: ReplayDetailDto) {
     super(replay);
     this.baselineReplayId = replay.baselineReplayId;
+    this.search = replay.search
+      ? new ReplaySearchResponseDto(replay.search)
+      : null;
     this.comparison = replay.comparison.map(
       (each) => new EntryComparisonResponseDto(each),
     );
@@ -760,6 +788,13 @@ export class ReplayOfRunResponseDto {
   })
   readonly entry: ReplayEntryResponseDto | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: ReplaySearchResponseDto,
+    description: 'The search its replay belongs to, when a search started it',
+  })
+  readonly search: ReplaySearchResponseDto | null;
+
   constructor(found: ReplayOfRunDto) {
     this.replayId = found.replayId;
     this.setId = found.setId;
@@ -773,5 +808,8 @@ export class ReplayOfRunResponseDto {
     this.isBaseline = found.isBaseline;
     this.state = found.state;
     this.entry = found.entry ? new ReplayEntryResponseDto(found.entry) : null;
+    this.search = found.search
+      ? new ReplaySearchResponseDto(found.search)
+      : null;
   }
 }

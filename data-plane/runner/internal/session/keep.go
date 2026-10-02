@@ -45,7 +45,7 @@ func (k *keeper) replays() bool {
 }
 
 func (k *keeper) carriesOn() bool {
-	return !k.replays() && k.run.Spec.Continuity.Key != ""
+	return !k.replays() && !searches(k.run) && k.run.Spec.Continuity.Key != ""
 }
 
 func (k *keeper) restore(ctx context.Context) error {

@@ -6,7 +6,7 @@ import type {
 } from '@replays/application/dto/replays.dto';
 import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
 
-class StationChangeResponseDto {
+export class StationChangeResponseDto {
   @ApiProperty({
     example: 'prompt',
     description:

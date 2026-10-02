@@ -25,6 +25,8 @@ const LINES: LineResponseDto[] = [
     stations: [],
     reactions: [],
     repositories: [],
+    source: null,
+    replayCheck: null,
   },
 ];
 

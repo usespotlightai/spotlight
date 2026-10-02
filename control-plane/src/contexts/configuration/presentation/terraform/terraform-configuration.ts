@@ -27,8 +27,10 @@ import type {
   HeldLineAlert,
   HeldLineJudge,
   HeldLineReaction,
+  HeldLineReplayCheck,
   HeldLineRepository,
   HeldLineReviews,
+  HeldLineSource,
   HeldLineStation,
 } from '@work/application/contracts/held-line.contract';
 
@@ -434,6 +436,24 @@ const line = (
       ],
     );
 
+  const replayCheck = (policy: HeldLineReplayCheck): HclBlock =>
+    block(
+      'replay_check',
+      [],
+      [
+        attribute('most_regressions', policy.mostRegressions),
+        attribute('ceiling', policy.ceiling),
+        attribute('currency', policy.currency),
+      ],
+    );
+
+  const source = (from: HeldLineSource): HclBlock =>
+    block(
+      'source',
+      [],
+      [attribute('repository', from.repository), attribute('path', from.path)],
+    );
+
   return adopted(
     held,
     nameOf(held.teamKey, held.key),
@@ -448,6 +468,8 @@ const line = (
       ...definition.stations.map(station),
       ...definition.reactions.map(reaction),
       ...(definition.reviews ? [reviews(definition.reviews)] : []),
+      ...(definition.replayCheck ? [replayCheck(definition.replayCheck)] : []),
+      ...(definition.source ? [source(definition.source)] : []),
     ],
     { files },
   );

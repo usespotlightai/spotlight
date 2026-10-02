@@ -546,7 +546,7 @@ describe('a replay claimed by a runner', () => {
         kind: 'rationale',
         body: 'Queues drain newest first.',
       })
-      .expect(422);
+      .expect(409);
     await runner(token)
       .get(`/api/runs/${replayId}/trace/${original.taskId}`)
       .expect(409);

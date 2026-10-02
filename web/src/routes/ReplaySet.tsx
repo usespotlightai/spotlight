@@ -1,6 +1,7 @@
 import { useParams } from 'react-router';
 import { ReplaySetHeader } from '@/components/features/replays/set/ReplaySetHeader';
 import { ReplaySetSkeleton } from '@/components/features/replays/set/ReplaySetSkeleton';
+import { SetChecks } from '@/components/features/replays/set/SetChecks';
 import { SetReplays } from '@/components/features/replays/set/SetReplays';
 import { SetRuns } from '@/components/features/replays/set/SetRuns';
 import { StationLayout } from '@/components/features/stations/StationLayout';
@@ -14,10 +15,13 @@ import {
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useTeamReplaySets } from '@/hooks/api/useReplaySets';
 import { useReplays } from '@/hooks/api/useReplays';
+import { useSearches } from '@/hooks/api/useSearches';
+import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import { replaySetPath, replaysAnchorPath } from '@/lib/replay';
+import { ongoing } from '@/lib/search';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 export function ReplaySet() {
@@ -25,6 +29,8 @@ export function ReplaySet() {
   const stationTrail = useStationTrail({ slug, teamId, lineId, stationId });
   const sets = useTeamReplaySets(teamId);
   const replays = useReplays(teamId, setId);
+  const { line } = useStation(teamId, lineId, stationId);
+  const searches = useSearches(teamId, lineId, stationId);
 
   const set = sets.data?.find(
     (candidate) =>
@@ -36,6 +42,13 @@ export function ReplaySet() {
     slug && teamId && lineId && stationId
       ? { slug, teamId, lineId, stationId }
       : null;
+
+  const searching = Boolean(
+    set &&
+      searches.data?.some(
+        (each) => each.setId === set.id && ongoing(each.state),
+      ),
+  );
 
   const base: BreadcrumbSegment[] = [
     ...stationTrail,
@@ -83,11 +96,15 @@ export function ReplaySet() {
           set={set}
           replays={replays.data ?? []}
           deletedTo={replaysAnchorPath(at)}
+          replayCheck={line ? line.replayCheck : undefined}
+          searching={searching}
         />
 
         <SetReplays at={at} set={set} replays={replays} />
 
-        <SetRuns at={at} set={set} />
+        <SetRuns at={at} set={set} frozen={searching} />
+
+        <SetChecks teamId={at.teamId} set={set} />
       </StationLayout>
     </TrailContext>
   );

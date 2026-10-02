@@ -8,6 +8,9 @@
       {
         "include": "contexts/configuration/infrastructure/skills/built-in/**/*.md",
         "watchAssets": true
+      },
+      {
+        "include": "platform/hcl/grammar/*"
       }
     ]
   }

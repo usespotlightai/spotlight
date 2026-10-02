@@ -1,23 +1,35 @@
 import type {
+  AgentRefusal,
   ExaminedCandidate,
+  HeldSearchRun,
   LiveConfig,
   PickableRun,
   ReplayRunOrder,
   ReplayRunQueued,
   RunForgone,
   RunReplayability,
+  SearchRunOrder,
+  SearchRunQueued,
+  SearchRunStanding,
   StandingRun,
   StationAtHand,
+  UnclaimedWithdrawal,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import {
   isReplayRefusal,
   type ReplayRefusal,
 } from '@replays/domain/value-objects/replay-refusal';
+import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
+import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -31,6 +43,8 @@ import type {
   Replayability,
   ReplayableRunsPort,
 } from '@work/application/ports/replayable-runs.port';
+import type { SearchDispatchPort } from '@work/application/ports/search-dispatch.port';
+import type { SearchRunsPort } from '@work/application/ports/search-runs.port';
 import type { StartingPointHoldsPort } from '@work/application/ports/starting-point-holds.port';
 
 const refusalOf = (code: string | null): ReplayRefusal | null => {
@@ -49,6 +63,12 @@ const stationOf = (station: ReplayStation): StationAtHand => ({
   stationId: station.stationId,
   key: station.key,
   name: station.name,
+  source: station.source
+    ? {
+        repository: Repository.of(station.source.repository),
+        path: station.source.path,
+      }
+    : null,
 });
 
 const replayabilityOf = (each: Replayability): RunReplayability => ({
@@ -65,6 +85,8 @@ export class Work implements WorkPort {
     private readonly candidates: ReplayCandidatesPort,
     private readonly dispatching: ReplayDispatchPort,
     private readonly holds: StartingPointHoldsPort,
+    private readonly searching: SearchDispatchPort,
+    private readonly searchRuns: SearchRunsPort,
   ) {}
 
   async station(
@@ -138,8 +160,14 @@ export class Work implements WorkPort {
     lineId: string,
     stationId: string,
     block: unknown,
+    line: PlannedLine | null = null,
   ): Promise<ExaminedCandidate | null> {
-    const examined = await this.candidates.examine(lineId, stationId, block);
+    const examined = await this.candidates.examine(
+      lineId,
+      stationId,
+      block,
+      line ? line.repositories : undefined,
+    );
 
     if (!examined) {
       return null;
@@ -149,11 +177,14 @@ export class Work implements WorkPort {
       ? {
           ok: true,
           fingerprint: StationFingerprint.of(examined.fingerprint),
+          digests: StationDigests.of(examined.digests),
+          liveDigests: StationDigests.of(examined.liveDigests),
           scoring: CandidateScoring.of(examined.scoring),
           changedFrom: StationChanges.of(
             StationFingerprint.of(examined.live),
             examined.changes,
           ),
+          block: StationBlock.of(examined.station),
         }
       : examined;
   }
@@ -167,6 +198,8 @@ export class Work implements WorkPort {
           block: StationBlock.of(live.station),
           fingerprint: StationFingerprint.of(live.fingerprint),
           scoring: CandidateScoring.of(live.scoring),
+          digests: StationDigests.of(live.digests),
+          threshold: live.replayCheck && ReplayThreshold.of(live.replayCheck),
         }
       : null;
   }
@@ -179,6 +212,7 @@ export class Work implements WorkPort {
       lineId: order.lineId,
       stationId: order.stationId,
       station: order.block.value,
+      ...(order.line ? { repositories: order.line.repositories } : {}),
     });
 
     return dispatched.outcome === 'queued'
@@ -209,6 +243,69 @@ export class Work implements WorkPort {
             : null,
         }
       : { queued: false };
+  }
+
+  durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>> {
+    return this.runs.durations(runs.map((each) => each.value));
+  }
+
+  agentRefusal(agent: SearchAgent): AgentRefusal | null {
+    return this.searching.refusalOf({
+      harness: agent.harness,
+      model: agent.model,
+      effort: agent.effort,
+    });
+  }
+
+  async dispatchSearch(order: SearchRunOrder): Promise<SearchRunQueued> {
+    const dispatched = await this.searching.enqueue({
+      id: order.run.value,
+      searchId: order.searchId.value,
+      iteration: order.iteration,
+      lineId: order.lineId,
+      stationId: order.stationId,
+      agent: {
+        harness: order.agent.harness,
+        model: order.agent.model,
+        effort: order.agent.effort,
+      },
+      briefing: order.briefing,
+    });
+
+    return dispatched.outcome === 'queued'
+      ? { queued: true }
+      : { queued: false, reason: dispatched.reason };
+  }
+
+  withdrawSearch(run: RunId): Promise<void> {
+    return this.searching.withdraw(run.value);
+  }
+
+  withdrawUnclaimedSearch(run: RunId): Promise<UnclaimedWithdrawal> {
+    return this.searching.withdrawUnclaimed(run.value);
+  }
+
+  async heldSearchRun(
+    run: RunId,
+    runnerId: string,
+  ): Promise<HeldSearchRun | null> {
+    const held = await this.searchRuns.heldSearchRun(run.value, runnerId);
+
+    return held
+      ? { searchId: SearchId.of(held.searchId), iteration: held.iteration }
+      : null;
+  }
+
+  async searchRunStandings(
+    runs: readonly RunId[],
+  ): Promise<readonly SearchRunStanding[]> {
+    if (runs.length === 0) {
+      return [];
+    }
+
+    return (await this.searchRuns.standing(runs.map((each) => each.value))).map(
+      ({ runId, ...standing }) => ({ ...standing, run: RunId.of(runId) }),
+    );
   }
 
   hold(

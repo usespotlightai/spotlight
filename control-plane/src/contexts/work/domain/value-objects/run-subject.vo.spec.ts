@@ -4,6 +4,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { SearchId } from '@work/domain/value-objects/search-id.vo';
+import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
@@ -14,7 +16,22 @@ const cases = {
   chat: (chatId: ChatId) => `chat ${chatId.value}`,
   replay: (original: RunId, taskId: TaskId, stationId: StationId | null) =>
     `replay of ${original.value} (task ${taskId.value}) at ${stationId?.value ?? 'nowhere'}`,
+  search: (
+    searchId: SearchId,
+    iteration: SearchIteration,
+    stationId: StationId | null,
+    teamId: TeamId,
+  ) =>
+    `search ${searchId.value} #${iteration.value} at ${stationId?.value ?? 'nowhere'} for ${teamId.value}`,
 };
+
+const aSearch = () =>
+  RunSubject.search(
+    SearchId.of('search_1'),
+    SearchIteration.of(2),
+    StationId.of('station_1'),
+    TeamId.of('team_1'),
+  );
 
 const aReplay = () =>
   RunSubject.replay(
@@ -139,7 +156,7 @@ describe('RunSubject', () => {
       revision: null,
       replayOf: RunId.of('run_1'),
       replayedTaskId: TaskId.of('task_1'),
-      replayedFor: TeamId.of('team_1'),
+      ranFor: TeamId.of('team_1'),
     });
 
     expect(subject?.equals(aReplay())).toBe(true);
@@ -186,6 +203,88 @@ describe('RunSubject', () => {
           ...stored,
           stationId: null,
           replayOf: RunId.of('run_1'),
+        }),
+      ).toThrow(InconsistentStateError);
+    }
+  });
+
+  it('searches a station for its team, working no task, chat or replay of its own', () => {
+    const search = aSearch();
+
+    expect(search.match(cases)).toBe(
+      'search search_1 #2 at station_1 for team_1',
+    );
+    expect(search.isSearch).toBe(true);
+    expect(search.isReplay).toBe(false);
+    expect(search.leavesNothingBehind).toBe(true);
+    expect(search.taskId).toBeNull();
+    expect(search.chatId).toBeNull();
+    expect(search.archiveHolder).toBeNull();
+    expect(aReplay().leavesNothingBehind).toBe(true);
+    expect(RunSubject.chat(ChatId.of('chat_1')).leavesNothingBehind).toBe(
+      false,
+    );
+  });
+
+  it('comes back as the search it was stored as', () => {
+    const subject = RunSubject.rehydrate({
+      taskId: null,
+      stationId: StationId.of('station_1'),
+      chatId: null,
+      revision: null,
+      searchId: SearchId.of('search_1'),
+      iteration: SearchIteration.of(2),
+      ranFor: TeamId.of('team_1'),
+    });
+
+    expect(subject?.equals(aSearch())).toBe(true);
+    expect(
+      subject?.equals(
+        RunSubject.search(
+          SearchId.of('search_1'),
+          SearchIteration.of(3),
+          StationId.of('station_1'),
+          TeamId.of('team_1'),
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  it('never searches while working a task, chat or replay of its own', () => {
+    for (const stored of [
+      { taskId: TaskId.of('task_1'), revision: TaskRevision.of(0) },
+      { chatId: ChatId.of('chat_1') },
+      { replayOf: RunId.of('run_1'), replayedTaskId: TaskId.of('task_1') },
+      { replayOf: RunId.of('run_1') },
+    ]) {
+      expect(() =>
+        RunSubject.rehydrate({
+          taskId: null,
+          chatId: null,
+          revision: null,
+          ...stored,
+          stationId: StationId.of('station_1'),
+          searchId: SearchId.of('search_1'),
+          iteration: SearchIteration.of(1),
+          ranFor: TeamId.of('team_1'),
+        }),
+      ).toThrow(InconsistentStateError);
+    }
+  });
+
+  it('never searches without naming the search, its iteration and its team', () => {
+    for (const stored of [
+      { searchId: SearchId.of('search_1'), iteration: SearchIteration.of(1) },
+      { searchId: SearchId.of('search_1'), ranFor: TeamId.of('team_1') },
+      { iteration: SearchIteration.of(1), ranFor: TeamId.of('team_1') },
+    ]) {
+      expect(() =>
+        RunSubject.rehydrate({
+          taskId: null,
+          chatId: null,
+          revision: null,
+          stationId: StationId.of('station_1'),
+          ...stored,
         }),
       ).toThrow(InconsistentStateError);
     }

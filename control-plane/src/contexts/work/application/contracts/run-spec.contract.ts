@@ -14,6 +14,7 @@ import {
   type RunHarnessSetup,
   type RunMcpServer,
   type RunReplay,
+  type RunSearch,
   RunSpec,
   type RunSpecParts,
   type RunToolInput,
@@ -248,6 +249,12 @@ const replayOf = (raw: unknown): RunReplay => {
   };
 };
 
+const searchOf = (raw: unknown): RunSearch => {
+  objectAt(raw, 'what it searches');
+
+  return {};
+};
+
 const handoverOf = (raw: unknown) => {
   const given = objectAt(raw, 'what may be handed over to');
 
@@ -301,6 +308,8 @@ const read = (raw: unknown): RunSpec => {
   const startingPoint = given.startingPoint;
   const replay =
     given.replay === undefined ? undefined : replayOf(given.replay);
+  const search =
+    given.search === undefined ? undefined : searchOf(given.search);
   const harnessSetup =
     given.harnessSetup === undefined
       ? undefined
@@ -335,6 +344,7 @@ const read = (raw: unknown): RunSpec => {
     ...(settingFiles ? { settingFiles } : {}),
     ...(wears ? { wears } : {}),
     ...(replay ? { replay } : {}),
+    ...(search ? { search } : {}),
   });
 };
 

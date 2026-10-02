@@ -1,6 +1,7 @@
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
@@ -33,6 +34,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -40,6 +42,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const run = (at: number) => RunId.of(`replay_run_${at}`);
+
+const SEARCH = SearchId.of('search_1');
 
 const reserved = (replay: Replay, room: number): Replay =>
   replay.reserving(room, runIds());
@@ -98,6 +102,7 @@ describe('Replay', () => {
           reason: null,
         },
         NOW,
+        false,
       );
 
       expect(() =>
@@ -228,6 +233,7 @@ describe('Replay', () => {
           ReplayId.of('replay_2'),
           candidateOf('live').id,
           Spend.ceiling(3, 'USD'),
+          null,
         ),
       ]);
     });
@@ -261,6 +267,7 @@ describe('Replay', () => {
       expect(abandoned.isAbandoned).toBe(true);
       expect(abandoned.pullEvents()).toEqual([
         new ReplayStopped(underway.id, underway.workspaceId, [run(0)]),
+        new ReplayEnded(underway.id, underway.workspaceId, null, 'abandoned'),
       ]);
 
       const stopped = underway.stopped(NOW, BY);
@@ -381,6 +388,7 @@ describe('Replay', () => {
       expect(replay.reserving(2, runIds())).toBe(replay);
       expect(replay.pullEvents()).toEqual([
         new ReplayOverBudget(replay.id, replay.workspaceId, [run(1)]),
+        new ReplayEnded(replay.id, replay.workspaceId, null, 'over-budget'),
       ]);
       expect(replay.isUnderway).toBe(true);
 
@@ -407,6 +415,7 @@ describe('Replay', () => {
       expect(replay.forgone(run(0), NOW).occupying).toHaveLength(2);
       expect(replay.pullEvents()).toEqual([
         new ReplayStopped(replay.id, replay.workspaceId, [run(0), run(1)]),
+        new ReplayEnded(replay.id, replay.workspaceId, null, 'stopped'),
         stopAsked(replay),
       ]);
     });
@@ -675,6 +684,136 @@ describe('Replay', () => {
       );
       expect(replay.current).toBe('finished');
       expect(replay.entries[0]?.succeeded).toBe(false);
+    });
+  });
+
+  describe('saying it ended', () => {
+    const endedEvents = (replay: Replay) =>
+      replay.pullEvents().filter((each) => each instanceof ReplayEnded);
+
+    it('says it finished once, for its search', () => {
+      let replay = reserved(aReplay({ count: 2, searchId: SEARCH }), 2);
+
+      replay = settledAs(replay, run(0), 'completed', 1);
+      expect(endedEvents(replay)).toEqual([]);
+
+      replay = settledAs(replay, run(1), 'completed', 1);
+      expect(endedEvents(replay)).toEqual([
+        new ReplayEnded(replay.id, replay.workspaceId, SEARCH, 'finished'),
+      ]);
+      expect(() => replay.stopped(NOW, BY)).toThrow(ReplayEndedError);
+      expect(endedEvents(replay.abandoned())).toEqual([]);
+    });
+
+    it('says it went over budget once, and not again when stopped or abandoned after', () => {
+      let replay = reserved(aReplay({ count: 3, ceiling: 1 }), 2).confirmed(
+        run(1),
+        FINGERPRINT,
+        NOW,
+      );
+
+      replay = settledAs(replay, run(0), 'completed', 2);
+      expect(endedEvents(replay)).toEqual([
+        new ReplayEnded(replay.id, replay.workspaceId, null, 'over-budget'),
+      ]);
+
+      replay = settledAs(replay, run(1), 'completed', 1);
+      expect(endedEvents(replay)).toEqual([]);
+      expect(endedEvents(replay.abandoned())).toEqual([]);
+    });
+
+    it('says it was stopped once, though its stopped runs settle after', () => {
+      let replay = reserved(aReplay({ count: 2 }), 1)
+        .confirmed(run(0), FINGERPRINT, NOW)
+        .stopped(NOW, BY);
+
+      expect(endedEvents(replay)).toEqual([
+        new ReplayEnded(replay.id, replay.workspaceId, null, 'stopped'),
+      ]);
+
+      replay = settledAs(replay, run(0), 'completed', 1);
+      expect(endedEvents(replay)).toEqual([]);
+      expect(endedEvents(replay.abandoned())).toEqual([]);
+    });
+
+    it('says it was abandoned when abandoned while dispatching', () => {
+      const replay = aReplay();
+
+      expect(endedEvents(replay.abandoned())).toEqual([
+        new ReplayEnded(replay.id, replay.workspaceId, null, 'abandoned'),
+      ]);
+    });
+  });
+
+  describe('replaying some of its set', () => {
+    it('replays only the runs it was given, in its set’s order', () => {
+      const replay = aReplay({
+        count: 5,
+        among: [RunId.of('original_3'), RunId.of('original_1')],
+        searchId: SEARCH,
+      });
+
+      expect(replay.originals.map((each) => each.value)).toEqual([
+        'original_1',
+        'original_3',
+      ]);
+      expect(replay.entries.map((each) => each.position)).toEqual([0, 1]);
+      expect(replay.among?.map((each) => each.value)).toEqual([
+        'original_3',
+        'original_1',
+      ]);
+      expect(replay.searchId).toEqual(SEARCH);
+    });
+
+    it.each([
+      ['none', []],
+      ['one its set never held', ['original_0', 'elsewhere']],
+      ['one twice', ['original_0', 'original_0']],
+    ])('refuses to replay %s', (_, among) => {
+      expect(() =>
+        aReplay({ count: 3, among: among.map((each) => RunId.of(each)) }),
+      ).toThrow(InvalidReplayError);
+    });
+
+    it('replays its whole set when it is or wants a baseline', () => {
+      expect(() =>
+        aReplay({
+          count: 3,
+          candidate: candidateOf('live'),
+          baseline: true,
+          among: [RunId.of('original_0')],
+        }),
+      ).toThrow(InvalidReplayError);
+      expect(() =>
+        Replay.started({
+          id: ReplayId.of('replay_1'),
+          set: aSet(3),
+          candidate: candidateOf('proposed'),
+          baseline: false,
+          ceiling: Spend.ceiling(10, 'USD'),
+          at: NOW,
+          by: BY,
+          wanting: {
+            id: ReplayId.of('replay_baseline'),
+            candidate: candidateOf('live'),
+          },
+          among: [RunId.of('original_0')],
+        }),
+      ).toThrow(InvalidReplayError);
+    });
+
+    it('adds up what only some of its runs spent', () => {
+      let replay = reserved(aReplay({ count: 3, ceiling: 100 }), 3);
+
+      replay = settledAs(replay, run(0), 'completed', 1);
+      replay = settledAs(replay, run(1), 'completed', 2);
+
+      expect(replay.spent.amount).toBe(3);
+      expect(replay.spendAmong([RunId.of('original_1')]).spent.amount).toBe(2);
+      expect(
+        replay.spendAmong([RunId.of('original_0'), RunId.of('original_2')])
+          .spent.amount,
+      ).toBe(1);
     });
   });
 });

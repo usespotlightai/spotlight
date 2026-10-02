@@ -28,6 +28,8 @@ const line = (id: string, name: string): LineResponseDto => ({
   stations: [],
   reactions: [],
   repositories: [],
+  source: null,
+  replayCheck: null,
 });
 
 const seedFrame = (client: QueryClient) => {

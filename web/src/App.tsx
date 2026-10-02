@@ -16,6 +16,7 @@ import { ReplaySet } from './routes/ReplaySet.tsx';
 import { Run } from './routes/Run.tsx';
 import { RunChangeStack } from './routes/RunChangeStack.tsx';
 import { Runners } from './routes/Runners.tsx';
+import { Search } from './routes/Search.tsx';
 import { Station } from './routes/Station.tsx';
 import { Task } from './routes/Task.tsx';
 import { TaskTrace } from './routes/TaskTrace.tsx';
@@ -57,6 +58,10 @@ export default function App() {
             <Route
               path="lines/:lineId/stations/:stationId/replays/:replayId"
               element={<Replay />}
+            />
+            <Route
+              path="lines/:lineId/stations/:stationId/searches/:searchId"
+              element={<Search />}
             />
             <Route path="tasks/:taskId" element={<Task />} />
             <Route path="observability/tasks/:taskId" element={<TaskTrace />} />

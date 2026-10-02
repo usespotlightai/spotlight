@@ -16,7 +16,8 @@ export interface ReviewedRun {
   readonly ended: boolean;
   readonly completed: boolean;
   readonly decisions: boolean;
-  readonly replay: boolean;
+  readonly isReplay: boolean;
+  readonly isSearch: boolean;
 }
 
 export interface ReasonedStep {

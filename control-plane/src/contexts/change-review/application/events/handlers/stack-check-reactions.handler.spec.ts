@@ -71,6 +71,7 @@ const stackWith = (request: CheckRequest | null) =>
     runId: RunId.of('run-1'),
     taskId: TASK,
     replay: false,
+    isSearch: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,

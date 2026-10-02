@@ -40,6 +40,7 @@ type Journal interface {
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.Remembering) (json.RawMessage, error)
+	ProposeCandidate(ctx context.Context, runID string, proposal protocol.CandidateProposal) (json.RawMessage, error)
 	MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
@@ -78,6 +79,13 @@ type Options struct {
 func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	log := opts.Log.With("run", run.ID)
 	journal := &journalWriter{runID: run.ID, journal: opts.Journal}
+
+	if searches(run) {
+		run.Spec.Checkouts = nil
+		run.Spec.Skills = nil
+		run.Spec.SettingFiles = nil
+		run.Spec.HarnessSetup.Files = nil
+	}
 
 	lifecycle := &progress{state: Preparing}
 
@@ -137,7 +145,13 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		}
 	}
 
-	layMemory(ctx, opts.Journal, run.ID, space, log)
+	if searches(run) {
+		if err := space.Remove(memoryFolder); err != nil {
+			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear the team's memory: %w", err))
+		}
+	} else {
+		layMemory(ctx, opts.Journal, run.ID, space, log)
+	}
 
 	state, err := space.State()
 	if err != nil {
@@ -177,6 +191,9 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			if replays(run) {
 				return keptFromReplays("answer a remark")
 			}
+			if searches(run) {
+				return keptFromSearches("answer a remark")
+			}
 			return opts.Journal.AnswerRemark(ctx, run.ID, said)
 		},
 	)
@@ -200,6 +217,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	channel.Memories(
 		func(ctx context.Context, asked protocol.RecallRequest) (json.RawMessage, error) {
+			if searches(run) {
+				return nil, keptFromSearches("recall what the team remembers")
+			}
+
 			from := time.Now()
 			answer, err := recall(ctx, opts.Journal, run.ID, asked)
 			journal.append(protocol.Event{Type: protocol.EventSpan, Data: recalled(asked, from, time.Now(), answer, err)})
@@ -208,6 +229,9 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error) {
 			if replays(run) {
 				return nil, keptFromReplays("remember")
+			}
+			if searches(run) {
+				return nil, keptFromSearches("propose a memory")
 			}
 
 			within, err := checkedOutPaths(space.Dir, run.Spec.Checkouts, remembered.Paths)
@@ -220,6 +244,16 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			return opts.Journal.Remember(ctx, run.ID, remembered)
 		},
 	)
+
+	if searches(run) {
+		channel.Candidates(func(ctx context.Context, proposal protocol.CandidateProposal) (json.RawMessage, error) {
+			journal.flush(ctx)
+			from := time.Now()
+			answer, err := opts.Journal.ProposeCandidate(ctx, run.ID, proposal)
+			journal.append(protocol.Event{Type: protocol.EventSpan, Data: proposedSpan(proposal, from, time.Now(), answer, err)})
+			return answer, err
+		})
+	}
 
 	telemetry, err := otel.Serve(func(span json.RawMessage) {
 		journal.append(protocol.Event{Type: protocol.EventSpan, Data: span})
@@ -331,6 +365,14 @@ func replays(run protocol.Run) bool {
 
 func keptFromReplays(what string) error {
 	return &declare.Refusal{Because: "a replay may not " + what + ": it has no effect outside Spotlight"}
+}
+
+func searches(run protocol.Run) bool {
+	return run.Spec.Search != nil
+}
+
+func keptFromSearches(what string) error {
+	return &declare.Refusal{Because: "a search may not " + what + ": it studies the station's history and proposes station configs, nothing more"}
 }
 
 func (o Options) heartbeat() time.Duration {

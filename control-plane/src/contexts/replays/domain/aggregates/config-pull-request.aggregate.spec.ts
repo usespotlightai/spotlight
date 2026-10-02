@@ -1,0 +1,190 @@
+import {
+  ConfigPullRequest,
+  MOST_TRIES,
+} from '@replays/domain/aggregates/config-pull-request.aggregate';
+import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
+import { CandidateUnpickableError } from '@replays/domain/exceptions/candidate-unpickable.error';
+import { UnknownCandidateError } from '@replays/domain/exceptions/unknown-candidate.error';
+import {
+  aSearch,
+  BY,
+  later,
+  NOW,
+  STATION,
+  searchRunIds,
+} from '@replays/domain/replays.fake-spec';
+import { pickedFrom } from '@replays/domain/services/search-picks';
+import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
+import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
+import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { Spend } from '@replays/domain/value-objects/spend.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { describe, expect, it } from 'vitest';
+
+const charged = { spent: Spend.of(1, 'USD'), unpriced: 0 };
+
+const SOURCE = {
+  repository: Repository.of('acme/platform'),
+  path: 'teams/core/delivery.tf',
+};
+
+const withCandidates = (finished: boolean): Search => {
+  const runIds = searchRunIds();
+  const seeded = aSearch().replayEnded(
+    ReplayId.of('replay_seed'),
+    'finished',
+    charged,
+    NOW,
+    runIds,
+  );
+  const admitted = ['terse', 'in-order'].reduce(
+    (held, name) =>
+      held.admitted(RunId.of('search_run_1'), {
+        candidateId: CandidateId.of(`candidate_${name}`),
+        name: CandidateName.searched(name),
+        replayId: ReplayId.of(`replay_${name}`),
+      }),
+    seeded,
+  );
+
+  return finished
+    ? admitted.replayEnded(
+        ReplayId.of('replay_terse'),
+        'finished',
+        charged,
+        later(1),
+        runIds,
+      )
+    : admitted;
+};
+
+const picked = (source: typeof SOURCE | null = SOURCE) =>
+  ConfigPullRequest.picked({
+    id: ConfigPullRequestId.of('pr_1'),
+    searchId: SearchId.of('5d1e2f3a-4b5c-4d6e'),
+    candidateId: CandidateId.of('candidate_terse'),
+    station: STATION,
+    stationKey: 'build',
+    candidateName: 'terse',
+    lineKey: 'delivery',
+    source,
+    at: NOW,
+    by: BY,
+  });
+
+describe('picking a search candidate', () => {
+  it('takes a proposed candidate whose searched replay finished', () => {
+    expect(
+      pickedFrom(withCandidates(true), CandidateId.of('candidate_terse')).name
+        .value,
+    ).toBe('terse');
+  });
+
+  it('refuses the seed, a candidate the search never proposed and one still replaying', () => {
+    const search = withCandidates(false);
+
+    expect(() => pickedFrom(search, search.seed.candidateId)).toThrow(
+      CandidateUnpickableError,
+    );
+    expect(() => pickedFrom(search, CandidateId.of('candidate_none'))).toThrow(
+      UnknownCandidateError,
+    );
+    expect(() =>
+      pickedFrom(search, CandidateId.of('candidate_in-order')),
+    ).toThrow(CandidateUnpickableError);
+  });
+});
+
+describe('ConfigPullRequest', () => {
+  it('opens on its own branch, due at once, and records the pick', () => {
+    const pullRequest = picked();
+    const [wanted] = pullRequest.pullEvents();
+
+    expect(pullRequest.current).toBe('opening');
+    expect(pullRequest.branch).toBe('spotlight/search-5d1e2f3a-terse');
+    expect(pullRequest.repository).toBe('acme/platform');
+    expect(pullRequest.isDue(NOW)).toBe(true);
+    expect(wanted).toBeInstanceOf(ConfigPullRequestWanted);
+    expect((wanted as ConfigPullRequestWanted).attempt).toBe(1);
+    expect((wanted as ConfigPullRequestWanted).change).toMatchObject({
+      resource: 'config-pull-request',
+      action: 'created',
+      key: 'spotlight/search-5d1e2f3a-terse',
+    });
+  });
+
+  it('is refused at once when the line names no source', () => {
+    const pullRequest = picked(null);
+
+    expect(pullRequest.current).toBe('refused');
+    expect(pullRequest.reason?.code).toBe('no-source');
+    expect(pullRequest.dueAt).toBeNull();
+  });
+
+  it('tries again later after a failure, and gives up after the last try', () => {
+    let pullRequest = picked();
+
+    pullRequest = pullRequest.tried('GitHub is down', NOW);
+
+    expect(pullRequest.current).toBe('opening');
+    expect(pullRequest.isDue(NOW)).toBe(false);
+    expect(pullRequest.isDue(later(30_000))).toBe(true);
+
+    for (let tries = 1; tries < MOST_TRIES; tries += 1) {
+      pullRequest = pullRequest.tried('GitHub is down', NOW);
+    }
+
+    expect(pullRequest.current).toBe('refused');
+    expect(pullRequest.reason).toMatchObject({
+      code: 'github-refused',
+      message: 'GitHub is down',
+    });
+  });
+
+  it('opens with its link and is no longer due', () => {
+    const opened = picked().opened(
+      'https://github.com/acme/platform/pull/7',
+      NOW,
+    );
+
+    expect(opened.url).toBe('https://github.com/acme/platform/pull/7');
+    expect(opened.dueAt).toBeNull();
+    expect(opened.isRetryable).toBe(false);
+  });
+
+  it('is tried again only once refused, as a new attempt', () => {
+    const opening = picked();
+
+    opening.pullEvents();
+
+    expect(() =>
+      opening.retried({ lineKey: 'delivery', source: SOURCE, at: NOW, by: BY }),
+    ).toThrow();
+
+    const refused = opening.refused(
+      ConfigPullRequestReason.of({ code: 'drifted', message: 'moved on' }),
+      NOW,
+    );
+    const retried = refused.retried({
+      lineKey: 'delivery',
+      source: SOURCE,
+      at: later(5),
+      by: BY,
+    });
+    const [wanted] = retried.pullEvents();
+
+    expect(retried.current).toBe('opening');
+    expect(retried.attempts).toBe(2);
+    expect(retried.reason).toBeNull();
+    expect(retried.isOpening(1)).toBe(false);
+    expect(retried.isOpening(2)).toBe(true);
+    expect((wanted as ConfigPullRequestWanted).change).toMatchObject({
+      action: 'updated',
+    });
+  });
+});

@@ -7,6 +7,7 @@ import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.por
 import { ChatRunWork } from '@work/application/services/chat-run-work';
 import { ReplayRunWork } from '@work/application/services/replay-run-work';
 import type { RunWork } from '@work/application/services/run-work';
+import { SearchRunWork } from '@work/application/services/search-run-work';
 import { TaskRunWork } from '@work/application/services/task-run-work';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -80,7 +81,7 @@ export class RunWorks {
         : null;
     }
 
-    if (!run?.stationId) {
+    if (!run?.stationId || run.isSearch) {
       return null;
     }
 
@@ -89,6 +90,7 @@ export class RunWorks {
         task: (taskId) => this.tasks.find(taskId),
         chat: async () => null,
         replay: async () => null,
+        search: async () => null,
       })) ?? null;
     const line = await this.lines.holding(run.stationId);
     const repository = line ? repositoryWorkedOnNamed(name, task, line) : null;
@@ -116,6 +118,7 @@ export class RunWorks {
       },
       replay: async (original) =>
         new ReplayRunWork(run, await this.briefedTasks.of(original), this.runs),
+      search: async () => new SearchRunWork(run, this.runs),
     });
   }
 }

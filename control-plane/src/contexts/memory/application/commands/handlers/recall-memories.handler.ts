@@ -21,7 +21,7 @@ export class RecallMemoriesHandler
   async execute(command: RecallMemoriesCommand): Promise<TeamMemoryDto[]> {
     try {
       const words = RecallWords.of(command.words);
-      const held = await this.atHand.held(command.runId, command.runnerId);
+      const held = await this.atHand.recalling(command.runId, command.runnerId);
 
       const recalled = await this.inReach.recalled(
         held.teamId,

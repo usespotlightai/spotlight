@@ -6,12 +6,13 @@ const (
 )
 
 const (
-	HandoverToolsPath    = "/tools/"
-	HandoverRemarkPath   = "/remark"
-	HandoverTracePath    = "/trace"
-	HandoverRecallPath   = "/recall"
-	HandoverRememberPath = "/remember"
-	HandoverHistoryPath  = "/history"
+	HandoverToolsPath     = "/tools/"
+	HandoverRemarkPath    = "/remark"
+	HandoverTracePath     = "/trace"
+	HandoverRecallPath    = "/recall"
+	HandoverRememberPath  = "/remember"
+	HandoverHistoryPath   = "/history"
+	HandoverCandidatePath = "/candidates"
 )
 
 const (

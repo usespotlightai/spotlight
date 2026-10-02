@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 const published = (event: DomainEvent) =>
   IDENTITY_PUBLICATIONS.filter((each) => each.from === event.kind).map((each) =>
-    each.publish(event),
+    each.publish(event, new Date()),
   );
 
 const WORKSPACE = WorkspaceId.of('ws_1');

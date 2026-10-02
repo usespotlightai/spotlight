@@ -35,6 +35,8 @@ export const LineHttpMapper = {
         (each) => new ReactionResponseDto(each.happening, each.from, each.to),
       ),
       [...dto.repositories],
+      dto.source,
+      dto.replayCheck,
     );
   },
 };

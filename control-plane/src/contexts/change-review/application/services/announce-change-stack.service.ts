@@ -28,7 +28,7 @@ export class AnnounceChangeStack implements ChangeStackAnnouncerPort {
   async ofRun(runId: RunId): Promise<void> {
     const run = await this.work.run(runId);
 
-    if (run?.taskId && reachesBeyondSpotlight(run)) {
+    if (run?.taskId && reachesBeyondSpotlight({ replay: run.isReplay })) {
       await this.ofTask(run.taskId);
     }
   }

@@ -10,6 +10,7 @@ import type {
   ReplayableRunsPort,
   StandingRun,
 } from '@work/application/ports/replayable-runs.port';
+import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
@@ -24,6 +25,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
     private readonly lines: LineRepository,
     private readonly dispatch: DispatchReplay,
     private readonly stationRuns: StationRunReaderPort,
+    private readonly digests: RunDigestReaderPort,
     private readonly ids: IdGeneratorPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -66,6 +68,24 @@ export class ReplayableRuns implements ReplayableRunsPort {
     });
   }
 
+  async durations(
+    runIds: readonly string[],
+  ): Promise<ReadonlyMap<string, number>> {
+    if (runIds.length === 0) {
+      return new Map();
+    }
+
+    const digests = await this.digests.forRuns(
+      [...new Set(runIds)].map((each) => RunId.of(each)),
+    );
+
+    return new Map(
+      [...digests].flatMap(([runId, digest]) =>
+        digest.ms === null ? [] : [[runId, digest.ms] as const],
+      ),
+    );
+  }
+
   async recentAt(
     workspaceId: string,
     stationId: string,
@@ -76,6 +96,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
       since: null,
       until: null,
       most,
+      excluding: [],
     });
     const checked = new Map(
       (

@@ -18,6 +18,8 @@ import { REPLAY_CANDIDATES } from '@work/application/ports/replay-candidates.por
 import { REPLAY_DISPATCH } from '@work/application/ports/replay-dispatch.port';
 import { REPLAYABLE_RUNS } from '@work/application/ports/replayable-runs.port';
 import { RUN_EVIDENCE } from '@work/application/ports/run-evidence.port';
+import { SEARCH_DISPATCH } from '@work/application/ports/search-dispatch.port';
+import { SEARCH_RUNS } from '@work/application/ports/search-runs.port';
 import { STARTING_POINT_HOLDS } from '@work/application/ports/starting-point-holds.port';
 import { STATION_RUNS } from '@work/application/ports/station-runs.port';
 import { TASK_ASIDES } from '@work/application/ports/task-asides.port';
@@ -54,6 +56,8 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     REPLAYABLE_RUNS,
     REPLAY_CANDIDATES,
     REPLAY_DISPATCH,
+    SEARCH_DISPATCH,
+    SEARCH_RUNS,
     STARTING_POINT_HOLDS,
   ],
 })

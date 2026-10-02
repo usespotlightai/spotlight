@@ -27,6 +27,7 @@ type Rejection struct {
 	Status  int
 	Reason  string
 	Message string
+	Errors  []protocol.FieldError
 	Err     error
 }
 
@@ -47,6 +48,10 @@ func (r *Rejection) Refused() (string, bool) {
 	}
 
 	return r.Message, r.Message != ""
+}
+
+func (r *Rejection) Unfit() ([]protocol.FieldError, bool) {
+	return r.Errors, r.Status == http.StatusUnprocessableEntity && protocol.Refuses(r.Errors)
 }
 
 func (r *Rejection) Unwrap() error { return r.Err }
@@ -268,6 +273,29 @@ func (c *Client) Remember(
 
 	if err := c.do(ctx, http.MethodPost, path, remembered, &out); err != nil {
 		return nil, fmt.Errorf("remember: %w", err)
+	}
+
+	return out, nil
+}
+
+func (c *Client) ProposeCandidate(
+	ctx context.Context, runID string, proposal protocol.CandidateProposal,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/search-candidates", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodPost, path, proposal, &out); err != nil {
+		var rejection *Rejection
+		if errors.As(err, &rejection) {
+			switch {
+			case rejection.Message != "":
+			case rejection.Status == http.StatusConflict:
+				rejection.Message = "this iteration has proposed all the candidates it may, or the search no longer holds this run"
+			case rejection.Gone():
+				rejection.Message = "the search no longer holds this run"
+			}
+		}
+		return nil, fmt.Errorf("propose %s: %w", proposal.Name, err)
 	}
 
 	return out, nil
@@ -600,22 +628,39 @@ func (c *Client) send(ctx context.Context, method, path string, in any) (*http.R
 	return c.http.Do(request)
 }
 
+const (
+	mostDetail  = 4096
+	mostProblem = 1 << 20
+)
+
 func rejection(method, path string, response *http.Response) error {
-	detail, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+	read, _ := io.ReadAll(io.LimitReader(response.Body, mostProblem))
 
 	var said struct {
-		Reason  string          `json:"reason"`
-		Message json.RawMessage `json:"message"`
+		Reason  string                `json:"reason"`
+		Message json.RawMessage       `json:"message"`
+		Detail  string                `json:"detail"`
+		Errors  []protocol.FieldError `json:"errors"`
 	}
-	_ = json.Unmarshal(detail, &said)
+	_ = json.Unmarshal(read, &said)
+
+	detail := read
+	if len(detail) > mostDetail {
+		detail = detail[:mostDetail]
+	}
 
 	err := fmt.Errorf("%s %s: %s: %s", method, path, response.Status, strings.TrimSpace(string(detail)))
 	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
 		err = fmt.Errorf("%w: %w", ErrRefused, err)
 	}
 
+	message := messageOf(said.Message)
+	if message == "" {
+		message = said.Detail
+	}
+
 	return &Rejection{
-		Status: response.StatusCode, Reason: said.Reason, Message: messageOf(said.Message), Err: err,
+		Status: response.StatusCode, Reason: said.Reason, Message: message, Errors: said.Errors, Err: err,
 	}
 }
 

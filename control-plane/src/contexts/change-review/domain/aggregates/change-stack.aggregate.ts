@@ -6,6 +6,7 @@ import { ChangeStackSettled } from '@change-review/domain/events/change-stack-se
 import { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
 import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
@@ -150,6 +151,7 @@ export class ChangeStack
     runId: RunId;
     taskId: TaskId | null;
     replay: boolean;
+    isSearch: boolean;
     workspaceId: WorkspaceId;
     repository: string | null;
     base: string | null;
@@ -158,6 +160,10 @@ export class ChangeStack
     request: CheckRequest | null;
     now: Date;
   }): ChangeStack {
+    if (input.isSearch) {
+      throw new NoStackForSearchesError();
+    }
+
     assertKeptToItsRun(input);
 
     const stack = new ChangeStack(

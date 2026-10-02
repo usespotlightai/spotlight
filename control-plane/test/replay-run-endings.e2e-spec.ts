@@ -71,7 +71,7 @@ const heardBy = async (
   } as unknown as ReplaysReactions);
   const published = events.flatMap((event) =>
     WORK_PUBLICATIONS.filter((each) => each.from === event.kind).map((each) =>
-      each.publish(event),
+      each.publish(event, new Date()),
     ),
   );
 
@@ -182,7 +182,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       .pullEvents()
       .flatMap((event) =>
         WORK_PUBLICATIONS.filter((each) => each.from === event.kind).map(
-          (each) => each.publish(event),
+          (each) => each.publish(event, new Date()),
         ),
       );
 

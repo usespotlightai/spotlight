@@ -37,7 +37,8 @@ const asking = (
       ended: true,
       completed: true,
       decisions: true,
-      replay: false,
+      isReplay: false,
+      isSearch: false,
       ...over.run,
     }),
     task: async (): Promise<ReviewedTask> => ({

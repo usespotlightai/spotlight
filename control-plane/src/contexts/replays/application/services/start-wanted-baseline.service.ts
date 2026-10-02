@@ -33,7 +33,11 @@ export class StartWantedBaseline {
       if (
         !set ||
         set.isAtGoneStation ||
-        !needsBaseline(set, await this.replays.ofSet(set.id))
+        !needsBaseline(
+          set,
+          await this.replays.ofSet(set.id),
+          candidate.scoringDigest,
+        )
       ) {
         await this.candidates.save(candidate.abandoned());
         return;
@@ -46,6 +50,7 @@ export class StartWantedBaseline {
           candidate,
           baseline: true,
           ceiling: event.ceiling,
+          ...(event.unpricedRate ? { unpricedRate: event.unpricedRate } : {}),
           at: this.clock.now(),
           by: Attribution.spotlight(set.workspaceId),
         }),
