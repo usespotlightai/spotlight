@@ -3,6 +3,13 @@ import { Route } from 'react-router';
 import { runPath } from '@/lib/run';
 import { Run } from '@/routes/Run';
 import {
+  failReplayRun,
+  REPLAY_RUN_ID,
+  seedEmptyReplayRun,
+  seedReplayRun,
+  seedReplayRunAwaiting,
+} from '@/stories/fixtures/replays';
+import {
   emptyRun,
   failRun,
   judgingFailedRun,
@@ -27,6 +34,8 @@ const routes = (
 );
 
 const at = runPath(SLUG, TEAM_ID, RUN_ID);
+
+const replayAt = runPath(SLUG, TEAM_ID, REPLAY_RUN_ID);
 
 const meta = {
   title: 'Team/Runs/Run',
@@ -160,6 +169,42 @@ export const JudgeFailed: Story = {
   name: 'Judge score error',
   render: () => (
     <StoryPage at={at} seed={judgingFailedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ReplayLoading: Story = {
+  name: 'Replay run loading',
+  render: () => (
+    <StoryPage at={replayAt} seed={seedReplayRunAwaiting}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ReplayEmpty: Story = {
+  name: 'Replay run empty',
+  render: () => (
+    <StoryPage at={replayAt} seed={seedEmptyReplayRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ReplayFailed: Story = {
+  name: 'Replay run error',
+  render: () => (
+    <StoryPage at={replayAt} seed={failReplayRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Replay: Story = {
+  name: 'Replay run',
+  render: () => (
+    <StoryPage at={replayAt} seed={seedReplayRun}>
       {routes}
     </StoryPage>
   ),

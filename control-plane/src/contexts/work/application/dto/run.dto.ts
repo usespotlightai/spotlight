@@ -3,6 +3,7 @@ import type { ClaimedCheck } from '@work/application/ports/check-work.port';
 interface ClaimedRunDto {
   readonly id: string;
   readonly harness: string;
+  readonly attempt: number;
   readonly spec: unknown;
 }
 

@@ -13,10 +13,12 @@ import {
 import type { Provider, Type } from '@nestjs/common';
 import { GradeRunCommand } from '@outcomes/application/commands/grade-run.command';
 import { GradeRunHandler } from '@outcomes/application/commands/handlers/grade-run.handler';
+import { OUTCOMES_PUBLICATIONS } from '@outcomes/application/integration-events/outcomes.publications';
 import {
   ALERT_ASIDES,
   type AlertAsidesPort,
 } from '@outcomes/application/ports/alert-asides.port';
+import { CHANGE_JUDGING } from '@outcomes/application/ports/change-judging.port';
 import {
   EVIDENCE,
   type EvidencePort,
@@ -37,6 +39,7 @@ import {
   PEOPLE,
   type PeoplePort,
 } from '@outcomes/application/ports/people.port';
+import { RUN_ACCEPTANCE } from '@outcomes/application/ports/run-acceptance.port';
 import { WORK, type WorkPort } from '@outcomes/application/ports/work.port';
 import { ListInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/list-insights-pull-requests.handler';
 import { ListInsightsRunsHandler } from '@outcomes/application/queries/handlers/list-insights-runs.handler';
@@ -71,6 +74,7 @@ import { ReadRunScoresQuery } from '@outcomes/application/queries/read-run-score
 import { ReadStationAlertQuery } from '@outcomes/application/queries/read-station-alert.query';
 import { ReadStationJudgeQuery } from '@outcomes/application/queries/read-station-judge.query';
 import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
+import { AskChangeJudging } from '@outcomes/application/services/ask-change-judging.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
@@ -91,6 +95,7 @@ import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
+import { RunAcceptance } from '@outcomes/application/services/run-acceptance.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { RunScoresViews } from '@outcomes/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
@@ -98,6 +103,7 @@ import { TeamHistories } from '@outcomes/application/services/team-histories.ser
 import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
 import { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
+import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { WorkJudgings } from '@outcomes/application/services/work-judgings.service';
 import { OUTCOMES_EVENT_TYPES } from '@outcomes/domain/event-types';
 import { AlertAsides } from '@outcomes/infrastructure/acl/alert-asides.adapter';
@@ -111,6 +117,7 @@ import { OpenRouterJudge } from '@outcomes/infrastructure/judging/openrouter-jud
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleFirstSeen } from '@outcomes/infrastructure/persistence/drizzle/readers/first-seen.reader';
+import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
@@ -130,6 +137,7 @@ import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
+import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
@@ -222,6 +230,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   DrizzleRunRecordRepository,
   DrizzleTaskDeliveryRepository,
   DrizzleJudgingRepository,
+  DrizzleChangeJudgingRepository,
   DrizzleScoreRepository,
   DrizzleTaskTouchesRepository,
   DrizzleTaskFailuresRepository,
@@ -495,6 +504,49 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       new WorkJudgings(judgings, evidence, judge, clock, transaction, logger),
   },
   {
+    provide: CHANGE_JUDGING,
+    inject: [DrizzleChangeJudgingRepository, JUDGE, TRANSACTION, CLOCK],
+    useFactory: (
+      judgings: DrizzleChangeJudgingRepository,
+      judge: JudgePort,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new AskChangeJudging(judgings, judge, transaction, clock),
+  },
+  {
+    provide: RUN_ACCEPTANCE,
+    inject: [DrizzleRunRecordRepository],
+    useFactory: (records: DrizzleRunRecordRepository) =>
+      new RunAcceptance(records),
+  },
+  {
+    provide: WorkChangeJudgings,
+    inject: [
+      DrizzleChangeJudgingRepository,
+      EVIDENCE,
+      JUDGE,
+      CLOCK,
+      TRANSACTION,
+      LOGGER,
+    ],
+    useFactory: (
+      judgings: DrizzleChangeJudgingRepository,
+      evidence: EvidencePort,
+      judge: JudgePort,
+      clock: ClockPort,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+    ) =>
+      new WorkChangeJudgings(
+        judgings,
+        evidence,
+        judge,
+        clock,
+        transaction,
+        logger,
+      ),
+  },
+  {
     provide: DropExpiredTombstones,
     inject: [DrizzleForgotten, CLOCK],
     useFactory: (forgotten: DrizzleForgotten, clock: ClockPort) =>
@@ -502,12 +554,13 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: OwedWorkWorker,
-    inject: [WorkJudgings, DropExpiredTombstones, LOGGER],
+    inject: [WorkJudgings, WorkChangeJudgings, DropExpiredTombstones, LOGGER],
     useFactory: (
       judgings: WorkJudgings,
+      changes: WorkChangeJudgings,
       tombstones: DropExpiredTombstones,
       logger: LoggerPort,
-    ) => new OwedWorkWorker([judgings, tombstones], logger),
+    ) => new OwedWorkWorker([judgings, changes, tombstones], logger),
   },
   {
     provide: RecordJudgeScore,
@@ -541,21 +594,23 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: NoteRunSuperseded,
-    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION, CLOCK],
     useFactory: (
       records: DrizzleRunRecordRepository,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NoteRunSuperseded(records, forgotten, transaction),
+      clock: ClockPort,
+    ) => new NoteRunSuperseded(records, forgotten, transaction, clock),
   },
   {
     provide: NoteChangeChecked,
-    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION, CLOCK],
     useFactory: (
       records: DrizzleRunRecordRepository,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NoteChangeChecked(records, forgotten, transaction),
+      clock: ClockPort,
+    ) => new NoteChangeChecked(records, forgotten, transaction, clock),
   },
   {
     provide: NotePersonAct,
@@ -699,6 +754,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       DrizzleRunRecordRepository,
       DrizzleTaskDeliveryRepository,
       DrizzleJudgingRepository,
+      DrizzleChangeJudgingRepository,
       DrizzleScoreRepository,
       DrizzleTaskTouchesRepository,
       DrizzleTaskFailuresRepository,
@@ -714,6 +770,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       records: DrizzleRunRecordRepository,
       deliveries: DrizzleTaskDeliveryRepository,
       judgings: DrizzleJudgingRepository,
+      changeJudgings: DrizzleChangeJudgingRepository,
       scores: DrizzleScoreRepository,
       touches: DrizzleTaskTouchesRepository,
       failures: DrizzleTaskFailuresRepository,
@@ -730,6 +787,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           records,
           deliveries,
           judgings,
+          changeJudgings,
           scores,
           touches,
           failures,
@@ -747,6 +805,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     provide: OUTCOMES_EVENTS,
     inject: [
       EventTypes,
+      EventPublications,
       EventSubscribers,
       NoteRunEnded,
       NoteRunSuperseded,
@@ -771,6 +830,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       types: EventTypes,
+      publications: EventPublications,
       subscribers: EventSubscribers,
       ending: NoteRunEnded,
       superseding: NoteRunSuperseded,
@@ -794,6 +854,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       alerting: AlertInbox,
     ) => {
       types.register('outcomes', OUTCOMES_EVENT_TYPES);
+      publications.register(OUTCOMES_PUBLICATIONS);
       subscribers.register(
         outcomesSubscribers({
           ending,

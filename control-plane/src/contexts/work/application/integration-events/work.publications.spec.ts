@@ -14,6 +14,7 @@ import { LineRedefined } from '@work/domain/events/line-redefined.event';
 import { LineRetired } from '@work/domain/events/line-retired.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
+import { ReplayDigested } from '@work/domain/events/replay-digested.event';
 import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
@@ -29,6 +30,7 @@ import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
@@ -228,6 +230,39 @@ describe('WORK_PUBLICATIONS', () => {
     ]);
   });
 
+  it('publishes what a replay cost as a replay’s digest, naming the run it replayed', () => {
+    expect(
+      published(
+        new ReplayDigested(
+          RUN,
+          WORKSPACE,
+          RunId.of('run_0'),
+          60_000,
+          12,
+          8,
+          Money.of(0.42, 'USD'),
+          Tokens.of({ input: 1_200, output: 900 }),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.replay-digested.v1',
+        runId: 'run_1',
+        replayOf: 'run_0',
+        workspaceId: 'ws_1',
+        ms: 60_000,
+        steps: 12,
+        changedLines: 8,
+        cost: 0.42,
+        currency: 'USD',
+        inputTokens: 1_200,
+        outputTokens: 900,
+        cacheReadTokens: null,
+        cacheWriteTokens: null,
+      },
+    ]);
+  });
+
   it('publishes a run handing its task on to another station', () => {
     expect(
       published(
@@ -415,6 +450,67 @@ describe('WORK_PUBLICATIONS', () => {
     expect(ended(new RunWithdrawn(RUN, WORKSPACE, SUBJECT, 1))).toBe(
       'withdrawn',
     );
+  });
+
+  it('publishes a replay’s end as a replay’s, never as a run’s', () => {
+    const replay = RunSubject.replay(
+      RunId.of('run_0'),
+      TaskId.of('task_1'),
+      StationId.of('station_1'),
+      TeamId.of('team_1'),
+    );
+
+    expect(
+      published(
+        new RunCompleted(
+          RUN,
+          WORKSPACE,
+          replay,
+          RunOutcome.of({ exitCode: 0, failed: false }),
+          null,
+          Declaration.of({ next: 'review', note: 'Over to you.' }),
+          null,
+          1,
+          true,
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.replay-ended.v1',
+        runId: 'run_1',
+        replayOf: 'run_0',
+        workspaceId: 'ws_1',
+        outcome: 'completed',
+        failure: null,
+        stopped: false,
+        asked: true,
+        next: 'review',
+        note: 'Over to you.',
+      },
+    ]);
+    expect(
+      published(
+        new RunAbandoned(RUN, WORKSPACE, replay, 3, 3, false, 'runner-lost'),
+      ),
+    ).toEqual([
+      {
+        kind: 'work.replay-ended.v1',
+        runId: 'run_1',
+        replayOf: 'run_0',
+        workspaceId: 'ws_1',
+        outcome: 'abandoned',
+        failure: 'runner-lost',
+        stopped: false,
+        asked: false,
+        next: null,
+        note: null,
+      },
+    ]);
+    expect(
+      published(new RunWithdrawn(RUN, WORKSPACE, replay, 1)).map(
+        (each) => each.kind,
+      ),
+    ).toEqual(['work.replay-ended.v1']);
   });
 
   it('publishes a run with no task as ending for no task', () => {

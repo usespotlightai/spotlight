@@ -11,6 +11,8 @@ import { InboxIndex } from './routes/InboxIndex.tsx';
 import { InboxItem } from './routes/InboxItem.tsx';
 import { LineBoard } from './routes/LineBoard.tsx';
 import { Login } from './routes/Login.tsx';
+import { Replay } from './routes/Replay.tsx';
+import { ReplaySet } from './routes/ReplaySet.tsx';
 import { Run } from './routes/Run.tsx';
 import { RunChangeStack } from './routes/RunChangeStack.tsx';
 import { Runners } from './routes/Runners.tsx';
@@ -47,6 +49,14 @@ export default function App() {
             <Route
               path="lines/:lineId/stations/:stationId"
               element={<Station />}
+            />
+            <Route
+              path="lines/:lineId/stations/:stationId/replay-sets/:setId"
+              element={<ReplaySet />}
+            />
+            <Route
+              path="lines/:lineId/stations/:stationId/replays/:replayId"
+              element={<Replay />}
             />
             <Route path="tasks/:taskId" element={<Task />} />
             <Route path="observability/tasks/:taskId" element={<TaskTrace />} />

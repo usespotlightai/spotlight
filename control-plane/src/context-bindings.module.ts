@@ -4,6 +4,7 @@ import { IntegrationsModule } from '@integrations/integrations.module';
 import { MemoryModule } from '@memory/memory.module';
 import { Global, Module } from '@nestjs/common';
 import { OutcomesModule } from '@outcomes/outcomes.module';
+import { ReplaysModule } from '@replays/replays.module';
 
 @Global()
 @Module({
@@ -13,6 +14,7 @@ import { OutcomesModule } from '@outcomes/outcomes.module';
     IntegrationsModule,
     MemoryModule,
     OutcomesModule,
+    ReplaysModule,
   ],
   exports: [
     ConfigurationModule,
@@ -20,6 +22,7 @@ import { OutcomesModule } from '@outcomes/outcomes.module';
     IntegrationsModule,
     MemoryModule,
     OutcomesModule,
+    ReplaysModule,
   ],
 })
 export class ContextBindingsModule {}

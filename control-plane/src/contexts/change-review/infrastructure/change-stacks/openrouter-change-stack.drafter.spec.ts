@@ -97,9 +97,11 @@ describe('OpenRouterChangeStackDrafter', () => {
       ],
     });
 
-    const cohorts = await draft(
+    const { cohorts, usage } = await draft(
       new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch),
     );
+
+    expect(usage).toBeNull();
 
     expect(cohorts).toEqual([
       {

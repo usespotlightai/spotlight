@@ -234,6 +234,10 @@ export type ClaimedRunResponseDto = {
    */
   harness: string;
   /**
+   * Which attempt of the run this is, so what the runner reports for it is not taken for a later one
+   */
+  attempt: number;
+  /**
    * What the runner lays out and starts, as the runner reads it
    */
   spec: {
@@ -559,6 +563,29 @@ export type RecordRunImageRequestDto = {
   image: string;
 };
 
+export type StartedCheckoutRequestDto = {
+  /**
+   * The checkout, by its path in the workspace, as the run was given it
+   */
+  path: string;
+  /**
+   * The commit HEAD was at once the workspace was restored and the checkout prepared, as its full SHA
+   */
+  commit: string;
+};
+
+export type RecordStartingPointRequestDto = {
+  /**
+   * The attempt of the run the runner was handed, as the claim named it
+   */
+  attempt: number;
+  /**
+   * The workspace archive the run restored, or null where it started afresh
+   */
+  archiveId: string | null;
+  checkouts: Array<StartedCheckoutRequestDto>;
+};
+
 export type RunEventRequestDto = {
   /**
    * Assigned by the runner, gapless
@@ -640,6 +667,14 @@ export type DeclaredOutcomeDto = {
 export type CompleteRunRequestDto = {
   exitCode: number;
   failed: boolean;
+  /**
+   * With failed: it failed before the agent was handed the run, while the runner made its workspace ready
+   */
+  unprepared?: boolean;
+  /**
+   * With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease lapsed
+   */
+  timedOut?: boolean;
   message?: string;
   outcome?: DeclaredOutcomeDto;
   /**
@@ -1487,6 +1522,46 @@ export type AssignTaskRequestDto = {
   assigneeId: string | null;
 };
 
+export type ReplayedRunResponseDto = {
+  runId: string;
+  taskId: string | null;
+  /**
+   * The title of the task it worked, as it reads now; null once the task is deleted
+   */
+  title: string | null;
+};
+
+export type ReplayRunResponseDto = {
+  id: string;
+  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  attempt: number;
+  exitCode: number | null;
+  startedAt: string;
+  updatedAt: string;
+  harness: string;
+  /**
+   * The image, by digest, its sandbox started from; null before it started or where a push pool provisioned it
+   */
+  image: string | null;
+  /**
+   * Where it ran, which the task may since have left
+   */
+  station: RunStationResponseDto | null;
+  /**
+   * Set where it put the task to a person
+   */
+  review: RunReviewResponseDto | null;
+  /**
+   * The past task run it replays
+   */
+  original: ReplayedRunResponseDto;
+  spend: RunSpendResponseDto | null;
+  /**
+   * What it did and said, attempt by attempt
+   */
+  journals: Array<RunJournalResponseDto>;
+};
+
 export type ChatImprovingResponseDto = {
   lineId: string;
   lineKey: string;
@@ -1926,7 +2001,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'workspace-runners';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'workspace-runners' | 'replay-candidate' | 'replay';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -5406,6 +5481,495 @@ export type InsightsRunsResponseDto = {
   people: Array<PersonNameResponseDto>;
 };
 
+export type StationChangeResponseDto = {
+  /**
+   * What part of the station config changed: prompt, harness, model, effort, profile, image, repository, skill, tool, decisions, memories or judge
+   */
+  part: string;
+  /**
+   * Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or trust
+   */
+  name: string | null;
+  kind: 'added' | 'removed' | 'changed';
+  /**
+   * What it was, where it can be shown; prompts, skills and rubrics are compared but not shown
+   */
+  was: string | null;
+  now: string | null;
+};
+
+export type ChangedFromResponseDto = {
+  /**
+   * The live config’s fingerprint when the candidate was proposed
+   */
+  fingerprint: string;
+  /**
+   * What the candidate changes from that live config, as a run’s config changes are told; empty for a live candidate
+   */
+  changes: Array<StationChangeResponseDto>;
+};
+
+export type ReplayCandidateResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The team whose station it is for
+   */
+  teamId: string;
+  /**
+   * The line of that station
+   */
+  lineId: string;
+  /**
+   * The station it is for, as the team’s replay endpoints name it
+   */
+  stationId: string;
+  /**
+   * The station it is for: team, line and station keys
+   */
+  stationAddress: string;
+  /**
+   * Tells it from the station’s other candidates; a proposed name is used once per station
+   */
+  name: string;
+  /**
+   * proposed by a person or a token; or live, a snapshot of the station’s config Spotlight takes to replay as a baseline, which only goes with its replays
+   */
+  kind: 'live' | 'proposed';
+  /**
+   * The station block it replays the station under, in the shape the line resource holds a station in
+   */
+  station: {
+    [key: string]: unknown;
+  };
+  /**
+   * The StationConfig fingerprint the candidate runs under, as runs record theirs
+   */
+  fingerprint: string;
+  changedFrom: ChangedFromResponseDto;
+  createdAt: string;
+};
+
+export type ReplayCandidateResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<ReplayCandidateResourceResponseDto>;
+};
+
+export type ReplaySetEntryResponseDto = {
+  runId: string;
+  taskId: string;
+  /**
+   * The title of the task it worked, as it reads now; null once the task is deleted
+   */
+  title: string | null;
+  /**
+   * How the run stands now; null where there is no such run
+   */
+  state: string | null;
+  /**
+   * When the run ended; null while it has not
+   */
+  endedAt: string | null;
+  addedAt: string;
+  /**
+   * Why the run can no longer be replayed, as it stands now; null while it can
+   */
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  reason: string | null;
+};
+
+export type ReplaySetResponseDto = {
+  id: string;
+  lineId: string;
+  stationId: string;
+  name: string;
+  createdAt: string;
+  /**
+   * Its station is gone from its line: it takes no more runs, starts no replays and keeps no archives; it may still be renamed, have runs taken out, or be deleted
+   */
+  stationGone: boolean;
+  entries: Array<ReplaySetEntryResponseDto>;
+};
+
+export type ReplayableRunResponseDto = {
+  runId: string;
+  taskId: string | null;
+  title: string;
+  state: string;
+  endedAt: string;
+  /**
+   * Why it cannot be replayed; null when it can
+   */
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  reason: string | null;
+};
+
+export type OpenReplaySetRequestDto = {
+  name: string;
+};
+
+export type ReplaySetOpenedResponseDto = {
+  id: string;
+};
+
+export type RenameReplaySetRequestDto = {
+  name: string;
+};
+
+export type AddReplaySetEntryRequestDto = {
+  /**
+   * A past run of a task at the set’s station
+   */
+  runId: string;
+};
+
+export type CandidateResponseDto = {
+  id: string;
+  name: string;
+  kind: 'live' | 'proposed';
+  /**
+   * The StationConfig fingerprint, as runs record it
+   */
+  fingerprint: string;
+  /**
+   * The station block, as the line resource holds it
+   */
+  station: {
+    [key: string]: unknown;
+  };
+  createdAt: string;
+};
+
+export type ReplayTotalsResponseDto = {
+  entries: number;
+  settled: number;
+  completed: number;
+  failed: number;
+  stopped: number;
+  asked: number;
+  unreplayable: number;
+  notRun: number;
+  succeeded: number | null;
+  /**
+   * Of the scored entries, the share that succeeded
+   */
+  successRate: number | null;
+  /**
+   * Entries that succeeded or failed
+   */
+  scored: number;
+  /**
+   * Entries done that nothing could score
+   */
+  unscored: number;
+  /**
+   * What it spent in the ceiling’s currency, counted against it
+   */
+  spent: SpendResponseDto;
+  /**
+   * What it spent in other currencies, one sum each; none of it counts against the ceiling
+   */
+  spentElsewhere: Array<SpendResponseDto>;
+  /**
+   * Runs whose cost was never reported
+   */
+  unpriced: number;
+  /**
+   * Model calls, for drafting change stacks or judging, that came back with no price
+   */
+  unpricedCalls: number;
+  steps: number;
+  medianSteps: number | null;
+  ms: number;
+  medianMs: number | null;
+};
+
+export type EntryChecksResponseDto = {
+  /**
+   * drafting or checking until its change stacks settle and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
+   */
+  state: 'absent' | 'drafting' | 'checking' | 'passed' | 'failed' | 'none' | 'unchecked';
+  /**
+   * The steps or layers that failed
+   */
+  failedAt: Array<string>;
+  /**
+   * Why it went unchecked: what stopped the runner checking it, undrafted when its change was never drafted, or skipped for anything else
+   */
+  why: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time' | 'no-image' | 'unprovisioned' | 'nobody-checked' | 'skipped' | 'undrafted' | 'no-check-asked' | null;
+};
+
+export type EntryJudgeResponseDto = {
+  state: 'asked' | 'judged' | 'unjudged';
+  scale: 'yes-no' | 'number' | null;
+  /**
+   * 0 or 1 on a yes-no rubric, 1 to 5 on a number one
+   */
+  score: number | null;
+  /**
+   * Yes on a yes-no rubric, or at least 4 on a number one
+   */
+  passed: boolean | null;
+  /**
+   * Whether it was judged against the change people accepted for the original run; without one, on the rubric alone
+   */
+  referenced: boolean | null;
+  model: string | null;
+  unjudged: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'stopped-before-judging' | null;
+};
+
+export type ModelSpentResponseDto = {
+  /**
+   * One sum per currency the calls were priced in
+   */
+  spends: Array<SpendResponseDto>;
+  /**
+   * Calls that came back with no price
+   */
+  unpriced: number;
+};
+
+export type EntryReasonResponseDto = {
+  /**
+   * run-failed (detail: how; exited, refused or timed-out, the run failed through the candidate), asked-a-person, check-failed and judge-failed count against the replay; run-failed with unprepared, unprovisioned, hooks-unanswered, runner-lost or superseded (what ran it failed), unreplayable (detail: why it could not be replayed or started), run-stopped (the replay was stopped or ran over its ceiling), not-run, check-skipped (detail: why, as in no-check-asked), change-undrafted, no-change (it changed nothing for its check to run on), no-change-stack (it changed files, but no stack of them reached Spotlight), unjudged and nothing-judges leave it unscored; judged says why the judge passed it
+   */
+  code: 'unreplayable' | 'not-run' | 'run-failed' | 'run-stopped' | 'asked-a-person' | 'check-failed' | 'check-skipped' | 'change-undrafted' | 'no-change' | 'no-change-stack' | 'judged' | 'judge-failed' | 'unjudged' | 'nothing-judges';
+  /**
+   * The refusal, failure or skip code, the failed check step or layer, or what the judge said
+   */
+  detail: string | null;
+  /**
+   * Journal steps of the replay run the judge cited
+   */
+  steps: Array<number>;
+  /**
+   * Hunks of the replay run’s change the judge cited
+   */
+  hunks: Array<string>;
+};
+
+export type ReplayEntryResponseDto = {
+  position: number;
+  /**
+   * The past run it replays
+   */
+  originalRunId: string;
+  taskId: string;
+  /**
+   * The replay run, once one is queued
+   */
+  runId: string | null;
+  /**
+   * The StationConfig fingerprint the replay run was queued under; it can drift from the candidate’s when the line changed since
+   */
+  fingerprint: string | null;
+  phase: 'waiting' | 'dispatched' | 'settled';
+  ending: 'completed' | 'failed' | 'stopped' | 'asked' | 'unreplayable' | 'not-run' | null;
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  /**
+   * How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost and superseded were down to what ran it, and leave the entry unscored
+   */
+  failure: 'exited' | 'unprepared' | 'refused' | 'unprovisioned' | 'hooks-unanswered' | 'runner-lost' | 'timed-out' | 'superseded' | null;
+  /**
+   * Where its handover would have sent the task
+   */
+  next: string | null;
+  ms: number | null;
+  steps: number | null;
+  cost: SpendResponseDto | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheWriteTokens: number | null;
+  checks: EntryChecksResponseDto | null;
+  judge: EntryJudgeResponseDto | null;
+  /**
+   * What drafting and reordering its change stacks cost, failed calls included; what is in the ceiling’s currency is spent against it
+   */
+  draftingSpent: ModelSpentResponseDto | null;
+  /**
+   * What judging its change cost, unreadable answers included; what is in the ceiling’s currency is spent against it
+   */
+  judgingSpent: ModelSpentResponseDto | null;
+  /**
+   * pending while its run, checks or judge are still to come; unscored when nothing could say whether it succeeded
+   */
+  result: 'pending' | 'succeeded' | 'failed' | 'unscored';
+  /**
+   * Its candidate’s own checks passed, or it has none, and its judge, where it has one, passed it; null while pending or unscored
+   */
+  succeeded: boolean | null;
+  reasons: Array<EntryReasonResponseDto>;
+};
+
+export type ReplayResponseDto = {
+  id: string;
+  setId: string;
+  candidate: CandidateResponseDto | null;
+  /**
+   * Started as a baseline of the live config
+   */
+  startedAsBaseline: boolean;
+  /**
+   * The set’s baseline, compared against
+   */
+  isBaseline: boolean;
+  /**
+   * Its candidate has a judge, which scores every replay run
+   */
+  judges: boolean;
+  /**
+   * Its candidate checks the change each replay run leaves; a run that leaves no change stack then goes unscored
+   */
+  checks: boolean;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  ceiling: SpendResponseDto;
+  startedAt: string;
+  endedAt: string | null;
+  totals: ReplayTotalsResponseDto;
+  entries: Array<ReplayEntryResponseDto>;
+};
+
+export type StartReplayCeilingRequestDto = {
+  amount: number;
+  currency: string;
+};
+
+export type StartReplayRequestDto = {
+  /**
+   * A candidate’s id, or live for the station as configured now
+   */
+  candidate: string;
+  ceiling: StartReplayCeilingRequestDto;
+};
+
+export type StartedBaselineResponseDto = {
+  id: string;
+  /**
+   * Its own ceiling, the same as the one asked for
+   */
+  ceiling: SpendResponseDto;
+  /**
+   * started: this replay is the baseline; starting: it starts shortly, unless another baseline covers the set by then, which reads then name
+   */
+  status: 'started' | 'starting';
+};
+
+export type ReplayStartedResponseDto = {
+  id: string;
+  /**
+   * The most this replay may spend, on its own
+   */
+  ceiling: SpendResponseDto;
+  /**
+   * The set’s baseline replay of the live config, when the set had none covering its runs: this replay itself, or one starting beside it under this id. It spends against a ceiling of its own, equal to the one asked for, so the two together may spend up to twice it
+   */
+  baseline: StartedBaselineResponseDto | null;
+};
+
+export type EntryComparisonResponseDto = {
+  originalRunId: string;
+  taskId: string;
+  /**
+   * The title of the task the original run worked, as it reads now; null once the task is deleted
+   */
+  title: string | null;
+  candidate: ReplayEntryResponseDto;
+  baseline: ReplayEntryResponseDto | null;
+  /**
+   * Candidate cost less the baseline’s, once both settled
+   */
+  costDelta: number | null;
+  msDelta: number | null;
+  stepsDelta: number | null;
+  /**
+   * Candidate judge score less the baseline’s, where both were judged on the same scale
+   */
+  scoreDelta: number | null;
+  /**
+   * Why there is no score delta: one side was not judged, or the two were judged by different rubrics or one against a reference the other lacked
+   */
+  scoreUncompared: 'unjudged' | 'other-rubric' | 'other-reference' | null;
+  /**
+   * The baseline succeeded on this task and the candidate failed, or its judge score dropped
+   */
+  regressed: boolean;
+};
+
+export type ReplayDetailResponseDto = {
+  id: string;
+  setId: string;
+  candidate: CandidateResponseDto | null;
+  /**
+   * Started as a baseline of the live config
+   */
+  startedAsBaseline: boolean;
+  /**
+   * The set’s baseline, compared against
+   */
+  isBaseline: boolean;
+  /**
+   * Its candidate has a judge, which scores every replay run
+   */
+  judges: boolean;
+  /**
+   * Its candidate checks the change each replay run leaves; a run that leaves no change stack then goes unscored
+   */
+  checks: boolean;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  ceiling: SpendResponseDto;
+  startedAt: string;
+  endedAt: string | null;
+  totals: ReplayTotalsResponseDto;
+  entries: Array<ReplayEntryResponseDto>;
+  baselineReplayId: string | null;
+  /**
+   * Per task against the set’s baseline, regressions first
+   */
+  comparison: Array<EntryComparisonResponseDto>;
+};
+
+export type ReplayOfRunResponseDto = {
+  replayId: string;
+  setId: string;
+  /**
+   * Its set’s name; null once the set is gone
+   */
+  setName: string | null;
+  lineId: string;
+  stationId: string;
+  candidate: CandidateResponseDto | null;
+  /**
+   * Started as a baseline of the live config
+   */
+  startedAsBaseline: boolean;
+  /**
+   * The set’s baseline, compared against
+   */
+  isBaseline: boolean;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  /**
+   * The run’s entry in the replay, with its result
+   */
+  entry: ReplayEntryResponseDto | null;
+};
+
 export type HookSigningRequestDtoWritable = {
   /**
    * The HMAC secret, whsec_ and 24 to 64 base64 bytes; write-only, sent when secretVersion changes
@@ -5484,7 +6048,7 @@ export type CreateLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -5545,7 +6109,7 @@ export type DeleteLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -5606,7 +6170,7 @@ export type ReadLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -5653,7 +6217,7 @@ export type UpdateLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -5718,7 +6282,7 @@ export type ImportLineData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -5768,7 +6332,7 @@ export type ListLinesData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -6137,6 +6701,40 @@ export type RecordRunImageResponses = {
 };
 
 export type RecordRunImageResponse = RecordRunImageResponses[keyof RecordRunImageResponses];
+
+export type RecordStartingPointData = {
+  body: RecordStartingPointRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/starting-point';
+};
+
+export type RecordStartingPointErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run
+   */
+  404: unknown;
+  /**
+   * The run is not held by this runner on that attempt, works no task, or already started from somewhere else
+   */
+  409: unknown;
+  /**
+   * An archive the run could not have restored, a commit that is not a full SHA, or checkouts other than the ones the run was given
+   */
+  422: unknown;
+};
+
+export type RecordStartingPointResponses = {
+  204: void;
+};
+
+export type RecordStartingPointResponse = RecordStartingPointResponses[keyof RecordStartingPointResponses];
 
 export type AppendRunEventsData = {
   body: AppendRunEventsRequestDto;
@@ -6934,8 +7532,8 @@ export type ListTeamTracesResponse = ListTeamTracesResponses[keyof ListTeamTrace
 export type ReadRunConfigData = {
   body?: never;
   path: {
-    runId: string;
     teamId: string;
+    runId: string;
   };
   query?: never;
   url: '/teams/{teamId}/runs/{runId}/config';
@@ -7224,6 +7822,49 @@ export type AssignTaskResponses = {
 
 export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
 
+export type ReadReplayRunData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-runs/{runId}';
+};
+
+export type ReadReplayRunErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such replay run of the team for a caller who may read its outcomes
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadReplayRunError = ReadReplayRunErrors[keyof ReadReplayRunErrors];
+
+export type ReadReplayRunResponses = {
+  200: ReplayRunResponseDto;
+};
+
+export type ReadReplayRunResponse = ReadReplayRunResponses[keyof ReadReplayRunResponses];
+
 export type ListChatsData = {
   body?: never;
   path: {
@@ -7502,7 +8143,7 @@ export type ImportWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7550,7 +8191,7 @@ export type ListWorkspacesData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7592,7 +8233,7 @@ export type CreateWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7651,7 +8292,7 @@ export type DeleteWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7712,7 +8353,7 @@ export type ReadWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7760,7 +8401,7 @@ export type UpdateWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7825,7 +8466,7 @@ export type ListTeamsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -7873,7 +8514,7 @@ export type CreateTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7934,7 +8575,7 @@ export type DeleteTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -7995,7 +8636,7 @@ export type ReadTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8043,7 +8684,7 @@ export type UpdateTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8108,7 +8749,7 @@ export type ImportTeamData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8158,7 +8799,7 @@ export type ListWorkspaceTokensData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8208,7 +8849,7 @@ export type CreateWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8271,7 +8912,7 @@ export type DeleteWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8332,7 +8973,7 @@ export type ReadWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8382,7 +9023,7 @@ export type UpdateWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8447,7 +9088,7 @@ export type ImportWorkspaceTokenData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8497,7 +9138,7 @@ export type ListWorkspaceTokenTrustsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8552,7 +9193,7 @@ export type CreateWorkspaceTokenTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8613,7 +9254,7 @@ export type DeleteWorkspaceTokenTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8674,7 +9315,7 @@ export type ReadWorkspaceTokenTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -8729,7 +9370,7 @@ export type UpdateWorkspaceTokenTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -8794,7 +9435,7 @@ export type ImportWorkspaceTokenTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9183,7 +9824,7 @@ export type ListSecretsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9248,7 +9889,7 @@ export type CreateSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -9309,7 +9950,7 @@ export type DeleteSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -9370,7 +10011,7 @@ export type ReadSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9435,7 +10076,7 @@ export type UpdateSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -9500,7 +10141,7 @@ export type ImportSecretData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9550,7 +10191,7 @@ export type ReadCatalogToolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9612,7 +10253,7 @@ export type ReadCatalogSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9872,7 +10513,7 @@ export type ListRunnerTrustsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -9923,7 +10564,7 @@ export type CreateRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -9984,7 +10625,7 @@ export type DeleteRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -10045,7 +10686,7 @@ export type ReadRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -10096,7 +10737,7 @@ export type UpdateRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -10161,7 +10802,7 @@ export type ImportRunnerTrustData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -10211,7 +10852,7 @@ export type ListRunnerPoolsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -10285,7 +10926,7 @@ export type CreateRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -10348,7 +10989,7 @@ export type DeleteRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -10409,7 +11050,7 @@ export type ReadRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -10483,7 +11124,7 @@ export type UpdateRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -10548,7 +11189,7 @@ export type ImportRunnerPoolData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -10598,7 +11239,7 @@ export type ListWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -10647,7 +11288,7 @@ export type CreateWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -10708,7 +11349,7 @@ export type DeleteWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -10769,7 +11410,7 @@ export type ReadWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -10818,7 +11459,7 @@ export type UpdateWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -10883,7 +11524,7 @@ export type ImportWorkspaceRunnersData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -10990,7 +11631,7 @@ export type CreateSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -11051,7 +11692,7 @@ export type DeleteSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -11112,7 +11753,7 @@ export type ReadSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -11162,7 +11803,7 @@ export type UpdateSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -11227,7 +11868,7 @@ export type ImportSkillData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -11277,7 +11918,7 @@ export type ListSkillsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -11343,7 +11984,7 @@ export type CreateHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -11404,7 +12045,7 @@ export type DeleteHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -11465,7 +12106,7 @@ export type ReadHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -11531,7 +12172,7 @@ export type UpdateHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -11596,7 +12237,7 @@ export type ImportHarnessProfileData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -11646,7 +12287,7 @@ export type ListHarnessProfilesData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -11691,7 +12332,7 @@ export type ExportWorkspaceData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -11733,7 +12374,7 @@ export type ReadResourceHclData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -12140,7 +12781,7 @@ export type CreateIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -12201,7 +12842,7 @@ export type DeleteIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -12262,7 +12903,7 @@ export type ReadIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -12309,7 +12950,7 @@ export type UpdateIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -12374,7 +13015,7 @@ export type ImportIntegrationData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -12424,7 +13065,7 @@ export type ListIntegrationsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -12469,7 +13110,7 @@ export type CheckExpressionData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -12516,7 +13157,7 @@ export type ListExpressionPositionsData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -12578,7 +13219,7 @@ export type CreateHookData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -12639,7 +13280,7 @@ export type DeleteHookData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -12700,7 +13341,7 @@ export type ReadHookData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -12745,7 +13386,7 @@ export type UpdateHookData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
     /**
@@ -12810,7 +13451,7 @@ export type ImportHookData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -12860,7 +13501,7 @@ export type ListHooksData = {
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version> or web; anything else is recorded as unknown
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
      */
     'Spotlight-Client'?: string;
   };
@@ -14099,3 +14740,928 @@ export type ListInsightsRunsResponses = {
 };
 
 export type ListInsightsRunsResponse = ListInsightsRunsResponses[keyof ListInsightsRunsResponses];
+
+export type CreateReplayCandidateData = {
+  body: {
+    /**
+     * Tells it from the station’s other candidates; a name is proposed once per station
+     */
+    name: string;
+    /**
+     * The station block to replay under, as the line resource holds a station: it keeps the station’s key, and is checked as a line with it in place would be
+     */
+    station: {
+      [key: string]: unknown;
+    };
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    lineId: string;
+    stationKey: string;
+  };
+  query?: never;
+  url: '/resources/lines/{lineId}/stations/{stationKey}/replay-candidates';
+};
+
+export type CreateReplayCandidateErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the replay-candidate: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such replay-candidate that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * There is already a replay-candidate at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateReplayCandidateError = CreateReplayCandidateErrors[keyof CreateReplayCandidateErrors];
+
+export type CreateReplayCandidateResponses = {
+  /**
+   * The replay-candidate, as a read would answer it
+   */
+  201: ReplayCandidateResourceResponseDto;
+};
+
+export type CreateReplayCandidateResponse = CreateReplayCandidateResponses[keyof CreateReplayCandidateResponses];
+
+export type DeleteReplayCandidateData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/replay-candidates/{id}';
+};
+
+export type DeleteReplayCandidateErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the replay-candidate: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such replay-candidate that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteReplayCandidateError = DeleteReplayCandidateErrors[keyof DeleteReplayCandidateErrors];
+
+export type DeleteReplayCandidateResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteReplayCandidateResponse = DeleteReplayCandidateResponses[keyof DeleteReplayCandidateResponses];
+
+export type ReadReplayCandidateData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/replay-candidates/{id}';
+};
+
+export type ReadReplayCandidateErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such replay-candidate that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadReplayCandidateError = ReadReplayCandidateErrors[keyof ReadReplayCandidateErrors];
+
+export type ReadReplayCandidateResponses = {
+  /**
+   * The replay-candidate, every field of it
+   */
+  200: ReplayCandidateResourceResponseDto;
+};
+
+export type ReadReplayCandidateResponse = ReadReplayCandidateResponses[keyof ReadReplayCandidateResponses];
+
+export type ImportReplayCandidateData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The replay-candidate's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/replay-candidates/import';
+};
+
+export type ImportReplayCandidateErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such replay-candidate that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportReplayCandidateError = ImportReplayCandidateErrors[keyof ImportReplayCandidateErrors];
+
+export type ImportReplayCandidateResponses = {
+  /**
+   * The replay-candidate, as a read would answer it
+   */
+  200: ReplayCandidateResourceResponseDto;
+};
+
+export type ImportReplayCandidateResponse = ImportReplayCandidateResponses[keyof ImportReplayCandidateResponses];
+
+export type ListReplayCandidatesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: {
+    /**
+     * Only the candidates of this station: its team, line and station keys
+     */
+    station?: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/replay-candidates';
+};
+
+export type ListReplayCandidatesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListReplayCandidatesError = ListReplayCandidatesErrors[keyof ListReplayCandidatesErrors];
+
+export type ListReplayCandidatesResponses = {
+  /**
+   * Every replay-candidate there, each as a read would answer it, in address order
+   */
+  200: ReplayCandidateResourceListResponseDto;
+};
+
+export type ListReplayCandidatesResponse = ListReplayCandidatesResponses[keyof ListReplayCandidatesResponses];
+
+export type ListReplaySetsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets';
+};
+
+export type ListReplaySetsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListReplaySetsError = ListReplaySetsErrors[keyof ListReplaySetsErrors];
+
+export type ListReplaySetsResponses = {
+  200: Array<ReplaySetResponseDto>;
+};
+
+export type ListReplaySetsResponse = ListReplaySetsResponses[keyof ListReplaySetsResponses];
+
+export type OpenReplaySetData = {
+  body: OpenReplaySetRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets';
+};
+
+export type OpenReplaySetErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * No name it takes
+   */
+  422: ProblemResponseDto;
+};
+
+export type OpenReplaySetError = OpenReplaySetErrors[keyof OpenReplaySetErrors];
+
+export type OpenReplaySetResponses = {
+  201: ReplaySetOpenedResponseDto;
+};
+
+export type OpenReplaySetResponse = OpenReplaySetResponses[keyof OpenReplaySetResponses];
+
+export type ListTeamReplaySetsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * With line: the key of the station whose sets to list; a line or station the team does not hold is not found
+     */
+    station?: unknown;
+    /**
+     * With station: the line of the station whose sets to list
+     */
+    line?: unknown;
+  };
+  url: '/teams/{teamId}/replay-sets';
+};
+
+export type ListTeamReplaySetsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * A line without a station, or a station without a line
+   */
+  422: ProblemResponseDto;
+};
+
+export type ListTeamReplaySetsError = ListTeamReplaySetsErrors[keyof ListTeamReplaySetsErrors];
+
+export type ListTeamReplaySetsResponses = {
+  200: Array<ReplaySetResponseDto>;
+};
+
+export type ListTeamReplaySetsResponse = ListTeamReplaySetsResponses[keyof ListTeamReplaySetsResponses];
+
+export type ListReplayableRunsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replayable-runs';
+};
+
+export type ListReplayableRunsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListReplayableRunsError = ListReplayableRunsErrors[keyof ListReplayableRunsErrors];
+
+export type ListReplayableRunsResponses = {
+  200: Array<ReplayableRunResponseDto>;
+};
+
+export type ListReplayableRunsResponse = ListReplayableRunsResponses[keyof ListReplayableRunsResponses];
+
+export type DeleteReplaySetData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}';
+};
+
+export type DeleteReplaySetErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * A replay of the set is still running; stop it first
+   */
+  409: ProblemResponseDto;
+};
+
+export type DeleteReplaySetError = DeleteReplaySetErrors[keyof DeleteReplaySetErrors];
+
+export type DeleteReplaySetResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteReplaySetResponse = DeleteReplaySetResponses[keyof DeleteReplaySetResponses];
+
+export type RenameReplaySetData = {
+  body: RenameReplaySetRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}';
+};
+
+export type RenameReplaySetErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * No name it takes
+   */
+  422: ProblemResponseDto;
+};
+
+export type RenameReplaySetError = RenameReplaySetErrors[keyof RenameReplaySetErrors];
+
+export type RenameReplaySetResponses = {
+  /**
+   * Renamed
+   */
+  204: void;
+};
+
+export type RenameReplaySetResponse = RenameReplaySetResponses[keyof RenameReplaySetResponses];
+
+export type AddReplaySetEntryData = {
+  body: AddReplaySetEntryRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/entries';
+};
+
+export type AddReplaySetEntryErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * The run is in the set already, the set is full, or the run cannot be replayed, saying why
+   */
+  409: ProblemResponseDto;
+  /**
+   * No run named, or a run of another station
+   */
+  422: ProblemResponseDto;
+};
+
+export type AddReplaySetEntryError = AddReplaySetEntryErrors[keyof AddReplaySetEntryErrors];
+
+export type AddReplaySetEntryResponses = {
+  /**
+   * Added
+   */
+  204: void;
+};
+
+export type AddReplaySetEntryResponse = AddReplaySetEntryResponses[keyof AddReplaySetEntryResponses];
+
+export type RemoveReplaySetEntryData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/entries/{runId}';
+};
+
+export type RemoveReplaySetEntryErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type RemoveReplaySetEntryError = RemoveReplaySetEntryErrors[keyof RemoveReplaySetEntryErrors];
+
+export type RemoveReplaySetEntryResponses = {
+  /**
+   * Removed
+   */
+  204: void;
+};
+
+export type RemoveReplaySetEntryResponse = RemoveReplaySetEntryResponses[keyof RemoveReplaySetEntryResponses];
+
+export type ListReplaysData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/replays';
+};
+
+export type ListReplaysErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListReplaysError = ListReplaysErrors[keyof ListReplaysErrors];
+
+export type ListReplaysResponses = {
+  200: Array<ReplayResponseDto>;
+};
+
+export type ListReplaysResponse = ListReplaysResponses[keyof ListReplaysResponses];
+
+export type StartReplayData = {
+  body: StartReplayRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/replays';
+};
+
+export type StartReplayErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * No candidate named, a ceiling of nothing or more than it takes, or a set with no runs
+   */
+  422: ProblemResponseDto;
+};
+
+export type StartReplayError = StartReplayErrors[keyof StartReplayErrors];
+
+export type StartReplayResponses = {
+  201: ReplayStartedResponseDto;
+};
+
+export type StartReplayResponse = StartReplayResponses[keyof StartReplayResponses];
+
+export type ReadReplayData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    replayId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replays/{replayId}';
+};
+
+export type ReadReplayErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadReplayError = ReadReplayErrors[keyof ReadReplayErrors];
+
+export type ReadReplayResponses = {
+  200: ReplayDetailResponseDto;
+};
+
+export type ReadReplayResponse = ReadReplayResponses[keyof ReadReplayResponses];
+
+export type ReadReplayOfRunData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-runs/{runId}/replay';
+};
+
+export type ReadReplayOfRunErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadReplayOfRunError = ReadReplayOfRunErrors[keyof ReadReplayOfRunErrors];
+
+export type ReadReplayOfRunResponses = {
+  200: ReplayOfRunResponseDto;
+};
+
+export type ReadReplayOfRunResponse = ReadReplayOfRunResponses[keyof ReadReplayOfRunResponses];
+
+export type StopReplayData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    replayId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replays/{replayId}/stop';
+};
+
+export type StopReplayErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * The replay has already ended
+   */
+  409: ProblemResponseDto;
+};
+
+export type StopReplayError = StopReplayErrors[keyof StopReplayErrors];
+
+export type StopReplayResponses = {
+  /**
+   * Stopped
+   */
+  204: void;
+};
+
+export type StopReplayResponse = StopReplayResponses[keyof StopReplayResponses];

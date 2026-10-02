@@ -19,6 +19,7 @@ const ready = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    replay: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -71,6 +72,7 @@ const announcing = (
   over: {
     pullRequest?: string | null;
     failing?: 'run' | 'task' | 'connection' | 'keep';
+    replay?: boolean;
   } = {},
 ) => {
   const kept: StandingComment[] = [];
@@ -116,6 +118,7 @@ const announcing = (
           ended: false,
           completed: false,
           decisions: false,
+          replay: over.replay ?? false,
         };
       },
       wasWorkedBy: async () => true,
@@ -169,6 +172,14 @@ describe('AnnounceChangeStack', () => {
     expect(kept).toHaveLength(1);
     expect(kept[0]?.repository.name).toBe('widgets');
     expect(kept[0]?.body).toContain('https://app.example/runs/run-1/changes');
+  });
+
+  it('never comments for a replay, whatever its run says of a task', async () => {
+    const { announcer, kept } = announcing({ replay: true });
+
+    await announcer.ofRun(RunId.of('run-1'));
+
+    expect(kept).toEqual([]);
   });
 
   it('says nothing while the task has no pull request', async () => {

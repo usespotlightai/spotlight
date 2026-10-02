@@ -1,6 +1,7 @@
 import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -11,6 +12,7 @@ export class NoteRunSuperseded {
     private readonly records: RunRecordRepository,
     private readonly forgotten: ForgottenPort,
     private readonly transaction: TransactionPort,
+    private readonly clock: ClockPort,
   ) {}
 
   superseded(
@@ -28,12 +30,14 @@ export class NoteRunSuperseded {
         }
 
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).supersededByItsTask(),
+          RunRecord.heardOf(runId, workspaceId, taskId).supersededByItsTask(
+            this.clock.now(),
+          ),
         );
         return;
       }
 
-      const superseded = held.supersededByItsTask();
+      const superseded = held.supersededByItsTask(this.clock.now());
 
       if (superseded !== held) {
         await this.records.save(superseded);

@@ -18,6 +18,17 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
+export interface StoredModelUsage {
+  readonly calls: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly costs: readonly {
+    readonly amount: number;
+    readonly currency: string;
+  }[];
+  readonly unpriced: number;
+}
+
 export const changeStackState = pgEnum(
   'change_stack_state',
   CHANGE_STACK_STATES,
@@ -29,6 +40,7 @@ export const changeStack = pgTable(
     id: text('id').primaryKey(),
     runId: text('run_id').notNull(),
     taskId: text('task_id'),
+    replay: boolean('replay').notNull().default(false),
     workspaceId: text('workspace_id').notNull(),
     repository: text('repository'),
     baseCommit: text('base_commit'),
@@ -47,6 +59,7 @@ export const changeStack = pgTable(
       .default([]),
     checkPlacementImage: text('check_placement_image'),
     reordering: boolean('reordering').notNull().default(false),
+    spent: jsonb('spent').$type<StoredModelUsage>().notNull(),
     workAttempts: integer('work_attempts').notNull().default(0),
     workDueAt: timestamp('work_due_at'),
     version: integer('version').notNull().default(0),

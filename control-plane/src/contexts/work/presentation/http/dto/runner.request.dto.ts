@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MOST_STARTED_CHECKOUTS } from '@work/domain/value-objects/starting-point.vo';
 
 export class RunEventRequestDto {
   @ApiProperty({ example: 1, description: 'Assigned by the runner, gapless' })
@@ -45,6 +46,20 @@ export class CompleteRunRequestDto {
 
   @ApiProperty({ example: false })
   readonly failed!: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'With failed: it failed before the agent was handed the run, while the runner made its workspace ready',
+  })
+  readonly unprepared?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease lapsed',
+  })
+  readonly timedOut?: boolean;
 
   @ApiPropertyOptional()
   readonly message?: string;
@@ -120,6 +135,47 @@ export class RecordRunImageRequestDto {
     description: 'The image the sandbox started from, named by its digest',
   })
   readonly image!: string;
+}
+
+export class StartedCheckoutRequestDto {
+  @ApiProperty({
+    example: 'service',
+    description:
+      'The checkout, by its path in the workspace, as the run was given it',
+  })
+  readonly path!: string;
+
+  @ApiProperty({
+    example: '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a',
+    description:
+      'The commit HEAD was at once the workspace was restored and the checkout prepared, as its full SHA',
+  })
+  readonly commit!: string;
+}
+
+export class RecordStartingPointRequestDto {
+  @ApiProperty({
+    example: 1,
+    description:
+      'The attempt of the run the runner was handed, as the claim named it',
+  })
+  readonly attempt!: number;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '0b8e2f4c-6a1d-4e3b-9c7f-5d2a8e1b4c6f',
+    description:
+      'The workspace archive the run restored, or null where it started afresh',
+  })
+  readonly archiveId!: string | null;
+
+  @ApiProperty({
+    type: StartedCheckoutRequestDto,
+    isArray: true,
+    maxItems: MOST_STARTED_CHECKOUTS,
+  })
+  readonly checkouts!: StartedCheckoutRequestDto[];
 }
 
 export class RunAttachmentResponseDto {

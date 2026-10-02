@@ -66,7 +66,7 @@ export class HandOver implements RunOutcomes {
 
     await this.saved(
       await this.applied(
-        HandoverFor.exhausted(event.lapses),
+        HandoverFor.exhausted(event.lapses, event.failure ?? 'runner-lost'),
         standing.task,
         standing.line,
         event.runId,

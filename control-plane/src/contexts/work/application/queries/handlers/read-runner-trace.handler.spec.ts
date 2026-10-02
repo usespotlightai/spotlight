@@ -6,7 +6,11 @@ import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trac
 import { describe, expect, it, vi } from 'vitest';
 
 const reading = (
-  over: { held?: string | null; teams?: Record<string, string | null> } = {},
+  over: {
+    held?: string | null;
+    teams?: Record<string, string | null>;
+    replaysFrom?: Date | null;
+  } = {},
 ) => {
   const runsForTask = vi.fn().mockResolvedValue([]);
   const journalsForTask = vi.fn().mockResolvedValue([]);
@@ -18,13 +22,17 @@ const reading = (
   });
 
   const held = over.held === undefined ? 'team_1' : over.held;
-  const teamOfHeldRun = vi.fn(async () => (held ? TeamId.of(held) : null));
+  const heldRunStanding = vi.fn(async () =>
+    held
+      ? { teamId: TeamId.of(held), replaysFrom: over.replaysFrom ?? null }
+      : null,
+  );
 
   return {
     runsForTask,
     teamOfTask,
     handler: new ReadRunnerTraceHandler({
-      teamOfHeldRun,
+      heldRunStanding,
       teamOfTask,
       runsForTask,
       journalsForTask,
@@ -56,6 +64,17 @@ describe('ReadRunnerTraceHandler', () => {
     const { handler, runsForTask } = reading({ held: null });
 
     expect(await handler.execute(query())).toBeNull();
+    expect(runsForTask).not.toHaveBeenCalled();
+  });
+
+  it('refuses a replay, which may not read what happened after the run it replays', async () => {
+    const { handler, runsForTask } = reading({
+      replaysFrom: new Date('2026-09-20T00:00:00Z'),
+    });
+
+    await expect(handler.execute(query())).rejects.toMatchObject({
+      kind: 'conflict',
+    });
     expect(runsForTask).not.toHaveBeenCalled();
   });
 });

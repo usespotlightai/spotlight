@@ -31,7 +31,7 @@ export const runCost = (spend: RunSpend): string =>
 export const reviewInk = (review: Review): string =>
   review.state === 'owed' ? 'text-muted-foreground' : 'text-faint opacity-70';
 
-export const working = (run: Run): boolean =>
+export const working = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'claimed' || run.state === 'queued';
 
 export const waitsOnPerson = (run: Run): boolean =>

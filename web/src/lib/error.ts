@@ -28,5 +28,8 @@ export function messageOf(
   return fallback;
 }
 
-export const notFound = (thrown: unknown): boolean =>
-  (thrown as { statusCode?: unknown } | null)?.statusCode === 404;
+export const notFound = (thrown: unknown): boolean => {
+  const said = thrown as { statusCode?: unknown; status?: unknown } | null;
+
+  return said?.statusCode === 404 || said?.status === 404;
+};

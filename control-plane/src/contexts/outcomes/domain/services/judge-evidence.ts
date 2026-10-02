@@ -18,6 +18,8 @@ const MOST_TITLE_TOLD = 300;
 
 const MOST_DESCRIPTION_TOLD = 4_000;
 
+const REFERENCE = 'reference:';
+
 export interface JudgedStep {
   readonly index: number;
   readonly kind: string;
@@ -32,6 +34,11 @@ export interface JudgedHunk {
   readonly path: string;
   readonly header: string;
   readonly lines: readonly string[];
+}
+
+export interface ReferenceChange {
+  readonly hunks: readonly JudgedHunk[];
+  readonly hunksLeftOut: number;
 }
 
 export interface CitedReason {
@@ -109,6 +116,7 @@ export class JudgeEvidence {
     readonly stepsLeftOut: number,
     readonly hunks: readonly JudgedHunk[],
     readonly hunksLeftOut: number,
+    readonly reference: ReferenceChange | null,
   ) {}
 
   static of(input: {
@@ -131,6 +139,26 @@ export class JudgeEvidence {
       input.steps.length - steps.length,
       hunks,
       input.hunks.length - hunks.length,
+      null,
+    );
+  }
+
+  against(reference: readonly JudgedHunk[]): JudgeEvidence {
+    const told = firstWithin(
+      reference.map((hunk) => ({ ...hunk, id: `${REFERENCE}${hunk.id}` })),
+    );
+
+    return new JudgeEvidence(
+      this.runId,
+      this.title,
+      this.description,
+      this.steps,
+      this.stepsLeftOut,
+      this.hunks,
+      this.hunksLeftOut,
+      told.length > 0
+        ? { hunks: told, hunksLeftOut: reference.length - told.length }
+        : null,
     );
   }
 

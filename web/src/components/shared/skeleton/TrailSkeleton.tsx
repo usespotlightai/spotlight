@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import {
   type BreadcrumbSegment,
@@ -14,12 +14,7 @@ export function TrailSkeleton({
     <>
       <Breadcrumbs segments={known} />
 
-      {known.length > 0 && (
-        <ChevronRight
-          className="size-3.5 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
-      )}
+      {known.length > 0 && <CrumbSeparator />}
 
       <SkeletonLine className="w-48" />
     </>

@@ -14,14 +14,16 @@ export interface TaskCheckout {
   readonly setup: RepositorySetup | null;
 }
 
+export const repositoriesReviewedOrAll = (
+  reviewing: Repository | null,
+  line: Line,
+): readonly Repository[] => (reviewing ? [reviewing] : line.repositories.all);
+
 export const repositoriesWorkedOn = (
   task: Task | null,
   line: Line,
-): readonly Repository[] => {
-  const head = task?.reviewedHead ?? null;
-
-  return head ? [head.repository] : line.repositories.all;
-};
+): readonly Repository[] =>
+  repositoriesReviewedOrAll(task?.reviewedHead?.repository ?? null, line);
 
 export const repositoryWorkedOnNamed = (
   name: string,

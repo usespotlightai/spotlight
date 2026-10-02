@@ -18,8 +18,6 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
-import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -109,6 +107,37 @@ const lineWorking = (repositories: readonly string[]): Line => {
   return { repositories: { all: held } } as unknown as Line;
 };
 
+const COMMIT = 'c'.repeat(40);
+
+const REPLAY = RunSubject.replay(
+  RunId.of('run_0'),
+  TaskId.of('task_1'),
+  StationId.of('station_1'),
+  TeamId.of('team_1'),
+);
+
+const specFor = (subject: RunSubject) =>
+  RunSpec.of({
+    command: { executable: 'sh', args: [] },
+    briefing: 'do the thing',
+    handover: { options: [], noteLimit: 4_000 },
+    continuity: { key: 'task:station' },
+    ...(subject.isReplay
+      ? {
+          checkouts: [
+            { remote: 'spotlight:repository', path: 'widgets', ref: COMMIT },
+          ],
+          replay: {
+            archive: null,
+            checkouts: [
+              { path: 'widgets', commit: COMMIT, repository: 'acme/widgets' },
+            ],
+            movesOnAfter: [],
+          },
+        }
+      : {}),
+  });
+
 const enqueued = (
   subject: RunSubject = RunSubject.task(
     TaskId.of('task_1'),
@@ -121,12 +150,7 @@ const enqueued = (
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
     subject,
-    spec: RunSpec.of({
-      command: { executable: 'sh', args: [] },
-      briefing: 'do the thing',
-      handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
-    }),
+    spec: specFor(subject),
   });
 
 const claimedBy = (runner: string, subject?: RunSubject) =>
@@ -150,6 +174,7 @@ const carrying = (
       {
         holding: vi.fn(async () => lineWorking(repositories)),
       } as unknown as LineRepository,
+      { of: async () => null },
       { now: () => new Date(), sleep: async () => {} },
     ),
     {
@@ -217,7 +242,7 @@ describe('CarryGitCall', () => {
 
     await expect(
       service.carry('run_1', 'runner_2', 'widgets', 'git-upload-pack', call),
-    ).rejects.toThrow(InvalidRunTransitionError);
+    ).rejects.toMatchObject({ kind: 'conflict' });
     expect(git.call).not.toHaveBeenCalled();
   });
 
@@ -226,7 +251,7 @@ describe('CarryGitCall', () => {
 
     await expect(
       service.carry('run_1', 'runner_1', 'widgets', 'git-upload-pack', call),
-    ).rejects.toThrow(InvalidRunTransitionError);
+    ).rejects.toMatchObject({ kind: 'conflict' });
     expect(git.call).not.toHaveBeenCalled();
   });
 
@@ -244,7 +269,48 @@ describe('CarryGitCall', () => {
 
     await expect(
       service.carry('run_1', 'runner_1', 'widgets', 'git-upload-pack', call),
-    ).rejects.toThrow(UnknownRunError);
+    ).rejects.toMatchObject({ kind: 'not-found' });
+  });
+
+  describe('a replay', () => {
+    it('fetches the repositories it checks out', async () => {
+      const { service, git } = carrying(claimedBy('runner_1', REPLAY), null);
+
+      await service.carry(
+        'run_1',
+        'runner_1',
+        'widgets',
+        'git-upload-pack',
+        call,
+      );
+
+      expect(git.call).toHaveBeenCalledWith(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/widgets'),
+        call,
+      );
+    });
+
+    it('is never let near a push', async () => {
+      const { service, git } = carrying(claimedBy('runner_1', REPLAY), null);
+
+      await expect(
+        service.carry('run_1', 'runner_1', 'widgets', 'git-receive-pack', call),
+      ).rejects.toMatchObject({ kind: 'conflict' });
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('reaches no repository it does not check out', async () => {
+      const { service, git } = carrying(claimedBy('runner_1', REPLAY), null, [
+        'acme/widgets',
+        'acme/gadgets',
+      ]);
+
+      await expect(
+        service.carry('run_1', 'runner_1', 'gadgets', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
   });
 
   describe('a runner holding a check of the run', () => {
@@ -300,7 +366,7 @@ describe('CarryGitCall', () => {
 
       await expect(
         service.carry('run_1', 'runner_2', 'widgets', 'git-receive-pack', call),
-      ).rejects.toThrow(InvalidRunTransitionError);
+      ).rejects.toMatchObject({ kind: 'conflict' });
       expect(git.call).not.toHaveBeenCalled();
     });
 
@@ -314,6 +380,59 @@ describe('CarryGitCall', () => {
 
       await expect(
         service.carry('run_1', 'runner_2', 'other', 'git-upload-pack', call),
+      ).resolves.toBeNull();
+      expect(git.call).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a runner holding a check of a replay', () => {
+    it('reads the repository the replay checked out, though its line no longer works it', async () => {
+      const { service, git } = carrying(
+        claimedBy('runner_1', REPLAY),
+        null,
+        [],
+        true,
+      );
+
+      await service.carry(
+        'run_1',
+        'runner_2',
+        'widgets',
+        'git-upload-pack',
+        call,
+      );
+
+      expect(git.call).toHaveBeenCalledWith(
+        WorkspaceId.of('ws_1'),
+        Repository.of('acme/widgets'),
+        call,
+      );
+    });
+
+    it('is never let near a push', async () => {
+      const { service, git } = carrying(
+        claimedBy('runner_1', REPLAY),
+        null,
+        undefined,
+        true,
+      );
+
+      await expect(
+        service.carry('run_1', 'runner_2', 'widgets', 'git-receive-pack', call),
+      ).rejects.toMatchObject({ kind: 'conflict' });
+      expect(git.call).not.toHaveBeenCalled();
+    });
+
+    it('reaches no repository the replay did not check out', async () => {
+      const { service, git } = carrying(
+        claimedBy('runner_1', REPLAY),
+        null,
+        ['acme/widgets', 'acme/gadgets'],
+        true,
+      );
+
+      await expect(
+        service.carry('run_1', 'runner_2', 'gadgets', 'git-upload-pack', call),
       ).resolves.toBeNull();
       expect(git.call).not.toHaveBeenCalled();
     });

@@ -1,3 +1,5 @@
+import { ChangeJudged } from '@outcomes/domain/events/change-judged.event';
+import { ChangeJudgingFailed } from '@outcomes/domain/events/change-judging-failed.event';
 import { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
 import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
@@ -52,6 +54,8 @@ export const OUTCOMES_EVENT_TYPES = [
   ScoreScale,
   SeenEvidence,
   RunJudged,
+  ChangeJudged,
+  ChangeJudgingFailed,
   ScoreRecorded,
   RunRecordEnded,
   RunRecordSettled,

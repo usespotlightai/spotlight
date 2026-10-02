@@ -1,0 +1,15 @@
+export type ReplayRefusalCode =
+  | 'unknown-run'
+  | 'not-a-task-run'
+  | 'task-gone'
+  | 'still-running'
+  | 'no-starting-point'
+  | 'no-briefing'
+  | 'archive-gone'
+  | 'attachments-gone'
+  | 'repository-gone'
+  | 'not-at-the-station'
+  | 'candidate-unfit'
+  | 'cannot-start'
+  | 'unchecked'
+  | 'forgone';

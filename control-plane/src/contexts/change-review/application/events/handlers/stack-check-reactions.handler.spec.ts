@@ -70,6 +70,7 @@ const stackWith = (request: CheckRequest | null) =>
     id: STACK,
     runId: RunId.of('run-1'),
     taskId: TASK,
+    replay: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -117,6 +118,7 @@ const checkFor = (stack: ChangeStack) =>
     stackId: stack.id,
     runId: stack.runId,
     taskId: stack.taskId,
+    replay: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),
     entries: stack.entries(),
@@ -128,7 +130,9 @@ describe('StackCheckReactions', () => {
     const stack = stackWith(CheckRequest.of('npm test', 'npm ci'));
     const { reactions, added } = reacting(stack, null);
 
-    await reactions.onSettled(new ChangeStackSettled(STACK, stack.runId));
+    await reactions.onSettled(
+      new ChangeStackSettled(STACK, stack.runId, false),
+    );
 
     expect(added).toHaveLength(1);
     expect(added[0]?.request.setup).toBe('npm ci');
@@ -140,7 +144,9 @@ describe('StackCheckReactions', () => {
     const stack = stackWith(null);
     const { reactions, added } = reacting(stack, null);
 
-    await reactions.onSettled(new ChangeStackSettled(STACK, stack.runId));
+    await reactions.onSettled(
+      new ChangeStackSettled(STACK, stack.runId, false),
+    );
 
     expect(added).toEqual([]);
   });

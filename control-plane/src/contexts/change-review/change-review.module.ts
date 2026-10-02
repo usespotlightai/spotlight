@@ -1,3 +1,4 @@
+import { RUN_CHANGE_CHECKS } from '@change-review/application/ports/run-change-checks.port';
 import {
   CHANGE_REVIEW_CONTROLLERS,
   CHANGE_REVIEW_PROVIDERS,
@@ -22,6 +23,7 @@ import { WorkModule } from '@work/work.module';
     CHECK_WORK,
     CHECK_PROVISIONING,
     TASK_DECISIONS,
+    RUN_CHANGE_CHECKS,
   ],
 })
 export class ChangeReviewModule {}

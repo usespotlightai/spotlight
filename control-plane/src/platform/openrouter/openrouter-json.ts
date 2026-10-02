@@ -16,7 +16,10 @@ export class OpenRouterRefusedError extends Error {
 }
 
 export class OpenRouterUnansweredError extends Error {
-  constructor(reason: string) {
+  constructor(
+    reason: string,
+    readonly usage: OpenRouterUsage | null,
+  ) {
     super(`Drafting stopped early: ${reason}`);
     this.name = 'OpenRouterUnansweredError';
   }
@@ -27,8 +30,49 @@ interface Completion {
     readonly finish_reason?: string | null;
     readonly message?: { readonly content?: string | null };
   }[];
+  readonly usage?: {
+    readonly prompt_tokens?: number;
+    readonly completion_tokens?: number;
+    readonly cost?: number;
+  };
   readonly error?: { readonly message?: string };
 }
+
+const OPENROUTER_CURRENCY = 'USD';
+
+interface OpenRouterUsage {
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly cost: {
+    readonly amount: number;
+    readonly currency: typeof OPENROUTER_CURRENCY;
+  } | null;
+}
+
+export interface Answered<T> {
+  readonly answer: T;
+  readonly usage: OpenRouterUsage | null;
+}
+
+const counted = (raw: unknown): number | null =>
+  typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : null;
+
+const usageOf = (answered: Completion): OpenRouterUsage | null => {
+  const usage = answered.usage;
+
+  const cost = usage ? counted(usage.cost) : null;
+
+  return usage
+    ? {
+        inputTokens: counted(usage.prompt_tokens),
+        outputTokens: counted(usage.completion_tokens),
+        cost:
+          cost === null
+            ? null
+            : { amount: cost, currency: OPENROUTER_CURRENCY },
+      }
+    : null;
+};
 
 const portable = (schema: unknown): unknown =>
   Array.isArray(schema)
@@ -60,7 +104,7 @@ export const askForJson = async <T>(ask: {
   system: string;
   asked: string;
   most: number;
-}): Promise<T> => {
+}): Promise<Answered<T>> => {
   const response = await ask
     .fetch(ENDPOINT, {
       method: 'POST',
@@ -86,6 +130,7 @@ export const askForJson = async <T>(ask: {
           },
         },
         provider: { require_parameters: true },
+        usage: { include: true },
       }),
     })
     .catch((error: unknown) => {
@@ -107,16 +152,21 @@ export const askForJson = async <T>(ask: {
   if (choice?.finish_reason !== 'stop' || !choice.message?.content) {
     throw new OpenRouterUnansweredError(
       choice?.finish_reason ?? answered.error?.message ?? 'no answer',
+      usageOf(answered),
     );
   }
 
   const content = choice.message.content;
 
   try {
-    return ask.shape.schema.parse(JSON.parse(content));
+    return {
+      answer: ask.shape.schema.parse(JSON.parse(content)),
+      usage: usageOf(answered),
+    };
   } catch (error) {
     throw new OpenRouterUnansweredError(
       `the answer did not fit its shape (${error instanceof Error ? error.message : String(error)})`,
+      usageOf(answered),
     );
   }
 };

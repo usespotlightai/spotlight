@@ -60,7 +60,7 @@ const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
   ],
   plan: () => [
     'Not allowed to plan',
-    'Checking an expression is planning, which this token’s scopes do not allow',
+    'Planning needs a person, or a token whose scopes include plan',
   ],
 };
 

@@ -52,3 +52,9 @@ export const readyProfile = (
     wears: distinct(servers.flatMap(({ worn }) => worn.wears)),
   };
 };
+
+export const withoutServers = (profile: ReadyProfile): ReadyProfile => ({
+  ...profile,
+  mcpServers: [],
+  wears: [],
+});

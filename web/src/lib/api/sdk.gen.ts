@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnswerHostCallData, AnswerHostCallErrors, AnswerHostCallResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ApproveMemoriesData, ApproveMemoriesErrors, ApproveMemoriesResponses, AskPermissionData, AskPermissionErrors, AskPermissionResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CheckExpressionData, CheckExpressionErrors, CheckExpressionResponses, ClaimHostCallData, ClaimHostCallErrors, ClaimHostCallResponses, ClaimHostWorkData, ClaimHostWorkErrors, ClaimHostWorkResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateHarnessProfileData, CreateHarnessProfileErrors, CreateHarnessProfileResponses, CreateHookData, CreateHookErrors, CreateHookResponses, CreateIntegrationData, CreateIntegrationErrors, CreateIntegrationResponses, CreateLineData, CreateLineErrors, CreateLineResponses, CreateRunnerPoolData, CreateRunnerPoolErrors, CreateRunnerPoolResponses, CreateRunnerTrustData, CreateRunnerTrustErrors, CreateRunnerTrustResponses, CreateSecretData, CreateSecretErrors, CreateSecretResponses, CreateSkillData, CreateSkillErrors, CreateSkillResponses, CreateTeamData, CreateTeamErrors, CreateTeamResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CreateWorkspaceRunnersData, CreateWorkspaceRunnersErrors, CreateWorkspaceRunnersResponses, CreateWorkspaceTokenData, CreateWorkspaceTokenErrors, CreateWorkspaceTokenResponses, CreateWorkspaceTokenTrustData, CreateWorkspaceTokenTrustErrors, CreateWorkspaceTokenTrustResponses, DeleteHarnessProfileData, DeleteHarnessProfileErrors, DeleteHarnessProfileResponses, DeleteHookData, DeleteHookErrors, DeleteHookResponses, DeleteIntegrationData, DeleteIntegrationErrors, DeleteIntegrationResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteRunnerPoolData, DeleteRunnerPoolErrors, DeleteRunnerPoolResponses, DeleteRunnerTrustData, DeleteRunnerTrustErrors, DeleteRunnerTrustResponses, DeleteSecretData, DeleteSecretErrors, DeleteSecretResponses, DeleteSkillData, DeleteSkillErrors, DeleteSkillResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeleteTeamData, DeleteTeamErrors, DeleteTeamResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DeleteWorkspaceRunnersData, DeleteWorkspaceRunnersErrors, DeleteWorkspaceRunnersResponses, DeleteWorkspaceTokenData, DeleteWorkspaceTokenErrors, DeleteWorkspaceTokenResponses, DeleteWorkspaceTokenTrustData, DeleteWorkspaceTokenTrustErrors, DeleteWorkspaceTokenTrustResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DisputeDecisionData, DisputeDecisionErrors, DisputeDecisionResponses, DraftChangeStackData, DraftChangeStackErrors, DraftChangeStackResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditMemoryData, EditMemoryErrors, EditMemoryResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, ExchangeWorkloadTokenData, ExchangeWorkloadTokenErrors, ExchangeWorkloadTokenResponses, ExportWorkspaceData, ExportWorkspaceErrors, ExportWorkspaceResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GradeRunData, GradeRunErrors, GradeRunResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, GrantWorkspaceArchiveData, GrantWorkspaceArchiveErrors, GrantWorkspaceArchiveResponses, HookIssuerData, HookIssuerResponses, HookSigningKeysData, HookSigningKeysResponses, HostRequirementsData, HostRequirementsErrors, HostRequirementsResponses, ImportHarnessProfileData, ImportHarnessProfileErrors, ImportHarnessProfileResponses, ImportHookData, ImportHookErrors, ImportHookResponses, ImportIntegrationData, ImportIntegrationErrors, ImportIntegrationResponses, ImportLineData, ImportLineErrors, ImportLineResponses, ImportRunnerPoolData, ImportRunnerPoolErrors, ImportRunnerPoolResponses, ImportRunnerTrustData, ImportRunnerTrustErrors, ImportRunnerTrustResponses, ImportSecretData, ImportSecretErrors, ImportSecretResponses, ImportSkillData, ImportSkillErrors, ImportSkillResponses, ImportTeamData, ImportTeamErrors, ImportTeamResponses, ImportWorkspaceData, ImportWorkspaceErrors, ImportWorkspaceResponses, ImportWorkspaceRunnersData, ImportWorkspaceRunnersErrors, ImportWorkspaceRunnersResponses, ImportWorkspaceTokenData, ImportWorkspaceTokenErrors, ImportWorkspaceTokenResponses, ImportWorkspaceTokenTrustData, ImportWorkspaceTokenTrustErrors, ImportWorkspaceTokenTrustResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, InviteToTeamData, InviteToTeamErrors, InviteToTeamResponses, LeaveAsHostData, LeaveAsHostErrors, LeaveAsHostResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListConfigurationChangesData, ListConfigurationChangesErrors, ListConfigurationChangesResponses, ListExpressionPositionsData, ListExpressionPositionsErrors, ListExpressionPositionsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListHarnessProfilesData, ListHarnessProfilesErrors, ListHarnessProfilesResponses, ListHooksData, ListHooksErrors, ListHooksResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListInsightsPullRequestsData, ListInsightsPullRequestsErrors, ListInsightsPullRequestsResponses, ListInsightsRunsData, ListInsightsRunsErrors, ListInsightsRunsResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListInvitesData, ListInvitesErrors, ListInvitesResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMemberWorkspacesData, ListMemberWorkspacesErrors, ListMemberWorkspacesResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnerPoolsData, ListRunnerPoolsErrors, ListRunnerPoolsResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListRunnerTrustsData, ListRunnerTrustsErrors, ListRunnerTrustsResponses, ListSecretsData, ListSecretsErrors, ListSecretsResponses, ListSkillsData, ListSkillsErrors, ListSkillsResponses, ListStandingDecisionsData, ListStandingDecisionsErrors, ListStandingDecisionsResponses, ListStationOutcomesData, ListStationOutcomesErrors, ListStationOutcomesResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamLinesData, ListTeamLinesErrors, ListTeamLinesResponses, ListTeamMemoriesData, ListTeamMemoriesErrors, ListTeamMemoriesResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamsData, ListTeamsErrors, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspaceRunnersData, ListWorkspaceRunnersErrors, ListWorkspaceRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, ListWorkspaceTokensData, ListWorkspaceTokensErrors, ListWorkspaceTokensResponses, ListWorkspaceTokenTrustsData, ListWorkspaceTokenTrustsErrors, ListWorkspaceTokenTrustsResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, NoteOnHookTaskData, NoteOnHookTaskErrors, NoteOnHookTaskResponses, OpenWorkspaceData, OpenWorkspaceErrors, OpenWorkspaceResponses, ParkRunData, ParkRunErrors, ParkRunResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, PoolQueueData, PoolQueueErrors, PoolQueueResponses, ReadAttachmentData, ReadAttachmentErrors, ReadCatalogSkillData, ReadCatalogSkillErrors, ReadCatalogSkillResponses, ReadCatalogToolData, ReadCatalogToolErrors, ReadCatalogToolResponses, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadGitHubData, ReadGitHubErrors, ReadGitHubResponses, ReadHarnessProfileData, ReadHarnessProfileErrors, ReadHarnessProfileResponses, ReadHookData, ReadHookErrors, ReadHookResponses, ReadHookTaskData, ReadHookTaskErrors, ReadHookTaskResponses, ReadInboxAsideData, ReadInboxAsideErrors, ReadInboxAsideResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadInsightsChangesData, ReadInsightsChangesErrors, ReadInsightsChangesResponses, ReadInsightsCostData, ReadInsightsCostErrors, ReadInsightsCostResponses, ReadInsightsFlowData, ReadInsightsFlowErrors, ReadInsightsFlowResponses, ReadInsightsMemoryData, ReadInsightsMemoryErrors, ReadInsightsMemoryResponses, ReadInsightsOverviewData, ReadInsightsOverviewErrors, ReadInsightsOverviewResponses, ReadInsightsPeopleData, ReadInsightsPeopleErrors, ReadInsightsPeopleResponses, ReadInsightsPullRequestsData, ReadInsightsPullRequestsErrors, ReadInsightsPullRequestsResponses, ReadInsightsSetupsData, ReadInsightsSetupsErrors, ReadInsightsSetupsResponses, ReadInsightsStationsData, ReadInsightsStationsErrors, ReadInsightsStationsResponses, ReadInsightsToolsData, ReadInsightsToolsErrors, ReadInsightsToolsResponses, ReadIntegrationData, ReadIntegrationErrors, ReadIntegrationResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadLineData, ReadLineErrors, ReadLineResponses, ReadMemoryFilesData, ReadMemoryFilesErrors, ReadMemoryFilesResponses, ReadMemoryReviewData, ReadMemoryReviewErrors, ReadMemoryReviewResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadResourceHclData, ReadResourceHclErrors, ReadResourceHclResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConfigData, ReadRunConfigErrors, ReadRunConfigResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadRunHistoryData, ReadRunHistoryErrors, ReadRunHistoryResponses, ReadRunMemoriesData, ReadRunMemoriesErrors, ReadRunMemoriesResponses, ReadRunnerPoolData, ReadRunnerPoolErrors, ReadRunnerPoolResponses, ReadRunnerTrustData, ReadRunnerTrustErrors, ReadRunnerTrustResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunScoresData, ReadRunScoresErrors, ReadRunScoresResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadSecretData, ReadSecretErrors, ReadSecretResponses, ReadSkillData, ReadSkillErrors, ReadSkillResponses, ReadStationAlertData, ReadStationAlertErrors, ReadStationAlertResponses, ReadStationJudgeData, ReadStationJudgeErrors, ReadStationJudgeResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskDecisionsData, ReadTaskDecisionsErrors, ReadTaskDecisionsResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, ReadTeamData, ReadTeamErrors, ReadTeamMemoryData, ReadTeamMemoryErrors, ReadTeamMemoryResponses, ReadTeamResponses, ReadWorkspaceArchiveData, ReadWorkspaceArchiveErrors, ReadWorkspaceArchiveResponses, ReadWorkspaceData, ReadWorkspaceErrors, ReadWorkspaceResponses, ReadWorkspaceRunnersData, ReadWorkspaceRunnersErrors, ReadWorkspaceRunnersResponses, ReadWorkspaceTokenData, ReadWorkspaceTokenErrors, ReadWorkspaceTokenResponses, ReadWorkspaceTokenTrustData, ReadWorkspaceTokenTrustErrors, ReadWorkspaceTokenTrustResponses, RecallMemoriesData, RecallMemoriesErrors, RecallMemoriesResponses, RecallMemoryData, RecallMemoryErrors, RecallMemoryResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RecordRunImageData, RecordRunImageErrors, RecordRunImageResponses, RedeemEgressData, RedeemEgressErrors, RedeemEgressResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RejectMemoryData, RejectMemoryErrors, RejectMemoryResponses, RememberData, RememberErrors, RememberResponses, RenewCheckLeaseData, RenewCheckLeaseErrors, RenewCheckLeaseResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReportHostPresenceData, ReportHostPresenceErrors, ReportHostPresenceResponses, RetireMemoryData, RetireMemoryErrors, RetireMemoryResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SayInChatData, SayInChatErrors, SayInChatResponses, SayToRunData, SayToRunErrors, SayToRunResponses, SealWorkspaceArchiveData, SealWorkspaceArchiveErrors, SealWorkspaceArchiveResponses, StartChatData, StartChatErrors, StartChatResponses, StopChatData, StopChatErrors, StopChatResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, TurnAsksAPersonData, TurnAsksAPersonErrors, TurnAsksAPersonResponses, UpdateHarnessProfileData, UpdateHarnessProfileErrors, UpdateHarnessProfileResponses, UpdateHookData, UpdateHookErrors, UpdateHookResponses, UpdateIntegrationData, UpdateIntegrationErrors, UpdateIntegrationResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateRunnerPoolData, UpdateRunnerPoolErrors, UpdateRunnerPoolResponses, UpdateRunnerTrustData, UpdateRunnerTrustErrors, UpdateRunnerTrustResponses, UpdateSecretData, UpdateSecretErrors, UpdateSecretResponses, UpdateSkillData, UpdateSkillErrors, UpdateSkillResponses, UpdateTeamData, UpdateTeamErrors, UpdateTeamResponses, UpdateWorkspaceData, UpdateWorkspaceErrors, UpdateWorkspaceResponses, UpdateWorkspaceRunnersData, UpdateWorkspaceRunnersErrors, UpdateWorkspaceRunnersResponses, UpdateWorkspaceTokenData, UpdateWorkspaceTokenErrors, UpdateWorkspaceTokenResponses, UpdateWorkspaceTokenTrustData, UpdateWorkspaceTokenTrustErrors, UpdateWorkspaceTokenTrustResponses, UseToolData, UseToolErrors, UseToolResponses, WriteMemoryData, WriteMemoryErrors, WriteMemoryResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AddReplaySetEntryData, AddReplaySetEntryErrors, AddReplaySetEntryResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnswerHostCallData, AnswerHostCallErrors, AnswerHostCallResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerRemarkData, AnswerRemarkErrors, AnswerRemarkResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ApproveMemoriesData, ApproveMemoriesErrors, ApproveMemoriesResponses, AskPermissionData, AskPermissionErrors, AskPermissionResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CheckExpressionData, CheckExpressionErrors, CheckExpressionResponses, ClaimHostCallData, ClaimHostCallErrors, ClaimHostCallResponses, ClaimHostWorkData, ClaimHostWorkErrors, ClaimHostWorkResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateHarnessProfileData, CreateHarnessProfileErrors, CreateHarnessProfileResponses, CreateHookData, CreateHookErrors, CreateHookResponses, CreateIntegrationData, CreateIntegrationErrors, CreateIntegrationResponses, CreateLineData, CreateLineErrors, CreateLineResponses, CreateReplayCandidateData, CreateReplayCandidateErrors, CreateReplayCandidateResponses, CreateRunnerPoolData, CreateRunnerPoolErrors, CreateRunnerPoolResponses, CreateRunnerTrustData, CreateRunnerTrustErrors, CreateRunnerTrustResponses, CreateSecretData, CreateSecretErrors, CreateSecretResponses, CreateSkillData, CreateSkillErrors, CreateSkillResponses, CreateTeamData, CreateTeamErrors, CreateTeamResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CreateWorkspaceRunnersData, CreateWorkspaceRunnersErrors, CreateWorkspaceRunnersResponses, CreateWorkspaceTokenData, CreateWorkspaceTokenErrors, CreateWorkspaceTokenResponses, CreateWorkspaceTokenTrustData, CreateWorkspaceTokenTrustErrors, CreateWorkspaceTokenTrustResponses, DeleteHarnessProfileData, DeleteHarnessProfileErrors, DeleteHarnessProfileResponses, DeleteHookData, DeleteHookErrors, DeleteHookResponses, DeleteIntegrationData, DeleteIntegrationErrors, DeleteIntegrationResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteReplayCandidateData, DeleteReplayCandidateErrors, DeleteReplayCandidateResponses, DeleteReplaySetData, DeleteReplaySetErrors, DeleteReplaySetResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteRunnerPoolData, DeleteRunnerPoolErrors, DeleteRunnerPoolResponses, DeleteRunnerTrustData, DeleteRunnerTrustErrors, DeleteRunnerTrustResponses, DeleteSecretData, DeleteSecretErrors, DeleteSecretResponses, DeleteSkillData, DeleteSkillErrors, DeleteSkillResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeleteTeamData, DeleteTeamErrors, DeleteTeamResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DeleteWorkspaceRunnersData, DeleteWorkspaceRunnersErrors, DeleteWorkspaceRunnersResponses, DeleteWorkspaceTokenData, DeleteWorkspaceTokenErrors, DeleteWorkspaceTokenResponses, DeleteWorkspaceTokenTrustData, DeleteWorkspaceTokenTrustErrors, DeleteWorkspaceTokenTrustResponses, DeliverSaidData, DeliverSaidErrors, DeliverSaidResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DisputeDecisionData, DisputeDecisionErrors, DisputeDecisionResponses, DraftChangeStackData, DraftChangeStackErrors, DraftChangeStackResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditMemoryData, EditMemoryErrors, EditMemoryResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, ExchangeWorkloadTokenData, ExchangeWorkloadTokenErrors, ExchangeWorkloadTokenResponses, ExportWorkspaceData, ExportWorkspaceErrors, ExportWorkspaceResponses, GetHealthData, GetHealthResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GradeRunData, GradeRunErrors, GradeRunResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, GrantWorkspaceArchiveData, GrantWorkspaceArchiveErrors, GrantWorkspaceArchiveResponses, HookIssuerData, HookIssuerResponses, HookSigningKeysData, HookSigningKeysResponses, HostRequirementsData, HostRequirementsErrors, HostRequirementsResponses, ImportHarnessProfileData, ImportHarnessProfileErrors, ImportHarnessProfileResponses, ImportHookData, ImportHookErrors, ImportHookResponses, ImportIntegrationData, ImportIntegrationErrors, ImportIntegrationResponses, ImportLineData, ImportLineErrors, ImportLineResponses, ImportReplayCandidateData, ImportReplayCandidateErrors, ImportReplayCandidateResponses, ImportRunnerPoolData, ImportRunnerPoolErrors, ImportRunnerPoolResponses, ImportRunnerTrustData, ImportRunnerTrustErrors, ImportRunnerTrustResponses, ImportSecretData, ImportSecretErrors, ImportSecretResponses, ImportSkillData, ImportSkillErrors, ImportSkillResponses, ImportTeamData, ImportTeamErrors, ImportTeamResponses, ImportWorkspaceData, ImportWorkspaceErrors, ImportWorkspaceResponses, ImportWorkspaceRunnersData, ImportWorkspaceRunnersErrors, ImportWorkspaceRunnersResponses, ImportWorkspaceTokenData, ImportWorkspaceTokenErrors, ImportWorkspaceTokenResponses, ImportWorkspaceTokenTrustData, ImportWorkspaceTokenTrustErrors, ImportWorkspaceTokenTrustResponses, InstallableHarnessesData, InstallableHarnessesErrors, InstallableHarnessesResponses, InviteToTeamData, InviteToTeamErrors, InviteToTeamResponses, LeaveAsHostData, LeaveAsHostErrors, LeaveAsHostResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListConfigurationChangesData, ListConfigurationChangesErrors, ListConfigurationChangesResponses, ListExpressionPositionsData, ListExpressionPositionsErrors, ListExpressionPositionsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListHarnessProfilesData, ListHarnessProfilesErrors, ListHarnessProfilesResponses, ListHooksData, ListHooksErrors, ListHooksResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListInsightsPullRequestsData, ListInsightsPullRequestsErrors, ListInsightsPullRequestsResponses, ListInsightsRunsData, ListInsightsRunsErrors, ListInsightsRunsResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListInvitesData, ListInvitesErrors, ListInvitesResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMemberWorkspacesData, ListMemberWorkspacesErrors, ListMemberWorkspacesResponses, ListReplayableRunsData, ListReplayableRunsErrors, ListReplayableRunsResponses, ListReplayCandidatesData, ListReplayCandidatesErrors, ListReplayCandidatesResponses, ListReplaysData, ListReplaysErrors, ListReplaySetsData, ListReplaySetsErrors, ListReplaySetsResponses, ListReplaysResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnerPoolsData, ListRunnerPoolsErrors, ListRunnerPoolsResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListRunnerTrustsData, ListRunnerTrustsErrors, ListRunnerTrustsResponses, ListSecretsData, ListSecretsErrors, ListSecretsResponses, ListSkillsData, ListSkillsErrors, ListSkillsResponses, ListStandingDecisionsData, ListStandingDecisionsErrors, ListStandingDecisionsResponses, ListStationOutcomesData, ListStationOutcomesErrors, ListStationOutcomesResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamLinesData, ListTeamLinesErrors, ListTeamLinesResponses, ListTeamMemoriesData, ListTeamMemoriesErrors, ListTeamMemoriesResponses, ListTeamReplaySetsData, ListTeamReplaySetsErrors, ListTeamReplaySetsResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamsData, ListTeamsErrors, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamsResponses, ListTeamTracesData, ListTeamTracesErrors, ListTeamTracesResponses, ListWorkspaceRunnersData, ListWorkspaceRunnersErrors, ListWorkspaceRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, ListWorkspaceTokensData, ListWorkspaceTokensErrors, ListWorkspaceTokensResponses, ListWorkspaceTokenTrustsData, ListWorkspaceTokenTrustsErrors, ListWorkspaceTokenTrustsResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, NoteOnHookTaskData, NoteOnHookTaskErrors, NoteOnHookTaskResponses, OpenReplaySetData, OpenReplaySetErrors, OpenReplaySetResponses, OpenWorkspaceData, OpenWorkspaceErrors, OpenWorkspaceResponses, ParkRunData, ParkRunErrors, ParkRunResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, PoolQueueData, PoolQueueErrors, PoolQueueResponses, ReadAttachmentData, ReadAttachmentErrors, ReadCatalogSkillData, ReadCatalogSkillErrors, ReadCatalogSkillResponses, ReadCatalogToolData, ReadCatalogToolErrors, ReadCatalogToolResponses, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadGitHubData, ReadGitHubErrors, ReadGitHubResponses, ReadHarnessProfileData, ReadHarnessProfileErrors, ReadHarnessProfileResponses, ReadHookData, ReadHookErrors, ReadHookResponses, ReadHookTaskData, ReadHookTaskErrors, ReadHookTaskResponses, ReadInboxAsideData, ReadInboxAsideErrors, ReadInboxAsideResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadInsightsChangesData, ReadInsightsChangesErrors, ReadInsightsChangesResponses, ReadInsightsCostData, ReadInsightsCostErrors, ReadInsightsCostResponses, ReadInsightsFlowData, ReadInsightsFlowErrors, ReadInsightsFlowResponses, ReadInsightsMemoryData, ReadInsightsMemoryErrors, ReadInsightsMemoryResponses, ReadInsightsOverviewData, ReadInsightsOverviewErrors, ReadInsightsOverviewResponses, ReadInsightsPeopleData, ReadInsightsPeopleErrors, ReadInsightsPeopleResponses, ReadInsightsPullRequestsData, ReadInsightsPullRequestsErrors, ReadInsightsPullRequestsResponses, ReadInsightsSetupsData, ReadInsightsSetupsErrors, ReadInsightsSetupsResponses, ReadInsightsStationsData, ReadInsightsStationsErrors, ReadInsightsStationsResponses, ReadInsightsToolsData, ReadInsightsToolsErrors, ReadInsightsToolsResponses, ReadIntegrationData, ReadIntegrationErrors, ReadIntegrationResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadLineData, ReadLineErrors, ReadLineResponses, ReadMemoryFilesData, ReadMemoryFilesErrors, ReadMemoryFilesResponses, ReadMemoryReviewData, ReadMemoryReviewErrors, ReadMemoryReviewResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadReplayCandidateData, ReadReplayCandidateErrors, ReadReplayCandidateResponses, ReadReplayData, ReadReplayErrors, ReadReplayOfRunData, ReadReplayOfRunErrors, ReadReplayOfRunResponses, ReadReplayResponses, ReadReplayRunData, ReadReplayRunErrors, ReadReplayRunResponses, ReadResourceHclData, ReadResourceHclErrors, ReadResourceHclResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConfigData, ReadRunConfigErrors, ReadRunConfigResponses, ReadRunConversationData, ReadRunConversationErrors, ReadRunConversationResponses, ReadRunHistoryData, ReadRunHistoryErrors, ReadRunHistoryResponses, ReadRunMemoriesData, ReadRunMemoriesErrors, ReadRunMemoriesResponses, ReadRunnerPoolData, ReadRunnerPoolErrors, ReadRunnerPoolResponses, ReadRunnerTrustData, ReadRunnerTrustErrors, ReadRunnerTrustResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunScoresData, ReadRunScoresErrors, ReadRunScoresResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadSecretData, ReadSecretErrors, ReadSecretResponses, ReadSkillData, ReadSkillErrors, ReadSkillResponses, ReadStationAlertData, ReadStationAlertErrors, ReadStationAlertResponses, ReadStationJudgeData, ReadStationJudgeErrors, ReadStationJudgeResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskDecisionsData, ReadTaskDecisionsErrors, ReadTaskDecisionsResponses, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, ReadTeamData, ReadTeamErrors, ReadTeamMemoryData, ReadTeamMemoryErrors, ReadTeamMemoryResponses, ReadTeamResponses, ReadWorkspaceArchiveData, ReadWorkspaceArchiveErrors, ReadWorkspaceArchiveResponses, ReadWorkspaceData, ReadWorkspaceErrors, ReadWorkspaceResponses, ReadWorkspaceRunnersData, ReadWorkspaceRunnersErrors, ReadWorkspaceRunnersResponses, ReadWorkspaceTokenData, ReadWorkspaceTokenErrors, ReadWorkspaceTokenResponses, ReadWorkspaceTokenTrustData, ReadWorkspaceTokenTrustErrors, ReadWorkspaceTokenTrustResponses, RecallMemoriesData, RecallMemoriesErrors, RecallMemoriesResponses, RecallMemoryData, RecallMemoryErrors, RecallMemoryResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RecordRunImageData, RecordRunImageErrors, RecordRunImageResponses, RecordStartingPointData, RecordStartingPointErrors, RecordStartingPointResponses, RedeemEgressData, RedeemEgressErrors, RedeemEgressResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RejectMemoryData, RejectMemoryErrors, RejectMemoryResponses, RememberData, RememberErrors, RememberResponses, RemoveReplaySetEntryData, RemoveReplaySetEntryErrors, RemoveReplaySetEntryResponses, RenameReplaySetData, RenameReplaySetErrors, RenameReplaySetResponses, RenewCheckLeaseData, RenewCheckLeaseErrors, RenewCheckLeaseResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReportHostPresenceData, ReportHostPresenceErrors, ReportHostPresenceResponses, RetireMemoryData, RetireMemoryErrors, RetireMemoryResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SayInChatData, SayInChatErrors, SayInChatResponses, SayToRunData, SayToRunErrors, SayToRunResponses, SealWorkspaceArchiveData, SealWorkspaceArchiveErrors, SealWorkspaceArchiveResponses, StartChatData, StartChatErrors, StartChatResponses, StartReplayData, StartReplayErrors, StartReplayResponses, StopChatData, StopChatErrors, StopChatResponses, StopReplayData, StopReplayErrors, StopReplayResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, TurnAsksAPersonData, TurnAsksAPersonErrors, TurnAsksAPersonResponses, UpdateHarnessProfileData, UpdateHarnessProfileErrors, UpdateHarnessProfileResponses, UpdateHookData, UpdateHookErrors, UpdateHookResponses, UpdateIntegrationData, UpdateIntegrationErrors, UpdateIntegrationResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateRunnerPoolData, UpdateRunnerPoolErrors, UpdateRunnerPoolResponses, UpdateRunnerTrustData, UpdateRunnerTrustErrors, UpdateRunnerTrustResponses, UpdateSecretData, UpdateSecretErrors, UpdateSecretResponses, UpdateSkillData, UpdateSkillErrors, UpdateSkillResponses, UpdateTeamData, UpdateTeamErrors, UpdateTeamResponses, UpdateWorkspaceData, UpdateWorkspaceErrors, UpdateWorkspaceResponses, UpdateWorkspaceRunnersData, UpdateWorkspaceRunnersErrors, UpdateWorkspaceRunnersResponses, UpdateWorkspaceTokenData, UpdateWorkspaceTokenErrors, UpdateWorkspaceTokenResponses, UpdateWorkspaceTokenTrustData, UpdateWorkspaceTokenTrustErrors, UpdateWorkspaceTokenTrustResponses, UseToolData, UseToolErrors, UseToolResponses, WriteMemoryData, WriteMemoryErrors, WriteMemoryResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -172,6 +172,20 @@ export const renewCheckLease = <ThrowOnError extends boolean = false>(options: O
  */
 export const recordRunImage = <ThrowOnError extends boolean = false>(options: Options<RecordRunImageData, ThrowOnError>): RequestResult<RecordRunImageResponses, RecordRunImageErrors, ThrowOnError> => (options.client ?? client).post<RecordRunImageResponses, RecordRunImageErrors, ThrowOnError>({
   url: '/runs/{runId}/image',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Say where the run started: the archive it restored and the commit each checkout was at
+ *
+ * The runner reports this once the workspace is restored and its checkouts prepared, before the agent starts, and only for a run that works a task. A later attempt of the same run keeps where the first one started.
+ */
+export const recordStartingPoint = <ThrowOnError extends boolean = false>(options: Options<RecordStartingPointData, ThrowOnError>): RequestResult<RecordStartingPointResponses, RecordStartingPointErrors, ThrowOnError> => (options.client ?? client).post<RecordStartingPointResponses, RecordStartingPointErrors, ThrowOnError>({
+  url: '/runs/{runId}/starting-point',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -527,6 +541,15 @@ export const assignTask = <ThrowOnError extends boolean = false>(options: Option
     'Content-Type': 'application/json',
     ...options.headers
   }
+});
+
+/**
+ * A replay run: the past run it replays, what it did and said, and what it spent
+ */
+export const readReplayRun = <ThrowOnError extends boolean = false>(options: Options<ReadReplayRunData, ThrowOnError>): RequestResult<ReadReplayRunResponses, ReadReplayRunErrors, ThrowOnError> => (options.client ?? client).get<ReadReplayRunResponses, ReadReplayRunErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-runs/{runId}',
+  ...options
 });
 
 /**
@@ -1947,5 +1970,189 @@ export const listInsightsPullRequests = <ThrowOnError extends boolean = false>(o
 export const listInsightsRuns = <ThrowOnError extends boolean = false>(options: Options<ListInsightsRunsData, ThrowOnError>): RequestResult<ListInsightsRunsResponses, ListInsightsRunsErrors, ThrowOnError> => (options.client ?? client).get<ListInsightsRunsResponses, ListInsightsRunsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
   url: '/teams/{teamId}/insights/runs',
+  ...options
+});
+
+/**
+ * Propose a station config to replay past tasks under, without applying it; candidates never change, so a changed config is a new candidate
+ */
+export const createReplayCandidate = <ThrowOnError extends boolean = false>(options: Options<CreateReplayCandidateData, ThrowOnError>): RequestResult<CreateReplayCandidateResponses, CreateReplayCandidateErrors, ThrowOnError> => (options.client ?? client).post<CreateReplayCandidateResponses, CreateReplayCandidateErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/lines/{lineId}/stations/{stationKey}/replay-candidates',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Withdraw a proposed candidate no replay is running; replays that ran it keep their results
+ */
+export const deleteReplayCandidate = <ThrowOnError extends boolean = false>(options: Options<DeleteReplayCandidateData, ThrowOnError>): RequestResult<DeleteReplayCandidateResponses, DeleteReplayCandidateErrors, ThrowOnError> => (options.client ?? client).delete<DeleteReplayCandidateResponses, DeleteReplayCandidateErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/replay-candidates/{id}',
+  ...options
+});
+
+/**
+ * Read a candidate, with what it changes from the live config it was proposed against
+ */
+export const readReplayCandidate = <ThrowOnError extends boolean = false>(options: Options<ReadReplayCandidateData, ThrowOnError>): RequestResult<ReadReplayCandidateResponses, ReadReplayCandidateErrors, ThrowOnError> => (options.client ?? client).get<ReadReplayCandidateResponses, ReadReplayCandidateErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/replay-candidates/{id}',
+  ...options
+});
+
+/**
+ * Find the proposed candidate at an address in a workspace: team, line and station keys, then its name
+ */
+export const importReplayCandidate = <ThrowOnError extends boolean = false>(options: Options<ImportReplayCandidateData, ThrowOnError>): RequestResult<ImportReplayCandidateResponses, ImportReplayCandidateErrors, ThrowOnError> => (options.client ?? client).get<ImportReplayCandidateResponses, ImportReplayCandidateErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/replay-candidates/import',
+  ...options
+});
+
+/**
+ * List the proposed candidates of the teams you may read in a workspace, or of one station; Spotlight’s live snapshots show only in the replays that ran them
+ */
+export const listReplayCandidates = <ThrowOnError extends boolean = false>(options: Options<ListReplayCandidatesData, ThrowOnError>): RequestResult<ListReplayCandidatesResponses, ListReplayCandidatesErrors, ThrowOnError> => (options.client ?? client).get<ListReplayCandidatesResponses, ListReplayCandidatesErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/resources/workspaces/{workspaceId}/replay-candidates',
+  ...options
+});
+
+/**
+ * The station’s replay sets, each run in them, and whether it can still be replayed
+ */
+export const listReplaySets = <ThrowOnError extends boolean = false>(options: Options<ListReplaySetsData, ThrowOnError>): RequestResult<ListReplaySetsResponses, ListReplaySetsErrors, ThrowOnError> => (options.client ?? client).get<ListReplaySetsResponses, ListReplaySetsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets',
+  ...options
+});
+
+/**
+ * Open an empty replay set at the station
+ */
+export const openReplaySet = <ThrowOnError extends boolean = false>(options: Options<OpenReplaySetData, ThrowOnError>): RequestResult<OpenReplaySetResponses, OpenReplaySetErrors, ThrowOnError> => (options.client ?? client).post<OpenReplaySetResponses, OpenReplaySetErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Every replay set of the team, including those whose station is gone from its line; or only those of one station, named by its line and key
+ */
+export const listTeamReplaySets = <ThrowOnError extends boolean = false>(options: Options<ListTeamReplaySetsData, ThrowOnError>): RequestResult<ListTeamReplaySetsResponses, ListTeamReplaySetsErrors, ThrowOnError> => (options.client ?? client).get<ListTeamReplaySetsResponses, ListTeamReplaySetsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-sets',
+  ...options
+});
+
+/**
+ * The station’s latest ended task runs to pick a replay set from, saying why any cannot be replayed
+ */
+export const listReplayableRuns = <ThrowOnError extends boolean = false>(options: Options<ListReplayableRunsData, ThrowOnError>): RequestResult<ListReplayableRunsResponses, ListReplayableRunsErrors, ThrowOnError> => (options.client ?? client).get<ListReplayableRunsResponses, ListReplayableRunsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replayable-runs',
+  ...options
+});
+
+/**
+ * Delete a replay set and its replays, letting go of the archives it kept
+ */
+export const deleteReplaySet = <ThrowOnError extends boolean = false>(options: Options<DeleteReplaySetData, ThrowOnError>): RequestResult<DeleteReplaySetResponses, DeleteReplaySetErrors, ThrowOnError> => (options.client ?? client).delete<DeleteReplaySetResponses, DeleteReplaySetErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-sets/{setId}',
+  ...options
+});
+
+/**
+ * Rename a replay set
+ */
+export const renameReplaySet = <ThrowOnError extends boolean = false>(options: Options<RenameReplaySetData, ThrowOnError>): RequestResult<RenameReplaySetResponses, RenameReplaySetErrors, ThrowOnError> => (options.client ?? client).patch<RenameReplaySetResponses, RenameReplaySetErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-sets/{setId}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Add a past run of the station to a replay set, keeping the archive it started from while it is there
+ */
+export const addReplaySetEntry = <ThrowOnError extends boolean = false>(options: Options<AddReplaySetEntryData, ThrowOnError>): RequestResult<AddReplaySetEntryResponses, AddReplaySetEntryErrors, ThrowOnError> => (options.client ?? client).post<AddReplaySetEntryResponses, AddReplaySetEntryErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-sets/{setId}/entries',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Take a run out of a replay set
+ */
+export const removeReplaySetEntry = <ThrowOnError extends boolean = false>(options: Options<RemoveReplaySetEntryData, ThrowOnError>): RequestResult<RemoveReplaySetEntryResponses, RemoveReplaySetEntryErrors, ThrowOnError> => (options.client ?? client).delete<RemoveReplaySetEntryResponses, RemoveReplaySetEntryErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-sets/{setId}/entries/{runId}',
+  ...options
+});
+
+/**
+ * Every replay of a set, newest first, with each run’s result and the set’s baseline marked
+ */
+export const listReplays = <ThrowOnError extends boolean = false>(options: Options<ListReplaysData, ThrowOnError>): RequestResult<ListReplaysResponses, ListReplaysErrors, ThrowOnError> => (options.client ?? client).get<ListReplaysResponses, ListReplaysErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-sets/{setId}/replays',
+  ...options
+});
+
+/**
+ * Replay a set’s runs under a candidate, or the live config, within a ceiling that applies to this replay on its own
+ *
+ * When the set has no baseline covering its runs, a baseline replay of the live config starts beside it, with a ceiling of its own equal to the one asked for; the answer names it. Replaying live when the set has no baseline makes that replay the baseline.
+ */
+export const startReplay = <ThrowOnError extends boolean = false>(options: Options<StartReplayData, ThrowOnError>): RequestResult<StartReplayResponses, StartReplayErrors, ThrowOnError> => (options.client ?? client).post<StartReplayResponses, StartReplayErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-sets/{setId}/replays',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * One replay, its totals, and each task against the set’s baseline, regressions first
+ */
+export const readReplay = <ThrowOnError extends boolean = false>(options: Options<ReadReplayData, ThrowOnError>): RequestResult<ReadReplayResponses, ReadReplayErrors, ThrowOnError> => (options.client ?? client).get<ReadReplayResponses, ReadReplayErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replays/{replayId}',
+  ...options
+});
+
+/**
+ * The replay a replay run belongs to, its candidate and set, and the run’s result in it
+ */
+export const readReplayOfRun = <ThrowOnError extends boolean = false>(options: Options<ReadReplayOfRunData, ThrowOnError>): RequestResult<ReadReplayOfRunResponses, ReadReplayOfRunErrors, ThrowOnError> => (options.client ?? client).get<ReadReplayOfRunResponses, ReadReplayOfRunErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replay-runs/{runId}/replay',
+  ...options
+});
+
+/**
+ * Stop a replay: no more of its runs start, and those running stop
+ */
+export const stopReplay = <ThrowOnError extends boolean = false>(options: Options<StopReplayData, ThrowOnError>): RequestResult<StopReplayResponses, StopReplayErrors, ThrowOnError> => (options.client ?? client).post<StopReplayResponses, StopReplayErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/teams/{teamId}/replays/{replayId}/stop',
   ...options
 });

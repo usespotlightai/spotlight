@@ -136,7 +136,7 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
       ? undefined
       : and(
           sql`${runRecord.ending}::text = 'failed'`,
-          eq(runRecord.superseded, false),
+          isNull(runRecord.supersededAt),
           holding(sql`${runRecord.tools}->'servers'`, [
             { server: filter.failedAfter, lastCallFailed: true },
           ]),
@@ -277,8 +277,9 @@ const toRecord = (row: RecordRow): RunRecord =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     end: endOf(row),
-    superseded: row.superseded,
+    supersededAt: row.supersededAt,
     checks: row.checks,
+    checkedAt: row.checkedAt,
     next: nextOf(row),
     cost: costOf(row),
     handedOn: handedOnOf(row),
@@ -308,8 +309,9 @@ const columnsOf = (record: RunRecord) => {
     ending: end?.ending ?? null,
     failure: end?.failure ?? null,
     round: end?.round ?? null,
-    superseded: record.superseded,
+    supersededAt: record.supersededAt,
     checks: record.checks,
+    checkedAt: record.checkedAt,
     nextAct: record.next?.act ?? null,
     nextAt: record.next?.at ?? null,
     handedOnTo: record.handedOn?.to ?? null,

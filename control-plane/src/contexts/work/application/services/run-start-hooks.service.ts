@@ -56,7 +56,7 @@ export class RunStartHooks {
   }
 
   private async verdictOn(run: Run, pollUntil: Date): Promise<Heard> {
-    if (!run.taskId) {
+    if (!run.hearsHooks || !run.taskId) {
       return { kind: 'allowed' };
     }
 

@@ -108,8 +108,10 @@ const reading = ({
   keyed = [IMPLEMENTATION],
   runs = [ran('run_3'), ran('run_2'), ran('run_1')],
   outcomes = [] as RunOutcomeShape[],
+  replaysFrom = null,
 }: {
   team?: TeamId | null;
+  replaysFrom?: Date | null;
   keyed?: KeyedStation[];
   runs?: StationRunRow[];
   outcomes?: RunOutcomeShape[];
@@ -129,7 +131,9 @@ const reading = ({
     alertsAt: async () => null,
   };
   const traces = {
-    teamOfHeldRun: vi.fn().mockResolvedValue(team),
+    heldRunStanding: vi
+      .fn()
+      .mockResolvedValue(team ? { teamId: team, replaysFrom } : null),
   } as unknown as RunnerTraceReaderPort;
   const told: RunOutcomesPort = {
     of: async () => new Map(outcomes.map((each) => [each.runId, each])),
@@ -256,5 +260,22 @@ describe('ReadRunnerHistoryHandler', () => {
     expect(
       answer.kind === 'found' && answer.history.runs.map((each) => each.runId),
     ).toEqual(['run_2']);
+  });
+
+  it('shows a replay only the runs that ended before the run it replays started', async () => {
+    const started = new Date('2026-09-20T00:00:00Z');
+    const history = reading({ replaysFrom: started });
+
+    await history.read();
+
+    expect(history.asked[0]?.until).toEqual(started);
+  });
+
+  it('shows a task run every ended run', async () => {
+    const history = reading();
+
+    await history.read();
+
+    expect(history.asked[0]?.until).toBeNull();
   });
 });

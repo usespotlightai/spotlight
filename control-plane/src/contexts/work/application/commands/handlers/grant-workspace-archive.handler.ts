@@ -36,6 +36,8 @@ export class GrantWorkspaceArchiveHandler
         return null;
       }
 
+      run.mayReachBeyondItself('keep a workspace for a later run');
+
       const archive = WorkspaceArchive.granted({
         id: WorkspaceArchiveId.of(this.ids.generate()),
         workspaceId: run.workspaceId,

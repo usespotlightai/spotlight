@@ -1,13 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type { TaskRunSummary } from '@work/application/ports/run-reader.port';
-import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
+import type {
+  HeldRunStanding,
+  RunnerTraceReaderPort,
+} from '@work/application/ports/runner-trace-reader.port';
 import { HELD_RUN_STATES } from '@work/domain/value-objects/run-state';
 import {
   ranAt,
@@ -26,24 +30,36 @@ import {
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+
+const replayed = alias(run, 'replayed');
+const replayedAt = alias(station, 'replayed_at');
+const replayedLine = alias(line, 'replayed_line');
 
 @Injectable()
 export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async teamOfHeldRun(
+  async heldRunStanding(
     runId: RunId,
     runnerId: RunnerId,
-  ): Promise<TeamId | null> {
+  ): Promise<HeldRunStanding | null> {
     const [row] = await this.db
       .select({
-        teamId: sql<string | null>`coalesce(${chat.teamId}, ${line.teamId})`,
+        teamId: sql<
+          string | null
+        >`coalesce(${chat.teamId}, ${line.teamId}, ${replayedLine.teamId})`,
+        replayOf: run.replayOfRunId,
+        replaysFrom: replayed.startedFromAt,
       })
       .from(run)
       .leftJoin(chat, eq(chat.id, run.chatId))
       .leftJoin(task, eq(task.id, run.taskId))
       .leftJoin(station, eq(station.id, task.stationId))
       .leftJoin(line, eq(line.id, station.lineId))
+      .leftJoin(replayedAt, eq(replayedAt.id, run.stationId))
+      .leftJoin(replayedLine, eq(replayedLine.id, replayedAt.lineId))
+      .leftJoin(replayed, eq(replayed.id, run.replayOfRunId))
       .where(
         and(
           eq(run.id, runId.value),
@@ -53,7 +69,21 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       )
       .limit(1);
 
-    return row?.teamId ? TeamId.of(row.teamId) : null;
+    if (!row?.teamId) {
+      return null;
+    }
+
+    if (row.replayOf && !row.replaysFrom) {
+      throw new InconsistentStateError(
+        'run',
+        `replays a run that never said where it started (${runId.value})`,
+      );
+    }
+
+    return {
+      teamId: TeamId.of(row.teamId),
+      replaysFrom: row.replayOf ? row.replaysFrom : null,
+    };
   }
 
   async teamOfTask(taskId: TaskId): Promise<TeamId | null> {

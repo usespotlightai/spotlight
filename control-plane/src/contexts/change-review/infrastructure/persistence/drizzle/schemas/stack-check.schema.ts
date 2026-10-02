@@ -4,6 +4,7 @@ import type {
   StoredCheckOutcome,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -21,6 +22,7 @@ export const stackCheck = pgTable(
     stackId: text('stack_id').primaryKey(),
     runId: text('run_id').notNull(),
     taskId: text('task_id'),
+    replay: boolean('replay').notNull().default(false),
     workspaceId: text('workspace_id').notNull(),
     command: text('command').notNull(),
     setup: text('setup'),

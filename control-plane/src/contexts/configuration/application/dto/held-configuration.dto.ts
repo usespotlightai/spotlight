@@ -10,10 +10,12 @@ import {
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { HeldLine } from '@work/application/contracts/held-line.contract';
 
-export type HeldKind = Exclude<ConfiguredResource, 'workspace-token'>;
+const UNHELD = ['workspace-token', 'replay-candidate', 'replay'] as const;
+
+export type HeldKind = Exclude<ConfiguredResource, (typeof UNHELD)[number]>;
 
 export const HELD_KINDS: readonly HeldKind[] = CONFIGURED_RESOURCES.filter(
-  (kind): kind is HeldKind => kind !== 'workspace-token',
+  (kind): kind is HeldKind => !(UNHELD as readonly string[]).includes(kind),
 );
 
 interface Held {

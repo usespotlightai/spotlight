@@ -49,6 +49,14 @@ describe('RunSpec', () => {
     expect(RunSpec.of(parts()).value.diffs).toBeUndefined();
   });
 
+  it('keeps the check its change is held to, so a later station edit does not change it', () => {
+    expect(RunSpec.of(parts({ check: 'npm test' })).check).toBe('npm test');
+    expect(RunSpec.of(parts()).check).toBeNull();
+    expect(() => RunSpec.of(parts({ check: '  ' }))).toThrow(
+      InvalidRunSpecError,
+    );
+  });
+
   it('refuses one that says nothing to do, or nothing to run', () => {
     expect(() => RunSpec.of(parts({ briefing: '  ' }))).toThrow(
       InvalidRunSpecError,
@@ -120,5 +128,96 @@ describe('RunSpec', () => {
     expect(
       RunSpec.of(parts()).equals(RunSpec.of(parts({ briefing: 'other' }))),
     ).toBe(false);
+  });
+
+  describe('a replay', () => {
+    const COMMIT = 'c'.repeat(40);
+    const replayed = (over: Partial<RunSpecParts> = {}): RunSpecParts =>
+      parts({
+        checkouts: [
+          { remote: 'spotlight:repository', path: 'api', ref: COMMIT },
+        ],
+        continuity: { key: 'replay-run_1' },
+        replay: {
+          archive: 'archive_1',
+          checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
+          movesOnAfter: ['spec'],
+        },
+        ...over,
+      });
+
+    it('says what it replays: the archive it starts from and the commit of each checkout', () => {
+      const spec = RunSpec.of(replayed());
+
+      expect(spec.isReplay).toBe(true);
+      expect(spec.replay).toEqual({
+        archive: 'archive_1',
+        checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
+        movesOnAfter: ['spec'],
+      });
+      expect(RunSpec.of(parts()).isReplay).toBe(false);
+      expect(RunSpec.of(parts()).replay).toBeNull();
+    });
+
+    it('gives a replay no tools, MCP servers or secrets', () => {
+      for (const given of [
+        { wears: ['LINEAR_API_KEY'] },
+        {
+          manifest: [{ name: 'core.comment', description: 'x', inputs: [] }],
+        },
+        { catalog: ['catalog.web-search@1.1.0'] },
+        {
+          harnessSetup: {
+            files: [],
+            mcpServers: [{ name: 'linear', command: 'npx', args: [], env: [] }],
+            asks: [],
+          },
+        },
+      ]) {
+        expect(() => RunSpec.of(replayed(given))).toThrow(InvalidRunSpecError);
+      }
+    });
+
+    it('hands over the diff it leaves, for its candidate’s own check to judge', () => {
+      const spec = RunSpec.of(replayed({ diffs: true, check: 'npm test' }));
+
+      expect(spec.value.diffs).toBe(true);
+      expect(spec.check).toBe('npm test');
+    });
+
+    it('never reports where it started, nor carries on a conversation', () => {
+      expect(() => RunSpec.of(replayed({ startingPoint: true }))).toThrow(
+        InvalidRunSpecError,
+      );
+      expect(() =>
+        RunSpec.of(
+          replayed({ continuity: { key: 'replay-run_1', sessionId: 's_1' } }),
+        ),
+      ).toThrow(InvalidRunSpecError);
+    });
+
+    it('checks out exactly the commits it replays, on no branch', () => {
+      for (const checkouts of [
+        [{ remote: 'spotlight:repository', path: 'api' }],
+        [{ remote: 'spotlight:repository', path: 'api', ref: 'd'.repeat(40) }],
+        [
+          {
+            remote: 'spotlight:repository',
+            path: 'api',
+            ref: COMMIT,
+            branch: 'spotlight/task_1',
+          },
+        ],
+        [
+          { remote: 'spotlight:repository', path: 'api', ref: COMMIT },
+          { remote: 'spotlight:repository', path: 'web', ref: COMMIT },
+        ],
+        [],
+      ]) {
+        expect(() => RunSpec.of(replayed({ checkouts }))).toThrow(
+          InvalidRunSpecError,
+        );
+      }
+    });
   });
 });

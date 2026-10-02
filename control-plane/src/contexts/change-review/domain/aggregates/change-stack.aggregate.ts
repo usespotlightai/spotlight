@@ -4,10 +4,12 @@ import { ChangeStackReordered } from '@change-review/domain/events/change-stack-
 import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
 import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
 import { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
+import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
+import { reachesBeyondSpotlight } from '@change-review/domain/services/replay-isolation';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -32,6 +34,10 @@ import {
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { OwesWork } from '@shared-kernel/domain/owes-work';
+import {
+  type ModelCall,
+  ModelUsage,
+} from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -102,6 +108,18 @@ const assertWhole = (
   }
 };
 
+const assertKeptToItsRun = (stack: {
+  taskId: TaskId | null;
+  replay: boolean;
+}): void => {
+  if (stack.replay && stack.taskId) {
+    throw new InconsistentStateError(
+      'change stack',
+      'is a replay’s, yet belongs to a task',
+    );
+  }
+};
+
 export class ChangeStack
   extends EventRecorder
   implements OwesWork<ChangeStack>
@@ -110,6 +128,7 @@ export class ChangeStack
     readonly id: ChangeStackId,
     readonly runId: RunId,
     readonly taskId: TaskId | null,
+    readonly replay: boolean,
     readonly workspaceId: WorkspaceId,
     readonly repository: RepositoryName | null,
     readonly base: BaseCommit | null,
@@ -120,6 +139,7 @@ export class ChangeStack
     readonly work: OwedWork,
     readonly request: CheckRequest | null,
     readonly reordering: boolean,
+    readonly spent: ModelUsage,
     readonly version: number,
   ) {
     super();
@@ -129,6 +149,7 @@ export class ChangeStack
     id: ChangeStackId;
     runId: RunId;
     taskId: TaskId | null;
+    replay: boolean;
     workspaceId: WorkspaceId;
     repository: string | null;
     base: string | null;
@@ -137,10 +158,13 @@ export class ChangeStack
     request: CheckRequest | null;
     now: Date;
   }): ChangeStack {
+    assertKeptToItsRun(input);
+
     const stack = new ChangeStack(
       input.id,
       input.runId,
       input.taskId,
+      input.replay,
       input.workspaceId,
       input.repository?.trim() ? RepositoryName.of(input.repository) : null,
       input.base?.trim() ? BaseCommit.of(input.base) : null,
@@ -151,6 +175,7 @@ export class ChangeStack
       OwedWork.fresh(),
       input.request,
       false,
+      ModelUsage.none(),
       0,
     );
 
@@ -163,6 +188,7 @@ export class ChangeStack
     id: ChangeStackId;
     runId: RunId;
     taskId: TaskId | null;
+    replay: boolean;
     workspaceId: WorkspaceId;
     repository: RepositoryName | null;
     base: BaseCommit | null;
@@ -173,14 +199,17 @@ export class ChangeStack
     work: OwedWork;
     request: CheckRequest | null;
     reordering: boolean;
+    spent: ModelUsage;
     version: number;
   }): ChangeStack {
     assertWhole(input.progress, input.diff, input.cohorts);
+    assertKeptToItsRun(input);
 
     return new ChangeStack(
       input.id,
       input.runId,
       input.taskId,
+      input.replay,
       input.workspaceId,
       input.repository,
       input.base,
@@ -191,6 +220,7 @@ export class ChangeStack
       input.work,
       input.request,
       input.reordering,
+      input.spent,
       input.version,
     );
   }
@@ -209,6 +239,10 @@ export class ChangeStack
 
   get settledAt(): Date | null {
     return this.progress.settledAt;
+  }
+
+  get reachesGitHub(): boolean {
+    return reachesBeyondSpotlight(this);
   }
 
   get owesWork(): boolean {
@@ -237,6 +271,10 @@ export class ChangeStack
       cohorts: this.cohorts,
       entries,
     });
+  }
+
+  usedModel(call: ModelCall | null): ChangeStack {
+    return call ? this.with({ spent: this.spent.with(call) }) : this;
   }
 
   askedToReorder(): ChangeStack {
@@ -335,12 +373,27 @@ export class ChangeStack
       work: OwedWork.fresh(),
     });
 
-    settledStack.record(new ChangeStackSettled(this.id, this.runId));
+    settledStack.record(
+      new ChangeStackSettled(this.id, this.runId, this.replay),
+    );
     settledStack.recordShape(now);
+    settledStack.recordReplaySettled();
     return settledStack;
   }
 
+  private recordReplaySettled(): void {
+    if (this.replay) {
+      this.record(
+        new ReplayStackSettled(this.id, this.runId, this.workspaceId),
+      );
+    }
+  }
+
   private recordShape(at: Date): void {
+    if (!reachesBeyondSpotlight(this)) {
+      return;
+    }
+
     this.record(
       new ChangeStackShaped(
         this.id,
@@ -368,6 +421,7 @@ export class ChangeStack
     });
 
     failed.record(new ChangeStackFailed(this.id, this.runId, failure));
+    failed.recordReplaySettled();
 
     return failed;
   }
@@ -383,11 +437,13 @@ export class ChangeStack
     progress?: StackProgress;
     work?: OwedWork;
     reordering?: boolean;
+    spent?: ModelUsage;
   }): ChangeStack {
     const next = new ChangeStack(
       this.id,
       this.runId,
       this.taskId,
+      this.replay,
       this.workspaceId,
       this.repository,
       this.base,
@@ -398,6 +454,7 @@ export class ChangeStack
       change.work ?? this.work,
       this.request,
       change.reordering ?? this.reordering,
+      change.spent ?? this.spent,
       this.version,
     );
 

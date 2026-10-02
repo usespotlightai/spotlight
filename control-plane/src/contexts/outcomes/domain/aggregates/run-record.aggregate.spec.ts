@@ -18,6 +18,8 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+
 const RUN = RunId.of('run_1');
 const AT = new Date('2026-09-30T11:00:00.000Z');
 const LATER = new Date('2026-09-30T12:00:00.000Z');
@@ -55,9 +57,9 @@ describe('RunRecord', () => {
     const learned = heard
       .ended(endOf())
       .actedOn(NextAct.of('sent-back', LATER))
-      .checked('skipped')
-      .checked('passed')
-      .checked('failed')
+      .checked('skipped', HEARD_AT)
+      .checked('passed', HEARD_AT)
+      .checked('failed', HEARD_AT)
       .digested(costOf(), RunTools.NONE)
       .digested(costOf({ amount: 2 }), RunTools.NONE);
 
@@ -82,39 +84,39 @@ describe('RunRecord', () => {
   });
 
   it('ends as superseded when its task superseded it after it ended', () => {
-    expect(endedRecord('run_1').supersededByItsTask().ending).toBe(
+    expect(endedRecord('run_1').supersededByItsTask(HEARD_AT).ending).toBe(
       'superseded',
     );
   });
 
   it('ends as superseded when told so before it was heard to end', () => {
     const superseded = RunRecord.heardOf(RUN, WORKSPACE)
-      .supersededByItsTask()
+      .supersededByItsTask(HEARD_AT)
       .ended(endOf({ ending: 'completed' }));
 
     expect(superseded.ending).toBe('superseded');
   });
 
   it('is left as it is when superseded twice', () => {
-    const superseded = endedRecord('run_1').supersededByItsTask();
+    const superseded = endedRecord('run_1').supersededByItsTask(HEARD_AT);
 
-    expect(superseded.supersededByItsTask()).toBe(superseded);
+    expect(superseded.supersededByItsTask(HEARD_AT)).toBe(superseded);
   });
 
   it('keeps the first verdict on its change', () => {
-    const failed = endedRecord('run_1').checked('failed');
+    const failed = endedRecord('run_1').checked('failed', HEARD_AT);
 
-    expect(failed.checked('passed')).toBe(failed);
+    expect(failed.checked('passed', HEARD_AT)).toBe(failed);
     expect(failed.checks).toBe('failed');
   });
 
   it('takes a real verdict over a skipped check, in either order', () => {
     const skippedFirst = endedRecord('run_1')
-      .checked('skipped')
-      .checked('passed');
+      .checked('skipped', HEARD_AT)
+      .checked('passed', HEARD_AT);
     const passedFirst = endedRecord('run_1')
-      .checked('passed')
-      .checked('skipped');
+      .checked('passed', HEARD_AT)
+      .checked('skipped', HEARD_AT);
 
     expect(skippedFirst.checks).toBe('passed');
     expect(passedFirst.checks).toBe('passed');
@@ -122,7 +124,7 @@ describe('RunRecord', () => {
 
   it('takes its verdict before it is heard to end', () => {
     const checked = RunRecord.heardOf(RUN, WORKSPACE)
-      .checked('passed')
+      .checked('passed', HEARD_AT)
       .ended(endOf());
 
     expect(checked.checks).toBe('passed');
@@ -142,8 +144,9 @@ describe('RunRecord', () => {
       workspaceId: WORKSPACE,
       taskId: TaskId.of('task_1'),
       end: endOf(),
-      superseded: false,
+      supersededAt: null,
       checks: null,
+      checkedAt: null,
       next: null,
       cost: null,
       handedOn: null,
@@ -153,7 +156,8 @@ describe('RunRecord', () => {
     });
 
     expect(
-      record.checked('passed').actedOn(NextAct.of('closed', AT)).version,
+      record.checked('passed', HEARD_AT).actedOn(NextAct.of('closed', AT))
+        .version,
     ).toBe(3);
   });
 
@@ -172,7 +176,7 @@ describe('RunRecord', () => {
     const withdrawn = endedRecord('run_1', { ending: 'withdrawn' });
 
     expect(withdrawn.ran).toBe(false);
-    expect(withdrawn.supersededByItsTask().ran).toBe(false);
+    expect(withdrawn.supersededByItsTask(HEARD_AT).ran).toBe(false);
     expect(endedRecord('run_2', { ending: 'failed' }).ran).toBe(true);
     expect(RunRecord.heardOf(RUN, WORKSPACE).ran).toBe(false);
   });
@@ -192,8 +196,9 @@ describe('RunRecord', () => {
         workspaceId: WORKSPACE,
         taskId: TaskId.of('task_2'),
         end: endOf({ taskId: 'task_1' }),
-        superseded: false,
+        supersededAt: null,
         checks: null,
+        checkedAt: null,
         next: null,
         cost: null,
         handedOn: null,
@@ -250,8 +255,9 @@ describe('RunRecord', () => {
         workspaceId: WORKSPACE,
         taskId: TaskId.of('task_1'),
         end: endOf({ taskId: 'task_1' }),
-        superseded: false,
+        supersededAt: null,
         checks: null,
+        checkedAt: null,
         next: null,
         cost,
         handedOn: null,

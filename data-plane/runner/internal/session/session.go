@@ -48,6 +48,7 @@ type Journal interface {
 	WorkspaceArchive(ctx context.Context, runID string) (*protocol.HeldArchive, error)
 	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
 	SealArchive(ctx context.Context, runID, archiveID string) error
+	RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error
 }
 
 const (
@@ -82,20 +83,22 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	space, err := workspace.Open(opts.Workspace)
 	if err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	keeper := newKeeper(run, space, journal, opts.Journal, log)
-	keeper.restore(ctx)
+	if err := keeper.restore(ctx); err != nil {
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
 
 	if err := space.Remove(workspace.OutcomePath); err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear an earlier run's outcome: %w", err))
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear an earlier run's outcome: %w", err))
 	}
 
 	if len(run.Spec.Checkouts) > 0 {
-		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID)
+		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID, replays(run))
 		if err != nil {
-			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 		defer func() {
 			if err := serving.Close(); err != nil {
@@ -108,28 +111,29 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	// As the runner, before the handover, so nothing prepare holds is left for the agent to find.
 	if err := opts.prepare(ctx, space.Dir, run, journal); err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	bases := markBases(ctx, space.Dir, run.Spec.Checkouts, log)
+	keeper.started(ctx)
 
 	cwd := space.Dir
 
 	for _, attachment := range run.Spec.Attachments {
 		if err := fetch(ctx, opts.Journal, run.ID, space, nil, attachment); err != nil {
-			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
 
 	for home, laid := range skillHomes(run.Spec.SkillHomes, run.Spec.Skills) {
 		if err := space.Prune(home, laid); err != nil {
-			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear skills from %s: %w", home, err))
+			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear skills from %s: %w", home, err))
 		}
 	}
 
 	for _, skill := range run.Spec.Skills {
 		if err := lay(space, skill); err != nil {
-			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
 
@@ -137,31 +141,31 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	state, err := space.State()
 	if err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	for _, path := range run.Spec.SettingFiles {
 		if err := unset(space, path, run.Spec.HarnessSetup.Files); err != nil {
-			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
 
 	for _, file := range run.Spec.HarnessSetup.Files {
 		if err := setUp(space, file); err != nil {
-			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
 
 	if opts.AgentUser != nil {
 		if err := space.GiveTo(opts.AgentUser.UID, opts.AgentUser.GID); err != nil {
-			return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
+			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
 		}
 	}
 
 	opts.setUp(ctx, space.Dir, run.Spec.Checkouts, journal, log)
 
 	if err := lifecycle.reach(WorkspaceReady); err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
 	keeper.settled()
@@ -170,11 +174,14 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		run.Spec.Handover.Options,
 		run.Spec.Handover.NoteLimit,
 		func(ctx context.Context, said protocol.Remark) error {
+			if replays(run) {
+				return keptFromReplays("answer a remark")
+			}
 			return opts.Journal.AnswerRemark(ctx, run.ID, said)
 		},
 	)
 	if err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	defer channel.Close()
 
@@ -199,6 +206,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			return answer, err
 		},
 		func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error) {
+			if replays(run) {
+				return nil, keptFromReplays("remember")
+			}
+
 			within, err := checkedOutPaths(space.Dir, run.Spec.Checkouts, remembered.Paths)
 			if err != nil {
 				return nil, err
@@ -214,7 +225,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		journal.append(protocol.Event{Type: protocol.EventSpan, Data: span})
 	})
 	if err != nil {
-		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	defer func() {
 		if err := telemetry.Close(); err != nil {
@@ -274,6 +285,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
 		},
 		putToPerson: &putToPerson,
+		handOver:    handingOver(opts, run, space.Dir, bases, log),
 		heartbeat:   opts.heartbeat(),
 		answerWait:  opts.AnswerWait,
 		log:         log,
@@ -292,11 +304,33 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 
 	lifecycle.note(AgentExited, log)
-	opts.draftStacks(ctx, run, space.Dir, bases, log)
+	if !replays(run) {
+		opts.draftStacks(ctx, run, space.Dir, bases, log)
+	}
 	lifecycle.note(Drained, log)
 
 	log.Info("run finished", "state", lifecycle.state)
 	return nil
+}
+
+func handingOver(
+	opts Options, run protocol.Run, dir string, bases map[string]string, log *slog.Logger,
+) func(context.Context) {
+	if !replays(run) {
+		return nil
+	}
+
+	return func(ctx context.Context) {
+		opts.draftStacks(ctx, run, dir, bases, log)
+	}
+}
+
+func replays(run protocol.Run) bool {
+	return run.Spec.Replay != nil
+}
+
+func keptFromReplays(what string) error {
+	return &declare.Refusal{Because: "a replay may not " + what + ": it has no effect outside Spotlight"}
 }
 
 func (o Options) heartbeat() time.Duration {
@@ -570,6 +604,18 @@ func writing(text string) func(io.Writer) error {
 	}
 }
 
+func unprepared(
+	ctx context.Context,
+	runID string,
+	journal *journalWriter,
+	lifecycle *progress,
+	reporter Journal,
+	log *slog.Logger,
+	cause error,
+) error {
+	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, true)
+}
+
 func finish(
 	ctx context.Context,
 	runID string,
@@ -578,6 +624,19 @@ func finish(
 	reporter Journal,
 	log *slog.Logger,
 	cause error,
+) error {
+	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, false)
+}
+
+func failed(
+	ctx context.Context,
+	runID string,
+	journal *journalWriter,
+	lifecycle *progress,
+	reporter Journal,
+	log *slog.Logger,
+	cause error,
+	beforeHandover bool,
 ) error {
 	if err := lifecycle.reach(WentWrong); err != nil {
 		log.Warn("could not mark the run failed", "error", err)
@@ -590,9 +649,10 @@ func finish(
 	journal.flush(ctx)
 
 	if _, err := reporter.Complete(ctx, runID, protocol.Completion{
-		ExitCode: -1,
-		Failed:   true,
-		Message:  cause.Error(),
+		ExitCode:   -1,
+		Failed:     true,
+		Unprepared: beforeHandover,
+		Message:    cause.Error(),
 	}); err != nil {
 		log.Warn("could not report the failure", "error", err)
 	}

@@ -132,7 +132,7 @@ func (r runner) check(ctx context.Context, client *control.Client, claimed proto
 	log := r.log.With("stack", claimed.StackID, "run", claimed.RunID)
 	log.Info("checking a change stack")
 
-	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.RunID)
+	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.RunID, true)
 	if err != nil {
 		log.Warn("could not serve git for a check", "error", err)
 		return

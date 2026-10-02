@@ -338,6 +338,7 @@ func (e *fakeEngine) pulled() []string {
 type worker struct {
 	mu         sync.Mutex
 	renewed    []string
+	renewedBy  map[string]int
 	checksGone bool
 	checkLost  error
 	images     map[string]string
@@ -370,6 +371,10 @@ func (w *worker) Complete(_ context.Context, runID string, done protocol.Complet
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.completed[runID] = done
+	if w.renewedBy == nil {
+		w.renewedBy = map[string]int{}
+	}
+	w.renewedBy[runID] = len(w.renewed)
 	return protocol.Completed{}, nil
 }
 
@@ -789,6 +794,56 @@ func TestASandboxThatRunsPastItsTimeIsStoppedAndDestroyed(t *testing.T) {
 	}
 }
 
+func TestARunWhoseSandboxRanPastItsTimeIsReportedAsTimedOut(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.RunTimeout = 50 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- handed("runner_1")
+	eventually(t, "the run reported timed out", func() bool {
+		done, ok := pool.worker.completion("run-runner_1")
+		return ok && done.Failed && done.TimedOut && !done.Unprepared && strings.Contains(done.Message, "ran past")
+	})
+}
+
+func TestStopsRenewingTheLeaseBeforeSayingTheRunRanOutOfTime(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.RunTimeout = 80 * time.Millisecond
+	opts.LeaseEvery = 5 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- handed("runner_1")
+	eventually(t, "the run reported timed out", func() bool {
+		done, ok := pool.worker.completion("run-runner_1")
+		return ok && done.TimedOut
+	})
+	time.Sleep(40 * time.Millisecond)
+
+	pool.worker.mu.Lock()
+	defer pool.worker.mu.Unlock()
+	atReport := pool.worker.renewedBy["run-runner_1"]
+	if len(pool.worker.renewed) != atReport {
+		t.Errorf("renewed the lease %d times after saying the run ran out of time", len(pool.worker.renewed)-atReport)
+	}
+}
+
+func TestARunWhoseSandboxFinishesInTimeIsLeftToItsRunnerToReport(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	serving(t, options(t), engine, pool)
+
+	pool.work <- handed("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	id := engine.workSandboxes()[0]
+	engine.finish(id)
+
+	eventually(t, "destroyed once finished", func() bool { return engine.wasDestroyed(id) })
+	if done, ok := pool.worker.completion("run-runner_1"); ok {
+		t.Errorf("the host reported the run itself: %+v", done)
+	}
+}
+
 func TestReportsAnImageBeforeClaimingForIt(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.found = []protocol.HarnessReport{{ID: "claude-code", Version: "2.1.0"}}
@@ -1030,7 +1085,7 @@ func TestLooksInsideAgainWhenATagMovesAndFailsARunItsHarnessLeft(t *testing.T) {
 	})
 
 	done, _ := pool.worker.completion("run-runner_1")
-	if !done.Failed || !strings.Contains(done.Message, "no longer holds claude-code") {
+	if !done.Failed || !done.Unprepared || !strings.Contains(done.Message, "no longer holds claude-code") {
 		t.Errorf("completed %+v", done)
 	}
 	if got := len(engine.workSandboxes()); got != 0 {
@@ -1432,7 +1487,7 @@ func TestGivesUpTheRunWhenItsEgressIsNeverReady(t *testing.T) {
 	pool.work <- handed("runner_1")
 	eventually(t, "the run given up", func() bool {
 		done, ok := pool.worker.completion("run-runner_1")
-		return ok && done.Failed && strings.Contains(done.Message, "egress did not start")
+		return ok && done.Failed && done.Unprepared && strings.Contains(done.Message, "egress did not start")
 	})
 
 	if got := len(engine.workSandboxes()); got != 0 {

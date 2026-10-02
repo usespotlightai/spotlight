@@ -132,6 +132,26 @@ const judgeFailing = vi.fn();
 const judgeError = vi.fn();
 const refetchJudge = vi.fn();
 
+vi.mock('@/hooks/api/useReplaySets', () => ({
+  useReplaySets: () => ({
+    data: [],
+    isPending: false,
+    errorUpdateCount: 0,
+  }),
+}));
+
+vi.mock('@/hooks/api/useOpenReplaySet', () => ({
+  useOpenReplaySet: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useStationCandidates', () => ({
+  useStationCandidates: () => ({
+    address: 'core/default/spec',
+    addressFailed: false,
+    candidates: { data: [], isPending: false, errorUpdateCount: 0 },
+  }),
+}));
+
 vi.mock('@/hooks/api/useStationJudge', () => ({
   useStationJudge: () => ({
     data: judged(),
@@ -500,6 +520,30 @@ describe('Station', () => {
 
     expect(
       screen.queryByRole('heading', { name: 'How its runs turned out' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows how to propose a candidate with the CLI, at the station’s address, rather than a form', () => {
+    renderAt('station_2');
+
+    expect(
+      screen.getByRole('heading', { name: 'Replays' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'spotlight replay propose --station core/default/spec --name <name> <station.json>',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Open a replay set' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers no replays where nothing runs', () => {
+    renderAt('station_3');
+
+    expect(
+      screen.queryByRole('heading', { name: 'Replays' }),
     ).not.toBeInTheDocument();
   });
 

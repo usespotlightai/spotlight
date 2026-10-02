@@ -31,6 +31,7 @@ import {
 } from '@outcomes/domain/insights.fake-spec';
 import {
   askedJudging,
+  ChangeJudgingsInMemory,
   JudgingsInMemory,
   judgeScore,
   RUBRIC_VERSION,
@@ -81,6 +82,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+
 const PULL = 'https://github.com/acme/api/pull/3';
 
 const ENDED: EndedRun = {
@@ -129,8 +132,14 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   let next = 0;
   const subscribers = outcomesSubscribers({
     ending: new NoteRunEnded(WORK, records, forgotten, inTransaction),
-    superseding: new NoteRunSuperseded(records, forgotten, inTransaction),
-    checking: new NoteChangeChecked(records, forgotten, inTransaction),
+    superseding: new NoteRunSuperseded(records, forgotten, inTransaction, {
+      now: () => HEARD_AT,
+      sleep: async () => {},
+    }),
+    checking: new NoteChangeChecked(records, forgotten, inTransaction, {
+      now: () => HEARD_AT,
+      sleep: async () => {},
+    }),
     acting: new NotePersonAct(WORK, records, forgotten, inTransaction),
     opening: new NotePullRequestOpened(
       deliveries,
@@ -145,6 +154,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         records,
         deliveries,
         judgings,
+        changeJudgings: new ChangeJudgingsInMemory(),
         scores,
         touches,
         failures,
@@ -174,7 +184,10 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       {
         available: true,
         model: 'some/model',
-        judge: async () => ({ value: true, reasons: [] }),
+        judge: async () => ({
+          verdict: { value: true, reasons: [] },
+          usage: null,
+        }),
       },
       judgings,
       forgotten,
@@ -325,13 +338,27 @@ describe('outcomesSubscribers', () => {
     expect(await heard.record()).toBeNull();
   });
 
-  it('fills in the checks, the next act and the superseding in any order', async () => {
+  it('records nothing for a change checked for no task, as a replay’s is', async () => {
     const heard = subscribed();
 
     await heard.deliver('outcomes.record-checked-change', {
       kind: CHANGE_CHECKED,
       runId: 'run_1',
       taskId: null,
+      workspaceId: 'ws_1',
+      passed: true,
+    });
+
+    expect(await heard.record()).toBeNull();
+  });
+
+  it('fills in the checks, the next act and the superseding in any order', async () => {
+    const heard = subscribed();
+
+    await heard.deliver('outcomes.record-checked-change', {
+      kind: CHANGE_CHECKED,
+      runId: 'run_1',
+      taskId: 'task_1',
       workspaceId: 'ws_1',
       passed: true,
     });

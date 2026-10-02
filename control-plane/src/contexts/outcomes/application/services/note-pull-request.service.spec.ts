@@ -13,6 +13,7 @@ import {
   TaskTouchesInMemory,
 } from '@outcomes/domain/insights.fake-spec';
 import {
+  ChangeJudgingsInMemory,
   JudgingsInMemory,
   ScoresInMemory,
 } from '@outcomes/domain/judging.fake-spec';
@@ -33,6 +34,8 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const TASK = TaskId.of('task_1');
 const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/7');
@@ -117,6 +120,7 @@ const heldFor = () => ({
   records: new RunRecordsInMemory(),
   deliveries: new TaskDeliveriesInMemory(),
   judgings: new JudgingsInMemory(),
+  changeJudgings: new ChangeJudgingsInMemory(),
   scores: new ScoresInMemory(),
   touches: new TaskTouchesInMemory(),
   failures: new TaskFailuresInMemory(),
@@ -298,6 +302,7 @@ describe('forgetting outcomes', () => {
         records,
         deliveries: noted.deliveries,
         judgings: new JudgingsInMemory(),
+        changeJudgings: new ChangeJudgingsInMemory(),
         scores: new ScoresInMemory(),
         touches,
         failures: new TaskFailuresInMemory(),
@@ -322,7 +327,10 @@ describe('forgetting outcomes', () => {
   it('forgets what it heard of a deleted task’s runs before they ended', async () => {
     const records = new RunRecordsInMemory();
     await records.add(
-      RunRecord.heardOf(RunId.of('run_1'), WORKSPACE, TASK).checked('passed'),
+      RunRecord.heardOf(RunId.of('run_1'), WORKSPACE, TASK).checked(
+        'passed',
+        HEARD_AT,
+      ),
     );
 
     await new ForgetOutcomes(
@@ -330,6 +338,7 @@ describe('forgetting outcomes', () => {
         records,
         deliveries: new TaskDeliveriesInMemory(),
         judgings: new JudgingsInMemory(),
+        changeJudgings: new ChangeJudgingsInMemory(),
         scores: new ScoresInMemory(),
         touches,
         failures: new TaskFailuresInMemory(),
@@ -356,6 +365,7 @@ describe('forgetting outcomes', () => {
         records,
         deliveries: noted.deliveries,
         judgings: new JudgingsInMemory(),
+        changeJudgings: new ChangeJudgingsInMemory(),
         scores: new ScoresInMemory(),
         touches,
         failures: new TaskFailuresInMemory(),

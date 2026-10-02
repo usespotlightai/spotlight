@@ -14,6 +14,7 @@ import {
   TaskTouchesInMemory,
 } from '@outcomes/domain/insights.fake-spec';
 import {
+  ChangeJudgingsInMemory,
   JudgingsInMemory,
   ScoresInMemory,
 } from '@outcomes/domain/judging.fake-spec';
@@ -42,6 +43,7 @@ const heldFor = () => ({
   records: new RunRecordsInMemory(),
   deliveries: new TaskDeliveriesInMemory(),
   judgings: new JudgingsInMemory(),
+  changeJudgings: new ChangeJudgingsInMemory(),
   scores: new ScoresInMemory(),
   touches: new TaskTouchesInMemory(),
   failures: new TaskFailuresInMemory(),

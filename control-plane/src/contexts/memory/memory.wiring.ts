@@ -108,6 +108,7 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { MEMORIES_BRIEFED_BEFORE } from '@work/application/ports/memories-briefed-before.port';
 import {
   TASK_ASIDES,
   type TaskAsidesPort,
@@ -157,14 +158,22 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     ) => new MemoriesInReach(memories, relevance),
   },
   {
-    provide: TEAM_MEMORIES,
-    inject: [MemoriesInReach, MEMORY_RELEVANCE, MEMORY_USES],
+    provide: MemoriesForBriefing,
+    inject: [
+      MemoriesInReach,
+      MEMORY_RELEVANCE,
+      MEMORY_USES,
+      DrizzleMemoryRepository,
+    ],
     useFactory: (
       inReach: MemoriesInReach,
       relevance: MemoryRelevancePort,
       uses: MemoryUsesPort,
-    ) => new MemoriesForBriefing(inReach, relevance, uses),
+      memories: DrizzleMemoryRepository,
+    ) => new MemoriesForBriefing(inReach, relevance, uses, memories),
   },
+  { provide: TEAM_MEMORIES, useExisting: MemoriesForBriefing },
+  { provide: MEMORIES_BRIEFED_BEFORE, useExisting: MemoriesForBriefing },
   {
     provide: MemoryAccess,
     inject: [PEOPLE, WORK],
@@ -286,22 +295,19 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   {
     provide: RunnerMemoryAtHand,
-    inject: [WORK],
-    useFactory: (work: WorkPort) => new RunnerMemoryAtHand(work),
+    inject: [WORK, MEMORY_USES, CLOCK],
+    useFactory: (work: WorkPort, uses: MemoryUsesPort, clock: ClockPort) =>
+      new RunnerMemoryAtHand(work, uses, clock),
   },
   ...bindCommandHandler(RecallMemoriesCommand, RecallMemoriesHandler, [
     RunnerMemoryAtHand,
     MemoriesInReach,
     TeamMemoryViews,
-    MEMORY_USES,
-    CLOCK,
   ]),
   ...bindCommandHandler(RecallMemoryCommand, RecallMemoryHandler, [
     RunnerMemoryAtHand,
     DrizzleMemoryRepository,
     TeamMemoryViews,
-    MEMORY_USES,
-    CLOCK,
   ]),
   ...bindCommandHandler(RememberCommand, RememberHandler, [
     RunnerMemoryAtHand,

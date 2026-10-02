@@ -1,8 +1,11 @@
+import { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggregate';
 import { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
+import { ChangeJudgingMovedOnError } from '@outcomes/domain/exceptions/change-judging-moved-on.error';
 import { JudgingMovedOnError } from '@outcomes/domain/exceptions/judging-moved-on.error';
 import { ScoreMovedOnError } from '@outcomes/domain/exceptions/score-moved-on.error';
 import { FIRST_CONFIG, WORKSPACE } from '@outcomes/domain/outcomes.fake-spec';
+import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
 import type {
   ScoreRepository,
@@ -158,6 +161,72 @@ export class JudgingsInMemory implements JudgingRepository {
         each.workspaceId.equals(workspaceId) &&
         each.place.teamId.equals(teamId)
       ) {
+        this.held.delete(each.runId.value);
+      }
+    }
+  }
+
+  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    for (const each of [...this.held.values()]) {
+      if (each.workspaceId.equals(workspaceId)) {
+        this.held.delete(each.runId.value);
+      }
+    }
+  }
+}
+
+export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
+  readonly held = new Map<string, ChangeJudging>();
+  readonly events: DomainEvent[] = [];
+
+  async add(judging: ChangeJudging): Promise<void> {
+    if (this.held.has(judging.runId.value)) {
+      throw new ChangeJudgingMovedOnError(judging.runId.value);
+    }
+    this.events.push(...judging.pullEvents());
+    this.held.set(judging.runId.value, judging);
+  }
+
+  async save(judging: ChangeJudging): Promise<void> {
+    const held = this.held.get(judging.runId.value);
+
+    if (!held || held.version !== judging.version) {
+      throw new ChangeJudgingMovedOnError(judging.runId.value);
+    }
+    this.events.push(...judging.pullEvents());
+    this.held.set(
+      judging.runId.value,
+      ChangeJudging.rehydrate({
+        runId: judging.runId,
+        workspaceId: judging.workspaceId,
+        teamId: judging.teamId,
+        rubric: judging.rubric,
+        reference: judging.reference,
+        askedAt: judging.askedAt,
+        work: judging.work,
+        judgedAt: judging.judgedAt,
+        failure: judging.failure,
+        spent: judging.spent,
+        version: judging.version + 1,
+      }),
+    );
+  }
+
+  async of(runId: RunId): Promise<ChangeJudging | null> {
+    return this.held.get(runId.value) ?? null;
+  }
+
+  async dueForWork(now: Date): Promise<ChangeJudging | null> {
+    return (
+      [...this.held.values()]
+        .filter((each) => each.work?.dueBy(now))
+        .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
+    );
+  }
+
+  async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+    for (const each of [...this.held.values()]) {
+      if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
         this.held.delete(each.runId.value);
       }
     }

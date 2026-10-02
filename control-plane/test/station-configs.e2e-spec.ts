@@ -233,7 +233,7 @@ describe('the station config a run ran with', () => {
     expect(found.map((each) => each.lineKey)).toEqual(['delivery']);
   });
 
-  it('reads a station’s ended runs newest first, by fingerprint and since a date', async () => {
+  it('reads a station’s ended runs newest first, by fingerprint, since a date and until one', async () => {
     const { stationId } = await lineOf('team_7');
     const old = await ran(stationId, {
       fingerprint: 'c'.repeat(64),
@@ -251,21 +251,31 @@ describe('the station config a run ran with', () => {
     const all = await stationRuns.endedAt(stationId, {
       fingerprint: null,
       since: null,
+      until: null,
       most: 10,
     });
     const sinceMid = await stationRuns.endedAt(stationId, {
       fingerprint: null,
       since: new Date('2026-09-10T00:00:00Z'),
+      until: null,
+      most: 10,
+    });
+    const untilMid = await stationRuns.endedAt(stationId, {
+      fingerprint: null,
+      since: null,
+      until: new Date('2026-09-10T00:00:00Z'),
       most: 10,
     });
     const ofOld = await stationRuns.endedAt(stationId, {
       fingerprint: 'c'.repeat(64),
       since: null,
+      until: null,
       most: 10,
     });
 
     expect(all.map((each) => each.runId)).toEqual([recent.runId, old.runId]);
     expect(sinceMid.map((each) => each.runId)).toEqual([recent.runId]);
+    expect(untilMid.map((each) => each.runId)).toEqual([old.runId]);
     expect(ofOld.map((each) => each.runId)).toEqual([old.runId]);
   });
 

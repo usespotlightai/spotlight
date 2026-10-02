@@ -35,7 +35,7 @@ export interface MemoryRepository {
 
   nextHandle(): Promise<MemoryHandle>;
 
-  mayReach(site: RunSite): Promise<readonly Memory[]>;
+  mayReach(site: RunSite, standingAt?: Date | null): Promise<readonly Memory[]>;
 
   ofTeam(teamId: TeamId, criteria: MemoryCriteria): Promise<readonly Memory[]>;
 }

@@ -136,13 +136,21 @@ export class ClaimedRunResponseDto {
   readonly harness: string;
 
   @ApiProperty({
+    example: 1,
+    description:
+      'Which attempt of the run this is, so what the runner reports for it is not taken for a later one',
+  })
+  readonly attempt: number;
+
+  @ApiProperty({
     description: 'What the runner lays out and starts, as the runner reads it',
   })
   readonly spec: unknown;
 
-  constructor(id: string, harness: string, spec: unknown) {
+  constructor(id: string, harness: string, attempt: number, spec: unknown) {
     this.id = id;
     this.harness = harness;
+    this.attempt = attempt;
     this.spec = spec;
   }
 }

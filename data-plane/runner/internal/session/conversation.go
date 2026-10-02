@@ -24,6 +24,7 @@ type conversation struct {
 	declared    func() *protocol.Outcome
 	attached    func(context.Context, protocol.Attachment) error
 	putToPerson *atomic.Bool
+	handOver    func(context.Context)
 	closed      bool
 	heartbeat   time.Duration
 	answerWait  time.Duration
@@ -131,6 +132,11 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 		}
 
 		if c.putToPerson.Load() {
+			if replays(c.run) {
+				c.log.Info("a replay asked a person for permission; it ends there")
+				return 0
+			}
+
 			said, answered := c.hear(ctx)
 			if !answered {
 				c.log.Info("a person was asked for permission; the turn ends")
@@ -190,6 +196,11 @@ func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool
 
 	turn.Kept = c.keeper.keep(ctx)
 	c.journal.flush(ctx)
+
+	if c.handOver != nil && !stopped {
+		c.handOver(ctx)
+		c.handOver = nil
+	}
 
 	completed, err := c.control.Complete(ctx, c.run.ID, turn)
 	if err != nil {

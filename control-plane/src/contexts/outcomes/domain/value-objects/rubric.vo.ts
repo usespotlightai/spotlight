@@ -7,7 +7,7 @@ const VERSION = /^[0-9a-f]{64}$/;
 
 export const isRubricVersion = (raw: string): boolean => VERSION.test(raw);
 
-const scaleOf = (text: string): ScoreScale => {
+export const rubricScaleOf = (text: string): ScoreScale => {
   try {
     return ScoreScale.of(RubricScale.of(text).kind);
   } catch (error) {
@@ -35,7 +35,7 @@ export class Rubric {
       );
     }
 
-    return new Rubric(input.text, input.version, scaleOf(input.text));
+    return new Rubric(input.text, input.version, rubricScaleOf(input.text));
   }
 
   static readable(input: { text: string; version: string }): Rubric | null {

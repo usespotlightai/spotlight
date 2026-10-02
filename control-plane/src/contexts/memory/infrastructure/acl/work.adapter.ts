@@ -44,6 +44,7 @@ export class Work implements WorkPort {
         workspaceId: held.workspaceId,
         teamId: held.teamId,
         taskId: held.taskId,
+        replaysFrom: held.replaysFrom,
         lineId: held.lineId,
         stationId: held.stationId,
         repositories: held.repositories,

@@ -810,6 +810,27 @@ describe('Run', () => {
       );
     });
 
+    it('goes back on the queue when its host times it out, as for a lapsed lease, and is given up on as timed out', () => {
+      let run = queued();
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        run = run.claim(runner(), noon).timedOut(runner(), noon);
+        expect(run.state).toBe('queued');
+      }
+
+      const given = run.claim(runner(), noon).timedOut(runner(), noon);
+      const events = given.pullEvents();
+      const abandoned = events.find(
+        (each): each is RunAbandoned => each instanceof RunAbandoned,
+      );
+
+      expect(abandoned?.failure).toBe('timed-out');
+      expect(given.outcome?.failure?.code).toBe('timed-out');
+      expect(events.some((each) => each instanceof RunLapsed)).toBe(true);
+      expect(() =>
+        queued().claim(runner(), noon).timedOut(RunnerId.of('elsewhere'), noon),
+      ).toThrow();
+    });
+
     it('says so when it is given up on', () => {
       let run = queued();
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -822,6 +843,7 @@ describe('Run', () => {
 
       expect(raised).toHaveLength(1);
       expect((raised[0] as RunAbandoned).attempt).toBe(3);
+      expect((raised[0] as RunAbandoned).failure).toBe('runner-lost');
     });
 
     it('leaves the run it was completed from with nothing to announce', () => {

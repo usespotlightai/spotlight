@@ -2,6 +2,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
 import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-workspace-archive.error';
 import { InvalidWorkspaceArchiveTransitionError } from '@work/domain/exceptions/invalid-workspace-archive-transition.error';
 import { WorkspaceArchiveNotUploadedError } from '@work/domain/exceptions/workspace-archive-not-uploaded.error';
@@ -12,10 +13,12 @@ import type {
 } from '@work/domain/value-objects/archive-holder.vo';
 import type { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 const KEPT_AFTER_LET_GO_MS = 7 * 24 * 60 * 60_000;
 const KEPT_AFTER_SUPERSEDED_MS = 60 * 60_000;
+const KEPT_AFTER_STARTED_FROM_MS = 30 * 24 * 60 * 60_000;
 const AWAITED_UNSEALED_MS = 24 * 60 * 60_000;
 
 export interface StoredArchive {
@@ -27,11 +30,14 @@ export interface ArchiveRemovalCutoffs {
   readonly grantedUnsealedBy: Date;
   readonly supersededBy: Date;
   readonly letGoBy: Date;
+  readonly startedFromBy: Date;
 }
 
 export interface ArchiveFacts {
   readonly holder: HolderState | null;
   readonly supersededAt: Date | null;
+  readonly lastStartedFromAt: Date | null;
+  readonly pinned: boolean;
 }
 
 interface State {
@@ -99,6 +105,7 @@ export class WorkspaceArchive extends EventRecorder {
       grantedUnsealedBy: before(AWAITED_UNSEALED_MS),
       supersededBy: before(KEPT_AFTER_SUPERSEDED_MS),
       letGoBy: before(KEPT_AFTER_LET_GO_MS),
+      startedFromBy: before(KEPT_AFTER_STARTED_FROM_MS),
     };
   }
 
@@ -164,6 +171,33 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.version;
   }
 
+  restoredInto(
+    workspaceId: WorkspaceId,
+    continuity: ContinuityKey | null,
+  ): RestoredArchive {
+    const restored = RestoredArchive.of(
+      this.state.id,
+      this.state.workspaceId,
+      this.state.continuity,
+    );
+
+    if (!this.isSealed || !restored.restores(workspaceId, continuity)) {
+      throw new InvalidStartingPointError(
+        `names archive ${this.state.id.value}, which the run could not have restored`,
+      );
+    }
+
+    return restored;
+  }
+
+  isKeptIn(workspaceId: WorkspaceId): boolean {
+    return (
+      this.isSealed &&
+      !this.isDiscarded &&
+      this.state.workspaceId.equals(workspaceId)
+    );
+  }
+
   grantedFor(run: RunId): boolean {
     return this.state.grantedTo.equals(run);
   }
@@ -203,6 +237,17 @@ export class WorkspaceArchive extends EventRecorder {
 
     if (!facts.holder) {
       return true;
+    }
+
+    if (facts.pinned) {
+      return false;
+    }
+
+    if (
+      facts.lastStartedFromAt &&
+      at < after(facts.lastStartedFromAt, KEPT_AFTER_STARTED_FROM_MS)
+    ) {
+      return false;
     }
 
     if (

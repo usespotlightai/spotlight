@@ -1,8 +1,6 @@
+import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import { InvalidRunOutcomeError } from '@work/domain/exceptions/invalid-run-outcome.error';
-import {
-  RunFailure,
-  type RunFailureCode,
-} from '@work/domain/value-objects/run-failure.vo';
+import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 
 export interface RefusalReason {
   readonly saying: string;
@@ -19,6 +17,7 @@ export class RunOutcome {
   static of(input: {
     exitCode: number;
     failed: boolean;
+    unprepared?: boolean;
     message?: string | null;
   }): RunOutcome {
     if (!Number.isInteger(input.exitCode)) {
@@ -29,7 +28,9 @@ export class RunOutcome {
 
     return new RunOutcome(
       input.exitCode,
-      input.failed ? RunFailure.of('exited') : null,
+      input.failed
+        ? RunFailure.of(input.unprepared ? 'unprepared' : 'exited')
+        : null,
       input.message?.trim() || null,
     );
   }
@@ -76,6 +77,13 @@ export class RunOutcome {
     return RunOutcome.failedWith(
       'runner-lost',
       `no runner finished it in ${attempts} attempts`,
+    );
+  }
+
+  static timedOut(attempts: number): RunOutcome {
+    return RunOutcome.failedWith(
+      'timed-out',
+      `it ran past its host's time limit, and no runner finished it in ${attempts} attempts`,
     );
   }
 

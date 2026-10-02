@@ -15,12 +15,14 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import {
   MOST_WORK_ATTEMPTS,
   WORK_BACKOFF_MS,
   WORK_LEASE_MS,
 } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -49,11 +51,12 @@ const DIFF = Diff.of([
 
 const NOW = new Date('2026-09-16T10:00:00Z');
 
-const drafting = (facts = StackFacts.none()) =>
+const drafting = (facts = StackFacts.none(), replay = false) =>
   ChangeStack.draft({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    replay,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: ' web ',
     base: null,
@@ -99,6 +102,71 @@ const problemsOf = (cohorts: ProposedCohort[]): readonly string[] => {
 };
 
 describe('ChangeStack', () => {
+  describe('of a replay', () => {
+    const settledKinds = (stack: ChangeStack) =>
+      stack.pullEvents().map((each) => each.kind);
+
+    it('stays in Spotlight: it says it settled for its replay, and shapes no task’s outcome', () => {
+      const stack = drafting(StackFacts.none(), true);
+      stack.pullEvents();
+
+      const ready = stack.propose(
+        [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+        LATER,
+      );
+
+      expect(ready.reachesGitHub).toBe(false);
+      expect(settledKinds(ready)).toEqual([
+        'change-stack.settled',
+        'change-stack.replay-settled',
+      ]);
+    });
+
+    it('says it settled for its replay when it could not be drafted', () => {
+      const stack = drafting(StackFacts.none(), true);
+      stack.pullEvents();
+
+      expect(settledKinds(stack.fail('No.', LATER))).toEqual([
+        'change-stack.failed',
+        'change-stack.replay-settled',
+      ]);
+    });
+
+    it('belongs to no task', () => {
+      expect(() =>
+        ChangeStack.draft({
+          id: ChangeStackId.of('stack-1'),
+          runId: RunId.of('run-1'),
+          taskId: TaskId.of('task-1'),
+          replay: true,
+          workspaceId: WorkspaceId.of('workspace-1'),
+          repository: 'web',
+          base: null,
+          diff: DIFF,
+          facts: StackFacts.none(),
+          request: null,
+          now: NOW,
+        }),
+      ).toThrow(InconsistentStateError);
+    });
+
+    it('is told apart from a task run’s stack, which reaches GitHub and shapes its task’s outcome', () => {
+      const stack = drafting();
+      stack.pullEvents();
+
+      const ready = stack.propose(
+        [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+        LATER,
+      );
+
+      expect(ready.reachesGitHub).toBe(true);
+      expect(settledKinds(ready)).toEqual([
+        'change-stack.settled',
+        'change-stack.shaped',
+      ]);
+    });
+  });
+
   it('starts drafting, with nothing settled', () => {
     const stack = drafting();
 
@@ -362,6 +430,7 @@ describe('ChangeStack read back from what was stored', () => {
       id: ChangeStackId.of('stack-1'),
       runId: RunId.of('run-1'),
       taskId: null,
+      replay: false,
       workspaceId: WorkspaceId.of('workspace-1'),
       repository: RepositoryName.of('web'),
       base: null,
@@ -370,6 +439,7 @@ describe('ChangeStack read back from what was stored', () => {
       cohorts: ready().cohorts,
       progress: ready().progress,
       work: ready().work,
+      spent: ModelUsage.none(),
       request: ready().request,
       reordering: false,
       version: 1,

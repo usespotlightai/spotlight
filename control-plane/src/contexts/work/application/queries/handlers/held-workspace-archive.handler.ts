@@ -5,6 +5,8 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceArchiveAnswer } from '@work/application/dto/workspace-archive.dto';
 import type { WorkspaceArchiveStorePort } from '@work/application/ports/workspace-archive-store.port';
 import type { HeldWorkspaceArchiveQuery } from '@work/application/queries/held-workspace-archive.query';
+import type { Run } from '@work/domain/aggregates/run.aggregate';
+import type { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 
@@ -27,10 +29,7 @@ export class HeldWorkspaceArchiveHandler
         return { held: false };
       }
 
-      const restoresFrom = run.restoresFrom;
-      const archive = restoresFrom
-        ? await this.archives.newestSealed(run.workspaceId, restoresFrom)
-        : null;
+      const archive = await this.restoredBy(run);
 
       if (!archive) {
         return { held: true, archive: null };
@@ -48,5 +47,21 @@ export class HeldWorkspaceArchiveHandler
     } catch (error) {
       rethrowAsFault(error);
     }
+  }
+
+  private async restoredBy(run: Run): Promise<WorkspaceArchive | null> {
+    const exactly = run.restoresArchive;
+
+    if (exactly) {
+      const archive = await this.archives.find(exactly);
+
+      return archive?.isKeptIn(run.workspaceId) ? archive : null;
+    }
+
+    const restoresFrom = run.restoresFrom;
+
+    return restoresFrom
+      ? this.archives.newestSealed(run.workspaceId, restoresFrom)
+      : null;
   }
 }

@@ -15,12 +15,14 @@ import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
 import type {
   Claimant,
+  KeptWithRun,
   RunRepository,
 } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
@@ -37,6 +39,7 @@ import {
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -52,6 +55,7 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 const noEarlierRunStillHeld = sql`NOT EXISTS (
   SELECT 1 FROM ${run} AS earlier
@@ -65,6 +69,13 @@ const noEarlierRunStillHeld = sql`NOT EXISTS (
 
 type Row = typeof run.$inferSelect;
 
+const replayed = alias(run, 'replayed');
+
+interface Selected {
+  readonly run: Row;
+  readonly replayedTaskId: string | null;
+}
+
 @Injectable()
 export class DrizzleRunRepository implements RunRepository {
   constructor(
@@ -73,14 +84,14 @@ export class DrizzleRunRepository implements RunRepository {
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async add(added: Run): Promise<void> {
+  async add(added: Run, kept: KeptWithRun = {}): Promise<void> {
     await this.context.run(async () => {
-      await this.inserted(added);
+      await this.inserted(added, kept);
       await this.events.dispatch(added.pullEvents());
     });
   }
 
-  private async inserted(added: Run): Promise<void> {
+  private async inserted(added: Run, kept: KeptWithRun): Promise<void> {
     await this.context.db.insert(run).values({
       id: added.id.value,
       workspaceId: added.workspaceId.value,
@@ -89,6 +100,8 @@ export class DrizzleRunRepository implements RunRepository {
       taskId: added.taskId?.value ?? null,
       stationId: added.stationId?.value ?? null,
       chatId: added.chatId?.value ?? null,
+      replayOfRunId: added.replayOf?.value ?? null,
+      replayTeamId: added.subject?.replayedFor?.value ?? null,
       taskRevision: added.subject?.revision?.value ?? null,
       state: added.state,
       spec: RunSpecContract.toWire(added.spec),
@@ -102,6 +115,9 @@ export class DrizzleRunRepository implements RunRepository {
       endedAt: endedAtFor(added.state, sql`now()`),
       stationFingerprint: added.configuredAs?.fingerprint ?? null,
       stationConfig: added.configuredAs?.parts ?? null,
+      briefedTask: kept.briefed?.parts ?? null,
+      askedAPerson: added.askedAPerson,
+      ...startOf(added),
       ...reservationOf(added),
     });
   }
@@ -147,12 +163,15 @@ export class DrizzleRunRepository implements RunRepository {
     });
   }
 
-  async findById(id: RunId): Promise<Run | null> {
-    const [row] = await this.context.db
-      .select()
+  private selected() {
+    return this.context.db
+      .select({ run, replayedTaskId: replayed.taskId })
       .from(run)
-      .where(eq(run.id, id.value))
-      .limit(1);
+      .leftJoin(replayed, eq(replayed.id, run.replayOfRunId));
+  }
+
+  async findById(id: RunId): Promise<Run | null> {
+    const [row] = await this.selected().where(eq(run.id, id.value)).limit(1);
 
     return row ? toRun(row) : null;
   }
@@ -183,6 +202,8 @@ export class DrizzleRunRepository implements RunRepository {
         endedAt: endedAtFor(saved.state, sql`coalesce(${run.endedAt}, now())`),
         spec: RunSpecContract.toWire(saved.spec),
         parkedAttempts: [...saved.parkedAttempts],
+        askedAPerson: saved.askedAPerson,
+        ...startOf(saved),
         ...reservationOf(saved),
       })
       .where(and(eq(run.id, saved.id.value), eq(run.version, saved.version)))
@@ -194,23 +215,18 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   async lapsedClaims(now: Date): Promise<readonly Run[]> {
-    const rows = await this.context.db
-      .select()
-      .from(run)
-      .where(
-        and(
-          inArray(run.state, [...HELD_RUN_STATES]),
-          lte(run.leaseExpiresAt, now),
-        ),
-      );
+    const rows = await this.selected().where(
+      and(
+        inArray(run.state, [...HELD_RUN_STATES]),
+        lte(run.leaseExpiresAt, now),
+      ),
+    );
 
     return rows.map(toRun);
   }
 
   async reservedFor(runner: RunnerId): Promise<Run | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(run)
+    const [found] = await this.selected()
       .where(and(eq(run.state, 'queued'), eq(run.reservedFor, runner.value)))
       .limit(1);
 
@@ -222,9 +238,7 @@ export class DrizzleRunRepository implements RunRepository {
     now: Date,
     page: { readonly skip: number; readonly most: number },
   ): Promise<readonly Run[]> {
-    const rows = await this.context.db
-      .select()
-      .from(run)
+    const rows = await this.selected()
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
@@ -244,19 +258,17 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   async withLapsedReservations(now: Date): Promise<readonly Run[]> {
-    const rows = await this.context.db
-      .select()
-      .from(run)
-      .where(and(eq(run.state, 'queued'), lte(run.reservedUntil, now)));
+    const rows = await this.selected().where(
+      and(eq(run.state, 'queued'), lte(run.reservedUntil, now)),
+    );
 
     return rows.map(toRun);
   }
 
   async claimedBy(runner: RunnerId): Promise<readonly Run[]> {
-    const rows = await this.context.db
-      .select()
-      .from(run)
-      .where(and(eq(run.state, 'claimed'), eq(run.claimedBy, runner.value)));
+    const rows = await this.selected().where(
+      and(eq(run.state, 'claimed'), eq(run.claimedBy, runner.value)),
+    );
 
     return rows.map(toRun);
   }
@@ -273,6 +285,44 @@ const specOf = (row: Row): RunSpec => {
   }
 
   return spec;
+};
+
+const startOf = (held: Run) => ({
+  startedFromArchiveId: held.startedFrom?.archive?.value ?? null,
+  startedFromCheckouts: held.startedFrom?.parts.checkouts ?? null,
+  startedFromAttempt: held.startedFrom?.attempt ?? null,
+  startedFromAt: held.startedFrom?.at ?? null,
+});
+
+const startFrom = (row: Row): StartingPoint | null => {
+  const { startedFromAttempt, startedFromAt, startedFromCheckouts } = row;
+
+  if (
+    startedFromAttempt === null &&
+    startedFromAt === null &&
+    startedFromCheckouts === null &&
+    row.startedFromArchiveId === null
+  ) {
+    return null;
+  }
+
+  if (
+    startedFromAttempt === null ||
+    startedFromAt === null ||
+    startedFromCheckouts === null
+  ) {
+    throw new InconsistentStateError(
+      'run',
+      `records only part of where it started (${row.id})`,
+    );
+  }
+
+  return StartingPoint.rehydrate({
+    archive: row.startedFromArchiveId,
+    checkouts: startedFromCheckouts,
+    attempt: startedFromAttempt,
+    at: startedFromAt,
+  });
 };
 
 const reservationOf = (held: Run) => ({
@@ -297,7 +347,7 @@ const reservationFrom = (row: Row): RunnerReservation | null =>
 const endedAtFor = (state: RunState, ended: SQL) =>
   (TERMINAL_RUN_STATES as readonly RunState[]).includes(state) ? ended : null;
 
-const toRun = (row: Row): Run =>
+const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
   Run.rehydrate({
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
@@ -309,6 +359,9 @@ const toRun = (row: Row): Run =>
       chatId: row.chatId ? ChatId.of(row.chatId) : null,
       revision:
         row.taskRevision === null ? null : TaskRevision.of(row.taskRevision),
+      replayOf: row.replayOfRunId ? RunId.of(row.replayOfRunId) : null,
+      replayedTaskId: replayedTaskId ? TaskId.of(replayedTaskId) : null,
+      replayedFor: row.replayTeamId ? TeamId.of(row.replayTeamId) : null,
     }),
     spec: specOf(row),
     placement: RunnerPlacement.ofClauses(
@@ -345,5 +398,7 @@ const toRun = (row: Row): Run =>
         ? StationConfig.rehydrate(row.stationConfig, row.stationFingerprint)
         : null,
     startedAt: row.startedAt,
+    startedFrom: startFrom(row),
+    askedAPerson: row.askedAPerson,
     version: row.version,
   });

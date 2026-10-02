@@ -55,6 +55,8 @@ type journal struct {
 	remembered       []remembered
 	memory           []protocol.MemoryFile
 	memoryErr        error
+	starts           []protocol.StartingPoint
+	startErr         error
 }
 
 type remembered struct {
@@ -152,6 +154,7 @@ func (j *journal) DraftChangeStack(
 ) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	j.calls = append(j.calls, "draft")
 	j.drafted = append(j.drafted, drafted{repository: repository, diff: diff, base: base})
 	return nil
 }
@@ -274,6 +277,16 @@ func (j *journal) GrantArchive(
 
 func (j *journal) SealArchive(_ context.Context, _ string, archiveID string) error {
 	return j.archives.seal(archiveID)
+}
+
+func (j *journal) RecordStartingPoint(_ context.Context, _ string, point protocol.StartingPoint) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if j.startErr != nil {
+		return j.startErr
+	}
+	j.starts = append(j.starts, point)
+	return nil
 }
 
 func (j *journal) typed(kind protocol.EventType) []protocol.Event {
@@ -402,6 +415,9 @@ type runOptions struct {
 	archives    *keptArchives
 	memory      []protocol.MemoryFile
 	memoryErr   error
+	starting    bool
+	startErr    error
+	replay      *protocol.Replay
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -427,19 +443,22 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		archives:         settings.archives,
 		memory:           settings.memory,
 		memoryErr:        settings.memoryErr,
+		startErr:         settings.startErr,
 	}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
-			Command:      protocol.Command{Executable: executable, Env: settings.env},
-			Briefing:     settings.briefing,
-			Handover:     protocol.Handover{Options: settings.handover},
-			Continuity:   settings.continuity,
-			Attachments:  settings.attachments,
-			Skills:       settings.skills,
-			SkillHomes:   settings.skillHomes,
-			HarnessSetup: settings.setup,
-			SettingFiles: settings.settings,
+			Command:       protocol.Command{Executable: executable, Env: settings.env},
+			Briefing:      settings.briefing,
+			Handover:      protocol.Handover{Options: settings.handover},
+			Continuity:    settings.continuity,
+			Attachments:   settings.attachments,
+			Skills:        settings.skills,
+			SkillHomes:    settings.skillHomes,
+			HarnessSetup:  settings.setup,
+			SettingFiles:  settings.settings,
+			StartingPoint: settings.starting,
+			Replay:        settings.replay,
 		},
 	}, session.Options{
 		Workspace:  settings.root,
@@ -1334,5 +1353,87 @@ func TestAPermissionPutToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testing.T) 
 	}
 	if len(written.delivered) != 0 {
 		t.Errorf("waited on what was said: delivered %v", written.delivered)
+	}
+}
+
+func TestAFailureBeforeTheAgentIsHandedTheRunIsReportedAsUnprepared(t *testing.T) {
+	agent := protocol.Command{Executable: "nothing-of-that-name"}
+	notADirectory := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(notADirectory, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, at := range map[string]struct {
+		workspace string
+		spec      protocol.Spec
+	}{
+		"the workspace cannot be opened": {
+			workspace: notADirectory,
+			spec:      protocol.Spec{Command: agent},
+		},
+		"its repositories cannot be checked out": {
+			spec: protocol.Spec{
+				Command:   agent,
+				Checkouts: []protocol.Checkout{{Remote: "/nowhere/at/all.git", Path: "api"}},
+			},
+		},
+		"an attachment cannot be fetched": {
+			spec: protocol.Spec{
+				Command:     agent,
+				Attachments: []protocol.Attachment{{ID: "att_gone", Path: ".spotlight/attachments/att_gone/notes.txt"}},
+			},
+		},
+		"a skill cannot be laid": {
+			spec: protocol.Spec{
+				Command: agent,
+				Skills:  []protocol.SkillFile{{Path: "../outside/SKILL.md", Text: "x"}},
+			},
+		},
+		"a setting file escapes the state directory": {
+			spec: protocol.Spec{Command: agent, SettingFiles: []string{"../escaped.json"}},
+		},
+		"a harness file escapes the state directory": {
+			spec: protocol.Spec{
+				Command:      agent,
+				HarnessSetup: protocol.HarnessSetup{Files: []protocol.SetupFile{{Path: "../escaped.json", Text: "{}"}}},
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			written := &journal{}
+			workspace := at.workspace
+			if workspace == "" {
+				workspace = t.TempDir()
+			}
+
+			err := session.Execute(context.Background(), protocol.Run{ID: "run_1", Spec: at.spec}, session.Options{
+				Workspace: workspace,
+				Journal:   written,
+				Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+			})
+
+			if err == nil {
+				t.Fatal("expected the run to fail")
+			}
+			if written.done == nil || !written.done.Failed || !written.done.Unprepared {
+				t.Fatalf("completion %+v, want it failed before the handover", written.done)
+			}
+		})
+	}
+}
+
+func TestAnAgentThatCannotStartIsNoFailureOfPreparation(t *testing.T) {
+	written := &journal{}
+	_ = session.Execute(context.Background(), protocol.Run{
+		ID:   "run_1",
+		Spec: protocol.Spec{Command: protocol.Command{Executable: "nothing-of-that-name"}},
+	}, session.Options{
+		Workspace: t.TempDir(),
+		Journal:   written,
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	if written.done == nil || !written.done.Failed || written.done.Unprepared {
+		t.Fatalf("completion %+v, want a failure after the handover", written.done)
 	}
 }

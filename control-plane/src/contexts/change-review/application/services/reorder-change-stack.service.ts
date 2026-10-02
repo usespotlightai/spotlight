@@ -1,4 +1,5 @@
 import type { ChangeStackDrafterPort } from '@change-review/application/ports/change-stack-drafter.port';
+import { attemptDrafting } from '@change-review/application/services/drafting-attempt';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import {
@@ -25,9 +26,10 @@ export class ReorderChangeStack {
 
     const { diff, facts } = stack;
     let problems: readonly StackProblem[] = [];
+    let reordering = stack;
 
     for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
-      const cohorts = await this.drafter.draft({
+      const attempt = await attemptDrafting(this.drafter, {
         diff,
         repository: stack.repository,
         facts,
@@ -35,8 +37,21 @@ export class ReorderChangeStack {
         reordering: revisionOf(stack, check),
       });
 
+      if (!attempt.drafted) {
+        this.logger.error(
+          { changeStackId: stack.id.value, error: attempt.error },
+          'Reordering a change stack failed; trying again later',
+        );
+        return reordering
+          .usedModel(attempt.usage)
+          .triedAgainLater(this.clock.now());
+      }
+
+      const { cohorts, usage } = attempt.answer;
+      reordering = reordering.usedModel(usage);
+
       try {
-        return stack.reordered(cohorts, this.clock.now());
+        return reordering.reordered(cohorts, this.clock.now());
       } catch (error) {
         if (!(error instanceof InvalidChangeStackError)) {
           throw error;
@@ -53,6 +68,6 @@ export class ReorderChangeStack {
       'A reordered change stack kept breaking its rules; keeping the checked one',
     );
 
-    return stack.gaveUpReordering();
+    return reordering.gaveUpReordering();
   }
 }

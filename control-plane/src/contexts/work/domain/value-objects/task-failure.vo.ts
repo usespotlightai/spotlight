@@ -8,6 +8,11 @@ export type TaskFailureSource = typeof RUN | `${typeof HOOK}${string}`;
 
 const blank = (text: string): boolean => text.trim().length === 0;
 
+const UNFINISHED = new Set(['runner-lost', 'timed-out']);
+
+const kindOf = (source: TaskFailureSource, code: string): string =>
+  source === RUN && UNFINISHED.has(code) ? 'unfinished' : code;
+
 const isSource = (source: string): source is TaskFailureSource =>
   source === RUN ||
   (source.startsWith(HOOK) && !blank(source.slice(HOOK.length)));
@@ -62,7 +67,10 @@ export class TaskFailure {
   }
 
   sameAs(other: TaskFailure): boolean {
-    return this.source === other.source && this.code === other.code;
+    return (
+      this.source === other.source &&
+      kindOf(this.source, this.code) === kindOf(other.source, other.code)
+    );
   }
 
   again(): TaskFailure {
@@ -70,10 +78,16 @@ export class TaskFailure {
   }
 
   following(earlier: TaskFailure | null): TaskFailure {
-    return earlier && this.sameAs(earlier) ? earlier.again() : this;
+    return earlier && this.sameAs(earlier)
+      ? new TaskFailure(this.source, this.code, earlier.occurrences + 1)
+      : this;
   }
 
   equals(other: TaskFailure): boolean {
-    return this.sameAs(other) && this.occurrences === other.occurrences;
+    return (
+      this.source === other.source &&
+      this.code === other.code &&
+      this.occurrences === other.occurrences
+    );
   }
 }

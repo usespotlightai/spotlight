@@ -71,6 +71,13 @@ export const awaitingCheck = async (
       },
     ],
     checkCommand: 'npm test',
+    spent: {
+      calls: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      costs: [],
+      unpriced: 0,
+    },
     checkPlacement: placement,
   });
   await db.insert(schema.stackCheck).values({

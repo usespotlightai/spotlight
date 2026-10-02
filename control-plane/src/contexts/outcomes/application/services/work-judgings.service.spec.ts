@@ -2,13 +2,13 @@ import { JudgingError } from '@outcomes/application/errors/judging.error';
 import type { RunEvidence } from '@outcomes/application/ports/evidence.port';
 import type { JudgeAsk } from '@outcomes/application/ports/judge.port';
 import { WorkJudgings } from '@outcomes/application/services/work-judgings.service';
-import type { Verdict } from '@outcomes/domain/aggregates/judging.aggregate';
 import type { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import {
   askedJudging,
   JudgingsInMemory,
 } from '@outcomes/domain/judging.fake-spec';
 import { inTransaction } from '@outcomes/domain/outcomes.fake-spec';
+import type { Verdict } from '@outcomes/domain/services/grounded-verdict';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -64,9 +64,9 @@ const working = async (
     {
       available: true,
       model: 'some/model',
-      judge: (ask) => {
+      judge: async (ask) => {
         asked.push(ask);
-        return answer(ask);
+        return { verdict: await answer(ask), usage: null };
       },
     },
     { now: () => NOW, sleep: async () => {} },
@@ -117,7 +117,7 @@ describe('WorkJudgings', () => {
 
   it('tries again later when the provider refuses', async () => {
     const { judging } = await working(async () => {
-      throw new JudgingError('refused', 'no credits');
+      throw new JudgingError('refused', 'no credits', null);
     });
 
     expect(judging?.owesWork).toBe(true);

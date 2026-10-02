@@ -3,25 +3,11 @@ import type { IsolationPort } from '@shared-kernel/application/ports/isolation.p
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
-import {
-  type HarnessSetupShape,
-  RunSpecContract,
-  type SkillFileShape,
-  THROUGH_SPOTLIGHT,
-  type ToolManifestShape,
-  TRACE_PARENT_VAR,
-} from '@work/application/contracts/run-spec.contract';
-import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
-import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
-import { StationConfigMapper } from '@work/application/mappers/station-config.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
-import type {
-  HarnessLaunchPort,
-  PreparedHarness,
-} from '@work/application/ports/harness-launch.port';
+import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
 import {
@@ -29,10 +15,10 @@ import {
   type TeamMemoriesPort,
 } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
-import { Attached } from '@work/application/rendering/attached';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { taskWords } from '@work/application/services/remembering-words';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
+import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
@@ -40,99 +26,45 @@ import type { TouchedFiles } from '@work/application/services/touched-files';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { Station } from '@work/domain/entities/station.entity';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { describedTools } from '@work/domain/services/given-to-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
-import { orderFor, type RunOrder } from '@work/domain/services/run-order';
+import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
 import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import type { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
-import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 
-// No host address may ever reach a runner; remotes are named as Spotlight serves them.
-const written = (
-  order: RunOrder,
-  task: Task,
-  command: HarnessCommand,
-  setup: HarnessSetupShape | null,
-  briefing: string,
-  naming: string,
-  skills: readonly SkillFileShape[],
-  skillHomes: readonly string[],
-  settingFiles: readonly string[],
-  manifest: readonly ToolManifestShape[],
-  catalog: readonly string[],
-): RunSpec => {
-  const worn = (order.given.profile?.wears ?? []).map((each) => each.value);
-
-  return RunSpec.of({
-    checkouts: order.checkouts.map((checkout) => ({
-      remote: THROUGH_SPOTLIGHT,
-      path: checkout.repository.name,
-      ...(checkout.branch ? { branch: checkout.branch.value } : {}),
-      ...(checkout.ref ? { ref: checkout.ref } : {}),
-      ...(checkout.diffOf === 'commits' ? { diffOf: checkout.diffOf } : {}),
-      ...(checkout.setup ? { setup: checkout.setup.value } : {}),
-    })),
-    command: command.started({ [TRACE_PARENT_VAR]: naming }),
-    briefing,
-    handover: {
-      options: order.options.map((each) => each.word),
-      noteLimit: order.noteLimit,
-    },
-    continuity: RunSpecContract.continuityOf(order.continuity),
-    skills,
-    skillHomes,
-    manifest,
-    ...(catalog.length > 0 ? { catalog } : {}),
-    attachments: Attached.shapes(task.allAttachments),
-    diffs: order.diffs,
-    ...(setup ? { harnessSetup: setup } : {}),
-    settingFiles,
-    ...(worn.length > 0 ? { wears: worn } : {}),
-  });
-};
-
 export class DispatchTask implements TaskDispatching {
+  private readonly ordering: StationOrdering;
+
   constructor(
     private readonly runs: RunRepository,
     private readonly ids: IdGeneratorPort,
     private readonly harnesses: HarnessCatalog,
     private readonly launch: HarnessLaunchPort,
     private readonly tracing: TraceParentPort,
-    private readonly builtInSkills: BuiltInSkillsPort,
+    builtInSkills: BuiltInSkillsPort,
     private readonly teamSkills: StationSkills,
     private readonly integrations: TeamIntegrations,
     private readonly decisions: TaskDecisionsPort,
-    private readonly catalog: StationCatalog,
-    private readonly profiles: StationProfilesPort,
+    catalog: StationCatalog,
+    profiles: StationProfilesPort,
     private readonly memories: TeamMemoriesPort,
     private readonly touched: TouchedFiles,
     private readonly logger: LoggerPort,
     private readonly isolation: IsolationPort,
-    private readonly digest: ContentDigestPort,
-  ) {}
-
-  private async profilesAt(
-    line: Line,
-    station: Station | null,
-  ): Promise<readonly ReadyProfile[]> {
-    const shape = station?.profile
-      ? await this.profiles.named(line.teamId, station.profile.value)
-      : null;
-
-    return shape ? [ReadyProfileMapper.toReady(shape)] : [];
-  }
-
-  private prepared(order: RunOrder): PreparedHarness | null {
-    return this.launch.preparedFor(order.harness.id, {
-      model: order.model,
-      effort: order.effort,
-      profile: order.given.profile,
-    });
+    digest: ContentDigestPort,
+  ) {
+    this.ordering = new StationOrdering(
+      harnesses,
+      launch,
+      builtInSkills,
+      teamSkills,
+      catalog,
+      profiles,
+      digest,
+    );
   }
 
   async runIdFor({
@@ -149,14 +81,14 @@ export class DispatchTask implements TaskDispatching {
       line,
       harnesses: this.harnesses,
       ready: ready.map(ReadySkillMapper.toReady),
-      profiles: await this.profilesAt(line, station ?? null),
+      profiles: await this.ordering.profilesAt(line, station ?? null),
     });
 
     if (!order) {
       return null;
     }
 
-    const prepared = this.prepared(order);
+    const prepared = this.ordering.prepared(order);
 
     if (!prepared || !this.launch.skillsFor(order.harness.id)) {
       return null;
@@ -174,44 +106,16 @@ export class DispatchTask implements TaskDispatching {
     line: Line;
     runId: RunId;
   }): Promise<boolean> {
-    const station = line.stationAt(task.stationId);
-    const kept = station ? await this.teamSkills.readyAt(line, station) : [];
-    const catalog = station ? await this.catalog.givenAt(line, station) : null;
-    const ready = [...kept, ...(catalog?.skills ?? [])];
-    const order = orderFor({
-      task,
+    const ordered = await this.ordering.ordered(
       line,
-      harnesses: this.harnesses,
-      ready: ready.map(ReadySkillMapper.toReady),
-      profiles: await this.profilesAt(line, station ?? null),
-      withheld: catalog?.withheld ?? [],
-    });
+      taskOrderedAt(task, line),
+    );
 
-    if (!order) {
+    if (!ordered) {
       return false;
     }
 
-    const prepared = this.prepared(order);
-
-    if (!prepared) {
-      return false;
-    }
-
-    const home = this.launch.skillsFor(order.harness.id);
-
-    if (!home) {
-      return false;
-    }
-
-    const folders = [
-      ...order.given.builtInSkills.flatMap((key) => {
-        const folder = this.builtInSkills.named(key.value);
-        return folder ? [folder] : [];
-      }),
-      ...order.given.teamSkills.flatMap((skill) =>
-        ready.filter((each) => each.skill.key === skill.key.value),
-      ),
-    ];
+    const { order, folders, home } = ordered;
     const offered = order.given.tools.some(
       (each) => each.origin === 'integration',
     )
@@ -219,7 +123,7 @@ export class DispatchTask implements TaskDispatching {
       : [];
     const described = describedTools(order.given.tools, [
       ...offered,
-      ...(catalog?.tools ?? []),
+      ...ordered.catalogTools,
     ]);
 
     const id = runId;
@@ -242,15 +146,19 @@ export class DispatchTask implements TaskDispatching {
         );
         return NOTHING_REMEMBERED;
       });
+    const briefed = task.briefed.withDecisions(
+      await this.decisions.ofTask(task.id),
+    );
     const briefing = TaskBriefing.brief({
-      task,
+      task: briefed,
       line,
       skills: folders.map((each) => each.skill),
       listedIn: home.readByHarness ? null : home.directory,
-      decisions: await this.decisions.ofTask(task.id),
       memories: memories.briefed,
       memoryFolder: memories.folder,
     });
+    const worn = (order.given.profile?.wears ?? []).map((each) => each.value);
+    const catalog = order.given.pinned.map((each) => each.value);
 
     const queued = Run.enqueue({
       id,
@@ -263,38 +171,25 @@ export class DispatchTask implements TaskDispatching {
         briefed: memories.briefed,
         cut: memories.cut,
       }),
-      configuredAs: station
-        ? StationConfigMapper.configuredAs(
-            {
-              station,
-              line,
-              order,
-              folders: folders.filter(
-                (each) =>
-                  !order.given.builtInSkills.some(
-                    (key) => key.value === each.skill.key,
-                  ),
-              ),
-            },
-            this.digest,
-          )
-        : null,
-      spec: written(
-        order,
-        task,
-        prepared.command,
-        prepared.setup,
-        briefing,
-        this.tracing.for(task.id, id),
-        skillFilesOf(folders, home),
-        this.launch.skillHomes(),
-        this.launch.settingFiles(),
-        described.map(toolManifestOf),
-        order.given.pinned.map((each) => each.value),
-      ),
+      briefedTask: briefed,
+      configuredAs: this.ordering.configuredAs(ordered, line),
+      spec: RunSpec.of({
+        ...this.ordering.laid(ordered, {
+          briefing,
+          naming: this.tracing.for(task.id, id),
+          attachments: briefed.allAttachments,
+        }),
+        manifest: described.map(toolManifestOf),
+        ...(catalog.length > 0 ? { catalog } : {}),
+        startingPoint: true,
+        ...(worn.length > 0 ? { wears: worn } : {}),
+      }),
     });
 
-    await this.runs.add(order.refusal ? queued.refused(order.refusal) : queued);
+    await this.runs.add(
+      order.refusal ? queued.refused(order.refusal) : queued,
+      { briefed },
+    );
 
     return true;
   }

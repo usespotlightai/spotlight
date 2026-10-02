@@ -7,9 +7,17 @@ import type { TaskRunSummary } from '@work/application/ports/run-reader.port';
 
 export const RUNNER_TRACE_READER = Symbol('RUNNER_TRACE_READER');
 
+export interface HeldRunStanding {
+  readonly teamId: TeamId;
+  readonly replaysFrom: Date | null;
+}
+
 // Not viewer-scoped: callers must authorize the runner by team before reading.
 export interface RunnerTraceReaderPort {
-  teamOfHeldRun(runId: RunId, runnerId: RunnerId): Promise<TeamId | null>;
+  heldRunStanding(
+    runId: RunId,
+    runnerId: RunnerId,
+  ): Promise<HeldRunStanding | null>;
 
   teamOfTask(taskId: TaskId): Promise<TeamId | null>;
 

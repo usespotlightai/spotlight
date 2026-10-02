@@ -14,6 +14,7 @@ import { DecisionsRecorded } from '@change-review/domain/events/decisions-record
 import { DecisionsStood } from '@change-review/domain/events/decisions-stood.event';
 import { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
 import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
 import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
 import { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
@@ -58,6 +59,7 @@ export const CHANGE_REVIEW_EVENT_TYPES = [
   StackFacts,
   StackProgress,
   ChangeStackChecked,
+  ReplayStackSettled,
   ChangeStackDraftingBegan,
   ChangeStackFailed,
   ChangeStackReordered,

@@ -7,6 +7,7 @@ import (
 	"usespotlight.ai/data-plane/agent"
 	"usespotlight.ai/data-plane/egress"
 	"usespotlight.ai/data-plane/host"
+	"usespotlight.ai/data-plane/replay"
 	"usespotlight.ai/data-plane/runner"
 )
 
@@ -18,6 +19,7 @@ const usage = `usage:
 ` + host.Usage + `
 ` + runner.Usage + `
 ` + egress.Usage + `
+` + replay.Usage + `
   spotlight version`
 
 func main() {
@@ -34,6 +36,8 @@ func main() {
 		os.Exit(runner.Main(args[1:], version))
 	case "egress":
 		os.Exit(egress.Main(args[1:], version))
+	case "replay":
+		os.Exit(replay.Main(args[1:], version))
 	case "version":
 		fmt.Println(version)
 	case "help", "-h", "--help":

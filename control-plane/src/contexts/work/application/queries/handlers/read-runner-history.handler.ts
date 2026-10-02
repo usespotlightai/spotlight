@@ -69,18 +69,18 @@ export class ReadRunnerHistoryHandler
 
   async execute(query: ReadRunnerHistoryQuery): Promise<RunnerHistoryAnswer> {
     try {
-      const team = await this.traces.teamOfHeldRun(
+      const held = await this.traces.heldRunStanding(
         RunId.of(query.runId),
         RunnerId.of(query.runnerId),
       );
 
-      if (!team) {
+      if (!held) {
         return { kind: 'unknown' };
       }
 
       const { wanted } = query;
       const keyed = await this.stations.stationsKeyed(
-        team,
+        held.teamId,
         wanted.station,
         wanted.line,
       );
@@ -101,10 +101,12 @@ export class ReadRunnerHistoryHandler
       const candidates = await this.stations.endedAt(only.stationId, {
         fingerprint: wanted.fingerprint,
         since: sinceOf(wanted.since),
+        until: held.replaysFrom,
         most: wanted.outcome ? HISTORY_RUNS.searched : last,
       });
       const outcomes = await this.outcomes.of(
         candidates.map((each) => each.runId),
+        held.replaysFrom,
       );
       const kept = candidates
         .filter(

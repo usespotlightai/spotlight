@@ -481,6 +481,16 @@ func (c *Client) SealArchive(ctx context.Context, runID, archiveID string) error
 	return nil
 }
 
+func (c *Client) RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error {
+	path := fmt.Sprintf("/api/runs/%s/starting-point", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodPost, path, point, nil); err != nil {
+		return fmt.Errorf("say where the run started: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error {
 	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
 	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository, Base: base}

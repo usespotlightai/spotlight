@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
+import { ReplayRun } from '@/components/features/replays/run/ReplayRun';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { RunActivity } from '@/components/features/runs/RunActivity';
@@ -47,7 +48,10 @@ export function Run() {
   const { slug, teamId, runId } = useParams();
   const runs = useTeamRuns(teamId);
   const run = runs.data?.find((each) => each.id === runId);
-  const conversation = useRunConversation(teamId, runId);
+  const conversation = useRunConversation(
+    teamId,
+    runs.data && !run ? undefined : runId,
+  );
   const said = conversation.data;
   const journal = useTaskJournal(slug, said?.taskId);
   const worked = journal.data;
@@ -150,13 +154,7 @@ export function Run() {
   }
 
   if (!run) {
-    return (
-      <PageNotice>
-        <p className="text-muted-foreground text-sm">
-          There is no such run for this team.
-        </p>
-      </PageNotice>
-    );
+    return <ReplayRun slug={slug} teamId={teamId} runId={runId} />;
   }
 
   const here = run.station?.name === said?.station?.name;

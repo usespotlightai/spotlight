@@ -30,6 +30,8 @@ export class AnswerRemarkHandler
         command.runnerId,
       );
 
+      run.mayReachBeyondItself('answer a remark');
+
       if (!task) {
         throw new NoRepositoryError();
       }

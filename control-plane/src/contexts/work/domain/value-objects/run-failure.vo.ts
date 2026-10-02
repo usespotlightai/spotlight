@@ -1,8 +1,13 @@
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
+import {
+  isRunFailureCode,
+  type RunFailureCode,
+} from '@shared-kernel/domain/value-objects/run-failure-code';
 import { InvalidRunOutcomeError } from '@work/domain/exceptions/invalid-run-outcome.error';
 
 export const RUN_FAILURES = {
   exited: Retry.never(),
+  unprepared: Retry.never(),
   refused: Retry.never(),
   unprovisioned: Retry.never(),
   'hooks-unanswered': Retry.backoff({
@@ -11,19 +16,15 @@ export const RUN_FAILURES = {
     longestMs: 120_000,
   }),
   'runner-lost': Retry.backoff({ most: 3, firstMs: 0, longestMs: 0 }),
+  'timed-out': Retry.backoff({ most: 3, firstMs: 0, longestMs: 0 }),
   superseded: Retry.never(),
-} as const satisfies Record<string, Retry>;
-
-export type RunFailureCode = keyof typeof RUN_FAILURES;
-
-const isCode = (code: string): code is RunFailureCode =>
-  Object.keys(RUN_FAILURES).includes(code);
+} as const satisfies Record<RunFailureCode, Retry>;
 
 export class RunFailure {
   private constructor(readonly code: RunFailureCode) {}
 
   static of(code: string): RunFailure {
-    if (!isCode(code)) {
+    if (!isRunFailureCode(code)) {
       throw new InvalidRunOutcomeError(
         `failed in a way nobody knows (${code})`,
       );

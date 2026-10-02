@@ -24,6 +24,7 @@ export class StackCheckReactions {
         stackId: stack.id,
         runId: stack.runId,
         taskId: stack.taskId,
+        replay: stack.replay,
         workspaceId: stack.workspaceId,
         request: stack.request,
         entries: stack.entries(),

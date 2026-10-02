@@ -77,7 +77,7 @@ export class WorkJudgings implements OwedWorkPort {
     }
 
     try {
-      const verdict = await this.judge.judge({
+      const { verdict } = await this.judge.judge({
         rubric: judging.rubric.text,
         scale: judging.rubric.scale.kind,
         title: evidence.title,
@@ -86,6 +86,7 @@ export class WorkJudgings implements OwedWorkPort {
         stepsLeftOut: evidence.stepsLeftOut,
         hunks: evidence.hunks,
         hunksLeftOut: evidence.hunksLeftOut,
+        reference: null,
       });
 
       return judging.judged({

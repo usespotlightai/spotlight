@@ -1,9 +1,10 @@
 import { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
-import type {
-  CitedReason,
-  JudgeEvidence,
-} from '@outcomes/domain/services/judge-evidence';
+import {
+  groundedVerdict,
+  type Verdict,
+} from '@outcomes/domain/services/grounded-verdict';
+import type { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
 import type { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import type { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
@@ -13,13 +14,6 @@ import type { OwesWork } from '@shared-kernel/domain/owes-work';
 import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-export const MOST_REASONS = 5;
-
-export interface Verdict {
-  readonly value: boolean | number;
-  readonly reasons: readonly CitedReason[];
-}
 
 export class Judging extends EventRecorder implements OwesWork<Judging> {
   private constructor(
@@ -151,25 +145,14 @@ export class Judging extends EventRecorder implements OwesWork<Judging> {
       );
     }
 
-    let value: number;
+    const grounded = groundedVerdict(
+      this.rubric.scale,
+      input.verdict,
+      input.evidence,
+    );
 
-    try {
-      value = this.rubric.scale.valueOf(input.verdict.value);
-    } catch (error) {
-      if (error instanceof InvalidScoreError) {
-        return this.failed(JudgingFailure.of('unreadable', input.now));
-      }
-      throw error;
-    }
-
-    if (input.verdict.reasons.length > MOST_REASONS) {
-      return this.failed(JudgingFailure.of('unreadable', input.now));
-    }
-
-    const reasons = input.evidence.groundedReasons(input.verdict.reasons);
-
-    if (reasons.length * 2 <= input.verdict.reasons.length) {
-      return this.failed(JudgingFailure.of('ungrounded', input.now));
+    if (!grounded.grounded) {
+      return this.failed(JudgingFailure.of(grounded.failure, input.now));
     }
 
     const judged = this.with({
@@ -185,10 +168,10 @@ export class Judging extends EventRecorder implements OwesWork<Judging> {
         this.fingerprint,
         this.rubric.version,
         this.rubric.scale,
-        value,
+        grounded.value,
         input.model,
-        reasons,
-        input.evidence.seenFor(reasons),
+        grounded.reasons,
+        input.evidence.seenFor(grounded.reasons),
         input.now,
       ),
     );

@@ -88,7 +88,9 @@ export class OpenRouterDecisionDrafter implements DecisionDrafterPort {
       told.join('\n'),
     ].join('\n\n');
 
-    const { decisions } = await askForJson({
+    const {
+      answer: { decisions },
+    } = await askForJson({
       apiKey: this.apiKey,
       model: this.model,
       fetch: this.fetch,

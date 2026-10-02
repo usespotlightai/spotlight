@@ -2,6 +2,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type { ReviewState } from '@work/domain/services/conversations';
@@ -53,16 +54,35 @@ export interface RunConversationSummary {
   readonly notes: readonly InboxNote[];
 }
 
-export interface ConfiguredRun {
+export interface RanConfig {
   readonly runId: string;
-  readonly taskId: string;
   readonly fingerprint: string;
   readonly parts: StationConfigParts;
 }
 
+export interface ConfiguredRun extends RanConfig {
+  readonly taskId: string;
+}
+
 export interface RunConfigSummary {
-  readonly ran: ConfiguredRun | null;
+  readonly ran: RanConfig | null;
   readonly before: ConfiguredRun | null;
+  readonly replayedIn: ReplayedIn | null;
+}
+
+interface ReplayedIn {
+  readonly workspaceId: string;
+  readonly teamId: string | null;
+}
+
+interface ReplayedRunSummary {
+  readonly runId: string;
+  readonly taskId: string | null;
+  readonly title: string | null;
+}
+
+export interface ReplayRunSummary extends TaskRunSummary {
+  readonly original: ReplayedRunSummary;
 }
 
 export const RUN_READER = Symbol('RUN_READER');
@@ -78,4 +98,10 @@ export interface RunReaderPort {
   ): Promise<RunConversationSummary | null>;
 
   configFor(runId: RunId, viewerId: UserId): Promise<RunConfigSummary | null>;
+
+  replayFor(
+    teamId: TeamId,
+    workspaceId: WorkspaceId,
+    runId: RunId,
+  ): Promise<ReplayRunSummary | null>;
 }

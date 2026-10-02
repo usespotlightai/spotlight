@@ -19,6 +19,9 @@ export type RunRouting =
       readonly line: Line;
     };
 
+export const putsItToAPerson = (routing: RunRouting): boolean =>
+  routing.kind === 'ask' && routing.failure === null;
+
 const failureOf = (handover: Handover): TaskFailure | null =>
   handover.kind === 'review' ? handover.failure : null;
 

@@ -17,6 +17,7 @@ import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
 export interface RunOrder {
@@ -32,25 +33,33 @@ export interface RunOrder {
   readonly checkouts: readonly TaskCheckout[];
   readonly given: GivenToRun;
   readonly diffs: boolean;
+  readonly check: StationCheck | null;
   readonly refusal: RunOutcome | null;
 }
 
-export const orderFor = ({
-  task,
-  line,
-  harnesses,
-  ready,
-  profiles,
-  withheld = [],
-}: {
-  task: Task;
+export interface OrderedAt {
+  readonly stationId: StationId;
+  readonly continuity: Continuity;
+  readonly checkouts: readonly TaskCheckout[];
+}
+
+interface Ordering {
   line: Line;
   harnesses: HarnessCatalog;
   ready: readonly ReadySkill[];
   profiles: readonly ReadyProfile[];
   withheld?: readonly CatalogWithheld[];
-}): RunOrder | null => {
-  const station = line.stationAt(task.stationId);
+}
+
+export const orderAt = ({
+  at,
+  line,
+  harnesses,
+  ready,
+  profiles,
+  withheld = [],
+}: Ordering & { at: OrderedAt }): RunOrder | null => {
+  const station = line.stationAt(at.stationId);
 
   if (!station?.harness) {
     return null;
@@ -62,7 +71,6 @@ export const orderFor = ({
     return null;
   }
 
-  const continuity = task.continuity();
   const given = givenAt(station, ready, profiles);
   const refusals = [...withheld, ...given.refusals];
 
@@ -75,10 +83,23 @@ export const orderFor = ({
     placement: line.placementOf(station.id),
     options: line.optionsFrom(station.id),
     noteLimit: 0,
-    continuity,
-    checkouts: checkoutsOf(task, line),
+    continuity: at.continuity,
+    checkouts: at.checkouts,
     given,
     diffs: station.diffs,
+    check: station.diffs ? station.check : null,
     refusal: refusals.length > 0 ? RunOutcome.refused(refusals) : null,
   };
 };
+
+export const taskOrderedAt = (task: Task, line: Line): OrderedAt => ({
+  stationId: task.stationId,
+  continuity: task.continuity(),
+  checkouts: checkoutsOf(task, line),
+});
+
+export const orderFor = ({
+  task,
+  ...ordering
+}: Ordering & { task: Task }): RunOrder | null =>
+  orderAt({ ...ordering, at: taskOrderedAt(task, ordering.line) });

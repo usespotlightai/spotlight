@@ -20,8 +20,9 @@ export class RunRecord extends EventRecorder {
     readonly workspaceId: WorkspaceId,
     readonly taskId: TaskId | null,
     readonly end: RunEnd | null,
-    readonly superseded: boolean,
+    readonly supersededAt: Date | null,
     readonly checks: CheckVerdict | null,
+    readonly checkedAt: Date | null,
     readonly next: NextAct | null,
     readonly cost: RunCost | null,
     readonly handedOn: HandedOn | null,
@@ -42,7 +43,8 @@ export class RunRecord extends EventRecorder {
       workspaceId,
       taskId,
       null,
-      false,
+      null,
+      null,
       null,
       null,
       null,
@@ -58,8 +60,9 @@ export class RunRecord extends EventRecorder {
     workspaceId: WorkspaceId;
     taskId: TaskId | null;
     end: RunEnd | null;
-    superseded: boolean;
+    supersededAt: Date | null;
     checks: CheckVerdict | null;
+    checkedAt: Date | null;
     next: NextAct | null;
     cost: RunCost | null;
     handedOn: HandedOn | null;
@@ -73,6 +76,9 @@ export class RunRecord extends EventRecorder {
     ) {
       throw new InvalidOutcomeError('ends on the task it was heard of for');
     }
+    if ((input.checks === null) !== (input.checkedAt === null)) {
+      throw new InvalidOutcomeError('says when its change was checked');
+    }
     if (input.tools !== null && input.cost === null) {
       throw new InvalidOutcomeError('holds the tools it used once digested');
     }
@@ -82,14 +88,41 @@ export class RunRecord extends EventRecorder {
       input.workspaceId,
       input.taskId,
       input.end,
-      input.superseded,
+      input.supersededAt,
       input.checks,
+      input.checkedAt,
       input.next,
       input.cost,
       input.handedOn,
       input.tools,
       input.refusals,
       input.version,
+    );
+  }
+
+  get superseded(): boolean {
+    return this.supersededAt !== null;
+  }
+
+  asOf(at: Date): RunRecord {
+    const known = (when: Date | null | undefined): boolean =>
+      when !== null && when !== undefined && when.getTime() <= at.getTime();
+    const checked = known(this.checkedAt);
+
+    return new RunRecord(
+      this.runId,
+      this.workspaceId,
+      this.taskId,
+      this.end && known(this.end.endedAt) ? this.end : null,
+      known(this.supersededAt) ? this.supersededAt : null,
+      checked ? this.checks : null,
+      checked ? this.checkedAt : null,
+      known(this.next?.at) ? this.next : null,
+      this.cost,
+      known(this.handedOn?.at) ? this.handedOn : null,
+      this.tools,
+      this.refusals,
+      this.version,
     );
   }
 
@@ -121,16 +154,16 @@ export class RunRecord extends EventRecorder {
     return ended;
   }
 
-  supersededByItsTask(): RunRecord {
-    return this.superseded ? this : this.with({ superseded: true });
+  supersededByItsTask(at: Date): RunRecord {
+    return this.superseded ? this : this.with({ supersededAt: at });
   }
 
-  checked(verdict: CheckVerdict): RunRecord {
+  checked(verdict: CheckVerdict, at: Date): RunRecord {
     if (
       this.checks === null ||
       (this.checks === 'skipped' && verdict !== 'skipped')
     ) {
-      return this.settledWith({ checks: verdict });
+      return this.settledWith({ checks: verdict, checkedAt: at });
     }
 
     return this;
@@ -169,6 +202,7 @@ export class RunRecord extends EventRecorder {
 
   private settledWith(change: {
     checks?: CheckVerdict;
+    checkedAt?: Date;
     next?: NextAct;
     cost?: RunCost;
     tools?: RunTools;
@@ -187,8 +221,9 @@ export class RunRecord extends EventRecorder {
   private with(change: {
     taskId?: TaskId;
     end?: RunEnd;
-    superseded?: boolean;
+    supersededAt?: Date;
     checks?: CheckVerdict;
+    checkedAt?: Date;
     next?: NextAct;
     cost?: RunCost;
     handedOn?: HandedOn;
@@ -200,8 +235,9 @@ export class RunRecord extends EventRecorder {
       this.workspaceId,
       change.taskId ?? this.taskId,
       change.end ?? this.end,
-      change.superseded ?? this.superseded,
+      change.supersededAt ?? this.supersededAt,
       change.checks ?? this.checks,
+      change.checkedAt ?? this.checkedAt,
       change.next ?? this.next,
       change.cost ?? this.cost,
       change.handedOn ?? this.handedOn,

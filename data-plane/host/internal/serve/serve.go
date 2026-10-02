@@ -538,6 +538,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		}
 	}
 
+	ranOut := false
 	select {
 	case code := <-exited:
 		drain()
@@ -545,6 +546,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		return
 	case <-timeout.C:
 		log.Warn("the sandbox ran past its time", "timeout", h.opts.RunTimeout)
+		ranOut = true
 	case <-ctx.Done():
 		log.Info("the host is stopping, so is the sandbox")
 	}
@@ -555,6 +557,30 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		log.Warn("could not stop the sandbox", "error", err)
 	}
 	drain()
+
+	if ranOut {
+		held()
+		h.timedOut(ctx, handed, worker, log)
+	}
+}
+
+func (h *Host) timedOut(ctx context.Context, handed protocol.Handed, worker Worker, log *slog.Logger) {
+	run := handed.Work.Run
+	if run == nil {
+		return
+	}
+
+	telling, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
+
+	if _, err := worker.Complete(telling, run.ID, protocol.Completion{
+		ExitCode: -1,
+		Failed:   true,
+		TimedOut: true,
+		Message:  fmt.Sprintf("Its sandbox ran past the host's limit of %s and was stopped.", h.opts.RunTimeout),
+	}); err != nil {
+		log.Warn("could not say the run ran out of time; its lease will lapse instead", "error", err)
+	}
 }
 
 func (h *Host) readied(
@@ -681,7 +707,7 @@ func (h *Host) giveUp(ctx context.Context, handed protocol.Handed, worker Worker
 	var err error
 	switch work := handed.Work; {
 	case work.Run != nil:
-		_, err = worker.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, Message: reason})
+		_, err = worker.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, Unprepared: true, Message: reason})
 	case work.Check != nil:
 		err = worker.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, protocol.StackChecked{
 			Skipped: &protocol.SkippedCheck{Code: protocol.SkipNoImage, Detail: reason},

@@ -16,6 +16,7 @@ export const JUDGING_FAILURES = {
   ungrounded: ONCE_MORE,
   errored: AGAIN,
   interrupted: Retry.never(),
+  unavailable: Retry.never(),
 } as const satisfies Record<string, Retry>;
 
 export type JudgingFailureCode = keyof typeof JUDGING_FAILURES;

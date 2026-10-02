@@ -128,7 +128,9 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
     }
 
     try {
-      const { memories } = await askForJson({
+      const {
+        answer: { memories },
+      } = await askForJson({
         apiKey: this.apiKey,
         model: this.model,
         fetch: this.fetch,

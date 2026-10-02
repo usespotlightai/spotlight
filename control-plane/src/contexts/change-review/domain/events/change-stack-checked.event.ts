@@ -13,5 +13,6 @@ export class ChangeStackChecked implements DomainEvent {
     readonly taskId: TaskId | null,
     readonly workspaceId: WorkspaceId,
     readonly passed: boolean | null,
+    readonly replay: boolean,
   ) {}
 }

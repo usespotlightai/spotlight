@@ -36,6 +36,7 @@ export interface RunLookup {
   };
   readonly ended: boolean;
   readonly completed: boolean;
+  readonly replay: boolean;
 }
 
 export interface RunSite {
@@ -49,6 +50,7 @@ export interface HeldRunLookup extends RunSite {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
+  readonly replaysFrom: Date | null;
 }
 
 export interface ReasonedStep {

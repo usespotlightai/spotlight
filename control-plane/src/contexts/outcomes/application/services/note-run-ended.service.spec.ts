@@ -14,6 +14,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+
 const TASK = TaskId.of('task_1');
 
 const at = (hour: number) =>
@@ -49,7 +51,10 @@ const noting = (runs: readonly EndedRun[]) => {
     records,
     forgotten,
     service: new NoteRunEnded(work, records, forgotten, inTransaction),
-    superseding: new NoteRunSuperseded(records, forgotten, inTransaction),
+    superseding: new NoteRunSuperseded(records, forgotten, inTransaction, {
+      now: () => HEARD_AT,
+      sleep: async () => {},
+    }),
     ended: (runId: string, outcome = 'completed', stopped = false) =>
       new NoteRunEnded(work, records, forgotten, inTransaction).ended({
         runId,

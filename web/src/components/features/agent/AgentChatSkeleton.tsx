@@ -1,18 +1,11 @@
-import { ChevronRight } from 'lucide-react';
 import { ComposerSkeleton } from '@/components/features/inbox/conversation/ComposerSkeleton';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { HELD_AT_TOP } from '@/lib/inbox';
-
-const CRUMB = (
-  <ChevronRight
-    className="size-3.5 shrink-0 text-muted-foreground"
-    aria-hidden
-  />
-);
 
 export function AgentChatSkeleton() {
   return (
@@ -26,9 +19,9 @@ export function AgentChatSkeleton() {
           <>
             <Skeleton className="size-6 rounded" />
             <SkeletonLine className="w-20" />
-            {CRUMB}
+            <CrumbSeparator />
             <span className="whitespace-nowrap">Agent</span>
-            {CRUMB}
+            <CrumbSeparator />
             <SkeletonLine className="w-48" />
           </>
         }

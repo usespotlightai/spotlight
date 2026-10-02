@@ -30,6 +30,7 @@ import { WatchStations } from '@outcomes/application/services/watch-stations.ser
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
+import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
@@ -59,6 +60,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+
+const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const WORKSPACE = 'ws_1';
 const SONNET = 'a'.repeat(64);
@@ -220,8 +223,14 @@ beforeAll(async () => {
   forgotten = new DrizzleForgotten(context);
   subscribers = outcomesSubscribers({
     ending: new NoteRunEnded(work, records, forgotten, context),
-    superseding: new NoteRunSuperseded(records, forgotten, context),
-    checking: new NoteChangeChecked(records, forgotten, context),
+    superseding: new NoteRunSuperseded(records, forgotten, context, {
+      now: () => HEARD_AT,
+      sleep: async () => {},
+    }),
+    checking: new NoteChangeChecked(records, forgotten, context, {
+      now: () => HEARD_AT,
+      sleep: async () => {},
+    }),
     acting: new NotePersonAct(work, records, forgotten, context),
     opening: new NotePullRequestOpened(
       deliveries,
@@ -236,6 +245,7 @@ beforeAll(async () => {
         records,
         deliveries,
         judgings,
+        changeJudgings: new DrizzleChangeJudgingRepository(context, quiet),
         scores,
         touches,
         failures,
@@ -258,7 +268,10 @@ beforeAll(async () => {
       {
         available: false,
         model: 'some/model',
-        judge: async () => ({ value: true, reasons: [] }),
+        judge: async () => ({
+          verdict: { value: true, reasons: [] },
+          usage: null,
+        }),
       },
       judgings,
       forgotten,
@@ -364,7 +377,7 @@ describe('how a station’s runs turned out', () => {
     await deliver('outcomes.record-checked-change', {
       kind: CHANGE_CHECKED,
       runId: 'run_2',
-      taskId: null,
+      taskId: 'task_1',
       workspaceId: WORKSPACE,
       passed: true,
     });
@@ -373,7 +386,7 @@ describe('how a station’s runs turned out', () => {
     await deliver('outcomes.record-checked-change', {
       kind: CHANGE_CHECKED,
       runId: 'run_1',
-      taskId: null,
+      taskId: 'task_1',
       workspaceId: WORKSPACE,
       passed: false,
     });
@@ -402,10 +415,10 @@ describe('how a station’s runs turned out', () => {
       mergeCommit: 'c0ffee',
     });
 
-    const outcomes = await new RunOutcomes(records, deliveries).of([
-      'run_1',
-      'run_2',
-    ]);
+    const outcomes = await new RunOutcomes(records, deliveries).of(
+      ['run_1', 'run_2'],
+      null,
+    );
 
     expect(outcomes.get('run_1')?.delivery).toBe('merged');
     expect(outcomes.get('run_2')).toMatchObject({
@@ -497,11 +510,11 @@ describe('how a station’s runs turned out', () => {
       throw new Error('not stored');
     }
 
-    await records.save(read.checked('passed'));
+    await records.save(read.checked('passed', HEARD_AT));
 
-    await expect(records.save(read.checked('failed'))).rejects.toBeInstanceOf(
-      RunRecordMovedOnError,
-    );
+    await expect(
+      records.save(read.checked('failed', HEARD_AT)),
+    ).rejects.toBeInstanceOf(RunRecordMovedOnError);
   });
 
   it('forgets a deleted task’s runs and delivery', async () => {

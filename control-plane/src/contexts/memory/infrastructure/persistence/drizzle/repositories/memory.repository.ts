@@ -27,7 +27,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 type Row = typeof memory.$inferSelect;
 
@@ -102,6 +102,14 @@ const changedColumnsOf = (held: Memory) => ({
   retireReason: held.retirement?.reason ?? null,
   supersededBy: held.retirement?.supersededBy?.value ?? null,
 });
+
+export const standingWhen = (at: Date | null) =>
+  at
+    ? and(
+        lte(memory.approvedAt, at),
+        or(isNull(memory.retiredAt), gt(memory.retiredAt, at)),
+      )
+    : eq(memory.standing, 'stands');
 
 @Injectable()
 export class DrizzleMemoryRepository implements MemoryRepository {
@@ -214,7 +222,10 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     return MemoryHandle.of(Number(row.next));
   }
 
-  async mayReach(site: RunSite): Promise<readonly Memory[]> {
+  async mayReach(
+    site: RunSite,
+    standingAt: Date | null = null,
+  ): Promise<readonly Memory[]> {
     const repositories = site.repositories.map((each) => each.value);
     const rows = await this.context.db
       .select()
@@ -222,7 +233,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
       .where(
         and(
           eq(memory.teamId, site.teamId.value),
-          eq(memory.standing, 'stands'),
+          standingWhen(standingAt),
           site.lineId
             ? or(isNull(memory.lineId), eq(memory.lineId, site.lineId))
             : isNull(memory.lineId),

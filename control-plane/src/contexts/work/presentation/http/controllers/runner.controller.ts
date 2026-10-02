@@ -39,6 +39,7 @@ import {
   CompleteRunCommand,
   ParkRunCommand,
   RecordRunImageCommand,
+  RecordStartingPointCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
@@ -73,6 +74,7 @@ import {
   ParkRunRequestDto,
   PendingMessageResponseDto,
   RecordRunImageRequestDto,
+  RecordStartingPointRequestDto,
   RunAttachmentResponseDto,
 } from '@work/presentation/http/dto/runner.request.dto';
 import {
@@ -90,6 +92,20 @@ import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.res
 import { ClaimedWorkHttpMapper } from '@work/presentation/http/mappers/claimed-work.http.mapper';
 import { RunnerHistoryHttpMapper } from '@work/presentation/http/mappers/runner-history.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
+
+const textAt = (raw: unknown, key: string): string => {
+  const value =
+    raw !== null && typeof raw === 'object'
+      ? (raw as Record<string, unknown>)[key]
+      : undefined;
+
+  return typeof value === 'string' ? value : '';
+};
+
+const startedCheckoutOf = (raw: unknown) => ({
+  path: textAt(raw, 'path'),
+  commit: textAt(raw, 'commit'),
+});
 
 interface Answerable {
   status(code: number): unknown;
@@ -398,6 +414,47 @@ export class RunnerController {
     );
   }
 
+  @Post('runs/:runId/starting-point')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'recordStartingPoint',
+    summary:
+      'Say where the run started: the archive it restored and the commit each checkout was at',
+    description:
+      'The runner reports this once the workspace is restored and its checkouts prepared, before the agent starts, and only for a run that works a task. A later attempt of the same run keeps where the first one started.',
+  })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ description: 'No such run' })
+  @ApiConflictResponse({
+    description:
+      'The run is not held by this runner on that attempt, works no task, or already started from somewhere else',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'An archive the run could not have restored, a commit that is not a full SHA, or checkouts other than the ones the run was given',
+  })
+  async recordStartingPoint(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: RecordStartingPointRequestDto,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new RecordStartingPointCommand(
+        runId,
+        runnerId,
+        typeof body?.attempt === 'number' ? body.attempt : Number.NaN,
+        typeof body?.archiveId === 'string'
+          ? body.archiveId
+          : body?.archiveId === null || body?.archiveId === undefined
+            ? null
+            : '',
+        Array.isArray(body?.checkouts)
+          ? body.checkouts.map((each: unknown) => startedCheckoutOf(each))
+          : null,
+      ),
+    );
+  }
+
   @Post('runs/:runId/events')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -546,6 +603,8 @@ export class RunnerController {
         body.sessionId ?? null,
         body.stopped ?? false,
         body.kept ?? false,
+        body.unprepared ?? false,
+        body.timedOut ?? false,
       ),
     );
 

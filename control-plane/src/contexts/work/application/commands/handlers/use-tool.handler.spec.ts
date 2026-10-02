@@ -395,6 +395,7 @@ const using = (
           stationId.value === lineAt ? LINE : null,
         ofTeam: async () => [LINE],
       } as unknown as LineRepository,
+      { of: async () => null },
       { now: () => NOW, sleep: async () => {} },
     ),
     new ToolSources(builtIns, integrationTools, catalog),

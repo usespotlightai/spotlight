@@ -134,7 +134,7 @@ export class UseToolHandler
   }
 
   private hookedTaskOf(run: Run): Promise<HookedTaskDto | null> {
-    return run.taskId
+    return run.hearsHooks && run.taskId
       ? this.hookedTasks.of(run.taskId.value, run.id.value)
       : Promise.resolve(null);
   }

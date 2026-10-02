@@ -1,0 +1,62 @@
+import { Button } from '@/components/ui/button';
+import { type ReplayableRun, titleShown } from '@/lib/replay';
+import { refusalShown, runStateShown } from '@/lib/replay-words';
+import { since } from '@/lib/runner';
+
+type ReplayableRunRowProps = {
+  run: ReplayableRun;
+  inSet: boolean;
+  adding: boolean;
+  onAdd: () => void;
+};
+
+export function ReplayableRunRow({
+  run,
+  inSet,
+  adding,
+  onAdd,
+}: ReplayableRunRowProps) {
+  return (
+    <li
+      data-slot="replayable-run"
+      className="flex items-center gap-3 rounded-md px-2 py-2 text-sm"
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-foreground">
+          {titleShown(run.title)}
+        </span>
+        <span className="flex flex-wrap gap-x-1.5 text-muted-foreground text-xs">
+          <span>{runStateShown(run.state)}</span>
+          <span>· ended {since(run.endedAt)}</span>
+          {run.refusal && (
+            <span className="text-destructive">
+              · {refusalShown(run.refusal)}
+            </span>
+          )}
+        </span>
+      </div>
+
+      {inSet ? (
+        <span className="shrink-0 text-muted-foreground text-xs">
+          In the set
+        </span>
+      ) : run.refusal ? (
+        <span className="shrink-0 text-muted-foreground text-xs">
+          Can’t be replayed
+        </span>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 rounded-full bg-card shadow-none"
+          aria-label={`Add ${titleShown(run.title)}`}
+          disabled={adding}
+          onClick={onAdd}
+        >
+          {adding ? 'Adding…' : 'Add'}
+        </Button>
+      )}
+    </li>
+  );
+}

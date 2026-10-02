@@ -1,95 +1,185 @@
 import { randomUUID } from 'node:crypto';
+import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { RunState } from '@work/domain/value-objects/run-state';
-import { DrizzleHeldRunReader } from '@work/infrastructure/persistence/drizzle/readers/held-run.reader';
+import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  ATTACHMENT_STORE,
+  type AttachmentStorePort,
+} from '@work/application/ports/attachment-store.port';
+import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openDatabase, type TestDatabase } from './support/database';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { forgetRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { openTeam } from './support/team';
 
-let held: TestDatabase;
+const HOST = `host-attachment-${randomUUID().slice(0, 8)}`;
+const IMAGE = 'ghcr.io/acme/runner:main';
+const POOL_TOKEN = `${'a'.repeat(8)}${randomUUID().replaceAll('-', '')}`;
+
+const attachmentStore = {
+  received: async () => [],
+  open: async () => ({
+    bytes: new Uint8Array([7, 7, 7]),
+    contentType: 'image/png',
+  }),
+} as unknown as AttachmentStorePort;
+
+let app: INestApplication;
 let db: DrizzleDatabase;
-let reader: DrizzleHeldRunReader;
+let team: Awaited<ReturnType<typeof openTeam>>;
 
-beforeAll(async () => {
-  held = await openDatabase('held_run_attachment');
-  db = held.db;
-  reader = new DrizzleHeldRunReader(db);
-}, 60_000);
+const http = () => served(app);
 
-afterAll(async () => {
-  await held?.close();
-});
+interface Held {
+  readonly runId: string;
+  readonly attachmentId: string;
+  readonly token: string;
+}
 
-const RUNNER = 'runner_1';
-
-const chatRun = async (state: RunState) => {
+const aChatRun = async (): Promise<{
+  runId: string;
+  attachmentId: string;
+}> => {
   const chatId = randomUUID();
   const runId = randomUUID();
   const attachmentId = randomUUID();
 
   await db.insert(schema.chat).values({
     id: chatId,
-    workspaceId: 'ws_1',
-    teamId: 'team_1',
-    startedById: 'user_1',
+    workspaceId: team.workspaceId.value,
+    teamId: team.teamId.value,
+    startedById: team.owner.value,
     title: 'Planning',
-    harness: 'dev',
+    harness: 'claude-code',
+  });
+  await db.insert(schema.chatMessage).values({
+    chatId,
+    position: 0,
+    kind: 'said',
+    body: 'Here is the screen.',
+    at: new Date(),
+    authorId: team.owner.value,
   });
   await db.insert(schema.chatAttachment).values({
     id: attachmentId,
     chatId,
-    messagePosition: 1,
+    messagePosition: 0,
     place: 0,
     name: 'screen.png',
     contentType: 'image/png',
-    size: 10,
+    size: 3,
   });
   await db.insert(schema.run).values({
     id: runId,
-    workspaceId: 'ws_1',
-    harness: 'dev',
+    workspaceId: team.workspaceId.value,
+    harness: 'claude-code',
     chatId,
-    state,
-    claimedBy: RUNNER,
-    spec: {},
+    state: 'queued',
+    spec: {
+      checkouts: [],
+      command: { executable: 'claude-agent-acp', args: [] },
+      briefing: 'Plan with me.',
+      handover: { options: [], noteLimit: 0 },
+      continuity: { key: `chat-${chatId}` },
+    },
   });
 
-  return { runId: RunId.of(runId), attachmentId };
+  return { runId, attachmentId };
 };
 
-describe('reading a file given to a held run', () => {
-  it('hands the runner holding the run a file its chat was given', async () => {
-    const { runId, attachmentId } = await chatRun('claimed');
+const claimed = async (): Promise<Held> => {
+  const queued = await aChatRun();
+  const handed = (
+    await http()
+      .post('/api/hosts/claim')
+      .set('Authorization', `Bearer ${POOL_TOKEN}`)
+      .send({ host: HOST, image: IMAGE })
+      .expect(200)
+  ).body as { token: string; work: { run: { id: string } } };
 
-    const given = await reader.attachmentFor(
-      runId,
-      RunnerId.of(RUNNER),
-      attachmentId,
-    );
+  expect(handed.work.run.id).toBe(queued.runId);
 
-    expect(given?.attachment.id.value).toBe(attachmentId);
-    expect(given?.workspaceId.value).toBe('ws_1');
-  });
+  return { ...queued, token: handed.token };
+};
 
-  it('refuses the runner of a run that has finished', async () => {
-    const { runId, attachmentId } = await chatRun('completed');
+const read = (token: string, runId: string, attachmentId: string) =>
+  http()
+    .get(`/api/runs/${runId}/attachments/${attachmentId}`)
+    .set('Authorization', `Bearer ${token}`);
 
-    await expect(
-      reader.attachmentFor(runId, RunnerId.of(RUNNER), attachmentId),
-    ).resolves.toBeNull();
+beforeAll(async () => {
+  app = await openApp((module) =>
+    module.overrideProvider(ATTACHMENT_STORE).useValue(attachmentStore),
+  );
+  db = app.get(DRIZZLE);
+  team = await openTeam(
+    db,
+    app.get(DrizzleTaskRepository),
+    `attachment-${randomUUID().slice(0, 8)}`,
+  );
+
+  await http()
+    .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
+    .set(TEST_USER_HEADER, team.owner.value)
+    .set('Idempotency-Key', randomUUID())
+    .send({ key: 'hosts', labels: ['linux'], token: POOL_TOKEN })
+    .expect(201);
+  await http()
+    .put(`/api/hosts/${HOST}`)
+    .set('Authorization', `Bearer ${POOL_TOKEN}`)
+    .send({
+      name: 'chat-box',
+      release: '0.1.0',
+      executor: 'docker',
+      capacity: 8,
+      running: [],
+      images: [
+        {
+          image: IMAGE,
+          usual: true,
+          harnesses: [{ id: 'claude-code', models: [] }],
+        },
+      ],
+    })
+    .expect(200);
+}, 60_000);
+
+afterAll(async () => {
+  await forgetRunnersOf(db, team.workspaceId.value);
+  await app?.close();
+});
+
+describe('reading a file given to a held chat run', () => {
+  it('hands the runner holding the run a file its chat was given, byte for byte', async () => {
+    const held = await claimed();
+
+    const file = await read(held.token, held.runId, held.attachmentId)
+      .expect(200)
+      .buffer(true);
+
+    expect([...(file.body as Buffer)]).toEqual([7, 7, 7]);
   });
 
   it('refuses another runner, and a file the run was not given', async () => {
-    const { runId, attachmentId } = await chatRun('claimed');
-    const other = await chatRun('claimed');
+    const held = await claimed();
+    const other = await claimed();
 
-    await expect(
-      reader.attachmentFor(runId, RunnerId.of('runner_2'), attachmentId),
-    ).resolves.toBeNull();
-    await expect(
-      reader.attachmentFor(runId, RunnerId.of(RUNNER), other.attachmentId),
-    ).resolves.toBeNull();
+    await read(other.token, held.runId, held.attachmentId).expect(404);
+    await read(held.token, held.runId, other.attachmentId).expect(404);
+  });
+
+  it('refuses the runner of a run that has finished', async () => {
+    const held = await claimed();
+
+    await http()
+      .post(`/api/runs/${held.runId}/completion`)
+      .set('Authorization', `Bearer ${held.token}`)
+      .send({ exitCode: 0, failed: false, sessionId: 'session_1', kept: true })
+      .expect(200);
+
+    const after = await read(held.token, held.runId, held.attachmentId);
+
+    expect([401, 404]).toContain(after.status);
   });
 });

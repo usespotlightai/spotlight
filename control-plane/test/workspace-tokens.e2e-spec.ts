@@ -247,8 +247,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect(checked.body).toEqual({
       ...FORBIDDEN_PROBLEM,
       title: 'Not allowed to plan',
-      detail:
-        'Checking an expression is planning, which this token’s scopes do not allow',
+      detail: 'Planning needs a person, or a token whose scopes include plan',
       permission: 'plan',
     });
   });

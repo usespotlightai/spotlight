@@ -16,13 +16,16 @@ export * from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema'
 export * from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
+export * from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 export * from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 export * from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/replay-run-claim.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';

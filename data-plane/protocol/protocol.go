@@ -52,18 +52,25 @@ type Handover struct {
 }
 
 type Spec struct {
-	Checkouts    []Checkout     `json:"checkouts,omitempty"`
-	Command      Command        `json:"command"`
-	Briefing     string         `json:"briefing,omitempty"`
-	Handover     Handover       `json:"handover,omitzero"`
-	Manifest     []ToolManifest `json:"manifest,omitempty"`
-	Continuity   Continuity     `json:"continuity,omitzero"`
-	Attachments  []Attachment   `json:"attachments,omitempty"`
-	Skills       []SkillFile    `json:"skills,omitempty"`
-	SkillHomes   []string       `json:"skillHomes,omitempty"`
-	Diffs        bool           `json:"diffs,omitempty"`
-	HarnessSetup HarnessSetup   `json:"harnessSetup,omitzero"`
-	SettingFiles []string       `json:"settingFiles,omitempty"`
+	Checkouts     []Checkout     `json:"checkouts,omitempty"`
+	Command       Command        `json:"command"`
+	Briefing      string         `json:"briefing,omitempty"`
+	Handover      Handover       `json:"handover,omitzero"`
+	Manifest      []ToolManifest `json:"manifest,omitempty"`
+	Continuity    Continuity     `json:"continuity,omitzero"`
+	Attachments   []Attachment   `json:"attachments,omitempty"`
+	Skills        []SkillFile    `json:"skills,omitempty"`
+	SkillHomes    []string       `json:"skillHomes,omitempty"`
+	Diffs         bool           `json:"diffs,omitempty"`
+	StartingPoint bool           `json:"startingPoint,omitempty"`
+	HarnessSetup  HarnessSetup   `json:"harnessSetup,omitzero"`
+	SettingFiles  []string       `json:"settingFiles,omitempty"`
+	Replay        *Replay        `json:"replay,omitempty"`
+}
+
+type Replay struct {
+	Archive   *string           `json:"archive"`
+	Checkouts []StartedCheckout `json:"checkouts"`
 }
 
 type HarnessSetup struct {
@@ -141,6 +148,7 @@ type Continuity struct {
 type Run struct {
 	ID      string `json:"id"`
 	Harness string `json:"harness,omitempty"`
+	Attempt int    `json:"attempt,omitempty"`
 	Spec    Spec   `json:"spec"`
 }
 
@@ -176,13 +184,15 @@ type Outcome struct {
 }
 
 type Completion struct {
-	ExitCode  int      `json:"exitCode"`
-	Failed    bool     `json:"failed"`
-	Stopped   bool     `json:"stopped,omitempty"`
-	Message   string   `json:"message,omitempty"`
-	Outcome   *Outcome `json:"outcome,omitempty"`
-	SessionID string   `json:"sessionId,omitempty"`
-	Kept      bool     `json:"kept,omitempty"`
+	ExitCode   int      `json:"exitCode"`
+	Failed     bool     `json:"failed"`
+	Unprepared bool     `json:"unprepared,omitempty"`
+	TimedOut   bool     `json:"timedOut,omitempty"`
+	Stopped    bool     `json:"stopped,omitempty"`
+	Message    string   `json:"message,omitempty"`
+	Outcome    *Outcome `json:"outcome,omitempty"`
+	SessionID  string   `json:"sessionId,omitempty"`
+	Kept       bool     `json:"kept,omitempty"`
 }
 
 type TurnAsks struct {
@@ -206,6 +216,17 @@ type HeldArchive struct {
 	URL    string `json:"url"`
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256"`
+}
+
+type StartedCheckout struct {
+	Path   string `json:"path"`
+	Commit string `json:"commit"`
+}
+
+type StartingPoint struct {
+	Attempt   int               `json:"attempt"`
+	ArchiveID *string           `json:"archiveId"`
+	Checkouts []StartedCheckout `json:"checkouts"`
 }
 
 type ArchiveRequest struct {

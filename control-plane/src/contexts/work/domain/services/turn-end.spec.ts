@@ -1,6 +1,7 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,6 +21,7 @@ import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -270,5 +272,95 @@ describe('turnEnded', () => {
     expect(ending({ task: null, declared: { next: 'review' } }).waiting).toBe(
       false,
     );
+  });
+});
+
+describe('the end of a replay’s turn', () => {
+  const COMMIT = 'a'.repeat(40);
+  const replay = () =>
+    Run.enqueue({
+      id: RUN,
+      workspaceId: WorkspaceId.of('ws_1'),
+      harness: HarnessId.of('dev'),
+      subject: RunSubject.replay(
+        RunId.of('run_0'),
+        TaskId.of('task_1'),
+        BUILD,
+        TeamId.of('team_1'),
+      ),
+      spec: RunSpec.of({
+        checkouts: [
+          { remote: 'spotlight:repository', path: 'api', ref: COMMIT },
+        ],
+        command: { executable: 'sh', args: [] },
+        briefing: 'Fix the queue.',
+        handover: { options: ['ship', 'review'], noteLimit: 0 },
+        continuity: { key: 'replay-run_1' },
+        replay: {
+          archive: null,
+          checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
+          movesOnAfter: ['ship'],
+        },
+      }),
+    }).claim(RUNNER, NOW);
+
+  const ended = (
+    next: string | null,
+    outcome = RunOutcome.of({ exitCode: 0, failed: false }),
+  ) =>
+    turnEnded({
+      run: replay(),
+      by: RUNNER,
+      task: null,
+      line,
+      outcome,
+      report: HandoverReport.of({
+        declared: next === null ? null : Declaration.of({ next }),
+        session: null,
+      }),
+      kept: true,
+      now: NOW,
+    });
+
+  it('ends without waiting, and without touching a task', () => {
+    const turn = ended('ship');
+
+    expect(turn.waiting).toBe(false);
+    expect(turn.task).toBeNull();
+    expect(turn.run.hasCompleted).toBe(true);
+    expect(turn.run.askedAPerson).toBe(false);
+  });
+
+  it('records that it asked a person where its handover would have put the work to one', () => {
+    for (const next of ['review', null, 'nowhere', 'done']) {
+      const turn = ended(next);
+
+      expect(turn.waiting).toBe(false);
+      expect(turn.run.askedAPerson).toBe(true);
+    }
+  });
+
+  it('asked nobody when it failed or was stopped', () => {
+    expect(
+      ended('review', RunOutcome.of({ exitCode: 1, failed: true })).run
+        .askedAPerson,
+    ).toBe(false);
+    expect(ended('review', RunOutcome.stopped(130)).run.askedAPerson).toBe(
+      false,
+    );
+  });
+
+  it('never waits for a person, whatever its handover says', () => {
+    expect(
+      turnWaits({
+        run: replay(),
+        by: RUNNER,
+        task: null,
+        line,
+        outcome: RunOutcome.of({ exitCode: 0, failed: false }),
+        declared: Declaration.of({ next: 'review' }),
+        mayBeWithheld: true,
+      }),
+    ).toBe(false);
   });
 });

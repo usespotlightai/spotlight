@@ -45,6 +45,7 @@ const reading = (
       listForTeam: vi.fn(),
       conversationFor: vi.fn().mockResolvedValue(found),
       configFor: vi.fn(),
+      replayFor: vi.fn(),
     } satisfies RunReaderPort,
     { forRuns: async () => new Map(digests) },
   ).execute(new ReadRunConversationQuery(RUN_ID, 'user_1'));

@@ -30,6 +30,7 @@ export interface HeldRun extends RunSite {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
+  readonly replaysFrom: Date | null;
 }
 
 export interface RememberedTask {

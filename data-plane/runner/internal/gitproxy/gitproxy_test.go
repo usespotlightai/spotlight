@@ -40,7 +40,7 @@ func TestCarriesTheRunnerTokenTheWorkspaceNeverSees(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1")
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRefusesAnotherRunsPath(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1")
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestCarriesAPackBothWays(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1")
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestStopsAnsweringWhenTheRunIsOver(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1")
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -144,5 +144,46 @@ func TestStopsAnsweringWhenTheRunIsOver(t *testing.T) {
 
 	if _, err := http.Get(remote + "/info/refs"); err == nil {
 		t.Error("the remote still answers, want it closed with the run")
+	}
+}
+
+func TestAFetchOnlyRunFetchesButNeverPushes(t *testing.T) {
+	seen := &reached{}
+	control := upstream(t, seen)
+	defer control.Close()
+
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", true)
+	if err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	defer func() { _ = served.Close() }()
+
+	fetched, err := http.Get(served.Remote + "/api/info/refs?service=git-upload-pack")
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	_ = fetched.Body.Close()
+	if fetched.StatusCode != http.StatusOK {
+		t.Errorf("fetching answered %d, want 200", fetched.StatusCode)
+	}
+
+	seen.path = ""
+	advertised, err := http.Get(served.Remote + "/api/info/refs?service=git-receive-pack")
+	if err != nil {
+		t.Fatalf("advertise: %v", err)
+	}
+	_ = advertised.Body.Close()
+
+	pushed, err := http.Post(served.Remote+"/api/git-receive-pack", "application/x-git-receive-pack-request", strings.NewReader("0000"))
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	_ = pushed.Body.Close()
+
+	if advertised.StatusCode != http.StatusForbidden || pushed.StatusCode != http.StatusForbidden {
+		t.Errorf("pushing answered %d and %d, want 403 for both", advertised.StatusCode, pushed.StatusCode)
+	}
+	if seen.path != "" {
+		t.Errorf("a push reached the control plane at %q", seen.path)
 	}
 }

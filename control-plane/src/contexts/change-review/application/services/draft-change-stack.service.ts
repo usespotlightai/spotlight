@@ -5,6 +5,7 @@ import type {
   DiffSources,
 } from '@change-review/application/ports/diff-reader.port';
 import type { SymbolIndexerPort } from '@change-review/application/ports/symbol-indexer.port';
+import { attemptDrafting } from '@change-review/application/services/drafting-attempt';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import {
@@ -32,6 +33,7 @@ const ATTEMPTS = 2;
 export interface DraftingRun {
   readonly id: RunId;
   readonly taskId: TaskId | null;
+  readonly replay: boolean;
   readonly workspaceId: WorkspaceId;
 }
 
@@ -68,6 +70,7 @@ export class DraftChangeStack {
       id,
       runId: run.id,
       taskId: run.taskId,
+      replay: run.replay,
       workspaceId: run.workspaceId,
       repository: input.repository,
       base: input.base,
@@ -105,17 +108,31 @@ export class DraftChangeStack {
     }
 
     let problems: readonly StackProblem[] = [];
+    let drafting = stack;
 
     for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
-      const cohorts = await this.drafter.draft({
+      const attempt = await attemptDrafting(this.drafter, {
         diff,
         repository: stack.repository,
         facts,
         problems,
       });
 
+      if (!attempt.drafted) {
+        this.logger.error(
+          { changeStackId: stack.id.value, error: attempt.error },
+          'Drafting a change stack failed; trying again later',
+        );
+        return drafting
+          .usedModel(attempt.usage)
+          .triedAgainLater(this.clock.now());
+      }
+
+      const { cohorts, usage } = attempt.answer;
+      drafting = drafting.usedModel(usage);
+
       try {
-        return stack.propose(cohorts, this.clock.now());
+        return drafting.propose(cohorts, this.clock.now());
       } catch (error) {
         if (!(error instanceof InvalidChangeStackError)) {
           throw error;
@@ -132,7 +149,7 @@ export class DraftChangeStack {
       'A drafted change stack kept breaking its rules',
     );
 
-    return stack.fail(
+    return drafting.fail(
       'The drafted stack did not place every change in order.',
       this.clock.now(),
     );
