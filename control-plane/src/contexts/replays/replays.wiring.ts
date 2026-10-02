@@ -107,6 +107,7 @@ import { ReadConfigPullRequestHandler } from '@replays/application/queries/handl
 import { ReadReplayHandler } from '@replays/application/queries/handlers/read-replay.handler';
 import { ReadReplayCheckHandler } from '@replays/application/queries/handlers/read-replay-check.handler';
 import { ReadReplayOfRunHandler } from '@replays/application/queries/handlers/read-replay-of-run.handler';
+import { ReadReplayedCandidatesHandler } from '@replays/application/queries/handlers/read-replayed-candidates.handler';
 import { ReadSearchHandler } from '@replays/application/queries/handlers/read-search.handler';
 import { ImportCandidateQuery } from '@replays/application/queries/import-candidate.query';
 import { ListCandidatesQuery } from '@replays/application/queries/list-candidates.query';
@@ -122,6 +123,7 @@ import { ReadConfigPullRequestQuery } from '@replays/application/queries/read-co
 import { ReadReplayQuery } from '@replays/application/queries/read-replay.query';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import { ReadReplayOfRunQuery } from '@replays/application/queries/read-replay-of-run.query';
+import { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
 import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
 import { AbandonConfigPullRequests } from '@replays/application/services/abandon-config-pull-requests.service';
 import { AbandonReplayChecks } from '@replays/application/services/abandon-replay-checks.service';
@@ -170,6 +172,7 @@ import { ConfigPullRequestsController } from '@replays/presentation/http/control
 import { ReplayCandidateResourceController } from '@replays/presentation/http/controllers/replay-candidate-resource.controller';
 import { ReplayChecksController } from '@replays/presentation/http/controllers/replay-checks.controller';
 import { ReplaySetsController } from '@replays/presentation/http/controllers/replay-sets.controller';
+import { ReplayedCandidatesController } from '@replays/presentation/http/controllers/replayed-candidates.controller';
 import { ReplaysController } from '@replays/presentation/http/controllers/replays.controller';
 import { RunnerSearchCandidatesController } from '@replays/presentation/http/controllers/runner-search-candidates.controller';
 import { SearchesController } from '@replays/presentation/http/controllers/searches.controller';
@@ -229,6 +232,7 @@ export const REPLAYS_CONTROLLERS: readonly Type[] = [
   ReplayChecksController,
   RunnerSearchCandidatesController,
   ConfigPullRequestsController,
+  ReplayedCandidatesController,
 ];
 
 export const REPLAYS_PROVIDERS: readonly Provider[] = [
@@ -614,6 +618,20 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     DrizzleCandidateRepository,
     WORK,
   ]),
+  ...bindQueryHandler(
+    ReadReplayedCandidatesQuery,
+    ReadReplayedCandidatesHandler,
+    [
+      ReplaysAccess,
+      DrizzleReplayRepository,
+      DrizzleSearchRepository,
+      DrizzleReplaySetRepository,
+      DrizzleCandidateRepository,
+      DrizzleConfigPullRequestRepository,
+      WORK,
+      CLOCK,
+    ],
+  ),
   ...bindQueryHandler(ReadReplayOfRunQuery, ReadReplayOfRunHandler, [
     ReplaysAccess,
     DrizzleReplayRepository,

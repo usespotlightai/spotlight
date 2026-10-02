@@ -1,0 +1,30 @@
+import type { ReplayedMark } from '@/lib/insights-candidates';
+
+type Ink = {
+  readonly fill: string;
+  readonly swatch: string;
+  readonly outline: string;
+};
+
+export const REPLAYED_INK: Record<ReplayedMark, Ink> = {
+  baseline: {
+    fill: 'var(--foreground)',
+    swatch: 'bg-foreground',
+    outline: 'border-[1.5px] border-foreground',
+  },
+  searched: {
+    fill: 'var(--chart-2)',
+    swatch: 'bg-chart-2',
+    outline: 'border-[1.5px] border-chart-2',
+  },
+  proposed: {
+    fill: 'var(--chart-3)',
+    swatch: 'bg-chart-3',
+    outline: 'border-[1.5px] border-chart-3',
+  },
+};
+
+export const FRONTIER_INK: Omit<Ink, 'outline'> = {
+  fill: 'var(--primary)',
+  swatch: 'bg-primary',
+};

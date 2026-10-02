@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router';
 import { CostTab } from '@/components/features/insights/CostTab';
+import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
 import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { FlowTab } from '@/components/features/insights/FlowTab';
@@ -57,6 +58,7 @@ export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
             )}
             {view.tab === 'stations' && <StationsTab {...shared} />}
             {view.tab === 'changes' && <ChangesTab {...shared} />}
+            {view.tab === 'candidates' && <CandidatesTab {...shared} />}
             {view.tab === 'people' && (
               <PeopleTab slug={slug} teamId={teamId} period={view.period} />
             )}

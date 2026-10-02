@@ -59,6 +59,10 @@ vi.mock('@/hooks/api/useInsightsRuns', () => ({
   useInsightsRuns: (teamId: string, period: InsightsPeriod) =>
     answering('runs')(teamId, period),
 }));
+vi.mock('@/hooks/api/useInsightsCandidates', () => ({
+  useInsightsCandidates: (teamId: string, period: InsightsPeriod) =>
+    answering('candidates')(teamId, period),
+}));
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({ data: [] }),
 }));
@@ -207,6 +211,19 @@ describe('TeamInsights', () => {
     ).toBeInTheDocument();
     expect(asked).toContainEqual({ tab: 'cost', period: '7d' });
     expect(asked.some((each) => each.tab === 'overview')).toBe(false);
+  });
+
+  it('opens the Candidates tab the address names, for its period alone', () => {
+    showing('?tab=candidates&period=90d');
+
+    expect(
+      screen.getByRole('link', { name: 'Candidates', current: 'page' }),
+    ).toBeInTheDocument();
+    expect(asked).toContainEqual({ tab: 'candidates', period: '90d' });
+    expect(asked.some((each) => each.tab === 'overview')).toBe(false);
+    expect(
+      screen.getByRole('status', { name: 'Loading the candidates' }),
+    ).toBeInTheDocument();
   });
 
   it('keeps the period when moving between tabs', async () => {

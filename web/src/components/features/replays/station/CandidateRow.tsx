@@ -1,4 +1,4 @@
-import { ConfigChanges } from '@/components/features/stations/ConfigChanges';
+import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
 import { Fingerprint } from '@/components/shared/Fingerprint';
 import { changesOf, type ReplayCandidate } from '@/lib/replay';
 import { since } from '@/lib/runner';
@@ -28,19 +28,11 @@ export function CandidateRow({ candidate }: CandidateRowProps) {
         </span>
       </div>
 
-      {changes.length > 0 ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs">
-          <span className="text-muted-foreground">
-            Changed from live{' '}
-            <Fingerprint fingerprint={candidate.changedFrom.fingerprint} />:
-          </span>
-          <ConfigChanges changes={changes} />
-        </div>
-      ) : (
-        <p className="text-muted-foreground text-xs">
-          The same as the live config when it was proposed.
-        </p>
-      )}
+      <ChangedFromLive
+        changes={changes}
+        same="The same as the live config when it was proposed."
+        from={<Fingerprint fingerprint={candidate.changedFrom.fingerprint} />}
+      />
     </li>
   );
 }

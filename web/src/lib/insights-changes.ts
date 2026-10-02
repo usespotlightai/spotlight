@@ -52,6 +52,9 @@ export const DEFAULT_OUTCOME: OutcomeMeasure = 'accepted';
 export const outcomeLabel = (measure: OutcomeMeasure): string =>
   OUTCOME_MEASURES.find((each) => each.id === measure)?.label ?? measure;
 
+export const lowerIsBetter = (measure: OutcomeMeasure): boolean =>
+  OUTCOME_MEASURES.find((each) => each.id === measure)?.lowerIsBetter ?? false;
+
 export const asOutcome = (raw: string): OutcomeMeasure =>
   OUTCOME_MEASURES.find((each) => each.id === raw)?.id ?? DEFAULT_OUTCOME;
 

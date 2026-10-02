@@ -15,7 +15,7 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, lte, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte, type SQL } from 'drizzle-orm';
 
 type PullRequestRow = typeof configPullRequest.$inferSelect;
 
@@ -126,6 +126,20 @@ export class DrizzleConfigPullRequestRepository
 
   ofSearch(searchId: SearchId): Promise<readonly ConfigPullRequest[]> {
     return this.where(eq(configPullRequest.searchId, searchId.value));
+  }
+
+  ofSearches(
+    searchIds: readonly SearchId[],
+  ): Promise<readonly ConfigPullRequest[]> {
+    if (searchIds.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.where(
+      inArray(configPullRequest.searchId, [
+        ...new Set(searchIds.map((each) => each.value)),
+      ]),
+    );
   }
 
   ofTeam(teamId: TeamId): Promise<readonly ConfigPullRequest[]> {

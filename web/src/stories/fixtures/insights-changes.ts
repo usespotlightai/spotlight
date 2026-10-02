@@ -17,6 +17,10 @@ import {
   PERIOD,
   tally,
 } from '@/stories/fixtures/insights';
+import {
+  CANDIDATES,
+  CANDIDATES_KEY,
+} from '@/stories/fixtures/insights-candidates';
 import { TEAM_ID } from '@/stories/fixtures/team';
 
 const usd = (amount: number) => ({ amount, currency: 'USD' });
@@ -310,6 +314,7 @@ export const seedChanges = (client: QueryClient) => {
   client.setQueryData(CHANGES_KEY, CHANGES);
   client.setQueryData(SETUPS_KEY, SETUPS);
   client.setQueryData(SETUPS_AT_STATION_KEY, SETUPS_AT_STATION);
+  client.setQueryData(CANDIDATES_KEY, CANDIDATES);
 };
 
 export const emptyChanges = (client: QueryClient) => {

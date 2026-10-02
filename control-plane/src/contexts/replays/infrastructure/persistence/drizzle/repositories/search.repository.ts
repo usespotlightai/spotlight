@@ -53,6 +53,7 @@ import {
   desc,
   eq,
   exists,
+  gte,
   inArray,
   isNull,
   lt,
@@ -221,6 +222,24 @@ export class DrizzleSearchRepository implements SearchRepository {
 
     return this.withIterations(
       inArray(replaySearch.id, [...new Set(ids.map((each) => each.value))]),
+    );
+  }
+
+  ofSetsStartedSince(
+    setIds: readonly ReplaySetId[],
+    since: Date,
+  ): Promise<readonly Search[]> {
+    if (setIds.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.withIterations(
+      and(
+        inArray(replaySearch.setId, [
+          ...new Set(setIds.map((each) => each.value)),
+        ]),
+        gte(replaySearch.startedAt, since),
+      ) as SQL,
     );
   }
 

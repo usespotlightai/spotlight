@@ -19,6 +19,14 @@ export interface ReplayRepository {
 
   ofSearches(searchIds: readonly SearchId[]): Promise<readonly Replay[]>;
 
+  baselinesOfSets(setIds: readonly ReplaySetId[]): Promise<readonly Replay[]>;
+
+  ofTeamStartedSince(
+    teamId: TeamId,
+    since: Date,
+    most: number,
+  ): Promise<readonly Replay[]>;
+
   teamsDispatching(): Promise<readonly TeamId[]>;
 
   underwayOfTeamLocked(teamId: TeamId): Promise<readonly Replay[]>;

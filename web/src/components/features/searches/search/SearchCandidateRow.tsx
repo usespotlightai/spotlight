@@ -1,6 +1,6 @@
+import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
 import { PickCandidate } from '@/components/features/searches/search/PickCandidate';
-import { ConfigChanges } from '@/components/features/stations/ConfigChanges';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
@@ -10,6 +10,7 @@ import {
   heldOutShown,
   type SearchCandidate,
   scoreShown,
+  searchCandidateAnchor,
   searchChanges,
 } from '@/lib/search';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,7 @@ export function SearchCandidateRow({
 
   return (
     <li
+      id={searchCandidateAnchor(candidate.candidateId)}
       data-slot="search-candidate"
       className="flex flex-col gap-1.5 rounded-md px-2 py-2 text-sm"
     >
@@ -63,15 +65,11 @@ export function SearchCandidateRow({
         <p className="text-muted-foreground text-xs">
           The station as it was configured when the search started.
         </p>
-      ) : changes.length > 0 ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs">
-          <span className="text-muted-foreground">Changed from live:</span>
-          <ConfigChanges changes={changes} />
-        </div>
       ) : (
-        <p className="text-muted-foreground text-xs">
-          The same as the live config.
-        </p>
+        <ChangedFromLive
+          changes={changes}
+          same="The same as the live config."
+        />
       )}
 
       <dl className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground text-xs">

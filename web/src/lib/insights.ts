@@ -96,6 +96,7 @@ export const INSIGHTS_TABS = [
   { id: 'pull-requests', label: 'Pull requests' },
   { id: 'stations', label: 'Stations' },
   { id: 'changes', label: 'Changes' },
+  { id: 'candidates', label: 'Candidates' },
   { id: 'people', label: 'People' },
   { id: 'cost', label: 'Cost' },
   { id: 'tools', label: 'Tools' },

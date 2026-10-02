@@ -70,6 +70,16 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
     return found ?? null;
   }
 
+  findMany(ids: readonly ReplaySetId[]): Promise<readonly ReplaySet[]> {
+    if (ids.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.withEntries(
+      inArray(replaySet.id, [...new Set(ids.map((each) => each.value))]),
+    );
+  }
+
   async locked(id: ReplaySetId): Promise<ReplaySet | null> {
     const [found] = await this.withEntries(eq(replaySet.id, id.value), true);
 

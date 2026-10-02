@@ -16,6 +16,11 @@ export interface SearchRepository {
 
   findMany(ids: readonly SearchId[]): Promise<readonly Search[]>;
 
+  ofSetsStartedSince(
+    setIds: readonly ReplaySetId[],
+    since: Date,
+  ): Promise<readonly Search[]>;
+
   ranAs(run: RunId): Promise<Search | null>;
 
   activeAtStation(stationId: string): Promise<Search | null>;

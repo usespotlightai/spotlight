@@ -1637,6 +1637,7 @@ CREATE INDEX "config_pull_request_due_idx" ON "config_pull_request" USING btree 
 CREATE INDEX "replay_set_idx" ON "replay" USING btree ("set_id");--> statement-breakpoint
 CREATE INDEX "replay_candidate_idx" ON "replay" USING btree ("candidate_id");--> statement-breakpoint
 CREATE INDEX "replay_team_state_idx" ON "replay" USING btree ("team_id","state");--> statement-breakpoint
+CREATE INDEX "replay_team_started_idx" ON "replay" USING btree ("team_id","started_at");--> statement-breakpoint
 CREATE INDEX "replay_search_idx" ON "replay" USING btree ("search_id");--> statement-breakpoint
 CREATE INDEX "replay_candidate_station_idx" ON "replay_candidate" USING btree ("station_id");--> statement-breakpoint
 CREATE INDEX "replay_candidate_team_idx" ON "replay_candidate" USING btree ("team_id");--> statement-breakpoint
