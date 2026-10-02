@@ -256,6 +256,8 @@ const settled = async (
           runId: entry.runId ?? randomUUID(),
           queued: false,
           outcome: 'completed',
+          stopped: false,
+          asked: false,
           next: 'ship',
           endedAt: new Date(),
           measured: true,

@@ -340,10 +340,12 @@ func defaultState() string {
 
 func HostID(state string) (string, error) {
 	path := filepath.Join(state, "host-id")
-	if raw, err := os.ReadFile(path); err == nil {
-		if id := strings.TrimSpace(string(raw)); id != "" {
-			return id, nil
-		}
+	raw, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("read the host's id: %w", err)
+	}
+	if id := strings.TrimSpace(string(raw)); id != "" {
+		return id, nil
 	}
 
 	if err := os.MkdirAll(state, 0o700); err != nil {

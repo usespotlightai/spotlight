@@ -3,6 +3,7 @@ import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
@@ -23,13 +24,16 @@ const acme = (role: WorkspaceRole = WorkspaceRole.owner, user = 'user_1') =>
           { userId: UserId.of('owner_1'), role: WorkspaceRole.owner },
           { userId: UserId.of(user), role },
         ],
+    version: 0,
   });
 
 const platform = Team.rehydrate({
   id: TeamId.of('team_1'),
   workspaceId: WorkspaceId.of('ws_1'),
+  key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
   members: [UserId.of('owner_1')],
+  version: 0,
 });
 
 const asking = (

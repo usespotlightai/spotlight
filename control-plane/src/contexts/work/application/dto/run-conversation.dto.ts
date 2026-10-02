@@ -19,7 +19,7 @@ export interface RunConversationDto {
   readonly attachments: readonly AttachmentDto[];
   readonly station: RunStationDto | null;
   readonly createdAt: string;
-  readonly briefing: string | null;
+  readonly briefing: string;
   readonly working: boolean;
   readonly notes: readonly InboxMessageDto[];
   readonly spend: RunSpendDto | null;

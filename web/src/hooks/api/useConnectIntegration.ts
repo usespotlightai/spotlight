@@ -12,9 +12,7 @@ export function useConnectIntegration(teamId: string | undefined) {
       return data;
     },
     onSuccess: (data) => {
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+      window.location.href = data.url;
     },
   });
 }

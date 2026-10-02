@@ -99,36 +99,54 @@ const refusalOf = (row: EntryRow) => {
   return row.refusal;
 };
 
-const endOf = (row: EntryRow): RunEnd | null =>
-  row.outcome && row.endedAt
-    ? RunEnd.of({
-        outcome: row.outcome,
-        failure: row.failure,
-        stopped: row.stopped ?? false,
-        asked: row.asked ?? false,
-        next: row.next,
-        at: row.endedAt,
-      })
-    : null;
+const endOf = (row: EntryRow): RunEnd | null => {
+  if (!row.outcome || !row.endedAt) {
+    return null;
+  }
+  if (row.stopped === null || row.asked === null) {
+    throw new InconsistentStateError(
+      'replay entry',
+      'ended without saying whether it was stopped or asked',
+    );
+  }
 
-const measuresOf = (row: EntryRow): EntryMeasures | null =>
-  row.measured
-    ? EntryMeasures.of({
-        ms: row.ms,
-        steps: row.steps ?? 0,
-        changedLines: row.changedLines,
-        cost:
-          row.costAmount !== null && row.costCurrency
-            ? Spend.of(row.costAmount, row.costCurrency)
-            : null,
-        tokens: {
-          input: row.inputTokens,
-          output: row.outputTokens,
-          cacheRead: row.cacheReadTokens,
-          cacheWrite: row.cacheWriteTokens,
-        },
-      })
-    : null;
+  return RunEnd.of({
+    outcome: row.outcome,
+    failure: row.failure,
+    stopped: row.stopped,
+    asked: row.asked,
+    next: row.next,
+    at: row.endedAt,
+  });
+};
+
+const measuresOf = (row: EntryRow): EntryMeasures | null => {
+  if (!row.measured) {
+    return null;
+  }
+  if (row.steps === null) {
+    throw new InconsistentStateError(
+      'replay entry',
+      'was measured without counting its steps',
+    );
+  }
+
+  return EntryMeasures.of({
+    ms: row.ms,
+    steps: row.steps,
+    changedLines: row.changedLines,
+    cost:
+      row.costAmount !== null && row.costCurrency
+        ? Spend.of(row.costAmount, row.costCurrency)
+        : null,
+    tokens: {
+      input: row.inputTokens,
+      output: row.outputTokens,
+      cacheRead: row.cacheReadTokens,
+      cacheWrite: row.cacheWriteTokens,
+    },
+  });
+};
 
 const reasonsOf = (row: EntryRow): EntryReason[] =>
   row.reasons.map((each) => {

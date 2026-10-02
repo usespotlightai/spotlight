@@ -35,24 +35,26 @@ export class JwksCache implements JwksResolver {
 
   private async read(url: string): Promise<ReadonlyMap<string, KeyObject>> {
     const keys = new Map<string, KeyObject>();
+    const reply = await this.fetch(url);
 
-    try {
-      const reply = await this.fetch(url);
-      const body = (await reply.json()) as { keys?: Jwk[] };
+    if (!reply.ok) {
+      throw new Error(`${url} answered ${reply.status} for its signing keys`);
+    }
 
-      for (const jwk of body.keys ?? []) {
-        if (!jwk.kid) {
-          continue;
-        }
+    const body = (await reply.json()) as { keys?: Jwk[] };
 
-        try {
-          keys.set(
-            jwk.kid,
-            createPublicKey({ key: jwk as JsonWebKey, format: 'jwk' }),
-          );
-        } catch {}
+    for (const jwk of body.keys ?? []) {
+      if (!jwk.kid) {
+        continue;
       }
-    } catch {}
+
+      try {
+        keys.set(
+          jwk.kid,
+          createPublicKey({ key: jwk as JsonWebKey, format: 'jwk' }),
+        );
+      } catch {}
+    }
 
     return keys;
   }

@@ -4,6 +4,7 @@ import type { AccessToken } from '@integrations/domain/value-objects/access-toke
 import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type {
   Happened,
@@ -36,6 +37,10 @@ export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
 
 export interface Credentials {
   wornToward(url: string, secrets: readonly string[]): Promise<WornSecrets>;
+}
+
+export interface SigningSecrets {
+  named(secret: string): Promise<VerifyingSecret>;
 }
 
 export interface Reach {

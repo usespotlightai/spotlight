@@ -188,12 +188,12 @@ export class GitHubPullRequests implements PullRequestPort {
     repository: Repository,
     token: string,
   ): Promise<string> {
-    const found = await answered<{ default_branch?: string }>(
+    const found = await answered<{ default_branch: string }>(
       await call(this.at(repository), token),
       `GitHub would not say what ${repository.value} merges into`,
     );
 
-    return found.default_branch ?? 'main';
+    return found.default_branch;
   }
 
   private at(repository: Repository): string {

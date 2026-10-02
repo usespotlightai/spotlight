@@ -5,7 +5,10 @@ import {
   timingSafeEqual,
   verify as verifySignature,
 } from 'node:crypto';
-import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import type {
+  Credentials,
+  SigningSecrets,
+} from '@integrations/application/ports/integration-runtime.port';
 import type {
   Delivered,
   HappeningDeclaration,
@@ -18,7 +21,6 @@ import type {
   AuthIR,
   EventIR,
   ReadableIntegration,
-  RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
 import {
@@ -46,11 +48,11 @@ export class WebhookRuntime implements WebhookSourcePort {
   constructor(
     private readonly readable: ReadableIntegration,
     private readonly workspaceId: WorkspaceId,
-    private readonly secrets: ReadonlyMap<string, string>,
+    private readonly signing: SigningSecrets,
     private readonly now: () => number = () => Date.now(),
-    private readonly jwks: JwksResolver | null = null,
-    private readonly outbound: HttpOutbound | null = null,
-    private readonly credentials: Credentials | null = null,
+    private readonly jwks: JwksResolver,
+    private readonly outbound: HttpOutbound,
+    private readonly credentials: Credentials,
   ) {}
 
   get key(): string {
@@ -95,26 +97,32 @@ export class WebhookRuntime implements WebhookSourcePort {
     }
   }
 
-  private token(
+  private async token(
     auth: Extract<AuthIR, { kind: 'token' }>,
     delivered: Delivered,
-  ): boolean {
-    const secret = this.secrets.get(auth.secret);
+  ): Promise<boolean> {
     const given = auth.header && headed(delivered.headers, auth.header);
 
-    return secret !== undefined && !!given && equal(secret, given);
-  }
-
-  private hmac(
-    auth: Extract<AuthIR, { kind: 'hmac' }>,
-    delivered: Delivered,
-  ): boolean {
-    const secret = this.secrets.get(auth.secret);
-    const given = auth.header && headed(delivered.headers, auth.header);
-
-    if (secret === undefined || !given) {
+    if (!given) {
       return false;
     }
+
+    const secret = await this.signing.named(auth.secret);
+
+    return equal(secret.revealed(), given);
+  }
+
+  private async hmac(
+    auth: Extract<AuthIR, { kind: 'hmac' }>,
+    delivered: Delivered,
+  ): Promise<boolean> {
+    const given = auth.header && headed(delivered.headers, auth.header);
+
+    if (!given) {
+      return false;
+    }
+
+    const secret = (await this.signing.named(auth.secret)).revealed();
 
     const material = auth.signed
       ? Buffer.from(reads(auth.signed, this.bindings(delivered)) ?? '')
@@ -173,7 +181,7 @@ export class WebhookRuntime implements WebhookSourcePort {
     const carried = headed(delivered.headers, auth.header ?? 'authorization');
     const token = carried?.replace(/^Bearer\s+/i, '');
 
-    if (!token || !this.jwks) {
+    if (!token) {
       return false;
     }
 
@@ -290,22 +298,13 @@ export class WebhookRuntime implements WebhookSourcePort {
       this.bindings(delivered),
       (against) => (mine ? holds(mine, against) : false),
       (event, against) => this.enriched(event, against),
-      this.outbound && this.credentials
-        ? (request, against) => this.fetched(request, against)
-        : null,
-    );
-  }
-
-  private fetched(request: RequestIR, against: Bindings): Promise<Uint8Array> {
-    return (this.outbound as HttpOutbound).bytes(
-      request,
-      against,
-      this.credentials as Credentials,
+      (request, against) =>
+        this.outbound.bytes(request, against, this.credentials),
     );
   }
 
   private async enriched(event: EventIR, against: Bindings): Promise<Bindings> {
-    if (!event.lookup || !this.outbound || !this.credentials) {
+    if (!event.lookup) {
       return against;
     }
 

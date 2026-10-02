@@ -456,7 +456,7 @@ const SEARCH_RUN: SearchRunResponseDto = {
         spokeTo: null,
         endedAt: hoursAgo(5.2),
       },
-      spent: { used: 61_000, size: 200_000 },
+      spent: { used: 61_000, size: 200_000, cost: null, currency: null },
       steps: [
         {
           kind: 'thought',

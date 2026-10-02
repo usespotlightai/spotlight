@@ -162,6 +162,8 @@ const endOf = (row: RecordRow): RunEnd | null => {
     !row.taskId ||
     !row.ending ||
     !row.harness ||
+    !row.repositories ||
+    !row.skills ||
     row.round === null
   ) {
     throw new InconsistentStateError(
@@ -183,8 +185,8 @@ const endOf = (row: RecordRow): RunEnd | null => {
       model: row.model,
       effort: row.effort,
       profileKey: row.profileKey,
-      repositories: row.repositories ?? [],
-      skills: row.skills ?? [],
+      repositories: row.repositories,
+      skills: row.skills,
     }),
     queuedAt: row.queuedAt,
     startedAt: row.startedAt,
@@ -206,25 +208,34 @@ const nextOf = (row: RecordRow): NextAct | null => {
   return row.nextAct && row.nextAt ? NextAct.of(row.nextAct, row.nextAt) : null;
 };
 
-const costOf = (row: RecordRow): RunCost | null =>
-  row.digested
-    ? RunCost.of({
-        ms: row.ms,
-        steps: row.steps ?? 0,
-        faults: row.faults ?? 0,
-        changedLines: row.changedLines ?? 0,
-        used: row.used,
-        size: row.size,
-        amount: row.cost,
-        currency: row.currency,
-        tokens: {
-          input: row.inputTokens,
-          output: row.outputTokens,
-          cacheRead: row.cacheReadTokens,
-          cacheWrite: row.cacheWriteTokens,
-        },
-      })
-    : null;
+const costOf = (row: RecordRow): RunCost | null => {
+  if (!row.digested) {
+    return null;
+  }
+  if (row.steps === null || row.faults === null || row.changedLines === null) {
+    throw new InconsistentStateError(
+      'run record',
+      'was digested without counting its steps, faults or changed lines',
+    );
+  }
+
+  return RunCost.of({
+    ms: row.ms,
+    steps: row.steps,
+    faults: row.faults,
+    changedLines: row.changedLines,
+    used: row.used,
+    size: row.size,
+    amount: row.cost,
+    currency: row.currency,
+    tokens: {
+      input: row.inputTokens,
+      output: row.outputTokens,
+      cacheRead: row.cacheReadTokens,
+      cacheWrite: row.cacheWriteTokens,
+    },
+  });
+};
 
 const toolsOf = (row: RecordRow): RunTools | null => {
   if (!row.digested) {

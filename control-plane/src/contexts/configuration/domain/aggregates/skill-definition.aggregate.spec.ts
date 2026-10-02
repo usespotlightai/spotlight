@@ -25,6 +25,8 @@ const read = (key = 'grafana', body = 'Search first.') => ({
     key: SkillKey.of(key),
     description: 'Look up dashboards',
     instructions: body,
+    secrets: [],
+    tools: [],
   }),
   files: SkillFiles.of({ 'SKILL.md': body }),
 });

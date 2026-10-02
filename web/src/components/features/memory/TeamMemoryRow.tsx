@@ -52,13 +52,11 @@ export function TeamMemoryRow({
           </span>
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
             <span className="font-mono">{memory.handle}</span>
-            <Pill className="px-1.5 py-0">
-              {KIND_LABELS[memory.kind] ?? memory.kind}
-            </Pill>
+            <Pill className="px-1.5 py-0">{KIND_LABELS[memory.kind]}</Pill>
             <span className="truncate">{placeOf(memory, lines)}</span>
             <span aria-hidden>·</span>
             <span>
-              {SOURCE_LABELS[memory.source] ?? memory.source}, kept by{' '}
+              {SOURCE_LABELS[memory.source]}, kept by{' '}
               {memory.approvedBy.name ?? 'someone'}
             </span>
             <span aria-hidden>·</span>

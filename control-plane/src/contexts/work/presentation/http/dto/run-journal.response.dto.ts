@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { STEP_KIND_NAMES } from '@work/application/dto/run-journal.dto';
 
 export class StepLocationResponseDto {
@@ -209,10 +209,10 @@ export class RunSpentResponseDto {
   @ApiProperty({ example: 200000, description: 'How large the context is' })
   readonly size: number;
 
-  @ApiPropertyOptional({ example: 0.0664917, nullable: true, type: Number })
+  @ApiProperty({ example: 0.0664917, nullable: true, type: Number })
   readonly cost: number | null;
 
-  @ApiPropertyOptional({ example: 'USD', nullable: true, type: String })
+  @ApiProperty({ example: 'USD', nullable: true, type: String })
   readonly currency: string | null;
 
   constructor(
@@ -245,7 +245,7 @@ export class RunJournalResponseDto {
   })
   readonly spans: readonly RunSpanResponseDto[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: 56000,
     nullable: true,
     type: Number,
@@ -256,7 +256,7 @@ export class RunJournalResponseDto {
   @ApiProperty({ type: RunMarksResponseDto })
   readonly marks: RunMarksResponseDto;
 
-  @ApiPropertyOptional({ type: RunSpentResponseDto, nullable: true })
+  @ApiProperty({ type: RunSpentResponseDto, nullable: true })
   readonly spent: RunSpentResponseDto | null;
 
   constructor(

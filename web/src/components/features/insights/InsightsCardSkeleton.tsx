@@ -2,12 +2,12 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
 type InsightsCardSkeletonProps = {
   title: string;
-  rows?: number;
+  rows: number;
 };
 
 export function InsightsCardSkeleton({
   title,
-  rows = 4,
+  rows,
 }: InsightsCardSkeletonProps) {
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">

@@ -139,8 +139,11 @@ func (r *restoring) write(archive *tar.Reader, header *tar.Header, name string, 
 
 func (r *restoring) makeRoom(name string, dir bool) error {
 	there, err := r.root.Lstat(name)
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
 		return nil
+	}
+	if err != nil {
+		return err
 	}
 	if dir && there.IsDir() {
 		return nil

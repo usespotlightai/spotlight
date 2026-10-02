@@ -83,10 +83,10 @@ export class Team extends EventRecorder {
   static rehydrate(input: {
     id: TeamId;
     workspaceId: WorkspaceId;
-    key?: TeamKey;
+    key: TeamKey;
     name: TeamName;
     members: readonly UserId[];
-    version?: number;
+    version: number;
   }): Team {
     if (input.members.length === 0) {
       throw new InconsistentStateError('team', 'has no members at all');
@@ -95,10 +95,10 @@ export class Team extends EventRecorder {
     return new Team(
       input.id,
       input.workspaceId,
-      input.key ?? TeamKey.from(input.name.value),
+      input.key,
       input.name,
       input.members,
-      input.version ?? 0,
+      input.version,
     );
   }
 

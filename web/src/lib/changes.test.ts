@@ -30,6 +30,8 @@ const journal = (steps: JournalStep[]): RunJournal =>
     runId: 'r1',
     attempt: 1,
     steps,
+    ms: null,
+    spent: null,
     spans: [],
     marks: {
       startedAt: null,

@@ -76,7 +76,7 @@ const toRunner = (row: Row): Runner =>
     installed: row.harnesses.map((id) =>
       InstalledHarness.of(
         HarnessId.of(id),
-        (row.advertisedModels[id] ?? []).map(HarnessModel.of),
+        row.advertisedModels[id].map(HarnessModel.of),
         row.harnessVersions[id]
           ? HarnessVersion.of(row.harnessVersions[id])
           : null,

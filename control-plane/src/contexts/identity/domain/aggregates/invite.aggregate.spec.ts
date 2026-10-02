@@ -3,6 +3,7 @@ import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { InviteClosedError } from '@identity/domain/exceptions/invite-closed.error';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
+import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -21,8 +22,10 @@ const hash = (of: string) => TokenHash.of(of.repeat(64).slice(0, 64));
 const platform = Team.rehydrate({
   id: TeamId.of('team_1'),
   workspaceId: WorkspaceId.of('ws_1'),
+  key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
   members: [asker],
+  version: 0,
 });
 
 const offered = (to = 'ada@example.com') =>

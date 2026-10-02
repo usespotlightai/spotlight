@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import type {
   DefinedIntegration,
   DefinedIntegrationsPort,
@@ -41,8 +42,21 @@ webhook:
             value: \${{ body.data.identifier }}
 `;
 
-const holding = (integrations: DefinedIntegration[]) => {
+const holding = (
+  integrations: DefinedIntegration[],
+  held: Readonly<Record<string, string>> = {},
+) => {
+  const { injection, forVerifying } = injecting(
+    Object.fromEntries(
+      Object.entries(held).map(([name, value]) => [
+        name,
+        { host: 'api.linear.app', value },
+      ]),
+    ),
+  );
+
   return {
+    forVerifying,
     sources: new ConfiguredSources(
       {
         ofTeam: vi.fn(async () => integrations),
@@ -51,7 +65,7 @@ const holding = (integrations: DefinedIntegration[]) => {
       new IntegrationReader(expressions),
       { keys: async () => new Map() },
       new HttpOutbound([]),
-      injecting().injection,
+      injection,
     ),
   };
 };
@@ -72,18 +86,66 @@ describe('ConfiguredSources', () => {
     expect(await sources.find(TEAM, 'sentry')).toBeNull();
   });
 
-  it('builds one that verifies nothing, since no secret is held', async () => {
-    const { sources } = holding([defined(linear())]);
+  it('verifies a delivery signed with the secret the workspace holds', async () => {
+    const { sources, forVerifying } = holding([defined(linear())], {
+      LINEAR_WEBHOOK_SECRET: 'lin_wh_1',
+    });
+    const raw = Buffer.from('{"type":"Issue"}');
 
     const [source] = await sources.all(TEAM);
 
     expect(
       await source?.verifies({
+        headers: {
+          'linear-signature': createHmac('sha256', 'lin_wh_1')
+            .update(raw)
+            .digest('hex'),
+        },
+        body: { type: 'Issue' },
+        raw,
+      }),
+    ).toBe(true);
+    expect(forVerifying).toHaveBeenCalledWith({
+      workspaceId: 'ws_1',
+      secret: 'LINEAR_WEBHOOK_SECRET',
+    });
+  });
+
+  it('refuses a delivery signed with any other secret', async () => {
+    const { sources } = holding([defined(linear())], {
+      LINEAR_WEBHOOK_SECRET: 'lin_wh_1',
+    });
+    const raw = Buffer.from('{}');
+
+    const [source] = await sources.all(TEAM);
+
+    expect(
+      await source?.verifies({
+        headers: {
+          'linear-signature': createHmac('sha256', 'guessed')
+            .update(raw)
+            .digest('hex'),
+        },
+        body: {},
+        raw,
+      }),
+    ).toBe(false);
+  });
+
+  it('fails to verify while the workspace holds no such secret', async () => {
+    const { sources } = holding([defined(linear())]);
+
+    const [source] = await sources.all(TEAM);
+
+    await expect(
+      source?.verifies({
         headers: { 'linear-signature': 'anything' },
         body: {},
         raw: Buffer.from('{}'),
       }),
-    ).toBe(false);
+    ).rejects.toThrow(
+      'The workspace holds no secret named LINEAR_WEBHOOK_SECRET',
+    );
   });
 
   it('has no sources at all before anything has been defined', async () => {

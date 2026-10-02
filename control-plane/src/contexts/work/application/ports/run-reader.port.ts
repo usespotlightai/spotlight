@@ -49,7 +49,7 @@ export interface RunConversationSummary {
   readonly attachments: readonly AttachmentSummary[];
   readonly station: RunStationSummary | null;
   readonly createdAt: Date;
-  readonly briefing: string | null;
+  readonly briefing: string;
   readonly working: boolean;
   readonly notes: readonly InboxNote[];
 }

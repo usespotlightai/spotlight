@@ -5,17 +5,12 @@ export const UNFOLD_MS = 200;
 
 type UnfoldProps = {
   open: boolean;
-  appear?: boolean;
+  appear: boolean;
   className?: string;
   children: ReactNode;
 };
 
-export function Unfold({
-  open,
-  appear = true,
-  className,
-  children,
-}: UnfoldProps) {
+export function Unfold({ open, appear, className, children }: UnfoldProps) {
   return (
     <div
       className={cn(

@@ -18,10 +18,6 @@ import type {
 } from '@replays/application/ports/work.port';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
-import {
-  isReplayRefusal,
-  type ReplayRefusal,
-} from '@replays/domain/value-objects/replay-refusal';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -47,14 +43,6 @@ import type { SearchDispatchPort } from '@work/application/ports/search-dispatch
 import type { SearchRunsPort } from '@work/application/ports/search-runs.port';
 import type { StartingPointHoldsPort } from '@work/application/ports/starting-point-holds.port';
 
-const refusalOf = (code: string | null): ReplayRefusal | null => {
-  if (code === null) {
-    return null;
-  }
-
-  return isReplayRefusal(code) ? code : 'cannot-start';
-};
-
 const stationOf = (station: ReplayStation): StationAtHand => ({
   workspaceId: WorkspaceId.of(station.workspaceId),
   teamId: TeamId.of(station.teamId),
@@ -75,7 +63,7 @@ const replayabilityOf = (each: Replayability): RunReplayability => ({
   runId: RunId.of(each.runId),
   taskId: each.taskId ? TaskId.of(each.taskId) : null,
   stationId: each.stationId,
-  refusal: refusalOf(each.refusal),
+  refusal: each.refusal,
   reason: each.reason,
 });
 
@@ -224,7 +212,7 @@ export class Work implements WorkPort {
         }
       : {
           queued: false,
-          refusal: refusalOf(dispatched.refusal) ?? 'cannot-start',
+          refusal: dispatched.refusal,
         };
   }
 

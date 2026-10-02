@@ -94,7 +94,7 @@ install_binary() {
   [ "$want" = "$got" ] || die "spotlight failed its checksum: expected $want, got $got"
 
   chmod +x "$TMP/spotlight"
-  install "$TMP/spotlight" "$BIN_DIR/spotlight" 2>/dev/null || mv "$TMP/spotlight" "$BIN_DIR/spotlight"
+  mv "$TMP/spotlight" "$BIN_DIR/spotlight"
   say "installed $BIN_DIR/spotlight"
 }
 

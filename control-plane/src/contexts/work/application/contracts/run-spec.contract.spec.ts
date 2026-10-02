@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
@@ -69,8 +70,7 @@ describe('RunSpecContract wire', () => {
     const stored = JSON.parse(JSON.stringify(representative));
     const spec = RunSpecContract.from(stored);
 
-    expect(spec).not.toBeNull();
-    expect(JSON.stringify(RunSpecContract.toWire(spec as never))).toBe(
+    expect(JSON.stringify(RunSpecContract.toWire(spec))).toBe(
       JSON.stringify(representative),
     );
   });
@@ -82,23 +82,25 @@ describe('RunSpecContract wire', () => {
       search: {},
     });
 
-    expect(
-      RunSpecContract.toWire(RunSpecContract.from(searching) as never),
-    ).toEqual(searching);
-    expect(RunSpecContract.from(parts({ search: true }))).toBeNull();
+    expect(RunSpecContract.toWire(RunSpecContract.from(searching))).toEqual(
+      searching,
+    );
+    expect(() => RunSpecContract.from(parts({ search: true }))).toThrow(
+      InconsistentStateError,
+    );
   });
 
   it('keeps no empty list of secrets worn', () => {
     expect(
-      RunSpecContract.from(parts({ wears: [] }))?.value.wears,
+      RunSpecContract.from(parts({ wears: [] })).value.wears,
     ).toBeUndefined();
   });
 
   it('reads the smallest spec a runner can be handed', () => {
-    expect(RunSpecContract.from(parts())?.value).toEqual(parts());
+    expect(RunSpecContract.from(parts()).value).toEqual(parts());
   });
 
-  it('reads nothing from what is not a spec', () => {
+  it('refuses what is not a spec as a stored run that no longer reads', () => {
     for (const raw of [
       null,
       undefined,
@@ -112,7 +114,7 @@ describe('RunSpecContract wire', () => {
       }),
       parts({ briefing: '  ' }),
     ]) {
-      expect(RunSpecContract.from(raw)).toBeNull();
+      expect(() => RunSpecContract.from(raw)).toThrow(InconsistentStateError);
     }
   });
 });

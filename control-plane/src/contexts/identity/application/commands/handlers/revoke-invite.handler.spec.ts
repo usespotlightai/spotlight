@@ -7,6 +7,7 @@ import { InviteMovedOnError } from '@identity/domain/exceptions/invite-moved-on.
 import type { InviteRepository } from '@identity/domain/repositories/invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
+import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -21,8 +22,10 @@ const onto = (teamId: string) =>
   Team.rehydrate({
     id: TeamId.of(teamId),
     workspaceId: WorkspaceId.of('ws_1'),
+    key: TeamKey.of('platform'),
     name: TeamName.of('Platform'),
     members: [UserId.of('user_leon')],
+    version: 0,
   });
 
 const offered = (teamId = 'team_1') =>

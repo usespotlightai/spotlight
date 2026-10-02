@@ -24,11 +24,7 @@ export class StationColor {
   }
 
   static maybe(raw: string | null | undefined): StationColor | null {
-    try {
-      return raw ? StationColor.of(raw) : null;
-    } catch {
-      return null;
-    }
+    return raw ? StationColor.of(raw) : null;
   }
 
   equals(other: StationColor): boolean {

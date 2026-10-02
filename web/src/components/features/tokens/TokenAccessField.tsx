@@ -7,7 +7,7 @@ const CHOICE =
 type TokenAccessFieldProps = {
   reach: TokenReach;
   grants: ReadonlySet<TokenGrant>;
-  disabled?: boolean;
+  disabled: boolean;
   onReach: (reach: TokenReach) => void;
   onGrant: (grant: TokenGrant, granted: boolean) => void;
 };

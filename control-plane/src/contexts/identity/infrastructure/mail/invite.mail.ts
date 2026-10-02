@@ -3,10 +3,10 @@ import type {
   InviteToSend,
 } from '@identity/application/ports/invite-mail.port';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
+import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 
-const appUrl = (env: Env): string =>
-  (env.SPOTLIGHT_PUBLIC_URL ?? env.BETTER_AUTH_URL).replace(/\/+$/, '');
+const appUrl = (env: Env): string => publicUrlOf(env).replace(/\/+$/, '');
 
 const escaped = (raw: string): string =>
   raw

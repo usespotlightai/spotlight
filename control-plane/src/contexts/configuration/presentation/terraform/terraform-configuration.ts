@@ -480,12 +480,12 @@ const skill = (
   importedAs: string,
   refer: Referring,
 ): Rendered => {
-  const files = Object.keys(held.files)
-    .sort(inCodePointOrder)
-    .map((within) => ({
+  const files = Object.entries(held.files)
+    .sort(inCodePointOrderOf(([within]: [string, string]) => within))
+    .map(([within, content]) => ({
       within,
       path: `skills/${held.teamKey}/${held.key}/${within}`,
-      content: held.files[within] ?? '',
+      content,
     }));
 
   return adopted(

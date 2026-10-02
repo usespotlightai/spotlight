@@ -32,7 +32,6 @@ import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
-import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import {
   HELD_RUN_STATES,
   type RunState,
@@ -283,19 +282,6 @@ export class DrizzleRunRepository implements RunRepository {
   }
 }
 
-const specOf = (row: Row): RunSpec => {
-  const spec = RunSpecContract.from(row.spec);
-
-  if (!spec) {
-    throw new InconsistentStateError(
-      'run',
-      `has a spec that no longer reads (${row.id})`,
-    );
-  }
-
-  return spec;
-};
-
 const startOf = (held: Run) => ({
   startedFromArchiveId: held.startedFrom?.archive?.value ?? null,
   startedFromCheckouts: held.startedFrom?.parts.checkouts ?? null,
@@ -377,7 +363,7 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
           ? null
           : SearchIteration.of(row.searchIteration),
     }),
-    spec: specOf(row),
+    spec: RunSpecContract.from(row.spec),
     placement: RunnerPlacement.ofClauses(
       row.placement,
       row.placementImage ? RunnerImage.of(row.placementImage) : null,
@@ -388,7 +374,7 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
     stopRequestedAt: row.stopRequestedAt,
     reservation: reservationFrom(row),
     provisioning: Provisioning.rehydrate(
-      row.provisionFailures ?? 0,
+      row.provisionFailures,
       row.nextProvisionAt,
     ),
     outcome:
@@ -400,8 +386,8 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
             message: row.message,
             stopped: row.stopped,
           }),
-    attempt: row.attempt ?? 1,
-    handBacks: HandBacks.rehydrate(row.handBacks ?? 0, row.claimableFrom),
+    attempt: row.attempt,
+    handBacks: HandBacks.rehydrate(row.handBacks, row.claimableFrom),
     ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
     briefedWith: row.briefedMemories
       ? BriefedMemories.of(row.briefedMemories)

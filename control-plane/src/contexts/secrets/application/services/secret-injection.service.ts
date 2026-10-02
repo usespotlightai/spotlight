@@ -1,9 +1,11 @@
+import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type {
   RunGrant,
   RunRequest,
   SecretInjectionPort,
   SpotlightRequest,
+  VerifyingRequest,
 } from '@secrets/application/ports/secret-injection.port';
 import type { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import type { SecretSources } from '@secrets/application/services/secret-sources.service';
@@ -56,6 +58,12 @@ export class SecretInjection implements SecretInjectionPort {
 
   forSpotlight(request: SpotlightRequest): Promise<WornSecrets> {
     return this.worn(request, () => undefined);
+  }
+
+  async forVerifying(request: VerifyingRequest): Promise<VerifyingSecret> {
+    const [secret] = await this.held(request.workspaceId, [request.secret]);
+
+    return VerifyingSecret.of((await this.sources.read(secret)).revealed());
   }
 
   private async worn(

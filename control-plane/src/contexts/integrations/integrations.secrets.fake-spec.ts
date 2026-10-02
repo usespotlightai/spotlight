@@ -1,14 +1,20 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import type {
+  Credentials,
+  SigningSecrets,
+} from '@integrations/application/ports/integration-runtime.port';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
+import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type {
   RunGrant,
   RunRequest,
   SecretInjectionPort,
   SpotlightRequest,
+  VerifyingRequest,
 } from '@secrets/application/ports/secret-injection.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
@@ -70,15 +76,48 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
     worn(request, null),
   );
 
-  const injection: SecretInjectionPort = { grant, forRun, forSpotlight };
+  const forVerifying = vi.fn(async (request: VerifyingRequest) => {
+    const secret = bound[request.secret];
 
-  return { injection, grant, forRun, forSpotlight };
+    if (!secret) {
+      throw Object.assign(
+        new Error(`The workspace holds no secret named ${request.secret}`),
+        { violation: 'conflict' as const },
+      );
+    }
+
+    return VerifyingSecret.of(secret.value);
+  });
+
+  const injection: SecretInjectionPort = {
+    grant,
+    forRun,
+    forSpotlight,
+    forVerifying,
+  };
+
+  return { injection, grant, forRun, forSpotlight, forVerifying };
 };
 
 export const credentialsFor = (
   bound: Readonly<Record<string, Bound>> = {},
 ): Credentials =>
   new SpotlightCredentials(injecting(bound).injection, async () => 'ws_1');
+
+export const signingFor = (
+  held: Readonly<Record<string, string>> = {},
+): SigningSecrets =>
+  new SpotlightSigningSecrets(
+    injecting(
+      Object.fromEntries(
+        Object.entries(held).map(([name, value]) => [
+          name,
+          { host: 'spotlight.invalid', value },
+        ]),
+      ),
+    ).injection,
+    WorkspaceId.of('ws_1'),
+  );
 
 export const reachFor = (
   injection: SecretInjectionPort = injecting().injection,

@@ -79,15 +79,10 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: "the call's body is not base64"}
 	}
 
-	method := call.Method
-	if method == "" {
-		method = http.MethodPost
-	}
-
 	sending, cancel := context.WithTimeout(guard.Naming(ctx, s.allowed.Names(host)), timeout)
 	defer cancel()
 
-	request, err := http.NewRequestWithContext(sending, method, address.String(), bytes.NewReader(body))
+	request, err := http.NewRequestWithContext(sending, call.Method, address.String(), bytes.NewReader(body))
 	if err != nil {
 		return protocol.HostCallAnswer{}, err
 	}

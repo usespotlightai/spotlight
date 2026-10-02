@@ -1274,8 +1274,8 @@ export type RunSpentResponseDto = {
    * How large the context is
    */
   size: number;
-  cost?: number | null;
-  currency?: string | null;
+  cost: number | null;
+  currency: string | null;
 };
 
 export type RunJournalResponseDto = {
@@ -1289,9 +1289,9 @@ export type RunJournalResponseDto = {
   /**
    * How long the run spoke for, in ms
    */
-  ms?: number | null;
+  ms: number | null;
   marks: RunMarksResponseDto;
-  spent?: RunSpentResponseDto | null;
+  spent: RunSpentResponseDto | null;
 };
 
 export type GrantAttachmentUploadRequestDto = {
@@ -1537,7 +1537,7 @@ export type RunConversationResponseDto = {
   /**
    * What the run was given, word for word
    */
-  briefing: string | null;
+  briefing: string;
   /**
    * A run is on the task now
    */

@@ -22,7 +22,7 @@ export class CatalogVersion {
 
     const [major, minor, patch] = trimmed.split('.').map(Number);
 
-    return new CatalogVersion(major ?? 0, minor ?? 0, patch ?? 0);
+    return new CatalogVersion(major, minor, patch);
   }
 
   static at(major: number, minor = 0, patch = 0): CatalogVersion {

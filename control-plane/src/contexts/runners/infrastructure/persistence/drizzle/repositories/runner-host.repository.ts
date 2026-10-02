@@ -159,14 +159,12 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   }
 
   async removeThrough(admission: Admission): Promise<void> {
-    const { poolId, trustId } = admission;
-
     await this.context.db
       .delete(runnerHost)
       .where(
-        poolId
-          ? eq(runnerHost.poolId, poolId.value)
-          : eq(runnerHost.trustId, trustId?.value ?? ''),
+        admission.kind === 'pool'
+          ? eq(runnerHost.poolId, admission.id)
+          : eq(runnerHost.trustId, admission.id),
       );
   }
 

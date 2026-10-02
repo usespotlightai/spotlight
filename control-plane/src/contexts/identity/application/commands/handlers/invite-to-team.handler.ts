@@ -66,18 +66,24 @@ export class InviteToTeamHandler
 
       const asker = await this.people.find(invitedBy);
 
+      if (!asker) {
+        throw new Error(
+          `The inviting person ${invitedBy.value} has no account`,
+        );
+      }
+
       await this.mail.send({
         to: invite.email.value,
         token: minted.token,
         teamName: team.name.value,
         workspaceName: workspace.name.value,
-        invitedBy: asker?.name || 'Somebody',
+        invitedBy: asker.name,
       });
 
       return {
         id: invite.id.value,
         email: invite.email.value,
-        invitedBy: asker?.name ?? '',
+        invitedBy: asker.name,
         invitedAt: invite.invitedAt.toISOString(),
         expiresAt: invite.expiresAt.toISOString(),
       };

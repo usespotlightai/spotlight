@@ -5,6 +5,7 @@ import type {
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { WebhookSourcePort } from '@integrations/application/ports/webhook-source.port';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
+import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
@@ -33,13 +34,17 @@ export class ConfiguredSources implements ConfiguredSourcesPort {
       this.injection,
       async () => team.workspaceId.value,
     );
+    const signing = new SpotlightSigningSecrets(
+      this.injection,
+      team.workspaceId,
+    );
 
     for (const readable of this.reader.readable(definitions).integrations) {
       built.push(
         new WebhookRuntime(
           readable,
           team.workspaceId,
-          new Map(),
+          signing,
           undefined,
           this.jwks,
           this.outbound,

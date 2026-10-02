@@ -43,12 +43,18 @@ describe('CausalChain', () => {
     expect(chain.saying.startsWith('… → ')).toBe(true);
   });
 
-  it('reads back what it stored, and nothing from what is not a chain', () => {
+  it('reads back what it stored, and none from nothing stored', () => {
     const chain = CausalChain.none().followedBy(moved);
 
     expect(CausalChain.read(chain.stored).equals(chain)).toBe(true);
     expect(CausalChain.read(null).started).toBe(false);
-    expect(CausalChain.read('nonsense').started).toBe(false);
+  });
+
+  it('refuses what is not a chain', () => {
+    expect(() => CausalChain.read('nonsense')).toThrow(InconsistentStateError);
+    expect(() => CausalChain.read({ depth: 1 })).toThrow(
+      InconsistentStateError,
+    );
   });
 
   it('refuses a link that says nothing of what it was', () => {

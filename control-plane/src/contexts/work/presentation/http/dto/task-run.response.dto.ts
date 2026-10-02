@@ -138,12 +138,8 @@ export class RunConversationResponseDto {
   @ApiProperty({ example: '2026-08-28T16:32:47.877Z' })
   readonly createdAt: string;
 
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    description: 'What the run was given, word for word',
-  })
-  readonly briefing: string | null;
+  @ApiProperty({ description: 'What the run was given, word for word' })
+  readonly briefing: string;
 
   @ApiProperty({ example: false, description: 'A run is on the task now' })
   readonly working: boolean;
@@ -166,7 +162,7 @@ export class RunConversationResponseDto {
     attachments: readonly AttachmentResponseDto[],
     station: RunStationResponseDto | null,
     createdAt: string,
-    briefing: string | null,
+    briefing: string,
     working: boolean,
     notes: readonly InboxMessageResponseDto[],
     spend: RunSpendResponseDto | null,

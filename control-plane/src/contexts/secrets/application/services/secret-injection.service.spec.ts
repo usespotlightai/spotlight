@@ -159,6 +159,29 @@ describe('SecretInjection', () => {
     });
   });
 
+  describe('for verifying what a host signed', () => {
+    it('reveals the secret without binding it to any host', async () => {
+      const { injection } = await holding();
+
+      const secret = await injection.forVerifying({
+        workspaceId: WORKSPACE.value,
+        secret: 'SENTRY_TOKEN',
+      });
+
+      expect(secret.revealed()).toBe('sntrys_1');
+      expect(`${secret}`).toBe('[secret]');
+      expect(JSON.stringify({ secret })).toBe('{"secret":"[secret]"}');
+    });
+
+    it('reveals nothing of another workspace', async () => {
+      const { injection } = await holding();
+
+      await expect(
+        injection.forVerifying({ workspaceId: 'ws_2', secret: 'SENTRY_TOKEN' }),
+      ).rejects.toThrow(NoSuchSecretError);
+    });
+  });
+
   describe('for a run', () => {
     it('grants a run each secret toward each host it is bound to', async () => {
       const { injection, grants } = await holding();

@@ -27,11 +27,7 @@ export class StationName {
   }
 
   static maybe(raw: string | null | undefined): StationName | null {
-    try {
-      return raw ? StationName.of(raw) : null;
-    } catch {
-      return null;
-    }
+    return raw ? StationName.of(raw) : null;
   }
 
   equals(other: StationName): boolean {

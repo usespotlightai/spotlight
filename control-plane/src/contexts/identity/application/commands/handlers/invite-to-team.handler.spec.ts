@@ -14,6 +14,7 @@ import { InviteMovedOnError } from '@identity/domain/exceptions/invite-moved-on.
 import type { InviteRepository } from '@identity/domain/repositories/invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
+import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
@@ -34,13 +35,16 @@ const workspace = Workspace.rehydrate({
   name: WorkspaceName.of('Acme'),
   slug: WorkspaceSlug.of('acme'),
   members: [{ userId: UserId.of('user_leon'), role: WorkspaceRole.owner }],
+  version: 0,
 });
 
 const team = Team.rehydrate({
   id: TeamId.of('team_1'),
   workspaceId: WorkspaceId.of('ws_1'),
+  key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
   members: [UserId.of('user_leon')],
+  version: 0,
 });
 
 const kept = (invite: Invite): Invite =>

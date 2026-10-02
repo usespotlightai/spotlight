@@ -12,6 +12,7 @@ const HANDOVER: SkillFolder = {
     description: 'Handing a task on.',
     instructions: 'Write the note.',
     tools: [ToolName.of('pull-request')],
+    secrets: [],
   }),
   files: [{ path: 'SKILL.md', text: 'Write the note.' }],
 };
