@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GradeRun } from '@/components/features/inbox/grades/GradeRun';
-import { runScoresOf } from '@/stories/fixtures/run-scores';
+import { claimsScoresOf, runScoresOf } from '@/stories/fixtures/run-scores';
 
 const scores = vi.fn();
 const scoresFailing = vi.fn();
@@ -156,6 +156,68 @@ describe('GradeRun', () => {
     expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ value: 4 }));
   });
 
+  it('grades a claims judge’s run claim by claim, saving once every claim is answered', async () => {
+    scores.mockReturnValue(claimsScoresOf('run_1', 'task_1'));
+
+    showing();
+    const save = screen.getByRole('button', { name: 'Save grade' });
+    expect(save).toBeDisabled();
+
+    const answer = async (claim: string, said: 'Yes' | 'No') =>
+      userEvent.click(
+        within(screen.getByRole('group', { name: claim })).getByRole('button', {
+          name: said,
+        }),
+      );
+    await answer('Retries stop on a 410 Gone', 'Yes');
+    await answer('Every other failure is retried later', 'No');
+    await answer('Claim 3', 'Yes');
+    await userEvent.click(save);
+
+    expect(mutate).toHaveBeenCalledWith({
+      slug: 'acme',
+      teamId: 'team_1',
+      runId: 'run_1',
+      stationId: 'station_implementation',
+      claims: [true, false, true],
+    });
+    expect(
+      screen.getByText(
+        'Its words changed since the judge marked it, so it reads by its place.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('starts from the claims you marked before', () => {
+    scores.mockReturnValue({
+      ...claimsScoresOf('run_1', 'task_1'),
+      grades: [
+        {
+          by: 'user_1',
+          mine: true,
+          kind: 'claims',
+          value: 2 / 3,
+          marks: [true, true, false],
+          label: '67% of claims met',
+          at: '2026-09-30T12:00:00.000Z',
+        },
+      ],
+    });
+
+    showing();
+
+    expect(
+      within(screen.getByRole('group', { name: 'Claim 3' })).getByRole(
+        'button',
+        { name: 'No' },
+      ),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Save grade' })).toBeEnabled();
+    expect(
+      screen.getByText(/You graded it 2 of 3 claims met/),
+    ).toBeInTheDocument();
+  });
+
   it('marks the grade you gave, and lets you change it', () => {
     scores.mockReturnValue(
       runScoresOf('run_1', 'task_1', {
@@ -165,6 +227,7 @@ describe('GradeRun', () => {
             mine: true,
             kind: 'yes-no',
             value: 1,
+            marks: null,
             label: 'yes',
             at: '2026-09-30T12:00:00.000Z',
           },

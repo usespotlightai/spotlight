@@ -3,9 +3,11 @@ import type {
   CandidateResourceDto,
   EntryChecksDto,
   EntryJudgeDto,
+  EntryPairDto,
   EntryResultDto,
   GainReadingDto,
   ModelSpentDto,
+  PairTallyDto,
   RateIntervalDto,
   ReplayDto,
   ReplayEntryDto,
@@ -25,12 +27,17 @@ import {
   type GainReading,
   gainBetween,
 } from '@replays/domain/services/gain-reading';
-import { totalsOf } from '@replays/domain/services/replay-results';
+import {
+  type PairTally,
+  pairTallyOf,
+  totalsOf,
+} from '@replays/domain/services/replay-results';
 import type { SetHealth } from '@replays/domain/services/set-health';
 import type { SetNoise } from '@replays/domain/services/set-noise';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import type { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
+import type { EntryPairing } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { Spend } from '@replays/domain/value-objects/spend.vo';
@@ -156,8 +163,58 @@ const judgeView = (judging: EntryJudging | null): EntryJudgeDto | null => {
     referenced: verdict?.referenced ?? null,
     model: verdict?.model ?? null,
     unjudged: judging.unjudged,
+    marks: verdict?.marks ? [...verdict.marks] : null,
+    claims: verdict ? [...verdict.claims] : [],
+    passShare: verdict?.scale === 'claims' ? verdict.passShare : null,
+    reasons: (verdict?.reasons ?? []).map((each) => ({
+      text: each.text,
+      claim: each.claim,
+      citations: [
+        ...each.steps.map((index) => ({
+          kind: 'step' as const,
+          step: { index, kind: null, tool: null, text: null },
+          hunk: null,
+        })),
+        ...each.hunks.map((id) => ({
+          kind: 'hunk' as const,
+          step: null,
+          hunk: { id, path: null, header: null, lines: [] },
+        })),
+      ],
+    })),
   };
 };
+
+const pairView = (pairing: EntryPairing | null): EntryPairDto | null => {
+  if (!pairing) {
+    return null;
+  }
+
+  const verdict = pairing.verdict;
+
+  return {
+    state: verdict ? 'judged' : pairing.unpaired ? 'unpaired' : 'asked',
+    againstRunId: pairing.against.value,
+    outcome: verdict?.outcome ?? null,
+    model: verdict?.model ?? null,
+    unpaired: pairing.unpaired,
+    readings: (verdict?.readings ?? []).map((reading) => ({
+      ownShownFirst: reading.ownShownFirst,
+      outcome: reading.outcome,
+      reasons: reading.reasons.map((each) => ({
+        text: each.text,
+        ownHunks: [...each.ownHunks],
+        theirHunks: [...each.theirHunks],
+      })),
+    })),
+  };
+};
+
+export const pairTallyView = (tally: PairTally): PairTallyDto => ({
+  wins: tally.wins,
+  losses: tally.losses,
+  ties: tally.ties,
+});
 
 const checksView = (checks: ChangeChecks | null): EntryChecksDto | null =>
   checks && {
@@ -200,6 +257,8 @@ export const entryView = (
     secondJudge: judgeView(entry.secondJudging),
     rejudgingSpent: modelSpentView(entry.rejudgingSpent),
     recheck: checksView(entry.recheck),
+    pair: pairView(entry.pairing),
+    pairingSpent: modelSpentView(entry.pairingSpent),
     result: resultOf(entry, scoring),
     succeeded: entry.succeeded,
     reasons: entry.reasons.map((each) => ({
@@ -258,10 +317,11 @@ export const replayView = (
   replay: Replay,
   candidate: Candidate | null,
   baseline: Replay | null,
+  against: Replay | null,
   minGain: number,
 ): ReplayDto => {
   const totals = totalsOf(replay);
-  const against = baseline && !baseline.id.equals(replay.id) ? baseline : null;
+  const pairs = pairTallyOf(replay);
 
   return {
     id: replay.id.value,
@@ -306,6 +366,8 @@ export const replayView = (
       medianMs: totals.medianMs,
     },
     againstBaseline: gainView(against && gainBetween(replay, against, minGain)),
+    pairedWith: replay.pairsWith?.value ?? null,
+    pairsAgainstBaseline: pairs && pairTallyView(pairs),
     entries: replay.entries.map((each) => entryView(each, replay.scoring)),
   };
 };

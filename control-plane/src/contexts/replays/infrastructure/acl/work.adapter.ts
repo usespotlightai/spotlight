@@ -18,6 +18,7 @@ import type {
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
@@ -35,6 +36,7 @@ import type { HarnessOffersPort } from '@work/application/ports/harness-offers.p
 import type {
   ReplayCandidatesPort,
   ReplayStation,
+  CandidateScoring as ScoredBy,
 } from '@work/application/ports/replay-candidates.port';
 import type { ReplayDispatchPort } from '@work/application/ports/replay-dispatch.port';
 import type {
@@ -68,6 +70,13 @@ const replayabilityOf = (each: Replayability): RunReplayability => ({
   refusal: each.refusal,
   reason: each.reason,
 });
+
+const scoringOf = (scoring: ScoredBy): CandidateScoring =>
+  CandidateScoring.of({
+    checksChanges: scoring.checksChanges,
+    judge: scoring.judge && JudgeCriteria.of(scoring.judge),
+    rubricVersion: scoring.rubricVersion,
+  });
 
 export class Work implements WorkPort {
   constructor(
@@ -177,7 +186,7 @@ export class Work implements WorkPort {
           fingerprint: StationFingerprint.of(examined.fingerprint),
           digests: StationDigests.of(examined.digests),
           liveDigests: StationDigests.of(examined.liveDigests),
-          scoring: CandidateScoring.of(examined.scoring),
+          scoring: scoringOf(examined.scoring),
           changedFrom: StationChanges.of(
             StationFingerprint.of(examined.live),
             examined.changes,
@@ -195,7 +204,7 @@ export class Work implements WorkPort {
           lineKey: live.lineKey,
           block: StationBlock.of(live.station),
           fingerprint: StationFingerprint.of(live.fingerprint),
-          scoring: CandidateScoring.of(live.scoring),
+          scoring: scoringOf(live.scoring),
           digests: StationDigests.of(live.digests),
           threshold: live.replayCheck && ReplayThreshold.of(live.replayCheck),
         }

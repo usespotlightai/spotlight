@@ -2,6 +2,7 @@ import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
+import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
 import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
@@ -424,6 +425,12 @@ describe('Replay', () => {
       ]);
       expect(replay.reserving(2, runIds())).toBe(replay);
       expect(replay.pullEvents()).toEqual([
+        new ReplayEntryConcluded(
+          replay.id,
+          replay.workspaceId,
+          replay.setId,
+          run(0),
+        ),
         new ReplayOverBudget(replay.id, replay.workspaceId, [run(1)]),
         new ReplayEnded(replay.id, replay.workspaceId, null, 'over-budget'),
       ]);
@@ -594,6 +601,9 @@ describe('Replay', () => {
         JudgeVerdict.of({
           scale: 'number',
           value: 5,
+          marks: null,
+          claims: [],
+          passShare: 1,
           model: 'judge/model',
           referenced: true,
           reasons: [],
@@ -676,6 +686,9 @@ describe('Replay', () => {
           JudgeVerdict.of({
             scale: 'number',
             value: 5,
+            marks: null,
+            claims: [],
+            passShare: 1,
             model: 'judge/model',
             referenced: false,
             reasons: [],
@@ -870,6 +883,9 @@ describe('Replay', () => {
       JudgeVerdict.of({
         scale: 'number',
         value,
+        marks: null,
+        claims: [],
+        passShare: 1,
         model: 'judge/model',
         referenced: false,
         reasons: [],

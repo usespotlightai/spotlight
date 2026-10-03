@@ -99,6 +99,8 @@ export class StationJudgeReports implements JudgeStandingPort {
 
     const rubric = Rubric.readable({
       text: judge.rubric,
+      claims: judge.claims,
+      passShare: judge.passShare,
       version: judge.rubricVersion,
     });
 

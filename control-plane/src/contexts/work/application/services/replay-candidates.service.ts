@@ -36,7 +36,11 @@ const scoringOf = (
   config: StationConfig,
 ): CandidateScoring => ({
   checksChanges: station.diffs && station.check !== null,
-  rubric: station.judge?.rubric ?? null,
+  judge: station.judge && {
+    rubric: station.judge.rubric,
+    claims: station.judge.claims,
+    passShare: station.judge.passShare,
+  },
   rubricVersion: config.parts.judge?.rubricDigest ?? null,
 });
 

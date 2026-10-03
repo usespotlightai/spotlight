@@ -8,6 +8,7 @@ import { lastedOrNone, spendShown } from '@/lib/insights';
 import {
   comparisonInOrder,
   costDeltaShown,
+  counterpartShown,
   type EntryComparison,
   judgeScoreShown,
   meanCostOf,
@@ -18,7 +19,14 @@ import {
   scoreDeltaShown,
   titleShown,
 } from '@/lib/replay';
-import { uncomparedShown } from '@/lib/replay-words';
+import {
+  CLOSER_TO_ACCEPTED,
+  capitalised,
+  pairShown,
+  THE_BASELINE,
+  uncomparedShown,
+  versusShown,
+} from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 
 const judgesShown = (copies: readonly ReplayEntry[]): string =>
@@ -37,6 +45,14 @@ export function ReplayComparison({
 }: ReplayComparisonProps) {
   const rows = comparisonInOrder(replay.comparison);
   const compared = rows.some((each) => each.baseline.length > 0);
+  const paired = rows.some((each) => each.pair !== null);
+  const counterpart = replay.comparedWithReplayId
+    ? counterpartShown(
+        replay.comparedWithReplayId,
+        replay.candidate,
+        replay.baselineReplayId,
+      )
+    : THE_BASELINE;
   const currency = replay.ceiling.currency;
   const runTo = (runId: string | null) =>
     runId ? runPath(slug, teamId, runId) : null;
@@ -70,7 +86,7 @@ export function ReplayComparison({
 
   const baseline: InsightsColumn<EntryComparison> = {
     id: 'baseline',
-    header: 'Baseline',
+    header: capitalised(counterpart),
     cell: (row) =>
       row.baseline.length > 0 ? (
         <EntryCopies copies={row.baseline} runTo={runTo} />
@@ -105,9 +121,19 @@ export function ReplayComparison({
       ),
   };
 
+  const pair: InsightsColumn<EntryComparison> = {
+    id: 'pair',
+    header: CLOSER_TO_ACCEPTED,
+    cell: (row) => (
+      <span data-slot="pair" data-pair={row.pair ?? 'none'}>
+        {pairShown(row.pair, counterpart)}
+      </span>
+    ),
+  };
+
   const cost: InsightsColumn<EntryComparison> = {
     id: 'cost',
-    header: compared ? 'Cost vs baseline' : 'Cost',
+    header: compared ? versusShown('Cost', counterpart) : 'Cost',
     numeric: true,
     cell: (row) =>
       compared
@@ -117,7 +143,7 @@ export function ReplayComparison({
 
   const time: InsightsColumn<EntryComparison> = {
     id: 'time',
-    header: compared ? 'Time vs baseline' : 'Time',
+    header: compared ? versusShown('Time', counterpart) : 'Time',
     numeric: true,
     cell: (row) =>
       compared
@@ -125,9 +151,10 @@ export function ReplayComparison({
         : lastedOrNone(meanMsOf(row.candidate)),
   };
 
+  const pairs = paired ? [pair] : [];
   const columns = compared
-    ? [task, candidate, baseline, judge, cost, time]
-    : [task, candidate, judge, cost, time];
+    ? [task, candidate, baseline, judge, ...pairs, cost, time]
+    : [task, candidate, judge, ...pairs, cost, time];
 
   return (
     <InsightsTable

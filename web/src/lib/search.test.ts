@@ -69,6 +69,8 @@ const candidate = (over: Partial<SearchCandidate>): SearchCandidate => ({
   heldOutInterval: null,
   searchedGain: null,
   heldOutGain: null,
+  searchedPairs: null,
+  heldOutPairs: null,
   searchScore: 0.5,
   searchScored: 4,
   heldOutScore: null,

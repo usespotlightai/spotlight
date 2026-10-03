@@ -1,4 +1,4 @@
-import { attribute, block, HclExpression } from '@platform/hcl/hcl';
+import { attribute, block, HclExpression, HclLines } from '@platform/hcl/hcl';
 import { formatHcl } from '@platform/hcl/hcl.format';
 import {
   evaluatedByTerraform,
@@ -156,6 +156,24 @@ describe('formatHcl', () => {
         '}',
         '',
       ].join('\n'),
+    );
+  });
+
+  it('writes a list asked to span lines one item to a line, even where each fits on one', () => {
+    expect(
+      formatHcl([
+        block(
+          'judge',
+          [],
+          [
+            attribute('claims', HclLines.of(['It adds a test.', 'Two.'])),
+            attribute('pass_share', 0.5),
+            attribute('sample', 0.2),
+          ],
+        ),
+      ]),
+    ).toBe(
+      'judge {\n  claims = [\n    "It adds a test.",\n    "Two.",\n  ]\n  pass_share = 0.5\n  sample     = 0.2\n}\n',
     );
   });
 

@@ -106,13 +106,35 @@ export interface StoredEntryReason {
 export interface StoredEntryVerdict {
   readonly scale: string;
   readonly value: number;
+  readonly marks: readonly boolean[] | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly model: string;
   readonly referenced: boolean;
   readonly reasons: readonly {
     readonly text: string;
     readonly steps: readonly number[];
     readonly hunks: readonly string[];
+    readonly claim: number | null;
   }[];
+}
+
+export interface StoredEntryPairing {
+  readonly against: string;
+  readonly verdict: {
+    readonly outcome: string;
+    readonly model: string;
+    readonly readings: readonly {
+      readonly ownShownFirst: boolean;
+      readonly outcome: string;
+      readonly reasons: readonly {
+        readonly text: string;
+        readonly ownHunks: readonly string[];
+        readonly theirHunks: readonly string[];
+      }[];
+    }[];
+  } | null;
+  readonly unpaired: string | null;
 }
 
 export interface StoredEntryJudging {
@@ -223,6 +245,8 @@ export const replayCandidate = pgTable(
     lineFields: jsonb('line_fields').$type<StoredPlannedLine>(),
     checksChanges: boolean('checks_changes').notNull(),
     rubric: text('rubric'),
+    claims: jsonb('claims').$type<string[]>(),
+    passShare: doublePrecision('pass_share'),
     rubricVersion: text('rubric_version'),
     changedFrom: text('changed_from').notNull(),
     changes: jsonb('changes').$type<StoredStationChange[]>().notNull(),
@@ -268,6 +292,7 @@ export const replay = pgTable(
     repeats: integer('repeats').notNull(),
     probe: boolean('probe').notNull().default(false),
     comparedWith: text('compared_with'),
+    pairsWith: text('pairs_with'),
     searchId: text('search_id'),
     state: replayState('state').notNull(),
     startedAt: timestamp('started_at').notNull(),
@@ -281,6 +306,7 @@ export const replay = pgTable(
     index('replay_team_state_idx').on(table.teamId, table.state),
     index('replay_team_started_idx').on(table.teamId, table.startedAt),
     index('replay_search_idx').on(table.searchId),
+    index('replay_pairs_with_idx').on(table.pairsWith),
   ],
 );
 
@@ -328,6 +354,8 @@ export const replayEntry = pgTable(
     secondJudging: jsonb('second_judging').$type<StoredEntryJudging>(),
     rejudgingSpent: jsonb('rejudging_spent').$type<StoredModelSpent>(),
     recheck: jsonb('recheck').$type<StoredEntryChecks>(),
+    pairing: jsonb('pairing').$type<StoredEntryPairing>(),
+    pairingSpent: jsonb('pairing_spent').$type<StoredModelSpent>(),
   },
   (table) => [
     primaryKey({ columns: [table.replayId, table.position] }),

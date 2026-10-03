@@ -10,9 +10,17 @@ export type HealthResponseDto = {
 
 export type StationJudgeResponseDto = {
   /**
-   * What a good run looks like, in Markdown
+   * What a good run looks like, in Markdown. Null when the judge goes by its claims alone
    */
-  rubric: string;
+  rubric: string | null;
+  /**
+   * Checkable claims the judge marks met or unmet, in order. Empty when the judge goes by its rubric
+   */
+  claims: Array<string>;
+  /**
+   * The share of claims a run must meet to pass, from 0 to 1. 1 means every claim
+   */
+  passShare: number;
   /**
    * The share of runs judged, from 0 to 1
    */
@@ -4057,7 +4065,15 @@ export type StationJudgeSettingsResponseDto = {
   /**
    * The scale its rubric scores on; none where it cannot be read
    */
-  kind: 'yes-no' | 'number' | null;
+  kind: 'yes-no' | 'number' | 'claims' | null;
+  /**
+   * The claims the judge marks met or unmet, in order; empty where it goes by its rubric
+   */
+  claims: Array<string>;
+  /**
+   * The share of claims a run must meet to pass, from 0 to 1
+   */
+  passShare: number;
   sample: number;
   trust: number;
 };
@@ -4068,7 +4084,7 @@ export type JudgeStandingResponseDto = {
    */
   trusted: boolean;
   /**
-   * How agreement is measured: Cohen’s kappa for yes or no scores, Spearman’s correlation for numbers
+   * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
    */
   measure: 'kappa' | 'spearman' | null;
   agreement: number | null;
@@ -4083,6 +4099,19 @@ export type JudgeStandingResponseDto = {
   hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
 };
 
+export type ClaimAgreementResponseDto = {
+  /**
+   * The claim’s place, from 0
+   */
+  index: number;
+  /**
+   * Runs where both the judge and people marked this claim
+   */
+  pairs: number;
+  observed: number | null;
+  kappa: number | null;
+};
+
 export type AgreementResponseDto = {
   pairs: number;
   /**
@@ -4095,6 +4124,10 @@ export type AgreementResponseDto = {
    * The mean absolute difference between the two scores
    */
   mae: number | null;
+  /**
+   * For a judge of claims, how often it agrees with people on each claim; the figures above pool every claim. Empty otherwise
+   */
+  claims: Array<ClaimAgreementResponseDto>;
 };
 
 export type ConfusionResponseDto = {
@@ -4121,7 +4154,7 @@ export type TrendPointResponseDto = {
 
 export type RubricVersionResponseDto = {
   rubricVersion: string;
-  kind: 'yes-no' | 'number';
+  kind: 'yes-no' | 'number' | 'claims';
   /**
    * Whether this is the station’s rubric now
    */
@@ -4185,14 +4218,22 @@ export type CitationResponseDto = {
 export type JudgeReasonResponseDto = {
   text: string;
   citations: Array<CitationResponseDto>;
+  /**
+   * The place of the claim this reason is about, from 0; none on a rubric’s scale
+   */
+  claim: number | null;
 };
 
 export type JudgeScoreResponseDto = {
-  kind: 'yes-no' | 'number';
+  kind: 'yes-no' | 'number' | 'claims';
   /**
-   * 1 for yes and 0 for no, or a whole number from 1 to 5
+   * 1 for yes and 0 for no, a whole number from 1 to 5, or the share of claims met
    */
   value: number;
+  /**
+   * Whether each claim was met, in order; none on a rubric’s scale
+   */
+  marks: Array<boolean> | null;
   label: string;
   rubricVersion: string;
   model: string;
@@ -4206,8 +4247,12 @@ export type GradeResponseDto = {
    * Whether the caller gave this grade
    */
   mine: boolean;
-  kind: 'yes-no' | 'number';
+  kind: 'yes-no' | 'number' | 'claims';
   value: number;
+  /**
+   * Whether the person found each claim met, in order; none on a rubric’s scale
+   */
+  marks: Array<boolean> | null;
   label: string;
   at: string;
 };
@@ -4219,7 +4264,11 @@ export type RunScoresResponseDto = {
   /**
    * The scale the run is graded on: its judge’s, else its station’s rubric’s, else yes or no
    */
-  kind: 'yes-no' | 'number';
+  kind: 'yes-no' | 'number' | 'claims';
+  /**
+   * The claims the run is graded on, in order, on a claims scale, empty on any other; a claim reads null where its words changed since the judge marked it
+   */
+  claims: Array<string | null>;
   /**
    * Whether the judge scored the run
    */
@@ -4237,9 +4286,13 @@ export type RunScoresResponseDto = {
 
 export type GradeRunRequestDto = {
   /**
-   * Yes or no, or a whole number from 1 to 5, on the run’s scale
+   * Yes or no, or a whole number from 1 to 5, on the run’s scale; left out on a claims scale
    */
-  value: boolean | number;
+  value?: boolean | number;
+  /**
+   * Whether each claim was met, in order, on a claims scale; left out otherwise
+   */
+  claims?: Array<boolean>;
 };
 
 export type InsightsPeriodResponseDto = {
@@ -5120,7 +5173,7 @@ export type StationStandingResponseDto = {
    */
   trusted: boolean;
   /**
-   * How agreement is measured: Cohen’s kappa for yes or no scores, Spearman’s correlation for numbers
+   * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
    */
   measure: 'kappa' | 'spearman' | null;
   agreement: number | null;
@@ -6139,6 +6192,21 @@ export type ReplayTotalsResponseDto = {
   medianMs: number | null;
 };
 
+export type PairTallyResponseDto = {
+  /**
+   * Tasks where the judge found the change better
+   */
+  wins: number;
+  /**
+   * Tasks where the judge found the change worse
+   */
+  losses: number;
+  /**
+   * Tasks where the judge found neither change better
+   */
+  ties: number;
+};
+
 export type EntryChecksResponseDto = {
   /**
    * drafting or checking until its change stacks settle and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
@@ -6154,23 +6222,77 @@ export type EntryChecksResponseDto = {
   why: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time' | 'no-image' | 'unprovisioned' | 'nobody-checked' | 'skipped' | 'undrafted' | 'no-check-asked' | null;
 };
 
+export type EntryCitedStepResponseDto = {
+  /**
+   * Where the step sits in the run’s journal
+   */
+  index: number;
+  /**
+   * Always null here: a replay keeps no copy of what the judge read
+   */
+  kind: string | null;
+  tool: string | null;
+  text: string | null;
+};
+
+export type EntryCitedHunkResponseDto = {
+  id: string;
+  /**
+   * Always null here: a replay keeps no copy of what the judge read
+   */
+  path: string | null;
+  header: string | null;
+  lines: Array<string>;
+};
+
+export type EntryCitationResponseDto = {
+  kind: 'step' | 'hunk';
+  step: EntryCitedStepResponseDto | null;
+  hunk: EntryCitedHunkResponseDto | null;
+};
+
+export type EntryJudgeReasonResponseDto = {
+  text: string;
+  citations: Array<EntryCitationResponseDto>;
+  /**
+   * The place of the claim this reason is about, from 0; none on a rubric’s scale
+   */
+  claim: number | null;
+};
+
 export type EntryJudgeResponseDto = {
   state: 'asked' | 'judged' | 'unjudged';
-  scale: 'yes-no' | 'number' | null;
+  scale: 'yes-no' | 'number' | 'claims' | null;
   /**
-   * 0 or 1 on a yes-no rubric, 1 to 5 on a number one
+   * 0 or 1 on a yes-no rubric, 1 to 5 on a number one, or the share of claims met
    */
   score: number | null;
   /**
-   * Yes on a yes-no rubric, or at least 4 on a number one
+   * Yes on a yes-no rubric, at least 4 on a number one, or at least the pass share of claims met
    */
   passed: boolean | null;
+  /**
+   * Whether each claim was met, in order; null unless the judge goes by claims
+   */
+  marks: Array<boolean> | null;
+  /**
+   * The share of claims a run had to meet to pass; null unless the judge goes by claims
+   */
+  passShare: number | null;
   /**
    * Whether it was judged against the change people accepted for the original run; without one, on the rubric alone
    */
   referenced: boolean | null;
   model: string | null;
   unjudged: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'stopped-before-judging' | null;
+  /**
+   * The claims the judge marked, in order, as worded when it judged; empty unless it goes by claims
+   */
+  claims: Array<string>;
+  /**
+   * The judge’s grounded reasons, each naming the claim it is about on a claims judge
+   */
+  reasons: Array<EntryJudgeReasonResponseDto>;
 };
 
 export type ModelSpentResponseDto = {
@@ -6182,6 +6304,45 @@ export type ModelSpentResponseDto = {
    * Calls that came back with no price
    */
   unpriced: number;
+};
+
+export type EntryPairReasonResponseDto = {
+  text: string;
+  /**
+   * The hunks of this entry’s change the reason cites
+   */
+  ownHunks: Array<string>;
+  /**
+   * The hunks of the baseline’s change the reason cites
+   */
+  theirHunks: Array<string>;
+};
+
+export type EntryPairReadingResponseDto = {
+  /**
+   * Whether this entry’s change was shown first, as A; each pair is read both ways round
+   */
+  ownShownFirst: boolean;
+  outcome: 'win' | 'loss' | 'tie';
+  reasons: Array<EntryPairReasonResponseDto>;
+};
+
+export type EntryPairResponseDto = {
+  state: 'asked' | 'judged' | 'unpaired';
+  /**
+   * The run of the same task, in the replay in pairedWith, this change was set beside
+   */
+  againstRunId: string;
+  /**
+   * Whether the judge, not knowing which change was which, found this one better (win), worse (loss) or as good (tie)
+   */
+  outcome: 'win' | 'loss' | 'tie' | null;
+  model: string | null;
+  unpaired: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'other-rubric' | 'budget' | null;
+  /**
+   * The two readings, one with each change shown first; where they disagree the outcome is a tie
+   */
+  readings: Array<EntryPairReadingResponseDto>;
 };
 
 export type EntryReasonResponseDto = {
@@ -6263,6 +6424,14 @@ export type ReplayEntryResponseDto = {
    */
   recheck: EntryChecksResponseDto | null;
   /**
+   * Its change set side by side with that of the replay in pairedWith for the same task, judged blind both ways round; it never changes the run’s result
+   */
+  pair: EntryPairResponseDto | null;
+  /**
+   * What the side-by-side judging cost; what is in the ceiling’s currency is spent against it
+   */
+  pairingSpent: ModelSpentResponseDto | null;
+  /**
    * pending while its run, checks or judge are still to come; unscored when nothing could say whether it succeeded
    */
   result: 'pending' | 'succeeded' | 'failed' | 'unscored';
@@ -6307,9 +6476,17 @@ export type ReplayResponseDto = {
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the set’s baseline, with whether it is within noise; null for the baseline itself or with none
+   * Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none
    */
   againstBaseline: GainReadingResponseDto | null;
+  /**
+   * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   */
+  pairedWith: string | null;
+  /**
+   * Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is
+   */
+  pairsAgainstBaseline: PairTallyResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
 };
 
@@ -6444,6 +6621,10 @@ export type EntryComparisonResponseDto = {
    * The baseline’s share of copies that succeeded is more than half above the candidate’s (with one copy each: the baseline succeeded and the candidate failed), or its average judge score dropped
    */
   regressed: boolean;
+  /**
+   * Whether the judge, comparing the candidate’s change blind with that of the replay in pairedWith, found it better (win), worse (loss) or as good (tie), by most of its copies; null where none was compared so
+   */
+  pair: 'win' | 'loss' | 'tie' | null;
 };
 
 export type ReplayDetailResponseDto = {
@@ -6480,11 +6661,23 @@ export type ReplayDetailResponseDto = {
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the set’s baseline, with whether it is within noise; null for the baseline itself or with none
+   * Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none
    */
   againstBaseline: GainReadingResponseDto | null;
+  /**
+   * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   */
+  pairedWith: string | null;
+  /**
+   * Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is
+   */
+  pairsAgainstBaseline: PairTallyResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
+  /**
+   * The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none
+   */
+  comparedWithReplayId: string | null;
   /**
    * The search it belongs to, when a search started it
    */
@@ -7050,6 +7243,14 @@ export type SearchCandidateResponseDto = {
    * Its gain over the seed on the held-out tasks, once its held-out replay finished; null for the seed
    */
   heldOutGain: GainReadingResponseDto | null;
+  /**
+   * Searched tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed
+   */
+  searchedPairs: PairTallyResponseDto | null;
+  /**
+   * Held-out tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed or before its held-out replay
+   */
+  heldOutPairs: PairTallyResponseDto | null;
   /**
    * What it spent per searched run; unknown while any of it went unpriced or was in another currency
    */

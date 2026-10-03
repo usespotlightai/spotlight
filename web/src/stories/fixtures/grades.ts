@@ -1,7 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
 import type { JournalStepResponseDto, RunJournalResponseDto } from '@/lib/api';
-import { failRunScores, seedRunScores } from '@/stories/fixtures/run-scores';
+import {
+  failRunScores,
+  seedClaimsRunScores,
+  seedRunScores,
+} from '@/stories/fixtures/run-scores';
 import { NOT_ON_TEAM } from '@/stories/fixtures/team';
 
 export const SLUG = 'acme';
@@ -81,6 +85,7 @@ export const seedGradedRun = (client: QueryClient) => {
         mine: true,
         kind: 'yes-no',
         value: 1,
+        marks: null,
         label: 'yes',
         at,
       },
@@ -91,6 +96,11 @@ export const seedGradedRun = (client: QueryClient) => {
 export const seedGradeRunOnFive = (client: QueryClient) => {
   client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
   seedRunScores(client, RUN_ID, TASK_ID, { kind: 'number' });
+};
+
+export const seedGradeRunOnClaims = (client: QueryClient) => {
+  client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
+  seedClaimsRunScores(client, RUN_ID, TASK_ID);
 };
 
 export const seedGradeRunWithoutChanges = (client: QueryClient) => {

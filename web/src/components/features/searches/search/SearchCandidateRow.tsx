@@ -1,5 +1,5 @@
 import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
-import { GainVerdict } from '@/components/features/replays/GainVerdict';
+import { GainWithPairs } from '@/components/features/replays/GainWithPairs';
 import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
 import { ScoredRate } from '@/components/features/replays/ScoredRate';
@@ -8,6 +8,7 @@ import { PickCandidate } from '@/components/features/searches/search/PickCandida
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
+import { pairsJudged, THE_SEARCH_START } from '@/lib/replay-words';
 import {
   candidateName,
   costPerRunShown,
@@ -108,24 +109,35 @@ export function SearchCandidateRow({
         </div>
       </dl>
 
-      {(candidate.searchedGain || candidate.heldOutGain) && (
+      {(candidate.searchedGain ||
+        candidate.heldOutGain ||
+        pairsJudged(candidate.searchedPairs) ||
+        pairsJudged(candidate.heldOutPairs)) && (
         <dl
           data-slot="gain-over-seed"
           className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground text-xs"
         >
-          {candidate.searchedGain && (
+          {(candidate.searchedGain || pairsJudged(candidate.searchedPairs)) && (
             <div className="flex gap-1">
               <dt>{GAIN_ON_SEARCHED}</dt>
               <dd>
-                <GainVerdict gain={candidate.searchedGain} />
+                <GainWithPairs
+                  gain={candidate.searchedGain}
+                  pairs={candidate.searchedPairs}
+                  against={THE_SEARCH_START}
+                />
               </dd>
             </div>
           )}
-          {candidate.heldOutGain && (
+          {(candidate.heldOutGain || pairsJudged(candidate.heldOutPairs)) && (
             <div className="flex gap-1">
               <dt>{GAIN_ON_HELD_OUT}</dt>
               <dd>
-                <GainVerdict gain={candidate.heldOutGain} />
+                <GainWithPairs
+                  gain={candidate.heldOutGain}
+                  pairs={candidate.heldOutPairs}
+                  against={THE_SEARCH_START}
+                />
               </dd>
             </div>
           )}

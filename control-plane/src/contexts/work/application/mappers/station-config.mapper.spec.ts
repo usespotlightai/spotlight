@@ -66,10 +66,36 @@ describe('StationConfigMapper', () => {
     });
 
     expect(configured(judged).parts.judge).toEqual({
-      rubricDigest: DIGEST.sha256(RUBRIC),
+      rubricDigest: DIGEST.sha256(
+        JSON.stringify({ rubric: RUBRIC, claims: [], passShare: 1 }),
+      ),
       sample: 0.2,
       trust: 0.6,
     });
+  });
+
+  it('changes the judge’s digest when its claims or the share it passes on change', () => {
+    const judgedBy = (passShare: number) =>
+      configured(
+        station({
+          judge: StationJudge.of({
+            rubric: RUBRIC,
+            claims: ['It retries.'],
+            passShare,
+            sample: 0.2,
+            trust: 0.6,
+          }),
+        }),
+      ).parts.judge?.rubricDigest;
+
+    expect(judgedBy(1)).not.toBe(judgedBy(0.5));
+    expect(judgedBy(1)).not.toBe(
+      configured(
+        station({
+          judge: StationJudge.of({ rubric: RUBRIC, sample: 0.2, trust: 0.6 }),
+        }),
+      ).parts.judge?.rubricDigest,
+    );
   });
 
   it('configures no judge on a station without one', () => {

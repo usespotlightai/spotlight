@@ -4,6 +4,7 @@ import {
   rateIntervalOf,
 } from '@replays/domain/services/bootstrap';
 import type { Scoring } from '@replays/domain/services/entry-result';
+import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { Spend } from '@replays/domain/value-objects/spend.vo';
@@ -44,6 +45,13 @@ export interface EntryComparison {
   readonly scoreDelta: number | null;
   readonly scoreUncompared: ScoreUncompared | null;
   readonly regressed: boolean;
+  readonly pair: PairOutcome | null;
+}
+
+export interface PairTally {
+  readonly wins: number;
+  readonly losses: number;
+  readonly ties: number;
 }
 
 export const SCORES_UNCOMPARED = [
@@ -277,6 +285,46 @@ const regressedFrom = (
     baselineSuccess - candidateSuccess > REGRESSED_BY) ||
   (scoreDelta !== null && scoreDelta < -SCORE_EPSILON);
 
+export const pairOutcomeOf = (
+  copies: readonly ReplayEntry[],
+): PairOutcome | null => {
+  const outcomes = copies.flatMap((each) => {
+    const verdict = each.pairing?.verdict;
+
+    return verdict ? [verdict.outcome] : [];
+  });
+  const wins = outcomes.filter((each) => each === 'win').length;
+  const losses = outcomes.filter((each) => each === 'loss').length;
+
+  if (outcomes.length === 0) {
+    return null;
+  }
+  if (wins === losses) {
+    return 'tie';
+  }
+
+  return wins > losses ? 'win' : 'loss';
+};
+
+export const pairTallyOf = (
+  replay: Replay,
+  among: readonly RunId[] | null = null,
+): PairTally | null => {
+  if (!replay.pairsWith) {
+    return null;
+  }
+
+  const outcomes = [...copiesByOriginal(within(replay.entries, among)).values()]
+    .map(pairOutcomeOf)
+    .filter((each) => each !== null);
+
+  return {
+    wins: outcomes.filter((each) => each === 'win').length,
+    losses: outcomes.filter((each) => each === 'loss').length,
+    ties: outcomes.filter((each) => each === 'tie').length,
+  };
+};
+
 export const comparedWith = (
   candidate: Replay,
   baseline: Replay | null,
@@ -329,6 +377,7 @@ export const comparedWith = (
         regressed:
           concluded &&
           regressedFrom(candidateSuccess, baselineSuccess, scores.delta),
+        pair: pairOutcomeOf(copies),
       };
     })
     .sort(

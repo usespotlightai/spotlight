@@ -33,7 +33,9 @@ const ASK = {
   runId: 'replay_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
-  rubric: 'Did it drain the queue?',
+  rubric: 'Did it drain the queue?' as string | null,
+  claims: [] as readonly string[],
+  passShare: 1,
   reference: 'original_1',
 };
 
@@ -48,6 +50,32 @@ describe('AskChangeJudging', () => {
     expect(judgings.held.size).toBe(1);
     expect(held?.reference?.value).toBe('original_1');
     expect(held?.scale.kind).toBe('yes-no');
+  });
+
+  it('judges claim by claim when the judge lists claims, with or without a rubric', async () => {
+    const { judgings, service } = asking();
+
+    expect(
+      await service.ask({
+        ...ASK,
+        rubric: null,
+        claims: ['It drains in order.', 'It adds a test.'],
+        passShare: 0.5,
+      }),
+    ).toBe('asked');
+
+    const held = await judgings.of(RunId.of('replay_1'), 1);
+    expect(held?.scale.kind).toBe('claims');
+    expect(held?.criteria.claims).toHaveLength(2);
+    expect(held?.criteria.passShare).toBe(0.5);
+  });
+
+  it('says it cannot read a judge with neither a rubric nor claims', async () => {
+    const { service } = asking();
+
+    expect(await service.ask({ ...ASK, rubric: null })).toBe(
+      'unreadable-rubric',
+    );
   });
 
   it('says no judge is there to ask without one', async () => {
@@ -147,7 +175,7 @@ describe('AskChangeJudging, asked again', () => {
     expect(judgings.held.size).toBe(2);
     expect(second?.round).toBe(2);
     expect(second?.owesWork).toBe(true);
-    expect(second?.rubric).toBe(ASK.rubric);
+    expect(second?.criteria.rubric).toBe(ASK.rubric);
     expect(second?.reference?.value).toBe('original_1');
     expect((await judgings.of(RunId.of('replay_1'), 1))?.judgedAt).toEqual(NOW);
   });

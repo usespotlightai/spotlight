@@ -10,14 +10,16 @@ import {
   dayShown,
   percentShown,
   type ScoreKind,
+  sharesOn,
   statShown,
   type TrendPoint,
+  trendCaptionShown,
 } from '@/lib/judge';
 
 const HEIGHT = 140;
 
 const scoreOf = (kind: ScoreKind, value: number | null): string =>
-  kind === 'yes-no' ? percentShown(value) : statShown(value);
+  sharesOn(kind) ? percentShown(value) : statShown(value);
 
 const Said = ({
   active,
@@ -76,11 +78,7 @@ export function JudgeTrend({
           />
           People
         </span>
-        <span>
-          {kind === 'yes-no'
-            ? 'share scored yes, by day'
-            : 'mean score, by day'}
-        </span>
+        <span>{trendCaptionShown(kind)}</span>
       </figcaption>
 
       <div className="[&_*:focus:not(:focus-visible)]:outline-none">
@@ -97,7 +95,7 @@ export function JudgeTrend({
               tickFormatter={dayShown}
               minTickGap={24}
             />
-            <YAxis hide domain={kind === 'yes-no' ? [0, 1] : [1, 5]} />
+            <YAxis hide domain={sharesOn(kind) ? [0, 1] : [1, 5]} />
             <Tooltip
               content={<Said kind={kind} />}
               isAnimationActive={false}

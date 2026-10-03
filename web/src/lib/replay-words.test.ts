@@ -10,6 +10,8 @@ import {
   healthReadingsOf,
   intervalShown,
   minGainShown,
+  pairShown,
+  pairTallyShown,
   perRepeatShown,
   reasonShown,
   refusalShown,
@@ -40,6 +42,16 @@ const NEVER_READ: SetHealth = {
 };
 
 describe('replay words', () => {
+  it('names which change the blind judge found closer to the accepted one', () => {
+    expect(pairShown('win', 'the baseline')).toBe('This one');
+    expect(pairShown('loss', 'the baseline')).toBe('The baseline');
+    expect(pairShown('tie', 'the live config')).toBe('Neither');
+    expect(pairShown(null, 'the baseline')).toBe('–');
+    expect(pairTallyShown({ wins: 2, losses: 1, ties: 1 })).toBe(
+      '2 wins, 1 loss, 1 tie',
+    );
+  });
+
   it('counts what nobody priced in runs and model calls', () => {
     expect(unpricedRunsShown(1)).toBe('1 run');
     expect(unpricedRunsShown(2)).toBe('2 runs');

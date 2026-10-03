@@ -17,14 +17,14 @@ export class AskForReplayJudging {
 
   async wanted(event: ReplayJudgingWanted): Promise<void> {
     const candidate = await this.candidates.find(event.candidateId);
-    const rubric = candidate?.rubric ?? null;
+    const judge = candidate?.judge ?? null;
     const asked =
-      candidate && rubric
+      candidate && judge
         ? await this.outcomes.judge({
             run: event.run,
             workspaceId: event.workspaceId,
             teamId: candidate.teamId,
-            rubric,
+            judge,
             reference: referenceFor(
               event.original,
               await this.outcomes.acceptedAfter(event.original),

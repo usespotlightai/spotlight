@@ -53,6 +53,7 @@ import {
   gainResponse,
   intervalResponse,
   ModelSpentResponseDto,
+  PairTallyResponseDto,
   RateIntervalResponseDto,
   SpendResponseDto,
   StartReplayCeilingRequestDto,
@@ -919,6 +920,22 @@ export class SearchCandidateResponseDto {
 
   @ApiProperty({
     nullable: true,
+    type: PairTallyResponseDto,
+    description:
+      'Searched tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed',
+  })
+  readonly searchedPairs: PairTallyResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: PairTallyResponseDto,
+    description:
+      'Held-out tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed or before its held-out replay',
+  })
+  readonly heldOutPairs: PairTallyResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
     type: Number,
     description:
       'What it spent per searched run; unknown while any of it went unpriced or was in another currency',
@@ -966,6 +983,12 @@ export class SearchCandidateResponseDto {
     this.heldOutInterval = intervalResponse(candidate.heldOutInterval);
     this.searchedGain = gainResponse(candidate.searchedGain);
     this.heldOutGain = gainResponse(candidate.heldOutGain);
+    this.searchedPairs = candidate.searchedPairs
+      ? new PairTallyResponseDto(candidate.searchedPairs)
+      : null;
+    this.heldOutPairs = candidate.heldOutPairs
+      ? new PairTallyResponseDto(candidate.heldOutPairs)
+      : null;
     this.costPerRun = candidate.costPerRun;
     this.spent = new SpendResponseDto(candidate.spent);
     this.onFrontier = candidate.onFrontier;

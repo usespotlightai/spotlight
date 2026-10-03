@@ -1,5 +1,6 @@
 import {
   agreementOf,
+  claimsAgreementOf,
   cohensKappa,
   confusionOf,
   coverageOf,
@@ -101,5 +102,50 @@ describe('judge agreement', () => {
         { judged: false, labelled: true },
       ]),
     ).toEqual({ runs: 5, both: 1, judgeOnly: 1, peopleOnly: 2, neither: 1 });
+  });
+});
+
+describe('claimsAgreementOf', () => {
+  it('weighs agreement claim by claim, and over every claim at once', () => {
+    const agreement = claimsAgreementOf([
+      { judge: [true, true], human: [true, false] },
+      { judge: [false, true], human: [false, true] },
+      { judge: [true, false], human: [true, true] },
+      { judge: [false, false], human: [false, false] },
+    ]);
+
+    expect(agreement.pairs).toBe(4);
+    expect(agreement.claims).toEqual([
+      { index: 0, pairs: 4, observed: 1, kappa: 1 },
+      { index: 1, pairs: 4, observed: 0.5, kappa: 0 },
+    ]);
+    expect(agreement.observed).toBe(0.75);
+    expect(agreement.kappa).toBeCloseTo(0.5);
+    expect(agreement.confusion).toEqual({
+      values: [0, 1],
+      cells: [
+        [3, 1],
+        [1, 3],
+      ],
+    });
+    expect(agreement.spearman).toBeNull();
+  });
+
+  it('leaves out a run whose grade marks other claims than the judge did', () => {
+    expect(
+      claimsAgreementOf([
+        { judge: [true, true], human: [true] },
+        { judge: [true], human: [true] },
+      ]).pairs,
+    ).toBe(1);
+  });
+
+  it('knows nothing of agreement with no runs both marked', () => {
+    expect(claimsAgreementOf([])).toMatchObject({
+      pairs: 0,
+      observed: null,
+      kappa: null,
+      claims: [],
+    });
   });
 });

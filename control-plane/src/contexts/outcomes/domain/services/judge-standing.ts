@@ -59,9 +59,8 @@ export const standingOf = (
     });
   }
 
-  const measure: AgreementMeasure = judge.scale.categorical
-    ? 'kappa'
-    : 'spearman';
+  const measure: AgreementMeasure =
+    judge.scale.categorical || judge.scale.byClaims ? 'kappa' : 'spearman';
   const agreement = headlineOf(judge.scale, judge.agreement);
   const known = {
     measure,

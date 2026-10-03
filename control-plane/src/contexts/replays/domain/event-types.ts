@@ -8,8 +8,12 @@ import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wan
 import { ReplayCheckAbandonmentDue } from '@replays/domain/events/replay-check-abandonment-due.event';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
+import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
+import { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
+import { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
 import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
 import { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
@@ -43,8 +47,13 @@ import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-r
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
+import {
+  EntryPairing,
+  PairVerdict,
+} from '@replays/domain/value-objects/entry-pairing.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -74,7 +83,6 @@ import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-
 export const REPLAYS_EVENT_TYPES = [
   CandidateAddress,
   CandidateId,
@@ -83,6 +91,13 @@ export const REPLAYS_EVENT_TYPES = [
   ChangeChecks,
   EntryJudging,
   EntryMeasures,
+  EntryPairing,
+  PairVerdict,
+  JudgeCriteria,
+  ReplayEntryConcluded,
+  ReplayPairingDue,
+  ReplayPairJudgingWanted,
+  ReplayPairingRefused,
   JudgeVerdict,
   ModelSpent,
   ReplayEntry,

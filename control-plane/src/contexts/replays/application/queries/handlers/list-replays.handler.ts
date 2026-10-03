@@ -5,7 +5,7 @@ import type { ReplaysAccess } from '@replays/application/services/replays-access
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { baselineOf } from '@replays/domain/services/baseline';
+import { baselineOf, comparedAgainst } from '@replays/domain/services/baseline';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -44,6 +44,7 @@ export class ListReplaysHandler
               candidate.id.equals(each.candidateId),
             ) ?? null,
             baseline,
+            comparedAgainst(each, replays),
             minGain,
           ),
         );

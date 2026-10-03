@@ -8,6 +8,13 @@ import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 export interface GradingTerms {
   readonly scale: ScoreScale;
   readonly rubricVersion: string | null;
+  readonly claims: readonly (string | null)[];
+}
+
+interface StationTerms {
+  readonly scale: ScoreScale | null;
+  readonly rubricVersion: string;
+  readonly claims?: readonly string[];
 }
 
 export const latestJudgeOf = (scores: readonly Score[]): Score | null =>
@@ -35,19 +42,29 @@ export const visibleJudgeOf = (
 
 export const gradingTermsOf = (
   scores: readonly Score[],
-  station: {
-    readonly scale: ScoreScale | null;
-    readonly rubricVersion: string;
-  } | null,
+  station: StationTerms | null,
 ): GradingTerms => {
   const judge = latestJudgeOf(scores);
 
   if (judge) {
-    return { scale: judge.scale, rubricVersion: judge.rubricVersion };
+    const told =
+      station?.rubricVersion === judge.rubricVersion
+        ? (station.claims ?? [])
+        : [];
+
+    return {
+      scale: judge.scale,
+      rubricVersion: judge.rubricVersion,
+      claims: (judge.marks ?? []).map((_, at) => told[at] ?? null),
+    };
   }
   if (station?.scale) {
-    return { scale: station.scale, rubricVersion: station.rubricVersion };
+    return {
+      scale: station.scale,
+      rubricVersion: station.rubricVersion,
+      claims: station.scale.byClaims ? [...(station.claims ?? [])] : [],
+    };
   }
 
-  return { scale: ScoreScale.yesNo(), rubricVersion: null };
+  return { scale: ScoreScale.yesNo(), rubricVersion: null, claims: [] };
 };

@@ -35,7 +35,16 @@ export class HclExpression {
   }
 }
 
+export class HclLines {
+  private constructor(readonly items: readonly HclValue[]) {}
+
+  static of(items: readonly HclValue[]): HclLines {
+    return new HclLines(items);
+  }
+}
+
 export type HclValue =
+  | HclLines
   | string
   | number
   | boolean

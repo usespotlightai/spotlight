@@ -1,10 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { ChangesPanelContext } from '@/lib/changes-panel';
 import { StepAnchorsContext } from '@/lib/step-anchors';
-import { runScoresOf } from '@/stories/fixtures/run-scores';
+import { claimsScoresOf, runScoresOf } from '@/stories/fixtures/run-scores';
 
 const scores = vi.fn();
 const scoresFailing = vi.fn();
@@ -48,6 +48,31 @@ beforeEach(() => {
 });
 
 describe('RunJudgeScore', () => {
+  it('lists each claim a claims judge marked, met or not in words, with its reasons under it', () => {
+    scores.mockReturnValue(claimsScoresOf('run_1', 'task_1'));
+
+    showing();
+
+    expect(
+      document.querySelector('[data-slot="judge-verdict"]'),
+    ).toHaveTextContent('1 of 3 claims met');
+    const claims = within(screen.getByRole('list', { name: 'Claims' }))
+      .getAllByRole('listitem')
+      .filter((each) => each.dataset.slot === 'claim-verdict');
+    expect(
+      claims.map(
+        (each) => each.querySelector('[data-slot="claim-mark"]')?.textContent,
+      ),
+    ).toEqual(['Not met', 'Met', 'Not met']);
+    expect(claims[2]).toHaveTextContent('Claim 3');
+    expect(
+      screen
+        .getByRole('list', { name: 'Why, on Retries stop on a 410 Gone' })
+        .querySelectorAll('[data-slot="judge-reason"]'),
+    ).toHaveLength(1);
+    expect(screen.queryByRole('list', { name: 'Why' })).not.toBeInTheDocument();
+  });
+
   it('shows a trusted judge’s score and each reason it gave', () => {
     showing();
 
@@ -142,6 +167,7 @@ describe('RunJudgeScore', () => {
             mine: true,
             kind: 'yes-no',
             value: 1,
+            marks: null,
             label: 'yes',
             at: '2026-09-30T12:00:00.000Z',
           },

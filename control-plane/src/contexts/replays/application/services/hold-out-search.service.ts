@@ -86,6 +86,7 @@ export class HoldOutSearch {
             among: search.split.heldOutRuns,
             repeats: search.budget.repeats,
             searchId: search.id,
+            pairsWith: search.seed.replay.replayId,
           }),
         );
       }

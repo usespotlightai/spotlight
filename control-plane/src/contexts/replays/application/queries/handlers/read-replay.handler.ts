@@ -10,7 +10,7 @@ import type { ReplaysAccess } from '@replays/application/services/replays-access
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { baselineOf } from '@replays/domain/services/baseline';
+import { baselineOf, comparedAgainst } from '@replays/domain/services/baseline';
 import { comparedWith } from '@replays/domain/services/replay-results';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -33,8 +33,9 @@ export class ReadReplayHandler
         query.principal,
       );
       const replay = await this.access.replayOn(clearance, query.replayId);
-      const baseline = baselineOf(await this.replays.ofSet(replay.setId));
-      const against = baseline?.id.equals(replay.id) ? null : baseline;
+      const setReplays = await this.replays.ofSet(replay.setId);
+      const baseline = baselineOf(setReplays);
+      const against = comparedAgainst(replay, setReplays);
       const candidate = await this.candidates.find(replay.candidateId);
       const compared = comparedWith(replay, against);
       const { minGain } = await this.healths.standardAt(replay.station);
@@ -45,8 +46,9 @@ export class ReadReplayHandler
       );
 
       return {
-        ...replayView(replay, candidate, baseline, minGain),
+        ...replayView(replay, candidate, baseline, against, minGain),
         baselineReplayId: baseline?.id.value ?? null,
+        comparedWithReplayId: against?.id.value ?? null,
         search: replaySearchView(replay, candidate),
         comparison: compared.map((each) => ({
           originalRunId: each.original,
@@ -66,6 +68,7 @@ export class ReadReplayHandler
           scoreDelta: each.scoreDelta,
           scoreUncompared: each.scoreUncompared,
           regressed: each.regressed,
+          pair: each.pair,
         })),
       };
     } catch (error) {

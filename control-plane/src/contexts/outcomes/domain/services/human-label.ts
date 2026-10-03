@@ -7,6 +7,7 @@ type LabelSource = 'grade' | 'accepted' | 'sent-back' | 'merged' | 'closed';
 
 export interface HumanLabel {
   readonly value: number;
+  readonly marks: readonly boolean[] | null;
   readonly from: LabelSource;
 }
 
@@ -39,7 +40,7 @@ export const humanLabelOf = (input: {
   const grade = latestGrade(input.scale, input.rubricVersion, input.grades);
 
   if (grade) {
-    return { value: grade.value, from: 'grade' };
+    return { value: grade.value, marks: grade.marks, from: 'grade' };
   }
 
   if (!input.scale.categorical) {
@@ -49,16 +50,16 @@ export const humanLabelOf = (input: {
   const next = input.record?.next;
 
   if (next?.accepts) {
-    return { value: input.scale.yes, from: 'accepted' };
+    return { value: input.scale.yes, marks: null, from: 'accepted' };
   }
   if (next?.sendsBack) {
-    return { value: input.scale.no, from: 'sent-back' };
+    return { value: input.scale.no, marks: null, from: 'sent-back' };
   }
   if (input.delivery?.state === 'merged') {
-    return { value: input.scale.yes, from: 'merged' };
+    return { value: input.scale.yes, marks: null, from: 'merged' };
   }
   if (input.delivery?.state === 'closed') {
-    return { value: input.scale.no, from: 'closed' };
+    return { value: input.scale.no, marks: null, from: 'closed' };
   }
 
   return null;

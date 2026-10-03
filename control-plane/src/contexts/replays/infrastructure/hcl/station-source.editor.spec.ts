@@ -41,13 +41,17 @@ const SEED = {
   ends: false,
 };
 
-const edited = (candidate: Record<string, unknown>, file = LINE) =>
+const edited = (
+  candidate: Record<string, unknown>,
+  file = LINE,
+  seed: Record<string, unknown> = SEED,
+) =>
   new HclStationSourceEditor().edited({
     file: { path: 'main.tf', content: file },
     teamKey: 'core',
     lineKey: 'delivery',
     stationKey: 'build',
-    seed: StationBlock.of(SEED),
+    seed: StationBlock.of(seed),
     candidate: StationBlock.of({ ...SEED, ...candidate }),
     read: async (path) => (path === 'prompts/build.md' ? 'Build it.\n' : null),
   });
@@ -90,5 +94,58 @@ describe('HclStationSourceEditor', () => {
     const answer = await edited({ description: { nested: true } });
 
     expect(answer.ok === false && answer.reason.code).toBe('edit-failed');
+  });
+
+  it('writes a station whose judge’s claims and pass share are as the search began, and refuses one whose claims changed since', async () => {
+    const judge = {
+      claims: ['It adds a test.'],
+      passShare: 0.5,
+      sample: 0.2,
+      trust: 0.6,
+    };
+    const judged = (claims: string) =>
+      LINE.replace(
+        '    skills  = []\n',
+        `    skills  = []\n\n    judge {\n      claims     = [${claims}]\n      pass_share = 0.5\n      sample     = 0.2\n      trust      = 0.6\n    }\n`,
+      );
+    const seed = { ...SEED, judge };
+
+    expect(
+      (
+        await edited(
+          { judge, model: 'opus' },
+          judged('"It adds a test."'),
+          seed,
+        )
+      ).ok,
+    ).toBe(true);
+
+    const drifted = await edited(
+      { judge, model: 'opus' },
+      judged('"It adds two tests."'),
+      seed,
+    );
+    expect(drifted.ok === false && drifted.reason.code).toBe('drifted');
+  });
+
+  it('reads a pass share left out of the file as 1, and calls one set there since the search began drift', async () => {
+    const judge = { claims: ['It adds a test.'], sample: 0.2, trust: 0.6 };
+    const judged = (passShare: string) =>
+      LINE.replace(
+        '    skills  = []\n',
+        `    skills  = []\n\n    judge {\n      claims = ["It adds a test."]${passShare}\n      sample = 0.2\n      trust  = 0.6\n    }\n`,
+      );
+    const seed = { ...SEED, judge };
+
+    expect((await edited({ judge, model: 'opus' }, judged(''), seed)).ok).toBe(
+      true,
+    );
+
+    const drifted = await edited(
+      { judge, model: 'opus' },
+      judged('\n      pass_share = 0.5'),
+      seed,
+    );
+    expect(drifted.ok === false && drifted.reason.code).toBe('drifted');
   });
 });

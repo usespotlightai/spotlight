@@ -66,8 +66,10 @@ const judgeOf = (score: Score): JudgeScoreDto => ({
   rubricVersion: score.rubricVersion ?? '',
   model: score.model ?? '',
   at: score.at.toISOString(),
+  marks: score.marks && [...score.marks],
   reasons: score.reasons.map((reason) => ({
     text: reason.text,
+    claim: reason.claim,
     citations: reason.citations.map((each) => citationOf(each, score.seen)),
   })),
 });
@@ -77,6 +79,7 @@ const gradeOf = (score: Score, viewer: string): GradeDto => ({
   mine: score.by?.value === viewer,
   kind: score.scale.kind,
   value: score.value,
+  marks: score.marks && [...score.marks],
   label: score.scale.labelOf(score.value),
   at: score.at.toISOString(),
 });
@@ -111,10 +114,6 @@ export class RunScoresViews {
     run: ScoredRun,
     scores: readonly Score[],
   ): Promise<GradingTerms> {
-    if (latestJudgeOf(scores)) {
-      return gradingTermsOf(scores, null);
-    }
-
     return gradingTermsOf(
       scores,
       await this.reports.currentJudge({
@@ -137,12 +136,14 @@ export class RunScoresViews {
       stationId: run.end.place.stationId,
     });
     const judge = visibleJudgeOf(scores, standing, rubricVersion);
+    const terms = await this.gradingTerms(run, scores);
 
     return {
       runId: run.record.runId.value,
       taskId: run.end.place.taskId.value,
       stationId: run.end.place.stationId,
-      kind: (await this.gradingTerms(run, scores)).scale.kind,
+      kind: terms.scale.kind,
+      claims: [...terms.claims],
       judged: latestJudgeOf(scores) !== null,
       judge: judge ? judgeOf(judge) : null,
       standing,

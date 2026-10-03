@@ -1,11 +1,15 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import { humanLabelOf } from '@outcomes/domain/services/human-label';
+import {
+  type HumanLabel,
+  humanLabelOf,
+} from '@outcomes/domain/services/human-label';
 import {
   type Agreement,
   agreementOf,
   type Coverage,
+  claimsAgreementOf,
   coverageOf,
   type ScorePair,
   type TrendPoint,
@@ -45,25 +49,31 @@ interface Labelling {
   readonly grades: ReadonlyMap<string, readonly Score[]>;
 }
 
+const humanFor = (
+  runId: string,
+  scale: ScoreScale,
+  rubricVersion: string | null,
+  labelling: Labelling,
+): HumanLabel | null => {
+  const record = labelling.records.get(runId) ?? null;
+  const taskId = record?.taskId?.value;
+
+  return humanLabelOf({
+    scale,
+    rubricVersion,
+    record,
+    delivery: taskId ? (labelling.deliveries.get(taskId) ?? null) : null,
+    grades: labelling.grades.get(runId) ?? [],
+  });
+};
+
 const labelFor = (
   runId: string,
   scale: ScoreScale,
   rubricVersion: string | null,
   labelling: Labelling,
-): number | null => {
-  const record = labelling.records.get(runId) ?? null;
-  const taskId = record?.taskId?.value;
-
-  return (
-    humanLabelOf({
-      scale,
-      rubricVersion,
-      record,
-      delivery: taskId ? (labelling.deliveries.get(taskId) ?? null) : null,
-      grades: labelling.grades.get(runId) ?? [],
-    })?.value ?? null
-  );
-};
+): number | null =>
+  humanFor(runId, scale, rubricVersion, labelling)?.value ?? null;
 
 const reportOf = (
   rubricVersion: string,
@@ -71,12 +81,21 @@ const reportOf = (
   labelling: Labelling,
 ): RubricReport => {
   const scale = (judged[0] as Score).scale;
-  const labelled = judged.map((score) => ({
+  const humans = judged.map((score) => ({
     score,
-    human: labelFor(score.runId.value, scale, rubricVersion, labelling),
+    label: humanFor(score.runId.value, scale, rubricVersion, labelling),
+  }));
+  const labelled = humans.map(({ score, label }) => ({
+    score,
+    human: label?.value ?? null,
   }));
   const pairs: ScorePair[] = labelled.flatMap(({ score, human }) =>
     human === null ? [] : [{ judge: score.value, human }],
+  );
+  const claimPairs = humans.flatMap(({ score, label }) =>
+    score.marks && label?.marks
+      ? [{ judge: score.marks, human: label.marks }]
+      : [],
   );
   const times = judged.map((each) => each.at.getTime());
 
@@ -84,7 +103,9 @@ const reportOf = (
     rubricVersion,
     scale,
     judged: judged.length,
-    agreement: agreementOf(scale, pairs),
+    agreement: scale.byClaims
+      ? claimsAgreementOf(claimPairs)
+      : agreementOf(scale, pairs),
     trend: trendOf(
       labelled.map(({ score, human }) => ({
         at: score.at,
@@ -180,6 +201,10 @@ export const standingIn = (
   return standingOf({
     trust: current.trust,
     scale: current.scale,
-    agreement: version?.agreement ?? agreementOf(current.scale, []),
+    agreement:
+      version?.agreement ??
+      (current.scale.byClaims
+        ? claimsAgreementOf([])
+        : agreementOf(current.scale, [])),
   });
 };

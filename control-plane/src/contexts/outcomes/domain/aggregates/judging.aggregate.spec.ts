@@ -69,6 +69,30 @@ describe('Judging', () => {
     expect((done.pullEvents()[0] as RunJudged).value).toBe(4);
   });
 
+  it('records a live run’s verdict claim by claim on a judge of claims, a score like any other', () => {
+    const asked = askedJudging(
+      'run_1',
+      rubricOf(null, undefined, ['It retries.', 'It adds a test.'], 0.5),
+    );
+    const done = asked.judged({
+      verdict: {
+        claims: [
+          { index: 0, met: true, reasons: GROUNDED },
+          { index: 1, met: false, reasons: GROUNDED },
+        ],
+      },
+      evidence: evidenceFor(),
+      model: 'some/model',
+      now: NOW,
+    });
+    const [event] = done.pullEvents() as RunJudged[];
+
+    expect(event?.scale.kind).toBe('claims');
+    expect(event?.value).toBe(0.5);
+    expect(event?.marks).toEqual([true, false]);
+    expect(event?.reasons.map((each) => each.claim)).toEqual([0, 1]);
+  });
+
   it('tries again later when every reason cites what is not there', () => {
     const done = judged(askedJudging(), true, [
       { text: 'Made up.', steps: [99], hunks: [] },

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
   AgreementDto,
+  ClaimAgreementDto,
   ConfusionDto,
   RubricVersionDto,
   StationJudgeDto,
@@ -28,7 +29,7 @@ export class JudgeStandingResponseDto {
     enum: [...AGREEMENT_MEASURES, null],
     nullable: true,
     description:
-      'How agreement is measured: Cohen’s kappa for yes or no scores, Spearman’s correlation for numbers',
+      'How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers',
   })
   readonly measure: string | null;
 
@@ -73,6 +74,21 @@ export class StationJudgeSettingsResponseDto {
   })
   readonly kind: string | null;
 
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['The change adds a test that fails without it.'],
+    description:
+      'The claims the judge marks met or unmet, in order; empty where it goes by its rubric',
+  })
+  readonly claims: readonly string[];
+
+  @ApiProperty({
+    example: 1,
+    description: 'The share of claims a run must meet to pass, from 0 to 1',
+  })
+  readonly passShare: number;
+
   @ApiProperty({ example: 0.2 })
   readonly sample: number;
 
@@ -82,8 +98,34 @@ export class StationJudgeSettingsResponseDto {
   constructor(judge: StationJudgeSettingsDto) {
     this.rubricVersion = judge.rubricVersion;
     this.kind = judge.kind;
+    this.claims = [...judge.claims];
+    this.passShare = judge.passShare;
     this.sample = judge.sample;
     this.trust = judge.trust;
+  }
+}
+
+export class ClaimAgreementResponseDto {
+  @ApiProperty({ example: 0, description: 'The claim’s place, from 0' })
+  readonly index: number;
+
+  @ApiProperty({
+    example: 12,
+    description: 'Runs where both the judge and people marked this claim',
+  })
+  readonly pairs: number;
+
+  @ApiProperty({ nullable: true, type: Number, example: 0.9 })
+  readonly observed: number | null;
+
+  @ApiProperty({ nullable: true, type: Number, example: 0.74 })
+  readonly kappa: number | null;
+
+  constructor(agreement: ClaimAgreementDto) {
+    this.index = agreement.index;
+    this.pairs = agreement.pairs;
+    this.observed = agreement.observed;
+    this.kappa = agreement.kappa;
   }
 }
 
@@ -114,12 +156,23 @@ export class AgreementResponseDto {
   })
   readonly mae: number | null;
 
+  @ApiProperty({
+    type: ClaimAgreementResponseDto,
+    isArray: true,
+    description:
+      'For a judge of claims, how often it agrees with people on each claim; the figures above pool every claim. Empty otherwise',
+  })
+  readonly claims: readonly ClaimAgreementResponseDto[];
+
   constructor(agreement: AgreementDto) {
     this.pairs = agreement.pairs;
     this.observed = agreement.observed;
     this.kappa = agreement.kappa;
     this.spearman = agreement.spearman;
     this.mae = agreement.mae;
+    this.claims = agreement.claims.map(
+      (each) => new ClaimAgreementResponseDto(each),
+    );
   }
 }
 

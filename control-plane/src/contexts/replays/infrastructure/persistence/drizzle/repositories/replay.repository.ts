@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import {
+  PAIRING_STATE,
+  Replay,
+} from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayMovedOnError } from '@replays/domain/exceptions/replay-moved-on.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { STANDING_BASELINE_STATES } from '@replays/domain/services/baseline';
@@ -8,6 +11,10 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
+import {
+  EntryPairing,
+  PairVerdict,
+} from '@replays/domain/value-objects/entry-pairing.vo';
 import {
   type EntryReason,
   isEntryReasonCode,
@@ -29,6 +36,7 @@ import {
   replayEntry,
   type StoredEntryChecks,
   type StoredEntryJudging,
+  type StoredEntryPairing,
   type StoredModelSpent,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
@@ -184,12 +192,16 @@ const judgingRow = (judging: EntryJudging | null): StoredEntryJudging | null =>
     verdict: judging.verdict && {
       scale: judging.verdict.scale,
       value: judging.verdict.value,
+      marks: judging.verdict.marks && [...judging.verdict.marks],
+      claims: [...judging.verdict.claims],
+      passShare: judging.verdict.passShare,
       model: judging.verdict.model,
       referenced: judging.verdict.referenced,
       reasons: judging.verdict.reasons.map((each) => ({
         text: each.text,
         steps: [...each.steps],
         hunks: [...each.hunks],
+        claim: each.claim,
       })),
     },
     unjudged: judging.unjudged,
@@ -218,6 +230,33 @@ const checksRow = (checks: ChangeChecks | null): StoredEntryChecks | null =>
     why: checks.why,
   };
 
+const pairingOf = (stored: StoredEntryPairing | null): EntryPairing | null =>
+  stored &&
+  EntryPairing.rehydrate({
+    against: RunId.of(stored.against),
+    verdict: stored.verdict && PairVerdict.of(stored.verdict),
+    unpaired: stored.unpaired,
+  });
+
+const pairingRow = (pairing: EntryPairing | null): StoredEntryPairing | null =>
+  pairing && {
+    against: pairing.against.value,
+    verdict: pairing.verdict && {
+      outcome: pairing.verdict.outcome,
+      model: pairing.verdict.model,
+      readings: pairing.verdict.readings.map((reading) => ({
+        ownShownFirst: reading.ownShownFirst,
+        outcome: reading.outcome,
+        reasons: reading.reasons.map((each) => ({
+          text: each.text,
+          ownHunks: [...each.ownHunks],
+          theirHunks: [...each.theirHunks],
+        })),
+      })),
+    },
+    unpaired: pairing.unpaired,
+  };
+
 const toEntry = (row: EntryRow): ReplayEntry =>
   ReplayEntry.rehydrate({
     position: row.position,
@@ -243,6 +282,8 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     secondJudging: judgingOf(row.secondJudging),
     rejudgingSpent: modelSpentOf(row.rejudgingSpent),
     recheck: row.recheck ? ChangeChecks.rehydrate(row.recheck) : null,
+    pairing: pairingOf(row.pairing),
+    pairingSpent: modelSpentOf(row.pairingSpent),
   });
 
 const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
@@ -270,6 +311,7 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
     repeats: row.repeats,
     probe: row.probe,
     comparedWith: row.comparedWith ? ReplayId.of(row.comparedWith) : null,
+    pairsWith: row.pairsWith ? ReplayId.of(row.pairsWith) : null,
     searchId: row.searchId ? SearchId.of(row.searchId) : null,
     state: row.state,
     entries: entries
@@ -324,6 +366,8 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   secondJudging: judgingRow(entry.secondJudging),
   rejudgingSpent: storedSpent(entry.rejudgingSpent),
   recheck: checksRow(entry.recheck),
+  pairing: pairingRow(entry.pairing),
+  pairingSpent: storedSpent(entry.pairingSpent),
 });
 
 @Injectable()
@@ -359,6 +403,20 @@ export class DrizzleReplayRepository implements ReplayRepository {
 
   ofCandidate(candidateId: CandidateId): Promise<readonly Replay[]> {
     return this.withEntries(eq(replay.candidateId, candidateId.value));
+  }
+
+  async pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]> {
+    const rows = await this.context.db
+      .select({ id: replay.id })
+      .from(replay)
+      .where(
+        and(
+          eq(replay.pairsWith, replayId.value),
+          eq(replay.state, PAIRING_STATE),
+        ),
+      );
+
+    return rows.map((each) => ReplayId.of(each.id));
   }
 
   ofSearch(searchId: SearchId): Promise<readonly Replay[]> {
@@ -570,6 +628,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       repeats: held.repeats,
       probe: held.probe,
       comparedWith: held.comparedWith?.value ?? null,
+      pairsWith: held.pairsWith?.value ?? null,
       searchId: held.searchId?.value ?? null,
       state: held.current,
       startedAt: held.startedAt,

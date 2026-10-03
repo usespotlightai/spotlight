@@ -32,4 +32,19 @@ describe('ScoreScale', () => {
   it('knows no kind but its own', () => {
     expect(() => ScoreScale.of('stars')).toThrow(InvalidScoreError);
   });
+
+  it('holds the share of claims met, given claim by claim', () => {
+    const scale = ScoreScale.claims();
+
+    expect(scale.valueOfClaims([true, false, true, true], 4)).toBe(0.75);
+    expect(scale.holds(0.75)).toBe(true);
+    expect(scale.holds(1.5)).toBe(false);
+    expect(scale.byClaims).toBe(true);
+    expect(scale.categorical).toBe(false);
+    expect(() => scale.valueOfClaims([true], 2)).toThrow(InvalidScoreError);
+    expect(() => scale.valueOf(true)).toThrow(InvalidScoreError);
+    expect(() => ScoreScale.yesNo().valueOfClaims([true], 1)).toThrow(
+      InvalidScoreError,
+    );
+  });
 });

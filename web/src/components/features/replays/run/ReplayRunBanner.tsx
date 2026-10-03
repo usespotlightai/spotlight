@@ -1,9 +1,12 @@
 import { Repeat } from 'lucide-react';
 import { EntryResult } from '@/components/features/replays/replay/EntryResult';
+import { EntryJudgeClaims } from '@/components/features/replays/run/EntryJudgeClaims';
+import { EntryPairReadings } from '@/components/features/replays/run/EntryPairReadings';
 import { SearchOrigin } from '@/components/features/searches/SearchOrigin';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useReplayOfRun } from '@/hooks/api/useReplayOfRun';
+import { changesOf } from '@/lib/changes';
 import { loading } from '@/lib/query';
 import {
   candidateShown,
@@ -77,6 +80,19 @@ export function ReplayRunBanner({ slug, teamId, run }: ReplayRunBannerProps) {
             </TrailLink>
           </p>
           {of.entry && <EntryResult entry={of.entry} runTo={null} />}
+          {of.entry?.judge?.marks && (
+            <EntryJudgeClaims
+              judge={of.entry.judge}
+              marks={of.entry.judge.marks}
+              files={changesOf(run.journals)}
+            />
+          )}
+          {of.entry?.pair && (
+            <EntryPairReadings
+              pair={of.entry.pair}
+              againstTo={runPath(slug, teamId, of.entry.pair.againstRunId)}
+            />
+          )}
         </div>
       ) : (
         <p className="text-muted-foreground text-xs">

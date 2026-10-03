@@ -87,9 +87,14 @@ const scoredAs = (score: number) =>
   JudgeVerdict.of({
     scale: 'number',
     value: score,
+    marks: null,
+    claims: [],
+    passShare: 1,
     model: 'judge/model',
     referenced: true,
-    reasons: [{ text: 'It drains the queue.', steps: [3], hunks: [] }],
+    reasons: [
+      { text: 'It drains the queue.', steps: [3], hunks: [], claim: null },
+    ],
   });
 
 describe('totalsOf', () => {
@@ -242,6 +247,9 @@ describe('comparedWith', () => {
         JudgeVerdict.of({
           scale: 'number',
           value: 2,
+          marks: null,
+          claims: [],
+          passShare: 1,
           model: 'judge/model',
           referenced,
           reasons: [],

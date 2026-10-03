@@ -38,6 +38,9 @@ const CONFIG = 'a'.repeat(64);
 const NOW = new Date('2026-09-30T10:00:00.000Z');
 const LATER = new Date('2026-09-30T12:00:00.000Z');
 const YES_NO = ScoreScale.yesNo();
+const CLAIMS_STATION = 'station_claims';
+const CLAIMS_VERSION = 'e'.repeat(64);
+const CLAIMS = ['It retries the upload.', 'It adds a test for it.'] as const;
 
 const placeOf = (taskId: string) =>
   RunPlace.of({
@@ -75,6 +78,7 @@ const judged = (runId: string, value: number, at = NOW) =>
     fingerprint: CONFIG,
     scale: YES_NO,
     value,
+    marks: null,
     rubricVersion: VERSION,
     model: 'some/model',
     reasons: [reason()],
@@ -91,6 +95,7 @@ const graded = (runId: string, value: number, by = 'user_ada') =>
     fingerprint: CONFIG,
     scale: YES_NO,
     value,
+    marks: null,
     rubricVersion: VERSION,
     by: UserId.of(by),
     at: LATER,
@@ -141,14 +146,28 @@ beforeAll(async () => {
     {
       holds: async () => true,
       of: async () => null,
-      judgeAt: async () => ({
-        teamId: 'team_1',
-        lineId: 'line_1',
-        rubric: 'Did the run retry uploads?',
-        rubricVersion: VERSION,
-        sample: 1,
-        trust: 0.5,
-      }),
+      judgeAt: async (stationId) =>
+        stationId === CLAIMS_STATION
+          ? {
+              teamId: 'team_1',
+              lineId: 'line_1',
+              rubric: null,
+              claims: [...CLAIMS],
+              passShare: 0.5,
+              rubricVersion: CLAIMS_VERSION,
+              sample: 1,
+              trust: 0.5,
+            }
+          : {
+              teamId: 'team_1',
+              lineId: 'line_1',
+              rubric: 'Did the run retry uploads?',
+              claims: [],
+              passShare: 1,
+              rubricVersion: VERSION,
+              sample: 1,
+              trust: 0.5,
+            },
     },
     scores,
     records,
@@ -256,6 +275,7 @@ describe('scores, kept', () => {
           fingerprint: CONFIG,
           scale: YES_NO,
           value: 0,
+          marks: null,
           rubricVersion: VERSION,
           model: 'some/model',
           reasons: [reason()],
@@ -279,6 +299,7 @@ describe('scores, kept', () => {
           fingerprint: CONFIG,
           scale: YES_NO,
           value: 0,
+          marks: null,
           rubricVersion: VERSION,
           by: UserId.of('user_ada'),
           at: LATER,
@@ -291,6 +312,7 @@ describe('scores, kept', () => {
       mine?.regraded({
         scale: YES_NO,
         value: 0,
+        marks: null,
         rubricVersion: VERSION,
         at: LATER,
       }) as Score,
@@ -392,6 +414,7 @@ describe('how often the judge agrees with people', () => {
         VERSION,
         YES_NO,
         1,
+        null,
         'some/model',
         [reason()],
         seen(),
@@ -410,5 +433,94 @@ describe('how often the judge agrees with people', () => {
 
     expect(await judgings.of(RunId.of('run_racing'))).toBeNull();
     expect(await scores.ofRuns([RunId.of('run_racing')])).toEqual([]);
+  });
+});
+
+describe('how often a claims judge agrees with people, claim by claim', () => {
+  const claimsPlace = (taskId: string) =>
+    RunPlace.of({
+      teamId: TEAM,
+      lineId: 'line_1',
+      stationId: CLAIMS_STATION,
+      taskId: TaskId.of(taskId),
+    });
+  const share = (marks: readonly boolean[]) =>
+    marks.filter(Boolean).length / marks.length;
+
+  it('keeps each claim the judge and people marked, and weighs their agreement on each claim and over all of them', async () => {
+    for (let at = 0; at < 12; at += 1) {
+      const runId = `claims_${at}`;
+      const retried = at % 2 === 0;
+      const tested = at % 3 === 0;
+      const judgeMarks = [retried, at % 4 === 0];
+      const personMarks = [retried, tested];
+
+      await scores.add(
+        Score.judged({
+          id: ScoreId.of(`judge_${runId}`),
+          runId: RunId.of(runId),
+          workspaceId: WORKSPACE,
+          place: claimsPlace(`task_${runId}`),
+          fingerprint: CONFIG,
+          scale: ScoreScale.claims(),
+          value: share(judgeMarks),
+          marks: judgeMarks,
+          rubricVersion: CLAIMS_VERSION,
+          model: 'some/model',
+          reasons: [0, 1].map((claim) =>
+            JudgeReason.of({
+              text: `Claim ${claim}.`,
+              citations: [Citation.ofStep(4)],
+              claim,
+            }),
+          ),
+          seen: seen(),
+          at: new Date(NOW.getTime() + at * 60_000),
+        }),
+      );
+      await scores.add(
+        Score.graded({
+          id: ScoreId.of(`grade_${runId}`),
+          runId: RunId.of(runId),
+          workspaceId: WORKSPACE,
+          place: claimsPlace(`task_${runId}`),
+          fingerprint: CONFIG,
+          scale: ScoreScale.claims(),
+          value: share(personMarks),
+          marks: personMarks,
+          rubricVersion: CLAIMS_VERSION,
+          by: UserId.of('user_ada'),
+          at: LATER,
+        }),
+      );
+    }
+
+    const [kept] = await scores.ofRuns([RunId.of('claims_0')]);
+    expect(kept?.marks).toEqual([true, true]);
+    expect(kept?.reasons.map((each) => each.claim)).toEqual([0, 1]);
+
+    const { report, standing } = await reports.at({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      lineId: 'line_1',
+      stationId: CLAIMS_STATION,
+    });
+
+    const [version] = report.versions;
+    expect(version?.scale.kind).toBe('claims');
+    expect(version?.agreement.pairs).toBe(12);
+    expect(version?.agreement.claims.map((each) => each.index)).toEqual([0, 1]);
+    expect(version?.agreement.claims[0]).toMatchObject({
+      pairs: 12,
+      observed: 1,
+      kappa: 1,
+    });
+    expect(version?.agreement.claims[1]?.observed).toBeCloseTo(7 / 12);
+    expect(version?.agreement.observed).toBeCloseTo(19 / 24);
+    expect(standing).toMatchObject({
+      measure: 'kappa',
+      pairs: 12,
+      agreement: version?.agreement.kappa,
+    });
   });
 });

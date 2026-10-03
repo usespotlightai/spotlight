@@ -54,6 +54,9 @@ const verdictOf = (passes: boolean) =>
   JudgeVerdict.of({
     scale: 'number',
     value: passes ? 5 : 2,
+    marks: null,
+    claims: [],
+    passShare: 1,
     model: 'judge/model',
     referenced: false,
     reasons: [],

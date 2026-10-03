@@ -46,6 +46,7 @@ import {
 import { REPLAY_RUNS_AT_ONCE } from '@replays/domain/services/replay-dispatch';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
+import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { MOST_QUEUE_ATTEMPTS } from '@replays/domain/value-objects/replay-entry.vo';
@@ -515,7 +516,7 @@ describe('scoring a replayed task', () => {
         run: RunId.of(run),
         workspaceId: STATION.workspaceId,
         teamId: STATION.teamId,
-        rubric: RUBRIC,
+        judge: JudgeCriteria.of({ rubric: RUBRIC, claims: [], passShare: 1 }),
         reference: RunId.of('original_0'),
       },
     ]);
@@ -570,9 +571,14 @@ describe('scoring a replayed task', () => {
       runId: run,
       scale: 'yes-no',
       value: 0,
+      marks: null,
+      claims: [],
+      passShare: 1,
       model: 'judge/model',
       referenced: true,
-      reasons: [{ text: 'It drops a job.', steps: [2], hunks: [] }],
+      reasons: [
+        { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
+      ],
       spent: ModelSpent.of([Spend.of(0.02, 'USD')], 0),
     });
 
@@ -639,6 +645,9 @@ describe('probing a set', () => {
           JudgeVerdict.of({
             scale: 'yes-no',
             value: 1,
+            marks: null,
+            claims: [],
+            passShare: 1,
             model: 'judge/model',
             referenced: false,
             reasons: [],
@@ -714,6 +723,9 @@ describe('probing a set', () => {
       runId: 'probe_run_0',
       scale: 'yes-no',
       value: 0,
+      marks: null,
+      claims: [],
+      passShare: 1,
       model: 'judge/model',
       referenced: false,
       reasons: [],

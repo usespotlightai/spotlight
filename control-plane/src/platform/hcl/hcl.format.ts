@@ -3,6 +3,7 @@ import {
   type HclBlock,
   HclExpression,
   type HclItem,
+  HclLines,
   type HclValue,
   quoted,
   withoutInterpolation,
@@ -66,14 +67,16 @@ const isObject = (
   typeof value === 'object' &&
   value !== null &&
   !isList(value) &&
-  !(value instanceof HclExpression);
+  !(value instanceof HclExpression) &&
+  !(value instanceof HclLines);
 
 const isEmpty = (value: HclValue): boolean =>
   (isList(value) && value.length === 0) ||
   (isObject(value) && Object.keys(value).length === 0);
 
 const fitsOnOneLine = (value: HclValue): boolean =>
-  !(isList(value) || isObject(value)) || isEmpty(value);
+  !(isList(value) || isObject(value) || value instanceof HclLines) ||
+  isEmpty(value);
 
 const closedWithComma = (lines: readonly Line[]): readonly Line[] =>
   lines.map((line, at) =>
@@ -81,6 +84,23 @@ const closedWithComma = (lines: readonly Line[]): readonly Line[] =>
       ? { ...line, text: `${line.text},` }
       : line,
   );
+
+const spanned = (items: readonly HclValue[], indent: number): Shown => ({
+  first: '[',
+  rest: [
+    ...items.flatMap((each) => {
+      const item = shown(each, indent + 1, false);
+
+      return item.rest.length === 0
+        ? [{ indent: indent + 1, text: `${item.first},` }]
+        : [
+            { indent: indent + 1, text: item.first },
+            ...closedWithComma(item.rest),
+          ];
+    }),
+    { indent, text: ']' },
+  ],
+});
 
 const shown = (value: HclValue, indent: number, spans: boolean): Shown => {
   if (value instanceof HclExpression) {
@@ -94,6 +114,10 @@ const shown = (value: HclValue, indent: number, spans: boolean): Shown => {
     };
   }
 
+  if (value instanceof HclLines) {
+    return spanned(value.items, indent);
+  }
+
   if (isList(value)) {
     if (value.every(fitsOnOneLine)) {
       return {
@@ -102,22 +126,7 @@ const shown = (value: HclValue, indent: number, spans: boolean): Shown => {
       };
     }
 
-    return {
-      first: '[',
-      rest: [
-        ...value.flatMap((each) => {
-          const item = shown(each, indent + 1, false);
-
-          return item.rest.length === 0
-            ? [{ indent: indent + 1, text: `${item.first},` }]
-            : [
-                { indent: indent + 1, text: item.first },
-                ...closedWithComma(item.rest),
-              ];
-        }),
-        { indent, text: ']' },
-      ],
-    };
+    return spanned(value, indent);
   }
 
   if (isObject(value)) {

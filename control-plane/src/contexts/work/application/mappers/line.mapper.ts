@@ -19,7 +19,9 @@ export const LineMapper = {
       model: summary.model,
       effort: summary.effort,
       agentPrompt: summary.agentPrompt,
-      judge: summary.judge ? { ...summary.judge } : null,
+      judge: summary.judge
+        ? { ...summary.judge, claims: [...summary.judge.claims] }
+        : null,
       alerts: summary.alerts.map((each) => ({ ...each })),
       kind: summary.kind,
       skills: summary.skills,
@@ -41,6 +43,8 @@ export const LineMapper = {
       judge: station.judge
         ? {
             rubric: station.judge.rubric,
+            claims: [...station.judge.claims],
+            passShare: station.judge.passShare,
             sample: station.judge.sample,
             trust: station.judge.trust,
           }

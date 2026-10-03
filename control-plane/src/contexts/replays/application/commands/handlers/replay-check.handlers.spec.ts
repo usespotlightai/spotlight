@@ -68,7 +68,7 @@ const PLANNED_DIGESTS = StationDigests.of({
 
 const CHECKED = CandidateScoring.of({
   checksChanges: true,
-  rubric: null,
+  judge: null,
   rubricVersion: null,
 });
 

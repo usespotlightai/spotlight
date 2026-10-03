@@ -86,8 +86,18 @@ export class JudgeReasonResponseDto {
   @ApiProperty({ type: CitationResponseDto, isArray: true })
   readonly citations: readonly CitationResponseDto[];
 
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 0,
+    description:
+      'The place of the claim this reason is about, from 0; none on a rubric’s scale',
+  })
+  readonly claim: number | null;
+
   constructor(reason: JudgeReasonDto) {
     this.text = reason.text;
+    this.claim = reason.claim;
     this.citations = reason.citations.map(
       (each) => new CitationResponseDto(each),
     );
@@ -100,9 +110,20 @@ export class JudgeScoreResponseDto {
 
   @ApiProperty({
     example: 1,
-    description: '1 for yes and 0 for no, or a whole number from 1 to 5',
+    description:
+      '1 for yes and 0 for no, a whole number from 1 to 5, or the share of claims met',
   })
   readonly value: number;
+
+  @ApiProperty({
+    type: Boolean,
+    isArray: true,
+    nullable: true,
+    example: [true, false],
+    description:
+      'Whether each claim was met, in order; none on a rubric’s scale',
+  })
+  readonly marks: readonly boolean[] | null;
 
   @ApiProperty({ example: 'yes' })
   readonly label: string;
@@ -122,6 +143,7 @@ export class JudgeScoreResponseDto {
   constructor(score: JudgeScoreDto) {
     this.kind = score.kind;
     this.value = score.value;
+    this.marks = score.marks && [...score.marks];
     this.label = score.label;
     this.rubricVersion = score.rubricVersion;
     this.model = score.model;
@@ -145,6 +167,16 @@ export class GradeResponseDto {
   @ApiProperty({ example: 1 })
   readonly value: number;
 
+  @ApiProperty({
+    type: Boolean,
+    isArray: true,
+    nullable: true,
+    example: [true, false],
+    description:
+      'Whether the person found each claim met, in order; none on a rubric’s scale',
+  })
+  readonly marks: readonly boolean[] | null;
+
   @ApiProperty({ example: 'yes' })
   readonly label: string;
 
@@ -156,6 +188,7 @@ export class GradeResponseDto {
     this.mine = grade.mine;
     this.kind = grade.kind;
     this.value = grade.value;
+    this.marks = grade.marks && [...grade.marks];
     this.label = grade.label;
     this.at = grade.at;
   }
@@ -177,6 +210,14 @@ export class RunScoresResponseDto {
       'The scale the run is graded on: its judge’s, else its station’s rubric’s, else yes or no',
   })
   readonly kind: string;
+
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'string', nullable: true },
+    description:
+      'The claims the run is graded on, in order, on a claims scale, empty on any other; a claim reads null where its words changed since the judge marked it',
+  })
+  readonly claims: readonly (string | null)[];
 
   @ApiProperty({ description: 'Whether the judge scored the run' })
   readonly judged: boolean;
@@ -204,6 +245,7 @@ export class RunScoresResponseDto {
     this.taskId = scores.taskId;
     this.stationId = scores.stationId;
     this.kind = scores.kind;
+    this.claims = [...scores.claims];
     this.judged = scores.judged;
     this.judge = scores.judge ? new JudgeScoreResponseDto(scores.judge) : null;
     this.standing = new JudgeStandingResponseDto(scores.standing);
@@ -215,7 +257,19 @@ export class GradeRunRequestDto {
   @ApiProperty({
     oneOf: [{ type: 'boolean' }, { type: 'integer', minimum: 1, maximum: 5 }],
     example: true,
-    description: 'Yes or no, or a whole number from 1 to 5, on the run’s scale',
+    required: false,
+    description:
+      'Yes or no, or a whole number from 1 to 5, on the run’s scale; left out on a claims scale',
   })
-  readonly value!: boolean | number;
+  readonly value?: boolean | number;
+
+  @ApiProperty({
+    type: Boolean,
+    isArray: true,
+    required: false,
+    example: [true, false],
+    description:
+      'Whether each claim was met, in order, on a claims scale; left out otherwise',
+  })
+  readonly claims?: readonly boolean[];
 }

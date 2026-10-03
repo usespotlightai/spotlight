@@ -82,7 +82,7 @@ export function ReplayHeader({
       <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5 text-sm">
         <dt className="text-muted-foreground text-xs">Success</dt>
         <dd>
-          <SuccessAgainstBaseline replay={replay} baseline={baseline} />
+          <SuccessAgainstBaseline replay={replay} baseline={baseline} at={at} />
         </dd>
 
         <dt className="text-muted-foreground text-xs">Scored</dt>

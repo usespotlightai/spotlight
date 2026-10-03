@@ -9,10 +9,28 @@ import { ALERT_MEASURES } from '@work/domain/value-objects/station-alert.vo';
 
 export class StationJudgeResponseDto {
   @ApiProperty({
+    type: String,
+    nullable: true,
     example: 'A good run changes only what the task asks for.',
-    description: 'What a good run looks like, in Markdown',
+    description:
+      'What a good run looks like, in Markdown. Null when the judge goes by its claims alone',
   })
-  readonly rubric: string;
+  readonly rubric: string | null;
+
+  @ApiProperty({
+    type: [String],
+    example: ['The change adds a test that fails without it.'],
+    description:
+      'Checkable claims the judge marks met or unmet, in order. Empty when the judge goes by its rubric',
+  })
+  readonly claims: string[];
+
+  @ApiProperty({
+    example: 1,
+    description:
+      'The share of claims a run must meet to pass, from 0 to 1. 1 means every claim',
+  })
+  readonly passShare: number;
 
   @ApiProperty({
     example: 0.2,
@@ -29,6 +47,8 @@ export class StationJudgeResponseDto {
 
   constructor(judge: StationJudgeSummary) {
     this.rubric = judge.rubric;
+    this.claims = [...judge.claims];
+    this.passShare = judge.passShare;
     this.sample = judge.sample;
     this.trust = judge.trust;
   }

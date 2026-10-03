@@ -145,7 +145,13 @@ export const renderLineRows = (
       'judge',
       row.judge
         ? {
-            rubric: row.judge.rubric,
+            ...present('rubric', row.judge.rubric),
+            ...(row.judge.claims.length > 0
+              ? {
+                  claims: [...row.judge.claims],
+                  passShare: row.judge.passShare,
+                }
+              : {}),
             sample: row.judge.sample,
             trust: row.judge.trust,
           }

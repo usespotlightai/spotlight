@@ -1,5 +1,7 @@
 import { ChangeJudged } from '@outcomes/domain/events/change-judged.event';
 import { ChangeJudgingFailed } from '@outcomes/domain/events/change-judging-failed.event';
+import { PairJudged } from '@outcomes/domain/events/pair-judged.event';
+import { PairJudgingFailed } from '@outcomes/domain/events/pair-judging-failed.event';
 import { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
 import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
@@ -16,9 +18,11 @@ import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurr
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
+import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import { PairReason } from '@outcomes/domain/value-objects/pair-reason.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
 import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
@@ -31,7 +35,6 @@ import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
-
 export const OUTCOMES_EVENT_TYPES = [
   FailureOccurrence,
   HandedOn,
@@ -56,6 +59,10 @@ export const OUTCOMES_EVENT_TYPES = [
   RunJudged,
   ChangeJudged,
   ChangeJudgingFailed,
+  PairJudged,
+  PairJudgingFailed,
+  PairReason,
+  JudgeCriteria,
   ScoreRecorded,
   RunRecordEnded,
   RunRecordSettled,

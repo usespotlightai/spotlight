@@ -105,6 +105,8 @@ const candidate = (
   heldOutInterval: null,
   searchedGain: null,
   heldOutGain: null,
+  searchedPairs: null,
+  heldOutPairs: null,
   searchScore: 0.6,
   searchScored: 5,
   heldOutScore: null,
@@ -204,6 +206,8 @@ const DETAIL: SearchDetail = {
         minGain: 0.05,
         tasks: 6,
       },
+      searchedPairs: { wins: 3, losses: 1, ties: 1 },
+      heldOutPairs: { wins: 0, losses: 0, ties: 0 },
       onFrontier: true,
       onlyOnSeenTasks: 'marked',
     }),
@@ -413,6 +417,9 @@ describe('Search', () => {
     expect(slots('gain-verdict')).toEqual([
       '+20 pts(+5 to +35)· Better',
       '+10 pts(−20 to +40)· Within noise',
+    ]);
+    expect(slots('pair-tally')).toEqual([
+      'Side by side with the search’s starting config: 3 wins, 1 loss, 1 tie',
     ]);
   });
 

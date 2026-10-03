@@ -27,6 +27,18 @@ export const baselineOf = (replays: readonly Replay[]): Replay | null =>
     .filter((each) => each.baseline && STANDS.includes(each.current))
     .sort(newestFirst)[0] ?? null;
 
+export const comparedAgainst = (
+  replay: Replay,
+  setReplays: readonly Replay[],
+): Replay | null => {
+  const pairsWith = replay.pairsWith;
+  const against = pairsWith
+    ? (setReplays.find((each) => each.id.equals(pairsWith)) ?? null)
+    : baselineOf(setReplays);
+
+  return against && !against.id.equals(replay.id) ? against : null;
+};
+
 export const baselineFor = (
   replays: readonly Replay[],
   liveScoring: string,
@@ -50,15 +62,22 @@ export const baselineFor = (
   );
 };
 
-export const needsBaseline = (
+export const standingBaselineFor = (
   set: ReplaySet,
   replays: readonly Replay[],
   liveScoring: string,
   repeats: number,
-): boolean =>
-  !baselineFor(
+): Replay | null =>
+  baselineFor(
     replays.filter((each) => STANDS.includes(each.current)),
     liveScoring,
     set.runs,
     repeats,
   );
+
+export const needsBaseline = (
+  set: ReplaySet,
+  replays: readonly Replay[],
+  liveScoring: string,
+  repeats: number,
+): boolean => !standingBaselineFor(set, replays, liveScoring, repeats);

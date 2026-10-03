@@ -30,6 +30,8 @@ const CANDIDATE: SearchCandidate = {
   heldOutInterval: null,
   searchedGain: null,
   heldOutGain: null,
+  searchedPairs: null,
+  heldOutPairs: null,
   searchScore: 0.8,
   searchScored: 5,
   heldOutScore: null,

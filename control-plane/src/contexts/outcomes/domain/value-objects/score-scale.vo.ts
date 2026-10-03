@@ -1,6 +1,6 @@
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 
-export const SCORE_KINDS = ['yes-no', 'number'] as const;
+export const SCORE_KINDS = ['yes-no', 'number', 'claims'] as const;
 
 export type ScoreKind = (typeof SCORE_KINDS)[number];
 
@@ -12,13 +12,19 @@ const LOWEST = 1;
 
 const HIGHEST = 5;
 
+const PERCENT = 100;
+
 const VALUES: Record<ScoreKind, readonly number[]> = {
   'yes-no': [NO, YES],
   number: Array.from({ length: HIGHEST - LOWEST + 1 }, (_, at) => LOWEST + at),
+  claims: [NO, YES],
 };
 
 const isKind = (raw: string): raw is ScoreKind =>
   SCORE_KINDS.some((each) => each === raw);
+
+export const shareMet = (marks: readonly boolean[]): number =>
+  marks.filter(Boolean).length / marks.length;
 
 export class ScoreScale {
   private constructor(readonly kind: ScoreKind) {}
@@ -41,6 +47,10 @@ export class ScoreScale {
     return new ScoreScale('number');
   }
 
+  static claims(): ScoreScale {
+    return new ScoreScale('claims');
+  }
+
   get values(): readonly number[] {
     return VALUES[this.kind];
   }
@@ -49,8 +59,14 @@ export class ScoreScale {
     return this.kind === 'yes-no';
   }
 
+  get byClaims(): boolean {
+    return this.kind === 'claims';
+  }
+
   holds(value: number): boolean {
-    return this.values.includes(value);
+    return this.byClaims
+      ? Number.isFinite(value) && value >= NO && value <= YES
+      : this.values.includes(value);
   }
 
   valueOf(raw: boolean | number): number {
@@ -59,6 +75,12 @@ export class ScoreScale {
         throw new InvalidScoreError('on a yes or no scale is yes or no');
       }
       return raw ? YES : NO;
+    }
+
+    if (this.byClaims) {
+      throw new InvalidScoreError(
+        'on a claims scale is given claim by claim, each met or not',
+      );
     }
 
     if (typeof raw !== 'number' || !this.holds(raw)) {
@@ -70,9 +92,27 @@ export class ScoreScale {
     return raw;
   }
 
+  valueOfClaims(marks: readonly boolean[], count: number): number {
+    if (!this.byClaims) {
+      throw new InvalidScoreError(
+        `on a ${this.kind} scale is one value, not claim by claim`,
+      );
+    }
+    if (count === 0 || marks.length !== count) {
+      throw new InvalidScoreError(
+        `on a claims scale marks each of its ${count} claims met or not`,
+      );
+    }
+
+    return shareMet(marks);
+  }
+
   labelOf(value: number): string {
     if (this.kind === 'yes-no') {
       return value === YES ? 'yes' : 'no';
+    }
+    if (this.byClaims) {
+      return `${Math.round(value * PERCENT)}% of claims met`;
     }
 
     return String(value);

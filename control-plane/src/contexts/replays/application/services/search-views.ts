@@ -9,6 +9,7 @@ import {
   gainView,
   intervalView,
   modelSpentView,
+  pairTallyView,
   spendView,
 } from '@replays/application/services/replay-views';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
@@ -164,6 +165,8 @@ export const searchDetailView = (
       heldOutInterval: intervalView(each.heldOutInterval),
       searchedGain: gainView(each.searchedGain),
       heldOutGain: gainView(each.heldOutGain),
+      searchedPairs: each.searchedPairs && pairTallyView(each.searchedPairs),
+      heldOutPairs: each.heldOutPairs && pairTallyView(each.heldOutPairs),
       costPerRun: each.costPerRun,
       spent: spendView(each.spent),
       onFrontier: onFrontier(each.candidateId),

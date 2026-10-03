@@ -6,7 +6,11 @@ import {
   type GainVerdict,
   gainBetween,
 } from '@replays/domain/services/gain-reading';
-import { totalsOf } from '@replays/domain/services/replay-results';
+import {
+  type PairTally,
+  pairTallyOf,
+  totalsOf,
+} from '@replays/domain/services/replay-results';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
@@ -16,6 +20,8 @@ interface CandidateScores {
   readonly candidateId: CandidateId;
   readonly searchedGain: GainReading | null;
   readonly heldOutGain: GainReading | null;
+  readonly searchedPairs: PairTally | null;
+  readonly heldOutPairs: PairTally | null;
   readonly searchedVerdict: GainVerdict | null;
   readonly heldOutVerdict: GainVerdict | null;
   readonly replayId: ReplayId;
@@ -78,6 +84,11 @@ export const scoredOn = (
 const finished = (replay: Replay | null): boolean =>
   replay?.current === 'finished';
 
+const pairsOf = (
+  replay: Replay | null,
+  among: readonly RunId[],
+): PairTally | null => (replay ? pairTallyOf(replay, among) : null);
+
 export const scoresOf = (
   search: Search,
   replays: readonly Replay[],
@@ -100,6 +111,8 @@ export const scoresOf = (
       candidateId: search.seed.candidateId,
       searchedGain: null,
       heldOutGain: null,
+      searchedPairs: null,
+      heldOutPairs: null,
       searchedVerdict: null,
       heldOutVerdict: null,
       replayId: search.seed.replay.replayId,
@@ -138,6 +151,8 @@ export const scoresOf = (
         candidateId: proposal.candidateId,
         searchedGain: gain?.searched ?? null,
         heldOutGain: gain?.heldOut ?? null,
+        searchedPairs: pairsOf(searchReplay, search.split.searchedRuns),
+        heldOutPairs: pairsOf(heldOutReplay, search.split.heldOutRuns),
         searchedVerdict: gain?.searched?.verdict ?? null,
         heldOutVerdict: gain?.heldOut?.verdict ?? null,
         replayId: proposal.replay.replayId,

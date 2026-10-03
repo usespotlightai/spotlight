@@ -234,6 +234,7 @@ export class ProposeSearchCandidateHandler
           among: search.split.searchedRuns,
           repeats: search.budget.repeats,
           searchId: search.id,
+          pairsWith: search.seed.replay.replayId,
         }),
       );
       await this.searches.save(admitted);

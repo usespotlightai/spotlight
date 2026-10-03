@@ -1,5 +1,6 @@
 import { Scale } from 'lucide-react';
-import { JudgeReasonItem } from '@/components/features/runs/judge/JudgeReasonItem';
+import { ClaimVerdicts } from '@/components/features/runs/judge/ClaimVerdicts';
+import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useRunScores } from '@/hooks/api/useRunScores';
@@ -51,7 +52,10 @@ export function RunJudgeScore({ teamId, runId, files }: RunJudgeScoreProps) {
     return null;
   }
 
-  const { judge, standing, grades } = scores;
+  const { judge, standing, grades, claims } = scores;
+  const unclaimed = judge?.marks
+    ? judge.reasons.filter((each) => each.claim === null)
+    : (judge?.reasons ?? []);
 
   return (
     <div data-slot="run-judge-score" className="flex flex-col gap-1.5">
@@ -81,17 +85,24 @@ export function RunJudgeScore({ teamId, runId, files }: RunJudgeScoreProps) {
         </p>
       )}
 
-      {judge && (
-        <ol aria-label="Why" className="flex flex-col gap-1.5 pl-5">
-          {judge.reasons.map((reason, at) => (
-            <JudgeReasonItem
-              // biome-ignore lint/suspicious/noArrayIndexKey: a verdict's reasons never change once recorded, so where one sits is what names it
-              key={at}
-              reason={reason}
-              files={files}
-            />
-          ))}
-        </ol>
+      {judge?.marks && (
+        <div className="pl-5">
+          <ClaimVerdicts
+            claims={claims}
+            marks={judge.marks}
+            reasons={judge.reasons}
+            files={files}
+          />
+        </div>
+      )}
+
+      {unclaimed.length > 0 && (
+        <JudgeReasons
+          reasons={unclaimed}
+          files={files}
+          label="Why"
+          className="pl-5"
+        />
       )}
     </div>
   );

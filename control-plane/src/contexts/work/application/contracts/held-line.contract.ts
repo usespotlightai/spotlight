@@ -1,7 +1,9 @@
 type HeldLineStationKind = 'backlog' | 'work' | 'completed';
 
 export type HeldLineJudge = {
-  readonly rubric: string;
+  readonly rubric?: string;
+  readonly claims?: readonly string[];
+  readonly passShare?: number;
   readonly sample: number;
   readonly trust: number;
 };
