@@ -1,3 +1,4 @@
+import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -29,6 +30,10 @@ export type JudgingAgainOrdered = 'asked' | 'unavailable' | 'unjudged';
 
 export interface OutcomesPort {
   acceptedAfter(run: RunId): Promise<boolean>;
+
+  turnedOut(
+    runs: readonly RunId[],
+  ): Promise<ReadonlyMap<string, OriginalOutcome>>;
 
   judge(order: JudgingOrder): Promise<JudgingOrdered>;
 

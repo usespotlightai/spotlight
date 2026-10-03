@@ -13,8 +13,10 @@ import type {
   ReplayRunResponseDto,
   ReplaySetEntryResponseDto,
   ReplaySetResponseDto,
+  SetCompositionResponseDto,
   SetNoiseResponseDto,
   SpendResponseDto,
+  SuggestedRunResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
 import { claimsMetShown, percentShown } from '@/lib/judge';
@@ -35,6 +37,8 @@ import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 export type ReplaySet = ReplaySetResponseDto;
 export type ReplaySetEntry = ReplaySetEntryResponseDto;
 export type ReplayableRun = ReplayableRunResponseDto;
+export type SuggestedRun = SuggestedRunResponseDto;
+export type SetComposition = SetCompositionResponseDto;
 export type Replay = ReplayResponseDto;
 export type ReplayDetail = ReplayDetailResponseDto;
 export type EntryComparison = EntryComparisonResponseDto;

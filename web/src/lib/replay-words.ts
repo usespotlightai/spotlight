@@ -1,4 +1,5 @@
 import type {
+  BalanceWarningResponseDto,
   EntryChecksResponseDto,
   EntryComparisonResponseDto,
   EntryJudgeResponseDto,
@@ -10,10 +11,12 @@ import type {
   ReplayEntryResponseDto,
   ReplayResponseDto,
   ReplaySetEntryResponseDto,
+  SetCompositionResponseDto,
   SetHealthResponseDto,
   SetNoiseResponseDto,
 } from '@/lib/api';
 import { percentShown } from '@/lib/judge';
+import { since } from '@/lib/runner';
 
 export type ReplayRefusal = NonNullable<ReplaySetEntryResponseDto['refusal']>;
 export type ReplayState = ReplayResponseDto['state'];
@@ -29,6 +32,7 @@ export type GainVerdictCode = GainReadingResponseDto['verdict'];
 export type PairOutcome = NonNullable<EntryComparisonResponseDto['pair']>;
 export type PairTally = PairTallyResponseDto;
 type Unpaired = NonNullable<EntryPairResponseDto['unpaired']>;
+export type TurnedOut = ReplaySetEntryResponseDto['outcome'];
 
 const REFUSALS: Record<ReplayRefusal, string> = {
   'unknown-run': 'There is no such run',
@@ -863,3 +867,64 @@ export const citedHunksShown = (own: number, theirs: number): string | null => {
 
   return parts.length > 0 ? `Cites ${parts.join(' and ')}` : null;
 };
+const TURNED_OUT: Record<TurnedOut, string> = {
+  accepted: 'Accepted',
+  'sent-back': 'Sent back',
+  asked: 'Asked a person',
+  failed: 'Failed',
+  other: 'Other',
+};
+
+const TURNED_OUT_PHRASES: Record<TurnedOut, string> = {
+  accepted: 'were accepted',
+  'sent-back': 'were sent back',
+  asked: 'asked a person',
+  failed: 'failed',
+  other: 'turned out some other way',
+};
+
+export const turnedOutShown = (outcome: TurnedOut): string =>
+  TURNED_OUT[outcome];
+
+const ORIGINS: Readonly<Record<string, string>> = {
+  person: 'A person',
+  station: 'Another station',
+  unknown: 'Unknown',
+  github: 'GitHub',
+  slack: 'Slack',
+  linear: 'Linear',
+};
+
+export const originShown = (origin: string): string =>
+  ORIGINS[origin] ?? `${origin.charAt(0).toUpperCase()}${origin.slice(1)}`;
+
+export const COMPOSITION_LABEL = 'What the set is made of';
+
+export const TURNED_OUT_LABEL = 'How its runs turned out';
+
+export const ORIGINS_LABEL = 'Where their tasks came from';
+
+export const balanceWarningShown = (
+  warning: BalanceWarningResponseDto,
+): string =>
+  `${warning.count} of ${warning.entries} runs ${TURNED_OUT_PHRASES[warning.dominant]}, so the set says little about how other runs go. Add runs that turned out other ways.`;
+
+export const endedSpanShown = (
+  composition: SetCompositionResponseDto,
+): string | null => {
+  const { oldest, median, newest } = composition;
+
+  if (!oldest || !median || !newest) {
+    return null;
+  }
+  if (oldest === newest) {
+    return `Ended ${since(oldest)}`;
+  }
+
+  return `Ended between ${since(oldest)} and ${since(newest)}, half of them by ${since(median)}`;
+};
+
+export const SUGGESTIONS_LABEL = 'Suggested to even the mix';
+
+export const SUGGESTIONS_NOTE =
+  'Recent runs that turned out ways the set has few of. Nothing is added until you add it.';

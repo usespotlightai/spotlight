@@ -6,6 +6,7 @@ export interface KnownRun extends ReplayFacts {
   readonly title: string | null;
   readonly state: string;
   readonly endedAt: Date | null;
+  readonly origin: string | null;
 }
 
 export interface ReplayFactsPort {

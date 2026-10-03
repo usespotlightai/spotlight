@@ -70,6 +70,7 @@ const acting = async (...runs: Ended[]) => {
         at: at(hour).toISOString(),
         tool: tool?.tool ?? null,
         server: tool?.server ?? null,
+        forApproval: tool !== null,
       }),
     refusals: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.refusals.map((each) => ({

@@ -20,12 +20,14 @@ export interface RunEnded {
   readonly outcome: string;
   readonly stopped: boolean;
   readonly failure: string | null;
+  readonly asked: boolean;
 }
 
 const endOf = (
   run: EndedRun,
   ending: RunEnding,
   failure: string | null,
+  asked: boolean,
 ): RunEnd =>
   RunEnd.of({
     place: RunPlace.of({
@@ -49,6 +51,7 @@ const endOf = (
     ending,
     failure,
     round: run.round,
+    asked,
   });
 
 export class NoteRunEnded {
@@ -72,7 +75,7 @@ export class NoteRunEnded {
       return;
     }
 
-    const end = endOf(run, ending, heard.failure);
+    const end = endOf(run, ending, heard.failure, heard.asked);
     const { taskId, teamId } = end.place;
     const workspaceId = WorkspaceId.of(run.workspaceId);
 

@@ -342,6 +342,27 @@ describe('deciding an approval', () => {
 
     expect(acted?.act).toBe('answered');
     expect(acted?.tool).toBeNull();
+    expect(acted?.forApproval).toBe(false);
+  });
+
+  it('marks the act it records as an approval decision, granted or refused', () => {
+    const decidedAs = (decision: 'granted' | 'refused') => {
+      const { asked, at } = askedOnce();
+
+      return asked
+        .answered(at, person('Decided.'), decision)
+        .pullEvents()
+        .find((each): each is TaskActedOn => each instanceof TaskActedOn);
+    };
+
+    expect(decidedAs('granted')).toMatchObject({
+      act: 'approved',
+      forApproval: true,
+    });
+    expect(decidedAs('refused')).toMatchObject({
+      act: 'refused',
+      forApproval: true,
+    });
   });
 
   it('takes words alone without deciding anything', () => {

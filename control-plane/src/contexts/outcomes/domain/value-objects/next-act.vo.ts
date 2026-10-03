@@ -21,10 +21,15 @@ export class NextAct {
   private constructor(
     readonly act: PersonAct,
     readonly at: Date,
+    readonly forApproval: boolean,
   ) {}
 
   static of(act: PersonAct, at: Date): NextAct {
-    return new NextAct(act, at);
+    return new NextAct(act, at, false);
+  }
+
+  static onApproval(act: PersonAct, at: Date): NextAct {
+    return new NextAct(act, at, true);
   }
 
   get accepts(): boolean {

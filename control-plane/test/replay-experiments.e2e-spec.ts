@@ -106,7 +106,12 @@ interface Original {
 }
 
 const anOriginal = async (
-  input: { stationId?: string; startedFrom?: boolean } = {},
+  input: {
+    stationId?: string;
+    startedFrom?: boolean;
+    heardFrom?: string;
+    raisedAt?: string;
+  } = {},
 ): Promise<Original> => {
   const stationId = input.stationId ?? BUILD;
   const taskAt = stationId === POLISH ? BUILD : stationId;
@@ -117,12 +122,13 @@ const anOriginal = async (
 
   await db.insert(schema.task).values({
     id: taskId,
+    openedFrom: input.heardFrom ?? 'person',
     workspaceId: team.workspaceId.value,
     stationId: taskAt,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
-    raisedAtStationId: taskAt,
-    raisedById: team.owner.value,
+    raisedAtStationId: input.raisedAt ?? taskAt,
+    raisedById: input.heardFrom ? null : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
@@ -182,6 +188,31 @@ const anOriginal = async (
   });
 
   return { taskId, runId, archiveId };
+};
+
+const turnedOut = async (
+  original: Original,
+  how: {
+    ending: 'completed' | 'failed';
+    next: 'approved' | 'sent-back' | null;
+  },
+) => {
+  await db.insert(schema.runRecord).values({
+    runId: original.runId,
+    workspaceId: team.workspaceId.value,
+    teamId: team.teamId.value,
+    lineId: DELIVERY,
+    stationId: BUILD,
+    taskId: original.taskId,
+    harness: 'claude-code',
+    repositories: [],
+    skills: [],
+    endedAt: new Date(),
+    ending: how.ending,
+    round: 1,
+    nextAct: how.next,
+    nextAt: how.next ? new Date() : null,
+  });
 };
 
 const openSet = async (name: string, ...originals: Original[]) =>
@@ -606,6 +637,107 @@ describe('a replay set', () => {
     ).toBe(true);
   });
 
+  it('shows what it is made of, warns when one outcome crowds it, and suggests recent runs that even it out without adding them', async () => {
+    const failures: Original[] = [];
+    for (let at = 0; at < 4; at += 1) {
+      const failed = await anOriginal();
+      await turnedOut(failed, { ending: 'failed', next: null });
+      failures.push(failed);
+    }
+    const heard = await anOriginal({ heardFrom: 'slack' });
+    await turnedOut(heard, { ending: 'failed', next: null });
+    const handedOn = await anOriginal({ raisedAt: SHIP });
+    await turnedOut(handedOn, { ending: 'failed', next: null });
+    const accepted = await anOriginal();
+    await turnedOut(accepted, { ending: 'completed', next: 'approved' });
+    const setId = await openSet(
+      'Lopsided',
+      ...failures,
+      heard,
+      handedOn,
+      accepted,
+    );
+
+    const sentBack = await anOriginal();
+    await turnedOut(sentBack, { ending: 'completed', next: 'sent-back' });
+    const alsoAccepted = await anOriginal();
+    await turnedOut(alsoAccepted, { ending: 'completed', next: 'approved' });
+    const alsoFailed = await anOriginal();
+    await turnedOut(alsoFailed, { ending: 'failed', next: null });
+
+    const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
+      .body as {
+      id: string;
+      composition: {
+        outcomes: { outcome: string; count: number }[];
+        origins: { origin: string; count: number }[];
+        oldest: string | null;
+        median: string | null;
+        newest: string | null;
+        balanceWarning: {
+          dominant: string;
+          count: number;
+          entries: number;
+        } | null;
+      };
+      entries: { runId: string; outcome: string; origin: string | null }[];
+    }[];
+    const set = sets.find((each) => each.id === setId);
+
+    expect(set?.composition.outcomes).toEqual([
+      { outcome: 'accepted', count: 1 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 6 },
+      { outcome: 'other', count: 0 },
+    ]);
+    expect(set?.composition.origins).toEqual([
+      { origin: 'person', count: 5 },
+      { origin: 'slack', count: 1 },
+      { origin: 'station', count: 1 },
+    ]);
+    expect(set?.composition.balanceWarning).toEqual({
+      dominant: 'failed',
+      count: 6,
+      entries: 7,
+    });
+    expect(set?.composition.oldest).not.toBeNull();
+    expect(set?.composition.newest).not.toBeNull();
+    expect(
+      set?.entries.find((each) => each.runId === heard.runId),
+    ).toMatchObject({ outcome: 'failed', origin: 'slack' });
+    expect(
+      set?.entries.find((each) => each.runId === handedOn.runId)?.origin,
+    ).toBe('station');
+
+    const suggested = (
+      await owner()
+        .get(`${teamPath()}/replay-sets/${setId}/suggestions`)
+        .expect(200)
+    ).body as { runId: string; outcome: string; refusal: string | null }[];
+
+    expect(suggested.length).toBeLessThanOrEqual(5);
+    expect(suggested.map((each) => each.runId)).toEqual(
+      expect.arrayContaining([sentBack.runId, alsoAccepted.runId]),
+    );
+    expect(
+      suggested.every(
+        (each) =>
+          (each.outcome === 'accepted' || each.outcome === 'sent-back') &&
+          each.refusal === null,
+      ),
+    ).toBe(true);
+    expect(suggested.some((each) => each.runId === alsoFailed.runId)).toBe(
+      false,
+    );
+    expect(suggested.some((each) => each.runId === accepted.runId)).toBe(false);
+
+    const after = (
+      await owner().get(`${stationPath()}/replay-sets`).expect(200)
+    ).body as { id: string; entries: unknown[] }[];
+    expect(after.find((each) => each.id === setId)?.entries).toHaveLength(7);
+  });
+
   it('is read by those who may read the team, changed by those who may plan, and unseen by anyone else', async () => {
     const setId = await openSet('Access');
 
@@ -620,6 +752,12 @@ describe('a replay set', () => {
     await bearing(readToken)
       .get(`${teamPath()}/replay-sets/${setId}/replays`)
       .expect(200);
+    await bearing(readToken)
+      .get(`${teamPath()}/replay-sets/${setId}/suggestions`)
+      .expect(200);
+    await as(stranger)
+      .get(`${teamPath()}/replay-sets/${setId}/suggestions`)
+      .expect(404);
 
     const forbidden = await bearing(readToken)
       .post(`${stationPath()}/replay-sets`, { name: 'Read only' })

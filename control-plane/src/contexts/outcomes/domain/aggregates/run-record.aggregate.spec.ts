@@ -287,6 +287,64 @@ describe('RunRecord', () => {
     ).toHaveLength(2);
   });
 
+  it('turned out accepted or sent back by what a person did next, before how it ended', () => {
+    const ended = RunRecord.heardOf(RUN, WORKSPACE).ended(
+      endOf({ ending: 'failed' }),
+    );
+
+    expect(ended.actedOn(NextAct.of('closed', AT)).turnout).toBe('accepted');
+    expect(ended.actedOn(NextAct.of('approved', AT)).turnout).toBe('accepted');
+    expect(ended.actedOn(NextAct.of('sent-back', AT)).turnout).toBe(
+      'sent-back',
+    );
+    expect(ended.actedOn(NextAct.of('refused', AT)).turnout).toBe('sent-back');
+  });
+
+  it('turned out failed when it failed and nobody accepted or sent it back', () => {
+    expect(
+      RunRecord.heardOf(RUN, WORKSPACE)
+        .ended(endOf({ ending: 'failed' }))
+        .actedOn(NextAct.of('answered', AT)).turnout,
+    ).toBe('failed');
+  });
+
+  it('turned out asking when a person answered what it asked', () => {
+    expect(
+      RunRecord.heardOf(RUN, WORKSPACE)
+        .ended(endOf())
+        .actedOn(NextAct.of('answered', AT)).turnout,
+    ).toBe('asked');
+  });
+
+  it('turned out asking when the act after it decided a tool or permission approval', () => {
+    const ended = RunRecord.heardOf(RUN, WORKSPACE).ended(endOf());
+
+    expect(ended.actedOn(NextAct.onApproval('approved', AT)).turnout).toBe(
+      'asked',
+    );
+    expect(ended.actedOn(NextAct.onApproval('refused', AT)).turnout).toBe(
+      'asked',
+    );
+  });
+
+  it('turned out asking when it ended waiting on a person nobody has answered yet', () => {
+    expect(
+      RunRecord.heardOf(RUN, WORKSPACE).ended(endOf({ asked: true })).turnout,
+    ).toBe('asked');
+  });
+
+  it('turned out some other way when nothing told how', () => {
+    expect(RunRecord.heardOf(RUN, WORKSPACE).turnout).toBe('other');
+    expect(RunRecord.heardOf(RUN, WORKSPACE).ended(endOf()).turnout).toBe(
+      'other',
+    );
+    expect(
+      RunRecord.heardOf(RUN, WORKSPACE)
+        .ended(endOf())
+        .actedOn(NextAct.of('parked', AT)).turnout,
+    ).toBe('other');
+  });
+
   it('failed after calling a server only when it failed and its last call there failed', () => {
     const timed = LatencyHistogram.timing([100, 200]);
     const used = RunTools.of({

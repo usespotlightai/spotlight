@@ -5,6 +5,7 @@ import { since } from '@/lib/runner';
 
 type ReplayableRunRowProps = {
   run: ReplayableRun;
+  note?: string;
   inSet: boolean;
   adding: boolean;
   onAdd: () => void;
@@ -12,6 +13,7 @@ type ReplayableRunRowProps = {
 
 export function ReplayableRunRow({
   run,
+  note,
   inSet,
   adding,
   onAdd,
@@ -27,6 +29,7 @@ export function ReplayableRunRow({
         </span>
         <span className="flex flex-wrap gap-x-1.5 text-muted-foreground text-xs">
           <span>{runStateShown(run.state)}</span>
+          {note && <span>· {note}</span>}
           <span>· ended {since(run.endedAt)}</span>
           {run.refusal && (
             <span className="text-destructive">

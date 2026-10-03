@@ -1,3 +1,4 @@
+import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export interface ReplaySetEntryDto {
@@ -9,6 +10,33 @@ export interface ReplaySetEntryDto {
   readonly addedAt: string;
   readonly refusal: string | null;
   readonly reason: string | null;
+  readonly outcome: OriginalOutcome;
+  readonly origin: string | null;
+}
+
+export interface OutcomeCountDto {
+  readonly outcome: OriginalOutcome;
+  readonly count: number;
+}
+
+export interface OriginCountDto {
+  readonly origin: string;
+  readonly count: number;
+}
+
+export interface BalanceWarningDto {
+  readonly dominant: OriginalOutcome;
+  readonly count: number;
+  readonly entries: number;
+}
+
+export interface SetCompositionDto {
+  readonly outcomes: readonly OutcomeCountDto[];
+  readonly origins: readonly OriginCountDto[];
+  readonly oldest: string | null;
+  readonly median: string | null;
+  readonly newest: string | null;
+  readonly balanceWarning: BalanceWarningDto | null;
 }
 
 export interface RateIntervalDto {
@@ -107,6 +135,7 @@ export interface ReplaySetDto {
   readonly guardsChanges: boolean;
   readonly health: SetHealthDto;
   readonly minGain: number;
+  readonly composition: SetCompositionDto;
   readonly entries: readonly ReplaySetEntryDto[];
 }
 
@@ -118,6 +147,10 @@ export interface ReplayableRunDto {
   readonly endedAt: string;
   readonly refusal: string | null;
   readonly reason: string | null;
+}
+
+export interface SuggestedRunDto extends ReplayableRunDto {
+  readonly outcome: OriginalOutcome;
 }
 
 export interface SpendDto {

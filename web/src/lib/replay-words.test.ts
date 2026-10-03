@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { EntryReasonResponseDto } from '@/lib/api';
 import {
+  balanceWarningShown,
   checksShown,
   copiesSucceededShown,
+  endedSpanShown,
   failureShown,
   flippedShown,
   gainRangeShown,
@@ -10,6 +12,7 @@ import {
   healthReadingsOf,
   intervalShown,
   minGainShown,
+  originShown,
   pairShown,
   pairTallyShown,
   perRepeatShown,
@@ -23,6 +26,7 @@ import {
   stateNote,
   stateShown,
   strongerConfigShown,
+  turnedOutShown,
   uncomparedShown,
   unpricedCallsShown,
   unpricedRunsShown,
@@ -286,5 +290,48 @@ describe('replay words', () => {
     expect(strongerConfigShown({ model: null, effort: null })).toBe(
       'A stronger config',
     );
+  });
+
+  it('names how a run turned out and where its task came from', () => {
+    expect(turnedOutShown('sent-back')).toBe('Sent back');
+    expect(turnedOutShown('asked')).toBe('Asked a person');
+    expect(originShown('person')).toBe('A person');
+    expect(originShown('station')).toBe('Another station');
+    expect(originShown('github')).toBe('GitHub');
+    expect(originShown('slack')).toBe('Slack');
+    expect(originShown('acme')).toBe('Acme');
+  });
+
+  it('warns plainly when one outcome crowds a set', () => {
+    expect(
+      balanceWarningShown({ dominant: 'failed', count: 7, entries: 8 }),
+    ).toBe(
+      '7 of 8 runs failed, so the set says little about how other runs go. Add runs that turned out other ways.',
+    );
+  });
+
+  it('says when a set’s runs ended, and nothing while none has', () => {
+    const empty = {
+      outcomes: [],
+      origins: [],
+      oldest: null,
+      median: null,
+      newest: null,
+      balanceWarning: null,
+    };
+    const at = new Date(Date.now() - 30 * 60_000).toISOString();
+
+    expect(endedSpanShown(empty)).toBeNull();
+    expect(
+      endedSpanShown({ ...empty, oldest: at, median: at, newest: at }),
+    ).toBe('Ended 30m ago');
+    expect(
+      endedSpanShown({
+        ...empty,
+        oldest: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+        median: new Date(Date.now() - 2 * 3_600_000).toISOString(),
+        newest: at,
+      }),
+    ).toBe('Ended between 3h ago and 30m ago, half of them by 2h ago');
   });
 });

@@ -194,6 +194,7 @@ describe('a person moving a task by hand', () => {
 
     await app.get<DrizzleDatabase>(DRIZZLE).insert(schema.task).values({
       id,
+      openedFrom: 'person',
       workspaceId: team.workspaceId.value,
       stationId,
       title: 'Drain the queue',

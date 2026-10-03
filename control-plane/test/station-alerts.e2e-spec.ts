@@ -103,6 +103,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     outcome: 'completed',
     failure: null,
     stopped: false,
+    asked: false,
   };
 
   await app.get(EventOutbox).record([ended as never]);
@@ -126,6 +127,7 @@ const actedOn = async (
     at: ago(minutesAgo).toISOString(),
     tool: null,
     server: null,
+    forApproval: false,
   };
 
   await app.get(EventOutbox).record([acted as never]);

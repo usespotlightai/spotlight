@@ -147,6 +147,7 @@ beforeAll(async () => {
     outcome: 'completed',
     failure: null,
     stopped: false,
+    asked: false,
   };
 
   const record = () => app.get(DrizzleRunRecordRepository).of(RUN);
@@ -876,6 +877,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       outcome: 'withdrawn',
       failure: null,
       stopped: false,
+      asked: false,
     };
 
     await app.get(EventOutbox).record([ended]);
@@ -944,6 +946,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       outcome: seed.outcome,
       failure: seed.outcome === 'failed' ? 'exited' : null,
       stopped: false,
+      asked: false,
     };
     const superseded: RunSupersededIntegrationEvent = {
       kind: RUN_SUPERSEDED,

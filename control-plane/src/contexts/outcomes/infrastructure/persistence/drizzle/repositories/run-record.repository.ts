@@ -194,6 +194,7 @@ const endOf = (row: RecordRow): RunEnd | null => {
     ending: row.ending,
     failure: row.failure,
     round: row.round,
+    asked: row.asked,
   });
 };
 
@@ -205,7 +206,13 @@ const nextOf = (row: RecordRow): NextAct | null => {
     );
   }
 
-  return row.nextAct && row.nextAt ? NextAct.of(row.nextAct, row.nextAt) : null;
+  if (!row.nextAct || !row.nextAt) {
+    return null;
+  }
+
+  return row.nextForApproval
+    ? NextAct.onApproval(row.nextAct, row.nextAt)
+    : NextAct.of(row.nextAct, row.nextAt);
 };
 
 const costOf = (row: RecordRow): RunCost | null => {
@@ -320,11 +327,13 @@ const columnsOf = (record: RunRecord) => {
     ending: end?.ending ?? null,
     failure: end?.failure ?? null,
     round: end?.round ?? null,
+    asked: end?.asked ?? false,
     supersededAt: record.supersededAt,
     checks: record.checks,
     checkedAt: record.checkedAt,
     nextAct: record.next?.act ?? null,
     nextAt: record.next?.at ?? null,
+    nextForApproval: record.next?.forApproval ?? false,
     handedOnTo: record.handedOn?.to ?? null,
     handedOnAt: record.handedOn?.at ?? null,
     digested: record.cost !== null,

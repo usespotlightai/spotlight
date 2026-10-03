@@ -132,6 +132,7 @@ import { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -234,6 +235,7 @@ export const WORK_EVENT_TYPES = [
   TaskDescription,
   TaskNoteBody,
   TaskRank,
+  TaskOrigin,
   TaskRevision,
   TaskTitle,
   ToolCall,

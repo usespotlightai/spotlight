@@ -60,6 +60,7 @@ const ended = (original: number, at: string | null): StandingRun => ({
   title: null,
   state: 'completed',
   endedAt: at ? new Date(at) : null,
+  origin: null,
 });
 
 const seenIn = (

@@ -666,6 +666,7 @@ describe('a stalled search looking into why', () => {
         title: runId.equals(searchedAt(0).runId) ? 'Drain the queue' : null,
         state: null,
         endedAt: null,
+        origin: null,
       }));
     await stalledOn({ ...BUDGET, iterations: 5 }, (original) => {
       const search = theSearch();

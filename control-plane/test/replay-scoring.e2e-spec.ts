@@ -237,6 +237,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title: `Drain queue ${runId.slice(0, 4)}`,
@@ -813,6 +814,7 @@ describe('a task run’s change', () => {
 
     await db.insert(schema.task).values({
       id: taskId,
+      openedFrom: 'person',
       workspaceId: team.workspaceId.value,
       stationId: BUILD,
       title: 'Retry uploads',

@@ -59,6 +59,20 @@ const SET: ReplaySetResponseDto = {
     sanity: null,
   },
   minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: TASKS.map((title, place) => ({
     runId: `run_task_${place}`,
     taskId: `task_${place}`,
@@ -68,6 +82,8 @@ const SET: ReplaySetResponseDto = {
     addedAt: hoursAgo(80),
     refusal: null,
     reason: null,
+    outcome: 'other',
+    origin: 'person',
   })),
 };
 
@@ -84,6 +100,20 @@ const SMALL_SET: ReplaySetResponseDto = {
     sanity: null,
   },
   minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: SET.entries.slice(0, 2),
 };
 
