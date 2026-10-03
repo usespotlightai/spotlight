@@ -802,8 +802,8 @@ describe('a replay', () => {
         originalRunId: string;
         regressed: boolean;
         costDelta: number | null;
-        candidate: { result: string };
-        baseline: { result: string } | null;
+        candidate: { result: string }[];
+        baseline: { result: string }[];
       }[];
     };
 
@@ -811,8 +811,8 @@ describe('a replay', () => {
     expect(
       detail.comparison.map((each) => [
         each.originalRunId,
-        each.candidate.result,
-        each.baseline?.result,
+        each.candidate[0]?.result,
+        each.baseline[0]?.result,
         each.regressed,
       ]),
     ).toEqual([
@@ -1029,6 +1029,116 @@ describe('a replay', () => {
     await eventually(async () => (await replayRow(id)) === undefined);
   });
 
+  it('replays each run as many times as asked, rating each task by the mean of its copies with an interval, and measures the set’s noise', async () => {
+    const first = await anOriginal();
+    const second = await anOriginal();
+    const setId = await openSet('Repeated', first, second);
+    const started = (
+      await owner()
+        .post(`${teamPath()}/replay-sets/${setId}/replays`, {
+          candidate: 'live',
+          ceiling: { amount: 5, currency: 'USD' },
+          repeats: 2,
+        })
+        .expect(201)
+    ).body as { id: string; baseline: { id: string } | null };
+
+    expect(started.baseline?.id).toBe(started.id);
+    expect(
+      (await entriesOf(started.id)).map((each) => [
+        each.originalRunId,
+        each.repeat,
+      ]),
+    ).toEqual([
+      [first.runId, 1],
+      [second.runId, 1],
+      [first.runId, 2],
+      [second.runId, 2],
+    ]);
+
+    await dispatched();
+    for (let round = 0; round < 2; round += 1) {
+      const handed = [await claimed(), await claimed()];
+
+      for (const each of handed) {
+        const [entry] = await db
+          .select()
+          .from(schema.replayEntry)
+          .where(eq(schema.replayEntry.runId, each.runId));
+
+        await finishes(
+          each,
+          0.1,
+          (entry?.originalRunId === first.runId && entry?.repeat === 1) ||
+            (entry?.originalRunId === second.runId && entry?.repeat === 2),
+        );
+        await settledRun(each.runId);
+      }
+
+      await dispatched();
+    }
+
+    await eventually(
+      async () => (await replayRow(started.id))?.state === 'finished',
+    );
+
+    const detail = (
+      await owner().get(`${teamPath()}/replays/${started.id}`).expect(200)
+    ).body as {
+      repeats: number;
+      entries: { repeat: number }[];
+      totals: {
+        entries: number;
+        scored: number;
+        succeeded: number;
+        unscored: number;
+        tasks: number;
+        tasksScored: number;
+        successRate: number;
+        interval: { rate: number; low: number; high: number } | null;
+      };
+      againstBaseline: unknown;
+    };
+
+    expect(detail.repeats).toBe(2);
+    expect(detail.entries.map((each) => each.repeat)).toEqual([1, 1, 2, 2]);
+    expect(detail.totals).toMatchObject({
+      entries: 4,
+      scored: 2,
+      succeeded: 0,
+      unscored: 2,
+      tasks: 2,
+      tasksScored: 2,
+      successRate: 0,
+    });
+    expect(detail.totals.interval).toEqual({ rate: 0, low: 0, high: 0 });
+    expect(detail.againstBaseline).toBeNull();
+
+    const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
+      .body as {
+      id: string;
+      minGain: number;
+      noise: {
+        replayId: string;
+        repeats: number;
+        perRepeat: number[];
+        spread: number;
+        flippedTasks: string[];
+      } | null;
+    }[];
+
+    expect(sets.find((each) => each.id === setId)).toMatchObject({
+      minGain: 0.05,
+      noise: {
+        replayId: started.id,
+        repeats: 2,
+        perRepeat: [0, 0],
+        spread: 0,
+        flippedTasks: [],
+      },
+    });
+  });
+
   it('is proposed, started, read and stopped through tokens that may plan or read, each write audited with its token', async () => {
     const setId = await openSet('Through tokens', await anOriginal());
     const live = await app
@@ -1126,6 +1236,7 @@ describe('a replay', () => {
         candidate: candidate.id,
         baseline: false,
         ceiling: '3 USD',
+        repeats: 1,
       },
     );
   });

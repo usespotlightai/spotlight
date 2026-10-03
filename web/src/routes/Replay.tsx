@@ -28,7 +28,6 @@ import {
   candidateShown,
   replayPath,
   replaySetPath,
-  successAgainst,
 } from '@/lib/replay';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -109,7 +108,7 @@ export function Replay() {
           at={at}
           replay={found}
           setName={set?.name ?? null}
-          success={successAgainst(found, baseline)}
+          baseline={baseline}
         />
 
         <section aria-labelledby="task-by-task" className="flex flex-col gap-2">

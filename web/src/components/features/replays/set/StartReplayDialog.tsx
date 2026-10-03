@@ -1,6 +1,7 @@
 import { type FormEvent, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CandidateChoices } from '@/components/features/replays/set/CandidateChoices';
+import { CountField } from '@/components/features/searches/station/CountField';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,11 +19,14 @@ import { messageOf } from '@/lib/error';
 import {
   ceilingFrom,
   LIVE,
+  type Replay,
   type ReplayedStation,
   type ReplaySet,
+  repeatsFrom,
   replayPath,
   USUAL_CURRENCY,
 } from '@/lib/replay';
+import { baselineNoteShown, REPEATS_HINT } from '@/lib/replay-words';
 import { useForwardTrail } from '@/lib/trail';
 
 const LABEL = 'font-medium text-foreground text-xs';
@@ -30,27 +34,19 @@ const LABEL = 'font-medium text-foreground text-xs';
 type StartReplayDialogProps = {
   at: ReplayedStation;
   set: ReplaySet;
-  hasBaseline: boolean;
+  baseline: Pick<Replay, 'repeats'> | null;
+  firstRepeats?: number;
+  firstCandidate?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-};
-
-const baselineNote = (proposed: boolean, hasBaseline: boolean): string => {
-  if (!proposed) {
-    return hasBaseline
-      ? 'If the set’s runs changed since its baseline, this replay of the live config becomes the new baseline; otherwise it replays beside it.'
-      : 'The set has no baseline yet, so this replay of the live config becomes it.';
-  }
-
-  return hasBaseline
-    ? 'If the set’s runs changed since its baseline, a new baseline of the live config also starts, with a ceiling of its own the same as this one.'
-    : 'The set has no baseline yet, so a baseline of the live config also starts beside it, with a ceiling of its own the same as this one: the two together may spend up to twice it.';
 };
 
 export function StartReplayDialog({
   at,
   set,
-  hasBaseline,
+  baseline,
+  firstRepeats = 1,
+  firstCandidate = LIVE,
   open,
   onOpenChange,
 }: StartReplayDialogProps) {
@@ -61,18 +57,22 @@ export function StartReplayDialog({
   const amountId = useId();
   const currencyId = useId();
   const errorId = useId();
-  const [candidate, setCandidate] = useState(LIVE);
+  const [candidate, setCandidate] = useState(firstCandidate);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(USUAL_CURRENCY);
+  const [repeatsText, setRepeatsText] = useState(String(firstRepeats));
   const [tried, setTried] = useState(false);
 
   const ceiling = ceilingFrom(amount, currency);
+  const repeats = repeatsFrom(repeatsText);
   const problem = typeof ceiling === 'string' ? ceiling : null;
+  const repeatsProblem = typeof repeats === 'string' ? repeats : null;
 
   const forget = () => {
-    setCandidate(LIVE);
+    setCandidate(firstCandidate);
     setAmount('');
     setCurrency(USUAL_CURRENCY);
+    setRepeatsText(String(firstRepeats));
     setTried(false);
     start.reset();
   };
@@ -81,12 +81,16 @@ export function StartReplayDialog({
     event.preventDefault();
     setTried(true);
 
-    if (typeof ceiling === 'string' || start.isPending) {
+    if (
+      typeof ceiling === 'string' ||
+      typeof repeats === 'string' ||
+      start.isPending
+    ) {
       return;
     }
 
     start.mutate(
-      { teamId: at.teamId, setId: set.id, candidate, ceiling },
+      { teamId: at.teamId, setId: set.id, candidate, ceiling, repeats },
       {
         onSuccess: (started) => {
           onOpenChange(false);
@@ -128,6 +132,15 @@ export function StartReplayDialog({
             />
           </fieldset>
 
+          <CountField
+            label="Repeats"
+            hint={REPEATS_HINT}
+            value={repeatsText}
+            problem={tried ? repeatsProblem : null}
+            disabled={start.isPending}
+            onChange={setRepeatsText}
+          />
+
           <div className="flex flex-col gap-1.5">
             <span className={LABEL}>Ceiling</span>
             <div className="flex gap-2">
@@ -165,7 +178,12 @@ export function StartReplayDialog({
             <p className="text-muted-foreground text-xs leading-5">
               The most this replay may spend, counting its runs and the drafting
               and judging of their changes. Once it is spent, nothing more
-              starts. {baselineNote(candidate !== LIVE, hasBaseline)}
+              starts.{' '}
+              {baselineNoteShown(
+                candidate !== LIVE,
+                baseline?.repeats ?? null,
+                typeof repeats === 'number' ? repeats : null,
+              )}
             </p>
           </div>
 

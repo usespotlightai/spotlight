@@ -72,10 +72,6 @@ export class JudgeVerdict {
       : this.value >= PASSING_SCORE;
   }
 
-  scoredAgainst(other: JudgeVerdict): number | null {
-    return this.scale === other.scale ? this.value - other.value : null;
-  }
-
   equals(other: JudgeVerdict): boolean {
     return (
       this.scale === other.scale &&

@@ -12,13 +12,15 @@ const Usage = `  spotlight replay propose --station <team/line/station> --name <
   spotlight replay candidates --station <team/line/station>
   spotlight replay show --station <team/line/station> <candidate name or id>
   spotlight replay sets --station <team/line/station>
-  spotlight replay start --station <team/line/station> --set <name or id> --candidate <name, id or live> --ceiling <amount> [--currency USD]
+  spotlight replay start --station <team/line/station> --set <name or id> --candidate <name, id or live> --ceiling <amount> [--currency USD] [--repeats 1]
   spotlight replay status --team <key> <replay id>
   spotlight replay watch --team <key> <replay id> [--every 15s]
   spotlight replay stop --team <key> <replay id>
       each takes --json; reads SPOTLIGHT_URL and SPOTLIGHT_API_TOKEN, a workspace
       token that may plan (read is enough to list, show and follow); status and
-      watch exit 2 when the candidate regresses on a task its baseline did well
+      watch exit 2 when the candidate regresses on a task its baseline did well;
+      --repeats replays each run up to 5 times, so each task is rated by the
+      share of its copies that succeeded and every rate carries a 95% interval
 ` + CheckUsage
 
 const (

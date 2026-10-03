@@ -49,6 +49,7 @@ export interface LineReplayCheckSummary {
   readonly mostRegressions: number;
   readonly ceiling: number;
   readonly currency: string;
+  readonly minGain: number;
 }
 
 export interface LineDetail {

@@ -14,6 +14,10 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import {
+  holdsRepeats,
+  MOST_REPEATS,
+} from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
@@ -39,6 +43,7 @@ interface State {
   readonly liveDigests: StationDigests;
   readonly candidateDigests: StationDigests;
   readonly threshold: ReplayThreshold;
+  readonly repeats: number;
   readonly keptLive: readonly ScoringField[];
   readonly baseline: BaselineStanding;
   readonly createdAt: Date;
@@ -70,6 +75,11 @@ export class ReplayCheck extends EventRecorder {
     }
     if (!Number.isInteger(state.attempt) || state.attempt < 1) {
       throw new InvalidReplayCheckError('counts its attempts from 1');
+    }
+    if (!holdsRepeats(state.repeats)) {
+      throw new InvalidReplayCheckError(
+        `replays each run of its set from 1 to ${MOST_REPEATS} times`,
+      );
     }
 
     const started = ReplayCheck.rehydrate(state);
@@ -163,6 +173,10 @@ export class ReplayCheck extends EventRecorder {
     return this.state.threshold;
   }
 
+  get repeats(): number {
+    return this.state.repeats;
+  }
+
   get keptLive(): readonly ScoringField[] {
     return this.state.keptLive;
   }
@@ -197,12 +211,14 @@ export class ReplayCheck extends EventRecorder {
     set: ReplaySet,
     setEntries: string,
     threshold: ReplayThreshold,
+    repeats: number,
     verdict: CheckVerdict,
   ): boolean {
     return (
       set.id.equals(this.state.setId) &&
       setEntries === this.state.setEntries &&
       threshold.equals(this.state.threshold) &&
+      repeats === this.state.repeats &&
       REUSABLE.includes(verdict)
     );
   }

@@ -78,6 +78,7 @@ export const LineMapper = {
             mostRegressions: line.replayCheck.mostRegressions,
             ceiling: line.replayCheck.ceiling,
             currency: line.replayCheck.currency,
+            minGain: line.replayCheck.minGain,
           }
         : null,
     };

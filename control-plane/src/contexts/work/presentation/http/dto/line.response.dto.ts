@@ -272,10 +272,18 @@ export class LineReplayCheckResponseDto {
   @ApiProperty({ example: 'USD', description: 'The currency of the ceiling' })
   readonly currency: string;
 
+  @ApiProperty({
+    example: 0.05,
+    description:
+      'The smallest gain in success, as a share, that counts as more than noise when replays are compared',
+  })
+  readonly minGain: number;
+
   constructor(check: LineReplayCheckSummary) {
     this.mostRegressions = check.mostRegressions;
     this.ceiling = check.ceiling;
     this.currency = check.currency;
+    this.minGain = check.minGain;
   }
 }
 

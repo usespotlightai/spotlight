@@ -6,6 +6,8 @@ import type {
 } from '@replays/application/dto/searches.dto';
 import { candidatePullRequestView } from '@replays/application/services/config-pull-request-views';
 import {
+  gainView,
+  intervalView,
   modelSpentView,
   spendView,
 } from '@replays/application/services/replay-views';
@@ -15,7 +17,10 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { frontierOf } from '@replays/domain/services/frontier';
 import { rankedOf } from '@replays/domain/services/search-ranking';
-import { scoresOf } from '@replays/domain/services/search-scores';
+import {
+  scoresOf,
+  searchGainsOf,
+} from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -37,7 +42,9 @@ const bestOf = (search: Search, scores: Scores): SearchBestDto | null => {
         name: nameOf(search, best.candidateId),
         seed: best.seed,
         searchScore: best.searchScore,
+        searchInterval: intervalView(best.searchInterval),
         heldOutScore: best.heldOutScore,
+        heldOutInterval: intervalView(best.heldOutInterval),
         costPerRun: best.costPerRun,
       }
     : null;
@@ -66,6 +73,7 @@ const summaryOf = (search: Search, scores: Scores): SearchSummaryDto => ({
     perIteration: search.budget.perIteration,
     ceiling: spendView(search.budget.ceiling),
     concurrency: search.budget.concurrency,
+    repeats: search.budget.repeats,
   },
   spent: spendView(search.spent),
   iterationsRun: search.iterations.length,
@@ -91,8 +99,10 @@ export const searchDetailView = (
   replays: readonly Replay[],
   candidates: readonly Candidate[],
   pullRequests: readonly ConfigPullRequest[],
+  minGain: number,
 ): SearchDetailDto => {
   const { scores, frontier } = scored(search, replays);
+  const gains = searchGainsOf(search, replays, minGain);
   const onFrontier = (id: CandidateId) =>
     frontier.some((each) => each.candidateId.equals(id));
   const pullRequestOf = (id: CandidateId) => {
@@ -120,8 +130,14 @@ export const searchDetailView = (
       heldOutReplayId: each.heldOutReplayId?.value ?? null,
       heldOutReplayState: stateOf(replays, each.heldOutReplayId),
       searchScore: each.searchScore,
+      searchInterval: intervalView(each.searchInterval),
       searchScored: each.searchScored,
       heldOutScore: each.heldOutScore,
+      heldOutInterval: intervalView(each.heldOutInterval),
+      searchedGain: gainView(
+        gains.get(each.candidateId.value)?.searched ?? null,
+      ),
+      heldOutGain: gainView(gains.get(each.candidateId.value)?.heldOut ?? null),
       costPerRun: each.costPerRun,
       spent: spendView(each.spent),
       onFrontier: onFrontier(each.candidateId),
@@ -154,5 +170,6 @@ export const searchDetailView = (
     seed: candidateView(scores.seed),
     candidates: scores.candidates.map(candidateView),
     frontier: frontier.map((each) => each.candidateId.value),
+    minGain,
   };
 };

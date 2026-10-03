@@ -73,6 +73,38 @@ describe('Replay', () => {
       expect(replay.isUnderway).toBe(true);
     });
 
+    it('replays each run as many times as asked, every first copy before any second, each at a place of its own', () => {
+      const replay = aReplay({ count: 2, repeats: 3 });
+
+      expect(replay.repeats).toBe(3);
+      expect(
+        replay.entries.map((each) => [
+          each.position,
+          each.original.value,
+          each.repeat,
+        ]),
+      ).toEqual([
+        [0, 'original_0', 1],
+        [1, 'original_1', 1],
+        [2, 'original_0', 2],
+        [3, 'original_1', 2],
+        [4, 'original_0', 3],
+        [5, 'original_1', 3],
+      ]);
+      expect(replay.originals.map((each) => each.value)).toEqual([
+        'original_0',
+        'original_1',
+      ]);
+      expect(aReplay().repeats).toBe(1);
+    });
+
+    it('replays each run from 1 to 5 times', () => {
+      expect(() => aReplay({ repeats: 0 })).toThrow(InvalidReplayError);
+      expect(() => aReplay({ repeats: 6 })).toThrow(InvalidReplayError);
+      expect(() => aReplay({ repeats: 1.5 })).toThrow(InvalidReplayError);
+      expect(aReplay({ repeats: 5 }).entries).toHaveLength(15);
+    });
+
     it('replays at least one run', () => {
       expect(() => aReplay({ count: 0 })).toThrow(InvalidReplayError);
     });
@@ -223,6 +255,7 @@ describe('Replay', () => {
               candidateId: candidateOf('proposed').id,
               baseline: false,
               ceiling: Spend.ceiling(3, 'USD'),
+              repeats: 1,
             }),
           ),
         ),
@@ -234,6 +267,7 @@ describe('Replay', () => {
           candidateOf('live').id,
           Spend.ceiling(3, 'USD'),
           null,
+          1,
         ),
       ]);
     });

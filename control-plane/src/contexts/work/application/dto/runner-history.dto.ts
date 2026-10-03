@@ -35,6 +35,7 @@ export interface HistoryRunDto {
 export interface HistoryCandidateRunDto {
   readonly runId: string;
   readonly original: string;
+  readonly repeat: number;
   readonly taskId: string;
   readonly title: string;
   readonly fingerprint: string | null;

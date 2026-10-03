@@ -454,6 +454,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       checked: false,
       ceilingAmount: 1,
       ceilingCurrency: 'USD',
+      repeats: 1,
       state: 'running',
       startedAt: new Date(),
     });
@@ -490,7 +491,8 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     const recorded = await db
       .select()
       .from(schema.configurationChange)
-      .where(eq(schema.configurationChange.resourceId, made.body.id));
+      .where(eq(schema.configurationChange.resourceId, made.body.id))
+      .orderBy(schema.configurationChange.seq);
 
     expect(
       recorded.map((each) => [

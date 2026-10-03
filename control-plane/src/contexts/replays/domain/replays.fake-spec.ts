@@ -179,6 +179,7 @@ export const aReplay = (
     at?: Date;
     among?: readonly RunId[];
     searchId?: SearchId;
+    repeats?: number;
   } = {},
 ): Replay => {
   const started = Replay.started({
@@ -191,6 +192,7 @@ export const aReplay = (
     by: BY,
     ...(input.among ? { among: input.among } : {}),
     ...(input.searchId ? { searchId: input.searchId } : {}),
+    ...(input.repeats === undefined ? {} : { repeats: input.repeats }),
   });
 
   started.pullEvents();
@@ -264,6 +266,7 @@ export const aBudget = (
     perIteration: number;
     ceiling: number;
     concurrency: number;
+    repeats: number;
   }> = {},
 ): SearchBudget =>
   SearchBudget.of({
@@ -271,6 +274,7 @@ export const aBudget = (
     perIteration: input.perIteration ?? 2,
     ceiling: Spend.ceiling(input.ceiling ?? 100, 'USD'),
     ...(input.concurrency ? { concurrency: input.concurrency } : {}),
+    ...(input.repeats ? { repeats: input.repeats } : {}),
   });
 
 export const aSearch = (
@@ -329,6 +333,7 @@ export const replayFor = (
   candidateId: string,
   among: readonly RunId[] | null,
   live = false,
+  repeats = 1,
 ): Replay => {
   const started = Replay.started({
     id: ReplayId.of(id),
@@ -339,6 +344,7 @@ export const replayFor = (
     at: NOW,
     by: BY,
     searchId: SEARCH_ID,
+    repeats,
     ...(among ? { among } : {}),
   });
 
@@ -349,7 +355,7 @@ export const replayFor = (
 
 export const replayedAs = (
   replay: Replay,
-  outcomeOf: (original: string) => RunOutcome,
+  outcomeOf: (original: string, repeat: number) => RunOutcome,
   cost: number | null = 1,
   currency = 'USD',
 ): Replay => {
@@ -360,7 +366,7 @@ export const replayedAs = (
 
     return held
       .confirmed(run, FINGERPRINT, NOW)
-      .ended(run, endOf(outcomeOf(entry.original.value)))
+      .ended(run, endOf(outcomeOf(entry.original.value, entry.repeat)))
       .reviewed(run, PASSED, null, later(60_000))
       .measured(run, measuresOf(cost, 60_000, 10, currency), later(61_000));
   }, reserved);

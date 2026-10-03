@@ -50,6 +50,8 @@ const SET: ReplaySet = {
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  noise: null,
+  minGain: 0.05,
   entries: [],
 };
 
@@ -67,7 +69,15 @@ const replay = (over: Partial<Replay>): Replay =>
     isBaseline: false,
     state: 'finished',
     startedAt: '2026-10-02T09:00:00.000Z',
-    totals: { successRate: 0.75 },
+    totals: { successRate: 0.75, interval: { rate: 0.75, low: 0.5, high: 1 } },
+    againstBaseline: {
+      gain: 0.25,
+      low: 0.05,
+      high: 0.45,
+      verdict: 'better',
+      minGain: 0.05,
+      tasks: 4,
+    },
     ...over,
   }) as Replay;
 
@@ -144,7 +154,15 @@ describe('ReplaySets', () => {
     expect(screen.getByText('1 run')).toBeInTheDocument();
     expect(screen.getByText('Station gone')).toBeInTheDocument();
     expect(screen.getByText('Latest: Shorter prompt')).toBeInTheDocument();
-    expect(screen.getByText('75% succeeded')).toBeInTheDocument();
-    expect(screen.getByText('+25 pts')).toBeInTheDocument();
+    const success = document.querySelector(
+      '[data-slot="success-against-baseline"]',
+    );
+    expect(success).toHaveTextContent('75% (50–100%) succeeded');
+    expect(
+      success?.querySelector('[data-slot="gain-verdict"]'),
+    ).toHaveAttribute('data-verdict', 'better');
+    expect(success).toHaveTextContent(
+      '+25 pts(+5 to +45)vs baseline 50%· Better',
+    );
   });
 });

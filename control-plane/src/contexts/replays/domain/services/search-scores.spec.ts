@@ -9,7 +9,10 @@ import {
   searchRunIds,
 } from '@replays/domain/replays.fake-spec';
 import { frontierOf } from '@replays/domain/services/frontier';
-import { scoresOf } from '@replays/domain/services/search-scores';
+import {
+  scoresOf,
+  searchGainsOf,
+} from '@replays/domain/services/search-scores';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
@@ -243,5 +246,35 @@ describe('scoresOf', () => {
     expect(terse?.searchScore).toBe(1);
     expect(terse?.searchScored).toBe(search.split.searched.length);
     expect(terse?.spent.amount).toBe(search.split.searched.length);
+  });
+});
+
+describe('searchGainsOf', () => {
+  it('reads no searched gain until the candidate’s searched replay finished', () => {
+    const search = searchWith();
+    const seed = replayedAs(
+      replayFor(SET, 'replay_seed', 'candidate_live', null, true),
+      () => 'completed',
+    );
+    const terse = replayedAs(
+      replayFor(
+        SET,
+        'replay_terse',
+        'candidate_terse',
+        search.split.searchedRuns,
+      ),
+      () => 'completed',
+    );
+    const wordy = replayFor(
+      SET,
+      'replay_wordy',
+      'candidate_wordy',
+      search.split.searchedRuns,
+    );
+
+    const gains = searchGainsOf(search, [seed, terse, wordy], 0.05);
+
+    expect(gains.get('candidate_terse')?.searched).not.toBeNull();
+    expect(gains.get('candidate_wordy')?.searched).toBeNull();
   });
 });

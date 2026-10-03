@@ -1,6 +1,7 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import {
   aReplay,
+  aSet,
   candidateOf,
   endOf,
   FINGERPRINT,
@@ -8,7 +9,10 @@ import {
   measuresOf,
   NOW,
   RUBRIC,
+  replayedAs,
+  replayFor,
   runIds,
+  settledAs,
 } from '@replays/domain/replays.fake-spec';
 import {
   comparedWith,
@@ -223,11 +227,11 @@ describe('comparedWith', () => {
         each.original,
         each.scoreDelta,
         each.regressed,
-        each.candidate.succeeded,
+        each.candidateSuccess,
       ]),
     ).toEqual([
-      ['original_0', -1, true, true],
-      ['original_1', 1, false, true],
+      ['original_0', -1, true, 1],
+      ['original_1', 1, false, 1],
     ]);
   });
 
@@ -296,7 +300,7 @@ describe('comparedWith', () => {
       ran('baseline', ['passed'], [1], true),
     );
 
-    expect(compared[0]?.candidate.succeeded).toBeNull();
+    expect(compared[0]?.candidateSuccess).toBeNull();
     expect(compared[0]?.regressed).toBe(false);
     expect(totalsOf(refused).unscored).toBe(1);
   });
@@ -323,8 +327,153 @@ describe('comparedWith', () => {
   it('has nothing to set a task against without a baseline', () => {
     const compared = comparedWith(ran('candidate', ['failed-run'], [1]), null);
 
-    expect(compared[0]?.baseline).toBeNull();
+    expect(compared[0]?.baseline).toEqual([]);
     expect(compared[0]?.regressed).toBe(false);
     expect(compared[0]?.costDelta).toBeNull();
+  });
+});
+
+describe('results with repeats', () => {
+  const SET = aSet(4);
+
+  const copies = (
+    id: string,
+    repeats: number,
+    failing: readonly string[],
+    live = false,
+  ) =>
+    replayedAs(
+      replayFor(
+        SET,
+        id,
+        live ? 'candidate_live' : 'candidate_proposed',
+        null,
+        live,
+        repeats,
+      ),
+      (original, repeat) =>
+        failing.includes(`${original}#${repeat}`) ? 'failed' : 'completed',
+    );
+
+  it('rates one copy each exactly as the share of scored runs that succeeded', () => {
+    const once = copies('replay_once', 1, ['original_0#1']);
+    const totals = totalsOf(once);
+
+    expect(totals.successRate).toBe(
+      (totals.succeeded as number) / totals.scored,
+    );
+    expect(totals.successRate).toBe(0.75);
+    expect(totals.tasks).toBe(4);
+    expect(totals.tasksScored).toBe(4);
+  });
+
+  it('rates each task by the mean of its copies, then the tasks evenly, with an interval over the tasks', () => {
+    const twice = copies('replay_twice', 2, [
+      'original_0#1',
+      'original_0#2',
+      'original_1#2',
+    ]);
+    const totals = totalsOf(twice);
+
+    expect(totals.entries).toBe(8);
+    expect(totals.scored).toBe(8);
+    expect(totals.succeeded).toBe(5);
+    expect(totals.tasks).toBe(4);
+    expect(totals.tasksScored).toBe(4);
+    expect(totals.successRate).toBe((0 + 0.5 + 1 + 1) / 4);
+    expect(totals.interval?.rate).toBe(totals.successRate);
+    expect(totals.interval?.low).toBeLessThanOrEqual(0.625);
+    expect(totals.interval?.high).toBeGreaterThanOrEqual(0.625);
+    expect(totalsOf(twice)).toEqual(totals);
+  });
+
+  it('compares task by task, every copy on each side, regressing only when the baseline succeeds more than half as often again', () => {
+    const baseline = copies('replay_live', 2, ['original_3#1'], true);
+    const candidate = copies('replay_candidate', 2, [
+      'original_0#1',
+      'original_0#2',
+      'original_1#1',
+      'original_3#2',
+    ]);
+    const compared = comparedWith(candidate, baseline);
+
+    expect(compared).toHaveLength(4);
+    expect(
+      compared.map((each) => [
+        each.original,
+        each.candidate.length,
+        each.baseline.length,
+        each.candidateSuccess,
+        each.baselineSuccess,
+        each.regressed,
+      ]),
+    ).toEqual([
+      ['original_0', 2, 2, 0, 1, true],
+      ['original_1', 2, 2, 0.5, 1, false],
+      ['original_2', 2, 2, 1, 1, false],
+      ['original_3', 2, 2, 0.5, 0.5, false],
+    ]);
+    expect(compared[0]?.costDelta).toBe(0);
+  });
+
+  it('counts no task as regressed while any of its copies, on either side, is still out', () => {
+    const baseline = copies('replay_live', 1, [], true);
+    const reserved = replayFor(
+      SET,
+      'replay_partial',
+      'candidate_proposed',
+      null,
+      false,
+      3,
+    ).reserving(12, runIds());
+    const firstOnly = reserved.entries
+      .filter((each) => each.repeat === 1)
+      .reduce(
+        (held, entry) =>
+          settledAs(
+            held,
+            entry.run as RunId,
+            entry.original.value === 'original_0' ? 'failed' : 'completed',
+            1,
+          ),
+        reserved,
+      );
+    const midway = comparedWith(firstOnly, baseline).find(
+      (each) => each.original === 'original_0',
+    );
+
+    expect(midway?.candidateSuccess).toBe(0);
+    expect(midway?.baselineSuccess).toBe(1);
+    expect(midway?.regressed).toBe(false);
+
+    const done = firstOnly.entries
+      .filter((each) => each.repeat > 1)
+      .reduce(
+        (held, entry) =>
+          settledAs(
+            held,
+            entry.run as RunId,
+            entry.original.value === 'original_0' ? 'failed' : 'completed',
+            1,
+          ),
+        firstOnly,
+      );
+
+    expect(
+      comparedWith(done, baseline).find(
+        (each) => each.original === 'original_0',
+      )?.regressed,
+    ).toBe(true);
+  });
+
+  it('regresses on one copy each just as before: the baseline succeeded and the candidate failed', () => {
+    const baseline = copies('replay_live', 1, [], true);
+    const candidate = copies('replay_candidate', 1, ['original_2#1']);
+
+    expect(
+      comparedWith(candidate, baseline)
+        .filter((each) => each.regressed)
+        .map((each) => each.original),
+    ).toEqual(['original_2']);
   });
 });

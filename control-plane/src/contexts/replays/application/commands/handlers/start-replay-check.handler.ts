@@ -73,6 +73,7 @@ interface Planned {
   readonly station: unknown;
   readonly line: PlannedLine | null;
   readonly reference: PlannedReference;
+  readonly repeats: number;
 }
 
 export class StartReplayCheckHandler
@@ -121,6 +122,7 @@ export class StartReplayCheckHandler
             ? null
             : PlannedLine.of(command.change.line),
         reference: PlannedReference.of(command.change.reference),
+        repeats: command.repeats,
       };
       let reused = false;
 
@@ -142,6 +144,7 @@ export class StartReplayCheckHandler
                   commit: planned.reference.commit,
                   pullRequest: planned.reference.pullRequest,
                 },
+                repeats: planned.repeats,
               },
             },
             async () => {
@@ -255,7 +258,15 @@ export class StartReplayCheckHandler
     for (const each of [...earlier].reverse()) {
       const { reading } = await this.readings.of(each);
 
-      if (each.reusableFor(set, setEntries, threshold, reading.verdict)) {
+      if (
+        each.reusableFor(
+          set,
+          setEntries,
+          threshold,
+          planned.repeats,
+          reading.verdict,
+        )
+      ) {
         return { id: each.id.value, reused: true };
       }
     }
@@ -278,6 +289,7 @@ export class StartReplayCheckHandler
       set,
       await this.replays.ofSet(set.id),
       examined.liveDigests.scoring,
+      planned.repeats,
     )
       ? {
           id: ReplayId.of(this.ids.generate()),
@@ -294,7 +306,10 @@ export class StartReplayCheckHandler
         candidate,
         baseline: false,
         ceiling: threshold.ceiling,
-        unpricedRate: threshold.unpricedRunIn(set.entries.length),
+        unpricedRate: threshold.unpricedRunIn(
+          set.entries.length * planned.repeats,
+        ),
+        repeats: planned.repeats,
         at,
         by,
         wanting,
@@ -316,6 +331,7 @@ export class StartReplayCheckHandler
       liveDigests: examined.liveDigests,
       candidateDigests: examined.digests,
       threshold,
+      repeats: planned.repeats,
       keptLive: scored.keptLive,
       createdAt: at,
       by,

@@ -2,13 +2,19 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
+import { GainVerdict } from '@/components/features/replays/GainVerdict';
+import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
+import { ScoredRate } from '@/components/features/replays/ScoredRate';
+import type { GainReading } from '@/lib/replay';
 import {
   candidateName,
   costPerRunShown,
   heldOutShown,
   type SearchCandidate,
-  scoreShown,
 } from '@/lib/search';
+
+const gainCell = (gain: GainReading | null) =>
+  gain ? <GainVerdict gain={gain} /> : '–';
 
 type FrontierTableProps = {
   candidates: readonly SearchCandidate[];
@@ -39,14 +45,35 @@ export function FrontierTable({ candidates, currency }: FrontierTableProps) {
       id: 'searched',
       header: 'Searched',
       numeric: true,
-      cell: (candidate) =>
-        `${scoreShown(candidate.searchScore)} of ${candidate.searchScored}`,
+      cell: (candidate) => (
+        <ScoredRate
+          rate={candidate.searchScore}
+          interval={candidate.searchInterval}
+          scored={candidate.searchScored}
+        />
+      ),
+    },
+    {
+      id: 'searched-gain',
+      header: 'Gain on searched',
+      cell: (candidate) => gainCell(candidate.searchedGain),
     },
     {
       id: 'held-out',
       header: 'Held out',
       numeric: true,
-      cell: heldOutShown,
+      cell: (candidate) => (
+        <HeldOutScore
+          rate={candidate.heldOutScore}
+          interval={candidate.heldOutInterval}
+          unscored={heldOutShown(candidate)}
+        />
+      ),
+    },
+    {
+      id: 'held-out-gain',
+      header: 'Gain on held out',
+      cell: (candidate) => gainCell(candidate.heldOutGain),
     },
     {
       id: 'cost',

@@ -8,13 +8,12 @@ import type {
 import { spentIn } from '@/lib/inbox';
 import { countShown } from '@/lib/insights';
 import { dayShown, percentShown } from '@/lib/judge';
+import { type ReplayedStation, replayPath } from '@/lib/replay';
 import {
-  type ReplayedStation,
-  replayPath,
-  type SuccessComparison,
-  successBetween,
-} from '@/lib/replay';
-import { type ReplayState, stateShown } from '@/lib/replay-words';
+  heldOutRunsShown,
+  type ReplayState,
+  stateShown,
+} from '@/lib/replay-words';
 import { regressionsShown, searchCandidatePath } from '@/lib/search';
 
 export type InsightsCandidates = ReplayedCandidatesResponseDto;
@@ -78,17 +77,18 @@ export const heldOutShown = (candidate: SetCandidate): string | null => {
     return candidate.kind === 'searched' ? 'Not held out' : null;
   }
 
-  const { score, state, runs } = candidate.heldOut;
-
-  if (score !== null) {
-    return `${percentShown(score)} of ${countShown(runs)} held-out ${runs === 1 ? 'run' : 'runs'}`;
-  }
+  const { state } = candidate.heldOut;
 
   return state === 'queued' || state === 'running' ? 'Replaying' : '–';
 };
 
-const heldOutScoreShown = (candidate: SetCandidate): string | null =>
-  candidate.heldOut?.score == null ? null : heldOutShown(candidate);
+const heldOutScoreShown = (candidate: SetCandidate): string | null => {
+  const heldOut = candidate.heldOut;
+
+  return heldOut?.score == null
+    ? null
+    : `${percentShown(heldOut.score)} ${heldOutRunsShown(heldOut.runs)}`;
+};
 
 type Charted = {
   readonly key: string;
@@ -316,17 +316,13 @@ export const changeLinkOf = (
   };
 };
 
-export const againstLive = (candidate: SetCandidate): SuccessComparison =>
-  successBetween(
-    candidate.successRateOnCompared,
-    candidate.live?.successRate ?? null,
-  );
-
 const runsShown = (runs: number): string =>
   `${countShown(runs)} ${runs === 1 ? 'run' : 'runs'}`;
 
-export const liveShown = (candidate: SetCandidate): string =>
-  `${percentShown(candidate.successRateOnCompared)} vs live ${percentShown(candidate.live?.successRate ?? null)} on the same ${runsShown(candidate.compared)}`;
+export const VERSUS_LIVE = 'vs live';
+
+export const onTheSameShown = (compared: number): string =>
+  `on the same ${runsShown(compared)}`;
 
 export const costAgainstLiveShown = (
   candidate: SetCandidate,
@@ -352,14 +348,6 @@ export const comparedShown = (candidate: SetCandidate): string => {
 
   return `${regressionsShown(candidate.regressions)} over ${runsShown(candidate.compared)} compared`;
 };
-
-export const replaySuccessShown = (
-  rate: number | null,
-  scored: number,
-): string =>
-  scored === 0
-    ? 'Not scored yet'
-    : `${percentShown(rate)} of ${runsShown(scored)} scored`;
 
 export const tasksShown = (tasks: number, runs: number): string =>
   `${countShown(tasks)} ${tasks === 1 ? 'task' : 'tasks'}${runs === tasks ? '' : ` (${runsShown(runs)})`}`;

@@ -7,6 +7,7 @@ import {
   replayView,
 } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type { SetNoises } from '@replays/application/services/set-noises.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
@@ -22,6 +23,7 @@ export class ReadReplayHandler
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly work: WorkPort,
+    private readonly noises: SetNoises,
   ) {}
 
   async execute(query: ReadReplayQuery): Promise<ReplayDetailDto> {
@@ -35,28 +37,29 @@ export class ReadReplayHandler
       const against = baseline?.id.equals(replay.id) ? null : baseline;
       const candidate = await this.candidates.find(replay.candidateId);
       const compared = comparedWith(replay, against);
+      const { minGain } = await this.noises.standardAt(replay.station);
       const titles = new Map(
-        (
-          await this.work.standing(
-            clearance.workspaceId,
-            replay.entries.map((each) => each.original),
-          )
-        ).map((each) => [each.runId.value, each.title]),
+        (await this.work.standing(clearance.workspaceId, replay.originals)).map(
+          (each) => [each.runId.value, each.title],
+        ),
       );
 
       return {
-        ...replayView(replay, candidate, baseline),
+        ...replayView(replay, candidate, baseline, minGain),
         baselineReplayId: baseline?.id.value ?? null,
         search: replaySearchView(replay, candidate),
         comparison: compared.map((each) => ({
           originalRunId: each.original,
           taskId: each.taskId,
           title: titles.get(each.original) ?? null,
-          candidate: entryView(each.candidate, replay.scoring),
-          baseline:
-            each.baseline && against
-              ? entryView(each.baseline, against.scoring)
-              : null,
+          candidate: each.candidate.map((copy) =>
+            entryView(copy, replay.scoring),
+          ),
+          baseline: against
+            ? each.baseline.map((copy) => entryView(copy, against.scoring))
+            : [],
+          candidateSuccess: each.candidateSuccess,
+          baselineSuccess: each.baselineSuccess,
           costDelta: each.costDelta,
           msDelta: each.msDelta,
           stepsDelta: each.stepsDelta,

@@ -10,8 +10,10 @@ import {
   searchBudgetOf,
   splitOf,
 } from '@replays/application/services/search-terms';
+import type { SetNoises } from '@replays/application/services/set-noises.service';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import { estimateOf } from '@replays/domain/services/search-estimate';
+import { searchWarningsOf } from '@replays/domain/services/search-warnings';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -23,6 +25,7 @@ export class EstimateSearchHandler
   constructor(
     private readonly access: ReplaysAccess,
     private readonly work: WorkPort,
+    private readonly noises: SetNoises,
   ) {}
 
   async execute(
@@ -55,6 +58,14 @@ export class EstimateSearchHandler
 
       const timed = await this.work.durations(set.runs);
       const estimate = estimateOf(budget, split, [...timed.values()]);
+      const standard = await this.noises.standardAt(set.station);
+      const noise =
+        (
+          await this.noises.ofSets(
+            [set],
+            new Map([[set.station.stationId, standard]]),
+          )
+        ).get(set.id.value) ?? null;
 
       return {
         searchedTasks: split.searchedTasks,
@@ -68,6 +79,8 @@ export class EstimateSearchHandler
           agentRun: spendView(estimate.allotment.agentRun),
         },
         estimatedDuration: estimate.ms,
+        minGain: standard.minGain,
+        warnings: searchWarningsOf(noise, standard.minGain, budget.repeats),
       };
     } catch (error) {
       if (error instanceof SearchTermsRefusedError) {

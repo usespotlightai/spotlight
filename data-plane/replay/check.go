@@ -15,13 +15,16 @@ import (
 	"time"
 )
 
-const CheckUsage = `  spotlight replay check [--json] [--timeout 60m] [--every 15s] [--commit <sha>] [--pull-request <n>] <plan.json | ->
+const CheckUsage = `  spotlight replay check [--json] [--timeout 60m] [--every 15s] [--commit <sha>] [--pull-request <n>] [--repeats 1] <plan.json | ->
       checks each station a saved Terraform plan changes against the replay set
       that guards the station's changes, under the live line's replay_check;
       give it the output of ` + "`terraform show -json <planfile>`" + `. Reads SPOTLIGHT_URL and
       SPOTLIGHT_API_TOKEN (a workspace token that may plan), or SPOTLIGHT_OIDC_TRUST
       to exchange the CI job's OIDC token (GitHub Actions, or SPOTLIGHT_OIDC_TOKEN).
       --every is how often it asks how the checks stand while they run.
+      --repeats replays each run of the set up to 5 times within the line's
+      ceiling; each side's success then carries a 95% interval, and the
+      candidate's gain over the baseline says whether it is within noise.
       A station the plan renames, a line it replaces, and a station whose
       skill, profile, integration, hook or secret it changes are undecided.
       Appends a summary to GITHUB_STEP_SUMMARY when set. Exits 1 when a check
@@ -44,19 +47,21 @@ const (
 )
 
 type checkSide struct {
-	State       *string  `json:"state"`
-	Entries     int      `json:"entries"`
-	Scored      int      `json:"scored"`
-	Succeeded   *int     `json:"succeeded"`
-	SuccessRate *float64 `json:"successRate"`
-	Spent       *spend   `json:"spent"`
+	State       *string   `json:"state"`
+	Entries     int       `json:"entries"`
+	Scored      int       `json:"scored"`
+	Succeeded   *int      `json:"succeeded"`
+	SuccessRate *float64  `json:"successRate"`
+	Interval    *interval `json:"interval"`
+	TasksScored int       `json:"tasksScored"`
+	Spent       *spend    `json:"spent"`
 }
 
 type checkRegression struct {
-	TaskID    string  `json:"taskId"`
-	Title     *string `json:"title"`
-	Candidate string  `json:"candidate"`
-	Baseline  *string `json:"baseline"`
+	TaskID    string   `json:"taskId"`
+	Title     *string  `json:"title"`
+	Candidate []string `json:"candidate"`
+	Baseline  []string `json:"baseline"`
 	Reasons   []struct {
 		Code   string  `json:"code"`
 		Detail *string `json:"detail"`
@@ -73,9 +78,12 @@ type checkRead struct {
 	Tasks            int      `json:"tasks"`
 	Compared         int      `json:"compared"`
 	Threshold        struct {
-		MostRegressions int   `json:"mostRegressions"`
-		Ceiling         spend `json:"ceiling"`
+		MostRegressions int     `json:"mostRegressions"`
+		MinGain         float64 `json:"minGain"`
+		Ceiling         spend   `json:"ceiling"`
 	} `json:"threshold"`
+	Repeats     int               `json:"repeats"`
+	Gain        *gainReading      `json:"gain"`
 	Candidate   checkSide         `json:"candidate"`
 	Baseline    checkSide         `json:"baseline"`
 	Regressions []checkRegression `json:"regressions"`
@@ -113,6 +121,7 @@ type checkOptions struct {
 	every       time.Duration
 	commit      string
 	pullRequest int
+	repeats     int
 	plan        string
 }
 
@@ -125,6 +134,7 @@ func checkOptionsOf(args []string) (checkOptions, error) {
 	every := set.Duration("every", 15*time.Second, "how often to ask")
 	commit := set.String("commit", "", "the commit that plans the change")
 	pullRequest := set.Int("pull-request", 0, "the pull request that plans the change")
+	repeats := set.Int("repeats", 1, "how many times to replay each run")
 
 	positional, err := parsed(set, args)
 	if err != nil {
@@ -142,6 +152,9 @@ func checkOptionsOf(args []string) (checkOptions, error) {
 	if *pullRequest < 0 {
 		return checkOptions{}, fmt.Errorf("--pull-request is the number of a pull request, not %d", *pullRequest)
 	}
+	if *repeats < 1 || *repeats > mostRepeats {
+		return checkOptions{}, fmt.Errorf("--repeats is how many times to replay each run, from 1 to %d, not %d", mostRepeats, *repeats)
+	}
 
 	return checkOptions{
 		json:        *asJSON,
@@ -149,6 +162,7 @@ func checkOptionsOf(args []string) (checkOptions, error) {
 		every:       *every,
 		commit:      *commit,
 		pullRequest: *pullRequest,
+		repeats:     *repeats,
 		plan:        positional[0],
 	}, nil
 }
@@ -283,7 +297,7 @@ func (c *checking) start(held *stationCheck, each plannedStation, options checkO
 		reference["pullRequest"] = options.pullRequest
 	}
 
-	body := map[string]any{"lineId": each.LineID, "stationKey": each.Key, "station": each.Block, "reference": reference}
+	body := map[string]any{"lineId": each.LineID, "stationKey": each.Key, "station": each.Block, "reference": reference, "repeats": options.repeats}
 	if each.Line != nil {
 		body["line"] = each.Line
 	}
@@ -345,7 +359,7 @@ func (c *checking) settle(held *stationCheck, read checkRead) {
 }
 
 func checkKey(each plannedStation, options checkOptions) string {
-	written, _ := json.Marshal([]any{each.LineID, each.Key, each.Block, each.Line, options.commit, options.pullRequest})
+	written, _ := json.Marshal([]any{each.LineID, each.Key, each.Block, each.Line, options.commit, options.pullRequest, options.repeats})
 	sum := sha256.Sum256(written)
 
 	return "replay-check-" + hex.EncodeToString(sum[:])
@@ -399,7 +413,13 @@ func (r *checkReport) print(out io.Writer) {
 		if read.UndecidedBecause != nil {
 			fmt.Fprintf(out, "  undecided: %s\n", undecidedSays(*read.UndecidedBecause))
 		}
+		if read.Repeats > 1 {
+			fmt.Fprintf(out, "  each run replayed %d times\n", read.Repeats)
+		}
 		fmt.Fprintf(out, "  candidate %s, baseline %s\n", sideSays(read.Candidate), sideSays(read.Baseline))
+		if read.Gain != nil {
+			fmt.Fprintf(out, "  %s\n", gainSays(*read.Gain, "the baseline"))
+		}
 		fmt.Fprintf(out, "  spent %s of a %s ceiling\n", spentSays(read.Candidate.Spent), money(read.Threshold.Ceiling))
 		if len(read.KeptLive) > 0 {
 			fmt.Fprintf(out, "  scored with the live %s, which the plan also changes\n", strings.Join(read.KeptLive, ", "))
@@ -432,29 +452,33 @@ func (r *checkReport) summarise(path string) error {
 		return err
 	}
 
-	written.WriteString("| Station | Verdict | Regressed | Candidate | Baseline | Spent | Replay |\n")
-	written.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
+	written.WriteString("| Station | Verdict | Regressed | Candidate | Baseline | Gain | Spent | Replay |\n")
+	written.WriteString("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
 	for _, each := range r.Stations {
-		regressed, candidate, baseline, spent, link := "", "", "", "", ""
+		regressed, candidate, baseline, gain, spent, link := "", "", "", "", "", ""
 		if read := each.Check; read != nil {
 			regressed = fmt.Sprintf("%d of %d (at most %d)", len(read.Regressions), read.Tasks, read.Threshold.MostRegressions)
 			candidate = sideSays(read.Candidate)
 			baseline = sideSays(read.Baseline)
+			gain = gainCell(read.Gain)
 			spent = spentSays(read.Candidate.Spent)
 		}
 		if each.URL != "" {
 			link = fmt.Sprintf("[open](%s)", each.URL)
 		}
-		fmt.Fprintf(&written, "| %s | %s | %s | %s | %s | %s | %s |\n", markdownCell(each.Station), markdownCell(each.Status), markdownCell(regressed), markdownCell(candidate), markdownCell(baseline), markdownCell(spent), link)
+		fmt.Fprintf(&written, "| %s | %s | %s | %s | %s | %s | %s | %s |\n", markdownCell(each.Station), markdownCell(each.Status), markdownCell(regressed), markdownCell(candidate), markdownCell(baseline), markdownCell(gain), markdownCell(spent), link)
 	}
 
 	for _, each := range r.Stations {
-		if each.Message == "" && (each.Check == nil || len(each.Check.Regressions) == 0) {
+		if each.Message == "" && (each.Check == nil || (len(each.Check.Regressions) == 0 && each.Check.Gain == nil)) {
 			continue
 		}
 		fmt.Fprintf(&written, "\n### %s\n\n", markdownCell(each.Station))
 		if each.Message != "" {
 			fmt.Fprintf(&written, "%s\n\n", markdownCell(each.Message))
+		}
+		if each.Check != nil && each.Check.Gain != nil {
+			fmt.Fprintf(&written, "%s\n\n", markdownCell(gainSays(*each.Check.Gain, "the baseline")))
 		}
 		if each.Check != nil {
 			for _, regressed := range each.Check.Regressions {
@@ -500,8 +524,24 @@ func sideSays(side checkSide) string {
 	if side.Succeeded == nil || side.SuccessRate == nil {
 		return "nothing scored yet"
 	}
+	if side.Interval == nil {
+		return fmt.Sprintf("%d of %d succeeded (%.0f%%)", *side.Succeeded, side.Scored, *side.SuccessRate*100)
+	}
 
-	return fmt.Sprintf("%d of %d succeeded (%.0f%%)", *side.Succeeded, side.Scored, *side.SuccessRate*100)
+	return fmt.Sprintf("%d of %d succeeded, %s over %d tasks", *side.Succeeded, side.Scored, intervalSays(*side.Interval), side.TasksScored)
+}
+
+func gainCell(gain *gainReading) string {
+	if gain == nil {
+		return "-"
+	}
+
+	verdict := gain.Verdict
+	if verdict == "within-noise" {
+		verdict = "within noise"
+	}
+
+	return fmt.Sprintf("%s points (%s to %s), %s", points(gain.Gain), points(gain.Low), points(gain.High), verdict)
 }
 
 func spentSays(spent *spend) string {
@@ -522,8 +562,8 @@ func taskSays(regressed checkRegression) string {
 
 func reasonsSay(regressed checkRegression) string {
 	baseline := "none"
-	if regressed.Baseline != nil {
-		baseline = *regressed.Baseline
+	if len(regressed.Baseline) > 0 {
+		baseline = strings.Join(regressed.Baseline, "/")
 	}
 
 	reasons := make([]string, 0, len(regressed.Reasons))
@@ -535,7 +575,7 @@ func reasonsSay(regressed checkRegression) string {
 		}
 	}
 
-	said := fmt.Sprintf("%s where the baseline %s", regressed.Candidate, baseline)
+	said := fmt.Sprintf("%s where the baseline %s", strings.Join(regressed.Candidate, "/"), baseline)
 	if len(reasons) > 0 {
 		said += ", " + strings.Join(reasons, "; ")
 	}

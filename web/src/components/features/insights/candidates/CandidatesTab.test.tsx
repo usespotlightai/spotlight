@@ -182,6 +182,14 @@ describe('the Candidates tab', () => {
       /24 tasks \(27 runs\) · ended 3–41 days ago · last added 2 days ago/,
     );
     expect(
+      implementation.querySelector('[data-slot="set-noise-summary"]'),
+    ).toHaveTextContent(
+      'Success moved 13 pts between 3 copies, more than the +5 pts the line counts as real, so one copy can’t tell a real gain from chance',
+    );
+    expect(
+      within(card('Code Review')).getByText('Noise not measured'),
+    ).toBeInTheDocument();
+    expect(
       implementation.querySelector('[data-slot="unpriced"]'),
     ).toHaveTextContent(
       'Not priced, so not shown: cursor-careful-profile (61%).',
@@ -212,11 +220,15 @@ describe('the Candidates tab', () => {
       within(picked).getByRole('list', { name: 'What changed' }),
     ).toBeInTheDocument();
     expect(picked).toHaveTextContent('Replayed16 tasks (18 runs)');
-    expect(picked).toHaveTextContent('Search score72% of 18 runs scored');
+    expect(picked).toHaveTextContent(
+      'Search score72% (50–89%) of 18 runs scored',
+    );
     expect(picked).toHaveTextContent('Cost per run$0.84');
     expect(
       picked.querySelector('[data-slot="against-live"]'),
-    ).toHaveTextContent('72% vs live 56% on the same 18 runs+16 pts');
+    ).toHaveTextContent(
+      '72% (52–90%) vs live 56% (36–74%) on the same 18 runs+16 pts(+2 to +30)· Better',
+    );
     expect(
       picked.querySelector('[data-slot="cost-against-live"]'),
     ).toHaveTextContent('cost $0.82 vs live $0.60 a run on the same 18 runs');
@@ -246,7 +258,9 @@ describe('the Candidates tab', () => {
     const heldOut = row('opus-with-migrations-skill').querySelector(
       '[data-slot="held-out"]',
     );
-    expect(heldOut).toHaveTextContent('Held out67% of 7 held-out runs');
+    expect(heldOut).toHaveTextContent(
+      'Held out67% (33–100%) of 7 held-out runs',
+    );
     expect(
       row('sonnet-terse-prompt').querySelector('[data-slot="held-out"]'),
     ).toHaveTextContent('Not held out');

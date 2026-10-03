@@ -797,6 +797,8 @@ describe('a search for a better station config', () => {
       runs: Record<string, number>;
       perReplayAllotments: Record<string, { amount: number }>;
       estimatedDuration: number | null;
+      minGain: number;
+      warnings: { kind: string }[];
     };
     const split = HeldOutSplit.drawn({
       searchId: SearchId.of('estimate'),
@@ -836,7 +838,26 @@ describe('a search for a better station config', () => {
       6,
     );
     expect(estimate.estimatedDuration).toBeNull();
+    expect(estimate.minGain).toBe(0.05);
+    expect(estimate.warnings).toEqual([{ kind: 'noise-unmeasured' }]);
     expect(await db.select().from(schema.replaySearch)).toEqual([]);
+
+    const repeated = (
+      await owner()
+        .post(`${stationPath()}/searches/estimate`, {
+          setId,
+          budget: { ...budgetOf(budget), repeats: 2 },
+        })
+        .expect(200)
+    ).body as { runs: Record<string, number> };
+
+    expect(repeated.runs).toEqual({
+      seed: expected.runs.seed * 2,
+      searchReplays: expected.runs.searchReplays * 2,
+      heldOutReplays: expected.runs.heldOutReplays * 2,
+      agent: expected.runs.agent,
+      total: expected.runs.total * 2 - expected.runs.agent,
+    });
 
     await owner()
       .post(`${stationPath()}/searches/estimate`, {

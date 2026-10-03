@@ -10,8 +10,15 @@ import {
   CHECK_VERDICTS,
   UNDECIDED_BECAUSE,
 } from '@replays/domain/services/replay-check-verdict';
+import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
-import { SpendResponseDto } from '@replays/presentation/http/dto/replays.response.dto';
+import {
+  GainReadingResponseDto,
+  gainResponse,
+  intervalResponse,
+  RateIntervalResponseDto,
+  SpendResponseDto,
+} from '@replays/presentation/http/dto/replays.response.dto';
 
 const ENTRY_RESULTS = ['pending', 'succeeded', 'failed', 'unscored'];
 
@@ -69,6 +76,16 @@ export class StartReplayCheckRequestDto {
 
   @ApiProperty({ type: PlannedReferenceRequestDto, required: false })
   readonly reference?: PlannedReferenceRequestDto;
+
+  @ApiProperty({
+    required: false,
+    example: 1,
+    minimum: 1,
+    maximum: MOST_REPEATS,
+    description:
+      'How many times the check replays each run of the set, 1 when left out; the line’s ceiling covers all of them',
+  })
+  readonly repeats?: number;
 }
 
 export class ReplayCheckThresholdResponseDto {
@@ -78,6 +95,13 @@ export class ReplayCheckThresholdResponseDto {
       'How many tasks the change may regress on and still pass, taken from the live line’s replay_check when the check started',
   })
   readonly mostRegressions: number;
+
+  @ApiProperty({
+    example: 0.05,
+    description:
+      'The smallest gain in success the live line’s replay_check counts as real, when the check started',
+  })
+  readonly minGain: number;
 
   @ApiProperty({
     type: SpendResponseDto,
@@ -96,6 +120,7 @@ export class ReplayCheckThresholdResponseDto {
 
   constructor(threshold: ReplayCheckDto['threshold']) {
     this.mostRegressions = threshold.mostRegressions;
+    this.minGain = threshold.minGain;
     this.ceiling = new SpendResponseDto(threshold.ceiling);
     this.unpricedRun =
       threshold.unpricedRun && new SpendResponseDto(threshold.unpricedRun);
@@ -136,6 +161,16 @@ export class ReplayCheckSideResponseDto {
   @ApiProperty({ nullable: true, type: Number })
   readonly successRate: number | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
+  @ApiProperty({ description: 'Tasks with at least one scored copy' })
+  readonly tasksScored: number;
+
   @ApiProperty({ type: SpendResponseDto, nullable: true })
   readonly spent: SpendResponseDto | null;
 
@@ -145,6 +180,8 @@ export class ReplayCheckSideResponseDto {
     this.scored = side.scored;
     this.succeeded = side.succeeded;
     this.successRate = side.successRate;
+    this.interval = intervalResponse(side.interval);
+    this.tasksScored = side.tasksScored;
     this.spent = side.spent && new SpendResponseDto(side.spent);
   }
 }
@@ -172,11 +209,19 @@ export class ReplayCheckRegressionResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly title: string | null;
 
-  @ApiProperty({ enum: ENTRY_RESULTS })
-  readonly candidate: string;
+  @ApiProperty({
+    enum: ENTRY_RESULTS,
+    isArray: true,
+    description: 'The result of each copy the candidate replayed',
+  })
+  readonly candidate: string[];
 
-  @ApiProperty({ enum: [...ENTRY_RESULTS, null], nullable: true, type: String })
-  readonly baseline: string | null;
+  @ApiProperty({
+    enum: ENTRY_RESULTS,
+    isArray: true,
+    description: 'The result of each copy the baseline replayed',
+  })
+  readonly baseline: string[];
 
   @ApiProperty({ nullable: true, type: Number })
   readonly scoreDelta: number | null;
@@ -188,8 +233,8 @@ export class ReplayCheckRegressionResponseDto {
     this.taskId = regression.taskId;
     this.originalRunId = regression.originalRunId;
     this.title = regression.title;
-    this.candidate = regression.candidate;
-    this.baseline = regression.baseline;
+    this.candidate = [...regression.candidate];
+    this.baseline = [...regression.baseline];
     this.scoreDelta = regression.scoreDelta;
     this.reasons = regression.reasons.map(
       (each) => new ReplayCheckReasonResponseDto(each),
@@ -262,6 +307,20 @@ export class ReplayCheckResponseDto {
   readonly threshold: ReplayCheckThresholdResponseDto;
 
   @ApiProperty({
+    example: 1,
+    description: 'How many times the check replays each run of the set',
+  })
+  readonly repeats: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the verdict',
+  })
+  readonly gain: GainReadingResponseDto | null;
+
+  @ApiProperty({
     enum: CHECK_VERDICTS,
     description:
       'failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise',
@@ -325,6 +384,8 @@ export class ReplayCheckResponseDto {
     this.candidateFingerprint = check.candidateFingerprint;
     this.keptLive = [...check.keptLive];
     this.threshold = new ReplayCheckThresholdResponseDto(check.threshold);
+    this.repeats = check.repeats;
+    this.gain = gainResponse(check.gain);
     this.verdict = check.verdict;
     this.undecidedBecause = check.undecidedBecause;
     this.tasks = check.tasks;

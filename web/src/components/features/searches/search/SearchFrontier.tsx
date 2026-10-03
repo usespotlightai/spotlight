@@ -1,4 +1,5 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import { FrontierChart } from '@/components/features/searches/search/FrontierChart';
 import { FrontierTable } from '@/components/features/searches/search/FrontierTable';
 import { stateShown } from '@/lib/replay-words';
@@ -7,7 +8,6 @@ import {
   candidatesOf,
   frontierPoints,
   type SearchDetail,
-  scoreShown,
 } from '@/lib/search';
 
 type SearchFrontierProps = {
@@ -37,12 +37,18 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
       {unpriced.length > 0 && (
         <p data-slot="unpriced" className="text-muted-foreground text-xs">
           Not priced, so not shown:{' '}
-          {unpriced
-            .map(
-              (each) =>
-                `${candidateName(each)} (${scoreShown(each.searchScore)})`,
-            )
-            .join(', ')}
+          {unpriced.map((each, place) => (
+            <span key={each.candidateId}>
+              {place > 0 && ', '}
+              {candidateName(each)} (
+              <RateWithInterval
+                rate={each.searchScore}
+                interval={each.searchInterval}
+                className="text-muted-foreground"
+              />
+              )
+            </span>
+          ))}
           .
         </p>
       )}

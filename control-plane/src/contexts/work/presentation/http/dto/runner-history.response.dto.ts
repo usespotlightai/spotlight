@@ -227,6 +227,12 @@ export class HistoryCandidateRunResponseDto {
   @ApiProperty({ description: 'The task run it replayed' })
   readonly original: string;
 
+  @ApiProperty({
+    example: 1,
+    description: 'Which copy of the task run it is, from 1',
+  })
+  readonly repeat: number;
+
   @ApiProperty()
   readonly taskId: string;
 
@@ -281,6 +287,7 @@ export class HistoryCandidateRunResponseDto {
   constructor(from: HistoryCandidateRunDto, trace: TaskTraceResponseDto) {
     this.runId = from.runId;
     this.original = from.original;
+    this.repeat = from.repeat;
     this.taskId = from.taskId;
     this.title = from.title;
     this.fingerprint = from.fingerprint;

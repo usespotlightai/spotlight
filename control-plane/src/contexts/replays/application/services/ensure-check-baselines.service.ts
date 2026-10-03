@@ -71,6 +71,7 @@ export class EnsureCheckBaselines implements OwedWorkPort {
           locked,
           await this.replays.ofSet(locked.id),
           check.liveDigests.scoring,
+          check.repeats,
         )
       ) {
         return;
@@ -83,7 +84,10 @@ export class EnsureCheckBaselines implements OwedWorkPort {
           candidate: await this.snapshots.taken(locked),
           baseline: true,
           ceiling: check.threshold.ceiling,
-          unpricedRate: check.threshold.unpricedRunIn(locked.entries.length),
+          unpricedRate: check.threshold.unpricedRunIn(
+            locked.entries.length * check.repeats,
+          ),
+          repeats: check.repeats,
           at: this.clock.now(),
           by: Attribution.spotlight(locked.workspaceId),
         }),

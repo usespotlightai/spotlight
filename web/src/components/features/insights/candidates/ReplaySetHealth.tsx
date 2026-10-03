@@ -3,6 +3,7 @@ import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type CandidatesSet, healthShown } from '@/lib/insights-candidates';
 import { type ReplayedStation, replaySetPath } from '@/lib/replay';
+import { noiseSummaryShown } from '@/lib/replay-words';
 
 type ReplaySetHealthProps = {
   at: ReplayedStation;
@@ -29,6 +30,12 @@ export function ReplaySetHealth({ at, set, now }: ReplaySetHealthProps) {
       </div>
       <p className="text-muted-foreground text-xs">
         {healthShown(set.health, now)}
+      </p>
+      <p
+        data-slot="set-noise-summary"
+        className="text-muted-foreground text-xs"
+      >
+        {noiseSummaryShown(set.health.noise, set.health.minGain)}
       </p>
       {!set.baseline && (
         <p className="text-muted-foreground text-xs">

@@ -8,6 +8,7 @@ type StartReplayInput = {
   setId: string;
   candidate: string;
   ceiling: Ceiling;
+  repeats: number;
 };
 
 export function useStartReplay() {
@@ -19,10 +20,11 @@ export function useStartReplay() {
       setId,
       candidate,
       ceiling,
+      repeats,
     }: StartReplayInput): Promise<ReplayStartedResponseDto> => {
       const { data } = await startReplay({
         path: { teamId, setId },
-        body: { candidate, ceiling },
+        body: { candidate, ceiling, repeats },
         throwOnError: true,
       });
       return data;

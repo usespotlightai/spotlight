@@ -1,20 +1,22 @@
 import { ExternalLink } from 'lucide-react';
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
 import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
+import { GainVerdict } from '@/components/features/replays/GainVerdict';
+import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
+import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
+import { ScoredRate } from '@/components/features/replays/ScoredRate';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
-  againstLive,
   changeLinkOf,
   comparedShown,
   costAgainstLiveShown,
   heldOutShown,
-  liveShown,
   markShown,
-  replaySuccessShown,
+  onTheSameShown,
   type SetCandidate,
   tasksShown,
+  VERSUS_LIVE,
 } from '@/lib/insights-candidates';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
 import { costPerRunShown } from '@/lib/search';
@@ -35,7 +37,6 @@ export function ReplayedCandidateRow({
   const heldOut = heldOutShown(candidate);
   const change = changeLinkOf(at, candidate);
   const costAgainstLive = costAgainstLiveShown(candidate);
-  const delta = againstLive(candidate).delta;
   const comparison = candidate.live ? replayPath(at, candidate.replayId) : null;
   const merged = !change.external && change.to === comparison;
 
@@ -79,14 +80,25 @@ export function ReplayedCandidateRow({
           <dt>
             {candidate.kind === 'searched' ? 'Search score' : 'Replay success'}
           </dt>
-          <dd className="text-foreground tabular-nums">
-            {replaySuccessShown(candidate.successRate, candidate.scored)}
+          <dd>
+            <ScoredRate
+              rate={candidate.successRate}
+              interval={candidate.interval}
+              scored={candidate.scored}
+            />
           </dd>
         </div>
         {heldOut && (
           <div data-slot="held-out" className="flex gap-1">
             <dt>Held out</dt>
-            <dd className="text-foreground tabular-nums">{heldOut}</dd>
+            <dd className="text-foreground tabular-nums">
+              <HeldOutScore
+                rate={candidate.heldOut?.score ?? null}
+                interval={candidate.heldOut?.interval ?? null}
+                runs={candidate.heldOut?.runs ?? null}
+                unscored={heldOut}
+              />
+            </dd>
           </div>
         )}
         <div className="flex gap-1">
@@ -103,9 +115,22 @@ export function ReplayedCandidateRow({
           className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs"
         >
           <span className="text-foreground tabular-nums">
-            {liveShown(candidate)}
+            <RateWithInterval
+              rate={candidate.successRateOnCompared}
+              interval={candidate.intervalOnCompared}
+            />{' '}
+            <span className="text-muted-foreground">{VERSUS_LIVE}</span>{' '}
+            <RateWithInterval
+              rate={candidate.live.successRate}
+              interval={candidate.live.interval}
+            />{' '}
+            <span className="text-muted-foreground">
+              {onTheSameShown(candidate.compared)}
+            </span>
           </span>
-          {delta && <DeltaShown delta={delta} against={null} />}
+          {candidate.againstLive && (
+            <GainVerdict gain={candidate.againstLive} />
+          )}
         </div>
       )}
 

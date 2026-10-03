@@ -15,6 +15,7 @@ export class StartReplayCheckCommand {
   constructor(
     readonly teamId: string,
     readonly change: CheckedChange,
+    readonly repeats: number,
     readonly actor: Actor,
     readonly idempotencyKey: string,
   ) {}

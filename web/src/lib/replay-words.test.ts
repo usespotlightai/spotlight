@@ -2,9 +2,18 @@ import { describe, expect, it } from 'vitest';
 import type { EntryReasonResponseDto } from '@/lib/api';
 import {
   checksShown,
+  copiesSucceededShown,
   failureShown,
+  flippedShown,
+  gainRangeShown,
+  gainShown,
+  intervalShown,
+  minGainShown,
+  noiseSummaryShown,
+  perRepeatShown,
   reasonShown,
   refusalShown,
+  repeatsShown,
   replayableShown,
   runStateShown,
   stateNote,
@@ -96,5 +105,44 @@ describe('replay words', () => {
   it('names run states it knows, and capitalises those it does not', () => {
     expect(runStateShown('claimed')).toBe('Running');
     expect(runStateShown('rewound')).toBe('Rewound');
+  });
+
+  it('shows a likely range and a gain in points', () => {
+    expect(intervalShown({ low: 0.48, high: 0.75 })).toBe('48–75%');
+    expect(gainShown({ gain: 0.12 })).toBe('+12 pts');
+    expect(gainShown({ gain: -0.031 })).toBe('−3 pts');
+    expect(gainShown({ gain: 0 })).toBe('0 pts');
+    expect(gainRangeShown({ low: -0.08, high: 0.15 })).toBe('−8 to +15');
+    expect(minGainShown(0.05)).toBe('+5 pts');
+  });
+
+  it('counts copies, repeats and the tasks that went both ways', () => {
+    expect(copiesSucceededShown(2, 3)).toBe('2 of 3 copies succeeded');
+    expect(copiesSucceededShown(0, 0)).toBe('No copy scored yet');
+    expect(repeatsShown(1)).toBe('Each run once');
+    expect(repeatsShown(3)).toBe('Each run 3 times');
+    expect(flippedShown(0)).toBe('No task went both ways');
+    expect(flippedShown(2)).toBe('2 tasks went both ways');
+    expect(perRepeatShown([0.5, 0.625])).toBe('50%, 63%');
+  });
+
+  it('sums up a set’s noise against what its line counts as real', () => {
+    expect(noiseSummaryShown(null, 0.05)).toBe('Noise not measured');
+    expect(
+      noiseSummaryShown(
+        {
+          replayId: 'r',
+          fingerprint: 'f',
+          repeats: 3,
+          perRepeat: [0.5, 0.52, 0.53],
+          spread: 0.03,
+          flippedTasks: [],
+          measuredAt: '2026-10-02T09:00:00.000Z',
+        },
+        0.05,
+      ),
+    ).toBe(
+      'Success moved 3 pts between 3 copies, within the +5 pts the line counts as real',
+    );
   });
 });

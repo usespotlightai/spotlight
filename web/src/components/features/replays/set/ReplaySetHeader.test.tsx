@@ -37,6 +37,8 @@ const SET: ReplaySet = {
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  noise: null,
+  minGain: 0.05,
   entries: [],
 };
 

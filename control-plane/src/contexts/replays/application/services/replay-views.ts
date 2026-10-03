@@ -3,19 +3,28 @@ import type {
   CandidateResourceDto,
   EntryJudgeDto,
   EntryResultDto,
+  GainReadingDto,
   ModelSpentDto,
+  RateIntervalDto,
   ReplayDto,
   ReplayEntryDto,
   ReplaySearchDto,
   ReplaySetDto,
+  SetNoiseDto,
   SpendDto,
 } from '@replays/application/dto/replays.dto';
 import type { StandingRun } from '@replays/application/ports/work.port';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import type { RateInterval } from '@replays/domain/services/bootstrap';
 import type { Scoring } from '@replays/domain/services/entry-result';
+import {
+  type GainReading,
+  gainBetween,
+} from '@replays/domain/services/gain-reading';
 import { totalsOf } from '@replays/domain/services/replay-results';
+import type { SetNoise } from '@replays/domain/services/set-noise';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
@@ -26,6 +35,32 @@ export const spendView = (spend: Spend): SpendDto => ({
   amount: spend.amount,
   currency: spend.currency,
 });
+
+export const intervalView = (
+  interval: RateInterval | null,
+): RateIntervalDto | null =>
+  interval && { rate: interval.rate, low: interval.low, high: interval.high };
+
+export const gainView = (gain: GainReading | null): GainReadingDto | null =>
+  gain && {
+    gain: gain.gain,
+    low: gain.low,
+    high: gain.high,
+    verdict: gain.verdict,
+    minGain: gain.minGain,
+    tasks: gain.tasks,
+  };
+
+export const noiseView = (noise: SetNoise | null): SetNoiseDto | null =>
+  noise && {
+    replayId: noise.replayId.value,
+    fingerprint: noise.fingerprint.value,
+    repeats: noise.repeats,
+    perRepeat: [...noise.perRepeat],
+    spread: noise.spread,
+    flippedTasks: [...noise.flippedTasks],
+    measuredAt: noise.measuredAt.toISOString(),
+  };
 
 export const modelSpentView = (
   spent: ModelSpent | null,
@@ -77,6 +112,7 @@ export const entryView = (
     position: entry.position,
     originalRunId: entry.original.value,
     taskId: entry.taskId.value,
+    repeat: entry.repeat,
     runId: entry.run?.value ?? null,
     fingerprint: entry.fingerprint?.value ?? null,
     phase: phaseOf(entry),
@@ -159,8 +195,10 @@ export const replayView = (
   replay: Replay,
   candidate: Candidate | null,
   baseline: Replay | null,
+  minGain: number,
 ): ReplayDto => {
   const totals = totalsOf(replay);
+  const against = baseline && !baseline.id.equals(replay.id) ? baseline : null;
 
   return {
     id: replay.id.value,
@@ -175,6 +213,7 @@ export const replayView = (
       amount: replay.ceiling.amount,
       currency: replay.ceiling.currency,
     },
+    repeats: replay.repeats,
     startedAt: replay.startedAt.toISOString(),
     endedAt: replay.endedAt?.toISOString() ?? null,
     totals: {
@@ -188,7 +227,10 @@ export const replayView = (
       notRun: totals.endings['not-run'],
       succeeded: totals.succeeded,
       successRate: totals.successRate,
+      interval: intervalView(totals.interval),
       scored: totals.scored,
+      tasks: totals.tasks,
+      tasksScored: totals.tasksScored,
       unscored: totals.unscored,
       spent: spendView(totals.spent),
       spentElsewhere: totals.spentElsewhere.map(spendView),
@@ -199,6 +241,7 @@ export const replayView = (
       ms: totals.ms,
       medianMs: totals.medianMs,
     },
+    againstBaseline: gainView(against && gainBetween(replay, against, minGain)),
     entries: replay.entries.map((each) => entryView(each, replay.scoring)),
   };
 };
@@ -206,6 +249,8 @@ export const replayView = (
 export const setView = (
   set: ReplaySet,
   replayable: readonly StandingRun[],
+  noise: SetNoise | null,
+  minGain: number,
 ): ReplaySetDto => ({
   id: set.id.value,
   lineId: set.station.lineId,
@@ -214,6 +259,8 @@ export const setView = (
   createdAt: set.createdAt.toISOString(),
   stationGone: set.isAtGoneStation,
   guardsChanges: set.guardsChanges,
+  noise: noiseView(noise),
+  minGain,
   entries: set.entries.map((entry) => {
     const now = replayable.find((each) => each.runId.equals(entry.runId));
 

@@ -8,14 +8,16 @@ export class ReplayCheckPolicy {
     readonly mostRegressions: number,
     readonly ceiling: number,
     readonly currency: string,
+    readonly minGain: number,
   ) {}
 
   static of(input: {
     mostRegressions: number;
     ceiling: number;
     currency: string;
+    minGain: number;
   }): ReplayCheckPolicy {
-    const { mostRegressions, ceiling } = input;
+    const { mostRegressions, ceiling, minGain } = input;
     const currency = input.currency.trim().toUpperCase();
 
     if (!Number.isInteger(mostRegressions) || mostRegressions < 0) {
@@ -37,6 +39,13 @@ export class ReplayCheckPolicy {
       );
     }
 
-    return new ReplayCheckPolicy(mostRegressions, ceiling, currency);
+    if (!Number.isFinite(minGain) || minGain <= 0 || minGain > 1) {
+      throw new InvalidReplayCheckPolicyError(
+        'minGain',
+        'is the smallest gain in success, as a share above 0 and at most 1, that counts as more than noise',
+      );
+    }
+
+    return new ReplayCheckPolicy(mostRegressions, ceiling, currency, minGain);
   }
 }

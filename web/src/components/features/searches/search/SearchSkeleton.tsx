@@ -9,7 +9,14 @@ type SearchSkeletonProps = {
   known: readonly BreadcrumbSegment[];
 };
 
-const TERMS = ['Budget', 'Agent', 'Progress', 'Spent', 'Best'] as const;
+const TERMS = [
+  'Budget',
+  'Live config',
+  'Agent',
+  'Progress',
+  'Spent',
+  'Best',
+] as const;
 
 export function SearchSkeleton({ known }: SearchSkeletonProps) {
   return (

@@ -5,6 +5,7 @@ import type {
   ReplaySetEntryDto,
 } from '@replays/application/dto/replays.dto';
 import { REPLAY_REFUSALS } from '@replays/domain/value-objects/replay-refusal';
+import { SetNoiseResponseDto } from '@replays/presentation/http/dto/replays.response.dto';
 
 export class ReplaySetEntryResponseDto {
   @ApiProperty({ example: '9b2f6c1e-4d3a-4e8b-a7f0-2c5d1e9b3a64' })
@@ -93,6 +94,21 @@ export class ReplaySetResponseDto {
   })
   readonly guardsChanges: boolean;
 
+  @ApiProperty({
+    nullable: true,
+    type: SetNoiseResponseDto,
+    description:
+      'How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has',
+  })
+  readonly noise: SetNoiseResponseDto | null;
+
+  @ApiProperty({
+    example: 0.05,
+    description:
+      'The smallest gain in success its line counts as real: replay_check.min_gain, or 0.05 when the line sets none',
+  })
+  readonly minGain: number;
+
   @ApiProperty({ type: ReplaySetEntryResponseDto, isArray: true })
   readonly entries: ReplaySetEntryResponseDto[];
 
@@ -104,6 +120,8 @@ export class ReplaySetResponseDto {
     this.createdAt = set.createdAt;
     this.stationGone = set.stationGone;
     this.guardsChanges = set.guardsChanges;
+    this.noise = set.noise ? new SetNoiseResponseDto(set.noise) : null;
+    this.minGain = set.minGain;
     this.entries = set.entries.map(
       (each) => new ReplaySetEntryResponseDto(each),
     );

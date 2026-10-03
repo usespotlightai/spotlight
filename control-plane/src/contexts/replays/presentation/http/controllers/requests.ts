@@ -84,6 +84,7 @@ const optionalTextAt = (
 export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
   const budget = fieldsOf(fieldsOf(body).budget);
   const concurrency = budget.concurrency;
+  const repeats = budget.repeats;
 
   return {
     iterations: countAt(
@@ -104,6 +105,14 @@ export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
             budget,
             ['budget', 'concurrency'],
             'is how many replay runs the search runs at once, as a number',
+          ),
+    repeats:
+      repeats === undefined || repeats === null
+        ? null
+        : countAt(
+            budget,
+            ['budget', 'repeats'],
+            'is how many times each replay replays each run, as a number',
           ),
   };
 };
@@ -131,6 +140,19 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
       'names the agent’s effort, or is left out',
     ),
   };
+};
+
+export const repeatsIn = (body: unknown): number => {
+  const held = fieldsOf(body);
+  const repeats = held.repeats;
+
+  return repeats === undefined || repeats === null
+    ? 1
+    : countAt(
+        held,
+        ['repeats'],
+        'is how many times the replay replays each run, as a number',
+      );
 };
 
 export const referenceIn = (

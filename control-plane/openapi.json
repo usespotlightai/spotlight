@@ -22326,12 +22326,18 @@
             "type": "string",
             "example": "USD",
             "description": "The currency of the ceiling"
+          },
+          "minGain": {
+            "type": "number",
+            "example": 0.05,
+            "description": "The smallest gain in success, as a share, that counts as more than noise when replays are compared"
           }
         },
         "required": [
           "mostRegressions",
           "ceiling",
-          "currency"
+          "currency",
+          "minGain"
         ]
       },
       "LineResponseDto": {
@@ -22549,7 +22555,8 @@
               "replayCheck": {
                 "mostRegressions": 0,
                 "ceiling": 10,
-                "currency": "USD"
+                "currency": "USD",
+                "minGain": 0.05
               }
             }
           }
@@ -23592,6 +23599,11 @@
             "type": "string",
             "description": "The task run it replayed"
           },
+          "repeat": {
+            "type": "number",
+            "example": 1,
+            "description": "Which copy of the task run it is, from 1"
+          },
           "taskId": {
             "type": "string"
           },
@@ -23658,6 +23670,7 @@
         "required": [
           "runId",
           "original",
+          "repeat",
           "taskId",
           "title",
           "fingerprint",
@@ -36399,6 +36412,54 @@
           "items"
         ]
       },
+      "SetNoiseResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string",
+            "description": "The finished live replay, run more than once, the noise was measured on"
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "The live config fingerprint it replayed"
+          },
+          "repeats": {
+            "type": "number",
+            "example": 3
+          },
+          "perRepeat": {
+            "description": "The success rate of each copy of the set, in order",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "spread": {
+            "type": "number",
+            "example": 0.1,
+            "description": "The highest copy’s success rate less the lowest’s"
+          },
+          "flippedTasks": {
+            "description": "Tasks whose copies disagree, succeeding in one and failing in another",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "measuredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "replayId",
+          "fingerprint",
+          "repeats",
+          "perRepeat",
+          "spread",
+          "flippedTasks",
+          "measuredAt"
+        ]
+      },
       "ReplaySetEntryResponseDto": {
         "type": "object",
         "properties": {
@@ -36500,6 +36561,21 @@
             "type": "boolean",
             "description": "Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set"
           },
+          "noise": {
+            "nullable": true,
+            "description": "How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetNoiseResponseDto"
+              }
+            ]
+          },
+          "minGain": {
+            "type": "number",
+            "example": 0.05,
+            "description": "The smallest gain in success its line counts as real: replay_check.min_gain, or 0.05 when the line sets none"
+          },
           "entries": {
             "type": "array",
             "items": {
@@ -36515,6 +36591,8 @@
           "createdAt",
           "stationGone",
           "guardsChanges",
+          "noise",
+          "minGain",
           "entries"
         ]
       },
@@ -36671,6 +36749,31 @@
           "createdAt"
         ]
       },
+      "RateIntervalResponseDto": {
+        "type": "object",
+        "properties": {
+          "rate": {
+            "type": "number",
+            "example": 0.62,
+            "description": "The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks"
+          },
+          "low": {
+            "type": "number",
+            "example": 0.48,
+            "description": "The low end of the 95% interval, bootstrapped over the tasks"
+          },
+          "high": {
+            "type": "number",
+            "example": 0.75,
+            "description": "The high end of the 95% interval, bootstrapped over the tasks"
+          }
+        },
+        "required": [
+          "rate",
+          "low",
+          "high"
+        ]
+      },
       "ReplayTotalsResponseDto": {
         "type": "object",
         "properties": {
@@ -36705,11 +36808,29 @@
           "successRate": {
             "type": "number",
             "nullable": true,
-            "description": "Of the scored entries, the share that succeeded"
+            "description": "Per task, the share of its scored copies that succeeded, averaged over the tasks scored"
+          },
+          "interval": {
+            "nullable": true,
+            "description": "The success rate with its 95% interval over the tasks",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
           },
           "scored": {
             "type": "number",
             "description": "Entries that succeeded or failed"
+          },
+          "tasks": {
+            "type": "number",
+            "description": "Original runs it replays, each once or more"
+          },
+          "tasksScored": {
+            "type": "number",
+            "description": "Original runs with at least one scored copy"
           },
           "unscored": {
             "type": "number",
@@ -36764,7 +36885,10 @@
           "notRun",
           "succeeded",
           "successRate",
+          "interval",
           "scored",
+          "tasks",
+          "tasksScored",
           "unscored",
           "spent",
           "spentElsewhere",
@@ -36774,6 +36898,52 @@
           "medianSteps",
           "ms",
           "medianMs"
+        ]
+      },
+      "GainReadingResponseDto": {
+        "type": "object",
+        "properties": {
+          "gain": {
+            "type": "number",
+            "example": 0.08,
+            "description": "The success rate gained over what it is compared with, on the tasks both scored"
+          },
+          "low": {
+            "type": "number",
+            "example": -0.02,
+            "description": "The low end of the 95% interval of the gain, a paired bootstrap over the tasks"
+          },
+          "high": {
+            "type": "number",
+            "example": 0.18,
+            "description": "The high end of the 95% interval of the gain"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "better",
+              "worse",
+              "within-noise"
+            ],
+            "description": "better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise"
+          },
+          "minGain": {
+            "type": "number",
+            "example": 0.05,
+            "description": "The smallest gain the line counts as real"
+          },
+          "tasks": {
+            "type": "number",
+            "description": "The tasks both sides scored, paired"
+          }
+        },
+        "required": [
+          "gain",
+          "low",
+          "high",
+          "verdict",
+          "minGain",
+          "tasks"
         ]
       },
       "EntryChecksResponseDto": {
@@ -36976,6 +37146,11 @@
           "taskId": {
             "type": "string"
           },
+          "repeat": {
+            "type": "number",
+            "example": 1,
+            "description": "Which copy of the original run this is, from 1"
+          },
           "runId": {
             "type": "string",
             "nullable": true,
@@ -37147,6 +37322,7 @@
           "position",
           "originalRunId",
           "taskId",
+          "repeat",
           "runId",
           "fingerprint",
           "phase",
@@ -37217,6 +37393,11 @@
           "ceiling": {
             "$ref": "#/components/schemas/SpendResponseDto"
           },
+          "repeats": {
+            "type": "number",
+            "example": 1,
+            "description": "How many times it replays each run of its set"
+          },
           "startedAt": {
             "type": "string"
           },
@@ -37226,6 +37407,16 @@
           },
           "totals": {
             "$ref": "#/components/schemas/ReplayTotalsResponseDto"
+          },
+          "againstBaseline": {
+            "nullable": true,
+            "description": "Its gain in success over the set’s baseline, with whether it is within noise; null for the baseline itself or with none",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
           },
           "entries": {
             "type": "array",
@@ -37244,9 +37435,11 @@
           "checks",
           "state",
           "ceiling",
+          "repeats",
           "startedAt",
           "endedAt",
           "totals",
+          "againstBaseline",
           "entries"
         ]
       },
@@ -37280,6 +37473,13 @@
           },
           "ceiling": {
             "$ref": "#/components/schemas/StartReplayCeilingRequestDto"
+          },
+          "repeats": {
+            "type": "number",
+            "example": 1,
+            "minimum": 1,
+            "maximum": 5,
+            "description": "How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals"
           }
         },
         "required": [
@@ -37380,21 +37580,33 @@
             "description": "The title of the task the original run worked, as it reads now; null once the task is deleted"
           },
           "candidate": {
-            "$ref": "#/components/schemas/ReplayEntryResponseDto"
+            "description": "Each copy of the task the candidate replayed",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplayEntryResponseDto"
+            }
           },
           "baseline": {
+            "description": "Each copy of the task the baseline replayed; none without one",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplayEntryResponseDto"
+            }
+          },
+          "candidateSuccess": {
+            "type": "number",
             "nullable": true,
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ReplayEntryResponseDto"
-              }
-            ]
+            "description": "The share of the candidate’s scored copies that succeeded"
+          },
+          "baselineSuccess": {
+            "type": "number",
+            "nullable": true,
+            "description": "The share of the baseline’s scored copies that succeeded"
           },
           "costDelta": {
             "type": "number",
             "nullable": true,
-            "description": "Candidate cost less the baseline’s, once both settled"
+            "description": "Candidate cost less the baseline’s, each averaged over its copies, once both settled"
           },
           "msDelta": {
             "type": "number",
@@ -37422,7 +37634,7 @@
           },
           "regressed": {
             "type": "boolean",
-            "description": "The baseline succeeded on this task and the candidate failed, or its judge score dropped"
+            "description": "The baseline’s share of copies that succeeded is more than half above the candidate’s (with one copy each: the baseline succeeded and the candidate failed), or its average judge score dropped"
           }
         },
         "required": [
@@ -37431,6 +37643,8 @@
           "title",
           "candidate",
           "baseline",
+          "candidateSuccess",
+          "baselineSuccess",
           "costDelta",
           "msDelta",
           "stepsDelta",
@@ -37486,6 +37700,11 @@
           "ceiling": {
             "$ref": "#/components/schemas/SpendResponseDto"
           },
+          "repeats": {
+            "type": "number",
+            "example": 1,
+            "description": "How many times it replays each run of its set"
+          },
           "startedAt": {
             "type": "string"
           },
@@ -37495,6 +37714,16 @@
           },
           "totals": {
             "$ref": "#/components/schemas/ReplayTotalsResponseDto"
+          },
+          "againstBaseline": {
+            "nullable": true,
+            "description": "Its gain in success over the set’s baseline, with whether it is within noise; null for the baseline itself or with none",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
           },
           "entries": {
             "type": "array",
@@ -37534,9 +37763,11 @@
           "checks",
           "state",
           "ceiling",
+          "repeats",
           "startedAt",
           "endedAt",
           "totals",
+          "againstBaseline",
           "entries",
           "baselineReplayId",
           "search",
@@ -37665,13 +37896,19 @@
           "concurrency": {
             "type": "number",
             "example": 4
+          },
+          "repeats": {
+            "type": "number",
+            "example": 1,
+            "description": "How many times each of its replays replays each run"
           }
         },
         "required": [
           "iterations",
           "perIteration",
           "ceiling",
-          "concurrency"
+          "concurrency",
+          "repeats"
         ]
       },
       "SearchBestResponseDto": {
@@ -37693,10 +37930,30 @@
             "nullable": true,
             "description": "Its success rate on the searched tasks, 0 to 1"
           },
+          "searchInterval": {
+            "nullable": true,
+            "description": "Its success rate on the searched tasks with its 95% interval",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
           "heldOutScore": {
             "type": "number",
             "nullable": true,
             "description": "Its success rate on the held-out tasks, 0 to 1, once they are replayed"
+          },
+          "heldOutInterval": {
+            "nullable": true,
+            "description": "Its held-out success rate with its 95% interval",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
           },
           "costPerRun": {
             "type": "number",
@@ -37709,7 +37966,9 @@
           "name",
           "seed",
           "searchScore",
+          "searchInterval",
           "heldOutScore",
+          "heldOutInterval",
           "costPerRun"
         ]
       },
@@ -37842,6 +38101,13 @@
             "minimum": 1,
             "maximum": 10,
             "description": "How many of its replay runs it runs at once, beside the team’s own; 4 unless told"
+          },
+          "repeats": {
+            "type": "number",
+            "example": 1,
+            "minimum": 1,
+            "maximum": 5,
+            "description": "How many times each of its replays replays each run: the seed, every candidate and the held-out replays; 1 unless told. Runs and cost grow with it"
           }
         },
         "required": [
@@ -37864,6 +38130,59 @@
         "required": [
           "setId",
           "budget"
+        ]
+      },
+      "NoiseUnmeasuredWarningResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "noise-unmeasured"
+            ],
+            "description": "No finished replay of the live config ran the set more than once, so nobody knows how much its success moves by chance"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "NoisyWarningResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "noisy"
+            ],
+            "description": "The set’s success moves more between copies than the line’s min_gain, so a single copy cannot tell a real gain from noise"
+          },
+          "spread": {
+            "type": "number",
+            "example": 0.12,
+            "description": "How far the set’s success moved between copies"
+          },
+          "minGain": {
+            "type": "number",
+            "example": 0.05
+          },
+          "neededRepeats": {
+            "type": "number",
+            "example": 6,
+            "description": "The repeats it would take to bring the noise under min_gain, however many; more than 5 means no search of this set can tell such a gain from noise"
+          },
+          "suggestedRepeats": {
+            "type": "number",
+            "example": 5,
+            "description": "The repeats to ask for: the needed ones, at most 5"
+          }
+        },
+        "required": [
+          "kind",
+          "spread",
+          "minGain",
+          "neededRepeats",
+          "suggestedRepeats"
         ]
       },
       "SearchRunsEstimateResponseDto": {
@@ -37974,6 +38293,32 @@
             "type": "number",
             "nullable": true,
             "description": "Roughly how long it takes at its concurrency, in milliseconds, from how long the set’s runs took; unknown when none of them was timed"
+          },
+          "minGain": {
+            "type": "number",
+            "example": 0.05,
+            "description": "The smallest gain its line counts as real"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NoiseUnmeasuredWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/NoisyWarningResponseDto"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "noise-unmeasured": "#/components/schemas/NoiseUnmeasuredWarningResponseDto",
+                  "noisy": "#/components/schemas/NoisyWarningResponseDto"
+                }
+              }
+            },
+            "description": "What would make its results hard to trust; a search may start all the same"
           }
         },
         "required": [
@@ -37982,7 +38327,9 @@
           "runs",
           "ceiling",
           "perReplayAllotments",
-          "estimatedDuration"
+          "estimatedDuration",
+          "minGain",
+          "warnings"
         ]
       },
       "SearchAgentRequestDto": {
@@ -38044,11 +38391,33 @@
           "seedReplayId": {
             "type": "string",
             "description": "The replay of the live config over the whole set, the search starts from; its agent runs once it ends"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NoiseUnmeasuredWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/NoisyWarningResponseDto"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "noise-unmeasured": "#/components/schemas/NoiseUnmeasuredWarningResponseDto",
+                  "noisy": "#/components/schemas/NoisyWarningResponseDto"
+                }
+              }
+            },
+            "description": "What makes its results hard to trust; the search starts all the same"
           }
         },
         "required": [
           "id",
-          "seedReplayId"
+          "seedReplayId",
+          "warnings"
         ]
       },
       "SearchSplitEntryResponseDto": {
@@ -38331,14 +38700,54 @@
             "nullable": true,
             "description": "Its success rate on the searched tasks, 0 to 1"
           },
+          "searchInterval": {
+            "nullable": true,
+            "description": "Its success rate on the searched tasks with its 95% interval",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
           "searchScored": {
             "type": "number",
-            "description": "How many searched tasks it was scored on"
+            "description": "How many searched replay runs, copies included, it was scored on"
           },
           "heldOutScore": {
             "type": "number",
             "nullable": true,
             "description": "Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished"
+          },
+          "heldOutInterval": {
+            "nullable": true,
+            "description": "Its held-out success rate with its 95% interval",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
+          "searchedGain": {
+            "nullable": true,
+            "description": "Its gain over the seed on the searched tasks, paired task by task, and whether it is within noise; null for the seed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
+          },
+          "heldOutGain": {
+            "nullable": true,
+            "description": "Its gain over the seed on the held-out tasks, once its held-out replay finished; null for the seed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
           },
           "costPerRun": {
             "type": "number",
@@ -38376,8 +38785,12 @@
           "heldOutReplayId",
           "heldOutReplayState",
           "searchScore",
+          "searchInterval",
           "searchScored",
           "heldOutScore",
+          "heldOutInterval",
+          "searchedGain",
+          "heldOutGain",
           "costPerRun",
           "spent",
           "onFrontier",
@@ -38493,6 +38906,11 @@
             "items": {
               "type": "string"
             }
+          },
+          "minGain": {
+            "type": "number",
+            "example": 0.05,
+            "description": "The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none"
           }
         },
         "required": [
@@ -38514,7 +38932,8 @@
           "iterations",
           "seed",
           "candidates",
-          "frontier"
+          "frontier",
+          "minGain"
         ]
       },
       "ConfigPullRequestResponseDto": {
@@ -38685,6 +39104,13 @@
           },
           "reference": {
             "$ref": "#/components/schemas/PlannedReferenceRequestDto"
+          },
+          "repeats": {
+            "type": "number",
+            "example": 1,
+            "minimum": 1,
+            "maximum": 5,
+            "description": "How many times the check replays each run of the set, 1 when left out; the line’s ceiling covers all of them"
           }
         },
         "required": [
@@ -38718,6 +39144,11 @@
             "example": 0,
             "description": "How many tasks the change may regress on and still pass, taken from the live line’s replay_check when the check started"
           },
+          "minGain": {
+            "type": "number",
+            "example": 0.05,
+            "description": "The smallest gain in success the live line’s replay_check counts as real, when the check started"
+          },
           "ceiling": {
             "description": "The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay reaching its ceiling starts no more runs, though runs already going finish, so it may end a little over it",
             "allOf": [
@@ -38739,6 +39170,7 @@
         },
         "required": [
           "mostRegressions",
+          "minGain",
           "ceiling",
           "unpricedRun"
         ]
@@ -38773,6 +39205,20 @@
             "type": "number",
             "nullable": true
           },
+          "interval": {
+            "nullable": true,
+            "description": "The success rate with its 95% interval over the tasks",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
+          "tasksScored": {
+            "type": "number",
+            "description": "Tasks with at least one scored copy"
+          },
           "spent": {
             "nullable": true,
             "type": "object",
@@ -38789,6 +39235,8 @@
           "scored",
           "succeeded",
           "successRate",
+          "interval",
+          "tasksScored",
           "spent"
         ]
       },
@@ -38823,24 +39271,30 @@
             "nullable": true
           },
           "candidate": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "succeeded",
-              "failed",
-              "unscored"
-            ]
+            "type": "array",
+            "description": "The result of each copy the candidate replayed",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "succeeded",
+                "failed",
+                "unscored"
+              ]
+            }
           },
           "baseline": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "succeeded",
-              "failed",
-              "unscored",
-              null
-            ],
-            "nullable": true
+            "type": "array",
+            "description": "The result of each copy the baseline replayed",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "succeeded",
+                "failed",
+                "unscored"
+              ]
+            }
           },
           "scoreDelta": {
             "type": "number",
@@ -38933,6 +39387,21 @@
           "threshold": {
             "$ref": "#/components/schemas/ReplayCheckThresholdResponseDto"
           },
+          "repeats": {
+            "type": "number",
+            "example": 1,
+            "description": "How many times the check replays each run of the set"
+          },
+          "gain": {
+            "nullable": true,
+            "description": "The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the verdict",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
+          },
           "verdict": {
             "type": "string",
             "enum": [
@@ -39008,6 +39477,8 @@
           "candidateFingerprint",
           "keptLive",
           "threshold",
+          "repeats",
+          "gain",
           "verdict",
           "undecidedBecause",
           "tasks",
@@ -39192,6 +39663,21 @@
             "nullable": true,
             "example": "2026-09-29T09:00:00.000Z",
             "description": "When a task was last added to it; null while it holds none"
+          },
+          "noise": {
+            "nullable": true,
+            "description": "How much its success moves between copies of the same runs under the live config; null until a finished live replay ran it more than once",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetNoiseResponseDto"
+              }
+            ]
+          },
+          "minGain": {
+            "type": "number",
+            "example": 0.05,
+            "description": "The smallest gain in success its line counts as real"
           }
         },
         "required": [
@@ -39199,7 +39685,9 @@
           "runs",
           "oldestRunEndedAt",
           "newestRunEndedAt",
-          "lastAddedAt"
+          "lastAddedAt",
+          "noise",
+          "minGain"
         ]
       },
       "ReplayedBaselineResponseDto": {
@@ -39232,6 +39720,16 @@
             "nullable": true,
             "description": "A success rate, 0 to 1, of the past runs it was scored on, each a replay of one past run; a task worked twice counts twice"
           },
+          "interval": {
+            "nullable": true,
+            "description": "The success rate with its 95% interval over the tasks",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
           "costPerRun": {
             "type": "number",
             "nullable": true,
@@ -39252,6 +39750,7 @@
           "fingerprint",
           "scored",
           "successRate",
+          "interval",
           "costPerRun",
           "currency",
           "endedAt"
@@ -39280,6 +39779,16 @@
             "nullable": true,
             "description": "Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished"
           },
+          "interval": {
+            "nullable": true,
+            "description": "The success rate with its 95% interval over the tasks",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
           "tasks": {
             "type": "number",
             "description": "How many distinct tasks the search held out"
@@ -39293,6 +39802,7 @@
           "replayId",
           "state",
           "score",
+          "interval",
           "tasks",
           "runs"
         ]
@@ -39304,6 +39814,16 @@
             "type": "number",
             "nullable": true,
             "description": "A success rate, 0 to 1, of the past runs it was scored on, each a replay of one past run; a task worked twice counts twice"
+          },
+          "interval": {
+            "nullable": true,
+            "description": "The success rate with its 95% interval over the tasks",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
           },
           "costPerRun": {
             "type": "number",
@@ -39318,6 +39838,7 @@
         },
         "required": [
           "successRate",
+          "interval",
           "costPerRun",
           "currency"
         ]
@@ -39329,6 +39850,16 @@
             "type": "number",
             "nullable": true,
             "description": "The live config’s success rate on the searched runs, 0 to 1, as the search page shows the seed’s search score"
+          },
+          "interval": {
+            "nullable": true,
+            "description": "The success rate with its 95% interval over the tasks",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
           },
           "costPerRun": {
             "type": "number",
@@ -39342,6 +39873,7 @@
         },
         "required": [
           "successRate",
+          "interval",
           "costPerRun",
           "scored"
         ]
@@ -39451,6 +39983,16 @@
             "nullable": true,
             "description": "Its replay success rate, 0 to 1, over all the runs it was scored on, scored by its own checks and judge; not how live runs went. The search score when searched, as its search page shows it; as its replay page totals it when proposed"
           },
+          "interval": {
+            "nullable": true,
+            "description": "The success rate with its 95% interval over the tasks",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
           "scored": {
             "type": "number",
             "description": "How many of its runs it was scored on"
@@ -39489,6 +40031,16 @@
             "nullable": true,
             "description": "The candidate’s own success rate on the compared runs only, 0 to 1, to set beside live; null without a baseline"
           },
+          "intervalOnCompared": {
+            "nullable": true,
+            "description": "The candidate’s success rate on the compared runs with its 95% interval over their tasks; null without a baseline",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
           "costPerRunOnCompared": {
             "type": "number",
             "nullable": true,
@@ -39502,6 +40054,16 @@
           "compared": {
             "type": "number",
             "description": "How many of its runs the baseline replayed too: the runs live and successRateOnCompared cover"
+          },
+          "againstLive": {
+            "nullable": true,
+            "description": "Its gain in success over the baseline on the compared runs, paired task by task, and whether it is within noise; null without a baseline",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
           },
           "onFrontier": {
             "type": "boolean",
@@ -39542,15 +40104,18 @@
           "tasks",
           "runs",
           "successRate",
+          "interval",
           "scored",
           "heldOut",
           "costPerRun",
           "currency",
           "live",
           "successRateOnCompared",
+          "intervalOnCompared",
           "costPerRunOnCompared",
           "regressions",
           "compared",
+          "againstLive",
           "onFrontier",
           "search",
           "pullRequest"

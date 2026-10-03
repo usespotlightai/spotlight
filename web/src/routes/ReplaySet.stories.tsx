@@ -15,6 +15,7 @@ import {
   seedReplaySet,
   seedReplaySetAwaiting,
   seedReplaySetChecksAwaiting,
+  seedReplaySetWithNoise,
   TEAM_ID,
 } from '@/stories/fixtures/replays';
 import { StoryPage } from '@/stories/StoryPage';
@@ -73,6 +74,15 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedReplaySet}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const NoiseMeasured: Story = {
+  name: 'Noise measured',
+  render: () => (
+    <StoryPage at={at} seed={seedReplaySetWithNoise}>
       {routes}
     </StoryPage>
   ),

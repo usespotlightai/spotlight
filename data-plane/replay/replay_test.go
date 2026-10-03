@@ -62,8 +62,8 @@ func replayOf(state string, regressed bool) string {
   "totals":{"entries":2,"settled":2,"succeeded":1,"successRate":0.5,"scored":2,"unscored":0,"spent":{"amount":1.25,"currency":"USD"}},
   "baselineReplayId":"replay_base",
   "comparison":[
-    {"taskId":"task_2","candidate":{"result":"` + candidateResult + `"},"baseline":{"result":"` + baselineResult + `"},"costDelta":0.1,"stepsDelta":3,"scoreDelta":null,"regressed":` + map[bool]string{true: "true", false: "false"}[regressed] + `},
-    {"taskId":"task_1","candidate":{"result":"succeeded"},"baseline":null,"costDelta":null,"stepsDelta":null,"scoreDelta":null,"regressed":false}
+    {"taskId":"task_2","candidate":[{"result":"` + candidateResult + `"}],"baseline":[{"result":"` + baselineResult + `"}],"costDelta":0.1,"stepsDelta":3,"scoreDelta":null,"regressed":` + map[bool]string{true: "true", false: "false"}[regressed] + `},
+    {"taskId":"task_1","candidate":[{"result":"succeeded"}],"baseline":[],"costDelta":null,"stepsDelta":null,"scoreDelta":null,"regressed":false}
   ]}`
 }
 
@@ -333,10 +333,51 @@ func TestStartReplaysASetUnderACandidateNamedWithinACeiling(t *testing.T) {
 	}
 
 	sent := spotlight.last(http.MethodPost, "/api/teams/team_1/replay-sets/set_1/replays")
-	if sent.body["candidate"] != "cand_1" || sent.body["ceiling"].(map[string]any)["amount"] != 5.0 || sent.body["ceiling"].(map[string]any)["currency"] != "USD" {
+	if sent.body["candidate"] != "cand_1" || sent.body["ceiling"].(map[string]any)["amount"] != 5.0 || sent.body["ceiling"].(map[string]any)["currency"] != "USD" || sent.body["repeats"] != 1.0 {
 		t.Fatalf("sent %v", sent.body)
 	}
 	for _, want := range []string{"replay_1", "replay_base", "spotlight replay watch --team core replay_1"} {
+		if !strings.Contains(said, want) {
+			t.Fatalf("said %q, want %q", said, want)
+		}
+	}
+}
+
+func TestStartReplaysEachRunAsOftenAsAsked(t *testing.T) {
+	spotlight := serve(t)
+
+	said, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "3")
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if sent := spotlight.last(http.MethodPost, "/api/teams/team_1/replay-sets/set_1/replays"); sent.body["repeats"] != 3.0 {
+		t.Fatalf("sent %v", sent.body)
+	}
+	if !strings.Contains(said, "replays each run 3 times") {
+		t.Fatalf("said %q", said)
+	}
+	if _, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "6"); err == nil || !strings.Contains(err.Error(), "--repeats") {
+		t.Fatalf("err = %v, want --repeats refused", err)
+	}
+}
+
+func TestStatusGivesEachRateItsIntervalAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
+	spotlight := serve(t)
+	spotlight.replays = []string{strings.Replace(
+		strings.Replace(replayOf("finished", false), `"totals":{"entries":2,`, `"repeats":2,"againstBaseline":{"gain":-0.5,"low":-1,"high":0,"verdict":"within-noise","minGain":0.05,"tasks":2},"totals":{"interval":{"rate":0.5,"low":0,"high":1},"tasks":2,"tasksScored":2,"entries":2,`, 1),
+		`"candidate":[{"result":"succeeded"}],"baseline":[]`, `"candidate":[{"result":"succeeded"},{"result":"failed"}],"baseline":[]`, 1,
+	)}
+
+	said, err := replaying("status", "--team", "core", "replay_1")
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	for _, want := range []string{
+		"It replays each run 2 times.",
+		"Succeeded: 1 of 2 (50%); 50% (0–100%) over 2 of 2 tasks, 0 unscored",
+		"Within noise of the baseline: -50 points (-100 to +0) over 2 tasks",
+		"succeeded/failed",
+	} {
 		if !strings.Contains(said, want) {
 			t.Fatalf("said %q, want %q", said, want)
 		}

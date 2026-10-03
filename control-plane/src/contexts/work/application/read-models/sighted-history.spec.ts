@@ -19,6 +19,7 @@ const SIGHT = aSight({
         {
           runId: 'run_c',
           original: 'run_a',
+          repeat: 1,
           succeeded: true,
           reasons: [],
           verdict: 'pass',

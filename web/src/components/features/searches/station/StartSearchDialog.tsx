@@ -2,6 +2,7 @@ import { type FormEvent, useId, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CountField } from '@/components/features/searches/station/CountField';
 import { SearchEstimateSummary } from '@/components/features/searches/station/SearchEstimateSummary';
+import { SearchWarnings } from '@/components/features/searches/station/SearchWarnings';
 import { SetChoice } from '@/components/features/searches/station/SetChoice';
 import { HarnessSelect } from '@/components/features/stations/HarnessSelect';
 import { ModelEffortSelect } from '@/components/features/stations/ModelEffortSelect';
@@ -25,6 +26,7 @@ import {
   type ReplaySet,
   USUAL_CURRENCY,
 } from '@/lib/replay';
+import { REPEATS_HINT } from '@/lib/replay-words';
 import {
   agentOf,
   type BudgetInputs,
@@ -47,6 +49,7 @@ const FIRST_BUDGET: BudgetInputs = {
   iterations: '3',
   perIteration: '2',
   concurrency: String(DEFAULT_CONCURRENCY),
+  repeats: '1',
   amount: '',
   currency: USUAL_CURRENCY,
 };
@@ -193,7 +196,7 @@ export function StartSearchDialog({
             )}
           </fieldset>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <CountField
               label="Iterations"
               hint="How many times its agent runs, 1 to 10."
@@ -217,6 +220,14 @@ export function StartSearchDialog({
               problem={shown('concurrency')}
               disabled={start.isPending}
               onChange={change('concurrency')}
+            />
+            <CountField
+              label="Repeats"
+              hint={REPEATS_HINT}
+              value={inputs.repeats}
+              problem={shown('repeats')}
+              disabled={start.isPending}
+              onChange={change('repeats')}
             />
           </div>
 
@@ -310,6 +321,7 @@ export function StartSearchDialog({
 
           <SearchEstimateSummary
             estimate={estimate.data}
+            repeats={settled?.budget.repeats ?? 1}
             asked={settled !== null}
             estimating={estimate.isFetching}
             refusal={
@@ -319,6 +331,15 @@ export function StartSearchDialog({
                 : null
             }
           />
+
+          {estimate.data && !estimate.isError && (
+            <SearchWarnings
+              warnings={estimate.data.warnings}
+              repeats={budget?.repeats ?? null}
+              onUseRepeats={(next) => change('repeats')(String(next))}
+              disabled={start.isPending}
+            />
+          )}
 
           {startRefusals.general && (
             <p role="alert" className="text-destructive text-xs">

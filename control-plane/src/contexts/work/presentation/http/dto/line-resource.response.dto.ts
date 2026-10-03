@@ -42,7 +42,12 @@ export class LineResourceResponseDto extends ResourceResponseDto {
         },
       ],
       reactions: [],
-      replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+      replayCheck: {
+        mostRegressions: 0,
+        ceiling: 10,
+        currency: 'USD',
+        minGain: 0.05,
+      },
     },
   })
   readonly definition: Readonly<Record<string, unknown>>;

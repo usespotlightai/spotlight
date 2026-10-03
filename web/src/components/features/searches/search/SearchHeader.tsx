@@ -1,4 +1,5 @@
 import { CeilingBar } from '@/components/features/replays/CeilingBar';
+import { ScoredRate } from '@/components/features/replays/ScoredRate';
 import { SearchStatePill } from '@/components/features/searches/SearchStatePill';
 import { StopSearchButton } from '@/components/features/searches/search/StopSearchButton';
 import { BestCandidate } from '@/components/features/searches/station/BestCandidate';
@@ -10,6 +11,7 @@ import {
   replaySetPath,
   spendOfCeiling,
 } from '@/lib/replay';
+import { minGainSentence, repeatsShown } from '@/lib/replay-words';
 import { since } from '@/lib/runner';
 import {
   iterationsShown,
@@ -87,7 +89,21 @@ export function SearchHeader({
           {budget.iterations === 1 ? 'iteration' : 'iterations'} ·{' '}
           {budget.perIteration}{' '}
           {budget.perIteration === 1 ? 'candidate' : 'candidates'} each · up to{' '}
-          {spendShown(budget.ceiling)} · {budget.concurrency} at once
+          {spendShown(budget.ceiling)} · {budget.concurrency} at once ·{' '}
+          {repeatsShown(budget.repeats).toLowerCase()}
+        </dd>
+
+        <dt className={TERM}>Live config</dt>
+        <dd className={VALUE}>
+          <ScoredRate
+            rate={search.seed.searchScore}
+            interval={search.seed.searchInterval}
+            scored={search.seed.searchScored}
+          />
+          <span className="text-muted-foreground">
+            {' '}
+            · {minGainSentence(search.minGain)}
+          </span>
         </dd>
 
         <dt className={TERM}>Agent</dt>

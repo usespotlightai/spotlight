@@ -1,4 +1,10 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+  type ApiPropertyOptions,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import type {
   SearchAgentDto,
   SearchAllotmentsDto,
@@ -12,7 +18,9 @@ import type {
   SearchSplitDto,
   SearchSplitEntryDto,
   SearchSummaryDto,
+  SearchWarningDto,
 } from '@replays/application/dto/searches.dto';
+import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import {
   MOST_CONCURRENCY,
@@ -26,7 +34,11 @@ import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { CandidatePullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
 import { StationChangeResponseDto } from '@replays/presentation/http/dto/replay-candidate-resource.response.dto';
 import {
+  GainReadingResponseDto,
+  gainResponse,
+  intervalResponse,
   ModelSpentResponseDto,
+  RateIntervalResponseDto,
   SpendResponseDto,
   StartReplayCeilingRequestDto,
 } from '@replays/presentation/http/dto/replays.response.dto';
@@ -88,7 +100,91 @@ export class SearchBudgetRequestDto {
     description: `How many of its replay runs it runs at once, beside the team’s own; ${SEARCH_CONCURRENCY} unless told`,
   })
   readonly concurrency?: number;
+
+  @ApiPropertyOptional({
+    example: 1,
+    minimum: 1,
+    maximum: MOST_REPEATS,
+    description:
+      'How many times each of its replays replays each run: the seed, every candidate and the held-out replays; 1 unless told. Runs and cost grow with it',
+  })
+  readonly repeats?: number;
 }
+
+class NoiseUnmeasuredWarningResponseDto {
+  @ApiProperty({
+    enum: ['noise-unmeasured'],
+    description:
+      'No finished replay of the live config ran the set more than once, so nobody knows how much its success moves by chance',
+  })
+  readonly kind = 'noise-unmeasured' as const;
+}
+
+class NoisyWarningResponseDto {
+  @ApiProperty({
+    enum: ['noisy'],
+    description:
+      'The set’s success moves more between copies than the line’s min_gain, so a single copy cannot tell a real gain from noise',
+  })
+  readonly kind = 'noisy' as const;
+
+  @ApiProperty({
+    example: 0.12,
+    description: 'How far the set’s success moved between copies',
+  })
+  readonly spread: number;
+
+  @ApiProperty({ example: 0.05 })
+  readonly minGain: number;
+
+  @ApiProperty({
+    example: 6,
+    description:
+      'The repeats it would take to bring the noise under min_gain, however many; more than 5 means no search of this set can tell such a gain from noise',
+  })
+  readonly neededRepeats: number;
+
+  @ApiProperty({
+    example: 5,
+    description: 'The repeats to ask for: the needed ones, at most 5',
+  })
+  readonly suggestedRepeats: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'noisy' }>) {
+    this.spread = warning.spread;
+    this.minGain = warning.minGain;
+    this.neededRepeats = warning.neededRepeats;
+    this.suggestedRepeats = warning.suggestedRepeats;
+  }
+}
+
+type SearchWarningResponseDto =
+  | NoiseUnmeasuredWarningResponseDto
+  | NoisyWarningResponseDto;
+
+const warningResponse = (
+  warning: SearchWarningDto,
+): SearchWarningResponseDto =>
+  warning.kind === 'noisy'
+    ? new NoisyWarningResponseDto(warning)
+    : new NoiseUnmeasuredWarningResponseDto();
+
+const WARNINGS_SCHEMA: ApiPropertyOptions = {
+  type: 'array',
+  items: {
+    oneOf: [
+      { $ref: getSchemaPath(NoiseUnmeasuredWarningResponseDto) },
+      { $ref: getSchemaPath(NoisyWarningResponseDto) },
+    ],
+    discriminator: {
+      propertyName: 'kind',
+      mapping: {
+        'noise-unmeasured': getSchemaPath(NoiseUnmeasuredWarningResponseDto),
+        noisy: getSchemaPath(NoisyWarningResponseDto),
+      },
+    },
+  },
+};
 
 export class EstimateSearchRequestDto {
   @ApiProperty({ description: 'The replay set at the station to search on' })
@@ -103,6 +199,7 @@ export class StartSearchRequestDto extends EstimateSearchRequestDto {
   readonly agent!: SearchAgentRequestDto;
 }
 
+@ApiExtraModels(NoiseUnmeasuredWarningResponseDto, NoisyWarningResponseDto)
 export class SearchStartedResponseDto {
   @ApiProperty()
   readonly id: string;
@@ -113,9 +210,21 @@ export class SearchStartedResponseDto {
   })
   readonly seedReplayId: string;
 
-  constructor(started: { readonly id: string; readonly seedReplayId: string }) {
+  @ApiProperty({
+    ...WARNINGS_SCHEMA,
+    description:
+      'What makes its results hard to trust; the search starts all the same',
+  })
+  readonly warnings: SearchWarningResponseDto[];
+
+  constructor(started: {
+    readonly id: string;
+    readonly seedReplayId: string;
+    readonly warnings: readonly SearchWarningDto[];
+  }) {
     this.id = started.id;
     this.seedReplayId = started.seedReplayId;
+    this.warnings = started.warnings.map(warningResponse);
   }
 }
 
@@ -149,11 +258,18 @@ export class SearchBudgetResponseDto {
   @ApiProperty({ example: SEARCH_CONCURRENCY })
   readonly concurrency: number;
 
+  @ApiProperty({
+    example: 1,
+    description: 'How many times each of its replays replays each run',
+  })
+  readonly repeats: number;
+
   constructor(budget: SearchBudgetDto) {
     this.iterations = budget.iterations;
     this.perIteration = budget.perIteration;
     this.ceiling = new SpendResponseDto(budget.ceiling);
     this.concurrency = budget.concurrency;
+    this.repeats = budget.repeats;
   }
 }
 
@@ -177,12 +293,26 @@ export class SearchBestResponseDto {
   readonly searchScore: number | null;
 
   @ApiProperty({
+    type: RateIntervalResponseDto,
+    nullable: true,
+    description: 'Its success rate on the searched tasks with its 95% interval',
+  })
+  readonly searchInterval: RateIntervalResponseDto | null;
+
+  @ApiProperty({
     nullable: true,
     type: Number,
     description:
       'Its success rate on the held-out tasks, 0 to 1, once they are replayed',
   })
   readonly heldOutScore: number | null;
+
+  @ApiProperty({
+    type: RateIntervalResponseDto,
+    nullable: true,
+    description: 'Its held-out success rate with its 95% interval',
+  })
+  readonly heldOutInterval: RateIntervalResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -197,7 +327,9 @@ export class SearchBestResponseDto {
     this.name = best.name;
     this.seed = best.seed;
     this.searchScore = best.searchScore;
+    this.searchInterval = intervalResponse(best.searchInterval);
     this.heldOutScore = best.heldOutScore;
+    this.heldOutInterval = intervalResponse(best.heldOutInterval);
     this.costPerRun = best.costPerRun;
   }
 }
@@ -439,7 +571,17 @@ export class SearchCandidateResponseDto {
   })
   readonly searchScore: number | null;
 
-  @ApiProperty({ description: 'How many searched tasks it was scored on' })
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'Its success rate on the searched tasks with its 95% interval',
+  })
+  readonly searchInterval: RateIntervalResponseDto | null;
+
+  @ApiProperty({
+    description:
+      'How many searched replay runs, copies included, it was scored on',
+  })
   readonly searchScored: number;
 
   @ApiProperty({
@@ -449,6 +591,29 @@ export class SearchCandidateResponseDto {
       'Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished',
   })
   readonly heldOutScore: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'Its held-out success rate with its 95% interval',
+  })
+  readonly heldOutInterval: RateIntervalResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'Its gain over the seed on the searched tasks, paired task by task, and whether it is within noise; null for the seed',
+  })
+  readonly searchedGain: GainReadingResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'Its gain over the seed on the held-out tasks, once its held-out replay finished; null for the seed',
+  })
+  readonly heldOutGain: GainReadingResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -490,8 +655,12 @@ export class SearchCandidateResponseDto {
     this.heldOutReplayId = candidate.heldOutReplayId;
     this.heldOutReplayState = candidate.heldOutReplayState;
     this.searchScore = candidate.searchScore;
+    this.searchInterval = intervalResponse(candidate.searchInterval);
     this.searchScored = candidate.searchScored;
     this.heldOutScore = candidate.heldOutScore;
+    this.heldOutInterval = intervalResponse(candidate.heldOutInterval);
+    this.searchedGain = gainResponse(candidate.searchedGain);
+    this.heldOutGain = gainResponse(candidate.heldOutGain);
     this.costPerRun = candidate.costPerRun;
     this.spent = new SpendResponseDto(candidate.spent);
     this.onFrontier = candidate.onFrontier;
@@ -526,6 +695,13 @@ export class SearchDetailResponseDto extends SearchResponseDto {
   })
   readonly frontier: string[];
 
+  @ApiProperty({
+    example: 0.05,
+    description:
+      'The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none',
+  })
+  readonly minGain: number;
+
   constructor(search: SearchDetailDto) {
     super(search);
     this.split = new SearchSplitResponseDto(search.split);
@@ -537,6 +713,7 @@ export class SearchDetailResponseDto extends SearchResponseDto {
       (each) => new SearchCandidateResponseDto(each),
     );
     this.frontier = [...search.frontier];
+    this.minGain = search.minGain;
   }
 }
 
@@ -604,6 +781,7 @@ export class SearchAllotmentsResponseDto {
   }
 }
 
+@ApiExtraModels(NoiseUnmeasuredWarningResponseDto, NoisyWarningResponseDto)
 export class SearchEstimateResponseDto {
   @ApiProperty({ description: 'Tasks its agent sees' })
   readonly searchedTasks: number;
@@ -636,6 +814,19 @@ export class SearchEstimateResponseDto {
   })
   readonly estimatedDuration: number | null;
 
+  @ApiProperty({
+    example: 0.05,
+    description: 'The smallest gain its line counts as real',
+  })
+  readonly minGain: number;
+
+  @ApiProperty({
+    ...WARNINGS_SCHEMA,
+    description:
+      'What would make its results hard to trust; a search may start all the same',
+  })
+  readonly warnings: SearchWarningResponseDto[];
+
   constructor(estimate: SearchEstimateDto) {
     this.searchedTasks = estimate.searchedTasks;
     this.heldOutTasks = estimate.heldOutTasks;
@@ -645,6 +836,8 @@ export class SearchEstimateResponseDto {
       estimate.perReplayAllotments,
     );
     this.estimatedDuration = estimate.estimatedDuration;
+    this.minGain = estimate.minGain;
+    this.warnings = estimate.warnings.map(warningResponse);
   }
 }
 

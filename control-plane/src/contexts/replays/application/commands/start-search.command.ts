@@ -11,6 +11,7 @@ export interface SearchBudgetAsked {
   readonly perIteration: number;
   readonly ceiling: { readonly amount: number; readonly currency: string };
   readonly concurrency: number | null;
+  readonly repeats: number | null;
 }
 
 export class StartSearchCommand {

@@ -21,6 +21,8 @@ export interface ReplayRepository {
 
   baselinesOfSets(setIds: readonly ReplaySetId[]): Promise<readonly Replay[]>;
 
+  repeatedOfSets(setIds: readonly ReplaySetId[]): Promise<readonly Replay[]>;
+
   ofTeamStartedSince(
     teamId: TeamId,
     since: Date,

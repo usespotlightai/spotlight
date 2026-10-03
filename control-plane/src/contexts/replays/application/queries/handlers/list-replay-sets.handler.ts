@@ -3,7 +3,9 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ListReplaySetsQuery } from '@replays/application/queries/list-replay-sets.query';
 import { setView } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type { SetNoises } from '@replays/application/services/set-noises.service';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -14,6 +16,7 @@ export class ListReplaySetsHandler
     private readonly access: ReplaysAccess,
     private readonly sets: ReplaySetRepository,
     private readonly work: WorkPort,
+    private readonly noises: SetNoises,
   ) {}
 
   async execute(query: ListReplaySetsQuery): Promise<readonly ReplaySetDto[]> {
@@ -35,7 +38,19 @@ export class ListReplaySetsHandler
         sets.flatMap((each) => each.runs),
       );
 
-      return sets.map((each) => setView(each, replayable));
+      const standards = await this.noises.standardsAt(
+        sets.map((each) => each.station),
+      );
+      const noises = await this.noises.ofSets(sets, standards);
+
+      return sets.map((each) =>
+        setView(
+          each,
+          replayable,
+          noises.get(each.id.value) ?? null,
+          standards.get(each.station.stationId)?.minGain ?? DEFAULT_MIN_GAIN,
+        ),
+      );
     } catch (error) {
       rethrowAsFault(error);
     }

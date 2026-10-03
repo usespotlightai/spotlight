@@ -60,6 +60,8 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  noise: null,
+  minGain: 0.05,
   entries: Array.from({ length: tasks }, (_, place) => ({
     runId: `run_${id}_${place}`,
     taskId: `task_${place}`,
@@ -86,6 +88,8 @@ const ESTIMATE: SearchEstimate = {
     agentRun: { amount: 0.66, currency: 'USD' },
   },
   estimatedDuration: 5_400_000,
+  minGain: 0.05,
+  warnings: [],
 };
 
 const renderDialog = () =>
@@ -172,6 +176,68 @@ describe('StartSearchDialog', () => {
     expect(summary).toHaveTextContent('$20.00');
     expect(summary).toHaveTextContent('$1.80 per candidate');
     expect(summary).toHaveTextContent('About 1h 30m');
+    expect(summary).toHaveTextContent('CopiesEach run once');
+    expect(screen.queryByRole('list', { name: 'Warnings' })).toBeNull();
+  });
+
+  it('warns that nobody measured the set’s noise, and starts all the same', () => {
+    estimate.mockReturnValue({
+      ...ESTIMATE,
+      warnings: [{ kind: 'noise-unmeasured' }],
+    });
+
+    renderDialog();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    const warnings = screen.getByRole('list', { name: 'Warnings' });
+    expect(
+      warnings.querySelector('[data-kind="noise-unmeasured"]'),
+    ).toHaveTextContent(
+      /Nobody has measured how much this set’s success moves by chance/,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Start search' }),
+    ).not.toBeDisabled();
+  });
+
+  it('offers the repeats that would bring a noisy set’s noise down', () => {
+    estimate.mockReturnValue({
+      ...ESTIMATE,
+      warnings: [
+        {
+          kind: 'noisy',
+          spread: 0.15,
+          minGain: 0.05,
+          suggestedRepeats: 5,
+          neededRepeats: 5,
+        },
+      ],
+    });
+
+    renderDialog();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    expect(screen.getByRole('list', { name: 'Warnings' })).toHaveTextContent(
+      'This set’s success moved 15 pts between copies of the same runs, more than the +5 pts the line counts as real. Replaying each run 5 times would bring that down.',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Replay each run 5 times' }),
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Repeats' })).toHaveValue('5');
+    expect(
+      screen.queryByRole('button', { name: 'Replay each run 5 times' }),
+    ).toBeNull();
+    expect(screen.getByRole('region', { name: 'Estimate' })).toHaveTextContent(
+      'Each run 5 times',
+    );
   });
 
   it('starts the search on the chosen set with the budget and agent', () => {
@@ -193,6 +259,7 @@ describe('StartSearchDialog', () => {
           iterations: 3,
           perIteration: 2,
           concurrency: 4,
+          repeats: 1,
           ceiling: { amount: 20, currency: 'USD' },
         },
         agent: { harness: 'claude-code', model: null },

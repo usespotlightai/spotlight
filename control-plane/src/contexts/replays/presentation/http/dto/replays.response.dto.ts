@@ -5,15 +5,19 @@ import type {
   EntryComparisonDto,
   EntryJudgeDto,
   EntryReasonDto,
+  GainReadingDto,
   ModelSpentDto,
+  RateIntervalDto,
   ReplayDetailDto,
   ReplayDto,
   ReplayEntryDto,
   ReplayOfRunDto,
   ReplaySearchDto,
   ReplayTotalsDto,
+  SetNoiseDto,
   SpendDto,
 } from '@replays/application/dto/replays.dto';
+import { GAIN_VERDICTS } from '@replays/domain/services/gain-reading';
 import { SCORES_UNCOMPARED } from '@replays/domain/services/replay-results';
 import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
 import { CHECKS_STATES } from '@replays/domain/value-objects/change-checks.vo';
@@ -26,8 +30,142 @@ import {
 } from '@replays/domain/value-objects/judge-verdict.vo';
 import { REPLAY_ENDINGS } from '@replays/domain/value-objects/replay-ending';
 import { REPLAY_REFUSALS } from '@replays/domain/value-objects/replay-refusal';
+import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { RUN_FAILURE_CODES } from '@shared-kernel/domain/value-objects/run-failure-code';
+
+export class RateIntervalResponseDto {
+  @ApiProperty({
+    example: 0.62,
+    description:
+      'The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks',
+  })
+  readonly rate: number;
+
+  @ApiProperty({
+    example: 0.48,
+    description: 'The low end of the 95% interval, bootstrapped over the tasks',
+  })
+  readonly low: number;
+
+  @ApiProperty({
+    example: 0.75,
+    description:
+      'The high end of the 95% interval, bootstrapped over the tasks',
+  })
+  readonly high: number;
+
+  constructor(interval: RateIntervalDto) {
+    this.rate = interval.rate;
+    this.low = interval.low;
+    this.high = interval.high;
+  }
+}
+
+export class GainReadingResponseDto {
+  @ApiProperty({
+    example: 0.08,
+    description:
+      'The success rate gained over what it is compared with, on the tasks both scored',
+  })
+  readonly gain: number;
+
+  @ApiProperty({
+    example: -0.02,
+    description:
+      'The low end of the 95% interval of the gain, a paired bootstrap over the tasks',
+  })
+  readonly low: number;
+
+  @ApiProperty({
+    example: 0.18,
+    description: 'The high end of the 95% interval of the gain',
+  })
+  readonly high: number;
+
+  @ApiProperty({
+    enum: GAIN_VERDICTS,
+    description:
+      'better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise',
+  })
+  readonly verdict: string;
+
+  @ApiProperty({
+    example: 0.05,
+    description: 'The smallest gain the line counts as real',
+  })
+  readonly minGain: number;
+
+  @ApiProperty({ description: 'The tasks both sides scored, paired' })
+  readonly tasks: number;
+
+  constructor(gain: GainReadingDto) {
+    this.gain = gain.gain;
+    this.low = gain.low;
+    this.high = gain.high;
+    this.verdict = gain.verdict;
+    this.minGain = gain.minGain;
+    this.tasks = gain.tasks;
+  }
+}
+
+export class SetNoiseResponseDto {
+  @ApiProperty({
+    description:
+      'The finished live replay, run more than once, the noise was measured on',
+  })
+  readonly replayId: string;
+
+  @ApiProperty({ description: 'The live config fingerprint it replayed' })
+  readonly fingerprint: string;
+
+  @ApiProperty({ example: 3 })
+  readonly repeats: number;
+
+  @ApiProperty({
+    type: Number,
+    isArray: true,
+    description: 'The success rate of each copy of the set, in order',
+  })
+  readonly perRepeat: number[];
+
+  @ApiProperty({
+    example: 0.1,
+    description: 'The highest copy’s success rate less the lowest’s',
+  })
+  readonly spread: number;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description:
+      'Tasks whose copies disagree, succeeding in one and failing in another',
+  })
+  readonly flippedTasks: string[];
+
+  @ApiProperty()
+  readonly measuredAt: string;
+
+  constructor(noise: SetNoiseDto) {
+    this.replayId = noise.replayId;
+    this.fingerprint = noise.fingerprint;
+    this.repeats = noise.repeats;
+    this.perRepeat = [...noise.perRepeat];
+    this.spread = noise.spread;
+    this.flippedTasks = [...noise.flippedTasks];
+    this.measuredAt = noise.measuredAt;
+  }
+}
+
+export const intervalResponse = (
+  interval: RateIntervalDto | null,
+): RateIntervalResponseDto | null =>
+  interval ? new RateIntervalResponseDto(interval) : null;
+
+export const gainResponse = (
+  gain: GainReadingDto | null,
+): GainReadingResponseDto | null =>
+  gain ? new GainReadingResponseDto(gain) : null;
 
 export class SpendResponseDto {
   @ApiProperty({ example: 4.2 })
@@ -189,6 +327,12 @@ export class ReplayEntryResponseDto {
   readonly taskId: string;
 
   @ApiProperty({
+    example: 1,
+    description: 'Which copy of the original run this is, from 1',
+  })
+  readonly repeat: number;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     description: 'The replay run, once one is queued',
@@ -301,6 +445,7 @@ export class ReplayEntryResponseDto {
     this.position = entry.position;
     this.originalRunId = entry.originalRunId;
     this.taskId = entry.taskId;
+    this.repeat = entry.repeat;
     this.runId = entry.runId;
     this.fingerprint = entry.fingerprint;
     this.phase = entry.phase;
@@ -364,12 +509,26 @@ export class ReplayTotalsResponseDto {
   @ApiProperty({
     nullable: true,
     type: Number,
-    description: 'Of the scored entries, the share that succeeded',
+    description:
+      'Per task, the share of its scored copies that succeeded, averaged over the tasks scored',
   })
   readonly successRate: number | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
   @ApiProperty({ description: 'Entries that succeeded or failed' })
   readonly scored: number;
+
+  @ApiProperty({ description: 'Original runs it replays, each once or more' })
+  readonly tasks: number;
+
+  @ApiProperty({ description: 'Original runs with at least one scored copy' })
+  readonly tasksScored: number;
 
   @ApiProperty({
     description: 'Entries done that nothing could score',
@@ -424,7 +583,10 @@ export class ReplayTotalsResponseDto {
     this.notRun = totals.notRun;
     this.succeeded = totals.succeeded;
     this.successRate = totals.successRate;
+    this.interval = intervalResponse(totals.interval);
     this.scored = totals.scored;
+    this.tasks = totals.tasks;
+    this.tasksScored = totals.tasksScored;
     this.unscored = totals.unscored;
     this.spent = new SpendResponseDto(totals.spent);
     this.spentElsewhere = totals.spentElsewhere.map(
@@ -507,6 +669,12 @@ export class ReplayResponseDto {
   @ApiProperty({ type: SpendResponseDto })
   readonly ceiling: SpendResponseDto;
 
+  @ApiProperty({
+    example: 1,
+    description: 'How many times it replays each run of its set',
+  })
+  readonly repeats: number;
+
   @ApiProperty()
   readonly startedAt: string;
 
@@ -515,6 +683,14 @@ export class ReplayResponseDto {
 
   @ApiProperty({ type: ReplayTotalsResponseDto })
   readonly totals: ReplayTotalsResponseDto;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'Its gain in success over the set’s baseline, with whether it is within noise; null for the baseline itself or with none',
+  })
+  readonly againstBaseline: GainReadingResponseDto | null;
 
   @ApiProperty({ type: ReplayEntryResponseDto, isArray: true })
   readonly entries: ReplayEntryResponseDto[];
@@ -531,9 +707,11 @@ export class ReplayResponseDto {
     this.checks = replay.checks;
     this.state = replay.state;
     this.ceiling = new SpendResponseDto(replay.ceiling);
+    this.repeats = replay.repeats;
     this.startedAt = replay.startedAt;
     this.endedAt = replay.endedAt;
     this.totals = new ReplayTotalsResponseDto(replay.totals);
+    this.againstBaseline = gainResponse(replay.againstBaseline);
     this.entries = replay.entries.map(
       (each) => new ReplayEntryResponseDto(each),
     );
@@ -555,16 +733,40 @@ export class EntryComparisonResponseDto {
   })
   readonly title: string | null;
 
-  @ApiProperty({ type: ReplayEntryResponseDto })
-  readonly candidate: ReplayEntryResponseDto;
+  @ApiProperty({
+    type: ReplayEntryResponseDto,
+    isArray: true,
+    description: 'Each copy of the task the candidate replayed',
+  })
+  readonly candidate: ReplayEntryResponseDto[];
 
-  @ApiProperty({ nullable: true, type: ReplayEntryResponseDto })
-  readonly baseline: ReplayEntryResponseDto | null;
+  @ApiProperty({
+    type: ReplayEntryResponseDto,
+    isArray: true,
+    description:
+      'Each copy of the task the baseline replayed; none without one',
+  })
+  readonly baseline: ReplayEntryResponseDto[];
 
   @ApiProperty({
     nullable: true,
     type: Number,
-    description: 'Candidate cost less the baseline’s, once both settled',
+    description: 'The share of the candidate’s scored copies that succeeded',
+  })
+  readonly candidateSuccess: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description: 'The share of the baseline’s scored copies that succeeded',
+  })
+  readonly baselineSuccess: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description:
+      'Candidate cost less the baseline’s, each averaged over its copies, once both settled',
   })
   readonly costDelta: number | null;
 
@@ -593,7 +795,7 @@ export class EntryComparisonResponseDto {
 
   @ApiProperty({
     description:
-      'The baseline succeeded on this task and the candidate failed, or its judge score dropped',
+      'The baseline’s share of copies that succeeded is more than half above the candidate’s (with one copy each: the baseline succeeded and the candidate failed), or its average judge score dropped',
   })
   readonly regressed: boolean;
 
@@ -601,10 +803,14 @@ export class EntryComparisonResponseDto {
     this.originalRunId = compared.originalRunId;
     this.taskId = compared.taskId;
     this.title = compared.title;
-    this.candidate = new ReplayEntryResponseDto(compared.candidate);
-    this.baseline = compared.baseline
-      ? new ReplayEntryResponseDto(compared.baseline)
-      : null;
+    this.candidate = compared.candidate.map(
+      (each) => new ReplayEntryResponseDto(each),
+    );
+    this.baseline = compared.baseline.map(
+      (each) => new ReplayEntryResponseDto(each),
+    );
+    this.candidateSuccess = compared.candidateSuccess;
+    this.baselineSuccess = compared.baselineSuccess;
     this.costDelta = compared.costDelta;
     this.msDelta = compared.msDelta;
     this.stepsDelta = compared.stepsDelta;
@@ -683,6 +889,16 @@ export class StartReplayRequestDto {
 
   @ApiProperty({ type: StartReplayCeilingRequestDto })
   readonly ceiling!: StartReplayCeilingRequestDto;
+
+  @ApiProperty({
+    required: false,
+    example: 1,
+    minimum: 1,
+    maximum: MOST_REPEATS,
+    description:
+      'How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals',
+  })
+  readonly repeats?: number;
 }
 
 export class StartedBaselineResponseDto {

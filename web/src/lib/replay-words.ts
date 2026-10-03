@@ -3,10 +3,14 @@ import type {
   EntryComparisonResponseDto,
   EntryJudgeResponseDto,
   EntryReasonResponseDto,
+  GainReadingResponseDto,
+  RateIntervalResponseDto,
   ReplayEntryResponseDto,
   ReplayResponseDto,
   ReplaySetEntryResponseDto,
+  SetNoiseResponseDto,
 } from '@/lib/api';
+import { percentShown } from '@/lib/judge';
 
 export type ReplayRefusal = NonNullable<ReplaySetEntryResponseDto['refusal']>;
 export type ReplayState = ReplayResponseDto['state'];
@@ -18,6 +22,7 @@ export type ScoreUncompared = NonNullable<
   EntryComparisonResponseDto['scoreUncompared']
 >;
 type CheckSkip = NonNullable<EntryChecksResponseDto['why']>;
+export type GainVerdictCode = GainReadingResponseDto['verdict'];
 
 const REFUSALS: Record<ReplayRefusal, string> = {
   'unknown-run': 'There is no such run',
@@ -232,4 +237,168 @@ export const reasonShown = (reason: EntryReasonResponseDto): string => {
   const detail = detailShown(reason);
 
   return detail ? `${REASONS[reason.code]}: ${detail}` : REASONS[reason.code];
+};
+
+const POINTS = 100;
+
+const signedPoints = (share: number): string => {
+  const points = Math.round(share * POINTS);
+
+  return points > 0 ? `+${points}` : points < 0 ? `−${-points}` : '0';
+};
+
+export const pointsShown = (share: number): string =>
+  `${Math.round(share * POINTS)} pts`;
+
+export const intervalShown = (
+  interval: Pick<RateIntervalResponseDto, 'low' | 'high'>,
+): string =>
+  `${Math.round(interval.low * POINTS)}–${percentShown(interval.high)}`;
+
+export const INTERVAL_NOTE =
+  'The likely range: 95 times in 100, the true rate falls within it';
+
+export const gainShown = (gain: Pick<GainReadingResponseDto, 'gain'>): string =>
+  `${signedPoints(gain.gain)} pts`;
+
+export const gainRangeShown = (
+  gain: Pick<GainReadingResponseDto, 'low' | 'high'>,
+): string => `${signedPoints(gain.low)} to ${signedPoints(gain.high)}`;
+
+const GAIN_VERDICTS: Record<GainVerdictCode, string> = {
+  better: 'Better',
+  worse: 'Worse',
+  'within-noise': 'Within noise',
+};
+
+export const gainVerdictShown = (verdict: GainVerdictCode): string =>
+  GAIN_VERDICTS[verdict];
+
+export const minGainShown = (minGain: number): string =>
+  `+${pointsShown(minGain)}`;
+
+export const gainVerdictNote = (gain: GainReadingResponseDto): string => {
+  const real = minGainShown(gain.minGain);
+  const over = `over ${gain.tasks.toLocaleString()} ${gain.tasks === 1 ? 'task' : 'tasks'} both scored`;
+
+  switch (gain.verdict) {
+    case 'better':
+      return `A real gain ${over}: its likely range stays above no change, and it reaches the ${real} the line counts as real.`;
+    case 'worse':
+      return `A real loss ${over}: its likely range stays below no change, and it reaches the ${real} the line counts as real.`;
+    default:
+      return `Could be chance ${over}: its likely range reaches across no change, or it is short of the ${real} the line counts as real.`;
+  }
+};
+
+export const copiesSucceededShown = (
+  succeeded: number,
+  scored: number,
+): string =>
+  scored === 0
+    ? 'No copy scored yet'
+    : `${succeeded} of ${scored} ${scored === 1 ? 'copy' : 'copies'} succeeded`;
+
+export const copyShown = (repeat: number): string => `Copy ${repeat}`;
+
+export const repeatsShown = (repeats: number): string =>
+  repeats === 1 ? 'Each run once' : `Each run ${repeats} times`;
+
+export const REPEATS_HINT =
+  'How many times each run is replayed, 1 to 5. More copies measure the set’s noise and narrow the ranges; runs and spend grow with them.';
+
+export const NOISE_UNMEASURED = 'Not measured';
+
+export const NOISE_UNMEASURED_NOTE =
+  'Replay the live config over the set 3 times to see how much its success moves by chance alone.';
+
+export const noiseShown = (noise: SetNoiseResponseDto): string =>
+  `Success moved ${pointsShown(noise.spread)} between ${noise.repeats} copies`;
+
+export const noiseAgainstShown = (
+  noise: SetNoiseResponseDto,
+  minGain: number,
+): string =>
+  noise.spread > minGain
+    ? `more than the ${minGainShown(minGain)} the line counts as real, so one copy can’t tell a real gain from chance`
+    : `within the ${minGainShown(minGain)} the line counts as real`;
+
+export const perRepeatShown = (perRepeat: readonly number[]): string =>
+  perRepeat.map((rate) => percentShown(rate)).join(', ');
+
+export const flippedShown = (count: number): string =>
+  count === 0
+    ? 'No task went both ways'
+    : `${count} ${count === 1 ? 'task' : 'tasks'} went both ways`;
+
+export const noiseSummaryShown = (
+  noise: SetNoiseResponseDto | null,
+  minGain: number,
+): string =>
+  noise
+    ? `${noiseShown(noise)}, ${noiseAgainstShown(noise, minGain)}`
+    : `Noise ${NOISE_UNMEASURED.toLowerCase()}`;
+
+export const NOISE_LABEL = 'Noise';
+
+export const MEASURE_NOISE = 'Measure noise';
+
+export const START_REPLAY = 'Start a replay';
+
+export const eachCopyShown = (perRepeat: readonly number[]): string =>
+  `Each copy: ${perRepeatShown(perRepeat)}`;
+
+export const MEASURED_ON_CONFIG = 'measured on config';
+
+export const NOISE_REPLAY_LINK = 'Its replay';
+
+export const FLIPPED_TASKS_LABEL = 'Tasks that went both ways';
+
+export const COPIES_LABEL = 'Copies';
+
+export const NOT_SCORED_YET = 'Not scored yet';
+
+export const NO_SCORE_YET = 'No score yet';
+
+export const SUCCEEDED = 'succeeded';
+
+export const THE_BASELINE = 'the baseline';
+
+export const BASELINE = 'baseline';
+
+export const VERSUS = 'vs';
+
+export const runsScoredShown = (scored: number): string =>
+  `of ${counted(scored, 'run', 'runs')} scored`;
+
+export const heldOutRunsShown = (runs: number): string =>
+  `of ${counted(runs, 'held-out run', 'held-out runs')}`;
+
+export const minGainSentence = (minGain: number): string =>
+  `a gain in success counts as real from ${minGainShown(minGain)}`;
+
+const timesShown = (repeats: number): string =>
+  repeats === 1 ? 'once' : `${repeats} times`;
+
+export const baselineNoteShown = (
+  proposed: boolean,
+  baselineRepeats: number | null,
+  repeats: number | null,
+): string => {
+  if (baselineRepeats === null) {
+    return proposed
+      ? 'The set has no baseline yet, so a baseline of the live config also starts beside it, with a ceiling of its own the same as this one: the two together may spend up to twice it.'
+      : 'The set has no baseline yet, so this replay of the live config becomes it.';
+  }
+  if (repeats !== null && repeats > baselineRepeats) {
+    const fewer = `The set’s baseline replays each run ${timesShown(baselineRepeats)}, fewer than this replay`;
+
+    return proposed
+      ? `${fewer}, so a new baseline of the live config also starts beside it, replaying each run ${timesShown(repeats)}, with a ceiling of its own the same as this one: the two together may spend up to twice it.`
+      : `${fewer}, so this replay of the live config becomes the new baseline.`;
+  }
+
+  return proposed
+    ? 'If the set’s runs changed since its baseline, a new baseline of the live config also starts, with a ceiling of its own the same as this one.'
+    : 'If the set’s runs changed since its baseline, this replay of the live config becomes the new baseline; otherwise it replays beside it.';
 };

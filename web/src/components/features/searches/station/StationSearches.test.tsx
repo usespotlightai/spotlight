@@ -55,6 +55,8 @@ const setOf = (tasks: number): ReplaySet => ({
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  noise: null,
+  minGain: 0.05,
   entries: Array.from({ length: tasks }, (_, place) => ({
     runId: `run_${place}`,
     taskId: `task_${place}`,
@@ -80,6 +82,7 @@ const SEARCH: Search = {
     perIteration: 2,
     ceiling: { amount: 20, currency: 'USD' },
     concurrency: 4,
+    repeats: 1,
   },
   spent: { amount: 4.5, currency: 'USD' },
   iterationsRun: 2,
@@ -89,7 +92,9 @@ const SEARCH: Search = {
     name: 'tests-first',
     seed: false,
     searchScore: 0.8,
+    searchInterval: null,
     heldOutScore: null,
+    heldOutInterval: null,
     costPerRun: 0.9,
   },
   startedAt: '2026-10-02T09:00:00.000Z',
@@ -185,7 +190,12 @@ describe('StationSearches', () => {
         <StationSearches
           at={AT}
           source={{ repository: 'acme/config', path: 'lines/default.tf' }}
-          replayCheck={{ mostRegressions: 1, ceiling: 10, currency: 'USD' }}
+          replayCheck={{
+            mostRegressions: 1,
+            ceiling: 10,
+            currency: 'USD',
+            minGain: 0.05,
+          }}
         />
       </MemoryRouter>,
     );

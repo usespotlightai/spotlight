@@ -1,5 +1,5 @@
 {
-  "id": "eaf87c15-d2a7-431e-b5f4-11e843c55f81",
+  "id": "59383440-354f-47e8-a70e-234ced22abf9",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -7089,6 +7089,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "repeats": {
+          "name": "repeats",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "search_id": {
           "name": "search_id",
           "type": "text",
@@ -7612,6 +7618,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "min_gain": {
+          "name": "min_gain",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
         "ceiling_amount": {
           "name": "ceiling_amount",
           "type": "double precision",
@@ -7621,6 +7633,12 @@
         "ceiling_currency": {
           "name": "ceiling_currency",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repeats": {
+          "name": "repeats",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -7757,6 +7775,12 @@
         "task_id": {
           "name": "task_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repeat": {
+          "name": "repeat",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -8065,6 +8089,12 @@
         },
         "concurrency": {
           "name": "concurrency",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repeats": {
+          "name": "repeats",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
