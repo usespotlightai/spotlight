@@ -205,6 +205,7 @@ export const renderLineRows = (
             mostRegressions: rows.line.replayCheck.mostRegressions,
             ceiling: rows.line.replayCheck.ceiling,
             currency: rows.line.replayCheck.currency,
+            minGain: rows.line.replayCheck.minGain,
           },
         }
       : {}),

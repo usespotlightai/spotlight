@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { EntryReasonResponseDto } from '@/lib/api';
 import {
   checksShown,
+  gainVerdictShown,
   reasonShown,
   refusalShown,
   resultShown,
@@ -89,6 +90,12 @@ describe('replay words cover every code the API can answer', () => {
       'scoreUncompared',
     )) {
       worded(uncomparedShown(why as never), why);
+    }
+  });
+
+  it('words every verdict a gain reading can give', () => {
+    for (const verdict of codesOf('GainReadingResponseDto', 'verdict')) {
+      worded(gainVerdictShown(verdict as never), verdict);
     }
   });
 });

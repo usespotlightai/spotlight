@@ -232,6 +232,7 @@ export class ProposeSearchCandidateHandler
           at,
           by: Attribution.spotlight(search.workspaceId),
           among: search.split.searchedRuns,
+          repeats: search.budget.repeats,
           searchId: search.id,
         }),
       );

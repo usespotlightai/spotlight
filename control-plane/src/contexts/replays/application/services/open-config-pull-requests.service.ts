@@ -7,6 +7,7 @@ import {
   ConfigPullRequestBody,
   type ConfigPullRequestFacts,
 } from '@replays/application/rendering/config-pull-request-body';
+import type { SetNoises } from '@replays/application/services/set-noises.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -17,7 +18,10 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { comparedWith } from '@replays/domain/services/replay-results';
-import { scoresOf } from '@replays/domain/services/search-scores';
+import {
+  scoresOf,
+  searchGainsOf,
+} from '@replays/domain/services/search-scores';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -66,6 +70,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
     private readonly appUrl: string,
+    private readonly noises: SetNoises,
   ) {}
 
   async workDue(): Promise<void> {
@@ -247,11 +252,15 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     stationKey: string,
     unchecked: readonly string[],
   ): Promise<ConfigPullRequestFacts> {
-    const [replays, slug] = await Promise.all([
+    const [replays, slug, live] = await Promise.all([
       this.replays.ofSearch(search.id),
       this.people.workspaceSlug(pullRequest.workspaceId),
+      this.noises.standardAt(search.station),
     ]);
     const scores = scoresOf(search, replays);
+    const gains = searchGainsOf(search, replays, live.minGain).get(
+      candidate.id.value,
+    );
     const picked = scores.candidates.find((each) =>
       each.candidateId.equals(candidate.id),
     );
@@ -271,13 +280,21 @@ export class OpenConfigPullRequests implements OwedWorkPort {
       ],
       candidate: {
         searchScore: picked?.searchScore ?? null,
+        searchInterval: picked?.searchInterval ?? null,
         heldOutScore: picked?.heldOutScore ?? null,
+        heldOutInterval: picked?.heldOutInterval ?? null,
         costPerRun: picked?.costPerRun ?? null,
       },
       seed: {
         searchScore: scores.seed.searchScore,
+        searchInterval: scores.seed.searchInterval,
         heldOutScore: scores.seed.heldOutScore,
+        heldOutInterval: scores.seed.heldOutInterval,
         costPerRun: scores.seed.costPerRun,
+      },
+      gains: {
+        searched: gains?.searched ?? null,
+        heldOut: gains?.heldOut ?? null,
       },
       currency: search.budget.ceiling.currency,
       searchedTasks: search.split.searchedTasks,

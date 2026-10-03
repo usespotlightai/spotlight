@@ -106,6 +106,9 @@ export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
       ...(over.concurrency === undefined || over.concurrency === null
         ? {}
         : { concurrency: over.concurrency }),
+      ...(over.repeats === undefined || over.repeats === null
+        ? {}
+        : { repeats: over.repeats }),
     });
   const currency = refusalOf(
     () => Spend.none(asked.ceiling.currency),
@@ -132,6 +135,7 @@ export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
       'budget',
       'concurrency',
     ]),
+    ...refusalOf(counts({ repeats: asked.repeats }), ['budget', 'repeats']),
   ]);
 
   return SearchBudget.of({
@@ -139,6 +143,7 @@ export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
     perIteration: asked.perIteration,
     ceiling: Spend.ceiling(asked.ceiling.amount, asked.ceiling.currency),
     ...(asked.concurrency === null ? {} : { concurrency: asked.concurrency }),
+    ...(asked.repeats === null ? {} : { repeats: asked.repeats }),
   });
 };
 

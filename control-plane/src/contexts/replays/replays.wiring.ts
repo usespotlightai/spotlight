@@ -151,6 +151,7 @@ import { ReplaysAccess } from '@replays/application/services/replays-access.serv
 import { SearchAgents } from '@replays/application/services/search-agents.service';
 import { SearchSights } from '@replays/application/services/search-sights.service';
 import { SearchSummaries } from '@replays/application/services/search-summaries.service';
+import { SetNoises } from '@replays/application/services/set-noises.service';
 import { SetStations } from '@replays/application/services/set-stations.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { REPLAYS_EVENT_TYPES } from '@replays/domain/event-types';
@@ -407,6 +408,15 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
   ]),
   {
+    provide: SetNoises,
+    inject: [WORK, DrizzleReplayRepository, DrizzleCandidateRepository],
+    useFactory: (
+      work: WorkPort,
+      replays: DrizzleReplayRepository,
+      candidates: DrizzleCandidateRepository,
+    ) => new SetNoises(work, replays, candidates),
+  },
+  {
     provide: CheckReadings,
     inject: [DrizzleReplayRepository, DrizzleReplaySetRepository],
     useFactory: (
@@ -475,6 +485,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     CLOCK,
     TRANSACTION,
     SetStations,
+    SetNoises,
   ]),
   ...bindCommandHandler(StopSearchCommand, StopSearchHandler, [
     ReplaysAccess,
@@ -506,6 +517,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(EstimateSearchQuery, EstimateSearchHandler, [
     ReplaysAccess,
     WORK,
+    SetNoises,
   ]),
   ...bindQueryHandler(ListSearchesQuery, ListSearchesHandler, [
     ReplaysAccess,
@@ -522,6 +534,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     DrizzleReplayRepository,
     DrizzleCandidateRepository,
     DrizzleConfigPullRequestRepository,
+    SetNoises,
   ]),
   ...bindCommandHandler(
     PickSearchCandidateCommand,
@@ -555,6 +568,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       CLOCK,
       LOGGER,
       WEB_ORIGIN,
+      SetNoises,
     ],
     useFactory: (
       pullRequests: DrizzleConfigPullRequestRepository,
@@ -569,6 +583,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       logger: LoggerPort,
       origin: string,
+      noises: SetNoises,
     ) =>
       new OpenConfigPullRequests(
         pullRequests,
@@ -583,6 +598,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         clock,
         logger,
         origin,
+        noises,
       ),
   },
   {
@@ -597,11 +613,13 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ReplaysAccess,
     DrizzleReplaySetRepository,
     WORK,
+    SetNoises,
   ]),
   ...bindQueryHandler(ListTeamReplaySetsQuery, ListTeamReplaySetsHandler, [
     ReplaysAccess,
     DrizzleReplaySetRepository,
     WORK,
+    SetNoises,
   ]),
   ...bindQueryHandler(ListReplayableRunsQuery, ListReplayableRunsHandler, [
     ReplaysAccess,
@@ -611,12 +629,14 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ReplaysAccess,
     DrizzleReplayRepository,
     DrizzleCandidateRepository,
+    SetNoises,
   ]),
   ...bindQueryHandler(ReadReplayQuery, ReadReplayHandler, [
     ReplaysAccess,
     DrizzleReplayRepository,
     DrizzleCandidateRepository,
     WORK,
+    SetNoises,
   ]),
   ...bindQueryHandler(
     ReadReplayedCandidatesQuery,
@@ -630,6 +650,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DrizzleConfigPullRequestRepository,
       WORK,
       CLOCK,
+      SetNoises,
     ],
   ),
   ...bindQueryHandler(ReadReplayOfRunQuery, ReadReplayOfRunHandler, [

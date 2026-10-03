@@ -1,5 +1,6 @@
+import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import type { SearchBestResponseDto } from '@/lib/api';
-import { scoreShown } from '@/lib/search';
+import { BEST_LABEL, bestOnShown } from '@/lib/search-words';
 import { cn } from '@/lib/utils';
 
 type BestCandidateProps = {
@@ -28,13 +29,18 @@ export function BestCandidate({
       data-slot="best-candidate"
       className={cn('flex min-w-0 items-center gap-1.5 text-xs', className)}
     >
-      {labelled && <span className="text-muted-foreground">Best:</span>}
+      {labelled && <span className="text-muted-foreground">{BEST_LABEL}</span>}
       <span className="truncate text-foreground">
         {best.seed ? 'Live config' : best.name}
       </span>
       <span className="text-muted-foreground tabular-nums">
-        · {scoreShown(heldOut ? best.heldOutScore : best.searchScore)}{' '}
-        {heldOut ? 'held out' : 'searched'}
+        ·{' '}
+        <RateWithInterval
+          rate={heldOut ? best.heldOutScore : best.searchScore}
+          interval={heldOut ? best.heldOutInterval : best.searchInterval}
+          className="text-muted-foreground"
+        />{' '}
+        {bestOnShown(heldOut)}
       </span>
     </span>
   );

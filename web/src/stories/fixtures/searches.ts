@@ -51,6 +51,8 @@ const SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(80),
   stationGone: false,
   guardsChanges: true,
+  noise: null,
+  minGain: 0.05,
   entries: TASKS.map((title, place) => ({
     runId: `run_task_${place}`,
     taskId: `task_${place}`,
@@ -68,6 +70,8 @@ const SMALL_SET: ReplaySetResponseDto = {
   id: 'set_two_tasks',
   name: 'Two docs tasks',
   guardsChanges: false,
+  noise: null,
+  minGain: 0.05,
   entries: SET.entries.slice(0, 2),
 };
 
@@ -76,6 +80,7 @@ const BUDGET = {
   perIteration: 2,
   ceiling: { amount: 25, currency: 'USD' },
   concurrency: 4,
+  repeats: 1,
 };
 
 const AGENT = { harness: 'claude-code', model: 'opus', effort: 'high' };
@@ -95,6 +100,10 @@ const candidate = (
   replayState: 'finished',
   heldOutReplayId: null,
   heldOutReplayState: null,
+  searchInterval: null,
+  heldOutInterval: null,
+  searchedGain: null,
+  heldOutGain: null,
   searchScore: null,
   searchScored: 5,
   heldOutScore: null,
@@ -112,7 +121,9 @@ const SEED = candidate({
   iteration: null,
   replayId: 'replay_seed',
   searchScore: 0.4,
+  searchInterval: { rate: 0.4, low: 0, high: 0.8 },
   heldOutScore: 0.5,
+  heldOutInterval: { rate: 0.5, low: 0, high: 1 },
   costPerRun: 0.38,
   spent: { amount: 2.66, currency: 'USD' },
   onFrontier: true,
@@ -131,6 +142,24 @@ const CANDIDATES: SearchCandidateResponseDto[] = [
     heldOutScore: 1,
     heldOutReplayId: 'replay_tests_first_held_out',
     heldOutReplayState: 'finished',
+    searchInterval: { rate: 0.8, low: 0.4, high: 1 },
+    heldOutInterval: { rate: 1, low: 1, high: 1 },
+    searchedGain: {
+      gain: 0.4,
+      low: 0.2,
+      high: 0.6,
+      verdict: 'better',
+      minGain: 0.05,
+      tasks: 5,
+    },
+    heldOutGain: {
+      gain: 0.5,
+      low: 0,
+      high: 1,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 2,
+    },
     costPerRun: 0.95,
     spent: { amount: 4.75, currency: 'USD' },
     onFrontier: true,
@@ -159,6 +188,24 @@ const CANDIDATES: SearchCandidateResponseDto[] = [
     heldOutScore: 0.5,
     heldOutReplayId: 'replay_medium_effort_held_out',
     heldOutReplayState: 'finished',
+    searchInterval: { rate: 0.6, low: 0.2, high: 1 },
+    heldOutInterval: { rate: 0.5, low: 0, high: 1 },
+    searchedGain: {
+      gain: 0.2,
+      low: -0.2,
+      high: 0.6,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 5,
+    },
+    heldOutGain: {
+      gain: 0,
+      low: -0.5,
+      high: 0.5,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 2,
+    },
     costPerRun: 0.41,
     spent: { amount: 2.05, currency: 'USD' },
     onFrontier: true,
@@ -231,7 +278,9 @@ const DETAIL: SearchDetailResponseDto = {
     name: 'tests-first',
     seed: false,
     searchScore: 0.8,
+    searchInterval: { rate: 0.8, low: 0.6, high: 1 },
     heldOutScore: 1,
+    heldOutInterval: { rate: 1, low: 1, high: 1 },
     costPerRun: 0.95,
   },
   startedAt: hoursAgo(6),
@@ -279,6 +328,7 @@ const DETAIL: SearchDetailResponseDto = {
     'candidate_medium_effort',
     'candidate_tests_first',
   ],
+  minGain: 0.05,
 };
 
 const summaryOf = (detail: SearchDetailResponseDto): SearchResponseDto => ({
@@ -313,7 +363,9 @@ const EARLIER: SearchResponseDto = {
     name: 'seed',
     seed: true,
     searchScore: 0.4,
+    searchInterval: { rate: 0.4, low: 0.2, high: 0.6 },
     heldOutScore: null,
+    heldOutInterval: null,
     costPerRun: 0.82,
   },
   startedAt: hoursAgo(50),
@@ -340,6 +392,7 @@ const SEEDING: SearchDetailResponseDto = {
   },
   candidates: [],
   frontier: [SEED.candidateId],
+  minGain: 0.05,
 };
 
 const withSource = (client: QueryClient) => {

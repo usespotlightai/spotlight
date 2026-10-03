@@ -81,7 +81,12 @@ const DELIVERY: HeldLine = {
       to: 'implementation',
     },
   ],
-  replayCheck: { mostRegressions: 1, ceiling: 12.5, currency: 'USD' },
+  replayCheck: {
+    mostRegressions: 1,
+    ceiling: 12.5,
+    currency: 'USD',
+    minGain: 0.05,
+  },
   source: { repository: 'acme/platform', path: 'teams/core/delivery.tf' },
 };
 

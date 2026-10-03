@@ -63,9 +63,16 @@ const wantedBaselines = async () => {
   }
 };
 
-const start = (candidate: string, mayPlan = true) =>
+const start = (candidate: string, mayPlan = true, repeats = 1) =>
   starting(mayPlan).execute(
-    new StartReplayCommand('team_1', 'set_1', candidate, CEILING, ACTOR),
+    new StartReplayCommand(
+      'team_1',
+      'set_1',
+      candidate,
+      CEILING,
+      repeats,
+      ACTOR,
+    ),
   );
 
 beforeEach(async () => {
@@ -111,6 +118,32 @@ describe('StartReplayHandler', () => {
       'live',
     );
     expect(memory.replays.size).toBe(2);
+  });
+
+  it('replays each run of the set as many times as asked, its wanted baseline as many', async () => {
+    const started = await start('candidate_proposed', true, 3);
+
+    if (started.outcome !== 'started' || !started.baseline) {
+      throw new Error('no baseline was asked for');
+    }
+
+    await wantedBaselines();
+
+    const replay = memory.replays.get(started.id);
+    const baseline = memory.replays.get(started.baseline.id);
+
+    expect(replay?.repeats).toBe(3);
+    expect(replay?.entries.map((each) => each.repeat)).toEqual([
+      1, 1, 2, 2, 3, 3,
+    ]);
+    expect(replay?.originals).toHaveLength(2);
+    expect(baseline?.repeats).toBe(3);
+  });
+
+  it('refuses to replay a run more than five times', async () => {
+    await expect(start('candidate_proposed', true, 6)).rejects.toBeInstanceOf(
+      UseCaseFault,
+    );
   });
 
   it('starts no baseline once another covers the set by the time the wish is heard', async () => {
@@ -238,6 +271,7 @@ describe('StartReplayHandler', () => {
           'set_1',
           'live',
           { amount: 0, currency: 'USD' },
+          1,
           ACTOR,
         ),
       ),

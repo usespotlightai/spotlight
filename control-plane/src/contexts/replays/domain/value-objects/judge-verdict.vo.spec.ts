@@ -22,11 +22,6 @@ describe('JudgeVerdict', () => {
     expect(verdict('number', PASSING_SCORE - 1).passes).toBe(false);
   });
 
-  it('compares scores only on the same scale', () => {
-    expect(verdict('number', 3).scoredAgainst(verdict('number', 5))).toBe(-2);
-    expect(verdict('number', 3).scoredAgainst(verdict('yes-no', 1))).toBeNull();
-  });
-
   it('holds only a score on its scale', () => {
     expect(() => verdict('number', 6)).toThrow(InvalidReplayError);
     expect(() => verdict('yes-no', 2)).toThrow(InvalidReplayError);

@@ -1,4 +1,5 @@
 import type { ConfigPullRequestDto } from '@replays/application/dto/config-pull-requests.dto';
+import type { SearchWarningDto } from '@replays/application/dto/searches.dto';
 import type {
   Forbidden,
   ResourceCreated,
@@ -44,6 +45,7 @@ export type SearchStartedOutcome = Planned<
       readonly outcome: 'started';
       readonly id: string;
       readonly seedReplayId: string;
+      readonly warnings: readonly SearchWarningDto[];
     }
   | SearchRefused
 >;

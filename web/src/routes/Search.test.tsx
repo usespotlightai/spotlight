@@ -84,6 +84,10 @@ const candidate = (
   replayState: 'finished',
   heldOutReplayId: null,
   heldOutReplayState: null,
+  searchInterval: null,
+  heldOutInterval: null,
+  searchedGain: null,
+  heldOutGain: null,
   searchScore: 0.6,
   searchScored: 5,
   heldOutScore: null,
@@ -107,6 +111,7 @@ const DETAIL: SearchDetail = {
     perIteration: 2,
     ceiling: { amount: 20, currency: 'USD' },
     concurrency: 4,
+    repeats: 1,
   },
   spent: { amount: 12, currency: 'USD' },
   iterationsRun: 2,
@@ -158,10 +163,29 @@ const DETAIL: SearchDetail = {
       heldOutScore: 1,
       heldOutReplayId: 'replay_tests_held',
       heldOutReplayState: 'finished',
+      searchInterval: { rate: 0.8, low: 0.6, high: 1 },
+      heldOutInterval: { rate: 1, low: 1, high: 1 },
+      searchedGain: {
+        gain: 0.2,
+        low: 0.05,
+        high: 0.35,
+        verdict: 'better',
+        minGain: 0.05,
+        tasks: 5,
+      },
+      heldOutGain: {
+        gain: 0.1,
+        low: -0.2,
+        high: 0.4,
+        verdict: 'within-noise',
+        minGain: 0.05,
+        tasks: 2,
+      },
       onFrontier: true,
     }),
   ],
   frontier: ['seed', 'tests'],
+  minGain: 0.05,
 };
 
 const renderSearch = () =>
@@ -276,6 +300,30 @@ describe('Search', () => {
     expect(within(table).getByText('Live config')).toBeInTheDocument();
     expect(within(table).getByText('tests-first')).toBeInTheDocument();
     expect(within(table).getByText('100%')).toBeInTheDocument();
+
+    const tests = within(table).getByText('tests-first').closest('tr');
+    const slots = (slot: string) =>
+      [...(tests?.querySelectorAll(`[data-slot="${slot}"]`) ?? [])].map(
+        (each) => each.textContent,
+      );
+    expect(slots('rate-with-interval')).toEqual([
+      '80% (60–100%)',
+      '100% (100–100%)',
+    ]);
+    expect(slots('gain-verdict')).toEqual([
+      '+20 pts(+5 to +35)· Better',
+      '+10 pts(−20 to +40)· Within noise',
+    ]);
+  });
+
+  it('shows the live config’s score it started from, and the gain that counts as real', () => {
+    detail.mockReturnValue(DETAIL);
+
+    renderSearch();
+
+    expect(
+      screen.getByText(/a gain in success counts as real from \+5 pts/),
+    ).toBeInTheDocument();
   });
 
   it('groups candidates by iteration, with their changes, scores, replays and a pick', () => {

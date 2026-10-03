@@ -18,6 +18,7 @@ export class SearchStartDetail implements ChangeDetail {
     readonly concurrency: number,
     readonly ceiling: string,
     readonly heldOutTasks: number,
+    readonly repeats: number,
   ) {}
 
   static of(input: {
@@ -38,6 +39,7 @@ export class SearchStartDetail implements ChangeDetail {
       input.budget.concurrency,
       `${input.budget.ceiling.amount} ${input.budget.ceiling.currency}`,
       input.heldOutTasks,
+      input.budget.repeats,
     );
   }
 
@@ -53,6 +55,7 @@ export class SearchStartDetail implements ChangeDetail {
       concurrency: this.concurrency,
       ceiling: this.ceiling,
       heldOutTasks: this.heldOutTasks,
+      repeats: this.repeats,
     };
   }
 }

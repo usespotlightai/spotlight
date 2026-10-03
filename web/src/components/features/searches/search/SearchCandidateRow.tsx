@@ -1,5 +1,8 @@
 import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
+import { GainVerdict } from '@/components/features/replays/GainVerdict';
+import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
+import { ScoredRate } from '@/components/features/replays/ScoredRate';
 import { PickCandidate } from '@/components/features/searches/search/PickCandidate';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -9,10 +12,10 @@ import {
   costPerRunShown,
   heldOutShown,
   type SearchCandidate,
-  scoreShown,
   searchCandidateAnchor,
   searchChanges,
 } from '@/lib/search';
+import { GAIN_ON_HELD_OUT, GAIN_ON_SEARCHED } from '@/lib/search-words';
 import { cn } from '@/lib/utils';
 
 const LINK = 'text-foreground underline-offset-2 hover:underline';
@@ -76,23 +79,21 @@ export function SearchCandidateRow({
         <div className="flex gap-1">
           <dt>Searched</dt>
           <dd className="text-foreground tabular-nums">
-            {candidate.searchScored === 0 ? (
-              'Not scored yet'
-            ) : (
-              <>
-                {scoreShown(candidate.searchScore)}
-                <span className="text-muted-foreground">
-                  {' '}
-                  of {candidate.searchScored} scored
-                </span>
-              </>
-            )}
+            <ScoredRate
+              rate={candidate.searchScore}
+              interval={candidate.searchInterval}
+              scored={candidate.searchScored}
+            />
           </dd>
         </div>
         <div className="flex gap-1">
           <dt>Held out</dt>
           <dd className="text-foreground tabular-nums">
-            {heldOutShown(candidate)}
+            <HeldOutScore
+              rate={candidate.heldOutScore}
+              interval={candidate.heldOutInterval}
+              unscored={heldOutShown(candidate)}
+            />
           </dd>
         </div>
         <div className="flex gap-1">
@@ -102,6 +103,30 @@ export function SearchCandidateRow({
           </dd>
         </div>
       </dl>
+
+      {(candidate.searchedGain || candidate.heldOutGain) && (
+        <dl
+          data-slot="gain-over-seed"
+          className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground text-xs"
+        >
+          {candidate.searchedGain && (
+            <div className="flex gap-1">
+              <dt>{GAIN_ON_SEARCHED}</dt>
+              <dd>
+                <GainVerdict gain={candidate.searchedGain} />
+              </dd>
+            </div>
+          )}
+          {candidate.heldOutGain && (
+            <div className="flex gap-1">
+              <dt>{GAIN_ON_HELD_OUT}</dt>
+              <dd>
+                <GainVerdict gain={candidate.heldOutGain} />
+              </dd>
+            </div>
+          )}
+        </dl>
+      )}
 
       <p className="flex flex-wrap gap-x-3 text-xs">
         <TrailLink to={replayPath(at, candidate.replayId)} className={LINK}>

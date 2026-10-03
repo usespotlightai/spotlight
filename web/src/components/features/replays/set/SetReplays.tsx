@@ -32,7 +32,7 @@ export function SetReplays({ at, set, replays }: SetReplaysProps) {
     <StartReplayButton
       at={at}
       set={set}
-      hasBaseline={baseline !== null}
+      baseline={baseline}
       refusedBecause={startRefusal(set)}
     />
   );

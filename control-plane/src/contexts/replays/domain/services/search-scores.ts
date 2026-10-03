@@ -1,5 +1,10 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import type { RateInterval } from '@replays/domain/services/bootstrap';
+import {
+  type GainReading,
+  gainBetween,
+} from '@replays/domain/services/gain-reading';
 import { totalsOf } from '@replays/domain/services/replay-results';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -13,8 +18,10 @@ interface CandidateScores {
   readonly seed: boolean;
   readonly finished: boolean;
   readonly searchScore: number | null;
+  readonly searchInterval: RateInterval | null;
   readonly searchScored: number;
   readonly heldOutScore: number | null;
+  readonly heldOutInterval: RateInterval | null;
   readonly costPerRun: number | null;
   readonly spent: Spend;
 }
@@ -26,6 +33,7 @@ export interface SearchScores {
 
 interface Scored {
   readonly score: number | null;
+  readonly interval: RateInterval | null;
   readonly scored: number;
   readonly costPerRun: number | null;
   readonly spent: Spend;
@@ -39,6 +47,7 @@ export const scoredOn = (
   if (!replay) {
     return {
       score: null,
+      interval: null,
       scored: 0,
       costPerRun: null,
       spent: Spend.none(currency),
@@ -53,6 +62,7 @@ export const scoredOn = (
 
   return {
     score: totals.successRate,
+    interval: totals.interval,
     scored: totals.scored,
     costPerRun:
       priced && totals.scored > 0 ? totals.spent.amount / totals.scored : null,
@@ -86,8 +96,10 @@ export const scoresOf = (
       seed: true,
       finished: finished(seedReplay),
       searchScore: seedSearched.score,
+      searchInterval: seedSearched.interval,
       searchScored: seedSearched.scored,
       heldOutScore: finished(seedReplay) ? seedHeldOut.score : null,
+      heldOutInterval: finished(seedReplay) ? seedHeldOut.interval : null,
       costPerRun: seedSearched.costPerRun,
       spent: seedReplay?.spent ?? Spend.none(currency),
     },
@@ -116,11 +128,53 @@ export const scoresOf = (
         seed: false,
         finished: finished(searchReplay),
         searchScore: searched.score,
+        searchInterval: searched.interval,
         searchScored: searched.scored,
         heldOutScore: finished(heldOutReplay) ? heldOut.score : null,
+        heldOutInterval: finished(heldOutReplay) ? heldOut.interval : null,
         costPerRun: searched.costPerRun,
         spent: searched.spent.plus(heldOut.spent),
       };
     }),
   };
+};
+
+export interface SearchGains {
+  readonly searched: GainReading | null;
+  readonly heldOut: GainReading | null;
+}
+
+export const searchGainsOf = (
+  search: Search,
+  replays: readonly Replay[],
+  minGain: number,
+): ReadonlyMap<string, SearchGains> => {
+  const found = (id: ReplayId | null | undefined): Replay | null =>
+    (id && replays.find((each) => each.id.equals(id))) || null;
+  const seed = found(search.seed.replay.replayId);
+
+  return new Map(
+    search.proposals.map((proposal) => {
+      const searched = found(proposal.replay.replayId);
+      const heldOut = found(
+        search.heldOut.find((each) =>
+          each.candidateId.equals(proposal.candidateId),
+        )?.replay.replayId,
+      );
+
+      return [
+        proposal.candidateId.value,
+        {
+          searched:
+            searched && seed && finished(searched)
+              ? gainBetween(searched, seed, minGain, search.split.searchedRuns)
+              : null,
+          heldOut:
+            heldOut && seed && finished(heldOut) && finished(seed)
+              ? gainBetween(heldOut, seed, minGain, search.split.heldOutRuns)
+              : null,
+        },
+      ];
+    }),
+  );
 };

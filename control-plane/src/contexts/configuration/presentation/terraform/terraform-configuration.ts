@@ -444,6 +444,7 @@ const line = (
         attribute('most_regressions', policy.mostRegressions),
         attribute('ceiling', policy.ceiling),
         attribute('currency', policy.currency),
+        attribute('min_gain', policy.minGain),
       ],
     );
 

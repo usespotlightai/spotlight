@@ -8,8 +8,8 @@ import {
   replayPath,
   scoredShown,
   spendOfCeiling,
-  successAgainst,
 } from '@/lib/replay';
+import { repeatsShown } from '@/lib/replay-words';
 import { since } from '@/lib/runner';
 
 type ReplayRowProps = {
@@ -41,16 +41,18 @@ export function ReplayRow({ at, replay, baseline }: ReplayRowProps) {
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
-        <SuccessAgainstBaseline
-          success={successAgainst(replay, baseline)}
-          isBaseline={replay.isBaseline}
-        />
+        <SuccessAgainstBaseline replay={replay} baseline={baseline} />
         <span className="text-muted-foreground tabular-nums">
           {scoredShown(replay.totals)}
         </span>
         <span className="text-muted-foreground tabular-nums">
           Spent {spendOfCeiling(replay.totals.spent, replay.ceiling)}
         </span>
+        {replay.repeats > 1 && (
+          <span className="text-muted-foreground">
+            {repeatsShown(replay.repeats)}
+          </span>
+        )}
       </div>
     </li>
   );

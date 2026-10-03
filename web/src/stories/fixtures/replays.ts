@@ -141,6 +141,8 @@ const SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(30),
   stationGone: false,
   guardsChanges: false,
+  noise: null,
+  minGain: 0.05,
   entries: [
     {
       ...ORIGINALS[0],
@@ -177,6 +179,8 @@ const EMPTY_SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(3),
   stationGone: false,
   guardsChanges: false,
+  noise: null,
+  minGain: 0.05,
   entries: [],
 };
 
@@ -193,7 +197,10 @@ const totals = (
   notRun: 0,
   succeeded: 1,
   successRate: 0.5,
+  interval: { rate: 0.5, low: 0, high: 1 },
   scored: 2,
+  tasks: 3,
+  tasksScored: 2,
   unscored: 1,
   spent: { amount: 2.41, currency: 'USD' },
   spentElsewhere: [],
@@ -213,6 +220,7 @@ const entry = (
   },
 ): ReplayEntryResponseDto => ({
   taskId: `task_${over.position}`,
+  repeat: 1,
   runId: `${over.originalRunId}_replayed`,
   fingerprint: CANDIDATE_FINGERPRINT,
   phase: 'settled',
@@ -357,9 +365,11 @@ const BASELINE: ReplayResponseDto = {
   checks: true,
   state: 'finished',
   ceiling: { amount: 5, currency: 'USD' },
+  repeats: 1,
   startedAt: hoursAgo(26),
   endedAt: hoursAgo(25),
   totals: totals({ successRate: 0.5, succeeded: 1 }),
+  againstBaseline: null,
   entries: BASELINE_ENTRIES,
 };
 
@@ -373,6 +383,7 @@ const CANDIDATE_REPLAY: ReplayResponseDto = {
   checks: true,
   state: 'running',
   ceiling: { amount: 5, currency: 'USD' },
+  repeats: 1,
   startedAt: hoursAgo(1),
   endedAt: null,
   totals: totals({
@@ -380,6 +391,14 @@ const CANDIDATE_REPLAY: ReplayResponseDto = {
     succeeded: 1,
     spent: { amount: 1.23, currency: 'USD' },
   }),
+  againstBaseline: {
+    gain: 0,
+    low: -0.5,
+    high: 0.5,
+    verdict: 'within-noise',
+    minGain: 0.05,
+    tasks: 3,
+  },
   entries: CANDIDATE_ENTRIES,
 };
 
@@ -393,8 +412,12 @@ const compared = (
   title:
     ORIGINALS.find((each) => each.runId === candidate.originalRunId)?.title ??
     null,
-  candidate,
-  baseline,
+  candidate: [candidate],
+  baseline: [baseline],
+  candidateSuccess:
+    candidate.succeeded === null ? null : Number(candidate.succeeded),
+  baselineSuccess:
+    baseline.succeeded === null ? null : Number(baseline.succeeded),
   costDelta:
     candidate.cost && baseline.cost
       ? candidate.cost.amount - baseline.cost.amount
@@ -449,8 +472,10 @@ const BASELINE_DETAIL: ReplayDetailResponseDto = {
     taskId: each.taskId,
     title:
       ORIGINALS.find((one) => one.runId === each.originalRunId)?.title ?? null,
-    candidate: each,
-    baseline: null,
+    candidate: [each],
+    baseline: [],
+    candidateSuccess: each.succeeded === null ? null : Number(each.succeeded),
+    baselineSuccess: null,
     costDelta: null,
     msDelta: null,
     stepsDelta: null,
@@ -585,7 +610,12 @@ const withThreshold = (client: QueryClient) => {
       line.id === LINE_ID
         ? {
             ...line,
-            replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+            replayCheck: {
+              mostRegressions: 0,
+              ceiling: 10,
+              currency: 'USD',
+              minGain: 0.05,
+            },
           }
         : line,
     ),
@@ -605,6 +635,26 @@ const seedSetWithReplays = (client: QueryClient) => {
 export const seedReplaySet = (client: QueryClient) => {
   seedSetWithReplays(client);
   client.setQueryData(replayCheckKeys.forSet(SET_ID), checksPage(CHECKS));
+};
+
+export const seedReplaySetWithNoise = (client: QueryClient) => {
+  seedReplaySet(client);
+  client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+    {
+      ...SET,
+      guardsChanges: true,
+      noise: {
+        replayId: BASELINE_ID,
+        fingerprint: LIVE_FINGERPRINT,
+        repeats: 3,
+        perRepeat: [0.5, 0.67, 0.83],
+        spread: 0.33,
+        flippedTasks: [ORIGINALS[1].taskId],
+        measuredAt: hoursAgo(25),
+      },
+    },
+    EMPTY_SET,
+  ]);
 };
 
 export const seedReplaySetChecksAwaiting = seedSetWithReplays;
@@ -648,6 +698,76 @@ export const seedReplayAwaiting = seedReplayAround;
 export const seedReplay = (client: QueryClient) => {
   seedReplayAround(client);
   client.setQueryData(replayKeys.detail(REPLAY_ID), DETAIL);
+};
+
+const copiesOf = (
+  first: ReplayEntryResponseDto,
+  results: readonly ReplayEntryResponseDto['result'][],
+): ReplayEntryResponseDto[] =>
+  results.map((result, place) => ({
+    ...first,
+    repeat: place + 1,
+    runId: first.runId ? `${first.runId}_${place + 1}` : null,
+    result,
+    succeeded:
+      result === 'succeeded' ? true : result === 'failed' ? false : null,
+  }));
+
+const REPEATED_COMPARISON: EntryComparisonResponseDto[] = DETAIL.comparison.map(
+  (row, place) => {
+    const [candidate] = row.candidate;
+    const [baseline] = row.baseline;
+
+    if (!candidate || !baseline || candidate.result === 'unscored') {
+      return row;
+    }
+
+    const candidateResults: ReplayEntryResponseDto['result'][] =
+      place === 1
+        ? ['failed', 'failed', 'succeeded']
+        : ['succeeded', 'failed', 'succeeded'];
+    const baselineResults: ReplayEntryResponseDto['result'][] =
+      place === 1
+        ? ['succeeded', 'succeeded', 'succeeded']
+        : ['failed', 'failed', 'succeeded'];
+
+    return {
+      ...row,
+      candidate: copiesOf(candidate, candidateResults),
+      baseline: copiesOf(baseline, baselineResults),
+      candidateSuccess: place === 1 ? 1 / 3 : 2 / 3,
+      baselineSuccess: place === 1 ? 1 : 1 / 3,
+    };
+  },
+);
+
+export const seedRepeatedReplay = (client: QueryClient) => {
+  seedReplayAround(client);
+  client.setQueryData(replayKeys.detail(REPLAY_ID), {
+    ...DETAIL,
+    repeats: 3,
+    totals: totals({
+      entries: 9,
+      settled: 9,
+      completed: 6,
+      succeeded: 3,
+      successRate: 0.5,
+      interval: { rate: 0.5, low: 0.33, high: 0.67 },
+      scored: 6,
+      tasks: 3,
+      tasksScored: 2,
+      unscored: 3,
+    }),
+    againstBaseline: {
+      gain: -0.17,
+      low: -0.67,
+      high: 0.33,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 2,
+    },
+    comparison: REPEATED_COMPARISON,
+  } satisfies ReplayDetailResponseDto);
 };
 
 export const seedBaselineReplay = (client: QueryClient) => {

@@ -31,6 +31,7 @@ export const replayCheckRow = (
         mostRegressions: policy.mostRegressions,
         ceiling: policy.ceiling,
         currency: policy.currency,
+        minGain: policy.minGain,
       }
     : null;
 

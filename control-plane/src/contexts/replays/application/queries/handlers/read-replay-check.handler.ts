@@ -9,6 +9,8 @@ import type { CheckReadings } from '@replays/application/services/check-readings
 import { replayUrlOf } from '@replays/application/services/replay-check-views';
 import {
   entryView,
+  gainView,
+  intervalView,
   spendView,
 } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
@@ -17,6 +19,7 @@ import { UnknownReplayCheckError } from '@replays/domain/exceptions/unknown-repl
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplayTotals } from '@replays/domain/services/replay-results';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
+import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -29,8 +32,21 @@ const sideOf = (
   scored: totals?.scored ?? 0,
   succeeded: totals?.succeeded ?? null,
   successRate: totals?.successRate ?? null,
+  interval: intervalView(totals?.interval ?? null),
+  tasksScored: totals?.tasksScored ?? 0,
   spent: totals ? spendView(totals.spent) : null,
 });
+
+const reasonsOf = (copies: readonly ReplayEntry[]) => [
+  ...new Map(
+    copies
+      .flatMap((copy) => copy.reasons)
+      .map((reason) => [
+        `${reason.code}:${reason.detail}`,
+        { code: reason.code, detail: reason.detail },
+      ]),
+  ).values(),
+];
 
 export class ReadReplayCheckHandler
   implements QueryHandlerPort<ReadReplayCheckQuery, ReplayCheckDto>
@@ -64,7 +80,9 @@ export class ReadReplayCheckHandler
         (
           await this.work.standing(
             check.workspaceId,
-            reading.regressions.map((each) => each.candidate.original),
+            reading.regressions.flatMap((each) =>
+              each.candidate.map((copy) => copy.original),
+            ),
           )
         ).map((each) => [each.runId.value, each.title]),
       );
@@ -90,11 +108,14 @@ export class ReadReplayCheckHandler
         keptLive: [...check.keptLive],
         threshold: {
           mostRegressions: check.threshold.mostRegressions,
+          minGain: check.threshold.minGain,
           ceiling: spendView(check.threshold.ceiling),
           unpricedRun: replay
             ? spendView(check.threshold.unpricedRunIn(replay.entries.length))
             : null,
         },
+        repeats: check.repeats,
+        gain: gainView(reading.gain),
         verdict: reading.verdict,
         undecidedBecause: reading.because,
         tasks: reading.entries,
@@ -105,17 +126,16 @@ export class ReadReplayCheckHandler
           taskId: each.taskId,
           originalRunId: each.original,
           title: titles.get(each.original) ?? null,
-          candidate: entryView(each.candidate, (replay as Replay).scoring)
-            .result,
-          baseline:
-            each.baseline && baseline
-              ? entryView(each.baseline, baseline.scoring).result
-              : null,
+          candidate: each.candidate.map(
+            (copy) => entryView(copy, (replay as Replay).scoring).result,
+          ),
+          baseline: baseline
+            ? each.baseline.map(
+                (copy) => entryView(copy, baseline.scoring).result,
+              )
+            : [],
           scoreDelta: each.scoreDelta,
-          reasons: each.candidate.reasons.map((reason) => ({
-            code: reason.code,
-            detail: reason.detail,
-          })),
+          reasons: reasonsOf(each.candidate),
         })),
         replayUrl: replayUrlOf(this.webOrigin, slug, check),
         createdAt: check.createdAt.toISOString(),

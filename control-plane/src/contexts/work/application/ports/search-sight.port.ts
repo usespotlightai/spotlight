@@ -5,6 +5,7 @@ export type SightedBlock = Readonly<Record<string, unknown>>;
 interface SightedCandidateRun {
   readonly runId: string;
   readonly original: string;
+  readonly repeat: number;
   readonly succeeded: boolean | null;
   readonly reasons: readonly string[];
   readonly verdict: string | null;

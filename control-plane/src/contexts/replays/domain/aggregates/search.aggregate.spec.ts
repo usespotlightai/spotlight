@@ -180,6 +180,7 @@ describe('Search', () => {
         concurrency: 6,
         ceiling: '100 USD',
         heldOutTasks: 3,
+        repeats: 1,
       });
     });
 

@@ -41,7 +41,9 @@ const checkOf = (mostRegressions = 0): ReplayCheck =>
       mostRegressions,
       ceiling: 10,
       currency: 'USD',
+      minGain: 0.05,
     }),
+    repeats: 1,
     keptLive: [],
     createdAt: NOW,
     by: BY,
@@ -79,6 +81,13 @@ describe('readingOf', () => {
       compared: 4,
     });
     expect(reading.regressions.map((each) => each.taskId)).toEqual(['task_1']);
+    expect(reading.gain).toMatchObject({
+      gain: -0.25,
+      minGain: 0.05,
+      tasks: 4,
+      verdict: 'within-noise',
+    });
+    expect(reading.candidate?.interval?.rate).toBe(0.75);
   });
 
   it('fails once more tasks regressed than the threshold allows, even before the replay ends', () => {

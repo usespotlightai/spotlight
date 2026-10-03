@@ -514,6 +514,7 @@ describe('a search run reading its station’s history', () => {
             runs: [candidate, heldOutCandidate].map((each) => ({
               runId: each,
               original: each === candidate ? original : hidden,
+              repeat: 1,
               succeeded: true,
               reasons: [],
               verdict: 'pass',

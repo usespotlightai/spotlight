@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -142,7 +143,7 @@ func TestHistoryWritesASearchsCandidatesAndTheBlockItStartedFrom(t *testing.T) {
 	}
 
 	index := readFile(t, filepath.Join(dir, "index.md"))
-	for _, want := range []string{"## Candidates", "current.json", "| [terse](candidates/terse/score.json) | bbbbbbbbbbbb | 1 | 2 | Shorter prompts finish sooner. |"} {
+	for _, want := range []string{"## Candidates", "current.json", "| [terse](candidates/terse/score.json) | bbbbbbbbbbbb | 1 | 2 | 1 | 50% | Shorter prompts finish sooner. |"} {
 		if !strings.Contains(index, want) {
 			t.Errorf("index missing %q in\n%s", want, index)
 		}
@@ -248,5 +249,52 @@ func TestHistoryRefusesACandidateOrReplayNamedOutsideItsFolder(t *testing.T) {
 		if _, statErr := os.Stat(filepath.Join(root, "implementation")); !errors.Is(statErr, os.ErrNotExist) {
 			t.Errorf("wrote a history anyway: %v", statErr)
 		}
+	}
+}
+
+func TestSearchFilesKeepEachCopyOfARepeatedRunApartAndRateEachTaskByItsCopies(t *testing.T) {
+	copyOf := func(original, task string, repeat int, succeeded bool) protocol.CandidateRun {
+		return protocol.CandidateRun{
+			RunID: "run_of_" + original + "_" + string(rune('0'+repeat)), TaskID: task, State: "completed",
+			Trace: protocol.Trace{Roots: []protocol.TraceNode{}}, Original: original, Repeat: repeat, Succeeded: yes(succeeded),
+		}
+	}
+	history := protocol.History{Candidates: []protocol.HistoryCandidate{{
+		CandidateName: "twice", Fingerprint: newerFingerprint, Hypothesis: "Twice is surer.",
+		Block: json.RawMessage(`{"prompt":"Be sure."}`),
+		Runs: []protocol.CandidateRun{
+			copyOf("run_1", "task_1", 1, true),
+			copyOf("run_2", "task_2", 1, false),
+			copyOf("run_1", "task_1", 2, false),
+			copyOf("run_2", "task_2", 2, false),
+		},
+	}}}
+	files := map[string]string{}
+
+	if err := searchFiles(files, history); err != nil {
+		t.Fatalf("searchFiles: %v", err)
+	}
+	for _, each := range []string{"runs/run_1/1/result.json", "runs/run_1/2/result.json", "runs/run_2/1/journal.md", "runs/run_2/2/journal.md"} {
+		if _, ok := files[filepath.Join("candidates", "twice", filepath.FromSlash(each))]; !ok {
+			t.Errorf("no %s among %v", each, slices.Sorted(maps.Keys(files)))
+		}
+	}
+
+	var score struct {
+		Succeeded   int      `json:"succeeded"`
+		Scored      int      `json:"scored"`
+		Repeats     int      `json:"repeats"`
+		TasksScored int      `json:"tasksScored"`
+		Rate        *float64 `json:"rate"`
+		Failed      []string `json:"failed"`
+	}
+	if err := json.Unmarshal([]byte(files[filepath.Join("candidates", "twice", "score.json")]), &score); err != nil {
+		t.Fatalf("score.json: %v", err)
+	}
+	if score.Succeeded != 1 || score.Scored != 4 || score.Repeats != 2 || score.TasksScored != 2 || score.Rate == nil || *score.Rate != 0.25 || !slices.Equal(score.Failed, []string{"task_2", "task_1"}) {
+		t.Errorf("score.json %+v", score)
+	}
+	if index := candidatesIndex(history); !strings.Contains(index, "| 1 | 4 | 2 | 25% |") || !strings.Contains(index, "runs/<original>/<copy>/") {
+		t.Errorf("index:\n%s", index)
 	}
 }

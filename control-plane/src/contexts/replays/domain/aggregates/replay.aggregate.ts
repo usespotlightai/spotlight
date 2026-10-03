@@ -20,6 +20,11 @@ import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
+import {
+  holdsRepeats,
+  MOST_REPEATS,
+} from '@replays/domain/value-objects/replay-repeats';
+import type { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
 import type {
@@ -60,6 +65,7 @@ interface State {
   readonly ceiling: Spend;
   readonly unpricedRate: Spend | null;
   readonly among: readonly RunId[] | null;
+  readonly repeats: number;
   readonly searchId: SearchId | null;
   readonly state: ReplayState;
   readonly entries: readonly ReplayEntry[];
@@ -72,6 +78,21 @@ interface State {
 const DISPATCHING: readonly ReplayState[] = ['queued', 'running'];
 
 const STOPPED_BEFORE_JUDGING = 'stopped-before-judging';
+
+const copiesOf = (
+  entries: readonly ReplaySetEntry[],
+  repeats: number,
+): readonly ReplayEntry[] =>
+  Array.from({ length: repeats }, (_, copy) => copy + 1).flatMap((repeat) =>
+    entries.map((each, at) =>
+      ReplayEntry.waiting({
+        position: (repeat - 1) * entries.length + at,
+        original: each.runId,
+        taskId: each.taskId,
+        repeat,
+      }),
+    ),
+  );
 
 export interface WantedBaseline {
   readonly id: ReplayId;
@@ -96,12 +117,14 @@ export class Replay extends EventRecorder {
     by: Attribution;
     wanting?: WantedBaseline | null;
     among?: readonly RunId[];
+    repeats?: number;
     searchId?: SearchId;
     unpricedRate?: Spend;
   }): Replay {
     const { set } = input;
     const wanting = input.wanting ?? null;
     const among = input.among ?? null;
+    const repeats = input.repeats ?? 1;
 
     set.stillAtItsStation();
 
@@ -133,6 +156,11 @@ export class Replay extends EventRecorder {
         'replays its whole set when it is or wants a baseline',
       );
     }
+    if (!holdsRepeats(repeats)) {
+      throw new InvalidReplayError(
+        `replays each run from 1 to ${MOST_REPEATS} times`,
+      );
+    }
     if (
       among &&
       (among.length === 0 ||
@@ -160,17 +188,15 @@ export class Replay extends EventRecorder {
       ceiling: input.ceiling,
       unpricedRate: input.unpricedRate ?? null,
       among: among && [...among],
+      repeats,
       searchId: input.searchId ?? null,
       state: 'queued',
-      entries: set.entries
-        .filter((each) => !among || among.some((run) => run.equals(each.runId)))
-        .map((each, position) =>
-          ReplayEntry.waiting({
-            position,
-            original: each.runId,
-            taskId: each.taskId,
-          }),
+      entries: copiesOf(
+        set.entries.filter(
+          (each) => !among || among.some((run) => run.equals(each.runId)),
         ),
+        repeats,
+      ),
       startedAt: input.at,
       endedAt: null,
       stoppedAt: null,
@@ -189,6 +215,7 @@ export class Replay extends EventRecorder {
             candidateId: input.candidate.id,
             baseline: input.baseline,
             ceiling: input.ceiling,
+            repeats,
           }),
         ),
       ),
@@ -204,6 +231,7 @@ export class Replay extends EventRecorder {
           wanting.candidate.id,
           input.ceiling,
           input.unpricedRate ?? null,
+          repeats,
         ),
       );
     }
@@ -275,6 +303,10 @@ export class Replay extends EventRecorder {
     return this.state.among;
   }
 
+  get repeats(): number {
+    return this.state.repeats;
+  }
+
   get searchId(): SearchId | null {
     return this.state.searchId;
   }
@@ -300,7 +332,9 @@ export class Replay extends EventRecorder {
   }
 
   get originals(): readonly RunId[] {
-    return this.state.entries.map((each) => each.original);
+    return this.state.entries
+      .filter((each) => each.repeat === 1)
+      .map((each) => each.original);
   }
 
   get spent(): Spend {

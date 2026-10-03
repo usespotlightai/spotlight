@@ -31,6 +31,7 @@ import { ReadReplayOfRunQuery } from '@replays/application/queries/read-replay-o
 import {
   allowed,
   ceilingIn,
+  repeatsIn,
   textAt,
 } from '@replays/presentation/http/controllers/requests';
 import {
@@ -111,6 +112,7 @@ export class ReplaysController {
           setId,
           textAt(body, 'candidate', 'names a candidate, or live'),
           ceilingIn(body),
+          repeatsIn(body),
           actor,
         ),
       ),

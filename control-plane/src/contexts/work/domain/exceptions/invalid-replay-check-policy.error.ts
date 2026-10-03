@@ -1,4 +1,8 @@
-export type ReplayCheckField = 'mostRegressions' | 'ceiling' | 'currency';
+export type ReplayCheckField =
+  | 'mostRegressions'
+  | 'ceiling'
+  | 'currency'
+  | 'minGain';
 
 export class InvalidReplayCheckPolicyError extends Error {
   readonly violation = 'invalid' as const;

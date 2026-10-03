@@ -32,6 +32,7 @@ type HistoryCandidate struct {
 type CandidateRun struct {
 	RunID       string          `json:"runId"`
 	Original    string          `json:"original"`
+	Repeat      int             `json:"repeat"`
 	TaskID      string          `json:"taskId"`
 	Title       string          `json:"title"`
 	Fingerprint *string         `json:"fingerprint"`

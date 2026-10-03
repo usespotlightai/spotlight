@@ -130,6 +130,10 @@ export type LineReplayCheckResponseDto = {
    * The currency of the ceiling
    */
   currency: string;
+  /**
+   * The smallest gain in success, as a share, that counts as more than noise when replays are compared
+   */
+  minGain: number;
 };
 
 export type LineResponseDto = {
@@ -571,6 +575,10 @@ export type HistoryCandidateRunResponseDto = {
    * The task run it replayed
    */
   original: string;
+  /**
+   * Which copy of the task run it is, from 1
+   */
+  repeat: number;
   taskId: string;
   title: string;
   fingerprint: string | null;
@@ -5729,6 +5737,31 @@ export type ReplayCandidateResourceListResponseDto = {
   items: Array<ReplayCandidateResourceResponseDto>;
 };
 
+export type SetNoiseResponseDto = {
+  /**
+   * The finished live replay, run more than once, the noise was measured on
+   */
+  replayId: string;
+  /**
+   * The live config fingerprint it replayed
+   */
+  fingerprint: string;
+  repeats: number;
+  /**
+   * The success rate of each copy of the set, in order
+   */
+  perRepeat: Array<number>;
+  /**
+   * The highest copy’s success rate less the lowest’s
+   */
+  spread: number;
+  /**
+   * Tasks whose copies disagree, succeeding in one and failing in another
+   */
+  flippedTasks: Array<string>;
+  measuredAt: string;
+};
+
 export type ReplaySetEntryResponseDto = {
   runId: string;
   taskId: string;
@@ -5766,6 +5799,14 @@ export type ReplaySetResponseDto = {
    * Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set
    */
   guardsChanges: boolean;
+  /**
+   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   */
+  noise: SetNoiseResponseDto | null;
+  /**
+   * The smallest gain in success its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
+   */
+  minGain: number;
   entries: Array<ReplaySetEntryResponseDto>;
 };
 
@@ -5818,6 +5859,21 @@ export type CandidateResponseDto = {
   createdAt: string;
 };
 
+export type RateIntervalResponseDto = {
+  /**
+   * The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks
+   */
+  rate: number;
+  /**
+   * The low end of the 95% interval, bootstrapped over the tasks
+   */
+  low: number;
+  /**
+   * The high end of the 95% interval, bootstrapped over the tasks
+   */
+  high: number;
+};
+
 export type ReplayTotalsResponseDto = {
   entries: number;
   settled: number;
@@ -5829,13 +5885,25 @@ export type ReplayTotalsResponseDto = {
   notRun: number;
   succeeded: number | null;
   /**
-   * Of the scored entries, the share that succeeded
+   * Per task, the share of its scored copies that succeeded, averaged over the tasks scored
    */
   successRate: number | null;
+  /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
   /**
    * Entries that succeeded or failed
    */
   scored: number;
+  /**
+   * Original runs it replays, each once or more
+   */
+  tasks: number;
+  /**
+   * Original runs with at least one scored copy
+   */
+  tasksScored: number;
   /**
    * Entries done that nothing could score
    */
@@ -5860,6 +5928,33 @@ export type ReplayTotalsResponseDto = {
   medianSteps: number | null;
   ms: number;
   medianMs: number | null;
+};
+
+export type GainReadingResponseDto = {
+  /**
+   * The success rate gained over what it is compared with, on the tasks both scored
+   */
+  gain: number;
+  /**
+   * The low end of the 95% interval of the gain, a paired bootstrap over the tasks
+   */
+  low: number;
+  /**
+   * The high end of the 95% interval of the gain
+   */
+  high: number;
+  /**
+   * better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise
+   */
+  verdict: 'better' | 'worse' | 'within-noise';
+  /**
+   * The smallest gain the line counts as real
+   */
+  minGain: number;
+  /**
+   * The tasks both sides scored, paired
+   */
+  tasks: number;
 };
 
 export type EntryChecksResponseDto = {
@@ -5934,6 +6029,10 @@ export type ReplayEntryResponseDto = {
   originalRunId: string;
   taskId: string;
   /**
+   * Which copy of the original run this is, from 1
+   */
+  repeat: number;
+  /**
    * The replay run, once one is queued
    */
   runId: string | null;
@@ -6002,9 +6101,17 @@ export type ReplayResponseDto = {
   checks: boolean;
   state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
   ceiling: SpendResponseDto;
+  /**
+   * How many times it replays each run of its set
+   */
+  repeats: number;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
+  /**
+   * Its gain in success over the set’s baseline, with whether it is within noise; null for the baseline itself or with none
+   */
+  againstBaseline: GainReadingResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
 };
 
@@ -6019,6 +6126,10 @@ export type StartReplayRequestDto = {
    */
   candidate: string;
   ceiling: StartReplayCeilingRequestDto;
+  /**
+   * How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals
+   */
+  repeats?: number;
 };
 
 export type StartedBaselineResponseDto = {
@@ -6063,10 +6174,24 @@ export type EntryComparisonResponseDto = {
    * The title of the task the original run worked, as it reads now; null once the task is deleted
    */
   title: string | null;
-  candidate: ReplayEntryResponseDto;
-  baseline: ReplayEntryResponseDto | null;
   /**
-   * Candidate cost less the baseline’s, once both settled
+   * Each copy of the task the candidate replayed
+   */
+  candidate: Array<ReplayEntryResponseDto>;
+  /**
+   * Each copy of the task the baseline replayed; none without one
+   */
+  baseline: Array<ReplayEntryResponseDto>;
+  /**
+   * The share of the candidate’s scored copies that succeeded
+   */
+  candidateSuccess: number | null;
+  /**
+   * The share of the baseline’s scored copies that succeeded
+   */
+  baselineSuccess: number | null;
+  /**
+   * Candidate cost less the baseline’s, each averaged over its copies, once both settled
    */
   costDelta: number | null;
   msDelta: number | null;
@@ -6080,7 +6205,7 @@ export type EntryComparisonResponseDto = {
    */
   scoreUncompared: 'unjudged' | 'other-rubric' | 'other-reference' | null;
   /**
-   * The baseline succeeded on this task and the candidate failed, or its judge score dropped
+   * The baseline’s share of copies that succeeded is more than half above the candidate’s (with one copy each: the baseline succeeded and the candidate failed), or its average judge score dropped
    */
   regressed: boolean;
 };
@@ -6107,9 +6232,17 @@ export type ReplayDetailResponseDto = {
   checks: boolean;
   state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
   ceiling: SpendResponseDto;
+  /**
+   * How many times it replays each run of its set
+   */
+  repeats: number;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
+  /**
+   * Its gain in success over the set’s baseline, with whether it is within noise; null for the baseline itself or with none
+   */
+  againstBaseline: GainReadingResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
   /**
@@ -6162,6 +6295,10 @@ export type SearchBudgetResponseDto = {
   perIteration: number;
   ceiling: SpendResponseDto;
   concurrency: number;
+  /**
+   * How many times each of its replays replays each run
+   */
+  repeats: number;
 };
 
 export type SearchBestResponseDto = {
@@ -6176,9 +6313,17 @@ export type SearchBestResponseDto = {
    */
   searchScore: number | null;
   /**
+   * Its success rate on the searched tasks with its 95% interval
+   */
+  searchInterval: RateIntervalResponseDto | null;
+  /**
    * Its success rate on the held-out tasks, 0 to 1, once they are replayed
    */
   heldOutScore: number | null;
+  /**
+   * Its held-out success rate with its 95% interval
+   */
+  heldOutInterval: RateIntervalResponseDto | null;
   /**
    * What it spent per searched run, in the search’s currency; unknown while any of its spend went unpriced or was in another currency
    */
@@ -6237,6 +6382,10 @@ export type SearchBudgetRequestDto = {
    * How many of its replay runs it runs at once, beside the team’s own; 4 unless told
    */
   concurrency?: number;
+  /**
+   * How many times each of its replays replays each run: the seed, every candidate and the held-out replays; 1 unless told. Runs and cost grow with it
+   */
+  repeats?: number;
 };
 
 export type EstimateSearchRequestDto = {
@@ -6245,6 +6394,33 @@ export type EstimateSearchRequestDto = {
    */
   setId: string;
   budget: SearchBudgetRequestDto;
+};
+
+export type NoiseUnmeasuredWarningResponseDto = {
+  /**
+   * No finished replay of the live config ran the set more than once, so nobody knows how much its success moves by chance
+   */
+  kind: 'noise-unmeasured';
+};
+
+export type NoisyWarningResponseDto = {
+  /**
+   * The set’s success moves more between copies than the line’s min_gain, so a single copy cannot tell a real gain from noise
+   */
+  kind: 'noisy';
+  /**
+   * How far the set’s success moved between copies
+   */
+  spread: number;
+  minGain: number;
+  /**
+   * The repeats it would take to bring the noise under min_gain, however many; more than 5 means no search of this set can tell such a gain from noise
+   */
+  neededRepeats: number;
+  /**
+   * The repeats to ask for: the needed ones, at most 5
+   */
+  suggestedRepeats: number;
 };
 
 export type SearchRunsEstimateResponseDto = {
@@ -6308,6 +6484,14 @@ export type SearchEstimateResponseDto = {
    * Roughly how long it takes at its concurrency, in milliseconds, from how long the set’s runs took; unknown when none of them was timed
    */
   estimatedDuration: number | null;
+  /**
+   * The smallest gain its line counts as real
+   */
+  minGain: number;
+  /**
+   * What would make its results hard to trust; a search may start all the same
+   */
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto>;
 };
 
 export type SearchAgentRequestDto = {
@@ -6334,6 +6518,10 @@ export type SearchStartedResponseDto = {
    * The replay of the live config over the whole set, the search starts from; its agent runs once it ends
    */
   seedReplayId: string;
+  /**
+   * What makes its results hard to trust; the search starts all the same
+   */
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto>;
 };
 
 export type SearchSplitEntryResponseDto = {
@@ -6449,13 +6637,29 @@ export type SearchCandidateResponseDto = {
    */
   searchScore: number | null;
   /**
-   * How many searched tasks it was scored on
+   * Its success rate on the searched tasks with its 95% interval
+   */
+  searchInterval: RateIntervalResponseDto | null;
+  /**
+   * How many searched replay runs, copies included, it was scored on
    */
   searchScored: number;
   /**
    * Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished
    */
   heldOutScore: number | null;
+  /**
+   * Its held-out success rate with its 95% interval
+   */
+  heldOutInterval: RateIntervalResponseDto | null;
+  /**
+   * Its gain over the seed on the searched tasks, paired task by task, and whether it is within noise; null for the seed
+   */
+  searchedGain: GainReadingResponseDto | null;
+  /**
+   * Its gain over the seed on the held-out tasks, once its held-out replay finished; null for the seed
+   */
+  heldOutGain: GainReadingResponseDto | null;
   /**
    * What it spent per searched run; unknown while any of it went unpriced or was in another currency
    */
@@ -6515,6 +6719,10 @@ export type SearchDetailResponseDto = {
    * The candidates no other beats on both success and cost, by id, cheapest first; the seed always among them
    */
   frontier: Array<string>;
+  /**
+   * The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
+   */
+  minGain: number;
 };
 
 export type ConfigPullRequestResponseDto = {
@@ -6579,6 +6787,10 @@ export type StartReplayCheckRequestDto = {
     [key: string]: unknown;
   };
   reference?: PlannedReferenceRequestDto;
+  /**
+   * How many times the check replays each run of the set, 1 when left out; the line’s ceiling covers all of them
+   */
+  repeats?: number;
 };
 
 export type ReplayCheckReferenceResponseDto = {
@@ -6591,6 +6803,10 @@ export type ReplayCheckThresholdResponseDto = {
    * How many tasks the change may regress on and still pass, taken from the live line’s replay_check when the check started
    */
   mostRegressions: number;
+  /**
+   * The smallest gain in success the live line’s replay_check counts as real, when the check started
+   */
+  minGain: number;
   /**
    * The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay reaching its ceiling starts no more runs, though runs already going finish, so it may end a little over it
    */
@@ -6610,6 +6826,14 @@ export type ReplayCheckSideResponseDto = {
   scored: number;
   succeeded: number | null;
   successRate: number | null;
+  /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
+   * Tasks with at least one scored copy
+   */
+  tasksScored: number;
   spent: SpendResponseDto | null;
 };
 
@@ -6622,8 +6846,14 @@ export type ReplayCheckRegressionResponseDto = {
   taskId: string;
   originalRunId: string;
   title: string | null;
-  candidate: 'pending' | 'succeeded' | 'failed' | 'unscored';
-  baseline: 'pending' | 'succeeded' | 'failed' | 'unscored' | null;
+  /**
+   * The result of each copy the candidate replayed
+   */
+  candidate: Array<'pending' | 'succeeded' | 'failed' | 'unscored'>;
+  /**
+   * The result of each copy the baseline replayed
+   */
+  baseline: Array<'pending' | 'succeeded' | 'failed' | 'unscored'>;
   scoreDelta: number | null;
   reasons: Array<ReplayCheckReasonResponseDto>;
 };
@@ -6660,6 +6890,14 @@ export type ReplayCheckResponseDto = {
    */
   keptLive: Array<'check' | 'judge' | 'diffs' | 'runners'>;
   threshold: ReplayCheckThresholdResponseDto;
+  /**
+   * How many times the check replays each run of the set
+   */
+  repeats: number;
+  /**
+   * The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the verdict
+   */
+  gain: GainReadingResponseDto | null;
   /**
    * failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise
    */
@@ -6768,6 +7006,14 @@ export type ReplaySetHealthResponseDto = {
    * When a task was last added to it; null while it holds none
    */
   lastAddedAt: string | null;
+  /**
+   * How much its success moves between copies of the same runs under the live config; null until a finished live replay ran it more than once
+   */
+  noise: SetNoiseResponseDto | null;
+  /**
+   * The smallest gain in success its line counts as real
+   */
+  minGain: number;
 };
 
 export type ReplayedBaselineResponseDto = {
@@ -6786,6 +7032,10 @@ export type ReplayedBaselineResponseDto = {
    */
   successRate: number | null;
   /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
    * What it spent per scored run; unknown while any of it went unpriced or was in another currency
    */
   costPerRun: number | null;
@@ -6800,6 +7050,10 @@ export type ReplayedHeldOutResponseDto = {
    * Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished
    */
   score: number | null;
+  /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
   /**
    * How many distinct tasks the search held out
    */
@@ -6816,6 +7070,10 @@ export type ReplayedLiveResponseDto = {
    */
   successRate: number | null;
   /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
    * What it spent per scored run; unknown while any of it went unpriced or was in another currency
    */
   costPerRun: number | null;
@@ -6830,6 +7088,10 @@ export type ReplayedSeedResponseDto = {
    * The live config’s success rate on the searched runs, 0 to 1, as the search page shows the seed’s search score
    */
   successRate: number | null;
+  /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
   /**
    * What it spent per scored run; unknown while any of it went unpriced or was in another currency
    */
@@ -6888,6 +7150,10 @@ export type ReplayedCandidateResponseDto = {
    */
   successRate: number | null;
   /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
    * How many of its runs it was scored on
    */
   scored: number;
@@ -6909,6 +7175,10 @@ export type ReplayedCandidateResponseDto = {
    */
   successRateOnCompared: number | null;
   /**
+   * The candidate’s success rate on the compared runs with its 95% interval over their tasks; null without a baseline
+   */
+  intervalOnCompared: RateIntervalResponseDto | null;
+  /**
    * What the candidate spent per run on the compared runs only, in its own currency, to set beside live; unknown while any of it went unpriced, and null without a baseline
    */
   costPerRunOnCompared: number | null;
@@ -6920,6 +7190,10 @@ export type ReplayedCandidateResponseDto = {
    * How many of its runs the baseline replayed too: the runs live and successRateOnCompared cover
    */
   compared: number;
+  /**
+   * Its gain in success over the baseline on the compared runs, paired task by task, and whether it is within noise; null without a baseline
+   */
+  againstLive: GainReadingResponseDto | null;
   /**
    * Whether no other candidate of its search, nor the seed, succeeds as often for less; null unless searched
    */

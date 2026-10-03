@@ -1,6 +1,10 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import {
+  type GainReading,
+  gainBetween,
+} from '@replays/domain/services/gain-reading';
+import {
   comparedWith,
   type EntryComparison,
   type ReplayTotals,
@@ -35,12 +39,13 @@ export interface CheckReading {
   readonly regressions: readonly EntryComparison[];
   readonly candidate: ReplayTotals | null;
   readonly baseline: ReplayTotals | null;
+  readonly gain: GainReading | null;
 }
 
 const UNDERWAY: readonly string[] = ['queued', 'running'];
 
 const isScored = (each: EntryComparison): boolean =>
-  each.candidate.succeeded !== null && each.baseline?.succeeded != null;
+  each.candidateSuccess !== null && each.baselineSuccess !== null;
 
 const undecidedBecause = (
   replay: Replay,
@@ -79,19 +84,21 @@ export const readingOf = (
       regressions: [],
       candidate: null,
       baseline: baseline && totalsOf(baseline),
+      gain: null,
     };
   }
 
   const compared = comparedWith(replay, baseline);
   const regressions = compared.filter((each) => each.regressed);
   const scored = compared.filter(isScored).length;
-  const entries = replay.entries.length;
+  const entries = compared.length;
   const reading = {
     entries,
     compared: scored,
     regressions,
     candidate: totalsOf(replay),
     baseline: baseline && totalsOf(baseline),
+    gain: baseline && gainBetween(replay, baseline, check.threshold.minGain),
   };
 
   if (!check.threshold.allows(regressions.length)) {

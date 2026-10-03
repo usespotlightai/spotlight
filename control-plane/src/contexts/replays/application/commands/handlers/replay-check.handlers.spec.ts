@@ -87,7 +87,12 @@ const PLAN = {
 };
 
 const threshold = (mostRegressions: number) =>
-  ReplayThreshold.of({ mostRegressions, ceiling: 7.5, currency: 'USD' });
+  ReplayThreshold.of({
+    mostRegressions,
+    ceiling: 7.5,
+    currency: 'USD',
+    minGain: 0.05,
+  });
 
 class InMemoryChecks implements ReplayCheckRepository {
   readonly held = new Map<string, ReplayCheck>();
@@ -213,6 +218,7 @@ const start = (
         line,
         reference: { commit: null, pullRequest: 42 },
       },
+      1,
       ACTOR,
       'key-1',
     ),

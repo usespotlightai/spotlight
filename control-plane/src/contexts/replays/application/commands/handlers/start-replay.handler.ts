@@ -70,6 +70,7 @@ export class StartReplayHandler
         seen,
         await this.replays.ofSet(seen.id),
         liveScoring,
+        command.repeats,
       );
       const live =
         !asked || wantedBefore ? await this.snapshots.taken(seen) : null;
@@ -92,6 +93,7 @@ export class StartReplayHandler
               set,
               await this.replays.ofSet(set.id),
               liveScoring,
+              command.repeats,
             );
 
             if (needed && asked && !live) {
@@ -115,6 +117,7 @@ export class StartReplayHandler
                 candidate,
                 baseline: asBaseline,
                 ceiling,
+                repeats: command.repeats,
                 at: this.clock.now(),
                 by: Attribution.of(command.actor, set.workspaceId),
                 wanting,

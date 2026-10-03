@@ -32,6 +32,14 @@ export function ReplaySetSkeleton({ known }: ReplaySetSkeletonProps) {
           <SkeletonLine className="w-24 text-xs" />
         </div>
 
+        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <SkeletonLine className="w-40 text-xs" />
+            <Skeleton className="ml-auto h-7 w-28 rounded-full" />
+          </div>
+          <SkeletonLine className="w-64 text-xs" />
+        </div>
+
         <section className="flex flex-col gap-2">
           <ReplaysHeading title="Replays" level="h2" />
           <RowsSkeleton label="Loading the replays" />

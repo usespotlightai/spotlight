@@ -27,8 +27,15 @@ import { describe, expect, it } from 'vitest';
 
 const live = candidateOf('live');
 
-const aBaseline = (id: string, at: number, count = 3) =>
-  aReplay({ id, candidate: live, baseline: true, at: later(at), count });
+const aBaseline = (id: string, at: number, count = 3, repeats = 1) =>
+  aReplay({
+    id,
+    candidate: live,
+    baseline: true,
+    at: later(at),
+    count,
+    repeats,
+  });
 
 describe('baselineOf', () => {
   it('is the newest baseline replay that was not stopped or cut short', () => {
@@ -79,25 +86,53 @@ const stale = Candidate.live({
 
 describe('needsBaseline', () => {
   it('wants one when the set has none', () => {
-    expect(needsBaseline(aSet(2), [], SCORING)).toBe(true);
+    expect(needsBaseline(aSet(2), [], SCORING, 1)).toBe(true);
   });
 
   it('wants none while a baseline of the live config covers every run of the set', () => {
-    expect(needsBaseline(aSet(2), [aBaseline('replay_1', 0, 3)], SCORING)).toBe(
+    expect(
+      needsBaseline(aSet(2), [aBaseline('replay_1', 0, 3)], SCORING, 1),
+    ).toBe(false);
+  });
+
+  it('wants a new one once the set holds a run its baseline did not replay', () => {
+    expect(
+      needsBaseline(aSet(3), [aBaseline('replay_1', 0, 2)], SCORING, 1),
+    ).toBe(true);
+  });
+
+  it('wants none while an older baseline covers the set though a newer one does not', () => {
+    const covering = aBaseline('replay_covering', 0, 3, 3);
+    const narrower = aBaseline('replay_narrower', 1, 2, 1);
+
+    expect(needsBaseline(aSet(3), [covering, narrower], SCORING, 3)).toBe(
       false,
     );
   });
 
-  it('wants a new one once the set holds a run its baseline did not replay', () => {
-    expect(needsBaseline(aSet(3), [aBaseline('replay_1', 0, 2)], SCORING)).toBe(
-      true,
-    );
+  it('wants a new one when the only covering baseline was stopped', () => {
+    const stopped = aBaseline('replay_stopped', 0, 3).stopped(later(1), BY);
+
+    expect(needsBaseline(aSet(2), [stopped], SCORING, 1)).toBe(true);
   });
 
   it('wants a new one once the live config runs or is scored differently from its baseline', () => {
     const old = aReplay({ id: 'replay_old', candidate: stale, baseline: true });
 
-    expect(needsBaseline(aSet(2), [old], SCORING)).toBe(true);
+    expect(needsBaseline(aSet(2), [old], SCORING, 1)).toBe(true);
+  });
+
+  it('wants a new one when a replay copies each run more often than its baseline did', () => {
+    const once = aBaseline('replay_once', 0, 2);
+    const thrice = aBaseline('replay_thrice', 1, 2, 3);
+
+    expect(needsBaseline(aSet(2), [once], SCORING, 3)).toBe(true);
+    expect(needsBaseline(aSet(2), [thrice], SCORING, 3)).toBe(false);
+    expect(needsBaseline(aSet(2), [thrice], SCORING, 1)).toBe(false);
+    expect(baselineFor([once], SCORING, aSet(2).runs, 3)).toBeNull();
+    expect(
+      baselineFor([once, thrice], SCORING, aSet(2).runs, 2)?.id.value,
+    ).toBe('replay_thrice');
   });
 });
 
@@ -114,15 +149,15 @@ describe('baselineFor', () => {
       at: later(5),
     });
 
-    expect(baselineFor([running, stopped, old], SCORING, runs)?.id.value).toBe(
-      'replay_running',
-    );
-    expect(baselineFor([stopped, old], SCORING, runs)?.id.value).toBe(
+    expect(
+      baselineFor([running, stopped, old], SCORING, runs, 1)?.id.value,
+    ).toBe('replay_running');
+    expect(baselineFor([stopped, old], SCORING, runs, 1)?.id.value).toBe(
       'replay_stopped',
     );
-    expect(baselineFor([old], SCORING, runs)).toBeNull();
+    expect(baselineFor([old], SCORING, runs, 1)).toBeNull();
     expect(
-      baselineFor([aBaseline('replay_short', 0, 1)], SCORING, runs),
+      baselineFor([aBaseline('replay_short', 0, 1)], SCORING, runs, 1),
     ).toBeNull();
   });
 });

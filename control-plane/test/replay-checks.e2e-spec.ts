@@ -30,7 +30,12 @@ const BUILD = randomUUID();
 const SHIP = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const TOKEN_HEADER = 'spotlight-workspace-token';
-const LIVE_CHECK = { mostRegressions: 0, ceiling: 4, currency: 'USD' };
+const LIVE_CHECK = {
+  mostRegressions: 0,
+  ceiling: 4,
+  currency: 'USD',
+  minGain: 0.05,
+};
 
 const attachmentStore = {
   received: async () => [],
@@ -609,7 +614,12 @@ describe('a replay check', () => {
     await db
       .update(schema.line)
       .set({
-        replayCheck: { mostRegressions: 9, ceiling: 900, currency: 'USD' },
+        replayCheck: {
+          mostRegressions: 9,
+          ceiling: 900,
+          currency: 'USD',
+          minGain: 0.05,
+        },
       })
       .where(eq(schema.line.id, DELIVERY));
     try {
@@ -680,8 +690,8 @@ describe('a replay check', () => {
     expect(failed.verdict).toBe('failed');
     expect(failed.regressions).toEqual([
       expect.objectContaining({
-        candidate: 'failed',
-        baseline: 'succeeded',
+        candidate: ['failed'],
+        baseline: ['succeeded'],
         reasons: [{ code: 'check-failed', detail: 'api' }],
       }),
     ]);

@@ -1,6 +1,8 @@
 import type { CandidatePullRequestDto } from '@replays/application/dto/config-pull-requests.dto';
 import type {
+  GainReadingDto,
   ModelSpentDto,
+  RateIntervalDto,
   SpendDto,
   StationChangeDto,
 } from '@replays/application/dto/replays.dto';
@@ -16,14 +18,27 @@ export interface SearchBudgetDto {
   readonly perIteration: number;
   readonly ceiling: SpendDto;
   readonly concurrency: number;
+  readonly repeats: number;
 }
+
+export type SearchWarningDto =
+  | { readonly kind: 'noise-unmeasured' }
+  | {
+      readonly kind: 'noisy';
+      readonly spread: number;
+      readonly minGain: number;
+      readonly neededRepeats: number;
+      readonly suggestedRepeats: number;
+    };
 
 export interface SearchBestDto {
   readonly candidateId: string;
   readonly name: string;
   readonly seed: boolean;
   readonly searchScore: number | null;
+  readonly searchInterval: RateIntervalDto | null;
   readonly heldOutScore: number | null;
+  readonly heldOutInterval: RateIntervalDto | null;
   readonly costPerRun: number | null;
 }
 
@@ -78,8 +93,12 @@ export interface SearchCandidateDto {
   readonly heldOutReplayId: string | null;
   readonly heldOutReplayState: string | null;
   readonly searchScore: number | null;
+  readonly searchInterval: RateIntervalDto | null;
   readonly searchScored: number;
   readonly heldOutScore: number | null;
+  readonly heldOutInterval: RateIntervalDto | null;
+  readonly searchedGain: GainReadingDto | null;
+  readonly heldOutGain: GainReadingDto | null;
   readonly costPerRun: number | null;
   readonly spent: SpendDto;
   readonly onFrontier: boolean;
@@ -92,6 +111,7 @@ export interface SearchDetailDto extends SearchSummaryDto {
   readonly seed: SearchCandidateDto;
   readonly candidates: readonly SearchCandidateDto[];
   readonly frontier: readonly string[];
+  readonly minGain: number;
 }
 
 export interface SearchRunsEstimateDto {
@@ -116,4 +136,6 @@ export interface SearchEstimateDto {
   readonly ceiling: SpendDto;
   readonly perReplayAllotments: SearchAllotmentsDto;
   readonly estimatedDuration: number | null;
+  readonly minGain: number;
+  readonly warnings: readonly SearchWarningDto[];
 }

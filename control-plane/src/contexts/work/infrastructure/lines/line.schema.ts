@@ -105,6 +105,7 @@ const replayCheckSchema = z.object({
   mostRegressions: z.number().default(0),
   ceiling: z.number().default(10),
   currency: z.string().default('USD'),
+  minGain: z.number().default(0.05),
 });
 
 const sourceSchema = z.object({

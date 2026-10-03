@@ -89,7 +89,12 @@ describe('renderLineRows', () => {
       ...ROWS,
       line: {
         ...ROWS.line,
-        replayCheck: { mostRegressions: 1, ceiling: 12.5, currency: 'USD' },
+        replayCheck: {
+          mostRegressions: 1,
+          ceiling: 12.5,
+          currency: 'USD',
+          minGain: 0.05,
+        },
       },
     });
 
@@ -97,6 +102,7 @@ describe('renderLineRows', () => {
       mostRegressions: 1,
       ceiling: 12.5,
       currency: 'USD',
+      minGain: 0.05,
     });
     expect(Object.keys(renderLineRows(ROWS))).not.toContain('replayCheck');
     expect(compileLine(rendered).ok).toBe(true);

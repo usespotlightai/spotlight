@@ -2,7 +2,7 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
-import { EntryResult } from '@/components/features/replays/replay/EntryResult';
+import { EntryCopies } from '@/components/features/replays/replay/EntryCopies';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { lastedOrNone, spendShown } from '@/lib/insights';
 import {
@@ -10,13 +10,19 @@ import {
   costDeltaShown,
   type EntryComparison,
   judgeScoreShown,
+  meanCostOf,
+  meanMsOf,
   msDeltaShown,
   type ReplayDetail,
+  type ReplayEntry,
   scoreDeltaShown,
   titleShown,
 } from '@/lib/replay';
 import { uncomparedShown } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
+
+const judgesShown = (copies: readonly ReplayEntry[]): string =>
+  copies.map((each) => judgeScoreShown(each.judge)).join(' · ');
 
 type ReplayComparisonProps = {
   slug: string;
@@ -30,7 +36,7 @@ export function ReplayComparison({
   replay,
 }: ReplayComparisonProps) {
   const rows = comparisonInOrder(replay.comparison);
-  const compared = rows.some((each) => each.baseline !== null);
+  const compared = rows.some((each) => each.baseline.length > 0);
   const currency = replay.ceiling.currency;
   const runTo = (runId: string | null) =>
     runId ? runPath(slug, teamId, runId) : null;
@@ -59,17 +65,15 @@ export function ReplayComparison({
   const candidate: InsightsColumn<EntryComparison> = {
     id: 'candidate',
     header: compared ? 'This replay' : 'Result',
-    cell: (row) => (
-      <EntryResult entry={row.candidate} runTo={runTo(row.candidate.runId)} />
-    ),
+    cell: (row) => <EntryCopies copies={row.candidate} runTo={runTo} />,
   };
 
   const baseline: InsightsColumn<EntryComparison> = {
     id: 'baseline',
     header: 'Baseline',
     cell: (row) =>
-      row.baseline ? (
-        <EntryResult entry={row.baseline} runTo={runTo(row.baseline.runId)} />
+      row.baseline.length > 0 ? (
+        <EntryCopies copies={row.baseline} runTo={runTo} />
       ) : (
         <span className="text-muted-foreground">Not replayed</span>
       ),
@@ -82,11 +86,11 @@ export function ReplayComparison({
       compared ? (
         <span className="flex flex-col">
           <span className="tabular-nums">
-            {judgeScoreShown(row.candidate.judge)}
-            {row.baseline && (
+            {judgesShown(row.candidate)}
+            {row.baseline.length > 0 && (
               <span className="text-muted-foreground">
                 {' '}
-                vs {judgeScoreShown(row.baseline.judge)}
+                vs {judgesShown(row.baseline)}
               </span>
             )}
           </span>
@@ -97,9 +101,7 @@ export function ReplayComparison({
           </span>
         </span>
       ) : (
-        <span className="tabular-nums">
-          {judgeScoreShown(row.candidate.judge)}
-        </span>
+        <span className="tabular-nums">{judgesShown(row.candidate)}</span>
       ),
   };
 
@@ -110,7 +112,7 @@ export function ReplayComparison({
     cell: (row) =>
       compared
         ? costDeltaShown(row.costDelta, currency)
-        : spendShown(row.candidate.cost),
+        : spendShown(meanCostOf(row.candidate)),
   };
 
   const time: InsightsColumn<EntryComparison> = {
@@ -118,7 +120,9 @@ export function ReplayComparison({
     header: compared ? 'Time vs baseline' : 'Time',
     numeric: true,
     cell: (row) =>
-      compared ? msDeltaShown(row.msDelta) : lastedOrNone(row.candidate.ms),
+      compared
+        ? msDeltaShown(row.msDelta)
+        : lastedOrNone(meanMsOf(row.candidate)),
   };
 
   const columns = compared

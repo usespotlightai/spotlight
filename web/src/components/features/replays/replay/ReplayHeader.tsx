@@ -7,28 +7,28 @@ import { Fingerprint } from '@/components/shared/Fingerprint';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   candidateShown,
+  type Replay,
   type ReplayDetail,
   type ReplayedStation,
   replaySetPath,
-  type SuccessComparison,
   scoredShown,
   underway,
 } from '@/lib/replay';
-import { stateNote } from '@/lib/replay-words';
+import { COPIES_LABEL, repeatsShown, stateNote } from '@/lib/replay-words';
 import { since } from '@/lib/runner';
 
 type ReplayHeaderProps = {
   at: ReplayedStation;
   replay: ReplayDetail;
   setName: string | null;
-  success: SuccessComparison;
+  baseline: Pick<Replay, 'id' | 'totals'> | null;
 };
 
 export function ReplayHeader({
   at,
   replay,
   setName,
-  success,
+  baseline,
 }: ReplayHeaderProps) {
   const note = stateNote(replay.state);
 
@@ -82,10 +82,7 @@ export function ReplayHeader({
       <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5 text-sm">
         <dt className="text-muted-foreground text-xs">Success</dt>
         <dd>
-          <SuccessAgainstBaseline
-            success={success}
-            isBaseline={replay.isBaseline}
-          />
+          <SuccessAgainstBaseline replay={replay} baseline={baseline} />
         </dd>
 
         <dt className="text-muted-foreground text-xs">Scored</dt>
@@ -96,6 +93,15 @@ export function ReplayHeader({
             · {scoringShown(replay)}
           </span>
         </dd>
+
+        {replay.repeats > 1 && (
+          <>
+            <dt className="text-muted-foreground text-xs">{COPIES_LABEL}</dt>
+            <dd className="text-foreground text-xs">
+              {repeatsShown(replay.repeats)}
+            </dd>
+          </>
+        )}
 
         <dt className="text-muted-foreground text-xs">Spent</dt>
         <dd>

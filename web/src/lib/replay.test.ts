@@ -1,20 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import type { EntryComparison, Replay, ReplaySet } from '@/lib/replay';
+import type {
+  EntryComparison,
+  Replay,
+  ReplayEntry,
+  ReplaySet,
+} from '@/lib/replay';
 import {
+  baselineTotalsFor,
   ceilingFrom,
   ceilingShare,
   comparisonInOrder,
+  copiesTally,
   costDeltaShown,
+  flippedTitles,
   judgeScoreShown,
   latestOf,
+  meanCostOf,
+  meanMsOf,
   msDeltaShown,
   proposeCommand,
+  repeatsFrom,
   replayPath,
   replaySetPath,
   spendBreakdown,
   startRefusal,
   stationAddress,
-  successAgainst,
 } from '@/lib/replay';
 
 const totals = (successRate: number | null) =>
@@ -24,6 +34,17 @@ const replay = (id: string, successRate: number | null) => ({
   id,
   totals: totals(successRate),
 });
+
+const copy = (
+  result: ReplayEntry['result'],
+  amount: number | null,
+  ms: number | null,
+) =>
+  ({
+    result,
+    cost: amount === null ? null : { amount, currency: 'USD' },
+    ms,
+  }) as ReplayEntry;
 
 const row = (originalRunId: string, regressed: boolean) =>
   ({ originalRunId, regressed }) as EntryComparison;
@@ -47,25 +68,48 @@ describe('replays', () => {
     ).toEqual(['b', 'd', 'a', 'c']);
   });
 
-  it('compares the success rate with the baseline in points', () => {
-    expect(successAgainst(replay('r', 0.75), replay('b', 0.5))).toEqual({
-      now: '75% succeeded',
-      baseline: '50%',
-      delta: { shown: '+25 pts', tone: 'good' },
-    });
-    expect(successAgainst(replay('r', 0.25), replay('b', 0.5)).delta).toEqual({
-      shown: '−25 pts',
-      tone: 'bad',
-    });
+  it('compares with the baseline’s totals, but not the baseline with itself', () => {
+    expect(
+      baselineTotalsFor(replay('r', 0.75), replay('b', 0.5))?.successRate,
+    ).toBe(0.5);
+    expect(baselineTotalsFor(replay('b', 0.5), replay('b', 0.5))).toBeNull();
+    expect(baselineTotalsFor(replay('r', 0.75), null)).toBeNull();
   });
 
-  it('compares nothing with itself, nor before anything is scored', () => {
-    expect(successAgainst(replay('b', 0.5), replay('b', 0.5)).delta).toBeNull();
-    expect(successAgainst(replay('r', null), replay('b', 0.5))).toEqual({
-      now: 'No score yet',
-      baseline: '50%',
-      delta: null,
-    });
+  it('reads repeats as a whole number from 1 to 5', () => {
+    expect(repeatsFrom('3')).toBe(3);
+    expect(repeatsFrom('0')).toBe('Give a whole number from 1 to 5.');
+    expect(repeatsFrom('6')).toBe('Give a whole number from 1 to 5.');
+    expect(repeatsFrom('2.5')).toBe('Give a whole number from 1 to 5.');
+  });
+
+  it('tallies a task’s copies and averages their cost and time', () => {
+    const copies = [
+      copy('succeeded', 0.5, 60_000),
+      copy('failed', 1.5, null),
+      copy('unscored', 1, 120_000),
+    ];
+
+    expect(copiesTally(copies)).toEqual({ succeeded: 1, scored: 2 });
+    expect(meanCostOf(copies)).toEqual({ amount: 1, currency: 'USD' });
+    expect(meanMsOf(copies)).toBe(90_000);
+    expect(meanCostOf([copy('pending', null, null)])).toBeNull();
+    expect(meanMsOf([copy('pending', null, null)])).toBeNull();
+  });
+
+  it('names the tasks whose copies went both ways', () => {
+    const set = {
+      entries: [
+        { taskId: 'task_a', title: 'Fix the queue' },
+        { taskId: 'task_b', title: null },
+      ],
+    } as ReplaySet;
+
+    expect(
+      flippedTitles(set, {
+        flippedTasks: ['task_a', 'task_b'],
+      } as never),
+    ).toEqual(['Fix the queue', 'A deleted task']);
   });
 
   it('takes the newest replay as the latest', () => {

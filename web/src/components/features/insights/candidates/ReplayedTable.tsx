@@ -1,11 +1,8 @@
 import { ReplayedCandidateRow } from '@/components/features/insights/candidates/ReplayedCandidateRow';
+import { ScoredRate } from '@/components/features/replays/ScoredRate';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { spentIn } from '@/lib/inbox';
-import {
-  type CandidatesSet,
-  LIVE_OVER_SET,
-  replaySuccessShown,
-} from '@/lib/insights-candidates';
+import { type CandidatesSet, LIVE_OVER_SET } from '@/lib/insights-candidates';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
 
 type ReplayedTableProps = {
@@ -32,9 +29,11 @@ export function ReplayedTable({ at, set }: ReplayedTableProps) {
           >
             {LIVE_OVER_SET}
           </TrailLink>
-          <span className="text-foreground tabular-nums">
-            {replaySuccessShown(baseline.successRate, baseline.scored)}
-          </span>
+          <ScoredRate
+            rate={baseline.successRate}
+            interval={baseline.interval}
+            scored={baseline.scored}
+          />
           <span className="text-muted-foreground tabular-nums">
             {baseline.costPerRun === null
               ? 'Unpriced'

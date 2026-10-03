@@ -11,6 +11,7 @@ import {
   STATION_ID,
   seedBaselineReplay,
   seedEmptyReplay,
+  seedRepeatedReplay,
   seedReplay,
   seedReplayAwaiting,
   TEAM_ID,
@@ -76,6 +77,15 @@ export const WithData: Story = {
 export const Baseline: Story = {
   render: () => (
     <StoryPage at={replayPath(place, BASELINE_ID)} seed={seedBaselineReplay}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Repeated: Story = {
+  name: 'Each run three times',
+  render: () => (
+    <StoryPage at={at} seed={seedRepeatedReplay}>
       {routes}
     </StoryPage>
   ),

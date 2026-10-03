@@ -309,6 +309,7 @@ describe('a line, created through the resource API (e2e)', () => {
       mostRegressions: 1,
       ceiling: 10,
       currency: 'EUR',
+      minGain: 0.05,
     });
     expect(dropped.status).toBe(200);
     expect(dropped.body.definition).not.toHaveProperty('replayCheck');
@@ -319,6 +320,8 @@ describe('a line, created through the resource API (e2e)', () => {
       [{ mostRegressions: -1 }, 'replayCheck.mostRegressions'],
       [{ ceiling: 0 }, 'replayCheck.ceiling'],
       [{ currency: 'dollars' }, 'replayCheck.currency'],
+      [{ minGain: 0 }, 'replayCheck.minGain'],
+      [{ minGain: 1.5 }, 'replayCheck.minGain'],
     ] as const) {
       const refused = await create({ ...DELIVERY, replayCheck });
 

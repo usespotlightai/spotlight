@@ -9,6 +9,7 @@ import {
   pullRequestStateShown,
   searchStateShown,
   verdictShown,
+  warningShown,
 } from '@/lib/search-words';
 
 type Schema = {
@@ -86,5 +87,25 @@ describe('search words cover every code the API can answer', () => {
     for (const why of codesOf('ReplayCheckResponseDto', 'undecidedBecause')) {
       worded(verdictShown('undecided', why as never), why);
     }
+  });
+
+  it('words every warning a search estimate can give', () => {
+    worded(warningShown({ kind: 'noise-unmeasured' }), 'noise-unmeasured');
+    worded(
+      warningShown({
+        kind: 'noisy',
+        spread: 0.2,
+        minGain: 0.05,
+        suggestedRepeats: 5,
+        neededRepeats: 5,
+      }),
+      'noisy',
+    );
+    expect(
+      [
+        ...codesOf('NoiseUnmeasuredWarningResponseDto', 'kind'),
+        ...codesOf('NoisyWarningResponseDto', 'kind'),
+      ].sort(),
+    ).toEqual(['noise-unmeasured', 'noisy']);
   });
 });

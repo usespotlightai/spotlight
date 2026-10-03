@@ -23,6 +23,8 @@ const SET: ReplaySet = {
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  noise: null,
+  minGain: 0.05,
   entries: [],
 };
 
@@ -56,7 +58,12 @@ describe('GuardsChangesToggle', () => {
       <GuardsChangesToggle
         teamId="team_1"
         set={{ ...SET, guardsChanges: true }}
-        replayCheck={{ mostRegressions: 2, ceiling: 10, currency: 'USD' }}
+        replayCheck={{
+          mostRegressions: 2,
+          ceiling: 10,
+          currency: 'USD',
+          minGain: 0.05,
+        }}
       />,
     );
 

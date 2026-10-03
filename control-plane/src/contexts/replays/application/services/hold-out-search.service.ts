@@ -73,6 +73,7 @@ export class HoldOutSearch {
             at,
             by: Attribution.spotlight(search.workspaceId),
             among: search.split.heldOutRuns,
+            repeats: search.budget.repeats,
             searchId: search.id,
           }),
         );

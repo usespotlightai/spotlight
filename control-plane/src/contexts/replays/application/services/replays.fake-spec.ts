@@ -180,6 +180,13 @@ export class InMemoryReplays {
         );
         return found ? [found] : [];
       }),
+    repeatedOfSets: async (setIds) =>
+      [...this.replays.values()].filter(
+        (each) =>
+          setIds.some((id) => each.setId.equals(id)) &&
+          each.current === 'finished' &&
+          each.repeats > 1,
+      ),
     ofTeamStartedSince: async (teamId, since, most) =>
       [...this.replays.values()]
         .filter(

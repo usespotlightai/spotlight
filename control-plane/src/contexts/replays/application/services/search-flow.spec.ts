@@ -34,6 +34,7 @@ import {
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { SearchSights } from '@replays/application/services/search-sights.service';
+import { SetNoises } from '@replays/application/services/set-noises.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-due.event';
@@ -65,11 +66,15 @@ let work: FakeWork;
 
 const DIGEST = { sha256 };
 
+const noisesFor = () =>
+  new SetNoises(work, memory.replayRepository, memory.candidateRepository);
+
 const BUDGET: SearchBudgetAsked = {
   iterations: 2,
   perIteration: 2,
   ceiling: { amount: 100, currency: 'USD' },
   concurrency: null,
+  repeats: null,
 };
 
 const AGENT = { harness: 'claude-code', model: 'opus', effort: 'high' };
@@ -89,6 +94,7 @@ const starting = (mayPlan = true) =>
     CLOCK,
     TRANSACTION,
     stationsFor(memory, work),
+    noisesFor(),
   );
 
 const start = async (
@@ -360,6 +366,7 @@ describe('StartSearchHandler', () => {
           perIteration: 0,
           ceiling: { amount: 0, currency: 'USD' },
           concurrency: 99,
+          repeats: null,
         },
         ACTOR,
       ),
@@ -376,6 +383,7 @@ describe('StartSearchHandler', () => {
         perIteration: 0,
         ceiling: { amount: 0, currency: 'USD' },
         concurrency: 99,
+        repeats: null,
       },
     });
 
@@ -395,6 +403,7 @@ describe('StartSearchHandler', () => {
         perIteration: 5,
         ceiling: { amount: 0.5, currency: 'USD' },
         concurrency: null,
+        repeats: null,
       },
     });
 
@@ -601,6 +610,7 @@ describe('a search running its course', () => {
       memory.replayRepository,
       memory.candidateRepository,
       new InMemoryConfigPullRequests(),
+      noisesFor(),
     ).execute(new ReadSearchQuery('team_1', search.id.value, PERSON));
 
     expect(read.seed.name).toBe('seed');
@@ -729,6 +739,7 @@ describe('EstimateSearchHandler', () => {
     const answered = await new EstimateSearchHandler(
       accessFor(memory, work),
       work,
+      noisesFor(),
     ).execute(
       new EstimateSearchQuery(
         'team_1',

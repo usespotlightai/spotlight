@@ -19,6 +19,7 @@ interface EntryState {
   readonly position: number;
   readonly original: RunId;
   readonly taskId: TaskId;
+  readonly repeat: number;
   readonly run: RunId | null;
   readonly queued: boolean;
   readonly fingerprint: StationFingerprint | null;
@@ -53,6 +54,7 @@ export class ReplayEntry {
     position: number;
     original: RunId;
     taskId: TaskId;
+    repeat: number;
   }): ReplayEntry {
     return new ReplayEntry({
       ...input,
@@ -100,6 +102,10 @@ export class ReplayEntry {
 
   get taskId(): TaskId {
     return this.state.taskId;
+  }
+
+  get repeat(): number {
+    return this.state.repeat;
   }
 
   get run(): RunId | null {

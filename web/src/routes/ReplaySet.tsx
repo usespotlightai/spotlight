@@ -2,6 +2,7 @@ import { useParams } from 'react-router';
 import { ReplaySetHeader } from '@/components/features/replays/set/ReplaySetHeader';
 import { ReplaySetSkeleton } from '@/components/features/replays/set/ReplaySetSkeleton';
 import { SetChecks } from '@/components/features/replays/set/SetChecks';
+import { SetNoise } from '@/components/features/replays/set/SetNoise';
 import { SetReplays } from '@/components/features/replays/set/SetReplays';
 import { SetRuns } from '@/components/features/replays/set/SetRuns';
 import { StationLayout } from '@/components/features/stations/StationLayout';
@@ -20,7 +21,7 @@ import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
-import { replaySetPath, replaysAnchorPath } from '@/lib/replay';
+import { baselineIn, replaySetPath, replaysAnchorPath } from '@/lib/replay';
 import { ongoing } from '@/lib/search';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -99,6 +100,8 @@ export function ReplaySet() {
           replayCheck={line ? line.replayCheck : undefined}
           searching={searching}
         />
+
+        <SetNoise at={at} set={set} baseline={baselineIn(replays.data ?? [])} />
 
         <SetReplays at={at} set={set} replays={replays} />
 

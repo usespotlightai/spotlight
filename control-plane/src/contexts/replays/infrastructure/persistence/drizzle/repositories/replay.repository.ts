@@ -44,6 +44,7 @@ import {
   desc,
   eq,
   exists,
+  gt,
   gte,
   inArray,
   isNotNull,
@@ -210,6 +211,7 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     position: row.position,
     original: RunId.of(row.originalRunId),
     taskId: TaskId.of(row.taskId),
+    repeat: row.repeat,
     run: row.runId ? RunId.of(row.runId) : null,
     queued: row.queued,
     fingerprint: row.fingerprint
@@ -250,6 +252,7 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
         ? null
         : Spend.of(row.unpricedRate, row.ceilingCurrency),
     among: row.among ? row.among.map((each) => RunId.of(each)) : null,
+    repeats: row.repeats,
     searchId: row.searchId ? SearchId.of(row.searchId) : null,
     state: row.state,
     entries: entries
@@ -267,6 +270,7 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   position: entry.position,
   originalRunId: entry.original.value,
   taskId: entry.taskId.value,
+  repeat: entry.repeat,
   runId: entry.run?.value ?? null,
   queued: entry.queued,
   fingerprint: entry.fingerprint?.value ?? null,
@@ -378,6 +382,20 @@ export class DrizzleReplayRepository implements ReplayRepository {
           ),
         )
         .orderBy(asc(replay.setId), desc(replay.startedAt), asc(replay.id)),
+    );
+  }
+
+  repeatedOfSets(setIds: readonly ReplaySetId[]): Promise<readonly Replay[]> {
+    if (setIds.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.withEntries(
+      and(
+        inArray(replay.setId, [...new Set(setIds.map((each) => each.value))]),
+        eq(replay.state, 'finished'),
+        gt(replay.repeats, 1),
+      ) as SQL,
     );
   }
 
@@ -503,6 +521,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       unpricedRate: held.unpricedRate?.amount ?? null,
       ceilingCurrency: held.ceiling.currency,
       among: held.among ? held.among.map((each) => each.value) : null,
+      repeats: held.repeats,
       searchId: held.searchId?.value ?? null,
       state: held.current,
       startedAt: held.startedAt,

@@ -1,18 +1,38 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
-import type { SuccessComparison } from '@/lib/replay';
+import { GainVerdict } from '@/components/features/replays/GainVerdict';
+import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
+import { baselineTotalsFor, type Replay } from '@/lib/replay';
+import {
+  BASELINE,
+  NO_SCORE_YET,
+  SUCCEEDED,
+  THE_BASELINE,
+} from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 type SuccessAgainstBaselineProps = {
-  success: SuccessComparison;
-  isBaseline: boolean;
+  replay: Pick<Replay, 'id' | 'isBaseline' | 'totals' | 'againstBaseline'>;
+  baseline: Pick<Replay, 'id' | 'totals'> | null;
   className?: string;
 };
 
 export function SuccessAgainstBaseline({
-  success,
-  isBaseline,
+  replay,
+  baseline,
   className,
 }: SuccessAgainstBaselineProps) {
+  const { successRate, interval } = replay.totals;
+  const against = baselineTotalsFor(replay, baseline);
+  const baselineShown = against && against.successRate !== null && (
+    <>
+      {BASELINE}{' '}
+      <RateWithInterval
+        rate={against.successRate}
+        interval={against.interval}
+        className="text-muted-foreground"
+      />
+    </>
+  );
+
   return (
     <span
       data-slot="success-against-baseline"
@@ -21,18 +41,25 @@ export function SuccessAgainstBaseline({
         className,
       )}
     >
-      <span className="text-foreground tabular-nums">{success.now}</span>
-      {isBaseline ? (
-        <span className="text-muted-foreground">· the baseline</span>
-      ) : success.delta ? (
-        <DeltaShown
-          delta={success.delta}
-          against={`baseline ${success.baseline}`}
+      {successRate === null ? (
+        <span className="text-foreground">{NO_SCORE_YET}</span>
+      ) : (
+        <span className="text-foreground">
+          <RateWithInterval rate={successRate} interval={interval} />{' '}
+          {SUCCEEDED}
+        </span>
+      )}
+      {replay.isBaseline ? (
+        <span className="text-muted-foreground">· {THE_BASELINE}</span>
+      ) : replay.againstBaseline ? (
+        <GainVerdict
+          gain={replay.againstBaseline}
+          against={baselineShown || BASELINE}
         />
       ) : (
-        success.baseline !== null && (
+        baselineShown && (
           <span className="text-muted-foreground tabular-nums">
-            · baseline {success.baseline}
+            · {baselineShown}
           </span>
         )
       )}

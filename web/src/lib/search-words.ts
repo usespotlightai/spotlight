@@ -2,9 +2,11 @@ import type {
   ConfigPullRequestReasonResponseDto,
   ReplayCheckResponseDto,
   SearchCandidateResponseDto,
+  SearchEstimateResponseDto,
   SearchIterationResponseDto,
   SearchResponseDto,
 } from '@/lib/api';
+import { minGainShown, pointsShown } from '@/lib/replay-words';
 
 export type SearchState = SearchResponseDto['state'];
 export type SearchEnding = NonNullable<SearchResponseDto['ending']>;
@@ -16,6 +18,7 @@ export type PullRequestReason = ConfigPullRequestReasonResponseDto;
 type ReasonCode = PullRequestReason['code'];
 type CheckVerdict = ReplayCheckResponseDto['verdict'];
 type Undecided = NonNullable<ReplayCheckResponseDto['undecidedBecause']>;
+export type SearchWarning = SearchEstimateResponseDto['warnings'][number];
 
 const STATES: Record<SearchState, string> = {
   seeding: 'Replaying the live config',
@@ -102,3 +105,30 @@ export const verdictShown = (
   verdict === 'undecided' && undecidedBecause
     ? `${CHECK_VERDICTS[verdict]}: ${UNDECIDED[undecidedBecause]}`
     : CHECK_VERDICTS[verdict];
+
+export const warningShown = (warning: SearchWarning): string => {
+  switch (warning.kind) {
+    case 'noise-unmeasured':
+      return 'Nobody has measured how much this set’s success moves by chance, so a small gain may be luck. Measure its noise on the set page, or replay each run more than once.';
+    case 'noisy': {
+      const fix =
+        warning.neededRepeats > warning.suggestedRepeats
+          ? `Even replaying each run ${warning.suggestedRepeats} times, the most allowed, won’t bring it under that, so read small gains with care or raise the line’s smallest real gain.`
+          : `Replaying each run ${warning.suggestedRepeats} times would bring that down.`;
+
+      return `This set’s success moved ${pointsShown(warning.spread)} between copies of the same runs, more than the ${minGainShown(warning.minGain)} the line counts as real. ${fix}`;
+    }
+  }
+};
+
+export const repeatsSuggestionShown = (repeats: number): string =>
+  `Replay each run ${repeats} times`;
+
+export const GAIN_ON_SEARCHED = 'Gain over the live config, searched';
+
+export const GAIN_ON_HELD_OUT = 'Gain over the live config, held out';
+
+export const BEST_LABEL = 'Best:';
+
+export const bestOnShown = (heldOut: boolean): string =>
+  heldOut ? 'held out' : 'searched';
