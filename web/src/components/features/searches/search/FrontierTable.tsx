@@ -5,6 +5,7 @@ import {
 import { GainVerdict } from '@/components/features/replays/GainVerdict';
 import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
 import { ScoredRate } from '@/components/features/replays/ScoredRate';
+import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenTasksBadge';
 import type { GainReading } from '@/lib/replay';
 import {
   candidateName,
@@ -31,6 +32,12 @@ export function FrontierTable({ candidates, currency }: FrontierTableProps) {
           {candidateName(candidate)}
           {candidate.onFrontier && (
             <span className="ml-1.5 text-primary">frontier</span>
+          )}
+          {candidate.onlyOnSeenTasks && (
+            <OnlyOnSeenTasksBadge
+              mark={candidate.onlyOnSeenTasks}
+              className="ml-1.5 align-middle"
+            />
           )}
         </>
       ),

@@ -87,7 +87,7 @@ export interface ReplayedWorld {
   readonly candidates: readonly Candidate[];
 }
 
-const heldOut = (
+export const heldOutOf = (
   search: Search,
   replays: readonly Replay[],
   ids: () => RunId,
@@ -165,7 +165,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
       searching.split.searchedRuns,
     ),
   ];
-  const search = holdingOut ? heldOut(searching, searched, ids) : searching;
+  const search = holdingOut ? heldOutOf(searching, searched, ids) : searching;
 
   return {
     set,

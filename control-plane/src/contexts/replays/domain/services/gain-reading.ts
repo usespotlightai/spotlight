@@ -23,7 +23,7 @@ export interface PairedSuccess {
   readonly baseline: number;
 }
 
-const FEWEST_PAIRED_TASKS = 5;
+export const FEWEST_PAIRED_TASKS = 5;
 
 const verdictOf = (
   gain: number,

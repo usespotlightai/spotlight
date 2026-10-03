@@ -3,6 +3,7 @@ import { GainVerdict } from '@/components/features/replays/GainVerdict';
 import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
 import { ScoredRate } from '@/components/features/replays/ScoredRate';
+import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenTasksBadge';
 import { PickCandidate } from '@/components/features/searches/search/PickCandidate';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -52,6 +53,9 @@ export function SearchCandidateRow({
         </span>
         {candidate.onFrontier && (
           <Pill className="text-primary">On the frontier</Pill>
+        )}
+        {candidate.onlyOnSeenTasks && (
+          <OnlyOnSeenTasksBadge mark={candidate.onlyOnSeenTasks} />
         )}
         {candidate.replayState && candidate.replayState !== 'finished' && (
           <ReplayStatePill state={candidate.replayState} />

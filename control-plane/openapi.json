@@ -37959,6 +37959,16 @@
             "type": "number",
             "nullable": true,
             "description": "What it spent per searched run, in the search’s currency; unknown while any of its spend went unpriced or was in another currency"
+          },
+          "onlyOnSeenTasks": {
+            "type": "string",
+            "enum": [
+              "marked",
+              "too-few-held-out",
+              null
+            ],
+            "nullable": true,
+            "description": "marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished"
           }
         },
         "required": [
@@ -37969,7 +37979,8 @@
           "searchInterval",
           "heldOutScore",
           "heldOutInterval",
-          "costPerRun"
+          "costPerRun",
+          "onlyOnSeenTasks"
         ]
       },
       "SearchResponseDto": {
@@ -38761,6 +38772,16 @@
             "type": "boolean",
             "description": "Whether no other candidate, nor the seed, succeeds as often for less"
           },
+          "onlyOnSeenTasks": {
+            "type": "string",
+            "enum": [
+              "marked",
+              "too-few-held-out",
+              null
+            ],
+            "nullable": true,
+            "description": "marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished"
+          },
           "pullRequest": {
             "nullable": true,
             "description": "The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed",
@@ -38794,6 +38815,7 @@
           "costPerRun",
           "spent",
           "onFrontier",
+          "onlyOnSeenTasks",
           "pullRequest"
         ]
       },
@@ -38907,6 +38929,11 @@
               "type": "string"
             }
           },
+          "onlyOnSeenTasks": {
+            "type": "number",
+            "example": 1,
+            "description": "How many frontier candidates gained only on the tasks the search could see"
+          },
           "minGain": {
             "type": "number",
             "example": 0.05,
@@ -38933,6 +38960,7 @@
           "seed",
           "candidates",
           "frontier",
+          "onlyOnSeenTasks",
           "minGain"
         ]
       },

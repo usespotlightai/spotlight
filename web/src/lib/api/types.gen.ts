@@ -6328,6 +6328,10 @@ export type SearchBestResponseDto = {
    * What it spent per searched run, in the search’s currency; unknown while any of its spend went unpriced or was in another currency
    */
   costPerRun: number | null;
+  /**
+   * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
+   */
+  onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
 };
 
 export type SearchResponseDto = {
@@ -6670,6 +6674,10 @@ export type SearchCandidateResponseDto = {
    */
   onFrontier: boolean;
   /**
+   * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
+   */
+  onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+  /**
    * The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed
    */
   pullRequest: CandidatePullRequestResponseDto | null;
@@ -6719,6 +6727,10 @@ export type SearchDetailResponseDto = {
    * The candidates no other beats on both success and cost, by id, cheapest first; the seed always among them
    */
   frontier: Array<string>;
+  /**
+   * How many frontier candidates gained only on the tasks the search could see
+   */
+  onlyOnSeenTasks: number;
   /**
    * The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
    */

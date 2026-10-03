@@ -96,6 +96,7 @@ const SEARCH: Search = {
     heldOutScore: null,
     heldOutInterval: null,
     costPerRun: 0.9,
+    onlyOnSeenTasks: null,
   },
   startedAt: '2026-10-02T09:00:00.000Z',
   endedAt: null,
@@ -179,6 +180,26 @@ describe('StationSearches', () => {
     ).toBeDisabled();
     expect(
       screen.getByText('A search of this station is under way.'),
+    ).toBeInTheDocument();
+  });
+
+  it('marks a search whose best candidate gained only on the tasks it could see, or says too few held-out tasks were scored to tell', () => {
+    const best = SEARCH.best;
+    searches.mockReturnValue([
+      { ...SEARCH, best: best && { ...best, onlyOnSeenTasks: 'marked' } },
+      {
+        ...SEARCH,
+        id: 'search_2',
+        best: best && { ...best, onlyOnSeenTasks: 'too-few-held-out' },
+      },
+    ]);
+    sets.mockReturnValue([setOf(6)]);
+
+    renderSearches();
+
+    expect(screen.getByText('Only on seen tasks')).toBeInTheDocument();
+    expect(
+      screen.getByText('Too few held-out tasks to tell'),
     ).toBeInTheDocument();
   });
 

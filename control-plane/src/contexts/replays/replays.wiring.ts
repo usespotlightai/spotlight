@@ -510,9 +510,9 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   ),
   {
     provide: SearchSummaries,
-    inject: [DrizzleReplayRepository],
-    useFactory: (replays: DrizzleReplayRepository) =>
-      new SearchSummaries(replays),
+    inject: [DrizzleReplayRepository, SetNoises],
+    useFactory: (replays: DrizzleReplayRepository, noises: SetNoises) =>
+      new SearchSummaries(replays, noises),
   },
   ...bindQueryHandler(EstimateSearchQuery, EstimateSearchHandler, [
     ReplaysAccess,

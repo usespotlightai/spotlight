@@ -69,6 +69,7 @@ const candidate = (over: Partial<SearchCandidate>): SearchCandidate => ({
   costPerRun: 0.5,
   spent: { amount: 2, currency: 'USD' },
   onFrontier: false,
+  onlyOnSeenTasks: null,
   pullRequest: null,
   ...over,
 });

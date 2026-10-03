@@ -110,6 +110,7 @@ const candidate = (
   costPerRun: null,
   spent: { amount: 0, currency: 'USD' },
   onFrontier: false,
+  onlyOnSeenTasks: null,
   pullRequest: null,
   ...over,
 });
@@ -158,11 +159,12 @@ const CANDIDATES: SearchCandidateResponseDto[] = [
       high: 1,
       verdict: 'within-noise',
       minGain: 0.05,
-      tasks: 2,
+      tasks: 6,
     },
     costPerRun: 0.95,
     spent: { amount: 4.75, currency: 'USD' },
     onFrontier: true,
+    onlyOnSeenTasks: 'marked',
     pullRequest: {
       id: 'pr_1',
       state: 'opened',
@@ -282,6 +284,7 @@ const DETAIL: SearchDetailResponseDto = {
     heldOutScore: 1,
     heldOutInterval: { rate: 1, low: 1, high: 1 },
     costPerRun: 0.95,
+    onlyOnSeenTasks: 'marked',
   },
   startedAt: hoursAgo(6),
   endedAt: hoursAgo(1),
@@ -328,6 +331,7 @@ const DETAIL: SearchDetailResponseDto = {
     'candidate_medium_effort',
     'candidate_tests_first',
   ],
+  onlyOnSeenTasks: 1,
   minGain: 0.05,
 };
 
@@ -367,6 +371,7 @@ const EARLIER: SearchResponseDto = {
     heldOutScore: null,
     heldOutInterval: null,
     costPerRun: 0.82,
+    onlyOnSeenTasks: null,
   },
   startedAt: hoursAgo(50),
   endedAt: hoursAgo(49),
@@ -392,6 +397,7 @@ const SEEDING: SearchDetailResponseDto = {
   },
   candidates: [],
   frontier: [SEED.candidateId],
+  onlyOnSeenTasks: 0,
   minGain: 0.05,
 };
 

@@ -363,9 +363,14 @@ interface SearchRead {
     searchScore: number | null;
     heldOutScore: number | null;
     onFrontier: boolean;
+    onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
   }[];
   frontier: string[];
-  best: { name: string } | null;
+  onlyOnSeenTasks: number;
+  best: {
+    name: string;
+    onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+  } | null;
 }
 
 const searchOf = async (id: string): Promise<SearchRead> =>
@@ -1213,6 +1218,12 @@ describe('a search for a better station config', () => {
     expect(done.candidates[0]?.searchScore).toBe(1);
     expect(done.candidates[0]?.heldOutScore).toBe(1);
     expect(done.candidates[1]?.searchScore).toBe(0);
+    expect(done.candidates.map((each) => each.onlyOnSeenTasks)).toEqual([
+      null,
+      null,
+    ]);
+    expect(done.onlyOnSeenTasks).toBe(0);
+    expect(done.best?.onlyOnSeenTasks).toBeNull();
     expect(done.frontier).toContain(done.seed.candidateId);
     expect(done.best?.name).toBe('in-order');
     expect(done.spent.amount).toBeGreaterThan(0);
