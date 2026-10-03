@@ -1,4 +1,5 @@
 import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
+import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenTasksBadge';
 import type { SearchBestResponseDto } from '@/lib/api';
 import { BEST_LABEL, bestOnShown } from '@/lib/search-words';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,9 @@ export function BestCandidate({
         />{' '}
         {bestOnShown(heldOut)}
       </span>
+      {best.onlyOnSeenTasks && (
+        <OnlyOnSeenTasksBadge mark={best.onlyOnSeenTasks} />
+      )}
     </span>
   );
 }

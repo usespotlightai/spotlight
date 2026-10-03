@@ -17,6 +17,7 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import { overfitOf } from '@replays/domain/services/overfit';
 import { comparedWith } from '@replays/domain/services/replay-results';
 import {
   scoresOf,
@@ -296,6 +297,16 @@ export class OpenConfigPullRequests implements OwedWorkPort {
         searched: gains?.searched ?? null,
         heldOut: gains?.heldOut ?? null,
       },
+      onlyOnSeenTasks: overfitOf(
+        gains?.searched ?? null,
+        gains?.heldOut ?? null,
+      ),
+      heldOutPending:
+        !gains?.heldOut &&
+        Boolean(picked?.heldOutReplayId) &&
+        [picked?.heldOutReplayId, scores.seed.heldOutReplayId].some(
+          (id) => id && !found(id)?.endedAt,
+        ),
       currency: search.budget.ceiling.currency,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,

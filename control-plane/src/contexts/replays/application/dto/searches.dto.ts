@@ -31,6 +31,8 @@ export type SearchWarningDto =
       readonly suggestedRepeats: number;
     };
 
+export type OnlyOnSeenTasksDto = 'marked' | 'too-few-held-out';
+
 export interface SearchBestDto {
   readonly candidateId: string;
   readonly name: string;
@@ -40,6 +42,7 @@ export interface SearchBestDto {
   readonly heldOutScore: number | null;
   readonly heldOutInterval: RateIntervalDto | null;
   readonly costPerRun: number | null;
+  readonly onlyOnSeenTasks: OnlyOnSeenTasksDto | null;
 }
 
 export interface SearchSummaryDto {
@@ -102,6 +105,7 @@ export interface SearchCandidateDto {
   readonly costPerRun: number | null;
   readonly spent: SpendDto;
   readonly onFrontier: boolean;
+  readonly onlyOnSeenTasks: OnlyOnSeenTasksDto | null;
   readonly pullRequest: CandidatePullRequestDto | null;
 }
 
@@ -111,6 +115,7 @@ export interface SearchDetailDto extends SearchSummaryDto {
   readonly seed: SearchCandidateDto;
   readonly candidates: readonly SearchCandidateDto[];
   readonly frontier: readonly string[];
+  readonly onlyOnSeenTasks: number;
   readonly minGain: number;
 }
 

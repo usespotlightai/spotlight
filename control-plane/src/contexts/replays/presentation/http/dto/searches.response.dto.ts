@@ -6,6 +6,7 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import type {
+  OnlyOnSeenTasksDto,
   SearchAgentDto,
   SearchAllotmentsDto,
   SearchBestDto,
@@ -20,6 +21,7 @@ import type {
   SearchSummaryDto,
   SearchWarningDto,
 } from '@replays/application/dto/searches.dto';
+import { ONLY_ON_SEEN_TASKS } from '@replays/domain/services/overfit';
 import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import {
@@ -46,6 +48,13 @@ import {
 const SEARCH_CANDIDATE_SLUG =
   'lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters';
 
+const ONLY_ON_SEEN_TASKS_PROPERTY: ApiPropertyOptions = {
+  enum: [...ONLY_ON_SEEN_TASKS, null],
+  nullable: true,
+  type: String,
+  description:
+    'marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished',
+};
 export class SearchAgentRequestDto {
   @ApiProperty({
     example: 'claude-code',
@@ -322,6 +331,9 @@ export class SearchBestResponseDto {
   })
   readonly costPerRun: number | null;
 
+  @ApiProperty(ONLY_ON_SEEN_TASKS_PROPERTY)
+  readonly onlyOnSeenTasks: OnlyOnSeenTasksDto | null;
+
   constructor(best: SearchBestDto) {
     this.candidateId = best.candidateId;
     this.name = best.name;
@@ -331,6 +343,7 @@ export class SearchBestResponseDto {
     this.heldOutScore = best.heldOutScore;
     this.heldOutInterval = intervalResponse(best.heldOutInterval);
     this.costPerRun = best.costPerRun;
+    this.onlyOnSeenTasks = best.onlyOnSeenTasks;
   }
 }
 
@@ -632,6 +645,9 @@ export class SearchCandidateResponseDto {
   })
   readonly onFrontier: boolean;
 
+  @ApiProperty(ONLY_ON_SEEN_TASKS_PROPERTY)
+  readonly onlyOnSeenTasks: OnlyOnSeenTasksDto | null;
+
   @ApiProperty({
     type: CandidatePullRequestResponseDto,
     nullable: true,
@@ -664,6 +680,7 @@ export class SearchCandidateResponseDto {
     this.costPerRun = candidate.costPerRun;
     this.spent = new SpendResponseDto(candidate.spent);
     this.onFrontier = candidate.onFrontier;
+    this.onlyOnSeenTasks = candidate.onlyOnSeenTasks;
     this.pullRequest = candidate.pullRequest
       ? new CandidatePullRequestResponseDto(candidate.pullRequest)
       : null;
@@ -696,6 +713,13 @@ export class SearchDetailResponseDto extends SearchResponseDto {
   readonly frontier: string[];
 
   @ApiProperty({
+    example: 1,
+    description:
+      'How many frontier candidates gained only on the tasks the search could see',
+  })
+  readonly onlyOnSeenTasks: number;
+
+  @ApiProperty({
     example: 0.05,
     description:
       'The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none',
@@ -713,6 +737,7 @@ export class SearchDetailResponseDto extends SearchResponseDto {
       (each) => new SearchCandidateResponseDto(each),
     );
     this.frontier = [...search.frontier];
+    this.onlyOnSeenTasks = search.onlyOnSeenTasks;
     this.minGain = search.minGain;
   }
 }

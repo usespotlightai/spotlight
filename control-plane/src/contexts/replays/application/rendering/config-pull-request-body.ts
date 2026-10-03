@@ -9,6 +9,7 @@ interface ShownGain {
   readonly high: number;
   readonly verdict: 'better' | 'worse' | 'within-noise';
   readonly minGain: number;
+  readonly tasks: number;
 }
 
 interface PickedScores {
@@ -39,6 +40,8 @@ export interface ConfigPullRequestFacts {
     readonly searched: ShownGain | null;
     readonly heldOut: ShownGain | null;
   };
+  readonly onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+  readonly heldOutPending: boolean;
   readonly link: string | null;
 }
 
@@ -77,11 +80,31 @@ const gainSays = (where: string, gain: ShownGain | null): string | null => {
   }
 };
 
-const cost = (amount: number | null, currency: string): string =>
-  amount === null ? NOT_SCORED : `${amount.toFixed(2)} ${currency}`;
-
 const plural = (count: number, one: string, many = `${one}s`): string =>
   `${count} ${count === 1 ? one : many}`;
+
+const onlyOnSeenTasksSays = (facts: ConfigPullRequestFacts): string | null => {
+  const { searched, heldOut } = facts.gains;
+
+  if (facts.heldOutPending) {
+    return 'Its held-out replay had not finished when this pull request opened, so Spotlight could not yet check whether its gain also shows on the held-out tasks the search never showed its agent.';
+  }
+  if (!searched || !heldOut) {
+    return null;
+  }
+
+  switch (facts.onlyOnSeenTasks) {
+    case 'marked':
+      return `Its gain showed only on the tasks the search could see: ${points(searched.gain)} points on the searched tasks, but ${points(heldOut.gain)} points on the held-out tasks the search never showed its agent. It may fit the searched tasks rather than work better in general, so weigh that before merging.`;
+    case 'too-few-held-out':
+      return `It gained ${points(searched.gain)} points on the searched tasks, but only ${plural(heldOut.tasks, 'held-out task')} scored on both sides, too few to tell whether the gain also shows on tasks the search never showed its agent.`;
+    default:
+      return null;
+  }
+};
+
+const cost = (amount: number | null, currency: string): string =>
+  amount === null ? NOT_SCORED : `${amount.toFixed(2)} ${currency}`;
 
 const fenced = (text: string): string => {
   const longest = Math.max(
@@ -109,6 +132,7 @@ export const ConfigPullRequestBody = {
 
     return [
       `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`, which a person picked. This changes the station as the candidate has it: ${facts.changes.map((each) => `\`${each}\``).join(', ')}.`,
+      ...[onlyOnSeenTasksSays(facts)].flatMap((each) => (each ? [each] : [])),
       ...(facts.hypothesis
         ? [
             `## Why it should be better\n\nThe search's agent wrote:\n\n${fenced(facts.hypothesis)}`,

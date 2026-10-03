@@ -94,6 +94,7 @@ const candidate = (
   costPerRun: 0.5,
   spent: { amount: 2.5, currency: 'USD' },
   onFrontier: false,
+  onlyOnSeenTasks: null,
   pullRequest: null,
   ...over,
 });
@@ -179,12 +180,14 @@ const DETAIL: SearchDetail = {
         high: 0.4,
         verdict: 'within-noise',
         minGain: 0.05,
-        tasks: 2,
+        tasks: 6,
       },
       onFrontier: true,
+      onlyOnSeenTasks: 'marked',
     }),
   ],
   frontier: ['seed', 'tests'],
+  onlyOnSeenTasks: 1,
   minGain: 0.05,
 };
 
@@ -314,6 +317,95 @@ describe('Search', () => {
       '+20 pts(+5 to +35)· Better',
       '+10 pts(−20 to +40)· Within noise',
     ]);
+  });
+
+  it('marks a candidate that gained only on the tasks the search could see, and counts them on the frontier', () => {
+    detail.mockReturnValue(DETAIL);
+
+    renderSearch();
+
+    expect(
+      screen.getByText(
+        '1 candidate on the frontier gained only on the tasks the search could see, not on the held-out ones.',
+      ),
+    ).toBeInTheDocument();
+
+    const first = screen.getByRole('list', {
+      name: 'Candidates of iteration 1',
+    });
+    expect(within(first).getByText('Only on seen tasks')).toBeInTheDocument();
+    expect(within(first).getByRole('note')).toHaveTextContent(
+      'Its gain showed only on the tasks the search could see.',
+    );
+    expect(within(first).getByRole('button', { name: 'Pick' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show table' }));
+
+    const table = screen.getByRole('table', {
+      name: 'Candidates by success and cost',
+    });
+    expect(
+      within(table)
+        .getByText('tests-first')
+        .closest('tr')
+        ?.querySelector('[data-slot="only-on-seen-tasks"]'),
+    ).toHaveTextContent('Only on seen tasks');
+    expect(
+      within(table)
+        .getByText('Live config')
+        .closest('tr')
+        ?.querySelector('[data-slot="only-on-seen-tasks"]'),
+    ).toBeNull();
+  });
+
+  it('marks the best candidate in the header when its gain showed only on the tasks the search could see', () => {
+    detail.mockReturnValue({
+      ...DETAIL,
+      best: {
+        candidateId: 'tests',
+        name: 'tests-first',
+        seed: false,
+        searchScore: 0.8,
+        searchInterval: null,
+        heldOutScore: 1,
+        heldOutInterval: null,
+        costPerRun: 0.5,
+        onlyOnSeenTasks: 'marked',
+      },
+    });
+
+    renderSearch();
+
+    const best = document.querySelector('[data-slot="best-candidate"]');
+    expect(best).toHaveTextContent('tests-first');
+    expect(
+      best?.querySelector('[data-slot="only-on-seen-tasks"]'),
+    ).toHaveTextContent('Only on seen tasks');
+  });
+
+  it('says plainly when too few held-out tasks were scored to tell, without marking or counting it', () => {
+    const [tests] = DETAIL.candidates;
+    detail.mockReturnValue({
+      ...DETAIL,
+      candidates: tests
+        ? [{ ...tests, onlyOnSeenTasks: 'too-few-held-out' }]
+        : [],
+      onlyOnSeenTasks: 0,
+    });
+
+    renderSearch();
+
+    const first = screen.getByRole('list', {
+      name: 'Candidates of iteration 1',
+    });
+    expect(
+      within(first).getByText('Too few held-out tasks to tell'),
+    ).toBeInTheDocument();
+    expect(within(first).queryByText('Only on seen tasks')).toBeNull();
+    expect(within(first).queryByRole('note')).toBeNull();
+    expect(
+      screen.queryByText(/on the frontier gained only on the tasks/),
+    ).toBeNull();
   });
 
   it('shows the live config’s score it started from, and the gain that counts as real', () => {

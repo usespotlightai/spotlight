@@ -19,6 +19,9 @@ type ReasonCode = PullRequestReason['code'];
 type CheckVerdict = ReplayCheckResponseDto['verdict'];
 type Undecided = NonNullable<ReplayCheckResponseDto['undecidedBecause']>;
 export type SearchWarning = SearchEstimateResponseDto['warnings'][number];
+export type OnlyOnSeenTasks = NonNullable<
+  SearchCandidateResponseDto['onlyOnSeenTasks']
+>;
 
 const STATES: Record<SearchState, string> = {
   seeding: 'Replaying the live config',
@@ -132,3 +135,27 @@ export const BEST_LABEL = 'Best:';
 
 export const bestOnShown = (heldOut: boolean): string =>
   heldOut ? 'held out' : 'searched';
+
+const ONLY_ON_SEEN_TASKS: Record<OnlyOnSeenTasks, string> = {
+  marked: 'Only on seen tasks',
+  'too-few-held-out': 'Too few held-out tasks to tell',
+};
+
+const ONLY_ON_SEEN_TASKS_NOTES: Record<OnlyOnSeenTasks, string> = {
+  marked:
+    'It beat the live config on the tasks the search could see, but not on the held-out tasks it never saw, so the gain may not carry over to new work.',
+  'too-few-held-out':
+    'It beat the live config on the tasks the search could see, but too few held-out tasks were scored to tell whether the gain carries over to new work.',
+};
+
+export const onlyOnSeenTasksShown = (mark: OnlyOnSeenTasks): string =>
+  ONLY_ON_SEEN_TASKS[mark];
+
+export const onlyOnSeenTasksNote = (mark: OnlyOnSeenTasks): string =>
+  ONLY_ON_SEEN_TASKS_NOTES[mark];
+
+export const ONLY_ON_SEEN_TASKS_PICK =
+  'Its gain showed only on the tasks the search could see. You can still pick it, but the gain may not carry over to new work.';
+
+export const onlyOnSeenTasksCountShown = (count: number): string =>
+  `${count} ${count === 1 ? 'candidate' : 'candidates'} on the frontier gained only on the tasks the search could see, not on the held-out ones.`;

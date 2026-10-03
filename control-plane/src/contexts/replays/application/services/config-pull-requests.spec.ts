@@ -12,6 +12,7 @@ import type {
   StationSourceEditorPort,
 } from '@replays/application/ports/station-source-editor.port';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
+import { replayedWorld } from '@replays/application/services/replayed-candidates.fake-spec';
 import {
   ACTOR,
   AT_HAND,
@@ -36,6 +37,7 @@ import {
   candidateOf,
   later,
   NOW,
+  replayFor,
   searchRunIds,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -394,5 +396,31 @@ describe('picking a search candidate', () => {
 
     expect(only().reason?.code).toBe('no-source');
     expect(editor.asked).toEqual([]);
+  });
+
+  it('says the held-out result was still pending when its held-out replay had not finished', async () => {
+    const world = replayedWorld(true);
+    const pending = replayFor(
+      world.set,
+      'replay_held_terse',
+      'candidate_terse',
+      world.search.split.heldOutRuns,
+    );
+    search = world.search;
+    search.pullEvents();
+    memory.searches.set(search.id.value, search);
+    for (const each of [
+      ...world.replays.filter((one) => !one.id.equals(pending.id)),
+      pending,
+    ]) {
+      await memory.replayRepository.add(each);
+    }
+
+    await pick();
+    await opening().workDue();
+
+    expect(configs.openings[0]?.body).toContain(
+      'Its held-out replay had not finished when this pull request opened',
+    );
   });
 });
