@@ -118,6 +118,7 @@ export class StartReplayHandler
                 baseline: asBaseline,
                 ceiling,
                 repeats: command.repeats,
+                probe: command.probe,
                 at: this.clock.now(),
                 by: Attribution.of(command.actor, set.workspaceId),
                 wanting,

@@ -15,6 +15,7 @@ interface ClaimedCheckStep {
 
 export interface ClaimedCheck {
   readonly stackId: string;
+  readonly recheck: boolean;
   readonly runId: string;
   readonly repository: string | null;
   readonly base: string | null;
@@ -39,11 +40,17 @@ export interface CheckWorkPort {
     now: Date,
   ): Promise<ClaimedCheck | null>;
 
-  unclaim(stackId: string, runner: RunnerId, now: Date): Promise<void>;
+  unclaim(
+    stackId: string,
+    recheck: boolean,
+    runner: RunnerId,
+    now: Date,
+  ): Promise<void>;
 
   renewLease(
     runId: RunId,
     stackId: string,
+    recheck: boolean,
     runner: RunnerId,
     now: Date,
   ): Promise<CheckLeaseRenewal>;

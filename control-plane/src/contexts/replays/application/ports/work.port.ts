@@ -125,6 +125,11 @@ export type UnclaimedWithdrawal =
   | { readonly outcome: 'claimed' }
   | { readonly outcome: 'ended' };
 
+export interface HarnessOffer {
+  readonly models: readonly string[];
+  readonly efforts: readonly string[];
+}
+
 export interface AgentRefusal {
   readonly field: 'harness' | 'model' | 'effort';
   readonly reason: string;
@@ -169,6 +174,11 @@ export interface WorkPort {
   durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>>;
 
   agentRefusal(agent: SearchAgent): AgentRefusal | null;
+
+  harnessOffer(
+    workspaceId: WorkspaceId,
+    harness: string,
+  ): Promise<HarnessOffer | null>;
 
   dispatchSearch(order: SearchRunOrder): Promise<SearchRunQueued>;
 

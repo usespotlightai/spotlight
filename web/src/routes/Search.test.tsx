@@ -114,6 +114,7 @@ const DETAIL: SearchDetail = {
     concurrency: 4,
     repeats: 1,
   },
+  objective: 'success',
   spent: { amount: 12, currency: 'USD' },
   iterationsRun: 2,
   proposed: 1,
@@ -274,6 +275,36 @@ describe('Search', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Billing work' }),
+    ).toBeInTheDocument();
+  });
+
+  it('says the search aims for more success, and names its best', () => {
+    detail.mockReturnValue(DETAIL);
+
+    renderSearch();
+
+    expect(
+      document.querySelector('[data-slot="search-objective"]'),
+    ).toHaveTextContent('More success');
+    expect(screen.getByText('Best')).toBeInTheDocument();
+  });
+
+  it('says a search aims for the same success for less, naming its cheapest and how its frontier is drawn', () => {
+    detail.mockReturnValue({ ...DETAIL, objective: 'cost', best: null });
+
+    renderSearch();
+
+    expect(
+      document.querySelector('[data-slot="search-objective"]'),
+    ).toHaveTextContent('The same success for less');
+    expect(screen.getByText('Cheapest')).toBeInTheDocument();
+    expect(
+      screen.getByText('No candidate holds its success yet'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /the frontier joins only those that succeed as often as the live config/,
+      ),
     ).toBeInTheDocument();
   });
 

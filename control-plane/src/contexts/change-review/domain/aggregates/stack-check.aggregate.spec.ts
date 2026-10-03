@@ -172,6 +172,7 @@ const rehydrated = (over: Record<string, unknown>) =>
     runId: RunId.of('run-1'),
     taskId: null,
     replay: false,
+    recheck: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     request: CheckRequest.of('npx tsc --noEmit', null),
     phase: 'waiting',
@@ -1068,5 +1069,89 @@ describe('StackCheck', () => {
 
       expect(kinds(check.forgotten(lapsed))).toEqual([]);
     });
+  });
+});
+
+describe('StackCheck, rechecked', () => {
+  const replayed = () => {
+    const ready = stack();
+    const check = StackCheck.begin({
+      stackId: ready.id,
+      runId: ready.runId,
+      taskId: null,
+      replay: true,
+      workspaceId: ready.workspaceId,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+      entries: ready.entries(),
+      now: LATER,
+    }).claimedFor(RUNNER, ANY, LATER);
+
+    check.pullEvents();
+    return check;
+  };
+
+  const passedOnce = () => {
+    const checked = replayed().recorded(
+      RUNNER,
+      planned(),
+      [step(WHOLE_STEP, true), step('c1.l1', true)],
+      LATER,
+    );
+
+    checked.pullEvents();
+    return checked;
+  };
+
+  it('checks a replay’s change again, from scratch, under the same request and layers, and leaves the first check as it stood', () => {
+    const first = passedOnce();
+    const again = first.rechecking(OVERDUE);
+
+    expect(again.recheck).toBe(true);
+    expect(again.stackId.equals(first.stackId)).toBe(true);
+    expect(again.phase).toBe('waiting');
+    expect(again.outcome).toBeNull();
+    expect(again.waitingSince).toEqual(OVERDUE);
+    expect(again.request.command).toBe(first.request.command);
+    expect(again.entries).toEqual(first.entries);
+    expect(again.claimableAt(OVERDUE)).toBe(true);
+    expect(first.phase).toBe('checked');
+  });
+
+  it('says what the recheck found as a recheck, and never asks to reorder the stack', () => {
+    const again = passedOnce().rechecking(LATER).claimedFor(OTHER, ANY, LATER);
+    const found = again.recorded(
+      OTHER,
+      planned(),
+      [step(WHOLE_STEP, true), step('c1.l1', false)],
+      LATER,
+    );
+
+    expect(found.phase).toBe('checked');
+    expect(
+      found.pullEvents().map((event) => ({
+        kind: event.kind,
+        recheck: (event as { recheck?: boolean }).recheck,
+      })),
+    ).toEqual([{ kind: 'change-stack.checked', recheck: true }]);
+  });
+
+  it('rechecks only a replay’s change whose first check found something, and only once', () => {
+    expect(() => replayed().rechecking(LATER)).toThrow(InvalidChangeStackError);
+    expect(() =>
+      checking()
+        .recorded(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER)
+        .rechecking(LATER),
+    ).toThrow(InvalidChangeStackError);
+    expect(() => passedOnce().rechecking(LATER).rechecking(LATER)).toThrow(
+      InvalidChangeStackError,
+    );
+  });
+
+  it('refuses to come back as a recheck of a task’s change, or as one that reordered', () => {
+    expect(() => rehydrated({ recheck: true })).toThrow(InconsistentStateError);
+    expect(() =>
+      rehydrated({ recheck: true, replay: true, rounds: 1 }),
+    ).toThrow(InconsistentStateError);
+    expect(rehydrated({ recheck: true, replay: true }).recheck).toBe(true);
   });
 });

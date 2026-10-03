@@ -35,7 +35,11 @@ export function SearchRow({ at, search, number, setName }: SearchRowProps) {
         <span className="text-muted-foreground text-xs">
           {setName ? `on ${setName} · ` : ''}started {since(search.startedAt)}
         </span>
-        <BestCandidate best={search.best} className="sm:ml-auto" />
+        <BestCandidate
+          best={search.best}
+          objective={search.objective}
+          className="sm:ml-auto"
+        />
       </div>
 
       <p className="flex flex-wrap gap-x-1.5 text-muted-foreground text-xs tabular-nums">

@@ -32,6 +32,7 @@ import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
 import { ATTEMPTS_PER_PROPOSAL } from '@replays/domain/value-objects/search-iteration.vo';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -124,6 +125,7 @@ describe('Search', () => {
         set,
         agent: AGENT,
         budget: aBudget(),
+        objective: 'success',
         split,
         seed: { candidate: candidateOf('live'), replayId: SEED },
         at: NOW,
@@ -158,6 +160,7 @@ describe('Search', () => {
         set,
         agent: AGENT,
         budget: aBudget({ iterations: 4, perIteration: 3, concurrency: 6 }),
+        objective: 'success',
         split: HeldOutSplit.drawn({
           searchId: SEARCH_ID,
           entries: set.entries,
@@ -181,6 +184,7 @@ describe('Search', () => {
         ceiling: '100 USD',
         heldOutTasks: 3,
         repeats: 1,
+        objective: 'success',
       });
     });
 
@@ -193,6 +197,7 @@ describe('Search', () => {
           set,
           agent: AGENT,
           budget: aBudget(),
+          objective: 'success',
           split: HeldOutSplit.drawn({
             searchId: SEARCH_ID,
             entries: aSet(9).entries,
@@ -214,6 +219,7 @@ describe('Search', () => {
           set,
           agent: AGENT,
           budget: aBudget(),
+          objective: 'success',
           split: HeldOutSplit.drawn({
             searchId: SEARCH_ID,
             entries: set.entries,
@@ -236,6 +242,7 @@ describe('Search', () => {
       expect(() =>
         aSearch({
           budget: aBudget({ iterations: 10, perIteration: 5, ceiling: 0.2 }),
+          objective: 'success',
         }),
       ).toThrow(InvalidSearchError);
     });
@@ -646,10 +653,15 @@ describe('Search', () => {
 
     const holdingOut = (
       rounds: readonly (readonly string[])[] = [['one', 'two']],
+      objective: SearchObjective = 'success',
+      perIteration = 2,
     ): Search => {
       const runIds = searchRunIds();
       let search = searching(
-        aSearch({ budget: aBudget({ iterations: rounds.length }) }),
+        aSearch({
+          budget: aBudget({ iterations: rounds.length, perIteration }),
+          objective,
+        }),
         runIds,
       );
 
@@ -704,6 +716,7 @@ describe('Search', () => {
           candidateRan(search, 'one', 1),
           candidateRan(search, 'two', 2),
         ],
+        0.05,
         heldIds(),
         later(2),
       );
@@ -748,6 +761,7 @@ describe('Search', () => {
           candidateRan(search, 'good', 2, 1),
           candidateRan(search, 'cheap', 1, 2),
         ],
+        0.05,
         heldIds(),
         NOW,
       );
@@ -758,12 +772,40 @@ describe('Search', () => {
       ]);
     });
 
+    it('holds out, when it looks for cost, only candidates cheaper than the seed that succeed as often as it, leaving out those clearly worse', () => {
+      const ran = (search: Search) => [
+        seedRan(),
+        candidateRan(search, 'best', 3),
+        candidateRan(search, 'cheapworse', 0.5, 5),
+        candidateRan(search, 'cheap', 1, 1),
+      ];
+      const heldOf = (objective: SearchObjective) => {
+        const search = holdingOut(
+          [['best', 'cheapworse', 'cheap']],
+          objective,
+          3,
+        );
+
+        return search
+          .heldOutFrom(ran(search), 0.05, heldIds(), NOW)
+          .heldOut.map((each) => each.candidateId.value);
+      };
+
+      expect(heldOf('cost')).toEqual(['candidate_cheap']);
+      expect(heldOf('success')).toEqual([
+        'candidate_best',
+        'candidate_cheap',
+        'candidate_cheapworse',
+      ]);
+    });
+
     it('finishes at once when no candidate beat the seed anywhere', () => {
       const search = holdingOut([['worse']]);
 
       expect(
         search.heldOutFrom(
           [seedRan(), candidateRan(search, 'worse', 5, 3)],
+          0.05,
           heldIds(),
           NOW,
         ).current,
@@ -780,18 +822,19 @@ describe('Search', () => {
 
       expect(() =>
         search
-          .heldOutFrom(replays, heldIds(), NOW)
-          .heldOutFrom(replays, heldIds(), NOW),
+          .heldOutFrom(replays, 0.05, heldIds(), NOW)
+          .heldOutFrom(replays, 0.05, heldIds(), NOW),
       ).toThrow(InvalidSearchError);
-      expect(() => searching().heldOutFrom(replays, heldIds(), NOW)).toThrow(
-        InvalidSearchError,
-      );
+      expect(() =>
+        searching().heldOutFrom(replays, 0.05, heldIds(), NOW),
+      ).toThrow(InvalidSearchError);
     });
 
     it('takes what a held-out replay spent after it ended', () => {
       const search = holdingOut()
         .heldOutFrom(
           [seedRan(), candidateRan(holdingOut(), 'one', 1)],
+          0.05,
           heldIds(),
           NOW,
         )
@@ -899,6 +942,7 @@ describe('Search', () => {
       setId: search.setId,
       agent: search.agent,
       budget: search.budget,
+      objective: search.objective,
       split: search.split,
       seed: search.seed,
       state: 'searching' as const,
@@ -943,6 +987,7 @@ describe('Search', () => {
         setId: search.setId,
         agent: search.agent,
         budget: search.budget,
+        objective: search.objective,
         split: search.split,
         seed: search.seed,
         iterations: search.iterations,
@@ -961,6 +1006,7 @@ describe('Search', () => {
         setId: search.setId,
         agent: search.agent,
         budget: search.budget,
+        objective: search.objective,
         split: search.split,
         seed: search.seed,
         iterations: search.iterations,

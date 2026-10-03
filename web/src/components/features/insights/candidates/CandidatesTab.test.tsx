@@ -181,14 +181,23 @@ describe('the Candidates tab', () => {
     ).toHaveTextContent(
       /24 tasks \(27 runs\) · ended 3–41 days ago · last added 2 days ago/,
     );
-    expect(
-      implementation.querySelector('[data-slot="set-noise-summary"]'),
-    ).toHaveTextContent(
-      'Success moved 13 pts between 3 copies, more than the +5 pts the line counts as real, so one copy can’t tell a real gain from chance',
+    const noise = implementation.querySelector(
+      '[data-slot="health-line"][data-key="noise"]',
     );
+    expect(noise).toHaveTextContent(
+      'Noise: Success moved 13 pts between 3 copies',
+    );
+    expect(noise).toHaveAttribute('data-tone', 'bad');
     expect(
-      within(card('Code Review')).getByText('Noise not measured'),
-    ).toBeInTheDocument();
+      within(
+        within(card('Code Review')).getByRole('list', { name: /^Health of / }),
+      ).getAllByRole('listitem'),
+    ).toHaveLength(5);
+    expect(
+      card('Code Review').querySelector(
+        '[data-slot="health-line"][data-key="judge"]',
+      ),
+    ).toHaveTextContent('Judge agreeing with itself: Not checked');
     expect(
       implementation.querySelector('[data-slot="unpriced"]'),
     ).toHaveTextContent(

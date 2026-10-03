@@ -1,6 +1,7 @@
 import type {
   CandidateDto,
   CandidateResourceDto,
+  EntryChecksDto,
   EntryJudgeDto,
   EntryResultDto,
   GainReadingDto,
@@ -10,6 +11,7 @@ import type {
   ReplayEntryDto,
   ReplaySearchDto,
   ReplaySetDto,
+  SetHealthDto,
   SetNoiseDto,
   SpendDto,
 } from '@replays/application/dto/replays.dto';
@@ -24,8 +26,10 @@ import {
   gainBetween,
 } from '@replays/domain/services/gain-reading';
 import { totalsOf } from '@replays/domain/services/replay-results';
+import type { SetHealth } from '@replays/domain/services/set-health';
 import type { SetNoise } from '@replays/domain/services/set-noise';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
+import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import type { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
@@ -51,7 +55,7 @@ export const gainView = (gain: GainReading | null): GainReadingDto | null =>
     tasks: gain.tasks,
   };
 
-export const noiseView = (noise: SetNoise | null): SetNoiseDto | null =>
+const noiseView = (noise: SetNoise | null): SetNoiseDto | null =>
   noise && {
     replayId: noise.replayId.value,
     fingerprint: noise.fingerprint.value,
@@ -61,6 +65,59 @@ export const noiseView = (noise: SetNoise | null): SetNoiseDto | null =>
     flippedTasks: [...noise.flippedTasks],
     measuredAt: noise.measuredAt.toISOString(),
   };
+
+export const healthView = (health: SetHealth): SetHealthDto => {
+  const { saturation, judge, checks, sanity } = health;
+
+  return {
+    noise: noiseView(health.noise),
+    saturation: saturation && {
+      replayId: saturation.replayId.value,
+      rate: saturation.rate,
+      interval: intervalView(saturation.interval),
+      saturated: saturation.saturated,
+      measuredAt: saturation.measuredAt.toISOString(),
+    },
+    judge: judge && {
+      replayId: judge.replayId.value,
+      compared: judge.compared,
+      agreed: judge.agreed,
+      pending: judge.pending,
+      agreement: judge.agreement,
+      unstable: judge.unstable,
+    },
+    checks: checks && {
+      replayId: checks.replayId.value,
+      rechecked: checks.rechecked,
+      pending: checks.pending,
+      flaky: checks.flaky.map((each) => ({
+        taskId: each.taskId.value,
+        originalRunId: each.original.value,
+        runId: each.run.value,
+        first: each.first,
+        recheck: each.recheck,
+      })),
+    },
+    sanity: sanity && {
+      replayId: sanity.replayId.value,
+      candidateId: sanity.candidateId.value,
+      model: sanity.model,
+      effort: sanity.effort,
+      repeats: sanity.repeats,
+      state: sanity.state,
+      againstReplayId: sanity.againstReplayId?.value ?? null,
+      againstState: sanity.againstState,
+      gain: gainView(sanity.gain),
+      rewardsStrongerModel: sanity.rewardsStrongerModel,
+      worse: sanity.worse.map((each) => ({
+        taskId: each.taskId.value,
+        originalRunId: each.original.value,
+        live: each.live,
+        stronger: each.stronger,
+      })),
+    },
+  };
+};
 
 export const modelSpentView = (
   spent: ModelSpent | null,
@@ -102,6 +159,13 @@ const judgeView = (judging: EntryJudging | null): EntryJudgeDto | null => {
   };
 };
 
+const checksView = (checks: ChangeChecks | null): EntryChecksDto | null =>
+  checks && {
+    state: checks.state,
+    failedAt: [...checks.failedAt],
+    why: checks.why,
+  };
+
 export const entryView = (
   entry: ReplayEntry,
   scoring: Scoring,
@@ -129,14 +193,13 @@ export const entryView = (
     outputTokens: measures?.tokens.output ?? null,
     cacheReadTokens: measures?.tokens.cacheRead ?? null,
     cacheWriteTokens: measures?.tokens.cacheWrite ?? null,
-    checks: entry.checks && {
-      state: entry.checks.state,
-      failedAt: [...entry.checks.failedAt],
-      why: entry.checks.why,
-    },
+    checks: checksView(entry.checks),
     judge: judgeView(entry.judging),
     draftingSpent: modelSpentView(entry.draftingSpent),
     judgingSpent: modelSpentView(entry.judgingSpent),
+    secondJudge: judgeView(entry.secondJudging),
+    rejudgingSpent: modelSpentView(entry.rejudgingSpent),
+    recheck: checksView(entry.recheck),
     result: resultOf(entry, scoring),
     succeeded: entry.succeeded,
     reasons: entry.reasons.map((each) => ({
@@ -214,6 +277,7 @@ export const replayView = (
       currency: replay.ceiling.currency,
     },
     repeats: replay.repeats,
+    probe: replay.probe,
     startedAt: replay.startedAt.toISOString(),
     endedAt: replay.endedAt?.toISOString() ?? null,
     totals: {
@@ -249,7 +313,7 @@ export const replayView = (
 export const setView = (
   set: ReplaySet,
   replayable: readonly StandingRun[],
-  noise: SetNoise | null,
+  health: SetHealth,
   minGain: number,
 ): ReplaySetDto => ({
   id: set.id.value,
@@ -259,7 +323,7 @@ export const setView = (
   createdAt: set.createdAt.toISOString(),
   stationGone: set.isAtGoneStation,
   guardsChanges: set.guardsChanges,
-  noise: noiseView(noise),
+  health: healthView(health),
   minGain,
   entries: set.entries.map((entry) => {
     const now = replayable.find((each) => each.runId.equals(entry.runId));

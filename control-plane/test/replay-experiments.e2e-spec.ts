@@ -1118,23 +1118,27 @@ describe('a replay', () => {
       .body as {
       id: string;
       minGain: number;
-      noise: {
-        replayId: string;
-        repeats: number;
-        perRepeat: number[];
-        spread: number;
-        flippedTasks: string[];
-      } | null;
+      health: {
+        noise: {
+          replayId: string;
+          repeats: number;
+          perRepeat: number[];
+          spread: number;
+          flippedTasks: string[];
+        } | null;
+      };
     }[];
 
     expect(sets.find((each) => each.id === setId)).toMatchObject({
       minGain: 0.05,
-      noise: {
-        replayId: started.id,
-        repeats: 2,
-        perRepeat: [0, 0],
-        spread: 0,
-        flippedTasks: [],
+      health: {
+        noise: {
+          replayId: started.id,
+          repeats: 2,
+          perRepeat: [0, 0],
+          spread: 0,
+          flippedTasks: [],
+        },
       },
     });
   });
@@ -1237,6 +1241,7 @@ describe('a replay', () => {
         baseline: false,
         ceiling: '3 USD',
         repeats: 1,
+        probe: false,
       },
     );
   });

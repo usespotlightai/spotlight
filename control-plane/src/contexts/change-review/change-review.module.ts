@@ -1,3 +1,4 @@
+import { REPLAY_RECHECKS } from '@change-review/application/ports/replay-rechecks.port';
 import { RUN_CHANGE_CHECKS } from '@change-review/application/ports/run-change-checks.port';
 import {
   CHANGE_REVIEW_CONTROLLERS,
@@ -24,6 +25,7 @@ import { WorkModule } from '@work/work.module';
     CHECK_PROVISIONING,
     TASK_DECISIONS,
     RUN_CHANGE_CHECKS,
+    REPLAY_RECHECKS,
   ],
 })
 export class ChangeReviewModule {}

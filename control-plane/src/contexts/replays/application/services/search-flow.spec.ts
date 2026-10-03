@@ -4,6 +4,7 @@ import { StopSearchHandler } from '@replays/application/commands/handlers/stop-s
 import { ProposeSearchCandidateCommand } from '@replays/application/commands/propose-search-candidate.command';
 import {
   type SearchBudgetAsked,
+  type SearchObjectiveAsked,
   StartSearchCommand,
 } from '@replays/application/commands/start-search.command';
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
@@ -34,7 +35,7 @@ import {
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { SearchSights } from '@replays/application/services/search-sights.service';
-import { SetNoises } from '@replays/application/services/set-noises.service';
+import { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-due.event';
@@ -44,10 +45,12 @@ import { SearchIterationWanted } from '@replays/domain/events/search-iteration-w
 import { UnknownSearchRunError } from '@replays/domain/exceptions/unknown-search-run.error';
 import {
   aSet,
+  candidateOf,
   LIVE_DIGESTS,
   LIVE_FINGERPRINT,
   NOW,
   replayedAs,
+  replayFor,
   STATION,
   sha256,
   UNSCORED,
@@ -66,8 +69,8 @@ let work: FakeWork;
 
 const DIGEST = { sha256 };
 
-const noisesFor = () =>
-  new SetNoises(work, memory.replayRepository, memory.candidateRepository);
+const healthsFor = () =>
+  new SetHealths(work, memory.replayRepository, memory.candidateRepository);
 
 const BUDGET: SearchBudgetAsked = {
   iterations: 2,
@@ -94,11 +97,16 @@ const starting = (mayPlan = true) =>
     CLOCK,
     TRANSACTION,
     stationsFor(memory, work),
-    noisesFor(),
+    healthsFor(),
   );
 
 const start = async (
-  over: { budget?: SearchBudgetAsked; mayPlan?: boolean; setId?: string } = {},
+  over: {
+    budget?: SearchBudgetAsked;
+    mayPlan?: boolean;
+    setId?: string;
+    objective?: SearchObjectiveAsked;
+  } = {},
 ) =>
   starting(over.mayPlan).execute(
     new StartSearchCommand(
@@ -108,6 +116,7 @@ const start = async (
       over.setId ?? 'set_1',
       AGENT,
       over.budget ?? BUDGET,
+      over.objective ?? null,
       ACTOR,
     ),
   );
@@ -140,6 +149,7 @@ const holdingOut = () =>
     IDS,
     CLOCK,
     TRANSACTION,
+    healthsFor(),
   );
 
 const lettingGo = () =>
@@ -316,6 +326,76 @@ describe('StartSearchHandler', () => {
     expect(work.searchesDispatched).toHaveLength(0);
   });
 
+  it('looks for the same success at less cost on a set the live config saturates, and warns of it, unless told otherwise', async () => {
+    await memory.candidateRepository.add(
+      candidateOf('live', 'candidate_saturating', null, null, LIVE_FINGERPRINT),
+    );
+    await memory.replayRepository.add(
+      replayedAs(
+        replayFor(
+          aSet(10),
+          'replay_saturating',
+          'candidate_saturating',
+          null,
+          true,
+          1,
+          null,
+        ),
+        () => 'completed',
+      ),
+    );
+
+    const started = await start();
+
+    if (started.outcome !== 'started') {
+      throw new Error('the search did not start');
+    }
+
+    expect(started.objective).toBe('cost');
+    expect(started.warnings).toContainEqual({ kind: 'saturated', rate: 1 });
+    expect(memory.searches.get(started.id)?.objective).toBe('cost');
+  });
+
+  it('looks for success on a set the live config does not saturate, and as told on one it does', async () => {
+    const plain = await start();
+
+    expect(plain.outcome === 'started' && plain.objective).toBe('success');
+
+    await new StopSearchHandler(
+      accessFor(memory, work, true),
+      memory.searchRepository,
+      CLOCK,
+      TRANSACTION,
+    ).execute(
+      new StopSearchCommand(
+        'team_1',
+        plain.outcome === 'started' ? plain.id : '',
+        ACTOR,
+      ),
+    );
+    await memory.candidateRepository.add(
+      candidateOf('live', 'candidate_saturating', null, null, LIVE_FINGERPRINT),
+    );
+    await memory.replayRepository.add(
+      replayedAs(
+        replayFor(
+          aSet(10),
+          'replay_saturating',
+          'candidate_saturating',
+          null,
+          true,
+          1,
+          null,
+        ),
+        () => 'completed',
+      ),
+    );
+
+    const told = await start({ objective: 'success' });
+
+    expect(told.outcome === 'started' && told.objective).toBe('success');
+  });
+
   it('refuses a second search of the station, a harness no runner starts, a set elsewhere, and a caller who may not plan', async () => {
     await start();
 
@@ -368,6 +448,7 @@ describe('StartSearchHandler', () => {
           concurrency: 99,
           repeats: null,
         },
+        null,
         ACTOR,
       ),
     );
@@ -610,7 +691,7 @@ describe('a search running its course', () => {
       memory.replayRepository,
       memory.candidateRepository,
       new InMemoryConfigPullRequests(),
-      noisesFor(),
+      healthsFor(),
     ).execute(new ReadSearchQuery('team_1', search.id.value, PERSON));
 
     expect(read.seed.name).toBe('seed');
@@ -739,7 +820,7 @@ describe('EstimateSearchHandler', () => {
     const answered = await new EstimateSearchHandler(
       accessFor(memory, work),
       work,
-      noisesFor(),
+      healthsFor(),
     ).execute(
       new EstimateSearchQuery(
         'team_1',
@@ -747,6 +828,7 @@ describe('EstimateSearchHandler', () => {
         STATION.stationId,
         'set_1',
         BUDGET,
+        null,
         PERSON,
       ),
     );

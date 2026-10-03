@@ -158,6 +158,7 @@ const searched = (
   if (search.wantsHoldingOut) {
     search = search.heldOutFrom(
       replays,
+      0.05,
       () => ReplayId.of(`held_${next++}`),
       later(6),
     );

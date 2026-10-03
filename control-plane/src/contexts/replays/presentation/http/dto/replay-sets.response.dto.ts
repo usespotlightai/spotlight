@@ -5,7 +5,7 @@ import type {
   ReplaySetEntryDto,
 } from '@replays/application/dto/replays.dto';
 import { REPLAY_REFUSALS } from '@replays/domain/value-objects/replay-refusal';
-import { SetNoiseResponseDto } from '@replays/presentation/http/dto/replays.response.dto';
+import { SetHealthResponseDto } from '@replays/presentation/http/dto/replays.response.dto';
 
 export class ReplaySetEntryResponseDto {
   @ApiProperty({ example: '9b2f6c1e-4d3a-4e8b-a7f0-2c5d1e9b3a64' })
@@ -95,12 +95,11 @@ export class ReplaySetResponseDto {
   readonly guardsChanges: boolean;
 
   @ApiProperty({
-    nullable: true,
-    type: SetNoiseResponseDto,
+    type: SetHealthResponseDto,
     description:
-      'How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has',
+      'Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and whether it rewards a stronger model',
   })
-  readonly noise: SetNoiseResponseDto | null;
+  readonly health: SetHealthResponseDto;
 
   @ApiProperty({
     example: 0.05,
@@ -120,7 +119,7 @@ export class ReplaySetResponseDto {
     this.createdAt = set.createdAt;
     this.stationGone = set.stationGone;
     this.guardsChanges = set.guardsChanges;
-    this.noise = set.noise ? new SetNoiseResponseDto(set.noise) : null;
+    this.health = new SetHealthResponseDto(set.health);
     this.minGain = set.minGain;
     this.entries = set.entries.map(
       (each) => new ReplaySetEntryResponseDto(each),

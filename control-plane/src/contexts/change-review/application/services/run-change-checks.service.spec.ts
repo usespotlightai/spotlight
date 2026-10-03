@@ -92,12 +92,18 @@ const stackOf = (
       );
 };
 
-const checkOf = (id: string, outcome: CheckOutcome | null, since = NOW) =>
+const checkOf = (
+  id: string,
+  outcome: CheckOutcome | null,
+  since = NOW,
+  recheck = false,
+) =>
   StackCheck.rehydrate({
     stackId: ChangeStackId.of(id),
     runId: RUN,
     taskId: null,
     replay: true,
+    recheck,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),
     phase: outcome?.state ?? 'waiting',
@@ -119,7 +125,7 @@ const checked = (passed: boolean): CheckOutcome => ({
   checkedAt: NOW,
 });
 
-const reading = (
+const readingOf = (
   stacks: readonly ChangeStack[],
   checks: readonly StackCheck[],
   now = NOW,
@@ -128,7 +134,13 @@ const reading = (
     { ofRun: async () => stacks } as unknown as ChangeStackRepository,
     { ofRun: async () => checks } as unknown as StackCheckRepository,
     { now: () => now, sleep: async () => undefined },
-  ).ofRun(RUN.value);
+  );
+
+const reading = (
+  stacks: readonly ChangeStack[],
+  checks: readonly StackCheck[],
+  now = NOW,
+) => readingOf(stacks, checks, now).ofRun(RUN.value);
 
 const REQUEST = CheckRequest.of('npm test', null);
 
@@ -169,5 +181,47 @@ describe('RunChangeChecks', () => {
       state: 'skipped',
       skip: 'nobody-checked',
     });
+  });
+});
+
+describe('RunChangeChecks, with rechecks', () => {
+  const stacks = [stackOf('kept', REQUEST), stackOf('flipped', REQUEST)];
+  const checks = [
+    checkOf('kept', checked(true)),
+    checkOf('flipped', checked(true)),
+    checkOf('flipped', checked(false), NOW, true),
+  ];
+
+  it('reads a run’s first checks as they stood, whatever a recheck found', async () => {
+    expect(
+      (await readingOf(stacks, checks).ofRun(RUN.value)).map((each) => [
+        each.repository,
+        each.state,
+      ]),
+    ).toEqual([
+      ['kept', 'passed'],
+      ['flipped', 'passed'],
+    ]);
+  });
+
+  it('reads what each recheck found, and a stack whose first check found something but whose recheck has not begun as still checking', async () => {
+    expect(
+      (await readingOf(stacks, checks).rechecksOfRun(RUN.value)).map((each) => [
+        each.repository,
+        each.state,
+      ]),
+    ).toEqual([
+      ['kept', 'checking'],
+      ['flipped', 'failed'],
+    ]);
+  });
+
+  it('reads no recheck of a stack its first check never found anything in', async () => {
+    expect(
+      await readingOf(
+        [stackOf('lapsed', REQUEST)],
+        [checkOf('lapsed', null)],
+      ).rechecksOfRun(RUN.value),
+    ).toEqual([]);
   });
 });

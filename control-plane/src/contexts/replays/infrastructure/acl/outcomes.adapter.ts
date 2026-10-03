@@ -1,6 +1,7 @@
 import type { ChangeJudgingPort } from '@outcomes/application/ports/change-judging.port';
 import type { RunAcceptancePort } from '@outcomes/application/ports/run-acceptance.port';
 import type {
+  JudgingAgainOrdered,
   JudgingOrder,
   JudgingOrdered,
   OutcomesPort,
@@ -25,5 +26,9 @@ export class Outcomes implements OutcomesPort {
       rubric: order.rubric,
       reference: order.reference?.value ?? null,
     });
+  }
+
+  judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
+    return this.judging.askAgain(run.value);
   }
 }

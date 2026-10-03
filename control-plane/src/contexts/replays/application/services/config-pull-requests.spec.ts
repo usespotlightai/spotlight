@@ -26,7 +26,7 @@ import {
   QUIET,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
-import { SetNoises } from '@replays/application/services/set-noises.service';
+import { SetHealths } from '@replays/application/services/set-healths.service';
 import {
   ConfigPullRequest,
   MOST_TRIES,
@@ -174,7 +174,7 @@ const opening = () =>
     clock,
     QUIET,
     'https://app.example.com/',
-    new SetNoises(work, memory.replayRepository, memory.candidateRepository),
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
   );
 
 const only = (): ConfigPullRequest => {

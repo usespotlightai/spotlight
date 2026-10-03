@@ -1,4 +1,5 @@
 import type { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
+import type { JudgingRound } from '@outcomes/domain/value-objects/judging-round';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -9,6 +10,7 @@ export class ChangeJudgingFailed implements DomainEvent {
 
   constructor(
     readonly runId: RunId,
+    readonly round: JudgingRound,
     readonly workspaceId: WorkspaceId,
     readonly failure: JudgingFailure,
     readonly spent: ModelUsage,

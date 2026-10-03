@@ -7,7 +7,7 @@ export const DEFAULT_MIN_GAIN = 0.05;
 
 export const GAIN_VERDICTS = ['better', 'worse', 'within-noise'] as const;
 
-type GainVerdict = (typeof GAIN_VERDICTS)[number];
+export type GainVerdict = (typeof GAIN_VERDICTS)[number];
 
 export interface GainReading {
   readonly gain: number;

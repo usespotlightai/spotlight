@@ -1,5 +1,5 @@
 import { resultOf, type Scoring } from '@replays/domain/services/entry-result';
-import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
+import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import type { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
 import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
@@ -14,6 +14,9 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export const MOST_QUEUE_ATTEMPTS = 10;
+
+const isConclusive = (checks: ChangeChecks | null): boolean =>
+  checks?.state === 'passed' || checks?.state === 'failed';
 
 interface EntryState {
   readonly position: number;
@@ -34,6 +37,9 @@ interface EntryState {
   readonly judgingSpent: ModelSpent | null;
   readonly succeeded: boolean | null;
   readonly reasons: readonly EntryReason[];
+  readonly secondJudging: EntryJudging | null;
+  readonly rejudgingSpent: ModelSpent | null;
+  readonly recheck: ChangeChecks | null;
 }
 
 const sameSpend = (
@@ -72,6 +78,9 @@ export class ReplayEntry {
       judgingSpent: null,
       succeeded: null,
       reasons: [],
+      secondJudging: null,
+      rejudgingSpent: null,
+      recheck: null,
     });
   }
 
@@ -86,6 +95,18 @@ export class ReplayEntry {
       throw new InconsistentStateError(
         'replay entry',
         'both ran and could not be replayed',
+      );
+    }
+    if (state.secondJudging !== null && !state.judging?.verdict) {
+      throw new InconsistentStateError(
+        'replay entry',
+        'was judged a second time without a first verdict',
+      );
+    }
+    if (state.recheck !== null && !isConclusive(state.checks)) {
+      throw new InconsistentStateError(
+        'replay entry',
+        'was checked again without its first check passing or failing',
       );
     }
 
@@ -160,6 +181,77 @@ export class ReplayEntry {
     return [this.state.draftingSpent, this.state.judgingSpent].flatMap(
       (each) => (each ? [each] : []),
     );
+  }
+
+  get secondJudging(): EntryJudging | null {
+    return this.state.secondJudging;
+  }
+
+  get rejudgingSpent(): ModelSpent | null {
+    return this.state.rejudgingSpent;
+  }
+
+  get recheck(): ChangeChecks | null {
+    return this.state.recheck;
+  }
+
+  get judgeAgreed(): boolean | null {
+    const first = this.state.judging?.verdict;
+    const second = this.state.secondJudging?.verdict;
+
+    return first && second ? first.passes === second.passes : null;
+  }
+
+  get checksFlipped(): boolean | null {
+    const recheck = this.state.recheck;
+
+    return isConclusive(this.state.checks) && isConclusive(recheck)
+      ? this.state.checks?.state !== recheck?.state
+      : null;
+  }
+
+  get wantsRejudging(): boolean {
+    return this.state.secondJudging === null && !!this.state.judging?.verdict;
+  }
+
+  get wantsRecheck(): boolean {
+    return this.state.recheck === null && isConclusive(this.state.checks);
+  }
+
+  rejudgingAsked(): ReplayEntry {
+    return this.wantsRejudging
+      ? this.with({ secondJudging: EntryJudging.asked() })
+      : this;
+  }
+
+  recheckAsked(): ReplayEntry {
+    return this.wantsRecheck
+      ? this.with({ recheck: ChangeChecks.checking() })
+      : this;
+  }
+
+  rejudged(verdict: JudgeVerdict, spent: ModelSpent | null): ReplayEntry {
+    return this.state.secondJudging?.pending
+      ? this.with({
+          secondJudging: EntryJudging.judged(verdict),
+          rejudgingSpent: spent,
+        })
+      : this;
+  }
+
+  rejudgingFailed(why: string, spent: ModelSpent | null): ReplayEntry {
+    return this.state.secondJudging?.pending
+      ? this.with({
+          secondJudging: EntryJudging.failed(why),
+          rejudgingSpent: spent,
+        })
+      : this;
+  }
+
+  rechecked(checks: ChangeChecks): ReplayEntry {
+    return this.state.recheck?.pending && !checks.equals(this.state.recheck)
+      ? this.with({ recheck: checks })
+      : this;
   }
 
   get verdict(): JudgeVerdict | null {

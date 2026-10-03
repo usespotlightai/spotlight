@@ -29,7 +29,27 @@ export type SearchWarningDto =
       readonly minGain: number;
       readonly neededRepeats: number;
       readonly suggestedRepeats: number;
+    }
+  | { readonly kind: 'saturated'; readonly rate: number }
+  | {
+      readonly kind: 'judge-unstable';
+      readonly agreement: number;
+      readonly compared: number;
+    }
+  | {
+      readonly kind: 'flaky-checks';
+      readonly flaky: number;
+      readonly rechecked: number;
+    }
+  | {
+      readonly kind: 'sanity-failed';
+      readonly gain: number;
+      readonly low: number;
+      readonly high: number;
+      readonly worseTasks: number;
     };
+
+export type SearchObjectiveDto = 'success' | 'cost';
 
 export type OnlyOnSeenTasksDto = 'marked' | 'too-few-held-out';
 
@@ -54,6 +74,7 @@ export interface SearchSummaryDto {
   readonly ending: string | null;
   readonly agent: SearchAgentDto;
   readonly budget: SearchBudgetDto;
+  readonly objective: SearchObjectiveDto;
   readonly spent: SpendDto;
   readonly iterationsRun: number;
   readonly proposed: number;
@@ -142,5 +163,6 @@ export interface SearchEstimateDto {
   readonly perReplayAllotments: SearchAllotmentsDto;
   readonly estimatedDuration: number | null;
   readonly minGain: number;
+  readonly objective: SearchObjectiveDto;
   readonly warnings: readonly SearchWarningDto[];
 }

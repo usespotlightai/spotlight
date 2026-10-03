@@ -32,7 +32,12 @@ export class ClaimsTaken {
 
   async check(claimed: ClaimedCheck, runner: RunnerId): Promise<void> {
     await this.taken(runner, { kind: 'check', id: claimed.stackId }, () =>
-      this.checks.unclaim(claimed.stackId, runner, this.clock.now()),
+      this.checks.unclaim(
+        claimed.stackId,
+        claimed.recheck,
+        runner,
+        this.clock.now(),
+      ),
     );
   }
 

@@ -10,12 +10,17 @@ import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
+import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
+import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
+import { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
+import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import { ReplaySetAbandonmentDue } from '@replays/domain/events/replay-set-abandonment-due.event';
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import { ReplaySetGuardChanged } from '@replays/domain/events/replay-set-guard-changed.event';
 import { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
 import { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
+import { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-recheck-wanted.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
@@ -103,6 +108,11 @@ export const REPLAYS_EVENT_TYPES = [
   ReplaySetStationGone,
   ReplayStopped,
   ReplayOverBudget,
+  ReplayRecheckUnavailable,
+  ReplayRecheckWanted,
+  ReplayRejudgingRefused,
+  ReplayRejudgingWanted,
+  ReplayStackRecheckWanted,
   ReplayBaselineWanted,
   ReplayJudgingWanted,
   ReplayAbandonmentDue,

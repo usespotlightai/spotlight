@@ -14,6 +14,7 @@ export class RenewCheckLeaseCommand {
   constructor(
     readonly runId: string,
     readonly stackId: string,
+    readonly recheck: boolean,
     readonly runnerId: string,
   ) {}
 }

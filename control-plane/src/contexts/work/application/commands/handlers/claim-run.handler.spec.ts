@@ -55,6 +55,7 @@ const reservedForPooled = (harness = 'claude-code') =>
 
 const aCheck: ClaimedCheck = {
   stackId: 'stack_1',
+  recheck: false,
   runId: 'run_1',
   repository: 'widgets',
   base: '0123456789abcdef0123456789abcdef01234567',
@@ -281,6 +282,7 @@ describe('ClaimRunHandler', () => {
       ).rejects.toThrow('runner_1 is spent');
       expect(handler.unclaim).toHaveBeenCalledWith(
         'stack_1',
+        false,
         RunnerId.of('runner_1'),
         NOW,
       );

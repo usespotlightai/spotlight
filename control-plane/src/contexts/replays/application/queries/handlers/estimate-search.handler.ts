@@ -10,9 +10,10 @@ import {
   searchBudgetOf,
   splitOf,
 } from '@replays/application/services/search-terms';
-import type { SetNoises } from '@replays/application/services/set-noises.service';
+import type { SetHealths } from '@replays/application/services/set-healths.service';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import { estimateOf } from '@replays/domain/services/search-estimate';
+import { objectiveFor } from '@replays/domain/services/search-objective';
 import { searchWarningsOf } from '@replays/domain/services/search-warnings';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -25,7 +26,7 @@ export class EstimateSearchHandler
   constructor(
     private readonly access: ReplaysAccess,
     private readonly work: WorkPort,
-    private readonly noises: SetNoises,
+    private readonly healths: SetHealths,
   ) {}
 
   async execute(
@@ -58,14 +59,8 @@ export class EstimateSearchHandler
 
       const timed = await this.work.durations(set.runs);
       const estimate = estimateOf(budget, split, [...timed.values()]);
-      const standard = await this.noises.standardAt(set.station);
-      const noise =
-        (
-          await this.noises.ofSets(
-            [set],
-            new Map([[set.station.stationId, standard]]),
-          )
-        ).get(set.id.value) ?? null;
+      const standard = await this.healths.standardAt(set.station);
+      const health = await this.healths.ofSet(set, standard);
 
       return {
         searchedTasks: split.searchedTasks,
@@ -80,7 +75,8 @@ export class EstimateSearchHandler
         },
         estimatedDuration: estimate.ms,
         minGain: standard.minGain,
-        warnings: searchWarningsOf(noise, standard.minGain, budget.repeats),
+        objective: objectiveFor(query.objective, health),
+        warnings: searchWarningsOf(health, standard.minGain, budget.repeats),
       };
     } catch (error) {
       if (error instanceof SearchTermsRefusedError) {

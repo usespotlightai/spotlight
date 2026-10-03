@@ -23,6 +23,7 @@ describe('OUTCOMES_PUBLICATIONS', () => {
       published(
         new ChangeJudged(
           RunId.of('replay_1'),
+          1,
           WorkspaceId.of('ws_1'),
           ScoreScale.oneToFive(),
           4,
@@ -46,6 +47,7 @@ describe('OUTCOMES_PUBLICATIONS', () => {
       {
         kind: 'outcomes.change-judged.v1',
         runId: 'replay_1',
+        round: 1,
         workspaceId: 'ws_1',
         scale: 'number',
         value: 4,
@@ -64,6 +66,7 @@ describe('OUTCOMES_PUBLICATIONS', () => {
       published(
         new ChangeJudgingFailed(
           RunId.of('replay_1'),
+          2,
           WorkspaceId.of('ws_1'),
           JudgingFailure.of('interrupted', AT),
           ModelUsage.none(),
@@ -73,6 +76,7 @@ describe('OUTCOMES_PUBLICATIONS', () => {
       {
         kind: 'outcomes.change-judging-failed.v1',
         runId: 'replay_1',
+        round: 2,
         workspaceId: 'ws_1',
         failure: 'interrupted',
         spentCosts: [],

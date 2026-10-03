@@ -1,6 +1,7 @@
 import type {
   AgentRefusal,
   ExaminedCandidate,
+  HarnessOffer,
   HeldSearchRun,
   LiveConfig,
   PickableRun,
@@ -30,6 +31,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { HarnessOffersPort } from '@work/application/ports/harness-offers.port';
 import type {
   ReplayCandidatesPort,
   ReplayStation,
@@ -75,7 +77,15 @@ export class Work implements WorkPort {
     private readonly holds: StartingPointHoldsPort,
     private readonly searching: SearchDispatchPort,
     private readonly searchRuns: SearchRunsPort,
+    private readonly offers: HarnessOffersPort,
   ) {}
+
+  harnessOffer(
+    workspaceId: WorkspaceId,
+    harness: string,
+  ): Promise<HarnessOffer | null> {
+    return this.offers.offerOf(workspaceId.value, harness);
+  }
 
   async station(
     lineId: string,

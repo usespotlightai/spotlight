@@ -353,7 +353,7 @@ func (w *worker) RenewLease(_ context.Context, runID string) (bool, error) {
 	return false, nil
 }
 
-func (w *worker) RenewCheckLease(_ context.Context, _, stackID string) (bool, error) {
+func (w *worker) RenewCheckLease(_ context.Context, _, stackID string, _ bool) (bool, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.renewed = append(w.renewed, stackID)
@@ -378,7 +378,7 @@ func (w *worker) Complete(_ context.Context, runID string, done protocol.Complet
 	return protocol.Completed{}, nil
 }
 
-func (w *worker) RecordChangeStackCheck(_ context.Context, _, stackID string, checked protocol.StackChecked) error {
+func (w *worker) RecordChangeStackCheck(_ context.Context, _, stackID string, _ bool, checked protocol.StackChecked) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.checked[stackID] = checked

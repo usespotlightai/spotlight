@@ -10,8 +10,8 @@ import type { StandingRun } from '@replays/application/ports/work.port';
 import { candidatePullRequestView } from '@replays/application/services/config-pull-request-views';
 import {
   gainView,
+  healthView,
   intervalView,
-  noiseView,
 } from '@replays/application/services/replay-views';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
@@ -23,7 +23,7 @@ import { frontierOf } from '@replays/domain/services/frontier';
 import { gainBetween } from '@replays/domain/services/gain-reading';
 import { comparedWith } from '@replays/domain/services/replay-results';
 import { scoredOn, scoresOf } from '@replays/domain/services/search-scores';
-import type { SetNoise } from '@replays/domain/services/set-noise';
+import type { SetHealth } from '@replays/domain/services/set-health';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
@@ -45,7 +45,7 @@ export interface ReplayedCandidatesSeen {
 }
 
 export interface SetStandard {
-  readonly noise: SetNoise | null;
+  readonly health: SetHealth;
   readonly minGain: number;
 }
 
@@ -100,7 +100,7 @@ const healthOf = (
     oldestRunEndedAt: iso(ended.oldest),
     newestRunEndedAt: iso(ended.newest),
     lastAddedAt: iso(extremes(set.entries.map((each) => each.addedAt)).newest),
-    noise: noiseView(standard.noise),
+    ...healthView(standard.health),
     minGain: standard.minGain,
   };
 };
@@ -192,8 +192,11 @@ const searchedOf = (
   baseline: Replay | null,
   minGain: number,
 ): readonly ReplayedCandidateDto[] => {
-  const scores = scoresOf(search, searchReplays);
-  const frontier = frontierOf([scores.seed, ...scores.candidates]);
+  const scores = scoresOf(search, searchReplays, minGain);
+  const frontier = frontierOf(
+    [scores.seed, ...scores.candidates],
+    search.objective,
+  );
   const currency = search.budget.ceiling.currency;
   const found = (id: ReplayId | null): Replay | null =>
     (id && searchReplays.find((each) => each.id.equals(id))) || null;
@@ -253,6 +256,7 @@ const searchedOf = (
         search: {
           searchId: search.id.value,
           state: search.current,
+          objective: search.objective,
           startedAt: search.startedAt.toISOString(),
           seed: {
             successRate: scores.seed.searchScore,

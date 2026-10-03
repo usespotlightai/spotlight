@@ -141,7 +141,13 @@ const SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(30),
   stationGone: false,
   guardsChanges: false,
-  noise: null,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
   minGain: 0.05,
   entries: [
     {
@@ -179,7 +185,13 @@ const EMPTY_SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(3),
   stationGone: false,
   guardsChanges: false,
-  noise: null,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
   minGain: 0.05,
   entries: [],
 };
@@ -247,6 +259,9 @@ const entry = (
   },
   draftingSpent: { spends: [{ amount: 0.02, currency: 'USD' }], unpriced: 0 },
   judgingSpent: { spends: [{ amount: 0.03, currency: 'USD' }], unpriced: 0 },
+  secondJudge: null,
+  rejudgingSpent: null,
+  recheck: null,
   result: 'succeeded',
   succeeded: true,
   reasons: [
@@ -307,6 +322,9 @@ const CANDIDATE_ENTRIES: ReplayEntryResponseDto[] = [
     judge: null,
     draftingSpent: null,
     judgingSpent: null,
+    secondJudge: null,
+    rejudgingSpent: null,
+    recheck: null,
     result: 'unscored',
     succeeded: null,
     reasons: [
@@ -366,6 +384,7 @@ const BASELINE: ReplayResponseDto = {
   state: 'finished',
   ceiling: { amount: 5, currency: 'USD' },
   repeats: 1,
+  probe: false,
   startedAt: hoursAgo(26),
   endedAt: hoursAgo(25),
   totals: totals({ successRate: 0.5, succeeded: 1 }),
@@ -384,6 +403,7 @@ const CANDIDATE_REPLAY: ReplayResponseDto = {
   state: 'running',
   ceiling: { amount: 5, currency: 'USD' },
   repeats: 1,
+  probe: false,
   startedAt: hoursAgo(1),
   endedAt: null,
   totals: totals({
@@ -637,25 +657,140 @@ export const seedReplaySet = (client: QueryClient) => {
   client.setQueryData(replayCheckKeys.forSet(SET_ID), checksPage(CHECKS));
 };
 
+const NOISE: ReplaySetResponseDto['health']['noise'] = {
+  replayId: BASELINE_ID,
+  fingerprint: LIVE_FINGERPRINT,
+  repeats: 3,
+  perRepeat: [0.5, 0.67, 0.83],
+  spread: 0.33,
+  flippedTasks: [ORIGINALS[1].taskId],
+  measuredAt: hoursAgo(25),
+};
+
+const UNHEALTHY: ReplaySetResponseDto['health'] = {
+  noise: NOISE,
+  saturation: {
+    replayId: BASELINE_ID,
+    rate: 0.97,
+    interval: { rate: 0.97, low: 0.9, high: 1 },
+    saturated: true,
+    measuredAt: hoursAgo(25),
+  },
+  judge: {
+    replayId: BASELINE_ID,
+    compared: 9,
+    agreed: 6,
+    pending: 0,
+    agreement: 0.67,
+    unstable: true,
+  },
+  checks: {
+    replayId: BASELINE_ID,
+    rechecked: 9,
+    pending: 0,
+    flaky: [
+      {
+        taskId: ORIGINALS[0].taskId,
+        originalRunId: ORIGINALS[0].runId,
+        runId: REPLAY_RUN_ID,
+        first: 'passed',
+        recheck: 'failed',
+      },
+    ],
+  },
+  sanity: {
+    replayId: REPLAY_ID,
+    candidateId: PROPOSED.id,
+    model: 'opus',
+    effort: 'max',
+    repeats: 1,
+    state: 'finished',
+    againstReplayId: BASELINE_ID,
+    againstState: 'finished',
+    gain: {
+      gain: -0.03,
+      low: -0.33,
+      high: 0.33,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 3,
+    },
+    rewardsStrongerModel: false,
+    worse: [
+      {
+        taskId: ORIGINALS[1].taskId,
+        originalRunId: ORIGINALS[1].runId,
+        live: 1,
+        stronger: 0.33,
+      },
+    ],
+  },
+};
+
 export const seedReplaySetWithNoise = (client: QueryClient) => {
   seedReplaySet(client);
   client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
     {
       ...SET,
       guardsChanges: true,
-      noise: {
-        replayId: BASELINE_ID,
-        fingerprint: LIVE_FINGERPRINT,
-        repeats: 3,
-        perRepeat: [0.5, 0.67, 0.83],
-        spread: 0.33,
-        flippedTasks: [ORIGINALS[1].taskId],
-        measuredAt: hoursAgo(25),
-      },
+      health: { ...SET.health, noise: NOISE },
     },
     EMPTY_SET,
   ]);
 };
+
+export const seedUnhealthyReplaySet = (client: QueryClient) => {
+  seedReplaySet(client);
+  client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+    { ...SET, guardsChanges: true, health: UNHEALTHY },
+    EMPTY_SET,
+  ]);
+};
+
+const seedHealth =
+  (health: ReplaySetResponseDto['health']) => (client: QueryClient) => {
+    seedReplaySet(client);
+    client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+      { ...SET, health },
+      EMPTY_SET,
+    ]);
+  };
+
+const UNHEALTHY_SANITY = UNHEALTHY.sanity as NonNullable<
+  ReplaySetResponseDto['health']['sanity']
+>;
+
+export const seedReplaySetHealthPending = seedHealth({
+  ...UNHEALTHY,
+  judge: {
+    replayId: BASELINE_ID,
+    compared: 0,
+    agreed: 0,
+    pending: 9,
+    agreement: null,
+    unstable: false,
+  },
+  checks: { replayId: BASELINE_ID, rechecked: 0, pending: 9, flaky: [] },
+  sanity: {
+    ...UNHEALTHY_SANITY,
+    state: 'running',
+    againstState: 'running',
+    gain: null,
+    rewardsStrongerModel: null,
+    worse: [],
+  },
+});
+
+export const seedReplaySetSanityUncompared = seedHealth({
+  ...UNHEALTHY,
+  sanity: {
+    ...UNHEALTHY_SANITY,
+    againstState: 'stopped',
+    gain: null,
+    rewardsStrongerModel: null,
+    worse: [],
+  },
+});
 
 export const seedReplaySetChecksAwaiting = seedSetWithReplays;
 

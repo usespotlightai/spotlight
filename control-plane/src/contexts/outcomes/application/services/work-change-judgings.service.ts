@@ -6,6 +6,7 @@ import { ChangeJudgingMovedOnError } from '@outcomes/domain/exceptions/change-ju
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
+import type { JudgingRound } from '@outcomes/domain/value-objects/judging-round';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
@@ -13,12 +14,17 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
+interface JudgingKey {
+  readonly runId: RunId;
+  readonly round: JudgingRound;
+}
+
 const MOST_JUDGED_AT_ONCE = 4;
 
 export class WorkChangeJudgings implements OwedWorkPort {
   readonly name = 'Judging changes';
 
-  readonly #pool: OwedWorkPool<ChangeJudging, RunId>;
+  readonly #pool: OwedWorkPool<ChangeJudging, JudgingKey>;
 
   constructor(
     private readonly judgings: ChangeJudgingRepository,
@@ -28,16 +34,17 @@ export class WorkChangeJudgings implements OwedWorkPort {
     transaction: TransactionPort,
     logger: LoggerPort,
   ) {
-    this.#pool = new OwedWorkPool<ChangeJudging, RunId>(
+    this.#pool = new OwedWorkPool<ChangeJudging, JudgingKey>(
       {
         name: this.name,
         mostAtOnce: MOST_JUDGED_AT_ONCE,
         due: (now) => this.judgings.dueForWork(now),
-        find: (runId) => this.judgings.of(runId),
+        find: (key) => this.judgings.of(key.runId, key.round),
         save: (judging) => this.judgings.save(judging),
-        keyOf: (judging) => judging.runId,
+        keyOf: (judging) => ({ runId: judging.runId, round: judging.round }),
         about: (judging) => ({
           runId: judging.runId.value,
+          round: judging.round,
           attempts: judging.work?.attempts,
         }),
         worked: (judging) => this.judged(judging),

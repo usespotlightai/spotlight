@@ -1,9 +1,14 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
-import { type SetNoise, setNoiseOf } from '@replays/domain/services/set-noise';
+import {
+  type SetHealth,
+  setHealthOf,
+  UNREAD_HEALTH,
+} from '@replays/domain/services/set-health';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 
 export interface LiveStandard {
@@ -16,7 +21,7 @@ interface AtStation {
   readonly stationId: string;
 }
 
-export class SetNoises {
+export class SetHealths {
   constructor(
     private readonly work: WorkPort,
     private readonly replays: ReplayRepository,
@@ -49,35 +54,61 @@ export class SetNoises {
     );
   }
 
+  async ofSet(set: ReplaySet, standard: LiveStandard): Promise<SetHealth> {
+    return (
+      (
+        await this.ofSets([set], new Map([[set.station.stationId, standard]]))
+      ).get(set.id.value) ?? UNREAD_HEALTH
+    );
+  }
+
   async ofSets(
     sets: readonly ReplaySet[],
     standards: ReadonlyMap<string, LiveStandard>,
-  ): Promise<ReadonlyMap<string, SetNoise | null>> {
-    const measured = await this.replays.repeatedOfSets(
+  ): Promise<ReadonlyMap<string, SetHealth>> {
+    const read = await this.replays.healthReadOfSets(
       sets.map((each) => each.id),
     );
+    const replayed = [...read, ...(await this.comparisonsMissingFrom(read))];
     const configs =
-      measured.length === 0
+      replayed.length === 0
         ? []
         : await this.candidates.findMany(
-            measured.map((each) => each.candidateId),
+            replayed.map((each) => each.candidateId),
           );
 
     return new Map(
       sets.map((set) => {
-        const fingerprint = standards.get(set.station.stationId)?.fingerprint;
+        const standard = standards.get(set.station.stationId);
 
         return [
           set.id.value,
-          fingerprint
-            ? setNoiseOf(
-                measured.filter((each) => each.setId.equals(set.id)),
+          standard?.fingerprint
+            ? setHealthOf(
+                replayed.filter((each) => each.setId.equals(set.id)),
                 configs,
-                fingerprint,
+                standard.fingerprint,
+                standard.minGain,
               )
-            : null,
+            : UNREAD_HEALTH,
         ];
       }),
     );
+  }
+
+  private async comparisonsMissingFrom(
+    read: readonly Replay[],
+  ): Promise<readonly Replay[]> {
+    const missing = read.flatMap((each) =>
+      each.comparedWith &&
+      !read.some((other) => each.comparedWith?.equals(other.id))
+        ? [each.comparedWith]
+        : [],
+    );
+    const found = await Promise.all(
+      missing.map((each) => this.replays.find(each)),
+    );
+
+    return found.flatMap((each) => (each ? [each] : []));
   }
 }

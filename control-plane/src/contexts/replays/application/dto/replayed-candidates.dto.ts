@@ -2,7 +2,7 @@ import type { CandidatePullRequestDto } from '@replays/application/dto/config-pu
 import type {
   GainReadingDto,
   RateIntervalDto,
-  SetNoiseDto,
+  SetHealthDto,
   StationChangeDto,
 } from '@replays/application/dto/replays.dto';
 import type { ReplayedPeriodName } from '@replays/domain/value-objects/replayed-period.vo';
@@ -15,13 +15,12 @@ export interface ReplayedPeriodDto {
   readonly to: string;
 }
 
-export interface ReplaySetHealthDto {
+export interface ReplaySetHealthDto extends SetHealthDto {
   readonly tasks: number;
   readonly runs: number;
   readonly oldestRunEndedAt: string | null;
   readonly newestRunEndedAt: string | null;
   readonly lastAddedAt: string | null;
-  readonly noise: SetNoiseDto | null;
   readonly minGain: number;
 }
 
@@ -63,6 +62,7 @@ export interface ReplayedSeedDto {
 export interface ReplayedSearchDto {
   readonly searchId: string;
   readonly state: string;
+  readonly objective: 'success' | 'cost';
   readonly startedAt: string;
   readonly seed: ReplayedSeedDto;
 }

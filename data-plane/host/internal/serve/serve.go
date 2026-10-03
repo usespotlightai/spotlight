@@ -63,10 +63,10 @@ type Pool interface {
 
 type Worker interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
-	RenewCheckLease(ctx context.Context, runID, stackID string) (bool, error)
+	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
 	RecordImage(ctx context.Context, runID, image string) error
 	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error)
-	RecordChangeStackCheck(ctx context.Context, runID, stackID string, checked protocol.StackChecked) error
+	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackChecked) error
 }
 
 type Registry interface {
@@ -689,7 +689,7 @@ func renewal(work protocol.Claimed, worker Worker) func(context.Context) (bool, 
 		}
 	case work.Check != nil:
 		return func(ctx context.Context) (bool, error) {
-			stop, err := worker.RenewCheckLease(ctx, work.Check.RunID, work.Check.StackID)
+			stop, err := worker.RenewCheckLease(ctx, work.Check.RunID, work.Check.StackID, work.Check.Recheck)
 			if control.CheckLeaseLost(err) {
 				return true, nil
 			}
@@ -709,7 +709,7 @@ func (h *Host) giveUp(ctx context.Context, handed protocol.Handed, worker Worker
 	case work.Run != nil:
 		_, err = worker.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, Unprepared: true, Message: reason})
 	case work.Check != nil:
-		err = worker.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, protocol.StackChecked{
+		err = worker.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, work.Check.Recheck, protocol.StackChecked{
 			Skipped: &protocol.SkippedCheck{Code: protocol.SkipNoImage, Detail: reason},
 		})
 	}

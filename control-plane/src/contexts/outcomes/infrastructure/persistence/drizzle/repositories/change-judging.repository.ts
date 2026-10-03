@@ -3,6 +3,10 @@ import { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggreg
 import { ChangeJudgingMovedOnError } from '@outcomes/domain/exceptions/change-judging-moved-on.error';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
+import {
+  isJudgingRound,
+  type JudgingRound,
+} from '@outcomes/domain/value-objects/judging-round';
 import { changeJudging } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -32,9 +36,21 @@ const failureOf = (row: Row): JudgingFailure | null => {
     : null;
 };
 
+const roundOf = (row: Row): JudgingRound => {
+  if (!isJudgingRound(row.round)) {
+    throw new InconsistentStateError(
+      'change judging',
+      `is in a round no longer known, ${row.round}`,
+    );
+  }
+
+  return row.round;
+};
+
 const toChangeJudging = (row: Row): ChangeJudging =>
   ChangeJudging.rehydrate({
     runId: RunId.of(row.runId),
+    round: roundOf(row),
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: TeamId.of(row.teamId),
     rubric: row.rubric,
@@ -82,6 +98,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
         .insert(changeJudging)
         .values({
           runId: added.runId.value,
+          round: added.round,
           workspaceId: added.workspaceId.value,
           teamId: added.teamId.value,
           rubric: added.rubric,
@@ -90,7 +107,9 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
           version: added.version,
           ...columnsOf(added),
         })
-        .onConflictDoNothing({ target: changeJudging.runId })
+        .onConflictDoNothing({
+          target: [changeJudging.runId, changeJudging.round],
+        })
         .returning({ runId: changeJudging.runId });
 
       if (written.length === 0) {
@@ -109,6 +128,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
         .where(
           and(
             eq(changeJudging.runId, saved.runId.value),
+            eq(changeJudging.round, saved.round),
             eq(changeJudging.version, saved.version),
           ),
         )
@@ -122,11 +142,16 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
     });
   }
 
-  async of(runId: RunId): Promise<ChangeJudging | null> {
+  async of(runId: RunId, round: JudgingRound): Promise<ChangeJudging | null> {
     const [row] = await this.context.db
       .select()
       .from(changeJudging)
-      .where(eq(changeJudging.runId, runId.value))
+      .where(
+        and(
+          eq(changeJudging.runId, runId.value),
+          eq(changeJudging.round, round),
+        ),
+      )
       .limit(1);
 
     return row ? toChangeJudging(row) : null;

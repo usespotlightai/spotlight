@@ -14,6 +14,7 @@ import type {
 } from '@replays/application/dto/replayed-candidates.dto';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { REPLAYED_PERIODS } from '@replays/domain/value-objects/replayed-period.vo';
+import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { CandidatePullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
 import { StationChangeResponseDto } from '@replays/presentation/http/dto/replay-candidate-resource.response.dto';
@@ -22,7 +23,7 @@ import {
   gainResponse,
   intervalResponse,
   RateIntervalResponseDto,
-  SetNoiseResponseDto,
+  SetHealthResponseDto,
 } from '@replays/presentation/http/dto/replays.response.dto';
 
 const RATE =
@@ -55,7 +56,7 @@ export class ReplayedPeriodResponseDto {
   }
 }
 
-export class ReplaySetHealthResponseDto {
+export class ReplaySetHealthResponseDto extends SetHealthResponseDto {
   @ApiProperty({
     description:
       'How many distinct tasks its runs worked; fewer than its runs when a task was worked more than once',
@@ -92,26 +93,18 @@ export class ReplaySetHealthResponseDto {
   readonly lastAddedAt: string | null;
 
   @ApiProperty({
-    nullable: true,
-    type: SetNoiseResponseDto,
-    description:
-      'How much its success moves between copies of the same runs under the live config; null until a finished live replay ran it more than once',
-  })
-  readonly noise: SetNoiseResponseDto | null;
-
-  @ApiProperty({
     example: 0.05,
     description: 'The smallest gain in success its line counts as real',
   })
   readonly minGain: number;
 
   constructor(health: ReplaySetHealthDto) {
+    super(health);
     this.tasks = health.tasks;
     this.runs = health.runs;
     this.oldestRunEndedAt = health.oldestRunEndedAt;
     this.newestRunEndedAt = health.newestRunEndedAt;
     this.lastAddedAt = health.lastAddedAt;
-    this.noise = health.noise ? new SetNoiseResponseDto(health.noise) : null;
     this.minGain = health.minGain;
   }
 }
@@ -272,6 +265,13 @@ export class ReplayedSearchResponseDto {
   @ApiProperty({ enum: SEARCH_STATES })
   readonly state: string;
 
+  @ApiProperty({
+    enum: SEARCH_OBJECTIVES,
+    description:
+      'What the search looks for, which decides whether this candidate is on its frontier',
+  })
+  readonly objective: 'success' | 'cost';
+
   @ApiProperty({ example: '2026-09-30T08:00:00.000Z' })
   readonly startedAt: string;
 
@@ -285,6 +285,7 @@ export class ReplayedSearchResponseDto {
   constructor(search: ReplayedSearchDto) {
     this.searchId = search.searchId;
     this.state = search.state;
+    this.objective = search.objective;
     this.startedAt = search.startedAt;
     this.seed = new ReplayedSeedResponseDto(search.seed);
   }

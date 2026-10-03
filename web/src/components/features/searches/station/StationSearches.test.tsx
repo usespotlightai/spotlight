@@ -55,7 +55,13 @@ const setOf = (tasks: number): ReplaySet => ({
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
-  noise: null,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
   minGain: 0.05,
   entries: Array.from({ length: tasks }, (_, place) => ({
     runId: `run_${place}`,
@@ -84,6 +90,7 @@ const SEARCH: Search = {
     concurrency: 4,
     repeats: 1,
   },
+  objective: 'success',
   spent: { amount: 4.5, currency: 'USD' },
   iterationsRun: 2,
   proposed: 3,

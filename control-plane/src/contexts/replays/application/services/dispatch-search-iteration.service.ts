@@ -106,6 +106,7 @@ export class DispatchSearchIteration {
       ceiling,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
+      objective: search.objective,
     });
   }
 }

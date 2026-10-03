@@ -10,6 +10,10 @@ export interface ChangeJudgingAsk {
 
 export type ChangeJudgingAnswer = 'asked' | 'unavailable' | 'unreadable-rubric';
 
+export type ChangeJudgingAgainAnswer = 'asked' | 'unavailable' | 'unjudged';
+
 export interface ChangeJudgingPort {
   ask(asked: ChangeJudgingAsk): Promise<ChangeJudgingAnswer>;
+
+  askAgain(runId: string): Promise<ChangeJudgingAgainAnswer>;
 }

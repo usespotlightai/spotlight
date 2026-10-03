@@ -5,6 +5,7 @@ type JudgedScale = 'yes-no' | 'number';
 export type ChangeJudgedIntegrationEvent = {
   readonly kind: typeof CHANGE_JUDGED;
   readonly runId: string;
+  readonly round: 1 | 2;
   readonly workspaceId: string;
   readonly spentCosts: readonly {
     readonly amount: number;

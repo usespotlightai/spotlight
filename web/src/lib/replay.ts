@@ -17,7 +17,13 @@ import type {
   SpendResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
-import type { ReplayState } from '@/lib/replay-words';
+import {
+  EFFORT_NOT_HIGHER,
+  MODEL_NOT_OFFERED,
+  NO_HARNESS,
+  type ReplayState,
+  SAME_AS_LIVE,
+} from '@/lib/replay-words';
 import { stationPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
@@ -58,8 +64,6 @@ export const REPEAT_BOUNDS = {
   least: 1,
   most: 5,
 } as const satisfies CountBounds;
-
-export const NOISE_REPEATS = 3;
 
 export const USUAL_CURRENCY = 'USD';
 
@@ -306,9 +310,69 @@ export const meanMsOf = (entries: readonly ReplayEntry[]): number | null => {
     : timed.reduce((total, each) => total + each, 0) / timed.length;
 };
 
+export const taskTitleIn = (set: ReplaySet, taskId: string): string =>
+  titleShown(set.entries.find((each) => each.taskId === taskId)?.title ?? null);
+
 export const flippedTitles = (set: ReplaySet, noise: SetNoise): string[] =>
-  noise.flippedTasks.map((taskId) =>
-    titleShown(
-      set.entries.find((each) => each.taskId === taskId)?.title ?? null,
-    ),
+  noise.flippedTasks.map((taskId) => taskTitleIn(set, taskId));
+
+export type StationLive = {
+  readonly harness: string | null;
+  readonly model: string | null;
+  readonly effort: string | null;
+};
+
+export const strongerRefusal = (
+  set: ReplaySet,
+  live: StationLive | null,
+): string | null => startRefusal(set) ?? (live?.harness ? null : NO_HARNESS);
+
+export const strongerAsked = (
+  live: StationLive,
+  model: string,
+  effort: string,
+): { model?: string; effort?: string } | null => {
+  const asked = {
+    ...(model && model !== live.model ? { model } : {}),
+    ...(effort && effort !== live.effort ? { effort } : {}),
+  };
+
+  return Object.keys(asked).length > 0 ? asked : null;
+};
+
+export type HarnessOffer = {
+  readonly models: readonly string[];
+  readonly efforts: readonly string[];
+};
+
+export const higherEffortsThan = (
+  effort: string | null,
+  offer: HarnessOffer,
+): string[] =>
+  offer.efforts.slice(
+    (effort === null ? 0 : offer.efforts.indexOf(effort)) + 1,
   );
+
+export const strongerProblem = (
+  live: StationLive,
+  model: string,
+  effort: string,
+  offer: HarnessOffer,
+): string | null => {
+  const asked = strongerAsked(live, model, effort);
+
+  if (!asked) {
+    return SAME_AS_LIVE;
+  }
+  if (asked.model && !offer.models.includes(asked.model)) {
+    return MODEL_NOT_OFFERED;
+  }
+  if (
+    asked.effort &&
+    !higherEffortsThan(live.effort, offer).includes(asked.effort)
+  ) {
+    return EFFORT_NOT_HIGHER;
+  }
+
+  return null;
+};

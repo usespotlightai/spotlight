@@ -1,4 +1,8 @@
 import {
+  REPLAY_RECHECKS,
+  type ReplayRechecksPort,
+} from '@change-review/application/ports/replay-rechecks.port';
+import {
   RUN_CHANGE_CHECKS,
   type RunChangeChecksPort,
 } from '@change-review/application/ports/run-change-checks.port';
@@ -53,6 +57,7 @@ import { RemoveReplaySetEntryHandler } from '@replays/application/commands/handl
 import { RenameReplaySetHandler } from '@replays/application/commands/handlers/rename-replay-set.handler';
 import { StartReplayHandler } from '@replays/application/commands/handlers/start-replay.handler';
 import { StartReplayCheckHandler } from '@replays/application/commands/handlers/start-replay-check.handler';
+import { StartSanityReplayHandler } from '@replays/application/commands/handlers/start-sanity-replay.handler';
 import { StartSearchHandler } from '@replays/application/commands/handlers/start-search.handler';
 import { StopReplayHandler } from '@replays/application/commands/handlers/stop-replay.handler';
 import { StopSearchHandler } from '@replays/application/commands/handlers/stop-search.handler';
@@ -65,6 +70,7 @@ import { RemoveReplaySetEntryCommand } from '@replays/application/commands/remov
 import { RenameReplaySetCommand } from '@replays/application/commands/rename-replay-set.command';
 import { StartReplayCommand } from '@replays/application/commands/start-replay.command';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
+import { StartSanityReplayCommand } from '@replays/application/commands/start-sanity-replay.command';
 import { StartSearchCommand } from '@replays/application/commands/start-search.command';
 import { StopReplayCommand } from '@replays/application/commands/stop-replay.command';
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
@@ -131,6 +137,8 @@ import { AbandonReplays } from '@replays/application/services/abandon-replays.se
 import { AbandonSearches } from '@replays/application/services/abandon-searches.service';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
+import { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
+import { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
 import { CheckReadings } from '@replays/application/services/check-readings.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
@@ -151,7 +159,7 @@ import { ReplaysAccess } from '@replays/application/services/replays-access.serv
 import { SearchAgents } from '@replays/application/services/search-agents.service';
 import { SearchSights } from '@replays/application/services/search-sights.service';
 import { SearchSummaries } from '@replays/application/services/search-summaries.service';
-import { SetNoises } from '@replays/application/services/set-noises.service';
+import { SetHealths } from '@replays/application/services/set-healths.service';
 import { SetStations } from '@replays/application/services/set-stations.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { REPLAYS_EVENT_TYPES } from '@replays/domain/event-types';
@@ -194,6 +202,10 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import {
+  HARNESS_OFFERS,
+  type HarnessOffersPort,
+} from '@work/application/ports/harness-offers.port';
 import {
   REPLAY_CANDIDATES,
   type ReplayCandidatesPort,
@@ -281,6 +293,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       STARTING_POINT_HOLDS,
       SEARCH_DISPATCH,
       SEARCH_RUNS,
+      HARNESS_OFFERS,
     ],
     useFactory: (
       runs: ReplayableRunsPort,
@@ -289,12 +302,23 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       holds: StartingPointHoldsPort,
       searching: SearchDispatchPort,
       searchRuns: SearchRunsPort,
-    ) => new Work(runs, candidates, dispatching, holds, searching, searchRuns),
+      offers: HarnessOffersPort,
+    ) =>
+      new Work(
+        runs,
+        candidates,
+        dispatching,
+        holds,
+        searching,
+        searchRuns,
+        offers,
+      ),
   },
   {
     provide: CHANGE_REVIEW,
-    inject: [RUN_CHANGE_CHECKS],
-    useFactory: (checks: RunChangeChecksPort) => new ChangeReview(checks),
+    inject: [RUN_CHANGE_CHECKS, REPLAY_RECHECKS],
+    useFactory: (checks: RunChangeChecksPort, rechecks: ReplayRechecksPort) =>
+      new ChangeReview(checks, rechecks),
   },
   {
     provide: OUTCOMES,
@@ -402,19 +426,32 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     SetStations,
   ]),
+  ...bindCommandHandler(StartSanityReplayCommand, StartSanityReplayHandler, [
+    ReplaysAccess,
+    PEOPLE,
+    WORK,
+    LiveSnapshots,
+    DrizzleCandidateRepository,
+    DrizzleReplaySetRepository,
+    DrizzleReplayRepository,
+    ID_GENERATOR,
+    CLOCK,
+    TRANSACTION,
+    SetStations,
+  ]),
   ...bindCommandHandler(GuardChangesCommand, GuardChangesHandler, [
     ReplaysAccess,
     DrizzleReplaySetRepository,
     TRANSACTION,
   ]),
   {
-    provide: SetNoises,
+    provide: SetHealths,
     inject: [WORK, DrizzleReplayRepository, DrizzleCandidateRepository],
     useFactory: (
       work: WorkPort,
       replays: DrizzleReplayRepository,
       candidates: DrizzleCandidateRepository,
-    ) => new SetNoises(work, replays, candidates),
+    ) => new SetHealths(work, replays, candidates),
   },
   {
     provide: CheckReadings,
@@ -485,7 +522,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     CLOCK,
     TRANSACTION,
     SetStations,
-    SetNoises,
+    SetHealths,
   ]),
   ...bindCommandHandler(StopSearchCommand, StopSearchHandler, [
     ReplaysAccess,
@@ -510,14 +547,14 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   ),
   {
     provide: SearchSummaries,
-    inject: [DrizzleReplayRepository, SetNoises],
-    useFactory: (replays: DrizzleReplayRepository, noises: SetNoises) =>
-      new SearchSummaries(replays, noises),
+    inject: [DrizzleReplayRepository, SetHealths],
+    useFactory: (replays: DrizzleReplayRepository, healths: SetHealths) =>
+      new SearchSummaries(replays, healths),
   },
   ...bindQueryHandler(EstimateSearchQuery, EstimateSearchHandler, [
     ReplaysAccess,
     WORK,
-    SetNoises,
+    SetHealths,
   ]),
   ...bindQueryHandler(ListSearchesQuery, ListSearchesHandler, [
     ReplaysAccess,
@@ -534,7 +571,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     DrizzleReplayRepository,
     DrizzleCandidateRepository,
     DrizzleConfigPullRequestRepository,
-    SetNoises,
+    SetHealths,
   ]),
   ...bindCommandHandler(
     PickSearchCandidateCommand,
@@ -568,7 +605,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       CLOCK,
       LOGGER,
       WEB_ORIGIN,
-      SetNoises,
+      SetHealths,
     ],
     useFactory: (
       pullRequests: DrizzleConfigPullRequestRepository,
@@ -583,7 +620,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       logger: LoggerPort,
       origin: string,
-      noises: SetNoises,
+      healths: SetHealths,
     ) =>
       new OpenConfigPullRequests(
         pullRequests,
@@ -598,7 +635,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         clock,
         logger,
         origin,
-        noises,
+        healths,
       ),
   },
   {
@@ -613,13 +650,13 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ReplaysAccess,
     DrizzleReplaySetRepository,
     WORK,
-    SetNoises,
+    SetHealths,
   ]),
   ...bindQueryHandler(ListTeamReplaySetsQuery, ListTeamReplaySetsHandler, [
     ReplaysAccess,
     DrizzleReplaySetRepository,
     WORK,
-    SetNoises,
+    SetHealths,
   ]),
   ...bindQueryHandler(ListReplayableRunsQuery, ListReplayableRunsHandler, [
     ReplaysAccess,
@@ -629,14 +666,14 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ReplaysAccess,
     DrizzleReplayRepository,
     DrizzleCandidateRepository,
-    SetNoises,
+    SetHealths,
   ]),
   ...bindQueryHandler(ReadReplayQuery, ReadReplayHandler, [
     ReplaysAccess,
     DrizzleReplayRepository,
     DrizzleCandidateRepository,
     WORK,
-    SetNoises,
+    SetHealths,
   ]),
   ...bindQueryHandler(
     ReadReplayedCandidatesQuery,
@@ -650,7 +687,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DrizzleConfigPullRequestRepository,
       WORK,
       CLOCK,
-      SetNoises,
+      SetHealths,
     ],
   ),
   ...bindQueryHandler(ReadReplayOfRunQuery, ReadReplayOfRunHandler, [
@@ -746,6 +783,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       CLOCK,
       TRANSACTION,
+      SetHealths,
     ],
     useFactory: (
       searches: DrizzleSearchRepository,
@@ -755,6 +793,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       clock: ClockPort,
       transaction: TransactionPort,
+      healths: SetHealths,
     ) =>
       new HoldOutSearch(
         searches,
@@ -764,6 +803,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         ids,
         clock,
         transaction,
+        healths,
       ),
   },
   {
@@ -924,6 +964,16 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
+    provide: AskForReplayRejudging,
+    inject: [OUTCOMES],
+    useFactory: (outcomes: OutcomesPort) => new AskForReplayRejudging(outcomes),
+  },
+  {
+    provide: AskForReplayRecheck,
+    inject: [CHANGE_REVIEW],
+    useFactory: (changes: ChangeReviewPort) => new AskForReplayRecheck(changes),
+  },
+  {
     provide: NoteReplayJudged,
     inject: [DrizzleReplayRepository, TRANSACTION, CLOCK],
     useFactory: (
@@ -1043,6 +1093,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       NoteReplayDigested,
       NoteReplayChangeReviewed,
       AskForReplayJudging,
+      AskForReplayRejudging,
+      AskForReplayRecheck,
       NoteReplayJudged,
       HoldSetStartingPoints,
       LetReplayRunsGo,
@@ -1064,6 +1116,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       digesting: NoteReplayDigested,
       reviewing: NoteReplayChangeReviewed,
       asking: AskForReplayJudging,
+      askingAgain: AskForReplayRejudging,
+      askingRecheck: AskForReplayRecheck,
       judging: NoteReplayJudged,
       holding: HoldSetStartingPoints,
       lettingGo: LetReplayRunsGo,
@@ -1085,6 +1139,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           digesting,
           reviewing,
           asking,
+          askingAgain,
+          askingRecheck,
           judging,
           holding,
           lettingGo,

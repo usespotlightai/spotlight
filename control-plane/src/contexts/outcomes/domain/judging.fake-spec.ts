@@ -13,6 +13,7 @@ import type {
 } from '@outcomes/domain/repositories/score.repository';
 import { Citation } from '@outcomes/domain/value-objects/citation.vo';
 import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
+import type { JudgingRound } from '@outcomes/domain/value-objects/judging-round';
 import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
@@ -175,29 +176,36 @@ export class JudgingsInMemory implements JudgingRepository {
   }
 }
 
+const keyOf = (runId: RunId, round: JudgingRound): string =>
+  `${runId.value}#${round}`;
+
 export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
   readonly held = new Map<string, ChangeJudging>();
   readonly events: DomainEvent[] = [];
 
   async add(judging: ChangeJudging): Promise<void> {
-    if (this.held.has(judging.runId.value)) {
+    const key = keyOf(judging.runId, judging.round);
+
+    if (this.held.has(key)) {
       throw new ChangeJudgingMovedOnError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
-    this.held.set(judging.runId.value, judging);
+    this.held.set(key, judging);
   }
 
   async save(judging: ChangeJudging): Promise<void> {
-    const held = this.held.get(judging.runId.value);
+    const key = keyOf(judging.runId, judging.round);
+    const held = this.held.get(key);
 
     if (!held || held.version !== judging.version) {
       throw new ChangeJudgingMovedOnError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
     this.held.set(
-      judging.runId.value,
+      key,
       ChangeJudging.rehydrate({
         runId: judging.runId,
+        round: judging.round,
         workspaceId: judging.workspaceId,
         teamId: judging.teamId,
         rubric: judging.rubric,
@@ -212,8 +220,8 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
     );
   }
 
-  async of(runId: RunId): Promise<ChangeJudging | null> {
-    return this.held.get(runId.value) ?? null;
+  async of(runId: RunId, round: JudgingRound): Promise<ChangeJudging | null> {
+    return this.held.get(keyOf(runId, round)) ?? null;
   }
 
   async dueForWork(now: Date): Promise<ChangeJudging | null> {
@@ -227,7 +235,7 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
     for (const each of [...this.held.values()]) {
       if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
-        this.held.delete(each.runId.value);
+        this.held.delete(keyOf(each.runId, each.round));
       }
     }
   }
@@ -235,7 +243,7 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
     for (const each of [...this.held.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.runId.value);
+        this.held.delete(keyOf(each.runId, each.round));
       }
     }
   }

@@ -28,6 +28,7 @@ export const ClaimedWorkHttpMapper = {
       null,
       new ClaimedCheckResponseDto(
         check.stackId,
+        check.recheck,
         check.runId,
         check.repository,
         check.base,

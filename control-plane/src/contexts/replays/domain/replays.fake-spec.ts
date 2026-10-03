@@ -22,6 +22,7 @@ import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
@@ -91,6 +92,7 @@ export const candidateOf = (
   id = `candidate_${kind}`,
   rubric: string | null = null,
   check: string | null = null,
+  fingerprint = FINGERPRINT,
 ): Candidate => {
   const made = {
     id: CandidateId.of(id),
@@ -103,7 +105,7 @@ export const candidateOf = (
       ...(rubric ? { judge: { rubric, sample: 0.1, trust: 0.6 } } : {}),
       ...(check ? { diffs: true, check } : {}),
     }),
-    fingerprint: FINGERPRINT,
+    fingerprint,
     digests: kind === 'live' ? LIVE_DIGESTS : DIGESTS,
     scoring: CandidateScoring.of({
       checksChanges: check !== null,
@@ -180,6 +182,7 @@ export const aReplay = (
     among?: readonly RunId[];
     searchId?: SearchId;
     repeats?: number;
+    probe?: boolean;
   } = {},
 ): Replay => {
   const started = Replay.started({
@@ -193,6 +196,7 @@ export const aReplay = (
     ...(input.among ? { among: input.among } : {}),
     ...(input.searchId ? { searchId: input.searchId } : {}),
     ...(input.repeats === undefined ? {} : { repeats: input.repeats }),
+    ...(input.probe ? { probe: true } : {}),
   });
 
   started.pullEvents();
@@ -283,6 +287,7 @@ export const aSearch = (
     count?: number;
     budget?: SearchBudget;
     set?: ReplaySet;
+    objective?: SearchObjective;
   } = {},
 ): Search => {
   const set = input.set ?? aSet(input.count ?? 10);
@@ -292,6 +297,7 @@ export const aSearch = (
     set,
     agent: AGENT,
     budget: input.budget ?? aBudget(),
+    objective: input.objective ?? 'success',
     split: HeldOutSplit.drawn({
       searchId: id,
       entries: set.entries,
@@ -334,6 +340,7 @@ export const replayFor = (
   among: readonly RunId[] | null,
   live = false,
   repeats = 1,
+  searchId: SearchId | null = SEARCH_ID,
 ): Replay => {
   const started = Replay.started({
     id: ReplayId.of(id),
@@ -343,7 +350,7 @@ export const replayFor = (
     ceiling: Spend.ceiling(100, 'USD'),
     at: NOW,
     by: BY,
-    searchId: SEARCH_ID,
+    ...(searchId ? { searchId } : {}),
     repeats,
     ...(among ? { among } : {}),
   });

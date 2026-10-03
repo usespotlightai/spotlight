@@ -6,7 +6,13 @@ import type {
   SearchIterationResponseDto,
   SearchResponseDto,
 } from '@/lib/api';
-import { minGainShown, pointsShown } from '@/lib/replay-words';
+import { percentShown } from '@/lib/judge';
+import {
+  gainRangeShown,
+  gainShown,
+  minGainShown,
+  pointsShown,
+} from '@/lib/replay-words';
 
 export type SearchState = SearchResponseDto['state'];
 export type SearchEnding = NonNullable<SearchResponseDto['ending']>;
@@ -19,6 +25,7 @@ type ReasonCode = PullRequestReason['code'];
 type CheckVerdict = ReplayCheckResponseDto['verdict'];
 type Undecided = NonNullable<ReplayCheckResponseDto['undecidedBecause']>;
 export type SearchWarning = SearchEstimateResponseDto['warnings'][number];
+export type SearchObjective = SearchEstimateResponseDto['objective'];
 export type OnlyOnSeenTasks = NonNullable<
   SearchCandidateResponseDto['onlyOnSeenTasks']
 >;
@@ -112,7 +119,7 @@ export const verdictShown = (
 export const warningShown = (warning: SearchWarning): string => {
   switch (warning.kind) {
     case 'noise-unmeasured':
-      return 'Nobody has measured how much this set’s success moves by chance, so a small gain may be luck. Measure its noise on the set page, or replay each run more than once.';
+      return 'Nobody has measured how much this set’s success moves by chance, so a small gain may be luck. Use Check this set on the set page, or replay each run more than once.';
     case 'noisy': {
       const fix =
         warning.neededRepeats > warning.suggestedRepeats
@@ -121,6 +128,14 @@ export const warningShown = (warning: SearchWarning): string => {
 
       return `This set’s success moved ${pointsShown(warning.spread)} between copies of the same runs, more than the ${minGainShown(warning.minGain)} the line counts as real. ${fix}`;
     }
+    case 'saturated':
+      return `The live config already succeeds on ${percentShown(warning.rate)} of this set, so there is little room to succeed more. Aim for the same success for less, or add tasks the live config fails.`;
+    case 'judge-unstable':
+      return `Judging the same change twice, the judge gave the same verdict only ${percentShown(warning.agreement)} of the time over ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}, so its verdicts are partly chance. Make the rubric more specific before you search.`;
+    case 'flaky-checks':
+      return `The check passed once and failed once on ${warning.flaky} of ${warning.rechecked} changes it ran twice, so it may flip a candidate’s result by chance. The set page lists them.`;
+    case 'sanity-failed':
+      return `A stronger model did not do clearly better on this set (${gainShown(warning)}, likely ${gainRangeShown(warning)}) and did worse on ${warning.worseTasks} ${warning.worseTasks === 1 ? 'task' : 'tasks'}, so its tasks may be unclear or its scoring off.`;
   }
 };
 
@@ -131,7 +146,56 @@ export const GAIN_ON_SEARCHED = 'Gain over the live config, searched';
 
 export const GAIN_ON_HELD_OUT = 'Gain over the live config, held out';
 
-export const BEST_LABEL = 'Best:';
+const OBJECTIVES: Record<SearchObjective, string> = {
+  success: 'More success',
+  cost: 'The same success for less',
+};
+
+const OBJECTIVE_NOTES: Record<SearchObjective, string> = {
+  success: 'Ranks candidates by how often they succeed.',
+  cost: 'Ranks the candidates that succeed as often as the live config, within noise, by what a run costs.',
+};
+
+const BEST_TERMS: Record<SearchObjective, string> = {
+  success: 'Best',
+  cost: 'Cheapest',
+};
+
+const NO_BEST: Record<SearchObjective, string> = {
+  success: 'No best candidate yet',
+  cost: 'No candidate holds its success yet',
+};
+
+const FRONTIER_NOTES: Record<SearchObjective, string> = {
+  success:
+    'How often each candidate succeeded on the searched tasks, against what it spent a run. The frontier joins those no other succeeds as often for less; the live config is always on it.',
+  cost: 'How often each candidate succeeded on the searched tasks, against what it spent a run. This search aims for the same success for less, so the frontier joins only those that succeed as often as the live config, within noise, and that no other matches for less; the live config is always on it.',
+};
+
+export const OBJECTIVE_LABEL = 'Aim for';
+
+export const OBJECTIVE_TERM = 'Aims for';
+
+export const objectiveShown = (objective: SearchObjective): string =>
+  OBJECTIVES[objective];
+
+export const objectiveNote = (objective: SearchObjective): string =>
+  OBJECTIVE_NOTES[objective];
+
+export const objectiveSuggestedShown = (rate: number): string =>
+  `Chosen for you: the live config already succeeds on ${percentShown(rate)} of this set, so there is little room to succeed more.`;
+
+export const bestTermShown = (objective: SearchObjective): string =>
+  BEST_TERMS[objective];
+
+export const bestLabelShown = (objective: SearchObjective): string =>
+  `${BEST_TERMS[objective]}:`;
+
+export const noBestShown = (objective: SearchObjective): string =>
+  NO_BEST[objective];
+
+export const frontierNote = (objective: SearchObjective): string =>
+  FRONTIER_NOTES[objective];
 
 export const bestOnShown = (heldOut: boolean): string =>
   heldOut ? 'held out' : 'searched';
@@ -159,3 +223,6 @@ export const ONLY_ON_SEEN_TASKS_PICK =
 
 export const onlyOnSeenTasksCountShown = (count: number): string =>
   `${count} ${count === 1 ? 'candidate' : 'candidates'} on the frontier gained only on the tasks the search could see, not on the held-out ones.`;
+
+export const SEARCH_CEILING_NOTE =
+  'The most the whole search may spend: its replays and its agent’s runs.';

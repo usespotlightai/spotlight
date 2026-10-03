@@ -3,6 +3,7 @@ import { ScoredRate } from '@/components/features/replays/ScoredRate';
 import { SearchStatePill } from '@/components/features/searches/SearchStatePill';
 import { StopSearchButton } from '@/components/features/searches/search/StopSearchButton';
 import { BestCandidate } from '@/components/features/searches/station/BestCandidate';
+import { Noted } from '@/components/shared/Noted';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { spendShown } from '@/lib/insights';
@@ -19,7 +20,13 @@ import {
   type SearchDetail,
   searchLabel,
 } from '@/lib/search';
-import { endingShown } from '@/lib/search-words';
+import {
+  bestTermShown,
+  endingShown,
+  OBJECTIVE_TERM,
+  objectiveNote,
+  objectiveShown,
+} from '@/lib/search-words';
 
 type SearchHeaderProps = {
   at: ReplayedStation;
@@ -125,9 +132,20 @@ export function SearchHeader({
           <CeilingBar spent={search.spent} ceiling={budget.ceiling} />
         </dd>
 
-        <dt className={TERM}>Best</dt>
+        <dt className={TERM}>{OBJECTIVE_TERM}</dt>
+        <dd data-slot="search-objective" className={VALUE}>
+          <Noted note={objectiveNote(search.objective)}>
+            <span>{objectiveShown(search.objective)}</span>
+          </Noted>
+        </dd>
+
+        <dt className={TERM}>{bestTermShown(search.objective)}</dt>
         <dd>
-          <BestCandidate best={search.best} labelled={false} />
+          <BestCandidate
+            best={search.best}
+            objective={search.objective}
+            labelled={false}
+          />
         </dd>
       </dl>
     </div>

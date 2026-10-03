@@ -51,7 +51,13 @@ const SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(80),
   stationGone: false,
   guardsChanges: true,
-  noise: null,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
   minGain: 0.05,
   entries: TASKS.map((title, place) => ({
     runId: `run_task_${place}`,
@@ -70,7 +76,13 @@ const SMALL_SET: ReplaySetResponseDto = {
   id: 'set_two_tasks',
   name: 'Two docs tasks',
   guardsChanges: false,
-  noise: null,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
   minGain: 0.05,
   entries: SET.entries.slice(0, 2),
 };
@@ -272,6 +284,7 @@ const DETAIL: SearchDetailResponseDto = {
   ending: 'iterations-spent',
   agent: AGENT,
   budget: BUDGET,
+  objective: 'success',
   spent: { amount: 19.4, currency: 'USD' },
   iterationsRun: 3,
   proposed: 4,
@@ -344,6 +357,7 @@ const summaryOf = (detail: SearchDetailResponseDto): SearchResponseDto => ({
   ending: detail.ending,
   agent: detail.agent,
   budget: detail.budget,
+  objective: detail.objective,
   spent: detail.spent,
   iterationsRun: detail.iterationsRun,
   proposed: detail.proposed,
@@ -359,6 +373,7 @@ const EARLIER: SearchResponseDto = {
   id: EARLIER_SEARCH_ID,
   state: 'stopped',
   ending: 'stopped',
+  objective: 'success',
   spent: { amount: 3.2, currency: 'USD' },
   iterationsRun: 1,
   proposed: 1,
@@ -381,6 +396,7 @@ const SEEDING: SearchDetailResponseDto = {
   ...DETAIL,
   state: 'seeding',
   ending: null,
+  objective: 'success',
   spent: { amount: 1.2, currency: 'USD' },
   iterationsRun: 0,
   proposed: 0,
@@ -464,6 +480,31 @@ export const seedSearch = (client: QueryClient) => {
 export const seedSeedingSearch = (client: QueryClient) => {
   seedSearchAround(client);
   client.setQueryData(searchKeys.detail(SEARCH_ID), SEEDING);
+};
+
+const COST_SEARCH: SearchDetailResponseDto = {
+  ...DETAIL,
+  objective: 'cost',
+  best: {
+    candidateId: 'candidate_medium_effort',
+    name: 'medium-effort',
+    seed: false,
+    searchScore: 0.6,
+    searchInterval: { rate: 0.6, low: 0.2, high: 1 },
+    heldOutScore: 0.5,
+    heldOutInterval: { rate: 0.5, low: 0, high: 1 },
+    costPerRun: 0.41,
+    onlyOnSeenTasks: null,
+  },
+};
+
+export const seedCostSearch = (client: QueryClient) => {
+  seedSearchAround(client);
+  client.setQueryData(searchKeys.forStation(STATION_ID), [
+    summaryOf(COST_SEARCH),
+    EARLIER,
+  ]);
+  client.setQueryData(searchKeys.detail(SEARCH_ID), COST_SEARCH);
 };
 
 export const failSearch = (client: QueryClient) => {
