@@ -6,7 +6,7 @@ import { CHECK_VERDICTS } from '@outcomes/domain/value-objects/check-verdict';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { JUDGING_FAILURES } from '@outcomes/domain/value-objects/judging-failure.vo';
 import {
-  PERSON_ACTS,
+  NEXT_ACTS,
   type PersonAct,
 } from '@outcomes/domain/value-objects/next-act.vo';
 import { PAIR_ORDERS } from '@outcomes/domain/value-objects/pair-order';
@@ -96,7 +96,7 @@ export interface StoredReason {
 
 export const runRecordEnding = pgEnum('run_record_ending', RUN_ENDINGS);
 export const runRecordChecks = pgEnum('run_record_checks', CHECK_VERDICTS);
-export const runRecordAct = pgEnum('run_record_act', PERSON_ACTS);
+export const runRecordAct = pgEnum('run_record_act', NEXT_ACTS);
 export const taskDeliveryState = pgEnum('task_delivery_state', DELIVERY_STATES);
 export const pullRequestRecordState = pgEnum(
   'pull_request_record_state',
@@ -137,7 +137,7 @@ export const runRecord = pgTable(
     checkedAt: timestamp('checked_at'),
     nextAct: runRecordAct('next_act'),
     nextAt: timestamp('next_at'),
-    nextForApproval: boolean('next_for_approval').notNull().default(false),
+    approvalAnsweredAt: timestamp('approval_answered_at'),
     handedOnTo: text('handed_on_to'),
     handedOnAt: timestamp('handed_on_at'),
     digested: boolean('digested').notNull().default(false),

@@ -332,7 +332,7 @@ describe('how often the judge agrees with people', () => {
       const yes = at % 2 === 0;
       await records.add(
         endedRecord(runId).actedOn(
-          NextAct.of(yes ? 'approved' : 'sent-back', LATER),
+          NextAct.of(yes ? 'closed' : 'sent-back', LATER),
         ),
       );
       await scores.add(

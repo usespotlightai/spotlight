@@ -30,7 +30,7 @@ const runs = (
     });
 
     if (at < setup.accepted) {
-      return record.actedOn(NextAct.of('approved', day('2026-09-30', at)));
+      return record.actedOn(NextAct.of('closed', day('2026-09-30', at)));
     }
 
     return at < count - (setup.unanswered ?? 0)

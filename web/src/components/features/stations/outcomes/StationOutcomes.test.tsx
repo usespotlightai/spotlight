@@ -63,7 +63,7 @@ const run = (over: Partial<StationRunOutcome>): StationRunOutcome => ({
     currency: 'USD',
   },
   checks: 'passed',
-  next: { act: 'approved', at: new Date().toISOString() },
+  next: { act: 'closed', at: new Date().toISOString() },
   handedOn: null,
   delivery: 'merged',
   ...over,
@@ -166,7 +166,7 @@ describe('StationOutcomes', () => {
     ).getAllByRole('listitem');
 
     expect(first).toHaveTextContent(
-      'CompletedRound 1Checks passedApprovedMerged3m$0.60',
+      'CompletedRound 1Checks passedClosedMerged3m$0.60',
     );
     expect(second).toHaveTextContent(
       'FailedThe agent ran out of turnsRound 2––––',

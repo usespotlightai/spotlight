@@ -11,12 +11,12 @@ import { describe, expect, it } from 'vitest';
 const at = (hour: number) =>
   new Date(`2026-09-30T${String(hour).padStart(2, '0')}:00:00.000Z`);
 
-const actedOn = (runId: string, hour: number, act: 'approved' | 'sent-back') =>
+const actedOn = (runId: string, hour: number, act: 'closed' | 'sent-back') =>
   endedRecord(runId, { taskId: `task_${runId}`, endedAt: at(hour) }).actedOn(
     NextAct.of(act, at(hour)),
   );
 
-const runs = (prefix: string, acts: readonly ('approved' | 'sent-back')[]) =>
+const runs = (prefix: string, acts: readonly ('closed' | 'sent-back')[]) =>
   acts.map((act, index) => actedOn(`${prefix}${index}`, index + 1, act));
 
 const of = (
@@ -25,24 +25,18 @@ const of = (
 ): MeasureVerdict | undefined =>
   verdicts.find((each) => each.measure === measure);
 
-const FIVE_APPROVED = [
-  'approved',
-  'approved',
-  'approved',
-  'approved',
-  'approved',
-] as const;
+const FIVE_CLOSED = ['closed', 'closed', 'closed', 'closed', 'closed'] as const;
 
 describe('changeVerdictOf', () => {
   it('calls a measure better or worse only from enough settled runs on each side', () => {
     const before = runs('b', [
-      'approved',
+      'closed',
       'sent-back',
       'sent-back',
       'sent-back',
-      'approved',
+      'closed',
     ]);
-    const after = runs('a', FIVE_APPROVED);
+    const after = runs('a', FIVE_CLOSED);
 
     const verdicts = changeVerdictOf(before, after, []);
 
@@ -58,7 +52,7 @@ describe('changeVerdictOf', () => {
   });
 
   it('says too few runs settled rather than guess, leaving out runs nobody answered yet', () => {
-    const before = runs('b', FIVE_APPROVED);
+    const before = runs('b', FIVE_CLOSED);
     const after = [
       ...runs('a', ['sent-back', 'sent-back', 'sent-back', 'sent-back']),
       endedRecord('a_open', { taskId: 'task_open', endedAt: at(9) }),
@@ -75,8 +69,8 @@ describe('changeVerdictOf', () => {
   });
 
   it('reads merging as a rate of tasks whose pull request closed', () => {
-    const before = runs('b', FIVE_APPROVED);
-    const after = runs('a', FIVE_APPROVED);
+    const before = runs('b', FIVE_CLOSED);
+    const after = runs('a', FIVE_CLOSED);
     const deliveries = [
       ...before.map((each, index) =>
         deliveredOf(each.taskId?.value ?? '', {

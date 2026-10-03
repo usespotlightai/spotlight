@@ -15,6 +15,7 @@ import {
   lastedOrNone,
   perShown,
   shareShown,
+  tasksFilter,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 
@@ -36,6 +37,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
   }
 
   const { load, loadBefore, adoption, truncated } = people.data;
+  const refused = tasksFilter(load.refusedTaskIds);
 
   if (load.tasks === 0 && adoption.active.length === 0) {
     return (
@@ -81,7 +83,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
           <InsightsTile
             label="Sent-back rate"
             value={shareShown(load.sentBackRate)}
-            detail={`${countShown(load.sentBack)} runs sent back or refused`}
+            detail={`${countShown(load.sentBack)} runs sent back`}
             delta={deltaOf(load.sentBackRate, loadBefore.sentBackRate, 'down')}
             drill={{ tab: 'runs', filter: { next: 'sent-back' } }}
           />
@@ -90,7 +92,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
             value={countShown(load.refused)}
             detail="Tool approvals and permissions"
             delta={deltaOf(load.refused, loadBefore.refused, 'down')}
-            drill={{ tab: 'runs', filter: { next: 'refused' } }}
+            drill={refused ? { tab: 'runs', filter: refused } : undefined}
           />
         </InsightsTiles>
       </InsightsCard>

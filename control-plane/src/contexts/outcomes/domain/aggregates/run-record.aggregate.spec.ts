@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const RUN = RunId.of('run_1');
+const EARLIER = new Date('2026-09-30T10:00:00.000Z');
 const AT = new Date('2026-09-30T11:00:00.000Z');
 const LATER = new Date('2026-09-30T12:00:00.000Z');
 
@@ -36,7 +37,7 @@ describe('RunRecord', () => {
     const ended = RunRecord.heardOf(RUN, WORKSPACE)
       .ended(endOf())
       .ended(endOf({ stationId: 'station_2' }))
-      .actedOn(NextAct.of('approved', AT));
+      .actedOn(NextAct.of('closed', AT));
 
     const events = ended.pullEvents();
     expect(events.map((each) => each.kind)).toEqual([
@@ -50,13 +51,15 @@ describe('RunRecord', () => {
 
   it('tells it settled once for each outcome it learns after it ended, and not for one it already knew', () => {
     const heard = RunRecord.heardOf(RUN, WORKSPACE).actedOn(
-      NextAct.of('approved', AT),
+      NextAct.of('closed', AT),
     );
     expect(heard.pullEvents()).toEqual([]);
 
     const learned = heard
       .ended(endOf())
       .actedOn(NextAct.of('sent-back', LATER))
+      .actedOn(NextAct.of('approved', LATER))
+      .actedOn(NextAct.of('refused', LATER))
       .checked('skipped', HEARD_AT)
       .checked('passed', HEARD_AT)
       .checked('failed', HEARD_AT)
@@ -66,6 +69,7 @@ describe('RunRecord', () => {
     const events = learned.pullEvents();
     expect(events.map((each) => each.kind)).toEqual([
       'run-record.ended',
+      'run-record.settled',
       'run-record.settled',
       'run-record.settled',
       'run-record.settled',
@@ -133,9 +137,79 @@ describe('RunRecord', () => {
   it('counts only the first thing a person did after it', () => {
     const acted = endedRecord('run_1').actedOn(NextAct.of('sent-back', AT));
 
-    expect(acted.actedOn(NextAct.of('approved', LATER))).toBe(acted);
+    expect(acted.actedOn(NextAct.of('closed', LATER))).toBe(acted);
     expect(acted.next?.act).toBe('sent-back');
     expect(acted.next?.at).toEqual(AT);
+  });
+
+  it('counts the first thing a person did after it, in whatever order it hears of what they did', () => {
+    const acts = [
+      NextAct.of('approved', EARLIER),
+      NextAct.of('sent-back', AT),
+      NextAct.of('refused', AT),
+      NextAct.of('closed', LATER),
+    ];
+    const heardIn = (order: readonly NextAct[]) =>
+      order.reduce((record, act) => record.actedOn(act), endedRecord('run_1'));
+
+    for (const order of [
+      acts,
+      [...acts].reverse(),
+      [acts[3], acts[0], acts[2], acts[1]],
+    ]) {
+      const heard = heardIn(order);
+
+      expect(heard.next?.act).toBe('sent-back');
+      expect(heard.approvalAnsweredAt).toEqual(EARLIER);
+      expect(heard.turnout).toBe('sent-back');
+    }
+  });
+
+  it('decides between acts at the same moment the same way whichever it hears first', () => {
+    const closed = NextAct.of('closed', AT);
+    const sentBack = NextAct.of('sent-back', AT);
+
+    expect(
+      endedRecord('run_1').actedOn(closed).actedOn(sentBack).next?.act,
+    ).toBe(endedRecord('run_1').actedOn(sentBack).actedOn(closed).next?.act);
+  });
+
+  it('never lets answering an approval decide what a person did next', () => {
+    const approved = endedRecord('run_1').actedOn(NextAct.of('approved', AT));
+
+    expect(approved.next).toBeNull();
+    expect(approved.approvalAnsweredAt).toEqual(AT);
+    expect(approved.actedOn(NextAct.of('refused', LATER))).toBe(approved);
+  });
+
+  it('refuses to be read back decided by answering an approval', () => {
+    expect(() =>
+      RunRecord.rehydrate({
+        runId: RUN,
+        workspaceId: WORKSPACE,
+        taskId: TaskId.of('task_1'),
+        end: null,
+        supersededAt: null,
+        checks: null,
+        checkedAt: null,
+        next: NextAct.of('approved', AT),
+        approvalAnsweredAt: null,
+        cost: null,
+        handedOn: null,
+        tools: null,
+        refusals: [],
+        version: 0,
+      }),
+    ).toThrow(InvalidOutcomeError);
+  });
+
+  it('forgets an approval answered after the moment it is read as of', () => {
+    const approved = endedRecord('run_1').actedOn(
+      NextAct.of('approved', LATER),
+    );
+
+    expect(approved.asOf(AT).approvalAnsweredAt).toBeNull();
+    expect(approved.asOf(LATER).approvalAnsweredAt).toEqual(LATER);
   });
 
   it('keeps its version until it is saved', () => {
@@ -148,6 +222,7 @@ describe('RunRecord', () => {
       checks: null,
       checkedAt: null,
       next: null,
+      approvalAnsweredAt: null,
       cost: null,
       handedOn: null,
       tools: null,
@@ -200,6 +275,7 @@ describe('RunRecord', () => {
         checks: null,
         checkedAt: null,
         next: null,
+        approvalAnsweredAt: null,
         cost: null,
         handedOn: null,
         tools: null,
@@ -259,6 +335,7 @@ describe('RunRecord', () => {
         checks: null,
         checkedAt: null,
         next: null,
+        approvalAnsweredAt: null,
         cost,
         handedOn: null,
         tools,
@@ -293,11 +370,39 @@ describe('RunRecord', () => {
     );
 
     expect(ended.actedOn(NextAct.of('closed', AT)).turnout).toBe('accepted');
-    expect(ended.actedOn(NextAct.of('approved', AT)).turnout).toBe('accepted');
     expect(ended.actedOn(NextAct.of('sent-back', AT)).turnout).toBe(
       'sent-back',
     );
-    expect(ended.actedOn(NextAct.of('refused', AT)).turnout).toBe('sent-back');
+  });
+
+  it('turned out accepted when a person closed its task after approving a tool it asked for', () => {
+    const accepted = RunRecord.heardOf(RUN, WORKSPACE)
+      .ended(endOf())
+      .actedOn(NextAct.of('approved', AT))
+      .actedOn(NextAct.of('closed', LATER));
+
+    expect(accepted.next?.accepts).toBe(true);
+    expect(accepted.turnout).toBe('accepted');
+  });
+
+  it('turned out sent back when a person sent it back after approving a tool it asked for', () => {
+    const sentBack = RunRecord.heardOf(RUN, WORKSPACE)
+      .ended(endOf())
+      .actedOn(NextAct.of('approved', AT))
+      .actedOn(NextAct.of('sent-back', LATER));
+
+    expect(sentBack.next?.sendsBack).toBe(true);
+    expect(sentBack.turnout).toBe('sent-back');
+  });
+
+  it('turned out accepted when a person closed its task after refusing a tool it asked for', () => {
+    const accepted = RunRecord.heardOf(RUN, WORKSPACE)
+      .ended(endOf())
+      .actedOn(NextAct.of('refused', AT))
+      .actedOn(NextAct.of('closed', LATER));
+
+    expect(accepted.next?.accepts).toBe(true);
+    expect(accepted.turnout).toBe('accepted');
   });
 
   it('turned out failed when it failed and nobody accepted or sent it back', () => {
@@ -316,15 +421,32 @@ describe('RunRecord', () => {
     ).toBe('asked');
   });
 
-  it('turned out asking when the act after it decided a tool or permission approval', () => {
+  it('turned out asking, neither accepted nor sent back, when a person only decided a tool or permission approval', () => {
     const ended = RunRecord.heardOf(RUN, WORKSPACE).ended(endOf());
 
-    expect(ended.actedOn(NextAct.onApproval('approved', AT)).turnout).toBe(
-      'asked',
-    );
-    expect(ended.actedOn(NextAct.onApproval('refused', AT)).turnout).toBe(
-      'asked',
-    );
+    for (const act of ['approved', 'refused'] as const) {
+      const decided = ended.actedOn(NextAct.of(act, AT));
+
+      expect(decided.turnout).toBe('asked');
+      expect(decided.next).toBeNull();
+    }
+  });
+
+  it('turned out failed when it failed after a person decided a tool it asked for', () => {
+    expect(
+      RunRecord.heardOf(RUN, WORKSPACE)
+        .ended(endOf({ ending: 'failed' }))
+        .actedOn(NextAct.of('approved', AT)).turnout,
+    ).toBe('failed');
+  });
+
+  it('turned out asking when a person parked its task after deciding a tool it asked for', () => {
+    expect(
+      RunRecord.heardOf(RUN, WORKSPACE)
+        .ended(endOf())
+        .actedOn(NextAct.of('approved', AT))
+        .actedOn(NextAct.of('parked', LATER)).turnout,
+    ).toBe('asked');
   });
 
   it('turned out asking when it ended waiting on a person nobody has answered yet', () => {

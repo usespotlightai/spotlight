@@ -88,7 +88,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
     const yes = at % 2 === 0;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
-        NextAct.of(yes === agreeing ? 'approved' : 'sent-back', AT),
+        NextAct.of(yes === agreeing ? 'closed' : 'sent-back', AT),
       ),
     );
     await scores.add(judgeScore(runId, ScoreScale.yesNo(), yes ? 1 : 0));

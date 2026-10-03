@@ -10,7 +10,7 @@ import type {
 import type { RunTally } from '@outcomes/domain/services/run-tally';
 import { CHECK_VERDICTS } from '@outcomes/domain/value-objects/check-verdict';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
-import { PERSON_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
+import { NEXT_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
 import { RUN_ENDINGS } from '@outcomes/domain/value-objects/run-ending';
 import {
   ConfigChangeResponseDto,
@@ -52,7 +52,7 @@ export class RunCostResponseDto {
 }
 
 export class NextActResponseDto {
-  @ApiProperty({ enum: PERSON_ACTS })
+  @ApiProperty({ enum: NEXT_ACTS })
   readonly act: string;
 
   @ApiProperty({ example: '2026-09-30T10:05:00.000Z' })

@@ -3929,7 +3929,7 @@ export type MemoryFileResponseDto = {
 };
 
 export type NextActResponseDto = {
-  act: 'started' | 'parked' | 'closed' | 'answered' | 'approved' | 'refused' | 'sent-back';
+  act: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
   at: string;
 };
 
@@ -16764,7 +16764,7 @@ export type ListInsightsRunsData = {
     /**
      * Only runs a person next acted on this way
      */
-    next?: 'started' | 'parked' | 'closed' | 'answered' | 'approved' | 'refused' | 'sent-back';
+    next?: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
     /**
      * Only runs of tasks whose pull request stands this way
      */

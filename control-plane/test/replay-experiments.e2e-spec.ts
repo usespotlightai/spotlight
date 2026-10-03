@@ -194,7 +194,7 @@ const turnedOut = async (
   original: Original,
   how: {
     ending: 'completed' | 'failed';
-    next: 'approved' | 'sent-back' | null;
+    next: 'closed' | 'sent-back' | null;
   },
 ) => {
   await db.insert(schema.runRecord).values({
@@ -649,7 +649,7 @@ describe('a replay set', () => {
     const handedOn = await anOriginal({ raisedAt: SHIP });
     await turnedOut(handedOn, { ending: 'failed', next: null });
     const accepted = await anOriginal();
-    await turnedOut(accepted, { ending: 'completed', next: 'approved' });
+    await turnedOut(accepted, { ending: 'completed', next: 'closed' });
     const setId = await openSet(
       'Lopsided',
       ...failures,
@@ -661,7 +661,7 @@ describe('a replay set', () => {
     const sentBack = await anOriginal();
     await turnedOut(sentBack, { ending: 'completed', next: 'sent-back' });
     const alsoAccepted = await anOriginal();
-    await turnedOut(alsoAccepted, { ending: 'completed', next: 'approved' });
+    await turnedOut(alsoAccepted, { ending: 'completed', next: 'closed' });
     const alsoFailed = await anOriginal();
     await turnedOut(alsoFailed, { ending: 'failed', next: null });
 

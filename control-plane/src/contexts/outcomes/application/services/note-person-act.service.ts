@@ -22,7 +22,6 @@ export interface PersonActed {
   readonly at: string;
   readonly tool: string | null;
   readonly server: string | null;
-  readonly forApproval: boolean;
 }
 
 export class NotePersonAct {
@@ -40,9 +39,7 @@ export class NotePersonAct {
       return;
     }
 
-    const next = heard.forApproval
-      ? NextAct.onApproval(act, new Date(heard.at))
-      : NextAct.of(act, new Date(heard.at));
+    const next = NextAct.of(act, new Date(heard.at));
     const refusal =
       act === 'refused' && heard.tool
         ? Refusal.of({ tool: heard.tool, server: heard.server, at: next.at })

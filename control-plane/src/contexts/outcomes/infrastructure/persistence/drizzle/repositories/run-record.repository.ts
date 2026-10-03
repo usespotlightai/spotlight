@@ -14,7 +14,11 @@ import type {
 } from '@outcomes/domain/services/run-filter';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import {
+  NEXT_ACTS,
+  NextAct,
+  type NextActKind,
+} from '@outcomes/domain/value-objects/next-act.vo';
 import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
@@ -210,9 +214,24 @@ const nextOf = (row: RecordRow): NextAct | null => {
     return null;
   }
 
-  return row.nextForApproval
-    ? NextAct.onApproval(row.nextAct, row.nextAt)
-    : NextAct.of(row.nextAct, row.nextAt);
+  return NextAct.of(row.nextAct, row.nextAt);
+};
+
+const nextActColumnOf = (next: NextAct | null): NextActKind | null => {
+  if (!next) {
+    return null;
+  }
+
+  const kind = NEXT_ACTS.find((each) => each === next.act);
+
+  if (!kind) {
+    throw new InconsistentStateError(
+      'run record',
+      'was decided by answering an approval',
+    );
+  }
+
+  return kind;
 };
 
 const costOf = (row: RecordRow): RunCost | null => {
@@ -299,6 +318,7 @@ const toRecord = (row: RecordRow): RunRecord =>
     checks: row.checks,
     checkedAt: row.checkedAt,
     next: nextOf(row),
+    approvalAnsweredAt: row.approvalAnsweredAt,
     cost: costOf(row),
     handedOn: handedOnOf(row),
     tools: toolsOf(row),
@@ -331,9 +351,9 @@ const columnsOf = (record: RunRecord) => {
     supersededAt: record.supersededAt,
     checks: record.checks,
     checkedAt: record.checkedAt,
-    nextAct: record.next?.act ?? null,
+    nextAct: nextActColumnOf(record.next),
     nextAt: record.next?.at ?? null,
-    nextForApproval: record.next?.forApproval ?? false,
+    approvalAnsweredAt: record.approvalAnsweredAt,
     handedOnTo: record.handedOn?.to ?? null,
     handedOnAt: record.handedOn?.at ?? null,
     digested: record.cost !== null,

@@ -133,8 +133,6 @@ const RUN_NEXTS: readonly RunNext[] = [
   'parked',
   'closed',
   'answered',
-  'approved',
-  'refused',
   'sent-back',
 ];
 
@@ -822,8 +820,6 @@ const NEXTS: Record<RunNext, string> = {
   parked: 'Parked',
   closed: 'Closed',
   answered: 'Answered',
-  approved: 'Approved',
-  refused: 'Refused',
   'sent-back': 'Sent back',
 };
 
