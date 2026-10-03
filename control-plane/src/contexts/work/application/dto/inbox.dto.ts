@@ -9,6 +9,7 @@ import {
   type ApprovalSubjectKind,
 } from '@work/domain/value-objects/approval-subject.vo';
 import { ASIDE_FORMS } from '@work/domain/value-objects/aside-form';
+import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
 import { VOICES } from '@work/domain/value-objects/voice.vo';
 
 export const NOTE_KINDS = TASK_NOTE_KINDS;
@@ -17,6 +18,7 @@ export const NOTE_VOICES = VOICES;
 export const APPROVAL_STANDING = APPROVAL_STANDINGS;
 export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
 export const INBOX_ASIDE_FORMS = ASIDE_FORMS;
+export const INBOX_NOTICE_FORMS = NOTICE_FORMS;
 
 interface InboxApprovalInputDto {
   readonly name: string;
@@ -72,6 +74,7 @@ interface InboxStationDto {
 }
 
 export interface InboxItemDto {
+  readonly kind: 'task';
   readonly id: string;
   readonly taskId: string;
   readonly teamId: string;
@@ -95,3 +98,19 @@ export interface InboxItemDto {
   readonly aside: InboxAsideDto | null;
   readonly notes: readonly InboxMessageDto[];
 }
+
+export interface InboxNoticeDto {
+  readonly kind: 'notice';
+  readonly id: string;
+  readonly teamId: string;
+  readonly form: string;
+  readonly headline: string;
+  readonly points: readonly string[];
+  readonly link: string;
+  readonly linkLabel: string;
+  readonly askedAt: string;
+  readonly unread: boolean;
+  readonly resolved: boolean;
+}
+
+export type InboxEntryDto = InboxItemDto | InboxNoticeDto;

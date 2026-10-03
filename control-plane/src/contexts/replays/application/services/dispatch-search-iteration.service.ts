@@ -1,11 +1,20 @@
 import type {
   SearchRunQueued,
+  StationAtHand,
   WorkPort,
 } from '@replays/application/ports/work.port';
+import { ReflectionBriefing } from '@replays/application/rendering/reflection-briefing';
 import { SearchBriefing } from '@replays/application/rendering/search-briefing';
+import type { SetHealths } from '@replays/application/services/set-healths.service';
+import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import { failingSearchedTasksOf } from '@replays/domain/services/reflected-tasks';
+import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
+import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
@@ -16,13 +25,26 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const UNBRIEFED: SearchRunQueued = {
   queued: false,
-  reason: 'its station or the config it started from is gone',
+  reason:
+    'its station or the config it started from is gone, or it had no failing task to look into',
 };
+
+interface HeldReflection {
+  readonly standing: CandidateId;
+  readonly tasks: readonly ReflectedTask[];
+}
+
+interface Grounds {
+  readonly station: StationAtHand;
+  readonly seed: Candidate;
+}
 
 export class DispatchSearchIteration {
   constructor(
     private readonly searches: SearchRepository,
     private readonly candidates: CandidateRepository,
+    private readonly replays: ReplayRepository,
+    private readonly healths: SetHealths,
     private readonly work: WorkPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -81,18 +103,37 @@ export class DispatchSearchIteration {
     search: Search,
     iteration: SearchIteration,
   ): Promise<string | null> {
+    const grounds = await this.groundsOf(search);
+
+    if (!grounds) {
+      return null;
+    }
+
+    return iteration.reflects
+      ? this.reflectionBriefing(search, iteration, grounds)
+      : this.proposalBriefing(search, iteration, grounds);
+  }
+
+  private async groundsOf(search: Search): Promise<Grounds | null> {
     const station = await this.work.station(
       search.station.lineId,
       search.station.stationId,
     );
     const [seed] = await this.candidates.findMany([search.seed.candidateId]);
 
-    if (!station || !seed) {
-      return null;
-    }
+    return station && seed ? { station, seed } : null;
+  }
 
+  private proposalBriefing(
+    search: Search,
+    iteration: SearchIteration,
+    { station, seed }: Grounds,
+  ): string {
     const ceiling = search.budget.ceiling;
     const left = ceiling.amount - search.spent.amount;
+    const reflection = [...search.iterations]
+      .reverse()
+      .find((each) => each.reflects);
 
     return SearchBriefing.of({
       stationKey: station.key,
@@ -107,6 +148,74 @@ export class DispatchSearchIteration {
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
       objective: search.objective,
+      configCauses: (reflection?.causes ?? []).filter(
+        (each) => each.configCanFix,
+      ),
+    });
+  }
+
+  private async reflectionBriefing(
+    search: Search,
+    iteration: SearchIteration,
+    { station }: Grounds,
+  ): Promise<string | null> {
+    const held = await this.reflectingOn(search, iteration);
+
+    if (!held) {
+      return null;
+    }
+
+    const seed = search.seed.candidateId.equals(held.standing);
+
+    return ReflectionBriefing.of({
+      stationKey: station.key,
+      stationName: station.name,
+      lineKey: station.lineKey,
+      iteration: iteration.number,
+      iterations: search.budget.iterations,
+      standing: seed
+        ? SEED_NAME
+        : (search.proposals.find((each) =>
+            each.candidateId.equals(held.standing),
+          )?.name.value ?? SEED_NAME),
+      seed,
+      tasks: held.tasks,
+    });
+  }
+
+  private async reflectingOn(
+    seen: Search,
+    reflection: SearchIteration,
+  ): Promise<HeldReflection | null> {
+    const { minGain } = await this.healths.standardAt(seen.station);
+    const replays = await this.replays.ofSearch(seen.id);
+
+    return this.transaction.run(async () => {
+      const search = await this.searches.locked(seen.id);
+      const held = search?.iterationOf(reflection.runId);
+
+      if (!search || !held?.holdsItsRun) {
+        return null;
+      }
+      if (held.standing) {
+        return { standing: held.standing, tasks: held.reflectedOn };
+      }
+
+      const failing = failingSearchedTasksOf(search, replays, minGain);
+      const reflecting = search.reflectingOn(
+        held.runId,
+        failing.candidateId,
+        failing.tasks,
+        this.clock.now(),
+        () => RunId.of(this.ids.generate()),
+      );
+      const after = reflecting.iterationOf(held.runId);
+
+      await this.searches.save(reflecting);
+
+      return after?.holdsItsRun && after.standing
+        ? { standing: after.standing, tasks: after.reflectedOn }
+        : null;
     });
   }
 }

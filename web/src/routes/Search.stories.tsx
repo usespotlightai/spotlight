@@ -12,6 +12,7 @@ import {
   seedSearch,
   seedSearchAwaiting,
   seedSeedingSearch,
+  seedStalledSearch,
   TEAM_ID,
 } from '@/stories/fixtures/searches';
 import { StoryPage } from '@/stories/StoryPage';
@@ -73,6 +74,15 @@ export const AimsForCost: Story = {
   name: 'Aims for the same success for less',
   render: () => (
     <StoryPage at={at} seed={seedCostSearch}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Stalled: Story = {
+  name: 'Stalled, with why',
+  render: () => (
+    <StoryPage at={at} seed={seedStalledSearch}>
       {routes}
     </StoryPage>
   ),

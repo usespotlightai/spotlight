@@ -2,8 +2,10 @@ import type {
   ConfigPullRequestReasonResponseDto,
   ReplayCheckResponseDto,
   SearchCandidateResponseDto,
+  SearchCauseResponseDto,
   SearchEstimateResponseDto,
   SearchIterationResponseDto,
+  SearchReflectionResponseDto,
   SearchResponseDto,
 } from '@/lib/api';
 import { percentShown } from '@/lib/judge';
@@ -26,6 +28,10 @@ type CheckVerdict = ReplayCheckResponseDto['verdict'];
 type Undecided = NonNullable<ReplayCheckResponseDto['undecidedBecause']>;
 export type SearchWarning = SearchEstimateResponseDto['warnings'][number];
 export type SearchObjective = SearchEstimateResponseDto['objective'];
+export type CauseKind = SearchCauseResponseDto['cause'];
+export type ReflectionOutcome = NonNullable<
+  SearchReflectionResponseDto['outcome']
+>;
 export type OnlyOnSeenTasks = NonNullable<
   SearchCandidateResponseDto['onlyOnSeenTasks']
 >;
@@ -41,7 +47,7 @@ const STATES: Record<SearchState, string> = {
 const ENDINGS: Record<SearchEnding, string> = {
   'iterations-spent': 'It ran every iteration it was given',
   'ceiling-reached': 'It reached its ceiling',
-  stalled: 'Two iterations in a row found nothing, so it stopped',
+  stalled: 'It found nothing better twice in a row',
   stopped: 'A person stopped it',
   'station-gone': 'Its station is gone from its line',
   'set-gone': 'Its replay set was deleted',
@@ -226,3 +232,96 @@ export const onlyOnSeenTasksCountShown = (count: number): string =>
 
 export const SEARCH_CEILING_NOTE =
   'The most the whole search may spend: its replays and its agent’s runs.';
+
+export const whyItStalledShown = (iteration: number): string =>
+  `Why it stalled, looked into in iteration ${iteration}`;
+
+export const REFLECTION_KIND = 'Looked for why it stalled';
+
+const CAUSE_TITLES: Record<CauseKind, string> = {
+  task: 'The task itself',
+  judge: 'The judge',
+  check: 'The check',
+  infra: 'Around the work',
+  config: 'The station’s config',
+};
+
+const CAUSE_MEANINGS: Record<CauseKind, string> = {
+  task: 'The task is unclear, out of date, or cannot be done as asked, so no config would get it right.',
+  judge:
+    'The work may be fine, but the judge scored it wrong, so its rubric asks for the wrong thing.',
+  check:
+    'The check failed for a reason the change did not cause, such as a broken or flaky test.',
+  infra:
+    'The run failed around the work, for example the runner, the network or a missing tool.',
+  config:
+    'A change to the station’s config, such as its prompt, model or skills, could still fix it.',
+};
+
+const CAUSE_ACTIONS: Record<CauseKind, string> = {
+  task: 'Fix the task, or take it out of the replay set.',
+  judge: 'Fix the judge’s rubric.',
+  check: 'Fix the check.',
+  infra: 'Replay it again. If it keeps failing, fix what the run needs.',
+  config: 'Nothing for you to do: the search keeps trying configs for these.',
+};
+
+export const causeTitleShown = (cause: CauseKind): string =>
+  CAUSE_TITLES[cause];
+
+export const causeMeaningShown = (cause: CauseKind): string =>
+  CAUSE_MEANINGS[cause];
+
+export const causeActionShown = (cause: CauseKind): string =>
+  CAUSE_ACTIONS[cause];
+
+export const UNCAUSED_TITLE = 'No cause recorded';
+
+export const UNCAUSED_NOTE =
+  'Its agent looked into these but recorded no cause for them.';
+
+export const SUGGESTED = 'Suggested:';
+
+export const OPEN_FAILED_REPLAY = 'Open the failed replay run';
+
+const tasksCounted = (count: number): string =>
+  `${count} ${count === 1 ? 'task' : 'tasks'}`;
+
+export const standingShown = (candidate: {
+  readonly seed: boolean;
+  readonly name: string;
+}): string =>
+  `Looked at why ${candidate.seed ? 'the live config' : candidate.name} failed`;
+
+export const reflectionLookedShown = (tasks: number): string =>
+  `After two iterations in a row found nothing better, its agent looked into the ${tasksCounted(tasks)} the best config so far still failed, and sorted them by what caused each failure.`;
+
+export const REFLECTION_LOOKING =
+  'Two iterations in a row found nothing better, so its agent is looking into why the remaining tasks fail.';
+
+const REFLECTION_OUTCOMES: Record<ReflectionOutcome, string> = {
+  'went-on':
+    'The search went on, because a change to the config could still fix some of them.',
+  'no-config-cause':
+    'This ended the search: nothing left the config can fix. What it did not spend is kept.',
+  'no-failures':
+    'No searched task failed, so there was nothing to look into, and the search ended.',
+  'did-not-run':
+    'Its agent’s run failed before it recorded any cause, so the search ended.',
+  'out-of-budget':
+    'A change to the config could still fix some of them, but the search had no budget left to try one, so it ended.',
+};
+
+export const reflectionOutcomeShown = (outcome: ReflectionOutcome): string =>
+  REFLECTION_OUTCOMES[outcome];
+
+export const reflectionIterationShown = (
+  tasks: number,
+  causes: number,
+): string =>
+  `It proposed nothing. It looked into ${tasksCounted(tasks)} the best config so far still failed and recorded ${causes} ${causes === 1 ? 'cause' : 'causes'}.`;
+
+export const REFLECTION_ITERATION_PENDING =
+  'It proposes nothing. Its agent is looking into why the remaining tasks fail.';
+
+export const SEE_WHY_IT_STALLED = 'See why it stalled';

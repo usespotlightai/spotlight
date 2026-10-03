@@ -1189,6 +1189,10 @@ export type InboxMessageResponseDto = {
 
 export type InboxItemResponseDto = {
   /**
+   * A task’s conversation or what was put aside beside it
+   */
+  kind: 'task';
+  /**
    * One conversation a person was asked to own
    */
   id: string;
@@ -1249,6 +1253,41 @@ export type InboxItemResponseDto = {
    */
   aside: InboxAsideResponseDto | null;
   notes: Array<InboxMessageResponseDto>;
+};
+
+export type InboxNoticeResponseDto = {
+  /**
+   * Word put to one person about their team’s work, outside any task
+   */
+  kind: 'notice';
+  id: string;
+  teamId: string;
+  /**
+   * ended when work the person started has ended and they may want to act on how; advice when it carries on but suggests something they could fix
+   */
+  form: 'ended' | 'advice';
+  headline: string;
+  /**
+   * What happened, then what it suggests, one point each
+   */
+  points: Array<string>;
+  /**
+   * Where to look, as a path within its team
+   */
+  link: string;
+  /**
+   * What to call the link, naming where it leads
+   */
+  linkLabel: string;
+  askedAt: string;
+  /**
+   * Not seen yet
+   */
+  unread: boolean;
+  /**
+   * True once its person settled it
+   */
+  resolved: boolean;
 };
 
 export type AnswerInboxItemRequestDto = {
@@ -6545,7 +6584,7 @@ export type SearchResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config
    */
   ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
@@ -6825,8 +6864,72 @@ export type SearchSplitResponseDto = {
   heldOut: Array<SearchSplitEntryResponseDto>;
 };
 
+export type ReflectedTaskResponseDto = {
+  taskId: string;
+  /**
+   * The run the set holds for the task
+   */
+  originalRunId: string;
+  /**
+   * The replay run that failed it, of the best config so far, to link to
+   */
+  replayRunId: string;
+};
+
+export type SearchCauseResponseDto = {
+  taskId: string;
+  /**
+   * The run the set holds for the task
+   */
+  originalRunId: string;
+  /**
+   * The replay run that failed it, of the best config so far, to link to
+   */
+  replayRunId: string;
+  /**
+   * config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work
+   */
+  cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
+  /**
+   * What in the runs shows the cause
+   */
+  evidence: string;
+  /**
+   * What to change, as the agent suggests it
+   */
+  suggestion: string | null;
+  recordedAt: string;
+};
+
+export type SearchReflectionResponseDto = {
+  /**
+   * The candidate whose failures it looked into: the best config before it, the seed’s id when nothing beat the live config; none until it looked
+   */
+  standing: string | null;
+  /**
+   * The searched tasks the best config so far still failed, which it looked into; never a held-out one
+   */
+  tasks: Array<ReflectedTaskResponseDto>;
+  /**
+   * One cause for each task it recorded one for
+   */
+  causes: Array<SearchCauseResponseDto>;
+  /**
+   * How it ended, once it did: went-on when it found a cause the config can fix and the search carried on; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; out-of-budget when it found a config cause but the search had no budget left to try it
+   */
+  outcome: 'went-on' | 'no-config-cause' | 'no-failures' | 'did-not-run' | 'out-of-budget' | null;
+  /**
+   * True when the search stopped searching once it ended, for whatever outcome other than went-on
+   */
+  endedSearch: boolean;
+};
+
 export type SearchIterationResponseDto = {
   number: number;
+  /**
+   * propose when its agent proposes candidates; reflect when, after two propose iterations in a row found nothing better than the best before them, its agent looks into why the remaining tasks fail
+   */
+  kind: 'propose' | 'reflect';
   /**
    * The agent run of this iteration
    */
@@ -6847,6 +6950,10 @@ export type SearchIterationResponseDto = {
    * What its agent run spent, once digested
    */
   agentSpent: ModelSpentResponseDto | null;
+  /**
+   * What a reflect iteration looked into and found
+   */
+  reflection: SearchReflectionResponseDto | null;
 };
 
 export type ConfigPullRequestReasonResponseDto = {
@@ -6972,7 +7079,7 @@ export type SearchDetailResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config
    */
   ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
@@ -7266,6 +7373,34 @@ export type SearchCandidateProposedResponseDto = {
    * Its replay on the search’s searched tasks, started now
    */
   replayId: string;
+};
+
+export type RecordSearchCauseRequestDto = {
+  /**
+   * A failing task the reflection’s briefing lists, by its task id
+   */
+  taskId: string;
+  /**
+   * config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work
+   */
+  cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
+  /**
+   * What in the runs shows the cause, in 1 to 4000 characters
+   */
+  evidence: string;
+  /**
+   * What a person, or the next iteration, should change, in at most 4000 characters
+   */
+  suggestion?: string | null;
+};
+
+export type SearchCauseRecordedResponseDto = {
+  taskId: string;
+  cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
+  /**
+   * The failing replay run the cause is about
+   */
+  replayRunId: string;
 };
 
 export type ReplayedPeriodResponseDto = {
@@ -8873,7 +9008,7 @@ export type ListInboxErrors = {
 };
 
 export type ListInboxResponses = {
-  200: Array<InboxItemResponseDto>;
+  200: Array<InboxItemResponseDto | InboxNoticeResponseDto>;
 };
 
 export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
@@ -8971,6 +9106,66 @@ export type ReadInboxAsideResponses = {
 };
 
 export type ReadInboxAsideResponse = ReadInboxAsideResponses[keyof ReadInboxAsideResponses];
+
+export type ReadInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/read';
+};
+
+export type ReadInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxNoticeResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type ReadInboxNoticeResponse = ReadInboxNoticeResponses[keyof ReadInboxNoticeResponses];
+
+export type SettleInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/settle';
+};
+
+export type SettleInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type SettleInboxNoticeResponses = {
+  /**
+   * It is settled
+   */
+  204: void;
+};
+
+export type SettleInboxNoticeResponse = SettleInboxNoticeResponses[keyof SettleInboxNoticeResponses];
 
 export type ReadTaskJournalData = {
   body?: never;
@@ -18087,6 +18282,42 @@ export type ProposeSearchCandidateResponses = {
 };
 
 export type ProposeSearchCandidateResponse = ProposeSearchCandidateResponses[keyof ProposeSearchCandidateResponses];
+
+export type RecordSearchCauseData = {
+  body: RecordSearchCauseRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/search-causes';
+};
+
+export type RecordSearchCauseErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The search no longer holds this run, it is no search run this runner holds, or the task is none the reflection looks into
+   */
+  404: ProblemResponseDto;
+  /**
+   * The run proposes candidates; it looks into no causes
+   */
+  409: ProblemResponseDto;
+  /**
+   * A cause that is none of config, task, judge, check or infra, no evidence, or text too long
+   */
+  422: ProblemResponseDto;
+};
+
+export type RecordSearchCauseError = RecordSearchCauseErrors[keyof RecordSearchCauseErrors];
+
+export type RecordSearchCauseResponses = {
+  201: SearchCauseRecordedResponseDto;
+};
+
+export type RecordSearchCauseResponse = RecordSearchCauseResponses[keyof RecordSearchCauseResponses];
 
 export type ReadConfigPullRequestData = {
   body?: never;

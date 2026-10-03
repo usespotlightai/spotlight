@@ -314,27 +314,33 @@ const DETAIL: SearchDetailResponseDto = {
   iterations: [
     {
       number: 1,
+      kind: 'propose',
       runId: 'run_search_1',
       state: 'ended',
       attempts: 3,
       proposed: ['candidate_tests_first', 'candidate_medium_effort'],
       agentSpent: { spends: [{ amount: 0.62, currency: 'USD' }], unpriced: 0 },
+      reflection: null,
     },
     {
       number: 2,
+      kind: 'propose',
       runId: 'run_search_2',
       state: 'ended',
       attempts: 2,
       proposed: ['candidate_sonnet', 'candidate_review_skill'],
       agentSpent: { spends: [{ amount: 0.58, currency: 'USD' }], unpriced: 0 },
+      reflection: null,
     },
     {
       number: 3,
+      kind: 'propose',
       runId: 'run_search_3',
       state: 'failed',
       attempts: 0,
       proposed: [],
       agentSpent: null,
+      reflection: null,
     },
   ],
   seed: SEED,
@@ -505,6 +511,96 @@ export const seedCostSearch = (client: QueryClient) => {
     EARLIER,
   ]);
   client.setQueryData(searchKeys.detail(SEARCH_ID), COST_SEARCH);
+};
+
+const STALLED: SearchDetailResponseDto = {
+  ...DETAIL,
+  ending: 'stalled',
+  budget: { ...BUDGET, iterations: 6 },
+  iterationsRun: 5,
+  iterations: [
+    ...DETAIL.iterations.slice(0, 2),
+    {
+      number: 3,
+      kind: 'propose',
+      runId: 'run_search_3',
+      state: 'ended',
+      attempts: 1,
+      proposed: [],
+      agentSpent: { spends: [{ amount: 0.44, currency: 'USD' }], unpriced: 0 },
+      reflection: null,
+    },
+    {
+      number: 4,
+      kind: 'propose',
+      runId: 'run_search_4',
+      state: 'ended',
+      attempts: 2,
+      proposed: [],
+      agentSpent: { spends: [{ amount: 0.41, currency: 'USD' }], unpriced: 0 },
+      reflection: null,
+    },
+    {
+      number: 5,
+      kind: 'reflect',
+      runId: 'run_search_5',
+      state: 'ended',
+      attempts: 0,
+      proposed: [],
+      agentSpent: { spends: [{ amount: 0.37, currency: 'USD' }], unpriced: 0 },
+      reflection: {
+        tasks: [0, 2, 3, 4].map((place) => ({
+          taskId: `task_${place}`,
+          originalRunId: `run_task_${place}`,
+          replayRunId: `run_replay_${place}`,
+        })),
+        causes: [
+          {
+            taskId: 'task_2',
+            originalRunId: 'run_task_2',
+            replayRunId: 'run_replay_2',
+            cause: 'check',
+            evidence:
+              'The billing test failed on a timeout in the payment sandbox, before any changed code ran. The same test failed on the live config’s replay.',
+            suggestion: 'Mock the payment sandbox in the billing test.',
+            recordedAt: hoursAgo(1.2),
+          },
+          {
+            taskId: 'task_3',
+            originalRunId: 'run_task_3',
+            replayRunId: 'run_replay_3',
+            cause: 'task',
+            evidence:
+              'The task asks to warm the pricing cache on deploy, but the cache was removed two weeks ago.',
+            suggestion: null,
+            recordedAt: hoursAgo(1.2),
+          },
+          {
+            taskId: 'task_4',
+            originalRunId: 'run_task_4',
+            replayRunId: 'run_replay_4',
+            cause: 'judge',
+            evidence:
+              'The change renames the worker everywhere, but the judge failed it for not adding tests, which a rename does not need.',
+            suggestion: 'Ask for tests only where the change alters behaviour.',
+            recordedAt: hoursAgo(1.1),
+          },
+        ],
+        standing: 'candidate_tests_first',
+        outcome: 'no-config-cause',
+        endedSearch: true,
+      },
+    },
+  ],
+};
+
+export const seedStalledSearch = (client: QueryClient) => {
+  seedSearchAround(client);
+  client.setQueryData(searchKeys.forStation(STATION_ID), [
+    summaryOf(STALLED),
+    EARLIER,
+  ]);
+  client.setQueryData(searchKeys.detail(SEARCH_ID), STALLED);
 };
 
 export const failSearch = (client: QueryClient) => {

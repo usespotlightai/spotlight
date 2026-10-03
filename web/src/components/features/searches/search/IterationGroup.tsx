@@ -4,8 +4,18 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { spendShown } from '@/lib/insights';
 import type { ReplayedStation } from '@/lib/replay';
 import { runPath } from '@/lib/run';
-import type { IterationGroup as Group } from '@/lib/search';
-import { iterationStateShown } from '@/lib/search-words';
+import {
+  type IterationGroup as Group,
+  reflecting,
+  whyItStalledAnchor,
+} from '@/lib/search';
+import {
+  iterationStateShown,
+  REFLECTION_ITERATION_PENDING,
+  REFLECTION_KIND,
+  reflectionIterationShown,
+  SEE_WHY_IT_STALLED,
+} from '@/lib/search-words';
 
 type IterationGroupProps = {
   at: ReplayedStation;
@@ -22,22 +32,32 @@ export function IterationGroup({
 }: IterationGroupProps) {
   const { iteration, candidates } = group;
   const spent = iteration?.agentSpent;
+  const reflects = iteration?.kind === 'reflect';
 
   return (
-    <div data-slot="iteration" className="flex flex-col gap-1.5">
+    <div
+      data-slot="iteration"
+      data-kind={iteration?.kind}
+      className="flex flex-col gap-1.5"
+    >
       <p className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
         <span className="font-medium text-foreground">
           Iteration {group.number}
         </span>
         {iteration && (
           <>
+            {reflects && (
+              <span className="text-foreground">· {REFLECTION_KIND}</span>
+            )}
             <span className="text-muted-foreground">
               · {iterationStateShown(iteration.state)}
             </span>
-            <span className="text-muted-foreground tabular-nums">
-              · {iteration.proposed.length} of {iteration.attempts}{' '}
-              {iteration.attempts === 1 ? 'proposal' : 'proposals'} taken
-            </span>
+            {!reflects && (
+              <span className="text-muted-foreground tabular-nums">
+                · {iteration.proposed.length} of {iteration.attempts}{' '}
+                {iteration.attempts === 1 ? 'proposal' : 'proposals'} taken
+              </span>
+            )}
             {spent && spent.spends.length > 0 && (
               <span className="text-muted-foreground tabular-nums">
                 · its agent spent {spent.spends.map(spendShown).join(' · ')}
@@ -53,7 +73,22 @@ export function IterationGroup({
         )}
       </p>
 
-      {candidates.length > 0 ? (
+      {reflects && iteration ? (
+        <p className="flex flex-wrap items-baseline gap-x-1.5 rounded-xl border border-border border-dashed px-3 py-2 text-muted-foreground text-xs">
+          {reflecting(iteration) || !iteration.reflection
+            ? REFLECTION_ITERATION_PENDING
+            : reflectionIterationShown(
+                iteration.reflection.tasks.length,
+                iteration.reflection.causes.length,
+              )}
+          <a
+            href={`#${whyItStalledAnchor(iteration.number)}`}
+            className="text-foreground underline-offset-2 hover:underline"
+          >
+            {SEE_WHY_IT_STALLED}
+          </a>
+        </p>
+      ) : candidates.length > 0 ? (
         <CardList label={`Candidates of iteration ${group.number}`}>
           {candidates.map((candidate) => (
             <SearchCandidateRow

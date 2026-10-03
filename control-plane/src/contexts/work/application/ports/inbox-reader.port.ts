@@ -7,6 +7,7 @@ import type {
 import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { AsideForm } from '@work/domain/value-objects/aside-form';
+import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
 
 interface InboxAuthor {
@@ -64,6 +65,7 @@ interface InboxStation {
 }
 
 export interface InboxItemSummary {
+  readonly kind: 'task';
   readonly id: string;
   readonly taskId: string;
   readonly teamId: string;
@@ -88,11 +90,28 @@ export interface InboxItemSummary {
   readonly notes: readonly InboxNote[];
 }
 
+export interface InboxNoticeSummary {
+  readonly kind: 'notice';
+  readonly id: string;
+  readonly teamId: string;
+  readonly form: NoticeForm;
+  readonly headline: string;
+  readonly points: readonly string[];
+  readonly link: string;
+  readonly linkLabel: string;
+  readonly askedAt: Date;
+  readonly unread: boolean;
+  readonly resolved: boolean;
+}
+
+export type InboxEntrySummary = InboxItemSummary | InboxNoticeSummary;
+
 export const INBOX_READER = Symbol('INBOX_READER');
 
 export interface InboxReaderPort {
   listForWorkspaceMember(
     slug: string,
     userId: UserId,
-  ): Promise<InboxItemSummary[] | null>;
+    noticesSettledSince: Date,
+  ): Promise<InboxEntrySummary[] | null>;
 }

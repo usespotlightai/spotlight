@@ -5,16 +5,20 @@ import {
   type ApiPropertyOptions,
   getSchemaPath,
 } from '@nestjs/swagger';
+import type { SearchCauseRecorded } from '@replays/application/dto/replay-outcomes.dto';
 import type {
   OnlyOnSeenTasksDto,
+  ReflectedTaskDto,
   SearchAgentDto,
   SearchAllotmentsDto,
   SearchBestDto,
   SearchBudgetDto,
   SearchCandidateDto,
+  SearchCauseDto,
   SearchDetailDto,
   SearchEstimateDto,
   SearchIterationDto,
+  SearchReflectionDto,
   SearchRunsEstimateDto,
   SearchSplitDto,
   SearchSplitEntryDto,
@@ -22,6 +26,7 @@ import type {
   SearchWarningDto,
 } from '@replays/application/dto/searches.dto';
 import { ONLY_ON_SEEN_TASKS } from '@replays/domain/services/overfit';
+import { REFLECTION_OUTCOMES } from '@replays/domain/value-objects/reflection-outcome';
 import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import {
@@ -30,8 +35,15 @@ import {
   MOST_PER_ITERATION,
   SEARCH_CONCURRENCY,
 } from '@replays/domain/value-objects/search-budget.vo';
+import {
+  MOST_CAUSE_TEXT,
+  SEARCH_CAUSES,
+} from '@replays/domain/value-objects/search-cause.vo';
 import { SEARCH_ENDINGS } from '@replays/domain/value-objects/search-ending';
-import { SEARCH_ITERATION_STATES } from '@replays/domain/value-objects/search-iteration.vo';
+import {
+  SEARCH_ITERATION_KINDS,
+  SEARCH_ITERATION_STATES,
+} from '@replays/domain/value-objects/search-iteration.vo';
 import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { CandidatePullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
@@ -522,7 +534,7 @@ export class SearchResponseDto {
     enum: [...SEARCH_ENDINGS, null],
     type: String,
     description:
-      'Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config',
+      'Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config',
   })
   readonly ending: string | null;
 
@@ -631,9 +643,118 @@ export class SearchSplitResponseDto {
   }
 }
 
+export class ReflectedTaskResponseDto {
+  @ApiProperty()
+  readonly taskId: string;
+
+  @ApiProperty({ description: 'The run the set holds for the task' })
+  readonly originalRunId: string;
+
+  @ApiProperty({
+    description:
+      'The replay run that failed it, of the best config so far, to link to',
+  })
+  readonly replayRunId: string;
+
+  constructor(task: ReflectedTaskDto) {
+    this.taskId = task.taskId;
+    this.originalRunId = task.originalRunId;
+    this.replayRunId = task.replayRunId;
+  }
+}
+
+export class SearchCauseResponseDto extends ReflectedTaskResponseDto {
+  @ApiProperty({
+    enum: SEARCH_CAUSES,
+    description:
+      'config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work',
+  })
+  readonly cause: string;
+
+  @ApiProperty({ description: 'What in the runs shows the cause' })
+  readonly evidence: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'What to change, as the agent suggests it',
+  })
+  readonly suggestion: string | null;
+
+  @ApiProperty()
+  readonly recordedAt: string;
+
+  constructor(cause: SearchCauseDto) {
+    super(cause);
+    this.cause = cause.cause;
+    this.evidence = cause.evidence;
+    this.suggestion = cause.suggestion;
+    this.recordedAt = cause.recordedAt;
+  }
+}
+
+export class SearchReflectionResponseDto {
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'The candidate whose failures it looked into: the best config before it, the seed’s id when nothing beat the live config; none until it looked',
+  })
+  readonly standing: string | null;
+
+  @ApiProperty({
+    type: ReflectedTaskResponseDto,
+    isArray: true,
+    description:
+      'The searched tasks the best config so far still failed, which it looked into; never a held-out one',
+  })
+  readonly tasks: ReflectedTaskResponseDto[];
+
+  @ApiProperty({
+    type: SearchCauseResponseDto,
+    isArray: true,
+    description: 'One cause for each task it recorded one for',
+  })
+  readonly causes: SearchCauseResponseDto[];
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...REFLECTION_OUTCOMES, null],
+    type: String,
+    description:
+      'How it ended, once it did: went-on when it found a cause the config can fix and the search carried on; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; out-of-budget when it found a config cause but the search had no budget left to try it',
+  })
+  readonly outcome: string | null;
+
+  @ApiProperty({
+    description:
+      'True when the search stopped searching once it ended, for whatever outcome other than went-on',
+  })
+  readonly endedSearch: boolean;
+
+  constructor(reflection: SearchReflectionDto) {
+    this.standing = reflection.standing;
+    this.outcome = reflection.outcome;
+    this.tasks = reflection.tasks.map(
+      (each) => new ReflectedTaskResponseDto(each),
+    );
+    this.causes = reflection.causes.map(
+      (each) => new SearchCauseResponseDto(each),
+    );
+    this.endedSearch = reflection.endedSearch;
+  }
+}
+
 export class SearchIterationResponseDto {
   @ApiProperty({ example: 1 })
   readonly number: number;
+
+  @ApiProperty({
+    enum: SEARCH_ITERATION_KINDS,
+    description:
+      'propose when its agent proposes candidates; reflect when, after two propose iterations in a row found nothing better than the best before them, its agent looks into why the remaining tasks fail',
+  })
+  readonly kind: string;
 
   @ApiProperty({ description: 'The agent run of this iteration' })
   readonly runId: string;
@@ -665,14 +786,25 @@ export class SearchIterationResponseDto {
   })
   readonly agentSpent: ModelSpentResponseDto | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: SearchReflectionResponseDto,
+    description: 'What a reflect iteration looked into and found',
+  })
+  readonly reflection: SearchReflectionResponseDto | null;
+
   constructor(iteration: SearchIterationDto) {
     this.number = iteration.number;
+    this.kind = iteration.kind;
     this.runId = iteration.runId;
     this.state = iteration.state;
     this.attempts = iteration.attempts;
     this.proposed = [...iteration.proposed];
     this.agentSpent = iteration.agentSpent
       ? new ModelSpentResponseDto(iteration.agentSpent)
+      : null;
+    this.reflection = iteration.reflection
+      ? new SearchReflectionResponseDto(iteration.reflection)
       : null;
   }
 }
@@ -1071,5 +1203,49 @@ export class SearchCandidateProposedResponseDto {
     this.candidateId = proposed.candidateId;
     this.name = proposed.name;
     this.replayId = proposed.replayId;
+  }
+}
+
+export class RecordSearchCauseRequestDto {
+  @ApiProperty({
+    description:
+      'A failing task the reflection’s briefing lists, by its task id',
+  })
+  readonly taskId!: string;
+
+  @ApiProperty({
+    enum: SEARCH_CAUSES,
+    description:
+      'config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work',
+  })
+  readonly cause!: string;
+
+  @ApiProperty({
+    description: `What in the runs shows the cause, in 1 to ${MOST_CAUSE_TEXT} characters`,
+  })
+  readonly evidence!: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: `What a person, or the next iteration, should change, in at most ${MOST_CAUSE_TEXT} characters`,
+  })
+  readonly suggestion?: string | null;
+}
+
+export class SearchCauseRecordedResponseDto {
+  @ApiProperty()
+  readonly taskId: string;
+
+  @ApiProperty({ enum: SEARCH_CAUSES })
+  readonly cause: string;
+
+  @ApiProperty({ description: 'The failing replay run the cause is about' })
+  readonly replayRunId: string;
+
+  constructor(recorded: SearchCauseRecorded) {
+    this.taskId = recorded.taskId;
+    this.cause = recorded.cause;
+    this.replayRunId = recorded.replayRunId;
   }
 }

@@ -41,6 +41,7 @@ type Journal interface {
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.Remembering) (json.RawMessage, error)
 	ProposeCandidate(ctx context.Context, runID string, proposal protocol.CandidateProposal) (json.RawMessage, error)
+	RecordCause(ctx context.Context, runID string, record protocol.CauseRecord) (json.RawMessage, error)
 	MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error)
 	Said(ctx context.Context, runID string) ([]protocol.Said, error)
 	Delivered(ctx context.Context, runID string, upTo int) error
@@ -252,6 +253,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			answer, err := opts.Journal.ProposeCandidate(ctx, run.ID, proposal)
 			journal.append(protocol.Event{Type: protocol.EventSpan, Data: proposedSpan(proposal, from, time.Now(), answer, err)})
 			return answer, err
+		})
+		channel.Causes(func(ctx context.Context, record protocol.CauseRecord) (json.RawMessage, error) {
+			journal.flush(ctx)
+			return opts.Journal.RecordCause(ctx, run.ID, record)
 		})
 	}
 

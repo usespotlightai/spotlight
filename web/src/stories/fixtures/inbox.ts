@@ -10,6 +10,7 @@ import type {
   HarnessResponseDto,
   InboxItemResponseDto,
   InboxMessageResponseDto,
+  InboxNoticeResponseDto,
   InboxStationResponseDto,
   JournalStepResponseDto,
   LineResponseDto,
@@ -32,6 +33,8 @@ export const OPENED_ITEM_ID = 'task_retries:0';
 export const APPROVAL_ITEM_ID = 'task_release_note:0';
 
 export const FAILING_ITEM_ID = 'task_nightly_build:0';
+
+export const NOTICE_ID = 'notice_search_stalled';
 
 export { MEMORIES_ITEM_ID };
 
@@ -100,7 +103,28 @@ const waiting = (
     failure: null,
     aside: null,
     ...rest,
+    kind: 'task',
   };
+};
+
+const NOTICE: InboxNoticeResponseDto = {
+  kind: 'notice',
+  id: NOTICE_ID,
+  teamId: TEAM_ID,
+  form: 'ended',
+  headline:
+    'The search for a better Implementation config stalled: nothing left the config can fix',
+  points: [
+    'Two iterations in a row found nothing better, so its agent looked into the 3 tasks the best config so far still fails, and found none a change to the config could fix. The search ended, keeping what it did not spend.',
+    'Take the task out of the replay set, or reword it (Flaky checkout test on CI): it asks for a fix the codebase already has, so every candidate fails it.',
+    'Fix the judge’s rubric (Drain the stuck retry queues): it wants a test for every change, but the change only renames a queue.',
+    'Fix the station’s check (Upgrade the Postgres driver): the integration test needs a database the runner never starts.',
+  ],
+  link: 'lines/line_delivery/stations/station_implementation/searches/search_queue_fixes',
+  linkLabel: 'Open the search',
+  askedAt: '2026-09-15T11:30:00.000Z',
+  unread: true,
+  resolved: false,
 };
 
 const step = (
@@ -427,7 +451,7 @@ const WORKSPACE: WorkspaceResponseDto = {
 };
 
 export const seedInbox = (client: QueryClient) => {
-  client.setQueryData(inboxKeys.forWorkspace(SLUG), INBOX);
+  client.setQueryData(inboxKeys.forWorkspace(SLUG), [NOTICE, ...INBOX]);
   client.setQueryData(journalKeys.forTask('task_retries'), JOURNAL);
   client.setQueryData(
     journalKeys.forTask('task_release_note'),
@@ -478,21 +502,29 @@ const decided = (
 
 export const seedApproved = (client: QueryClient) => {
   seedInbox(client);
-  client.setQueryData(
-    inboxKeys.forWorkspace(SLUG),
-    decided('granted', 'Approved.'),
-  );
+  client.setQueryData(inboxKeys.forWorkspace(SLUG), [
+    NOTICE,
+    ...decided('granted', 'Approved.'),
+  ]);
 };
 
 export const seedRejected = (client: QueryClient) => {
   seedInbox(client);
-  client.setQueryData(
-    inboxKeys.forWorkspace(SLUG),
-    decided(
+  client.setQueryData(inboxKeys.forWorkspace(SLUG), [
+    NOTICE,
+    ...decided(
       'refused',
       'Not before the release. Hold it until the fix is deployed on Thursday.',
     ),
-  );
+  ]);
+};
+
+export const seedSettledNotice = (client: QueryClient) => {
+  seedInbox(client);
+  client.setQueryData(inboxKeys.forWorkspace(SLUG), [
+    { ...NOTICE, unread: false, resolved: true },
+    ...INBOX,
+  ]);
 };
 
 export const emptyInbox = (client: QueryClient) => {

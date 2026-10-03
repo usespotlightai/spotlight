@@ -1,16 +1,17 @@
 import type {
   FieldErrorResponseDto,
   LineReplayCheckResponseDto,
+  ReflectedTaskResponseDto,
   ReplayCheckSummaryResponseDto,
   SearchAgentRequestDto,
   SearchBudgetRequestDto,
   SearchCandidateResponseDto,
+  SearchCauseResponseDto,
   SearchDetailResponseDto,
   SearchEstimateResponseDto,
   SearchIterationResponseDto,
   SearchResponseDto,
   SearchRunResponseDto,
-  SearchSplitEntryResponseDto,
 } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 import { spentIn } from '@/lib/inbox';
@@ -23,7 +24,7 @@ import {
   type ReplayedStation,
   type ReplaySet,
 } from '@/lib/replay';
-import type { SearchState } from '@/lib/search-words';
+import type { CauseKind, SearchState } from '@/lib/search-words';
 import { stationPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
@@ -34,7 +35,6 @@ type SearchIteration = SearchIterationResponseDto;
 export type SearchEstimate = SearchEstimateResponseDto;
 export type SearchBudget = SearchBudgetRequestDto;
 export type SearchAgent = SearchAgentRequestDto;
-export type SplitEntry = SearchSplitEntryResponseDto;
 export type SearchRun = SearchRunResponseDto;
 export type ReplayCheckSummary = ReplayCheckSummaryResponseDto;
 export type LineReplayCheck = LineReplayCheckResponseDto;
@@ -328,6 +328,62 @@ export const byIteration = (detail: SearchDetail): IterationGroup[] => {
     }));
 };
 
+type SearchCause = SearchCauseResponseDto;
+export type ReflectedTask = ReflectedTaskResponseDto;
+
+const CAUSE_ORDER: readonly CauseKind[] = [
+  'task',
+  'judge',
+  'check',
+  'infra',
+  'config',
+];
+
+export const whyItStalledAnchor = (iteration: number): string =>
+  `why-it-stalled-${iteration}`;
+
+export const reflectionsOf = (detail: SearchDetail): SearchIteration[] =>
+  detail.iterations
+    .filter((each) => each.kind === 'reflect')
+    .sort((one, other) => other.number - one.number);
+
+export const reflecting = (iteration: SearchIteration): boolean =>
+  !iteration.reflection?.outcome;
+
+export const standingOf = (
+  detail: SearchDetail,
+  iteration: SearchIteration,
+): SearchCandidate | null =>
+  candidatesOf(detail).find(
+    (each) => each.candidateId === iteration.reflection?.standing,
+  ) ?? null;
+
+export type CauseGroup = {
+  readonly cause: CauseKind;
+  readonly causes: readonly SearchCause[];
+};
+
+export const causesByKind = (iteration: SearchIteration): CauseGroup[] => {
+  const causes = iteration.reflection?.causes ?? [];
+
+  return CAUSE_ORDER.map((cause) => ({
+    cause,
+    causes: causes.filter((each) => each.cause === cause),
+  })).filter((group) => group.causes.length > 0);
+};
+
+export const uncausedTasks = (iteration: SearchIteration): ReflectedTask[] => {
+  const reflection = iteration.reflection;
+
+  if (!reflection || reflecting(iteration)) {
+    return [];
+  }
+
+  const caused = new Set(reflection.causes.map((each) => each.taskId));
+
+  return reflection.tasks.filter((each) => !caused.has(each.taskId));
+};
+
 export type FrontierPoint = {
   readonly id: string;
   readonly name: string;
@@ -378,8 +434,8 @@ export const candidateName = (candidate: SearchCandidate): string =>
 export const iterationsShown = (search: Search): string =>
   `${search.iterationsRun} of ${search.budget.iterations} ${search.budget.iterations === 1 ? 'iteration' : 'iterations'}`;
 
-export const heldOutTitle = (
-  entry: SplitEntry,
+export const setTaskTitle = (
+  entry: { readonly runId: string; readonly taskId: string },
   set: ReplaySet | undefined,
 ): string =>
   set?.entries.find((each) => each.runId === entry.runId)?.title ??

@@ -6,13 +6,18 @@ import type {
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
 import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import { SearchReflected } from '@replays/domain/events/search-reflected.event';
+import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
 import { SearchStopAsked } from '@replays/domain/events/search-stop-asked.event';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
 import { SearchIterationClosedError } from '@replays/domain/exceptions/search-iteration-closed.error';
+import { SearchNotReflectingError } from '@replays/domain/exceptions/search-not-reflecting.error';
 import { SearchProposalsSpentError } from '@replays/domain/exceptions/search-proposals-spent.error';
+import { SearchReflectingError } from '@replays/domain/exceptions/search-reflecting.error';
+import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import { frontierOf } from '@replays/domain/services/frontier';
 import type { ReplayCharge } from '@replays/domain/services/replay-charge';
 import { rankedOf } from '@replays/domain/services/search-ranking';
@@ -21,6 +26,8 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
+import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
@@ -29,13 +36,17 @@ import type {
   SearchAllotment,
   SearchBudget,
 } from '@replays/domain/value-objects/search-budget.vo';
+import { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
 import type {
   SearchCourseEnding,
   SearchCutShort,
   SearchEnding,
 } from '@replays/domain/value-objects/search-ending';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
+import {
+  SearchIteration,
+  type SearchIterationKind,
+} from '@replays/domain/value-objects/search-iteration.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
@@ -51,10 +62,14 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const STALLED_AFTER = 2;
+
+const REFLECTION_AND_ONE_MORE = 2;
 
 const cheaperThan = (cost: number | null, seed: number | null): boolean =>
   cost !== null && seed !== null && cost < seed;
@@ -82,6 +97,13 @@ export interface RunEnding {
   readonly started: boolean;
 }
 
+export interface CauseGiven {
+  readonly taskId: TaskId;
+  readonly cause: unknown;
+  readonly evidence: unknown;
+  readonly suggestion: unknown;
+}
+
 interface Admission {
   readonly candidateId: CandidateId;
   readonly name: CandidateName;
@@ -101,6 +123,7 @@ interface State {
   readonly heldOut: readonly HeldOutReplay[];
   readonly state: SearchState;
   readonly ending: SearchEnding | null;
+  readonly startedBy: UserId | null;
   readonly startedAt: Date;
   readonly endedAt: Date | null;
   readonly version: number;
@@ -163,6 +186,7 @@ export class Search extends EventRecorder {
       heldOut: [],
       state: 'seeding',
       ending: null,
+      startedBy: input.by.actor?.principal.userId ?? null,
       startedAt: input.at,
       endedAt: null,
       version: 0,
@@ -300,6 +324,10 @@ export class Search extends EventRecorder {
     return this.state.ending;
   }
 
+  get startedBy(): UserId | null {
+    return this.state.startedBy;
+  }
+
   get startedAt(): Date {
     return this.state.startedAt;
   }
@@ -425,9 +453,73 @@ export class Search extends EventRecorder {
           candidateId: admission.candidateId,
           name: admission.name,
           replay: SearchReplay.started(admission.replayId),
+          improved: null,
         }),
       ),
     );
+  }
+
+  reflectingOn(
+    run: RunId,
+    standing: CandidateId,
+    tasks: readonly ReflectedTask[],
+    at: Date,
+    runIds: () => RunId,
+  ): Search {
+    const iteration = this.iterationOf(run);
+
+    if (!iteration?.reflects || iteration.current !== 'wanted') {
+      throw new InvalidSearchError(
+        'looks into failing tasks only in a reflection it has yet to run',
+      );
+    }
+    if (
+      !tasks.every((task) =>
+        this.state.split.searched.some(
+          (each) =>
+            each.taskId.equals(task.taskId) &&
+            each.runId.equals(task.originalRunId),
+        ),
+      )
+    ) {
+      throw new InvalidSearchError(
+        'looks only into the tasks it searched, never the held-out ones',
+      );
+    }
+
+    if (
+      !standing.equals(this.state.seed.candidateId) &&
+      !this.proposals.some((each) => each.candidateId.equals(standing))
+    ) {
+      throw new InvalidSearchError(
+        'looks into the failures of its seed or of a candidate it proposed',
+      );
+    }
+
+    return this.changingIteration(run, (each) =>
+      each.reflectingOn(standing, tasks),
+    ).advancedAt(at, runIds);
+  }
+
+  causeRecorded(run: RunId, given: CauseGiven, at: Date): Search {
+    const iteration = this.iterationOf(run);
+
+    if (this.state.state !== 'searching' || !iteration?.holdsItsRun) {
+      throw new SearchIterationClosedError(run.value);
+    }
+    if (!iteration.reflects) {
+      throw new SearchNotReflectingError();
+    }
+
+    const task = iteration.taskReflectedOn(given.taskId);
+
+    if (!task) {
+      throw new UnknownSearchTaskError(given.taskId.value);
+    }
+
+    const cause = SearchCause.of({ task, ...given, at });
+
+    return this.changingIteration(run, (each) => each.causeRecorded(cause));
   }
 
   proposalRefused(run: RunId): Search {
@@ -442,6 +534,7 @@ export class Search extends EventRecorder {
     charge: ReplayCharge,
     at: Date,
     runIds: () => RunId,
+    improved: boolean,
   ): Search {
     const { seed } = this.state;
 
@@ -477,7 +570,7 @@ export class Search extends EventRecorder {
     }
 
     const iterations = this.state.iterations.map((each) =>
-      each.replayEnded(replayId, end, charge),
+      each.replayEnded(replayId, end, charge, improved),
     );
 
     return iterations.every(
@@ -609,6 +702,9 @@ export class Search extends EventRecorder {
     ) {
       throw new SearchIterationClosedError(run.value);
     }
+    if (iteration.reflects) {
+      throw new SearchReflectingError();
+    }
     if (!iteration.mayPropose(this.state.budget.perIteration)) {
       throw new SearchProposalsSpentError(this.state.budget.perIteration);
     }
@@ -638,7 +734,7 @@ export class Search extends EventRecorder {
     const searching = this.with({ state: 'searching' });
 
     return searching.affordsIteration
-      ? searching.wantingIteration(runIds)
+      ? searching.wantingIteration(runIds, 'propose')
       : searching.ranItsCourse('ceiling-reached', at);
   }
 
@@ -652,28 +748,94 @@ export class Search extends EventRecorder {
     if (this.state.state !== 'searching' || !last?.isClosed) {
       return this;
     }
-
-    const recent = this.state.iterations.slice(-STALLED_AFTER);
-
+    if (last.reflects) {
+      return this.reflectedAt(last, at, runIds);
+    }
     if (this.state.iterations.length >= this.state.budget.iterations) {
       return this.ranItsCourse('iterations-spent', at);
     }
-    if (
-      recent.length === STALLED_AFTER &&
-      recent.every((each) => each.cameToNothing)
-    ) {
-      return this.ranItsCourse('stalled', at);
+    if (this.stalls) {
+      return this.roomToReflect
+        ? this.wantingIteration(runIds, 'reflect')
+        : this.stalledUnreflected(at);
     }
     if (!this.affordsIteration) {
       return this.ranItsCourse('ceiling-reached', at);
     }
 
-    return this.wantingIteration(runIds);
+    return this.wantingIteration(runIds, 'propose');
   }
 
-  private wantingIteration(runIds: () => RunId): Search {
+  private get roomToReflect(): boolean {
+    const { budget, split, iterations } = this.state;
+
+    return (
+      budget.iterations - iterations.length >= REFLECTION_AND_ONE_MORE &&
+      budget.allowsIteration(this.spent.plus(this.allotment.agentRun), split)
+    );
+  }
+
+  private get stalls(): boolean {
+    const recent = this.state.iterations.slice(-STALLED_AFTER);
+
+    return (
+      recent.length === STALLED_AFTER &&
+      recent.every((each) => each.cameToNothing)
+    );
+  }
+
+  private stalledUnreflected(at: Date): Search {
+    const stalled = this.ranItsCourse('stalled', at);
+
+    stalled.record(new SearchStalledUnreflected(this.id, this.workspaceId));
+
+    return stalled;
+  }
+
+  private reflectedAt(
+    reflection: SearchIteration,
+    at: Date,
+    runIds: () => RunId,
+  ): Search {
+    const stalledAs: ReflectionOutcome | null =
+      reflection.outcome ??
+      (reflection.foundConfigCause
+        ? null
+        : reflection.causes.length === 0 && reflection.current === 'failed'
+          ? 'did-not-run'
+          : 'no-config-cause');
+    const next = stalledAs
+      ? this.ranItsCourse('stalled', at)
+      : this.state.iterations.length >= this.state.budget.iterations
+        ? this.ranItsCourse('iterations-spent', at)
+        : this.affordsIteration
+          ? this.wantingIteration(runIds, 'propose')
+          : this.ranItsCourse('ceiling-reached', at);
+    const outcome =
+      stalledAs ??
+      (next.state.state === 'searching' ? 'went-on' : 'out-of-budget');
+    const concluded = next.changingIteration(reflection.runId, (each) =>
+      each.concluded(outcome),
+    );
+
+    concluded.record(
+      new SearchReflected(
+        this.id,
+        this.workspaceId,
+        reflection.number,
+        outcome !== 'went-on',
+      ),
+    );
+
+    return concluded;
+  }
+
+  private wantingIteration(
+    runIds: () => RunId,
+    kind: SearchIterationKind,
+  ): Search {
     const number = this.state.iterations.length + 1;
-    const iteration = SearchIteration.wanted(number, runIds());
+    const iteration = SearchIteration.wanted(number, runIds(), kind);
     const wanting = this.with({
       iterations: [...this.state.iterations, iteration],
     });

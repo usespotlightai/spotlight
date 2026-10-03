@@ -11,6 +11,7 @@ import {
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiConflictResponse,
+  ApiExtraModels,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -24,18 +25,25 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
-import type { InboxItemDto } from '@work/application/dto/inbox.dto';
+import { ReadNoticeCommand } from '@work/application/commands/read-notice.command';
+import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
+import type {
+  InboxEntryDto,
+  InboxItemDto,
+} from '@work/application/dto/inbox.dto';
 import type { RunJournalDto } from '@work/application/dto/run-journal.dto';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
 import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
 import {
   AnswerInboxItemRequestDto,
+  INBOX_ENTRY_SCHEMA,
   InboxApprovalResponseDto,
   InboxAsideResponseDto,
   InboxAuthorResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
   InboxMessageResponseDto,
+  InboxNoticeResponseDto,
   InboxStationResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
@@ -43,7 +51,66 @@ import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment
 import { givenIds } from '@work/presentation/http/mappers/given-ids';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
+const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
+  new InboxItemResponseDto(
+    item.id,
+    item.taskId,
+    item.teamId,
+    item.title,
+    item.description,
+    item.attachments.map(AttachmentHttpMapper.toResponse),
+    item.station,
+    item.stationColor,
+    item.stationPosition,
+    item.stationCount,
+    new InboxStationResponseDto(
+      item.raisedAt.name,
+      item.raisedAt.color,
+      item.raisedAt.position,
+    ),
+    new InboxStationResponseDto(
+      item.standsAt.name,
+      item.standsAt.color,
+      item.standsAt.position,
+    ),
+    item.createdAt,
+    item.askedAt,
+    item.resolved,
+    item.working,
+    item.runId,
+    item.unread,
+    item.briefing,
+    item.failure ? new InboxFailureResponseDto(item.failure) : null,
+    item.aside ? new InboxAsideResponseDto(item.aside) : null,
+    item.notes.map(
+      (note) =>
+        new InboxMessageResponseDto(
+          note.position,
+          note.kind,
+          note.form,
+          note.voice,
+          note.station,
+          note.stationColor,
+          note.stationPosition,
+          note.runId,
+          note.body,
+          note.attachments.map(AttachmentHttpMapper.toResponse),
+          note.at,
+          note.author
+            ? new InboxAuthorResponseDto(
+                note.author.id,
+                note.author.name,
+                note.author.image,
+              )
+            : null,
+          note.approval ? new InboxApprovalResponseDto(note.approval) : null,
+          note.failure ? new InboxFailureResponseDto(note.failure) : null,
+        ),
+    ),
+  );
+
 @ApiTags('inbox')
+@ApiExtraModels(InboxItemResponseDto, InboxNoticeResponseDto)
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('workspaces/:slug/inbox')
 export class InboxController {
@@ -55,84 +122,29 @@ export class InboxController {
   @Get()
   @ApiOperation({
     operationId: 'listInbox',
-    summary: 'The tasks waiting on a person, newest first',
+    summary:
+      'What waits on a person, newest first: the tasks put to them, and notices about their team’s work',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
-  @ApiOkResponse({ type: InboxItemResponseDto, isArray: true })
+  @ApiOkResponse({ schema: INBOX_ENTRY_SCHEMA })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
   async list(
     @Param('slug') slug: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<InboxItemResponseDto[]> {
+  ): Promise<(InboxItemResponseDto | InboxNoticeResponseDto)[]> {
     const waiting = await this.queryBus.execute<
       ListInboxQuery,
-      InboxItemDto[] | null
+      InboxEntryDto[] | null
     >(new ListInboxQuery(slug, user.id));
 
     if (!waiting) {
       throw new NotFoundException();
     }
 
-    return waiting.map(
-      (item) =>
-        new InboxItemResponseDto(
-          item.id,
-          item.taskId,
-          item.teamId,
-          item.title,
-          item.description,
-          item.attachments.map(AttachmentHttpMapper.toResponse),
-          item.station,
-          item.stationColor,
-          item.stationPosition,
-          item.stationCount,
-          new InboxStationResponseDto(
-            item.raisedAt.name,
-            item.raisedAt.color,
-            item.raisedAt.position,
-          ),
-          new InboxStationResponseDto(
-            item.standsAt.name,
-            item.standsAt.color,
-            item.standsAt.position,
-          ),
-          item.createdAt,
-          item.askedAt,
-          item.resolved,
-          item.working,
-          item.runId,
-          item.unread,
-          item.briefing,
-          item.failure ? new InboxFailureResponseDto(item.failure) : null,
-          item.aside ? new InboxAsideResponseDto(item.aside) : null,
-          item.notes.map(
-            (note) =>
-              new InboxMessageResponseDto(
-                note.position,
-                note.kind,
-                note.form,
-                note.voice,
-                note.station,
-                note.stationColor,
-                note.stationPosition,
-                note.runId,
-                note.body,
-                note.attachments.map(AttachmentHttpMapper.toResponse),
-                note.at,
-                note.author
-                  ? new InboxAuthorResponseDto(
-                      note.author.id,
-                      note.author.name,
-                      note.author.image,
-                    )
-                  : null,
-                note.approval
-                  ? new InboxApprovalResponseDto(note.approval)
-                  : null,
-                note.failure ? new InboxFailureResponseDto(note.failure) : null,
-              ),
-          ),
-        ),
+    return waiting.map((entry) =>
+      entry.kind === 'notice'
+        ? new InboxNoticeResponseDto(entry)
+        : taskItemResponse(entry),
     );
   }
 
@@ -202,6 +214,46 @@ export class InboxController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(new ReadInboxAsideCommand(asideId, user.id));
+  }
+
+  @Post('notices/:noticeId/read')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'readInboxNotice',
+    summary: 'Mark a notice put to a person as seen',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'noticeId', type: String })
+  @ApiNoContentResponse({ description: 'It is no longer unread' })
+  @ApiNotFoundResponse({ description: 'No such notice for this caller' })
+  async readNotice(
+    @Param('slug') slug: string,
+    @Param('noticeId') noticeId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new ReadNoticeCommand(noticeId, slug, user.id),
+    );
+  }
+
+  @Post('notices/:noticeId/settle')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'settleInboxNotice',
+    summary: 'Settle a notice, once its person has dealt with it',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'noticeId', type: String })
+  @ApiNoContentResponse({ description: 'It is settled' })
+  @ApiNotFoundResponse({ description: 'No such notice for this caller' })
+  async settleNotice(
+    @Param('slug') slug: string,
+    @Param('noticeId') noticeId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new SettleNoticeCommand(noticeId, slug, user.id),
+    );
   }
 
   @Get('tasks/:taskId/journal')

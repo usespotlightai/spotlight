@@ -25,6 +25,8 @@ import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 type Scores = ReturnType<typeof scoresOf>;
 
@@ -97,6 +99,16 @@ const summaryOf = (search: Search, scores: Scores): SearchSummaryDto => ({
   best: bestOf(search, scores),
   startedAt: search.startedAt.toISOString(),
   endedAt: search.endedAt?.toISOString() ?? null,
+});
+
+const reflectedTaskView = (task: {
+  readonly taskId: TaskId;
+  readonly originalRunId: RunId;
+  readonly replayRunId: RunId;
+}) => ({
+  taskId: task.taskId.value,
+  originalRunId: task.originalRunId.value,
+  replayRunId: task.replayRunId.value,
 });
 
 export const searchSummaryView = (
@@ -176,11 +188,27 @@ export const searchDetailView = (
     },
     iterations: search.iterations.map((each) => ({
       number: each.number,
+      kind: each.kind,
       runId: each.runId.value,
       state: each.current,
       attempts: each.attempts,
       proposed: each.proposals.map((proposal) => proposal.candidateId.value),
       agentSpent: modelSpentView(each.agentSpent),
+      reflection: each.reflects
+        ? {
+            standing: each.standing?.value ?? null,
+            tasks: each.reflectedOn.map(reflectedTaskView),
+            causes: each.causes.map((cause) => ({
+              ...reflectedTaskView(cause),
+              cause: cause.cause,
+              evidence: cause.evidence,
+              suggestion: cause.suggestion,
+              recordedAt: cause.recordedAt.toISOString(),
+            })),
+            outcome: each.outcome,
+            endedSearch: each.endedSearch,
+          }
+        : null,
     })),
     seed: candidateView(scores.seed),
     candidates: scores.candidates.map(candidateView),

@@ -103,6 +103,7 @@ export const heldOutOf = (
       { spent: Spend.of(1, 'USD'), unpriced: 0 },
       later(2),
       ids,
+      true,
     );
   }
   while (held.heldRun) {
@@ -131,6 +132,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
       { spent: Spend.of(20, 'USD'), unpriced: 0 },
       NOW,
       ids,
+      true,
     )
     .admitted(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),

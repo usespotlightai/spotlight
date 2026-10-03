@@ -2354,7 +2354,21 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/InboxItemResponseDto"
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/InboxItemResponseDto"
+                      },
+                      {
+                        "$ref": "#/components/schemas/InboxNoticeResponseDto"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "kind",
+                      "mapping": {
+                        "task": "#/components/schemas/InboxItemResponseDto",
+                        "notice": "#/components/schemas/InboxNoticeResponseDto"
+                      }
+                    }
                   }
                 }
               }
@@ -2367,7 +2381,7 @@
             "description": "No such workspace for this caller"
           }
         },
-        "summary": "The tasks waiting on a person, newest first",
+        "summary": "What waits on a person, newest first: the tasks put to them, and notices about their team’s work",
         "tags": [
           "inbox"
         ]
@@ -2501,6 +2515,84 @@
           }
         },
         "summary": "Mark what was put aside for a person as seen",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/notices/{noticeId}/read": {
+      "post": {
+        "operationId": "readInboxNotice",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "noticeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is no longer unread"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such notice for this caller"
+          }
+        },
+        "summary": "Mark a notice put to a person as seen",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/notices/{noticeId}/settle": {
+      "post": {
+        "operationId": "settleInboxNotice",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "noticeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is settled"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such notice for this caller"
+          }
+        },
+        "summary": "Settle a notice, once its person has dealt with it",
         "tags": [
           "inbox"
         ]
@@ -22103,6 +22195,81 @@
         ]
       }
     },
+    "/runs/{runId}/search-causes": {
+      "post": {
+        "description": "One cause per task: recording a task’s cause again replaces the one before. Only the tasks the reflection’s briefing lists take a cause.",
+        "operationId": "recordSearchCause",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordSearchCauseRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchCauseRecordedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, spent or wrong runner token"
+          },
+          "404": {
+            "description": "The search no longer holds this run, it is no search run this runner holds, or the task is none the reflection looks into",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run proposes candidates; it looks into no causes",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A cause that is none of config, task, judge, check or infra, no evidence, or text too long",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record why a failing task failed, from inside the run in which a stalled search looks into why",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/teams/{teamId}/config-pull-requests/{pullRequestId}": {
       "get": {
         "operationId": "readConfigPullRequest",
@@ -25278,6 +25445,13 @@
       "InboxItemResponseDto": {
         "type": "object",
         "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "task"
+            ],
+            "description": "A task’s conversation or what was put aside beside it"
+          },
           "id": {
             "type": "string",
             "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
@@ -25401,6 +25575,7 @@
           }
         },
         "required": [
+          "kind",
           "id",
           "taskId",
           "teamId",
@@ -25423,6 +25598,85 @@
           "failure",
           "aside",
           "notes"
+        ]
+      },
+      "InboxNoticeResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "notice"
+            ],
+            "description": "Word put to one person about their team’s work, outside any task"
+          },
+          "id": {
+            "type": "string",
+            "example": "b2d9e4f1-7c3a-4e58-9b1d-6f0a2c8e5d37"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "form": {
+            "type": "string",
+            "enum": [
+              "ended",
+              "advice"
+            ],
+            "description": "ended when work the person started has ended and they may want to act on how; advice when it carries on but suggests something they could fix"
+          },
+          "headline": {
+            "type": "string",
+            "example": "The search for a better Build config stalled"
+          },
+          "points": {
+            "example": [
+              "Fix the judge: the rubric asks for tests the task never needed."
+            ],
+            "description": "What happened, then what it suggests, one point each",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "link": {
+            "type": "string",
+            "example": "lines/line_1/stations/station_1/searches/search_1",
+            "description": "Where to look, as a path within its team"
+          },
+          "linkLabel": {
+            "type": "string",
+            "example": "Open the search",
+            "description": "What to call the link, naming where it leads"
+          },
+          "askedAt": {
+            "type": "string",
+            "example": "2026-08-28T21:15:00.000Z"
+          },
+          "unread": {
+            "type": "boolean",
+            "example": true,
+            "description": "Not seen yet"
+          },
+          "resolved": {
+            "type": "boolean",
+            "example": false,
+            "description": "True once its person settled it"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "teamId",
+          "form",
+          "headline",
+          "points",
+          "link",
+          "linkLabel",
+          "askedAt",
+          "unread",
+          "resolved"
         ]
       },
       "AnswerInboxItemRequestDto": {
@@ -38744,7 +38998,7 @@
               "seed-failed",
               null
             ],
-            "description": "Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config"
+            "description": "Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config"
           },
           "agent": {
             "$ref": "#/components/schemas/SearchAgentResponseDto"
@@ -39388,12 +39642,137 @@
           "heldOut"
         ]
       },
+      "ReflectedTaskResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "originalRunId": {
+            "type": "string",
+            "description": "The run the set holds for the task"
+          },
+          "replayRunId": {
+            "type": "string",
+            "description": "The replay run that failed it, of the best config so far, to link to"
+          }
+        },
+        "required": [
+          "taskId",
+          "originalRunId",
+          "replayRunId"
+        ]
+      },
+      "SearchCauseResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "originalRunId": {
+            "type": "string",
+            "description": "The run the set holds for the task"
+          },
+          "replayRunId": {
+            "type": "string",
+            "description": "The replay run that failed it, of the best config so far, to link to"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "config",
+              "task",
+              "judge",
+              "check",
+              "infra"
+            ],
+            "description": "config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "What in the runs shows the cause"
+          },
+          "suggestion": {
+            "type": "string",
+            "nullable": true,
+            "description": "What to change, as the agent suggests it"
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId",
+          "originalRunId",
+          "replayRunId",
+          "cause",
+          "evidence",
+          "suggestion",
+          "recordedAt"
+        ]
+      },
+      "SearchReflectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "standing": {
+            "type": "string",
+            "nullable": true,
+            "description": "The candidate whose failures it looked into: the best config before it, the seed’s id when nothing beat the live config; none until it looked"
+          },
+          "tasks": {
+            "description": "The searched tasks the best config so far still failed, which it looked into; never a held-out one",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReflectedTaskResponseDto"
+            }
+          },
+          "causes": {
+            "description": "One cause for each task it recorded one for",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchCauseResponseDto"
+            }
+          },
+          "outcome": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "went-on",
+              "no-config-cause",
+              "no-failures",
+              "did-not-run",
+              "out-of-budget",
+              null
+            ],
+            "description": "How it ended, once it did: went-on when it found a cause the config can fix and the search carried on; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; out-of-budget when it found a config cause but the search had no budget left to try it"
+          },
+          "endedSearch": {
+            "type": "boolean",
+            "description": "True when the search stopped searching once it ended, for whatever outcome other than went-on"
+          }
+        },
+        "required": [
+          "standing",
+          "tasks",
+          "causes",
+          "outcome",
+          "endedSearch"
+        ]
+      },
       "SearchIterationResponseDto": {
         "type": "object",
         "properties": {
           "number": {
             "type": "number",
             "example": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "propose",
+              "reflect"
+            ],
+            "description": "propose when its agent proposes candidates; reflect when, after two propose iterations in a row found nothing better than the best before them, its agent looks into why the remaining tasks fail"
           },
           "runId": {
             "type": "string",
@@ -39429,15 +39808,27 @@
                 "$ref": "#/components/schemas/ModelSpentResponseDto"
               }
             ]
+          },
+          "reflection": {
+            "nullable": true,
+            "description": "What a reflect iteration looked into and found",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SearchReflectionResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "number",
+          "kind",
           "runId",
           "state",
           "attempts",
           "proposed",
-          "agentSpent"
+          "agentSpent",
+          "reflection"
         ]
       },
       "ConfigPullRequestReasonResponseDto": {
@@ -39767,7 +40158,7 @@
               "seed-failed",
               null
             ],
-            "description": "Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config"
+            "description": "Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config"
           },
           "agent": {
             "$ref": "#/components/schemas/SearchAgentResponseDto"
@@ -40550,6 +40941,67 @@
           "candidateId",
           "name",
           "replayId"
+        ]
+      },
+      "RecordSearchCauseRequestDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "A failing task the reflection’s briefing lists, by its task id"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "config",
+              "task",
+              "judge",
+              "check",
+              "infra"
+            ],
+            "description": "config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "What in the runs shows the cause, in 1 to 4000 characters"
+          },
+          "suggestion": {
+            "type": "string",
+            "nullable": true,
+            "description": "What a person, or the next iteration, should change, in at most 4000 characters"
+          }
+        },
+        "required": [
+          "taskId",
+          "cause",
+          "evidence"
+        ]
+      },
+      "SearchCauseRecordedResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "config",
+              "task",
+              "judge",
+              "check",
+              "infra"
+            ]
+          },
+          "replayRunId": {
+            "type": "string",
+            "description": "The failing replay run the cause is about"
+          }
+        },
+        "required": [
+          "taskId",
+          "cause",
+          "replayRunId"
         ]
       },
       "ReplayedPeriodResponseDto": {

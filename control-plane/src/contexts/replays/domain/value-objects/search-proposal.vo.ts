@@ -10,14 +10,21 @@ export class SearchProposal {
     readonly candidateId: CandidateId,
     readonly name: CandidateName,
     readonly replay: SearchReplay,
+    readonly improved: boolean | null,
   ) {}
 
   static of(input: {
     candidateId: CandidateId;
     name: CandidateName;
     replay: SearchReplay;
+    improved: boolean | null;
   }): SearchProposal {
-    return new SearchProposal(input.candidateId, input.name, input.replay);
+    return new SearchProposal(
+      input.candidateId,
+      input.name,
+      input.replay,
+      input.replay.hasEnded ? input.improved : null,
+    );
   }
 
   isNamed(name: CandidateName): boolean {
@@ -28,14 +35,22 @@ export class SearchProposal {
     replayId: ReplayId,
     end: ReplayEnd,
     charge: ReplayCharge,
+    improved: boolean,
   ): SearchProposal {
     const replay = this.replay.is(replayId)
       ? this.replay.endedAs(end, charge)
       : this.replay;
 
-    return replay === this.replay
-      ? this
-      : new SearchProposal(this.candidateId, this.name, replay);
+    if (replay === this.replay) {
+      return this;
+    }
+
+    return new SearchProposal(
+      this.candidateId,
+      this.name,
+      replay,
+      this.improved ?? (replay.hasFinished && improved),
+    );
   }
 
   replaySpent(replayId: ReplayId, charge: ReplayCharge): SearchProposal {
@@ -45,14 +60,15 @@ export class SearchProposal {
 
     return replay === this.replay
       ? this
-      : new SearchProposal(this.candidateId, this.name, replay);
+      : new SearchProposal(this.candidateId, this.name, replay, this.improved);
   }
 
   equals(other: SearchProposal): boolean {
     return (
       this.candidateId.equals(other.candidateId) &&
       this.name.equals(other.name) &&
-      this.replay.equals(other.replay)
+      this.replay.equals(other.replay) &&
+      this.improved === other.improved
     );
   }
 }

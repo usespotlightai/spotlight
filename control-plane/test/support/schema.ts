@@ -23,6 +23,7 @@ export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schem
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/replay-run-claim.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';

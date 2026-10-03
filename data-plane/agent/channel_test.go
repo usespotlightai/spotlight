@@ -26,6 +26,7 @@ type channel struct {
 	recall   func(asked protocol.RecallRequest) (json.RawMessage, error)
 	remember func(asked protocol.Remembering) (json.RawMessage, error)
 	propose  func(asked protocol.CandidateProposal) (int, string)
+	cause    func(asked protocol.CauseRecord) (int, string)
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -80,6 +81,10 @@ func (h *channel) Memories(
 
 func (h *channel) Candidates(propose func(asked protocol.CandidateProposal) (int, string)) {
 	h.propose = propose
+}
+
+func (h *channel) Causes(cause func(asked protocol.CauseRecord) (int, string)) {
+	h.cause = cause
 }
 
 func (h *channel) Declared() *protocol.Outcome {
@@ -147,6 +152,19 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(body, "{") {
 			w.Header().Set("Content-Type", "application/json")
 		}
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	case r.URL.Path == protocol.HandoverCausePath:
+		if h.cause == nil {
+			refuse(w, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
+			return
+		}
+		var asked protocol.CauseRecord
+		if json.NewDecoder(r.Body).Decode(&asked) != nil {
+			refuse(w, http.StatusBadRequest, "unreadable cause")
+			return
+		}
+		status, body := h.cause(asked)
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(body))
 	default:

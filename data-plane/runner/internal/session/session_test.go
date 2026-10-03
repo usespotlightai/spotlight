@@ -58,6 +58,7 @@ type journal struct {
 	starts           []protocol.StartingPoint
 	startErr         error
 	proposed         []protocol.CandidateProposal
+	caused           []protocol.CauseRecord
 }
 
 type remembered struct {
@@ -206,6 +207,15 @@ func (j *journal) ProposeCandidate(
 	defer j.mu.Unlock()
 	j.proposed = append(j.proposed, proposal)
 	return json.Marshal(protocol.ProposedCandidate{CandidateID: "cand_1", Name: proposal.Name, ReplayID: "replay_1"})
+}
+
+func (j *journal) RecordCause(
+	_ context.Context, _ string, record protocol.CauseRecord,
+) (json.RawMessage, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.caused = append(j.caused, record)
+	return json.Marshal(protocol.RecordedCause{TaskID: record.TaskID, Cause: record.Cause, ReplayRunID: "replayed_1"})
 }
 
 func (j *journal) MemoryFiles(context.Context, string) ([]protocol.MemoryFile, error) {

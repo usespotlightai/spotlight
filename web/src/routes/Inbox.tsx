@@ -1,6 +1,6 @@
 import { Outlet, useParams } from 'react-router';
+import { InboxEntryRow } from '@/components/features/inbox/InboxEntryRow';
 import { InboxListSkeleton } from '@/components/features/inbox/InboxListSkeleton';
-import { InboxRow } from '@/components/features/inbox/InboxRow';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
@@ -36,9 +36,9 @@ export function Inbox() {
     return null;
   }
 
-  const items = inbox.data ?? [];
-  const owed = items.filter((each) => !each.resolved);
-  const done = items.filter((each) => each.resolved);
+  const entries = inbox.data ?? [];
+  const owed = entries.filter((each) => !each.resolved);
+  const done = entries.filter((each) => each.resolved);
 
   return (
     <TrailContext value={[{ label: 'Inbox', to: inboxPath(slug) }]}>
@@ -74,9 +74,9 @@ export function Inbox() {
                 />
 
                 <Disclosure open={sections.isExpanded(OPEN)}>
-                  {owed.map((item) => (
-                    <li key={item.id}>
-                      <InboxRow slug={slug} item={item} />
+                  {owed.map((entry) => (
+                    <li key={`${entry.kind}:${entry.id}`}>
+                      <InboxEntryRow slug={slug} entry={entry} />
                     </li>
                   ))}
                 </Disclosure>
@@ -94,9 +94,9 @@ export function Inbox() {
                 />
 
                 <Disclosure open={sections.isExpanded(RESOLVED)}>
-                  {done.map((item) => (
-                    <li key={item.id}>
-                      <InboxRow slug={slug} item={item} />
+                  {done.map((entry) => (
+                    <li key={`${entry.kind}:${entry.id}`}>
+                      <InboxEntryRow slug={slug} entry={entry} />
                     </li>
                   ))}
                 </Disclosure>

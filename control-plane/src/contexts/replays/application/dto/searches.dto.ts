@@ -95,13 +95,36 @@ export interface SearchSplitDto {
   readonly heldOut: readonly SearchSplitEntryDto[];
 }
 
+export interface ReflectedTaskDto {
+  readonly taskId: string;
+  readonly originalRunId: string;
+  readonly replayRunId: string;
+}
+
+export interface SearchCauseDto extends ReflectedTaskDto {
+  readonly cause: string;
+  readonly evidence: string;
+  readonly suggestion: string | null;
+  readonly recordedAt: string;
+}
+
+export interface SearchReflectionDto {
+  readonly standing: string | null;
+  readonly tasks: readonly ReflectedTaskDto[];
+  readonly causes: readonly SearchCauseDto[];
+  readonly outcome: string | null;
+  readonly endedSearch: boolean;
+}
+
 export interface SearchIterationDto {
   readonly number: number;
+  readonly kind: string;
   readonly runId: string;
   readonly state: string;
   readonly attempts: number;
   readonly proposed: readonly string[];
   readonly agentSpent: ModelSpentDto | null;
+  readonly reflection: SearchReflectionDto | null;
 }
 
 export interface SearchCandidateDto {

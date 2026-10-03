@@ -317,6 +317,7 @@ describe('a team, created through the resource API (e2e)', () => {
       'replays.abandon-replays-of-disbanded-team',
       'replays.abandon-searches-of-disbanded-team',
       'work.abandon-lines-of-disbanded-team',
+      'work.forget-notices-of-disbanded-team',
     ]);
     expect(await heldBy(teamId)).toEqual([]);
   });

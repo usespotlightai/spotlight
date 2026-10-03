@@ -115,7 +115,14 @@ const searchWithTerse = (): Search => {
   const runIds = searchRunIds();
 
   return aSearch()
-    .replayEnded(ReplayId.of('replay_seed'), 'finished', charged, NOW, runIds)
+    .replayEnded(
+      ReplayId.of('replay_seed'),
+      'finished',
+      charged,
+      NOW,
+      runIds,
+      true,
+    )
     .admitted(RunId.of('search_run_1'), {
       candidateId: TERSE,
       name: CandidateName.searched('terse'),
@@ -127,6 +134,7 @@ const searchWithTerse = (): Search => {
       charged,
       later(1),
       runIds,
+      true,
     );
 };
 

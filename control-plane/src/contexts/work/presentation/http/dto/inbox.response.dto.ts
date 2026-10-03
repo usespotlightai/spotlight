@@ -1,11 +1,17 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import {
   APPROVAL_STANDING,
   APPROVAL_SUBJECTS,
   INBOX_ASIDE_FORMS,
+  INBOX_NOTICE_FORMS,
   type InboxApprovalDto,
   type InboxAsideDto,
   type InboxFailureDto,
+  type InboxNoticeDto,
   NOTE_FORMS,
   NOTE_KINDS,
   NOTE_VOICES,
@@ -261,6 +267,12 @@ export class InboxStationResponseDto {
 
 export class InboxItemResponseDto {
   @ApiProperty({
+    enum: ['task'],
+    description: 'A task’s conversation or what was put aside beside it',
+  })
+  readonly kind = 'task' as const;
+
+  @ApiProperty({
     example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2',
     description: 'One conversation a person was asked to own',
   })
@@ -415,6 +427,97 @@ export class InboxItemResponseDto {
     this.notes = notes;
   }
 }
+
+export class InboxNoticeResponseDto {
+  @ApiProperty({
+    enum: ['notice'],
+    description:
+      'Word put to one person about their team’s work, outside any task',
+  })
+  readonly kind = 'notice' as const;
+
+  @ApiProperty({ example: 'b2d9e4f1-7c3a-4e58-9b1d-6f0a2c8e5d37' })
+  readonly id: string;
+
+  @ApiProperty({ example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
+  readonly teamId: string;
+
+  @ApiProperty({
+    enum: INBOX_NOTICE_FORMS,
+    description:
+      'ended when work the person started has ended and they may want to act on how; advice when it carries on but suggests something they could fix',
+  })
+  readonly form: string;
+
+  @ApiProperty({
+    example: 'The search for a better Build config stalled',
+  })
+  readonly headline: string;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: [
+      'Fix the judge: the rubric asks for tests the task never needed.',
+    ],
+    description: 'What happened, then what it suggests, one point each',
+  })
+  readonly points: readonly string[];
+
+  @ApiProperty({
+    example: 'lines/line_1/stations/station_1/searches/search_1',
+    description: 'Where to look, as a path within its team',
+  })
+  readonly link: string;
+
+  @ApiProperty({
+    example: 'Open the search',
+    description: 'What to call the link, naming where it leads',
+  })
+  readonly linkLabel: string;
+
+  @ApiProperty({ example: '2026-08-28T21:15:00.000Z' })
+  readonly askedAt: string;
+
+  @ApiProperty({ example: true, description: 'Not seen yet' })
+  readonly unread: boolean;
+
+  @ApiProperty({
+    example: false,
+    description: 'True once its person settled it',
+  })
+  readonly resolved: boolean;
+
+  constructor(notice: InboxNoticeDto) {
+    this.id = notice.id;
+    this.teamId = notice.teamId;
+    this.form = notice.form;
+    this.headline = notice.headline;
+    this.points = [...notice.points];
+    this.link = notice.link;
+    this.linkLabel = notice.linkLabel;
+    this.askedAt = notice.askedAt;
+    this.unread = notice.unread;
+    this.resolved = notice.resolved;
+  }
+}
+
+export const INBOX_ENTRY_SCHEMA = {
+  type: 'array' as const,
+  items: {
+    oneOf: [
+      { $ref: getSchemaPath(InboxItemResponseDto) },
+      { $ref: getSchemaPath(InboxNoticeResponseDto) },
+    ],
+    discriminator: {
+      propertyName: 'kind',
+      mapping: {
+        task: getSchemaPath(InboxItemResponseDto),
+        notice: getSchemaPath(InboxNoticeResponseDto),
+      },
+    },
+  },
+};
 
 export class AnswerInboxItemRequestDto {
   @ApiProperty({

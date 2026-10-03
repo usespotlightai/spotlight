@@ -16,6 +16,7 @@ import type { NoteReplayDigested } from '@replays/application/services/note-repl
 import type { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
 import type { NoteReplayJudged } from '@replays/application/services/note-replay-judged.service';
 import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
+import type { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import type { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abandonment-due.event';
 import type { ConfigPullRequestAbandonmentDue } from '@replays/domain/events/config-pull-request-abandonment-due.event';
@@ -40,6 +41,8 @@ import type { SearchAbandonmentDue } from '@replays/domain/events/search-abandon
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
 import type { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
 import type { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import type { SearchReflected } from '@replays/domain/events/search-reflected.event';
+import type { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import {
@@ -113,6 +116,7 @@ export interface ReplaysReactions {
   readonly abandoningSearches: AbandonSearches;
   readonly abandoningChecks: AbandonReplayChecks;
   readonly abandoningPullRequests: AbandonConfigPullRequests;
+  readonly noticingReflections: NoticeSearchReflections;
 }
 
 const spentOf = (event: {
@@ -348,6 +352,16 @@ export const replaysSubscribers = (
     'replays.hold-out-search',
     ['replays.search-holding-out-wanted'],
     (event) => reactions.holdingOut.wanted(event.searchId),
+  ),
+  subscribing<SearchReflected>(
+    'replays.notice-search-reflection',
+    ['replays.search-reflected'],
+    (event) => reactions.noticingReflections.reflected(event),
+  ),
+  subscribing<SearchStalledUnreflected>(
+    'replays.notice-unreflected-search-stall',
+    ['replays.search-stalled-unreflected'],
+    (event) => reactions.noticingReflections.stalledUnreflected(event),
   ),
   subscribing<SearchEnded>(
     'replays.let-ended-search-go',

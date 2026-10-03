@@ -301,6 +301,29 @@ func (c *Client) ProposeCandidate(
 	return out, nil
 }
 
+func (c *Client) RecordCause(
+	ctx context.Context, runID string, record protocol.CauseRecord,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/search-causes", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodPost, path, record, &out); err != nil {
+		var rejection *Rejection
+		if errors.As(err, &rejection) {
+			switch {
+			case rejection.Message != "":
+			case rejection.Status == http.StatusConflict:
+				rejection.Message = "this run proposes candidates; only a run looking into why a search stalled records causes"
+			case rejection.Gone():
+				rejection.Message = "the search no longer holds this run, or the task is none it looks into"
+			}
+		}
+		return nil, fmt.Errorf("record the cause of %s: %w", record.TaskID, err)
+	}
+
+	return out, nil
+}
+
 func (c *Client) Claim(ctx context.Context) (*protocol.Claimed, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
 	defer cancel()
