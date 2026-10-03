@@ -10,12 +10,20 @@ import {
 } from '@outcomes/domain/services/judge-standing';
 import type { ScoreKind } from '@outcomes/domain/value-objects/score-scale.vo';
 
+export interface ClaimAgreementDto {
+  readonly index: number;
+  readonly pairs: number;
+  readonly observed: number | null;
+  readonly kappa: number | null;
+}
+
 export interface AgreementDto {
   readonly pairs: number;
   readonly observed: number | null;
   readonly kappa: number | null;
   readonly spearman: number | null;
   readonly mae: number | null;
+  readonly claims: readonly ClaimAgreementDto[];
 }
 
 export interface ConfusionDto {
@@ -38,6 +46,8 @@ export interface RubricVersionDto {
 export interface StationJudgeSettingsDto {
   readonly rubricVersion: string;
   readonly kind: ScoreKind | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly sample: number;
   readonly trust: number;
 }
@@ -49,6 +59,11 @@ export interface StationJudgeDto {
   readonly versions: readonly RubricVersionDto[];
   readonly coverage: Coverage;
 }
+
+const CLAIM_LABELS: Readonly<Record<number, string>> = {
+  0: 'not met',
+  1: 'met',
+};
 
 export const rubricVersionOf = (
   report: RubricReport,
@@ -65,10 +80,13 @@ export const rubricVersionOf = (
     kappa: report.agreement.kappa,
     spearman: report.agreement.spearman,
     mae: report.agreement.mae,
+    claims: report.agreement.claims.map((each) => ({ ...each })),
   },
   confusion: {
     labels: report.agreement.confusion.values.map((each) =>
-      report.scale.labelOf(each),
+      report.scale.byClaims
+        ? (CLAIM_LABELS[each] ?? String(each))
+        : report.scale.labelOf(each),
     ),
     cells: report.agreement.confusion.cells,
   },

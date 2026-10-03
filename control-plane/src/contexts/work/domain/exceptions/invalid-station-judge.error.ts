@@ -1,4 +1,9 @@
-export type StationJudgeField = 'rubric' | 'sample' | 'trust';
+export type StationJudgeField =
+  | 'rubric'
+  | 'claims'
+  | 'passShare'
+  | 'sample'
+  | 'trust';
 
 export class InvalidStationJudgeError extends Error {
   readonly violation = 'invalid' as const;

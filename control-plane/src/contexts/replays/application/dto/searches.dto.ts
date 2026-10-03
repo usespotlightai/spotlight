@@ -2,6 +2,7 @@ import type { CandidatePullRequestDto } from '@replays/application/dto/config-pu
 import type {
   GainReadingDto,
   ModelSpentDto,
+  PairTallyDto,
   RateIntervalDto,
   SpendDto,
   StationChangeDto,
@@ -146,6 +147,8 @@ export interface SearchCandidateDto {
   readonly heldOutInterval: RateIntervalDto | null;
   readonly searchedGain: GainReadingDto | null;
   readonly heldOutGain: GainReadingDto | null;
+  readonly searchedPairs: PairTallyDto | null;
+  readonly heldOutPairs: PairTallyDto | null;
   readonly costPerRun: number | null;
   readonly spent: SpendDto;
   readonly onFrontier: boolean;

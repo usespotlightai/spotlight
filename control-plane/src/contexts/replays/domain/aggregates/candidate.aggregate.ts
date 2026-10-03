@@ -12,6 +12,7 @@ import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -290,8 +291,8 @@ export class Candidate extends EventRecorder {
     return this.state.scoring;
   }
 
-  get rubric(): string | null {
-    return this.state.scoring.rubric;
+  get judge(): JudgeCriteria | null {
+    return this.state.scoring.judge;
   }
 
   get rubricVersion(): string | null {

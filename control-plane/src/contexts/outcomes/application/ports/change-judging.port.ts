@@ -4,7 +4,9 @@ export interface ChangeJudgingAsk {
   readonly runId: string;
   readonly workspaceId: string;
   readonly teamId: string;
-  readonly rubric: string;
+  readonly rubric: string | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly reference: string | null;
 }
 

@@ -3,13 +3,21 @@ import type {
   CandidateDto,
   CheckConsistencyDto,
   EntryChecksDto,
+  EntryCitationDto,
+  EntryCitedHunkDto,
+  EntryCitedStepDto,
   EntryComparisonDto,
   EntryJudgeDto,
+  EntryJudgeReasonDto,
+  EntryPairDto,
+  EntryPairReadingDto,
+  EntryPairReasonDto,
   EntryReasonDto,
   FlakyCheckDto,
   GainReadingDto,
   JudgeConsistencyDto,
   ModelSpentDto,
+  PairTallyDto,
   RateIntervalDto,
   ReplayDetailDto,
   ReplayDto,
@@ -34,6 +42,10 @@ import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
 import { CHECKS_STATES } from '@replays/domain/value-objects/change-checks.vo';
 import { CHECK_SKIPS } from '@replays/domain/value-objects/check-skip';
 import { UNJUDGED_BECAUSE } from '@replays/domain/value-objects/entry-judging.vo';
+import {
+  PAIR_OUTCOMES,
+  UNPAIRED_BECAUSE,
+} from '@replays/domain/value-objects/entry-pairing.vo';
 import { ENTRY_REASON_CODES } from '@replays/domain/value-objects/entry-reason';
 import {
   JUDGE_SCALES,
@@ -548,6 +560,107 @@ export class EntryChecksResponseDto {
   }
 }
 
+export class EntryCitedStepResponseDto {
+  @ApiProperty({
+    example: 12,
+    description: 'Where the step sits in the run’s journal',
+  })
+  readonly index: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'Always null here: a replay keeps no copy of what the judge read',
+  })
+  readonly kind: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly tool: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly text: string | null;
+
+  constructor(step: EntryCitedStepDto) {
+    this.index = step.index;
+    this.kind = step.kind;
+    this.tool = step.tool;
+    this.text = step.text;
+  }
+}
+
+export class EntryCitedHunkResponseDto {
+  @ApiProperty({ example: 'api/src/uploads.ts#2' })
+  readonly id: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'Always null here: a replay keeps no copy of what the judge read',
+  })
+  readonly path: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly header: string | null;
+
+  @ApiProperty({ type: String, isArray: true })
+  readonly lines: string[];
+
+  constructor(hunk: EntryCitedHunkDto) {
+    this.id = hunk.id;
+    this.path = hunk.path;
+    this.header = hunk.header;
+    this.lines = [...hunk.lines];
+  }
+}
+
+export class EntryCitationResponseDto {
+  @ApiProperty({ enum: ['step', 'hunk'] })
+  readonly kind: string;
+
+  @ApiProperty({ type: EntryCitedStepResponseDto, nullable: true })
+  readonly step: EntryCitedStepResponseDto | null;
+
+  @ApiProperty({ type: EntryCitedHunkResponseDto, nullable: true })
+  readonly hunk: EntryCitedHunkResponseDto | null;
+
+  constructor(citation: EntryCitationDto) {
+    this.kind = citation.kind;
+    this.step = citation.step
+      ? new EntryCitedStepResponseDto(citation.step)
+      : null;
+    this.hunk = citation.hunk
+      ? new EntryCitedHunkResponseDto(citation.hunk)
+      : null;
+  }
+}
+
+export class EntryJudgeReasonResponseDto {
+  @ApiProperty({ example: 'It retried the upload inside the request.' })
+  readonly text: string;
+
+  @ApiProperty({ type: EntryCitationResponseDto, isArray: true })
+  readonly citations: EntryCitationResponseDto[];
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 0,
+    description:
+      'The place of the claim this reason is about, from 0; none on a rubric’s scale',
+  })
+  readonly claim: number | null;
+
+  constructor(reason: EntryJudgeReasonDto) {
+    this.text = reason.text;
+    this.claim = reason.claim;
+    this.citations = reason.citations.map(
+      (each) => new EntryCitationResponseDto(each),
+    );
+  }
+}
+
 export class EntryJudgeResponseDto {
   @ApiProperty({ enum: ['asked', 'judged', 'unjudged'] })
   readonly state: string;
@@ -558,16 +671,36 @@ export class EntryJudgeResponseDto {
   @ApiProperty({
     nullable: true,
     type: Number,
-    description: '0 or 1 on a yes-no rubric, 1 to 5 on a number one',
+    description:
+      '0 or 1 on a yes-no rubric, 1 to 5 on a number one, or the share of claims met',
   })
   readonly score: number | null;
 
   @ApiProperty({
     nullable: true,
     type: Boolean,
-    description: `Yes on a yes-no rubric, or at least ${PASSING_SCORE} on a number one`,
+    description: `Yes on a yes-no rubric, at least ${PASSING_SCORE} on a number one, or at least the pass share of claims met`,
   })
   readonly passed: boolean | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Boolean,
+    isArray: true,
+    example: [true, false, true],
+    description:
+      'Whether each claim was met, in order; null unless the judge goes by claims',
+  })
+  readonly marks: boolean[] | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 1,
+    description:
+      'The share of claims a run had to meet to pass; null unless the judge goes by claims',
+  })
+  readonly passShare: number | null;
 
   @ApiProperty({
     nullable: true,
@@ -587,6 +720,23 @@ export class EntryJudgeResponseDto {
   })
   readonly unjudged: string | null;
 
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['It adds a test that fails without it.'],
+    description:
+      'The claims the judge marked, in order, as worded when it judged; empty unless it goes by claims',
+  })
+  readonly claims: string[];
+
+  @ApiProperty({
+    type: EntryJudgeReasonResponseDto,
+    isArray: true,
+    description:
+      'The judge’s grounded reasons, each naming the claim it is about on a claims judge',
+  })
+  readonly reasons: EntryJudgeReasonResponseDto[];
+
   constructor(judge: EntryJudgeDto) {
     this.state = judge.state;
     this.scale = judge.scale;
@@ -595,6 +745,134 @@ export class EntryJudgeResponseDto {
     this.referenced = judge.referenced;
     this.model = judge.model;
     this.unjudged = judge.unjudged;
+    this.marks = judge.marks ? [...judge.marks] : null;
+    this.passShare = judge.passShare;
+    this.claims = [...judge.claims];
+    this.reasons = judge.reasons.map(
+      (each) => new EntryJudgeReasonResponseDto(each),
+    );
+  }
+}
+
+export class EntryPairReasonResponseDto {
+  @ApiProperty({ example: 'Its change drains the queue in order.' })
+  readonly text: string;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'The hunks of this entry’s change the reason cites',
+  })
+  readonly ownHunks: string[];
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'The hunks of the baseline’s change the reason cites',
+  })
+  readonly theirHunks: string[];
+
+  constructor(reason: EntryPairReasonDto) {
+    this.text = reason.text;
+    this.ownHunks = [...reason.ownHunks];
+    this.theirHunks = [...reason.theirHunks];
+  }
+}
+
+export class EntryPairReadingResponseDto {
+  @ApiProperty({
+    description:
+      'Whether this entry’s change was shown first, as A; each pair is read both ways round',
+  })
+  readonly ownShownFirst: boolean;
+
+  @ApiProperty({ enum: PAIR_OUTCOMES })
+  readonly outcome: string;
+
+  @ApiProperty({ type: EntryPairReasonResponseDto, isArray: true })
+  readonly reasons: EntryPairReasonResponseDto[];
+
+  constructor(reading: EntryPairReadingDto) {
+    this.ownShownFirst = reading.ownShownFirst;
+    this.outcome = reading.outcome;
+    this.reasons = reading.reasons.map(
+      (each) => new EntryPairReasonResponseDto(each),
+    );
+  }
+}
+
+export class EntryPairResponseDto {
+  @ApiProperty({ enum: ['asked', 'judged', 'unpaired'] })
+  readonly state: string;
+
+  @ApiProperty({
+    description:
+      'The run of the same task, in the replay in pairedWith, this change was set beside',
+  })
+  readonly againstRunId: string;
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...PAIR_OUTCOMES, null],
+    type: String,
+    description:
+      'Whether the judge, not knowing which change was which, found this one better (win), worse (loss) or as good (tie)',
+  })
+  readonly outcome: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly model: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...UNPAIRED_BECAUSE, null],
+    type: String,
+  })
+  readonly unpaired: string | null;
+
+  @ApiProperty({
+    type: EntryPairReadingResponseDto,
+    isArray: true,
+    description:
+      'The two readings, one with each change shown first; where they disagree the outcome is a tie',
+  })
+  readonly readings: EntryPairReadingResponseDto[];
+
+  constructor(pair: EntryPairDto) {
+    this.state = pair.state;
+    this.againstRunId = pair.againstRunId;
+    this.outcome = pair.outcome;
+    this.model = pair.model;
+    this.unpaired = pair.unpaired;
+    this.readings = pair.readings.map(
+      (each) => new EntryPairReadingResponseDto(each),
+    );
+  }
+}
+
+export class PairTallyResponseDto {
+  @ApiProperty({
+    example: 4,
+    description: 'Tasks where the judge found the change better',
+  })
+  readonly wins: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Tasks where the judge found the change worse',
+  })
+  readonly losses: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Tasks where the judge found neither change better',
+  })
+  readonly ties: number;
+
+  constructor(tally: PairTallyDto) {
+    this.wins = tally.wins;
+    this.losses = tally.losses;
+    this.ties = tally.ties;
   }
 }
 
@@ -730,6 +1008,22 @@ export class ReplayEntryResponseDto {
   readonly recheck: EntryChecksResponseDto | null;
 
   @ApiProperty({
+    nullable: true,
+    type: EntryPairResponseDto,
+    description:
+      'Its change set side by side with that of the replay in pairedWith for the same task, judged blind both ways round; it never changes the run’s result',
+  })
+  readonly pair: EntryPairResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: ModelSpentResponseDto,
+    description:
+      'What the side-by-side judging cost; what is in the ceiling’s currency is spent against it',
+  })
+  readonly pairingSpent: ModelSpentResponseDto | null;
+
+  @ApiProperty({
     enum: ['pending', 'succeeded', 'failed', 'unscored'],
     description:
       'pending while its run, checks or judge are still to come; unscored when nothing could say whether it succeeded',
@@ -784,6 +1078,10 @@ export class ReplayEntryResponseDto {
       : null;
     this.recheck = entry.recheck
       ? new EntryChecksResponseDto(entry.recheck)
+      : null;
+    this.pair = entry.pair ? new EntryPairResponseDto(entry.pair) : null;
+    this.pairingSpent = entry.pairingSpent
+      ? new ModelSpentResponseDto(entry.pairingSpent)
       : null;
     this.result = entry.result;
     this.succeeded = entry.succeeded;
@@ -1009,9 +1307,25 @@ export class ReplayResponseDto {
     nullable: true,
     type: GainReadingResponseDto,
     description:
-      'Its gain in success over the set’s baseline, with whether it is within noise; null for the baseline itself or with none',
+      'Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none',
   })
   readonly againstBaseline: GainReadingResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none',
+  })
+  readonly pairedWith: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: PairTallyResponseDto,
+    description:
+      'Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is',
+  })
+  readonly pairsAgainstBaseline: PairTallyResponseDto | null;
 
   @ApiProperty({ type: ReplayEntryResponseDto, isArray: true })
   readonly entries: ReplayEntryResponseDto[];
@@ -1034,6 +1348,10 @@ export class ReplayResponseDto {
     this.endedAt = replay.endedAt;
     this.totals = new ReplayTotalsResponseDto(replay.totals);
     this.againstBaseline = gainResponse(replay.againstBaseline);
+    this.pairedWith = replay.pairedWith;
+    this.pairsAgainstBaseline = replay.pairsAgainstBaseline
+      ? new PairTallyResponseDto(replay.pairsAgainstBaseline)
+      : null;
     this.entries = replay.entries.map(
       (each) => new ReplayEntryResponseDto(each),
     );
@@ -1121,6 +1439,15 @@ export class EntryComparisonResponseDto {
   })
   readonly regressed: boolean;
 
+  @ApiProperty({
+    nullable: true,
+    enum: [...PAIR_OUTCOMES, null],
+    type: String,
+    description:
+      'Whether the judge, comparing the candidate’s change blind with that of the replay in pairedWith, found it better (win), worse (loss) or as good (tie), by most of its copies; null where none was compared so',
+  })
+  readonly pair: string | null;
+
   constructor(compared: EntryComparisonDto) {
     this.originalRunId = compared.originalRunId;
     this.taskId = compared.taskId;
@@ -1139,6 +1466,7 @@ export class EntryComparisonResponseDto {
     this.scoreDelta = compared.scoreDelta;
     this.scoreUncompared = compared.scoreUncompared;
     this.regressed = compared.regressed;
+    this.pair = compared.pair;
   }
 }
 
@@ -1165,6 +1493,14 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
 
   @ApiProperty({
     nullable: true,
+    type: String,
+    description:
+      'The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none',
+  })
+  readonly comparedWithReplayId: string | null;
+
+  @ApiProperty({
+    nullable: true,
     type: ReplaySearchResponseDto,
     description: 'The search it belongs to, when a search started it',
   })
@@ -1180,6 +1516,7 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
   constructor(replay: ReplayDetailDto) {
     super(replay);
     this.baselineReplayId = replay.baselineReplayId;
+    this.comparedWithReplayId = replay.comparedWithReplayId;
     this.search = replay.search
       ? new ReplaySearchResponseDto(replay.search)
       : null;

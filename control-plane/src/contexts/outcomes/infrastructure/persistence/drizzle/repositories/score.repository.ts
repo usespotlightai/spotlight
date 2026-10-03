@@ -65,12 +65,14 @@ const toScore = (row: ScoreRow): Score =>
     source: row.source,
     scale: ScoreScale.of(row.kind),
     value: row.value,
+    marks: row.marks,
     rubricVersion: row.rubricVersion,
     model: row.model,
     reasons: row.reasons.map((each) =>
       JudgeReason.of({
         text: each.text,
         citations: each.citations.map(citationOf),
+        claim: each.claim,
       }),
     ),
     seen: SeenEvidence.of(row.seen),
@@ -82,6 +84,7 @@ const toScore = (row: ScoreRow): Score =>
 const columnsOf = (held: Score) => ({
   kind: held.scale.kind,
   value: held.value,
+  marks: held.marks && [...held.marks],
   rubricVersion: held.rubricVersion,
   at: held.at,
 });
@@ -90,6 +93,7 @@ const storedReasons = (held: Score): StoredReason[] =>
   held.reasons.map((each) => ({
     text: each.text,
     citations: each.citations.map(storedCitation),
+    claim: each.claim,
   }));
 
 @Injectable()

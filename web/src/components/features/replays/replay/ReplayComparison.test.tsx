@@ -30,6 +30,8 @@ const entry = (over: Partial<ReplayEntry> = {}): ReplayEntry => ({
   secondJudge: null,
   rejudgingSpent: null,
   recheck: null,
+  pair: null,
+  pairingSpent: null,
   result: 'succeeded',
   succeeded: true,
   reasons: [],
@@ -53,6 +55,7 @@ const compared = (
   scoreDelta: null,
   scoreUncompared: null,
   regressed: false,
+  pair: null,
   ...over,
 });
 
@@ -86,6 +89,7 @@ describe('ReplayComparison', () => {
       compared('Steady'),
       compared('Worse', {
         regressed: true,
+        pair: null,
         candidate: [
           entry({
             result: 'failed',
@@ -122,6 +126,46 @@ describe('ReplayComparison', () => {
       '/w/acme/team/team_1/runs/run_Steady_candidate',
       '/w/acme/team/team_1/runs/run_Steady_baseline',
     ]);
+  });
+
+  it('says which change the blind judge found closer to the accepted one, task by task', () => {
+    renderComparison([
+      compared('Won', { pair: 'win' }),
+      compared('Lost', { pair: 'loss' }),
+      compared('Tied', { pair: 'tie' }),
+      compared('Unpaired'),
+    ]);
+
+    expect(
+      screen.getByRole('columnheader', {
+        name: 'Closer to the accepted change',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      [...document.querySelectorAll('[data-slot="pair"]')].map(
+        (each) => each.textContent,
+      ),
+    ).toEqual(['This one', 'The baseline', 'Neither', '–']);
+  });
+
+  it('shows the side-by-side column even where no baseline rows were compared', () => {
+    renderComparison([compared('Alone', { baseline: [], pair: 'loss' })]);
+
+    expect(
+      screen.getByRole('columnheader', {
+        name: 'Closer to the accepted change',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('leaves out the side-by-side column where no task was compared so', () => {
+    renderComparison([compared('Steady')]);
+
+    expect(
+      screen.queryByRole('columnheader', {
+        name: 'Closer to the accepted change',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('says why two judge scores could not be compared', () => {

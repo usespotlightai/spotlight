@@ -17,12 +17,17 @@ import type {
   SpendResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
+import { claimsMetShown, percentShown } from '@/lib/judge';
 import {
+  AGAINST_LIVE,
+  AN_EARLIER_BASELINE,
   EFFORT_NOT_HIGHER,
   MODEL_NOT_OFFERED,
   NO_HARNESS,
   type ReplayState,
   SAME_AS_LIVE,
+  THE_BASELINE,
+  THE_SEARCH_START,
 } from '@/lib/replay-words';
 import { stationPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
@@ -139,6 +144,7 @@ export type SpendBreakdown = {
   readonly runs: Spend;
   readonly drafting: Spend;
   readonly judging: Spend;
+  readonly pairing: Spend;
 };
 
 const summed = (
@@ -171,6 +177,10 @@ export const spendBreakdown = (
       replay.entries.flatMap((each) => each.judgingSpent?.spends ?? []),
       currency,
     ),
+    pairing: summed(
+      replay.entries.flatMap((each) => each.pairingSpent?.spends ?? []),
+      currency,
+    ),
   };
 };
 
@@ -198,6 +208,31 @@ export const msDeltaShown = (delta: number | null): string =>
 export const scoreDeltaShown = (delta: number | null): string =>
   delta === null ? '–' : `${signOf(delta)}${Math.abs(delta).toFixed(2)}`;
 
+export const counterpartShown = (
+  counterpartId: string,
+  candidate: Replay['candidate'],
+  baselineId: string | null,
+): string => {
+  if (counterpartId === baselineId) {
+    return THE_BASELINE;
+  }
+
+  switch (candidate?.kind) {
+    case 'searched':
+      return THE_SEARCH_START;
+    case 'sanity':
+      return AGAINST_LIVE;
+    default:
+      return AN_EARLIER_BASELINE;
+  }
+};
+
+export type EntryPair = NonNullable<ReplayEntry['pair']>;
+
+export const readingsDisagree = (pair: EntryPair): boolean =>
+  pair.outcome === 'tie' &&
+  new Set(pair.readings.map((each) => each.outcome)).size > 1;
+
 export const judgeScoreShown = (
   judge: EntryJudgeResponseDto | null,
 ): string => {
@@ -205,11 +240,16 @@ export const judgeScoreShown = (
     return '–';
   }
 
-  return judge.scale === 'yes-no'
-    ? judge.score >= 1
-      ? 'Yes'
-      : 'No'
-    : `${judge.score}/5`;
+  switch (judge.scale) {
+    case 'yes-no':
+      return judge.score >= 1 ? 'Yes' : 'No';
+    case 'claims':
+      return judge.marks
+        ? claimsMetShown(judge.marks)
+        : `${percentShown(judge.score)} of claims met`;
+    default:
+      return `${judge.score}/5`;
+  }
 };
 
 export const candidatesInOrder = (

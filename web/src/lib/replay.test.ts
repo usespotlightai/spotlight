@@ -12,6 +12,7 @@ import {
   comparisonInOrder,
   copiesTally,
   costDeltaShown,
+  counterpartShown,
   flippedTitles,
   judgeScoreShown,
   latestOf,
@@ -185,7 +186,7 @@ describe('replays', () => {
     expect(latestOf([])).toBeNull();
   });
 
-  it('splits what a replay spent into its runs, drafting and judging, in its ceiling’s currency', () => {
+  it('splits what a replay spent into its runs, drafting, judging and side-by-side judging, in its ceiling’s currency', () => {
     const usd = (amount: number) => ({ amount, currency: 'USD' });
 
     expect(
@@ -196,6 +197,7 @@ describe('replays', () => {
             cost: usd(1),
             draftingSpent: { spends: [usd(0.1)], unpriced: 0 },
             judgingSpent: null,
+            pairingSpent: { spends: [usd(0.05)], unpriced: 0 },
           },
           {
             cost: { amount: 9, currency: 'EUR' },
@@ -204,10 +206,16 @@ describe('replays', () => {
               spends: [usd(0.2), { amount: 1, currency: 'EUR' }],
               unpriced: 1,
             },
+            pairingSpent: null,
           },
         ] as Replay['entries'],
       }),
-    ).toEqual({ runs: usd(1), drafting: usd(0.1), judging: usd(0.2) });
+    ).toEqual({
+      runs: usd(1),
+      drafting: usd(0.1),
+      judging: usd(0.2),
+      pairing: usd(0.05),
+    });
   });
 
   it('caps the share of the ceiling spent at all of it', () => {
@@ -223,6 +231,24 @@ describe('replays', () => {
     expect(msDeltaShown(90_000)).toBe('+1m 30s');
   });
 
+  it('names what a replay was set beside: the baseline, the search’s starting config, the live config or an earlier baseline', () => {
+    const candidate = (kind: 'proposed' | 'searched' | 'sanity') =>
+      ({ kind }) as Replay['candidate'];
+
+    expect(counterpartShown('base', candidate('proposed'), 'base')).toBe(
+      'the baseline',
+    );
+    expect(counterpartShown('seed', candidate('searched'), 'base')).toBe(
+      'the search’s starting config',
+    );
+    expect(counterpartShown('live', candidate('sanity'), 'base')).toBe(
+      'the live config',
+    );
+    expect(counterpartShown('older', candidate('proposed'), 'base')).toBe(
+      'an earlier baseline',
+    );
+  });
+
   it('shows a judge’s score on its own scale', () => {
     const judged = (scale: 'yes-no' | 'number', score: number) => ({
       state: 'judged' as const,
@@ -232,11 +258,23 @@ describe('replays', () => {
       referenced: null,
       model: null,
       unjudged: null,
+      marks: null,
+      passShare: null,
+      claims: [],
+      reasons: [],
     });
 
     expect(judgeScoreShown(judged('yes-no', 1))).toBe('Yes');
     expect(judgeScoreShown(judged('number', 4))).toBe('4/5');
     expect(judgeScoreShown(null)).toBe('–');
+    expect(
+      judgeScoreShown({
+        ...judged('number', 2 / 3),
+        scale: 'claims',
+        marks: [true, true, false],
+        passShare: 1,
+      }),
+    ).toBe('2 of 3 claims met');
   });
 
   it('fills the station address into the propose command', () => {

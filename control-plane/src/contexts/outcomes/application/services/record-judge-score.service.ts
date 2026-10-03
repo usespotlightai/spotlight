@@ -32,6 +32,7 @@ export class RecordJudgeScore {
           fingerprint: event.fingerprint,
           scale: event.scale,
           value: event.value,
+          marks: event.marks,
           rubricVersion: event.rubricVersion,
           model: event.model,
           reasons: event.reasons,

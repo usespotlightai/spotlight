@@ -45,9 +45,19 @@ const verdict = (scale: 'yes-no' | 'number', value: number) =>
     JudgeVerdict.of({
       scale,
       value,
+      marks: null,
+      claims: [],
+      passShare: 1,
       model: 'judge/model',
       referenced: false,
-      reasons: [{ text: 'It drops a job.', steps: [4], hunks: ['api/q.ts#1'] }],
+      reasons: [
+        {
+          text: 'It drops a job.',
+          steps: [4],
+          hunks: ['api/q.ts#1'],
+          claim: null,
+        },
+      ],
     }),
   );
 

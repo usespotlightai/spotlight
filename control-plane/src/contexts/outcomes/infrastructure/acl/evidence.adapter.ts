@@ -47,6 +47,8 @@ export class Evidence implements EvidencePort {
         teamId: judge.teamId,
         lineId: judge.lineId,
         rubric: judge.rubric,
+        claims: judge.claims,
+        passShare: judge.passShare,
         rubricVersion: judge.rubricVersion,
         sample: judge.sample,
         trust: judge.trust,

@@ -14,6 +14,9 @@ export interface ReplayRunJudged {
   readonly runId: string;
   readonly scale: string;
   readonly value: number;
+  readonly marks: readonly boolean[] | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly model: string;
   readonly referenced: boolean;
   readonly reasons: readonly CitedReason[];

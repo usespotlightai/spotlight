@@ -1,3 +1,4 @@
+import { ClaimsGrade } from '@/components/features/inbox/grades/ClaimsGrade';
 import { GradeRunAbout } from '@/components/features/inbox/grades/GradeRunAbout';
 import { GradeRunSkeleton } from '@/components/features/inbox/grades/GradeRunSkeleton';
 import { QuickGrade } from '@/components/features/inbox/grades/QuickGrade';
@@ -9,7 +10,7 @@ import { useRunScores } from '@/hooks/api/useRunScores';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { changesOf } from '@/lib/changes';
 import { notFound } from '@/lib/error';
-import { summaryOf } from '@/lib/judge';
+import { type GradeAnswer, summaryOf } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 
 type GradeRunProps = {
@@ -66,6 +67,9 @@ export function GradeRun({
   const ran = (journal.data ?? []).filter((each) => each.runId === runId);
   const summary = summaryOf(ran);
   const mine = scores.data.grades.find((each) => each.mine) ?? null;
+  const { stationId } = scores.data;
+  const gradeWith = (answer: GradeAnswer) =>
+    grade.mutate({ slug, teamId, runId, stationId, ...answer });
 
   return (
     <div data-slot="grade-run" className="flex flex-col gap-5">
@@ -101,21 +105,23 @@ export function GradeRun({
         )}
       </section>
 
-      <QuickGrade
-        kind={scores.data.kind}
-        mine={mine}
-        pending={grade.isPending}
-        failed={grade.isError}
-        onGrade={(value) =>
-          grade.mutate({
-            slug,
-            teamId,
-            runId,
-            stationId: scores.data.stationId,
-            value,
-          })
-        }
-      />
+      {scores.data.kind === 'claims' ? (
+        <ClaimsGrade
+          claims={scores.data.claims}
+          mine={mine}
+          pending={grade.isPending}
+          failed={grade.isError}
+          onGrade={(claims) => gradeWith({ claims })}
+        />
+      ) : (
+        <QuickGrade
+          kind={scores.data.kind}
+          mine={mine}
+          pending={grade.isPending}
+          failed={grade.isError}
+          onGrade={(value) => gradeWith({ value })}
+        />
+      )}
     </div>
   );
 }

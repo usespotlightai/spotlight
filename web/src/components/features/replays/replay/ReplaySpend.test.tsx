@@ -18,6 +18,37 @@ const replayWith = (totals: Partial<ReplayDetail['totals']>): ReplayDetail =>
   }) as unknown as ReplayDetail;
 
 describe('ReplaySpend', () => {
+  it('shows side-by-side judging as spent against the ceiling, not toward cost per run', () => {
+    render(
+      <ReplaySpend
+        replay={
+          {
+            ...replayWith({}),
+            entries: [
+              {
+                cost: null,
+                draftingSpent: null,
+                judgingSpent: null,
+                pairingSpent: {
+                  spends: [{ amount: 0.04, currency: 'USD' }],
+                  unpriced: 0,
+                },
+              },
+            ],
+          } as unknown as ReplayDetail
+        }
+      />,
+    );
+
+    expect(screen.getByText('Side by side').parentElement).toHaveAttribute(
+      'title',
+      'Judging changes side by side counts against the ceiling, but not toward cost per run.',
+    );
+    expect(
+      screen.getByText('Side by side').nextElementSibling,
+    ).toHaveTextContent(spendShown({ amount: 0.04, currency: 'USD' }));
+  });
+
   it('names what was spent in other currencies, outside the ceiling, and what nobody priced', () => {
     render(
       <ReplaySpend

@@ -79,6 +79,7 @@ export class WorkJudgings implements OwedWorkPort {
     try {
       const { verdict } = await this.judge.judge({
         rubric: judging.rubric.text,
+        claims: judging.rubric.criteria.claims,
         scale: judging.rubric.scale.kind,
         title: evidence.title,
         description: evidence.description,

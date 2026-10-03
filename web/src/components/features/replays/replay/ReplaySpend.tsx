@@ -9,6 +9,8 @@ import {
 import {
   ELSEWHERE_NOTE,
   OVER_CEILING_NOTE,
+  PAIRING_SPEND_LABEL,
+  PAIRING_SPEND_NOTE,
   unpricedCallsShown,
   unpricedRunsShown,
 } from '@/lib/replay-words';
@@ -58,6 +60,14 @@ export function ReplaySpend({ replay }: ReplaySpendProps) {
             {spendShown(parts.judging)}
           </dd>
         </div>
+        {parts.pairing.amount > 0 && (
+          <div className="flex gap-1" title={PAIRING_SPEND_NOTE}>
+            <dt>{PAIRING_SPEND_LABEL}</dt>
+            <dd className="text-foreground tabular-nums">
+              {spendShown(parts.pairing)}
+            </dd>
+          </div>
+        )}
         {replay.totals.spentElsewhere.length > 0 && (
           <div className="flex gap-1" title={ELSEWHERE_NOTE}>
             <dt>Also spent</dt>

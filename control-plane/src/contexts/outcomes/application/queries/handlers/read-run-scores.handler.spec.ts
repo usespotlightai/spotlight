@@ -33,6 +33,8 @@ const JUDGE: StationJudge = {
   lineId: 'line_1',
   rubric: 'Did the run retry uploads?',
   rubricVersion: RUBRIC_VERSION,
+  claims: [],
+  passShare: 1,
   sample: 1,
   trust: 0.5,
 };
@@ -52,6 +54,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
       fingerprint: null,
       scale: ScoreScale.yesNo(),
       value: 1,
+      marks: null,
       rubricVersion: scoredBy,
       model: 'some/model',
       reasons: [

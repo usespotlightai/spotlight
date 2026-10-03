@@ -24,6 +24,8 @@ const JUDGE: StationJudge = {
   lineId: 'line_1',
   rubric: 'Did the run retry uploads?',
   rubricVersion: RUBRIC_VERSION,
+  claims: [],
+  passShare: 1,
   sample: 1,
   trust: 0.5,
 };

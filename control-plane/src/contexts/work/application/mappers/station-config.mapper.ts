@@ -70,7 +70,7 @@ export const StationConfigMapper = {
         ...(station.judge
           ? {
               judge: {
-                rubricDigest: digest.sha256(station.judge.rubric),
+                rubricDigest: digest.sha256(station.judge.criteria),
                 sample: station.judge.sample,
                 trust: station.judge.trust,
               },

@@ -171,6 +171,7 @@ export class StartSanityReplayHandler
               ceiling,
               repeats: command.repeats,
               comparedWith: comparable?.id ?? comparisonId,
+              pairsWith: comparable?.id ?? comparisonId,
               at,
               by,
             }),

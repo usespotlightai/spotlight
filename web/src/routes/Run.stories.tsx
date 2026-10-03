@@ -5,6 +5,7 @@ import { Run } from '@/routes/Run';
 import {
   failReplayRun,
   REPLAY_RUN_ID,
+  seedClaimsReplayRun,
   seedEmptyReplayRun,
   seedReplayRun,
   seedReplayRunAwaiting,
@@ -19,6 +20,7 @@ import {
   SLUG,
   seedCarryingOnRun,
   seedChangedConfigRun,
+  seedClaimsJudgedRun,
   seedJudgedRun,
   seedJudgeHiddenRun,
   seedParkedRun,
@@ -165,6 +167,15 @@ export const Judged: Story = {
   ),
 };
 
+export const JudgedByClaims: Story = {
+  name: 'Judged by claims',
+  render: () => (
+    <StoryPage at={at} seed={seedClaimsJudgedRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
 export const JudgeHidden: Story = {
   name: 'Judge score hidden',
   render: () => (
@@ -214,6 +225,15 @@ export const Replay: Story = {
   name: 'Replay run',
   render: () => (
     <StoryPage at={replayAt} seed={seedReplayRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ReplayByClaims: Story = {
+  name: 'Replay run judged by claims',
+  render: () => (
+    <StoryPage at={replayAt} seed={seedClaimsReplayRun}>
       {routes}
     </StoryPage>
   ),

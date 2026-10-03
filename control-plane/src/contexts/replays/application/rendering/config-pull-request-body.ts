@@ -12,6 +12,12 @@ interface ShownGain {
   readonly tasks: number;
 }
 
+interface ShownPairs {
+  readonly wins: number;
+  readonly losses: number;
+  readonly ties: number;
+}
+
 interface PickedScores {
   readonly searchScore: number | null;
   readonly searchInterval: ShownInterval | null;
@@ -39,6 +45,10 @@ export interface ConfigPullRequestFacts {
   readonly gains: {
     readonly searched: ShownGain | null;
     readonly heldOut: ShownGain | null;
+  };
+  readonly pairs: {
+    readonly searched: ShownPairs | null;
+    readonly heldOut: ShownPairs | null;
   };
   readonly onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
   readonly heldOutPending: boolean;
@@ -82,6 +92,11 @@ const gainSays = (where: string, gain: ShownGain | null): string | null => {
 
 const plural = (count: number, one: string, many = `${one}s`): string =>
   `${count} ${count === 1 ? one : many}`;
+
+const pairsSay = (where: string, pairs: ShownPairs | null): string | null =>
+  pairs && pairs.wins + pairs.losses + pairs.ties > 0
+    ? `Set side by side with the live config's change on the ${where} tasks, without the judge knowing which was which, its change was better on ${plural(pairs.wins, 'task')}, worse on ${plural(pairs.losses, 'task')} and as good on ${plural(pairs.ties, 'task')}.`
+    : null;
 
 const onlyOnSeenTasksSays = (facts: ConfigPullRequestFacts): string | null => {
   const { searched, heldOut } = facts.gains;
@@ -151,6 +166,8 @@ export const ConfigPullRequestBody = {
         ...[
           gainSays('searched', facts.gains.searched),
           gainSays('held-out', facts.gains.heldOut),
+          pairsSay('searched', facts.pairs.searched),
+          pairsSay('held-out', facts.pairs.heldOut),
         ].flatMap((each) => (each ? ['', each] : [])),
       ].join('\n'),
       ...(facts.unchecked.length > 0

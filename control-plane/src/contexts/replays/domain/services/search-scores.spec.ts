@@ -107,6 +107,35 @@ describe('scoresOf', () => {
     expect(scores.seed.finished).toBe(false);
   });
 
+  it('tallies each candidate’s side-by-side verdicts against the seed, and none for the seed itself or a candidate not yet replayed', () => {
+    const search = searchWith();
+    const seed = replayedAs(
+      replayFor(SET, 'replay_seed', 'candidate_live', null, true),
+      () => 'completed',
+    );
+    const terse = replayedAs(
+      replayFor(
+        SET,
+        'replay_terse',
+        'candidate_terse',
+        search.split.searchedRuns,
+        false,
+        1,
+        undefined,
+        'replay_seed',
+      ),
+      () => 'completed',
+    );
+
+    const scores = scoresOf(search, [seed, terse], 0.05);
+    const [first, second] = scores.candidates;
+
+    expect(scores.seed.searchedPairs).toBeNull();
+    expect(first?.searchedPairs).toEqual({ wins: 0, losses: 0, ties: 0 });
+    expect(first?.heldOutPairs).toBeNull();
+    expect(second?.searchedPairs).toBeNull();
+  });
+
   it('gives a held-out score once the candidate’s held-out replay finished, and feeds the frontier', () => {
     const ids = searchRunIds();
     let search = searchWith()

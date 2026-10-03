@@ -84,6 +84,8 @@ const replay = (over: Partial<Replay>): Replay =>
       minGain: 0.05,
       tasks: 4,
     },
+    pairedWith: 'baseline',
+    pairsAgainstBaseline: { wins: 2, losses: 1, ties: 1 },
     ...over,
   }) as Replay;
 
@@ -146,6 +148,7 @@ describe('ReplaySets', () => {
       replay({
         id: 'baseline',
         isBaseline: true,
+        pairedWith: null,
         startedAt: '2026-10-01T09:00:00.000Z',
         totals: { successRate: 0.5 } as Replay['totals'],
       }),
@@ -169,6 +172,11 @@ describe('ReplaySets', () => {
     ).toHaveAttribute('data-verdict', 'better');
     expect(success).toHaveTextContent(
       '+25 pts(+5 to +45)vs baseline 50%· Better',
+    );
+    expect(
+      success?.querySelector('[data-slot="pair-tally"]'),
+    ).toHaveTextContent(
+      'Side by side with the baseline: 2 wins, 1 loss, 1 tie',
     );
   });
 });

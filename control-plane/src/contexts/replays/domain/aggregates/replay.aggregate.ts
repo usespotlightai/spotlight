@@ -4,8 +4,11 @@ import type {
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
+import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
+import { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
+import { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
 import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
 import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
@@ -17,6 +20,7 @@ import type { Scoring } from '@replays/domain/services/entry-result';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import type { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
+import type { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
@@ -71,6 +75,7 @@ interface State {
   readonly repeats: number;
   readonly probe: boolean;
   readonly comparedWith: ReplayId | null;
+  readonly pairsWith: ReplayId | null;
   readonly searchId: SearchId | null;
   readonly state: ReplayState;
   readonly entries: readonly ReplayEntry[];
@@ -83,6 +88,16 @@ interface State {
 const DISPATCHING: readonly ReplayState[] = ['queued', 'running'];
 
 const STOPPED_BEFORE_JUDGING = 'stopped-before-judging';
+
+export const PAIRING_STATE = 'finished' satisfies ReplayState;
+
+export const PAIR_ATTEMPTS = 2;
+
+const JUDGED_BOTH_WAYS = 2;
+
+const OTHER_RUBRIC = 'other-rubric';
+
+const OUT_OF_BUDGET = 'budget';
 
 const copiesOf = (
   entries: readonly ReplaySetEntry[],
@@ -125,6 +140,7 @@ export class Replay extends EventRecorder {
     repeats?: number;
     probe?: boolean;
     comparedWith?: ReplayId;
+    pairsWith?: ReplayId | null;
     searchId?: SearchId;
     unpricedRate?: Spend;
   }): Replay {
@@ -134,6 +150,7 @@ export class Replay extends EventRecorder {
     const repeats = input.repeats ?? 1;
     const probe = input.probe ?? false;
     const comparedWith = input.comparedWith ?? null;
+    const pairsWith = wanting ? wanting.id : (input.pairsWith ?? null);
 
     set.stillAtItsStation();
 
@@ -179,6 +196,19 @@ export class Replay extends EventRecorder {
       );
     }
     if (
+      pairsWith &&
+      (input.baseline ||
+        probe ||
+        pairsWith.equals(input.id) ||
+        (wanting !== null &&
+          input.pairsWith &&
+          !input.pairsWith.equals(wanting.id)))
+    ) {
+      throw new InvalidReplayError(
+        'is set side by side with another replay, the baseline it wants or the one standing, only when it is neither a baseline nor a probe',
+      );
+    }
+    if (
       probe &&
       (!input.candidate.isLive ||
         among ||
@@ -219,6 +249,7 @@ export class Replay extends EventRecorder {
       repeats,
       probe,
       comparedWith,
+      pairsWith,
       searchId: input.searchId ?? null,
       state: 'queued',
       entries: copiesOf(
@@ -322,6 +353,164 @@ export class Replay extends EventRecorder {
     return { judges: this.state.judges, checks: this.state.checked };
   }
 
+  get pairsWith(): ReplayId | null {
+    return this.state.pairsWith;
+  }
+
+  get pairs(): boolean {
+    return this.state.judges && this.state.pairsWith !== null;
+  }
+
+  get takesPairings(): boolean {
+    return this.state.state === PAIRING_STATE;
+  }
+
+  private pairingEstimateOf(entry: ReplayEntry): Spend {
+    return this.chargeOf(entry.judgingSpent ? [entry.judgingSpent] : []).scaled(
+      JUDGED_BOTH_WAYS * PAIR_ATTEMPTS,
+      1,
+    );
+  }
+
+  private get awaitsPairing(): boolean {
+    return this.state.entries.some(
+      (each) => each.pairing === null && each.pairableFor(this.scoring),
+    );
+  }
+
+  private counterpartEntryOf(
+    counterpart: Replay,
+    entry: ReplayEntry,
+  ): ReplayEntry | null {
+    const copies = counterpart.entries.filter((each) =>
+      each.original.equals(entry.original),
+    );
+
+    return (
+      copies.find((each) => each.repeat === entry.repeat) ??
+      copies.find((each) => each.repeat === 1) ??
+      null
+    );
+  }
+
+  pairedAgainst(
+    counterpart: Replay,
+    accepted: (original: RunId) => boolean,
+  ): Replay {
+    if (
+      !this.pairs ||
+      !this.takesPairings ||
+      !this.state.pairsWith?.equals(counterpart.id)
+    ) {
+      return this;
+    }
+
+    const otherRubric = counterpart.rubricVersion !== this.state.rubricVersion;
+    const outstanding = this.state.entries.filter(
+      (each) => each.pairing?.pending,
+    );
+    let reserved = outstanding.reduce(
+      (held, each) => held.plus(this.pairingEstimateOf(each)),
+      this.charged,
+    );
+    const wanted: { run: RunId; against: RunId; original: RunId }[] = [];
+    const overBudget: ReplayEntry[] = [];
+    const entries = this.state.entries.map((entry) => {
+      const theirs = this.counterpartEntryOf(counterpart, entry);
+      const run = entry.run;
+      const against = theirs?.run;
+
+      if (
+        !run ||
+        !against ||
+        !theirs.pairableFor(counterpart.scoring) ||
+        !entry.wantsPairing(this.scoring) ||
+        !accepted(entry.original)
+      ) {
+        return entry;
+      }
+      if (otherRubric) {
+        return entry.pairingLeft(against, OTHER_RUBRIC);
+      }
+
+      const expected = reserved.plus(this.pairingEstimateOf(entry));
+
+      if (!expected.isWithin(this.state.ceiling)) {
+        overBudget.push(entry);
+        return entry;
+      }
+
+      reserved = expected;
+      wanted.push({ run, against, original: entry.original });
+      return entry.pairingAsked(against);
+    });
+    const settled =
+      outstanding.length === 0 && wanted.length === 0
+        ? entries.map((entry) => {
+            const against = this.counterpartEntryOf(counterpart, entry)?.run;
+
+            return against && overBudget.includes(entry)
+              ? entry.pairingLeft(against, OUT_OF_BUDGET)
+              : entry;
+          })
+        : entries;
+
+    if (settled.every((each, place) => each === this.state.entries[place])) {
+      return this;
+    }
+
+    const asked = this.with({ entries: settled });
+
+    for (const each of wanted) {
+      asked.record(
+        new ReplayPairJudgingWanted(
+          this.id,
+          this.workspaceId,
+          this.state.candidateId,
+          each.run,
+          each.against,
+          each.original,
+        ),
+      );
+    }
+
+    return asked;
+  }
+
+  paired(
+    run: RunId,
+    against: RunId,
+    verdict: PairVerdict,
+    spent: ModelSpent | null,
+  ): Replay {
+    return this.pairingSettled(
+      this.secondRound(run, (entry) => entry.paired(against, verdict, spent)),
+    );
+  }
+
+  pairingFailed(
+    run: RunId,
+    against: RunId,
+    why: string,
+    spent: ModelSpent | null,
+  ): Replay {
+    return this.pairingSettled(
+      this.secondRound(run, (entry) =>
+        entry.pairingFailed(against, why, spent),
+      ),
+    );
+  }
+
+  private pairingSettled(changed: Replay): Replay {
+    if (changed === this || !changed.awaitsPairing) {
+      return changed;
+    }
+
+    changed.record(new ReplayPairingDue(this.id, this.workspaceId));
+
+    return changed;
+  }
+
   get ceiling(): Spend {
     return this.state.ceiling;
   }
@@ -410,9 +599,11 @@ export class Replay extends EventRecorder {
     return rate ? priced.plus(rate.scaled(this.unpricedIn(spends), 1)) : priced;
   }
 
-  private get rejudgingSpends(): readonly ModelSpent[] {
+  private get secondRoundSpends(): readonly ModelSpent[] {
     return this.state.entries.flatMap((each) =>
-      each.rejudgingSpent ? [each.rejudgingSpent] : [],
+      [each.rejudgingSpent, each.pairingSpent].flatMap((spent) =>
+        spent ? [spent] : [],
+      ),
     );
   }
 
@@ -434,7 +625,7 @@ export class Replay extends EventRecorder {
 
   get charged(): Spend {
     const rate = this.state.unpricedRate;
-    const spent = this.spent.plus(this.chargeOf(this.rejudgingSpends));
+    const spent = this.spent.plus(this.chargeOf(this.secondRoundSpends));
 
     return rate ? spent.plus(rate.scaled(this.unpricedRuns, 1)) : spent;
   }
@@ -705,25 +896,22 @@ export class Replay extends EventRecorder {
     }
 
     const wanted: ReplayEntry[] = [];
+    let concluded = false;
     const entries = this.state.entries.map((each) => {
       if (!each.ranAs(run)) {
         return each;
       }
 
-      const changed = change(each);
+      const settled = this.settledFrom(each, change(each));
 
-      if (!changed.wantsJudging(this.scoring)) {
-        return changed.scored(this.scoring);
+      if (settled.newly) {
+        concluded = true;
+      }
+      if (settled.wanted) {
+        wanted.push(settled.entry);
       }
 
-      if (!this.isDispatching) {
-        return changed
-          .judgingFailed(STOPPED_BEFORE_JUDGING, null)
-          .scored(this.scoring);
-      }
-
-      wanted.push(changed);
-      return changed.judgingAsked().scored(this.scoring);
+      return settled.entry;
     });
 
     if (entries.every((each, place) => each === this.state.entries[place])) {
@@ -731,6 +919,17 @@ export class Replay extends EventRecorder {
     }
 
     const changed = this.with({ entries });
+
+    if (concluded) {
+      changed.record(
+        new ReplayEntryConcluded(
+          this.id,
+          this.workspaceId,
+          this.state.setId,
+          run,
+        ),
+      );
+    }
 
     for (const entry of wanted) {
       changed.record(
@@ -745,6 +944,35 @@ export class Replay extends EventRecorder {
     }
 
     return changed.finishedAt(at).overBudgetAt(at);
+  }
+
+  private settledFrom(
+    was: ReplayEntry,
+    changed: ReplayEntry,
+  ): { entry: ReplayEntry; wanted: boolean; newly: boolean } {
+    const scoring = this.scoring;
+    let entry: ReplayEntry;
+    let wanted = false;
+
+    if (!changed.wantsJudging(scoring)) {
+      entry = changed.scored(scoring);
+    } else if (!this.isDispatching) {
+      entry = changed
+        .judgingFailed(STOPPED_BEFORE_JUDGING, null)
+        .scored(scoring);
+    } else {
+      wanted = true;
+      entry = changed.judgingAsked().scored(scoring);
+    }
+
+    return {
+      entry,
+      wanted,
+      newly:
+        !(was.isSettled && was.concludedFor(scoring)) &&
+        entry.isSettled &&
+        entry.concludedFor(scoring),
+    };
   }
 
   private overBudgetAt(at: Date): Replay {

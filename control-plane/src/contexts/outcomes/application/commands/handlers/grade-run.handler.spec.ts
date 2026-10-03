@@ -29,6 +29,19 @@ const NUMBER_JUDGE: StationJudge = {
   lineId: 'line_1',
   rubric: 'scores: 1-5\nHow well did it retry?',
   rubricVersion: RUBRIC_VERSION,
+  claims: [],
+  passShare: 1,
+  sample: 1,
+  trust: 0.5,
+};
+
+const CLAIMS_JUDGE: StationJudge = {
+  teamId: 'team_1',
+  lineId: 'line_1',
+  rubric: null,
+  rubricVersion: RUBRIC_VERSION,
+  claims: ['It retries the upload.', 'It adds a test.'],
+  passShare: 1,
   sample: 1,
   trust: 0.5,
 };
@@ -82,7 +95,9 @@ const grading = async (
     scores,
     reports,
     grade: (value: boolean | number | null, by = 'user_ada', runId = 'run_1') =>
-      handler.execute(new GradeRunCommand('team_1', runId, value, by)),
+      handler.execute(new GradeRunCommand('team_1', runId, value, null, by)),
+    gradeClaims: (claims: readonly boolean[] | null, by = 'user_ada') =>
+      handler.execute(new GradeRunCommand('team_1', 'run_1', null, claims, by)),
   };
 };
 
@@ -116,6 +131,40 @@ describe('GradeRunHandler', () => {
     const scores = await run.grade(false, 'user_grace');
 
     expect(scores.grades).toHaveLength(2);
+  });
+
+  it('grades a claims judge claim by claim, naming the claims to grade, and refuses a single value or the wrong number of claims', async () => {
+    const run = await grading(null, CLAIMS_JUDGE);
+
+    const scores = await run.gradeClaims([true, false]);
+
+    expect(scores.kind).toBe('claims');
+    expect(scores.claims).toEqual(CLAIMS_JUDGE.claims);
+    expect(scores.grades[0]).toMatchObject({
+      value: 0.5,
+      marks: [true, false],
+      label: '50% of claims met',
+    });
+    await expect(run.grade(true)).rejects.toBeInstanceOf(UseCaseFault);
+    await expect(run.gradeClaims([true])).rejects.toBeInstanceOf(UseCaseFault);
+  });
+
+  it('grades the claims the judge marked, even once the station’s claims changed', async () => {
+    const run = await grading(null, {
+      ...CLAIMS_JUDGE,
+      rubricVersion: 'd'.repeat(64),
+    });
+    await run.scores.add(
+      judgeScore('run_1', ScoreScale.claims(), 0, {
+        taskId: 'task_1',
+        marks: [true, true, false],
+      }),
+    );
+
+    const scores = await run.gradeClaims([true, true, true]);
+
+    expect(scores.claims).toEqual([null, null, null]);
+    expect(scores.grades[0]?.marks).toEqual([true, true, true]);
   });
 
   it('grades on 1 to 5 where the judge did', async () => {

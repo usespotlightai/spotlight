@@ -78,6 +78,8 @@ const LINES: LineResponseDto[] = [
         judge: {
           rubric:
             '## A good run\n\n- Changes only what the spec asks for\n- Leaves the tests passing\n- Says what it could not do',
+          claims: [],
+          passShare: 1,
           sample: 0.2,
           trust: 0.6,
         },
@@ -304,7 +306,14 @@ const daysAgo = (days: number): string =>
 
 const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
   stationId: STATION_ID,
-  judge: { rubricVersion: RUBRIC, kind: 'yes-no', sample: 0.2, trust: 0.6 },
+  judge: {
+    rubricVersion: RUBRIC,
+    kind: 'yes-no',
+    claims: [],
+    passShare: 1,
+    sample: 0.2,
+    trust: 0.6,
+  },
   standing: {
     trusted: true,
     measure: 'kappa',
@@ -326,6 +335,7 @@ const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
         kappa: 0.71,
         spearman: null,
         mae: null,
+        claims: [],
       },
       confusion: {
         labels: ['no', 'yes'],
@@ -355,6 +365,7 @@ const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
         kappa: null,
         spearman: 0.42,
         mae: 1.1,
+        claims: [],
       },
       confusion: {
         labels: ['1', '2', '3', '4', '5'],
@@ -457,6 +468,75 @@ export const failStationOutcomes = (client: QueryClient) => {
 export const refuseStationOutcomes = (client: QueryClient) => {
   seedAround(client);
   failQuery(client, stationOutcomeKeys.forStation(STATION_ID), NOT_ON_TEAM);
+};
+
+const STATION_CLAIMS = [
+  'Changes only what the spec asks for',
+  'Leaves the tests passing',
+  'Says what it could not do',
+];
+
+const CLAIMS_LINES: LineResponseDto[] = LINES.map((line) => ({
+  ...line,
+  stations: line.stations.map((each) =>
+    each.id === STATION_ID && each.judge
+      ? {
+          ...each,
+          judge: {
+            ...each.judge,
+            rubric: null,
+            claims: STATION_CLAIMS,
+            passShare: 0.6,
+          },
+        }
+      : each,
+  ),
+}));
+
+const CLAIMS_AGREEMENT: StationJudgeAgreementResponseDto = {
+  ...JUDGE_AGREEMENT,
+  judge: {
+    rubricVersion: RUBRIC,
+    kind: 'claims',
+    claims: STATION_CLAIMS,
+    passShare: 0.6,
+    sample: 0.2,
+    trust: 0.6,
+  },
+  versions: JUDGE_AGREEMENT.versions.map((version) =>
+    version.current
+      ? {
+          ...version,
+          kind: 'claims',
+          agreement: {
+            ...version.agreement,
+            observed: 0.82,
+            kappa: 0.64,
+            claims: [
+              { index: 0, pairs: 24, observed: 0.92, kappa: 0.81 },
+              { index: 1, pairs: 24, observed: 0.88, kappa: 0.72 },
+              { index: 2, pairs: 20, observed: 0.65, kappa: 0.31 },
+            ],
+          },
+          confusion: {
+            labels: ['not met', 'met'],
+            cells: [
+              [14, 6],
+              [7, 41],
+            ],
+          },
+        }
+      : version,
+  ),
+};
+
+export const seedStationClaimsJudge = (client: QueryClient) => {
+  seedStation(client);
+  client.setQueryData(lineKeys.forTeam(TEAM_ID), CLAIMS_LINES);
+  client.setQueryData(
+    stationJudgeKeys.forStation(STATION_ID),
+    CLAIMS_AGREEMENT,
+  );
 };
 
 export const failStation = (client: QueryClient) => {

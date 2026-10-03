@@ -24,12 +24,14 @@ export interface CitationDto {
 
 export interface JudgeReasonDto {
   readonly text: string;
+  readonly claim: number | null;
   readonly citations: readonly CitationDto[];
 }
 
 export interface JudgeScoreDto {
   readonly kind: ScoreKind;
   readonly value: number;
+  readonly marks: readonly boolean[] | null;
   readonly label: string;
   readonly rubricVersion: string;
   readonly model: string;
@@ -42,6 +44,7 @@ export interface GradeDto {
   readonly mine: boolean;
   readonly kind: ScoreKind;
   readonly value: number;
+  readonly marks: readonly boolean[] | null;
   readonly label: string;
   readonly at: string;
 }
@@ -51,6 +54,7 @@ export interface RunScoresDto {
   readonly taskId: string;
   readonly stationId: string;
   readonly kind: ScoreKind;
+  readonly claims: readonly (string | null)[];
   readonly judged: boolean;
   readonly judge: JudgeScoreDto | null;
   readonly standing: JudgeStanding;

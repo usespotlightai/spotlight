@@ -3,7 +3,9 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
 
 export interface StationJudgeSummary {
-  readonly rubric: string;
+  readonly rubric: string | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly sample: number;
   readonly trust: number;
 }

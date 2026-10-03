@@ -2,8 +2,10 @@ import type {
   EntryChecksResponseDto,
   EntryComparisonResponseDto,
   EntryJudgeResponseDto,
+  EntryPairResponseDto,
   EntryReasonResponseDto,
   GainReadingResponseDto,
+  PairTallyResponseDto,
   RateIntervalResponseDto,
   ReplayEntryResponseDto,
   ReplayResponseDto,
@@ -24,6 +26,9 @@ export type ScoreUncompared = NonNullable<
 >;
 type CheckSkip = NonNullable<EntryChecksResponseDto['why']>;
 export type GainVerdictCode = GainReadingResponseDto['verdict'];
+export type PairOutcome = NonNullable<EntryComparisonResponseDto['pair']>;
+export type PairTally = PairTallyResponseDto;
+type Unpaired = NonNullable<EntryPairResponseDto['unpaired']>;
 
 const REFUSALS: Record<ReplayRefusal, string> = {
   'unknown-run': 'There is no such run',
@@ -766,3 +771,95 @@ export const SAME_AS_LIVE =
 
 export const NO_HARNESS =
   'The station names no harness, so there is no model to choose.';
+
+export const CLOSER_TO_ACCEPTED = 'Closer to the accepted change';
+
+export const SIDE_BY_SIDE_WITH = 'Side by side with';
+
+export const THE_SEARCH_START = 'the search’s starting config';
+
+export const AN_EARLIER_BASELINE = 'an earlier baseline';
+
+export const versusShown = (measure: string, against: string): string =>
+  `${measure} vs ${against}`;
+
+export const pairTallyShown = (tally: PairTally): string =>
+  [
+    counted(tally.wins, 'win', 'wins'),
+    counted(tally.losses, 'loss', 'losses'),
+    counted(tally.ties, 'tie', 'ties'),
+  ].join(', ');
+
+export const pairTallyNote = (against: string): string =>
+  `Each task’s change set beside ${against}’s, without the judge knowing which is which: a win when this one is closer to the change people accepted, a loss when ${against}’s is, a tie when neither is. It never changes the success rate.`;
+
+export const pairsJudged = (tally: PairTally | null): tally is PairTally =>
+  tally !== null && tally.wins + tally.losses + tally.ties > 0;
+
+export const capitalised = (words: string): string =>
+  `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+
+export const pairShown = (
+  pair: PairOutcome | null,
+  against: string,
+): string => {
+  switch (pair) {
+    case 'win':
+      return 'This one';
+    case 'loss':
+      return capitalised(against);
+    case 'tie':
+      return 'Neither';
+    case null:
+      return '–';
+  }
+};
+
+export const OTHER_CHANGE = 'the other change';
+
+export const OTHER_RUN = 'The other run';
+
+export const READINGS_LABEL = 'Both readings';
+
+export const PAIR_ASKED =
+  'Not judged side by side yet: that happens once the replay finishes.';
+
+export const PAIRING_SPEND_LABEL = 'Side by side';
+
+export const PAIRING_SPEND_NOTE =
+  'Judging changes side by side counts against the ceiling, but not toward cost per run.';
+
+export const COMPARED_WITH = 'Each task compared with';
+
+const UNPAIRED: Record<Unpaired, string> = {
+  unavailable: 'no judge model was available',
+  'unreadable-rubric': 'the rubric could not be read',
+  'no-evidence': 'there was nothing to compare',
+  refused: 'the judge declined',
+  unreadable: 'the judge’s answer could not be read',
+  ungrounded: 'the judge cited nothing either change did',
+  errored: 'judging went wrong',
+  interrupted: 'judging was interrupted',
+  'other-rubric': 'its counterpart was judged by another version of the judge',
+  budget: 'no room was left under the ceiling',
+};
+
+export const READINGS_DISAGREED =
+  'The judge read the two changes both ways round and picked a different one depending on which it saw first, so this counts as a tie.';
+
+export const unpairedShown = (why: Unpaired | null): string =>
+  `Not judged side by side: ${why ? UNPAIRED[why] : 'nothing was set beside it'}.`;
+
+export const readingShown = (ownShownFirst: boolean): string =>
+  ownShownFirst
+    ? 'With this change shown first'
+    : 'With the other change shown first';
+
+export const citedHunksShown = (own: number, theirs: number): string | null => {
+  const parts = [
+    ...(own > 0 ? [`${counted(own, 'hunk', 'hunks')} of this change`] : []),
+    ...(theirs > 0 ? [`${counted(theirs, 'hunk', 'hunks')} of the other`] : []),
+  ];
+
+  return parts.length > 0 ? `Cites ${parts.join(' and ')}` : null;
+};

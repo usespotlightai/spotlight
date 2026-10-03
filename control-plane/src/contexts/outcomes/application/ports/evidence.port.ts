@@ -17,7 +17,9 @@ export interface RunEvidence {
 export interface StationJudge {
   readonly teamId: string;
   readonly lineId: string;
-  readonly rubric: string;
+  readonly rubric: string | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly rubricVersion: string;
   readonly sample: number;
   readonly trust: number;

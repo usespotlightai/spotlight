@@ -45,7 +45,12 @@ const toJudging = (row: JudgingRow): Judging =>
       taskId: TaskId.of(row.taskId),
     }),
     fingerprint: row.fingerprint,
-    rubric: Rubric.of({ text: row.rubric, version: row.rubricVersion }),
+    rubric: Rubric.of({
+      text: row.rubric,
+      claims: row.claims,
+      passShare: row.passShare,
+      version: row.rubricVersion,
+    }),
     askedAt: row.askedAt,
     work: row.owed
       ? OwedWork.rehydrate({
@@ -88,6 +93,8 @@ export class DrizzleJudgingRepository implements JudgingRepository {
           taskId: added.place.taskId.value,
           fingerprint: added.fingerprint,
           rubric: added.rubric.text,
+          claims: [...added.rubric.criteria.claims],
+          passShare: added.rubric.criteria.passShare,
           rubricVersion: added.rubric.version,
           askedAt: added.askedAt,
           version: added.version,

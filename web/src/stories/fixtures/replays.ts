@@ -256,12 +256,18 @@ const entry = (
     referenced: true,
     model: 'anthropic/claude-opus-5',
     unjudged: null,
+    marks: null,
+    passShare: null,
+    claims: [],
+    reasons: [],
   },
   draftingSpent: { spends: [{ amount: 0.02, currency: 'USD' }], unpriced: 0 },
   judgingSpent: { spends: [{ amount: 0.03, currency: 'USD' }], unpriced: 0 },
   secondJudge: null,
   rejudgingSpent: null,
   recheck: null,
+  pair: null,
+  pairingSpent: null,
   result: 'succeeded',
   succeeded: true,
   reasons: [
@@ -291,6 +297,10 @@ const CANDIDATE_ENTRIES: ReplayEntryResponseDto[] = [
       referenced: true,
       model: 'anthropic/claude-opus-5',
       unjudged: null,
+      marks: null,
+      passShare: null,
+      claims: [],
+      reasons: [],
     },
     reasons: [
       { code: 'check-failed', detail: 'npm test', steps: [], hunks: [] },
@@ -325,6 +335,8 @@ const CANDIDATE_ENTRIES: ReplayEntryResponseDto[] = [
     secondJudge: null,
     rejudgingSpent: null,
     recheck: null,
+    pair: null,
+    pairingSpent: null,
     result: 'unscored',
     succeeded: null,
     reasons: [
@@ -360,6 +372,10 @@ const BASELINE_ENTRIES: ReplayEntryResponseDto[] = CANDIDATE_ENTRIES.map(
               referenced: true,
               model: 'anthropic/claude-opus-5',
               unjudged: null,
+              marks: null,
+              passShare: null,
+              claims: [],
+              reasons: [],
             },
             reasons: [
               {
@@ -389,6 +405,8 @@ const BASELINE: ReplayResponseDto = {
   endedAt: hoursAgo(25),
   totals: totals({ successRate: 0.5, succeeded: 1 }),
   againstBaseline: null,
+  pairedWith: null,
+  pairsAgainstBaseline: null,
   entries: BASELINE_ENTRIES,
 };
 
@@ -419,6 +437,8 @@ const CANDIDATE_REPLAY: ReplayResponseDto = {
     minGain: 0.05,
     tasks: 3,
   },
+  pairedWith: BASELINE_ID,
+  pairsAgainstBaseline: { wins: 1, losses: 1, ties: 0 },
   entries: CANDIDATE_ENTRIES,
 };
 
@@ -450,12 +470,14 @@ const compared = (
   scoreDelta: null,
   scoreUncompared: null,
   regressed: false,
+  pair: null,
   ...over,
 });
 
 const DETAIL: ReplayDetailResponseDto = {
   ...CANDIDATE_REPLAY,
   baselineReplayId: BASELINE_ID,
+  comparedWithReplayId: BASELINE_ID,
   search: null,
   comparison: [
     compared(
@@ -471,6 +493,7 @@ const DETAIL: ReplayDetailResponseDto = {
       {
         scoreDelta: -2,
         regressed: true,
+        pair: null,
       },
     ),
     compared(
@@ -486,6 +509,7 @@ const DETAIL: ReplayDetailResponseDto = {
 const BASELINE_DETAIL: ReplayDetailResponseDto = {
   ...BASELINE,
   baselineReplayId: BASELINE_ID,
+  comparedWithReplayId: null,
   search: null,
   comparison: BASELINE_ENTRIES.map((each) => ({
     originalRunId: each.originalRunId,
@@ -502,6 +526,7 @@ const BASELINE_DETAIL: ReplayDetailResponseDto = {
     scoreDelta: null,
     scoreUncompared: null,
     regressed: false,
+    pair: null,
   })),
 };
 
@@ -901,7 +926,129 @@ export const seedRepeatedReplay = (client: QueryClient) => {
       minGain: 0.05,
       tasks: 2,
     },
+    pairsAgainstBaseline: null,
     comparison: REPEATED_COMPARISON,
+  } satisfies ReplayDetailResponseDto);
+};
+
+const ENTRY_CLAIMS = [
+  'Retries stop on a 410 Gone',
+  'Every other failure is retried later',
+  'The queue is drained',
+];
+
+const CLAIMS_JUDGE = (marks: boolean[]): ReplayEntryResponseDto['judge'] => ({
+  state: 'judged',
+  scale: 'claims',
+  score: marks.filter(Boolean).length / marks.length,
+  passed: marks.every(Boolean),
+  marks,
+  passShare: 1,
+  referenced: true,
+  model: 'anthropic/claude-opus-5',
+  unjudged: null,
+  claims: ENTRY_CLAIMS,
+  reasons: [
+    {
+      text: 'The change returns early on a 410, so those jobs are not retried.',
+      claim: 0,
+      citations: [
+        {
+          kind: 'hunk',
+          step: null,
+          hunk: {
+            id: 'worker/services/retry.ts#1',
+            path: null,
+            header: null,
+            lines: [],
+          },
+        },
+      ],
+    },
+    {
+      text: 'Other failures are dropped instead of being queued for later.',
+      claim: 1,
+      citations: [
+        {
+          kind: 'step',
+          step: { index: 2, kind: null, tool: null, text: null },
+          hunk: null,
+        },
+      ],
+    },
+  ],
+});
+
+const PAIR: NonNullable<ReplayEntryResponseDto['pair']> = {
+  state: 'judged',
+  againstRunId: 'run_replay_drain_baseline',
+  outcome: 'tie',
+  model: 'anthropic/claude-opus-5',
+  unpaired: null,
+  readings: [
+    {
+      ownShownFirst: true,
+      outcome: 'win',
+      reasons: [
+        {
+          text: 'Like the accepted change, it stops retrying on a 410.',
+          ownHunks: ['worker/services/retry.ts#1'],
+          theirHunks: [],
+        },
+      ],
+    },
+    {
+      ownShownFirst: false,
+      outcome: 'loss',
+      reasons: [
+        {
+          text: 'The other change keeps later retries for other failures, as the accepted one does.',
+          ownHunks: [],
+          theirHunks: ['worker/services/retry.ts#1', 'worker/queue.ts#2'],
+        },
+      ],
+    },
+  ],
+};
+
+const judgedByClaims = (
+  entry: ReplayEntryResponseDto,
+  marks: boolean[],
+): ReplayEntryResponseDto =>
+  entry.judge?.state === 'judged'
+    ? { ...entry, judge: CLAIMS_JUDGE(marks) }
+    : entry;
+
+const PAIRS: EntryComparisonResponseDto['pair'][] = ['win', 'loss', null];
+
+const PAIRED_ENTRY_CLAIMS = [true, false, true];
+
+const PAIRED_COMPARISON: EntryComparisonResponseDto[] = DETAIL.comparison.map(
+  (row, place) => ({
+    ...row,
+    candidate: row.candidate.map((each) =>
+      judgedByClaims(each, PAIRED_ENTRY_CLAIMS),
+    ),
+    baseline: row.baseline.map((each) =>
+      judgedByClaims(each, [true, false, false]),
+    ),
+    pair: PAIRS[place] ?? null,
+  }),
+);
+
+export const seedPairedReplay = (client: QueryClient) => {
+  seedReplayAround(client);
+  client.setQueryData(replayKeys.detail(REPLAY_ID), {
+    ...DETAIL,
+    pairsAgainstBaseline: { wins: 1, losses: 1, ties: 0 },
+    entries: DETAIL.entries.map((each) => ({
+      ...each,
+      pairingSpent: {
+        spends: [{ amount: 0.04, currency: 'USD' }],
+        unpriced: 0,
+      },
+    })),
+    comparison: PAIRED_COMPARISON,
   } satisfies ReplayDetailResponseDto);
 };
 
@@ -1037,6 +1184,21 @@ export const seedReplayRun = (client: QueryClient) => {
   seedReplayRunAround(client);
   client.setQueryData(replayRunKeys.forRun(REPLAY_RUN_ID), REPLAY_RUN);
   client.setQueryData(replayRunKeys.replayOf(REPLAY_RUN_ID), REPLAY_OF_RUN);
+};
+
+export const seedClaimsReplayRun = (client: QueryClient) => {
+  seedReplayRunAround(client);
+  client.setQueryData(replayRunKeys.forRun(REPLAY_RUN_ID), REPLAY_RUN);
+  client.setQueryData(replayRunKeys.replayOf(REPLAY_RUN_ID), {
+    ...REPLAY_OF_RUN,
+    entry: {
+      ...judgedByClaims(
+        CANDIDATE_ENTRIES[0] as ReplayEntryResponseDto,
+        PAIRED_ENTRY_CLAIMS,
+      ),
+      pair: PAIR,
+    },
+  } satisfies ReplayOfRunResponseDto);
 };
 
 export const seedEmptyReplayRun = (client: QueryClient) => {

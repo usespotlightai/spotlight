@@ -291,6 +291,10 @@ export class OpenConfigPullRequests implements OwedWorkPort {
         searched: picked?.searchedGain ?? null,
         heldOut: picked?.heldOutGain ?? null,
       },
+      pairs: {
+        searched: picked?.searchedPairs ?? null,
+        heldOut: picked?.heldOutPairs ?? null,
+      },
       onlyOnSeenTasks: overfitOf(
         picked?.searchedGain ?? null,
         picked?.heldOutGain ?? null,

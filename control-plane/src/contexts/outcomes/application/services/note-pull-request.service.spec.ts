@@ -15,6 +15,7 @@ import {
 import {
   ChangeJudgingsInMemory,
   JudgingsInMemory,
+  PairJudgingsInMemory,
   ScoresInMemory,
 } from '@outcomes/domain/judging.fake-spec';
 import {
@@ -121,6 +122,7 @@ const heldFor = () => ({
   deliveries: new TaskDeliveriesInMemory(),
   judgings: new JudgingsInMemory(),
   changeJudgings: new ChangeJudgingsInMemory(),
+  pairJudgings: new PairJudgingsInMemory(),
   scores: new ScoresInMemory(),
   touches: new TaskTouchesInMemory(),
   failures: new TaskFailuresInMemory(),
@@ -303,6 +305,7 @@ describe('forgetting outcomes', () => {
         deliveries: noted.deliveries,
         judgings: new JudgingsInMemory(),
         changeJudgings: new ChangeJudgingsInMemory(),
+        pairJudgings: new PairJudgingsInMemory(),
         scores: new ScoresInMemory(),
         touches,
         failures: new TaskFailuresInMemory(),
@@ -339,6 +342,7 @@ describe('forgetting outcomes', () => {
         deliveries: new TaskDeliveriesInMemory(),
         judgings: new JudgingsInMemory(),
         changeJudgings: new ChangeJudgingsInMemory(),
+        pairJudgings: new PairJudgingsInMemory(),
         scores: new ScoresInMemory(),
         touches,
         failures: new TaskFailuresInMemory(),
@@ -366,6 +370,7 @@ describe('forgetting outcomes', () => {
         deliveries: noted.deliveries,
         judgings: new JudgingsInMemory(),
         changeJudgings: new ChangeJudgingsInMemory(),
+        pairJudgings: new PairJudgingsInMemory(),
         scores: new ScoresInMemory(),
         touches,
         failures: new TaskFailuresInMemory(),

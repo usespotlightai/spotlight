@@ -2,6 +2,10 @@ import { resultOf, type Scoring } from '@replays/domain/services/entry-result';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import type { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
+import {
+  EntryPairing,
+  type PairVerdict,
+} from '@replays/domain/value-objects/entry-pairing.vo';
 import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
@@ -40,6 +44,8 @@ interface EntryState {
   readonly secondJudging: EntryJudging | null;
   readonly rejudgingSpent: ModelSpent | null;
   readonly recheck: ChangeChecks | null;
+  readonly pairing: EntryPairing | null;
+  readonly pairingSpent: ModelSpent | null;
 }
 
 const sameSpend = (
@@ -81,6 +87,8 @@ export class ReplayEntry {
       secondJudging: null,
       rejudgingSpent: null,
       recheck: null,
+      pairing: null,
+      pairingSpent: null,
     });
   }
 
@@ -101,6 +109,12 @@ export class ReplayEntry {
       throw new InconsistentStateError(
         'replay entry',
         'was judged a second time without a first verdict',
+      );
+    }
+    if (state.pairing !== null && state.run === null) {
+      throw new InconsistentStateError(
+        'replay entry',
+        'was compared side by side without a run of its own',
       );
     }
     if (state.recheck !== null && !isConclusive(state.checks)) {
@@ -181,6 +195,67 @@ export class ReplayEntry {
     return [this.state.draftingSpent, this.state.judgingSpent].flatMap(
       (each) => (each ? [each] : []),
     );
+  }
+
+  get pairing(): EntryPairing | null {
+    return this.state.pairing;
+  }
+
+  get pairingSpent(): ModelSpent | null {
+    return this.state.pairingSpent;
+  }
+
+  get changed(): boolean {
+    return (
+      this.state.end?.ending === 'completed' &&
+      (this.state.measures?.changedLines ?? 0) > 0
+    );
+  }
+
+  pairableFor(scoring: Scoring): boolean {
+    return (
+      this.state.run !== null && this.changed && this.concludedFor(scoring)
+    );
+  }
+
+  wantsPairing(scoring: Scoring): boolean {
+    return this.state.pairing === null && this.pairableFor(scoring);
+  }
+
+  pairingAsked(against: RunId): ReplayEntry {
+    return this.state.pairing === null
+      ? this.with({ pairing: EntryPairing.asked(against) })
+      : this;
+  }
+
+  pairingLeft(against: RunId, why: string): ReplayEntry {
+    return this.state.pairing === null
+      ? this.with({ pairing: EntryPairing.asked(against).failed(why) })
+      : this;
+  }
+
+  paired(
+    against: RunId,
+    verdict: PairVerdict,
+    spent: ModelSpent | null,
+  ): ReplayEntry {
+    const pairing = this.state.pairing;
+
+    return pairing?.pending && pairing.isAgainst(against)
+      ? this.with({ pairing: pairing.judged(verdict), pairingSpent: spent })
+      : this;
+  }
+
+  pairingFailed(
+    against: RunId,
+    why: string,
+    spent: ModelSpent | null,
+  ): ReplayEntry {
+    const pairing = this.state.pairing;
+
+    return pairing?.pending && pairing.isAgainst(against)
+      ? this.with({ pairing: pairing.failed(why), pairingSpent: spent })
+      : this;
   }
 
   get secondJudging(): EntryJudging | null {

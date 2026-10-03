@@ -52,7 +52,7 @@ export function JudgeAgreement({
     );
   }
 
-  const { standing, versions, coverage } = query.data;
+  const { standing, versions, coverage, judge } = query.data;
 
   if (versions.length === 0) {
     return (
@@ -76,7 +76,11 @@ export function JudgeAgreement({
 
       <ol aria-label="Agreement by rubric" className="flex flex-col gap-3">
         {versions.map((version) => (
-          <RubricVersionCard key={version.rubricVersion} version={version} />
+          <RubricVersionCard
+            key={version.rubricVersion}
+            version={version}
+            claims={version.current && judge ? judge.claims : []}
+          />
         ))}
       </ol>
     </div>

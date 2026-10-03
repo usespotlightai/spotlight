@@ -32,6 +32,10 @@ import {
   type ChangeJudgingPort,
 } from '@outcomes/application/ports/change-judging.port';
 import {
+  PAIR_JUDGING,
+  type PairJudgingPort,
+} from '@outcomes/application/ports/pair-judging.port';
+import {
   RUN_ACCEPTANCE,
   type RunAcceptancePort,
 } from '@outcomes/application/ports/run-acceptance.port';
@@ -142,6 +146,7 @@ import { AbandonReplayChecks } from '@replays/application/services/abandon-repla
 import { AbandonReplays } from '@replays/application/services/abandon-replays.service';
 import { AbandonSearches } from '@replays/application/services/abandon-searches.service';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
+import { AskForPairJudging } from '@replays/application/services/ask-for-pair-judging.service';
 import { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
 import { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
 import { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
@@ -159,9 +164,11 @@ import { NoteReplayChangeReviewed } from '@replays/application/services/note-rep
 import { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
 import { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
 import { NoteReplayJudged } from '@replays/application/services/note-replay-judged.service';
+import { NoteReplayPaired } from '@replays/application/services/note-replay-paired.service';
 import { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
 import { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
+import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { SearchAgents } from '@replays/application/services/search-agents.service';
 import { SearchSights } from '@replays/application/services/search-sights.service';
@@ -350,9 +357,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: OUTCOMES,
-    inject: [RUN_ACCEPTANCE, CHANGE_JUDGING],
-    useFactory: (acceptance: RunAcceptancePort, judging: ChangeJudgingPort) =>
-      new Outcomes(acceptance, judging),
+    inject: [RUN_ACCEPTANCE, CHANGE_JUDGING, PAIR_JUDGING],
+    useFactory: (
+      acceptance: RunAcceptancePort,
+      judging: ChangeJudgingPort,
+      pairs: PairJudgingPort,
+    ) => new Outcomes(acceptance, judging, pairs),
   },
   {
     provide: PEOPLE,
@@ -1014,6 +1024,32 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
+    provide: PairReplayEntries,
+    inject: [DrizzleReplayRepository, OUTCOMES, TRANSACTION],
+    useFactory: (
+      replays: DrizzleReplayRepository,
+      outcomes: OutcomesPort,
+      transaction: TransactionPort,
+    ) => new PairReplayEntries(replays, outcomes, transaction),
+  },
+  {
+    provide: AskForPairJudging,
+    inject: [DrizzleReplayRepository, DrizzleCandidateRepository, OUTCOMES],
+    useFactory: (
+      replays: DrizzleReplayRepository,
+      candidates: DrizzleCandidateRepository,
+      outcomes: OutcomesPort,
+    ) => new AskForPairJudging(replays, candidates, outcomes),
+  },
+  {
+    provide: NoteReplayPaired,
+    inject: [DrizzleReplayRepository, TRANSACTION],
+    useFactory: (
+      replays: DrizzleReplayRepository,
+      transaction: TransactionPort,
+    ) => new NoteReplayPaired(replays, transaction),
+  },
+  {
     provide: AskForReplayRejudging,
     inject: [OUTCOMES],
     useFactory: (outcomes: OutcomesPort) => new AskForReplayRejudging(outcomes),
@@ -1146,6 +1182,9 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       AskForReplayRejudging,
       AskForReplayRecheck,
       NoteReplayJudged,
+      PairReplayEntries,
+      AskForPairJudging,
+      NoteReplayPaired,
       HoldSetStartingPoints,
       LetReplayRunsGo,
       AbandonReplays,
@@ -1170,6 +1209,9 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       askingAgain: AskForReplayRejudging,
       askingRecheck: AskForReplayRecheck,
       judging: NoteReplayJudged,
+      pairing: PairReplayEntries,
+      askingPair: AskForPairJudging,
+      paired: NoteReplayPaired,
       holding: HoldSetStartingPoints,
       lettingGo: LetReplayRunsGo,
       abandoning: AbandonReplays,
@@ -1194,6 +1236,9 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           askingAgain,
           askingRecheck,
           judging,
+          pairing,
+          askingPair,
+          paired,
           holding,
           lettingGo,
           abandoning,

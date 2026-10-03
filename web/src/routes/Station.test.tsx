@@ -40,6 +40,8 @@ const line = {
       skills: ['our-migrations', 'grafana-dashboards'],
       judge: {
         rubric: '## A good run\n\n- Changes only what it must',
+        claims: [],
+        passShare: 1,
         sample: 0.2,
         trust: 0.6,
       },
@@ -193,6 +195,8 @@ const AGREEMENT = {
   judge: {
     rubricVersion: 'c'.repeat(64),
     kind: 'yes-no',
+    claims: [],
+    passShare: 1,
     sample: 0.2,
     trust: 0.6,
   },
@@ -210,6 +214,7 @@ const AGREEMENT = {
         kappa: 0.71,
         spearman: null,
         mae: null,
+        claims: [],
       },
       confusion: {
         labels: ['no', 'yes'],
@@ -241,6 +246,7 @@ const AGREEMENT = {
         kappa: null,
         spearman: 0.42,
         mae: 1.1,
+        claims: [],
       },
       confusion: {
         labels: ['1', '2', '3', '4', '5'],

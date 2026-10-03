@@ -4,6 +4,7 @@ import type {
   JudgingOrder,
   JudgingOrdered,
   OutcomesPort,
+  PairJudgingOrder,
 } from '@replays/application/ports/outcomes.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
@@ -167,6 +168,13 @@ export class InMemoryReplays {
       [...this.replays.values()].filter((each) =>
         each.candidateId.equals(candidateId),
       ),
+    pairingWith: async (replayId) =>
+      [...this.replays.values()]
+        .filter(
+          (each) =>
+            (each.pairsWith?.equals(replayId) ?? false) && each.takesPairings,
+        )
+        .map((each) => each.id),
     ofSearch: async (searchId) =>
       [...this.replays.values()].filter(
         (each) => each.searchId?.equals(searchId) ?? false,
@@ -522,7 +530,9 @@ export class FakeOutcomes implements OutcomesPort {
   readonly accepted = new Set<string>();
   readonly asked: JudgingOrder[] = [];
   readonly askedAgain: string[] = [];
+  readonly pairsAsked: PairJudgingOrder[] = [];
   answer: JudgingOrdered = 'asked';
+  pairAnswer: JudgingOrdered = 'asked';
   againAnswer: JudgingAgainOrdered = 'asked';
 
   async judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
@@ -537,6 +547,11 @@ export class FakeOutcomes implements OutcomesPort {
   async judge(order: JudgingOrder): Promise<JudgingOrdered> {
     this.asked.push(order);
     return this.answer;
+  }
+
+  async judgePair(order: PairJudgingOrder): Promise<JudgingOrdered> {
+    this.pairsAsked.push(order);
+    return this.pairAnswer;
   }
 }
 

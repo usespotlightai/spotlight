@@ -690,7 +690,7 @@ describe('a candidate', () => {
       liveDigests: live?.digests,
       live: live?.fingerprint,
       changes: [],
-      scoring: { checksChanges: false, rubric: null, rubricVersion: null },
+      scoring: { checksChanges: false, judge: null, rubricVersion: null },
       station: live?.station,
     });
     expect(
@@ -698,7 +698,7 @@ describe('a candidate', () => {
     ).toEqual(live?.station);
     expect(live?.scoring).toEqual({
       checksChanges: false,
-      rubric: null,
+      judge: null,
       rubricVersion: null,
     });
   });

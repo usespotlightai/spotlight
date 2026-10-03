@@ -1,3 +1,4 @@
+import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -8,8 +9,18 @@ export interface JudgingOrder {
   readonly run: RunId;
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly rubric: string;
+  readonly judge: JudgeCriteria;
   readonly reference: RunId | null;
+}
+
+export interface PairJudgingOrder {
+  readonly run: RunId;
+  readonly against: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly judge: JudgeCriteria;
+  readonly reference: RunId;
+  readonly mostAttempts: number;
 }
 
 export type JudgingOrdered = 'asked' | 'unavailable' | 'unreadable-rubric';
@@ -22,4 +33,6 @@ export interface OutcomesPort {
   judge(order: JudgingOrder): Promise<JudgingOrdered>;
 
   judgeAgain(run: RunId): Promise<JudgingAgainOrdered>;
+
+  judgePair(order: PairJudgingOrder): Promise<JudgingOrdered>;
 }

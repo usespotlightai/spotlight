@@ -445,7 +445,13 @@ beforeAll(async () => {
       agentPrompt: 'Build it.',
       diffs: true,
       check: 'npm test',
-      judge: { rubric: RUBRIC, sample: 0.1, trust: 0.6 },
+      judge: {
+        rubric: RUBRIC,
+        claims: [],
+        passShare: 1,
+        sample: 0.1,
+        trust: 0.6,
+      },
     },
     {
       id: SHIP,

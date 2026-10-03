@@ -1,6 +1,7 @@
 import { ListChecks } from 'lucide-react';
 import { useParams } from 'react-router';
 import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
+import { ComparedWith } from '@/components/features/replays/replay/ComparedWith';
 import { ReplayComparison } from '@/components/features/replays/replay/ReplayComparison';
 import { ReplayHeader } from '@/components/features/replays/replay/ReplayHeader';
 import { ReplaySkeleton } from '@/components/features/replays/replay/ReplaySkeleton';
@@ -113,6 +114,7 @@ export function Replay() {
 
         <section aria-labelledby="task-by-task" className="flex flex-col gap-2">
           <ReplaysHeading title="Task by task" id="task-by-task" level="h2" />
+          <ComparedWith at={at} replay={found} />
 
           {found.comparison.length === 0 ? (
             <StateBox>

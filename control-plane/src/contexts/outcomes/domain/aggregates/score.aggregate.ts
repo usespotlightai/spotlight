@@ -4,7 +4,10 @@ import type { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo
 import { isRubricVersion } from '@outcomes/domain/value-objects/rubric.vo';
 import type { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import type { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
-import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
+import {
+  type ScoreScale,
+  shareMet,
+} from '@outcomes/domain/value-objects/score-scale.vo';
 import type { ScoreSource } from '@outcomes/domain/value-objects/score-source';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -16,6 +19,8 @@ const FINGERPRINT = /^[0-9a-f]{64}$/;
 
 export const MOST_SEEN_KEPT = 64_000;
 
+const LEEWAY = 1e-9;
+
 interface ScoreState {
   readonly id: ScoreId;
   readonly runId: RunId;
@@ -25,6 +30,7 @@ interface ScoreState {
   readonly source: ScoreSource;
   readonly scale: ScoreScale;
   readonly value: number;
+  readonly marks: readonly boolean[] | null;
   readonly rubricVersion: string | null;
   readonly model: string | null;
   readonly reasons: readonly JudgeReason[];
@@ -34,10 +40,37 @@ interface ScoreState {
   readonly version: number;
 }
 
+const markedClaims = (state: ScoreState): boolean => {
+  const { marks } = state;
+
+  if (!state.scale.byClaims) {
+    return marks === null && state.reasons.every((each) => each.claim === null);
+  }
+  if (marks === null || marks.length === 0) {
+    return false;
+  }
+  if (Math.abs(shareMet(marks) - state.value) > LEEWAY) {
+    return false;
+  }
+
+  return (
+    state.source !== 'judge' ||
+    (state.reasons.every(
+      (each) => each.claim !== null && each.claim < marks.length,
+    ) &&
+      marks.every((_, at) => state.reasons.some((each) => each.claim === at)))
+  );
+};
+
 const checked = (state: ScoreState): ScoreState => {
   if (!state.scale.holds(state.value)) {
     throw new InvalidScoreError(
       `of ${state.value} is not on its ${state.scale.kind} scale`,
+    );
+  }
+  if (!markedClaims(state)) {
+    throw new InvalidScoreError(
+      'marks each claim met or not, with a reason for each from the judge, when, and only when, it is on a claims scale',
     );
   }
   if (state.fingerprint !== null && !FINGERPRINT.test(state.fingerprint)) {
@@ -97,6 +130,7 @@ export class Score extends EventRecorder {
     fingerprint: string | null;
     scale: ScoreScale;
     value: number;
+    marks: readonly boolean[] | null;
     rubricVersion: string;
     model: string;
     reasons: readonly JudgeReason[];
@@ -128,6 +162,7 @@ export class Score extends EventRecorder {
     fingerprint: string | null;
     scale: ScoreScale;
     value: number;
+    marks: readonly boolean[] | null;
     rubricVersion: string | null;
     by: UserId;
     at: Date;
@@ -184,6 +219,10 @@ export class Score extends EventRecorder {
     return this.state.value;
   }
 
+  get marks(): readonly boolean[] | null {
+    return this.state.marks;
+  }
+
   get rubricVersion(): string | null {
     return this.state.rubricVersion;
   }
@@ -219,6 +258,7 @@ export class Score extends EventRecorder {
   regraded(input: {
     scale: ScoreScale;
     value: number;
+    marks: readonly boolean[] | null;
     rubricVersion: string | null;
     at: Date;
   }): Score {
@@ -229,6 +269,7 @@ export class Score extends EventRecorder {
     if (
       this.state.scale.equals(input.scale) &&
       this.state.value === input.value &&
+      JSON.stringify(this.state.marks) === JSON.stringify(input.marks) &&
       this.state.rubricVersion === input.rubricVersion
     ) {
       return this;

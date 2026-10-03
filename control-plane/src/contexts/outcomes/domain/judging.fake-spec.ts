@@ -1,17 +1,21 @@
 import { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggregate';
 import { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
+import { PairJudging } from '@outcomes/domain/aggregates/pair-judging.aggregate';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import { ChangeJudgingMovedOnError } from '@outcomes/domain/exceptions/change-judging-moved-on.error';
 import { JudgingMovedOnError } from '@outcomes/domain/exceptions/judging-moved-on.error';
+import { PairJudgingMovedOnError } from '@outcomes/domain/exceptions/pair-judging-moved-on.error';
 import { ScoreMovedOnError } from '@outcomes/domain/exceptions/score-moved-on.error';
 import { FIRST_CONFIG, WORKSPACE } from '@outcomes/domain/outcomes.fake-spec';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
+import type { PairJudgingRepository } from '@outcomes/domain/repositories/pair-judging.repository';
 import type {
   ScoreRepository,
   StationScores,
 } from '@outcomes/domain/repositories/score.repository';
 import { Citation } from '@outcomes/domain/value-objects/citation.vo';
+import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
 import type { JudgingRound } from '@outcomes/domain/value-objects/judging-round';
 import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
@@ -30,9 +34,20 @@ export const RUBRIC_VERSION = 'c'.repeat(64);
 export const NEXT_RUBRIC_VERSION = 'd'.repeat(64);
 
 export const rubricOf = (
-  text = 'Did the run retry uploads?',
+  text: string | null = 'Did the run retry uploads?',
   version = RUBRIC_VERSION,
-): Rubric => Rubric.of({ text, version });
+  claims: readonly string[] = [],
+  passShare = 1,
+): Rubric => Rubric.of({ text, claims, passShare, version });
+
+const CLAIMS = [
+  'It retries the upload.',
+  'It adds a test for the retry.',
+  'It leaves the request handler alone.',
+] as const;
+
+export const claimsCriteria = (passShare = 1): JudgeCriteria =>
+  JudgeCriteria.of({ rubric: null, claims: CLAIMS, passShare });
 
 export const placeOf = (taskId = 'task_1', stationId = 'station_1'): RunPlace =>
   RunPlace.of({
@@ -56,14 +71,25 @@ export const askedJudging = (
     now,
   });
 
-export const reasonOf = (text = 'It retried in the request.'): JudgeReason =>
-  JudgeReason.of({ text, citations: [Citation.ofStep(1)] });
+export const reasonOf = (
+  text = 'It retried in the request.',
+  claim: number | null = null,
+): JudgeReason =>
+  JudgeReason.of({ text, citations: [Citation.ofStep(1)], claim });
+
+const shareOf = (marks: readonly boolean[]): number =>
+  marks.filter(Boolean).length / marks.length;
 
 export const judgeScore = (
   runId: string,
   scale: ScoreScale,
   value: number,
-  change: { at?: Date; rubricVersion?: string; taskId?: string } = {},
+  change: {
+    at?: Date;
+    rubricVersion?: string;
+    taskId?: string;
+    marks?: readonly boolean[];
+  } = {},
 ): Score =>
   Score.judged({
     id: ScoreId.of(`judge_${runId}_${change.rubricVersion ?? RUBRIC_VERSION}`),
@@ -72,10 +98,13 @@ export const judgeScore = (
     place: placeOf(change.taskId ?? `task_${runId}`),
     fingerprint: FIRST_CONFIG,
     scale,
-    value,
+    value: change.marks ? shareOf(change.marks) : value,
+    marks: change.marks ?? null,
     rubricVersion: change.rubricVersion ?? RUBRIC_VERSION,
     model: 'some/model',
-    reasons: [reasonOf()],
+    reasons: change.marks
+      ? change.marks.map((_, at) => reasonOf(`Claim ${at}.`, at))
+      : [reasonOf()],
     seen: SeenEvidence.none(),
     at: change.at ?? new Date('2026-09-30T10:00:00.000Z'),
   });
@@ -89,6 +118,7 @@ export const personGrade = (
     at?: Date;
     taskId?: string;
     rubricVersion?: string | null;
+    marks?: readonly boolean[];
   } = {},
 ): Score =>
   Score.graded({
@@ -98,7 +128,8 @@ export const personGrade = (
     place: placeOf(change.taskId ?? `task_${runId}`),
     fingerprint: FIRST_CONFIG,
     scale,
-    value,
+    value: change.marks ? shareOf(change.marks) : value,
+    marks: change.marks ?? null,
     rubricVersion:
       change.rubricVersion === undefined
         ? RUBRIC_VERSION
@@ -208,7 +239,7 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
         round: judging.round,
         workspaceId: judging.workspaceId,
         teamId: judging.teamId,
-        rubric: judging.rubric,
+        criteria: judging.criteria,
         reference: judging.reference,
         askedAt: judging.askedAt,
         work: judging.work,
@@ -244,6 +275,87 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
     for (const each of [...this.held.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
         this.held.delete(keyOf(each.runId, each.round));
+      }
+    }
+  }
+}
+
+const pairKeyOf = (runId: RunId, against: RunId): string =>
+  `${runId.value}#${against.value}`;
+
+export class PairJudgingsInMemory implements PairJudgingRepository {
+  readonly held = new Map<string, PairJudging>();
+  readonly events: DomainEvent[] = [];
+
+  async add(judging: PairJudging): Promise<void> {
+    const key = pairKeyOf(judging.runId, judging.against);
+
+    if (this.held.has(key)) {
+      throw new PairJudgingMovedOnError(
+        judging.runId.value,
+        judging.against.value,
+      );
+    }
+    this.events.push(...judging.pullEvents());
+    this.held.set(key, judging);
+  }
+
+  async save(judging: PairJudging): Promise<void> {
+    const key = pairKeyOf(judging.runId, judging.against);
+    const held = this.held.get(key);
+
+    if (!held || held.version !== judging.version) {
+      throw new PairJudgingMovedOnError(
+        judging.runId.value,
+        judging.against.value,
+      );
+    }
+    this.events.push(...judging.pullEvents());
+    this.held.set(
+      key,
+      PairJudging.rehydrate({
+        runId: judging.runId,
+        against: judging.against,
+        workspaceId: judging.workspaceId,
+        teamId: judging.teamId,
+        criteria: judging.criteria,
+        reference: judging.reference,
+        mostAttempts: judging.mostAttempts,
+        order: judging.order,
+        askedAt: judging.askedAt,
+        work: judging.work,
+        judgedAt: judging.judgedAt,
+        failure: judging.failure,
+        spent: judging.spent,
+        version: judging.version + 1,
+      }),
+    );
+  }
+
+  async of(runId: RunId, against: RunId): Promise<PairJudging | null> {
+    return this.held.get(pairKeyOf(runId, against)) ?? null;
+  }
+
+  async dueForWork(now: Date): Promise<PairJudging | null> {
+    return (
+      [...this.held.values()]
+        .filter((each) => each.work?.dueBy(now))
+        .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
+    );
+  }
+
+  async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+    for (const [key, each] of [...this.held.entries()]) {
+      if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
+        this.held.delete(key);
+      }
+    }
+  }
+
+  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    for (const [key, each] of [...this.held.entries()]) {
+      if (each.workspaceId.equals(workspaceId)) {
+        this.held.delete(key);
       }
     }
   }
@@ -288,6 +400,7 @@ export class ScoresInMemory implements ScoreRepository {
         source: score.source,
         scale: score.scale,
         value: score.value,
+        marks: score.marks,
         rubricVersion: score.rubricVersion,
         model: score.model,
         reasons: score.reasons,

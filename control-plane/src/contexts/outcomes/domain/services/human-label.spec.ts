@@ -51,15 +51,15 @@ describe('humanLabelOf', () => {
     ['sent-back', 0, 'sent-back'],
     ['refused', 0, 'sent-back'],
   ] as const)('reads a run people %s as %s', (act, value, from) => {
-    expect(labelled({ record: actedOn(act) })).toEqual({ value, from });
+    expect(labelled({ record: actedOn(act) })).toMatchObject({ value, from });
   });
 
   it('reads the task’s pull request where people did nothing that says', () => {
-    expect(labelled({ delivery: delivered(true) })).toEqual({
+    expect(labelled({ delivery: delivered(true) })).toMatchObject({
       value: 1,
       from: 'merged',
     });
-    expect(labelled({ delivery: delivered(false) })).toEqual({
+    expect(labelled({ delivery: delivered(false) })).toMatchObject({
       value: 0,
       from: 'closed',
     });
@@ -84,7 +84,7 @@ describe('humanLabelOf', () => {
           }),
         ],
       }),
-    ).toEqual({ value: 0, from: 'grade' });
+    ).toEqual({ value: 0, marks: null, from: 'grade' });
   });
 
   it('labels a number rubric only by people’s grades', () => {
@@ -93,7 +93,7 @@ describe('humanLabelOf', () => {
     expect(labelled({ scale, record: actedOn('approved') })).toBeNull();
     expect(
       labelled({ scale, grades: [personGrade('run_1', scale, 4)] }),
-    ).toEqual({ value: 4, from: 'grade' });
+    ).toEqual({ value: 4, marks: null, from: 'grade' });
   });
 
   it('reads a grade only by the rubric it was given under, where it names one', () => {
@@ -114,6 +114,6 @@ describe('humanLabelOf', () => {
         rubricVersion: NEXT_RUBRIC_VERSION,
         grades: [earlier, unnamed],
       }),
-    ).toEqual({ value: 2, from: 'grade' });
+    ).toEqual({ value: 2, marks: null, from: 'grade' });
   });
 });

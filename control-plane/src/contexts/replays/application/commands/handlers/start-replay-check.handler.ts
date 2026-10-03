@@ -22,7 +22,10 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import { needsBaseline } from '@replays/domain/services/baseline';
+import {
+  needsBaseline,
+  standingBaselineFor,
+} from '@replays/domain/services/baseline';
 import {
   type ScoringField,
   scoredLive,
@@ -285,9 +288,10 @@ export class StartReplayCheckHandler
       line: planned.line,
       at,
     });
+    const setReplays = await this.replays.ofSet(set.id);
     const wanting = needsBaseline(
       set,
-      await this.replays.ofSet(set.id),
+      setReplays,
       examined.liveDigests.scoring,
       planned.repeats,
     )
@@ -310,6 +314,14 @@ export class StartReplayCheckHandler
           set.entries.length * planned.repeats,
         ),
         repeats: planned.repeats,
+        pairsWith: wanting
+          ? wanting.id
+          : (standingBaselineFor(
+              set,
+              setReplays,
+              examined.liveDigests.scoring,
+              planned.repeats,
+            )?.id ?? null),
         at,
         by,
         wanting,

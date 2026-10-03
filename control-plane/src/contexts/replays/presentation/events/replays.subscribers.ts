@@ -2,6 +2,7 @@ import type { AbandonConfigPullRequests } from '@replays/application/services/ab
 import type { AbandonReplayChecks } from '@replays/application/services/abandon-replay-checks.service';
 import type { AbandonReplays } from '@replays/application/services/abandon-replays.service';
 import type { AbandonSearches } from '@replays/application/services/abandon-searches.service';
+import type { AskForPairJudging } from '@replays/application/services/ask-for-pair-judging.service';
 import type { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
 import type { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
 import type { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
@@ -15,8 +16,10 @@ import type { NoteReplayChangeReviewed } from '@replays/application/services/not
 import type { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
 import type { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
 import type { NoteReplayJudged } from '@replays/application/services/note-replay-judged.service';
+import type { NoteReplayPaired } from '@replays/application/services/note-replay-paired.service';
 import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
 import type { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
+import type { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import type { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abandonment-due.event';
 import type { ConfigPullRequestAbandonmentDue } from '@replays/domain/events/config-pull-request-abandonment-due.event';
@@ -24,8 +27,12 @@ import type { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandon
 import type { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
 import type { ReplayCheckAbandonmentDue } from '@replays/domain/events/replay-check-abandonment-due.event';
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
+import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import type { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
+import type { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
+import type { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import type { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
 import type { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
 import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
 import type { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
@@ -57,6 +64,14 @@ import {
   LINE_REDEFINED,
   type LineRedefinedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+import {
+  PAIR_JUDGED,
+  type PairJudgedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pair-judged.integration-event';
+import {
+  PAIR_JUDGING_FAILED,
+  type PairJudgingFailedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pair-judging-failed.integration-event';
 import {
   REPLAY_CHANGE_CHECKED,
   type ReplayChangeCheckedIntegrationEvent,
@@ -104,6 +119,9 @@ export interface ReplaysReactions {
   readonly askingAgain: AskForReplayRejudging;
   readonly askingRecheck: AskForReplayRecheck;
   readonly judging: NoteReplayJudged;
+  readonly pairing: PairReplayEntries;
+  readonly askingPair: AskForPairJudging;
+  readonly paired: NoteReplayPaired;
   readonly holding: HoldSetStartingPoints;
   readonly lettingGo: LetReplayRunsGo;
   readonly abandoning: AbandonReplays;
@@ -185,6 +203,9 @@ export const replaysSubscribers = (
             runId: event.runId,
             scale: event.scale,
             value: event.value,
+            marks: event.marks,
+            claims: event.claims,
+            passShare: event.passShare,
             model: event.model,
             referenced: event.referenced,
             reasons: event.reasons,
@@ -198,6 +219,50 @@ export const replaysSubscribers = (
       event.round !== 1
         ? Promise.resolve()
         : reactions.judging.failed(event.runId, event.failure, spentOf(event)),
+  ),
+  subscribing<ReplayEntryConcluded>(
+    'replays.find-replays-to-pair',
+    ['replay.entry-concluded'],
+    (event) => reactions.pairing.concluded(event),
+  ),
+  subscribing<ReplayPairingDue>(
+    'replays.pair-replay-entries',
+    ['replay.pairing-due'],
+    (event) => reactions.pairing.due(event.replayId),
+  ),
+  subscribing<ReplayPairJudgingWanted>(
+    'replays.ask-to-judge-pair',
+    ['replay.pair-judging-wanted'],
+    (event) => reactions.askingPair.wanted(event),
+  ),
+  subscribing<PairJudgedIntegrationEvent>(
+    'replays.record-pair-judged',
+    [PAIR_JUDGED],
+    (event) =>
+      reactions.paired.paired({
+        runId: event.runId,
+        againstRunId: event.againstRunId,
+        winner: event.winner,
+        model: event.model,
+        readings: event.readings,
+        spent: spentOf(event),
+      }),
+  ),
+  subscribing<PairJudgingFailedIntegrationEvent>(
+    'replays.record-pair-unjudged',
+    [PAIR_JUDGING_FAILED],
+    (event) =>
+      reactions.paired.failed(
+        event.runId,
+        event.againstRunId,
+        event.failure,
+        spentOf(event),
+      ),
+  ),
+  subscribing<ReplayPairingRefused>(
+    'replays.record-pair-not-judged',
+    ['replay.pairing-refused'],
+    (event) => reactions.paired.refused(event),
   ),
   subscribing<ReplayRejudgingWanted>(
     'replays.ask-to-judge-probed-run-again',
@@ -214,6 +279,9 @@ export const replaysSubscribers = (
             runId: event.runId,
             scale: event.scale,
             value: event.value,
+            marks: event.marks,
+            claims: event.claims,
+            passShare: event.passShare,
             model: event.model,
             referenced: event.referenced,
             reasons: event.reasons,

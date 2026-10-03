@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggregate';
 import { ChangeJudgingMovedOnError } from '@outcomes/domain/exceptions/change-judging-moved-on.error';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
+import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
 import {
   isJudgingRound,
@@ -53,7 +54,11 @@ const toChangeJudging = (row: Row): ChangeJudging =>
     round: roundOf(row),
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: TeamId.of(row.teamId),
-    rubric: row.rubric,
+    criteria: JudgeCriteria.of({
+      rubric: row.rubric,
+      claims: row.claims,
+      passShare: row.passShare,
+    }),
     reference: row.referenceRunId ? RunId.of(row.referenceRunId) : null,
     askedAt: row.askedAt,
     work: row.owed
@@ -101,7 +106,9 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
           round: added.round,
           workspaceId: added.workspaceId.value,
           teamId: added.teamId.value,
-          rubric: added.rubric,
+          rubric: added.criteria.rubric,
+          claims: [...added.criteria.claims],
+          passShare: added.criteria.passShare,
           referenceRunId: added.reference?.value ?? null,
           askedAt: added.askedAt,
           version: added.version,

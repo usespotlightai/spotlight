@@ -1,15 +1,17 @@
+import { GradeNotSaved } from '@/components/features/inbox/grades/GradeNotSaved';
 import { Button } from '@/components/ui/button';
 import {
   type Grade,
   type GradeValue,
   gradeOptions,
-  type ScoreKind,
+  type RatedKind,
   scoreShown,
   valueOfGrade,
+  YOUR_GRADE,
 } from '@/lib/judge';
 
 type QuickGradeProps = {
-  kind: ScoreKind;
+  kind: RatedKind;
   mine: Grade | null;
   pending: boolean;
   failed: boolean;
@@ -26,7 +28,7 @@ export function QuickGrade({
   return (
     <section
       data-slot="quick-grade"
-      aria-label="Your grade"
+      aria-label={YOUR_GRADE}
       className="flex flex-col gap-2"
     >
       <h3 className="font-medium text-foreground text-sm">
@@ -64,11 +66,7 @@ export function QuickGrade({
         </p>
       )}
 
-      {failed && (
-        <p role="alert" className="text-destructive text-xs">
-          Your grade could not be saved. Try again.
-        </p>
-      )}
+      {failed && <GradeNotSaved />}
     </section>
   );
 }

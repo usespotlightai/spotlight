@@ -37,6 +37,10 @@ const FACTS = {
     },
     heldOut: null,
   },
+  pairs: {
+    searched: null as { wins: number; losses: number; ties: number } | null,
+    heldOut: null as { wins: number; losses: number; ties: number } | null,
+  },
   onlyOnSeenTasks: null,
   heldOutPending: false,
   link: 'https://app.example.com/w/acme/team/t/lines/l/stations/s/searches/x',
@@ -152,5 +156,18 @@ describe('ConfigPullRequestBody', () => {
 
     expect(body).not.toMatch(/(^|[^​])@team(?!​)/);
     expect(body).toContain('@​team');
+  });
+
+  it('says how the change fared side by side against the live config’s, where it was compared so', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      pairs: { searched: { wins: 4, losses: 1, ties: 2 }, heldOut: null },
+    });
+
+    expect(body).toContain(
+      "Set side by side with the live config's change on the searched tasks, without the judge knowing which was which, its change was better on 4 tasks, worse on 1 task and as good on 2 tasks.",
+    );
+    expect(body).not.toContain('on the held-out tasks, without the judge');
+    expect(ConfigPullRequestBody.of(FACTS)).not.toContain('side by side');
   });
 });

@@ -30,6 +30,7 @@ import {
 } from '@/stories/fixtures/run-memories';
 import {
   failRunScores,
+  seedClaimsRunScores,
   seedHiddenRunScores,
   seedNoRunScores,
   seedRunScores,
@@ -484,6 +485,11 @@ export const seedJudgedRun = (client: QueryClient) => {
   seedRun(client);
   client.setQueryData(journalKeys.forTask(TASK_ID), EDITED);
   seedRunScores(client, RUN_ID, TASK_ID);
+};
+
+export const seedClaimsJudgedRun = (client: QueryClient) => {
+  seedJudgedRun(client);
+  seedClaimsRunScores(client, RUN_ID, TASK_ID);
 };
 
 export const seedJudgeHiddenRun = (client: QueryClient) => {

@@ -62,7 +62,14 @@ const GUARDED: readonly {
   { name: 'passes_to', from: 'passesTo', unset: [] },
 ];
 
-const JUDGE_FIELDS = ['rubric', 'sample', 'trust'] as const;
+const JUDGE_FIELDS = [
+  { name: 'rubric', from: 'rubric' },
+  { name: 'claims', from: 'claims' },
+  { name: 'sample', from: 'sample' },
+  { name: 'trust', from: 'trust' },
+] as const;
+
+const ALL_CLAIMS = 1;
 
 const REFUSALS: Readonly<Record<HclEditRefusalCode, ConfigPullRequestRefusal>> =
   {
@@ -139,11 +146,18 @@ const judgeOf = (seed: Block): HclGuardedBlock => {
     return { type: 'judge', was: null };
   }
 
+  const passShare = literalIn(judge as Block, 'passShare', ALL_CLAIMS);
+
   return {
     type: 'judge',
-    was: Object.fromEntries(
-      JUDGE_FIELDS.map((each) => [each, literalIn(judge as Block, each, null)]),
-    ),
+    was: Object.fromEntries([
+      ...JUDGE_FIELDS.map(({ name, from }) => [
+        name,
+        literalIn(judge as Block, from, null),
+      ]),
+      ['pass_share', passShare],
+    ]),
+    unset: { pass_share: ALL_CLAIMS },
   };
 };
 

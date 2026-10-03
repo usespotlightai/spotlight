@@ -151,6 +151,63 @@ export interface EntryJudgeDto {
   readonly referenced: boolean | null;
   readonly model: string | null;
   readonly unjudged: string | null;
+  readonly marks: readonly boolean[] | null;
+  readonly claims: readonly string[];
+  readonly passShare: number | null;
+  readonly reasons: readonly EntryJudgeReasonDto[];
+}
+
+export interface EntryCitedStepDto {
+  readonly index: number;
+  readonly kind: string | null;
+  readonly tool: string | null;
+  readonly text: string | null;
+}
+
+export interface EntryCitedHunkDto {
+  readonly id: string;
+  readonly path: string | null;
+  readonly header: string | null;
+  readonly lines: readonly string[];
+}
+
+export interface EntryCitationDto {
+  readonly kind: 'step' | 'hunk';
+  readonly step: EntryCitedStepDto | null;
+  readonly hunk: EntryCitedHunkDto | null;
+}
+
+export interface EntryJudgeReasonDto {
+  readonly text: string;
+  readonly claim: number | null;
+  readonly citations: readonly EntryCitationDto[];
+}
+
+export interface EntryPairReasonDto {
+  readonly text: string;
+  readonly ownHunks: readonly string[];
+  readonly theirHunks: readonly string[];
+}
+
+export interface EntryPairReadingDto {
+  readonly ownShownFirst: boolean;
+  readonly outcome: 'win' | 'loss' | 'tie';
+  readonly reasons: readonly EntryPairReasonDto[];
+}
+
+export interface EntryPairDto {
+  readonly state: 'asked' | 'judged' | 'unpaired';
+  readonly againstRunId: string;
+  readonly outcome: 'win' | 'loss' | 'tie' | null;
+  readonly model: string | null;
+  readonly unpaired: string | null;
+  readonly readings: readonly EntryPairReadingDto[];
+}
+
+export interface PairTallyDto {
+  readonly wins: number;
+  readonly losses: number;
+  readonly ties: number;
 }
 
 export type EntryResultDto = 'pending' | 'succeeded' | 'failed' | 'unscored';
@@ -181,6 +238,8 @@ export interface ReplayEntryDto {
   readonly secondJudge: EntryJudgeDto | null;
   readonly rejudgingSpent: ModelSpentDto | null;
   readonly recheck: EntryChecksDto | null;
+  readonly pair: EntryPairDto | null;
+  readonly pairingSpent: ModelSpentDto | null;
   readonly result: EntryResultDto;
   readonly succeeded: boolean | null;
   readonly reasons: readonly EntryReasonDto[];
@@ -237,6 +296,8 @@ export interface ReplayDto {
   readonly endedAt: string | null;
   readonly totals: ReplayTotalsDto;
   readonly againstBaseline: GainReadingDto | null;
+  readonly pairedWith: string | null;
+  readonly pairsAgainstBaseline: PairTallyDto | null;
   readonly entries: readonly ReplayEntryDto[];
 }
 
@@ -254,6 +315,7 @@ export interface EntryComparisonDto {
   readonly scoreDelta: number | null;
   readonly scoreUncompared: string | null;
   readonly regressed: boolean;
+  readonly pair: 'win' | 'loss' | 'tie' | null;
 }
 
 export interface ReplaySearchDto {
@@ -264,6 +326,7 @@ export interface ReplaySearchDto {
 export interface ReplayDetailDto extends ReplayDto {
   readonly search: ReplaySearchDto | null;
   readonly baselineReplayId: string | null;
+  readonly comparedWithReplayId: string | null;
   readonly comparison: readonly EntryComparisonDto[];
 }
 

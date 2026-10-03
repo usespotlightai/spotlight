@@ -67,6 +67,8 @@ const asking = (
               lineId: 'line_1',
               rubric: change.rubric ?? 'Did the run retry uploads?',
               rubricVersion: RUBRIC_VERSION,
+              claims: [],
+              passShare: 1,
               sample: change.sample ?? 1,
               trust: 0.6,
             },
