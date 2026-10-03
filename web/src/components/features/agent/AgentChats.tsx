@@ -79,7 +79,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
           slug={slug}
           teamId={teamId}
           traces={tracesHandedOver(location.state)}
-          improving={improvingHandedOver(location.state)}
+          defaultImproving={improvingHandedOver(location.state)}
           onStarted={started}
         />
       </ComposerFooter>

@@ -11,12 +11,20 @@ import {
   tallyOf,
 } from '@/lib/change-stack';
 
+const checked = (state: 'waiting' | 'checked'): ChangeStack['check'] => ({
+  command: 'npm test',
+  state,
+  reason: null,
+  whole: null,
+  layers: [],
+});
+
 const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
   id: 'stack_1',
   repository: null,
   state: 'ready',
   failure: null,
-  checkState: null,
+  check: null,
   files: [
     {
       path: 'src/invite.ts',
@@ -117,8 +125,8 @@ describe('currentStacks', () => {
 
 describe('settling', () => {
   it('keeps asking while a stack drafts or waits for its check', () => {
-    expect(settling([stack({ checkState: 'waiting' })])).toBe(true);
-    expect(settling([stack({ checkState: 'checked' })])).toBe(false);
+    expect(settling([stack({ check: checked('waiting') })])).toBe(true);
+    expect(settling([stack({ check: checked('checked') })])).toBe(false);
     expect(settling([stack()])).toBe(false);
   });
 });

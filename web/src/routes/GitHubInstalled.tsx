@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useConnectGitHub } from '@/hooks/api/useConnectGitHub';
 import { whenceFrom } from '@/lib/github';
 import { failed } from '@/lib/query';
-import { settingsPath } from '@/lib/team';
+import { teamSettingsPath } from '@/lib/settings';
 
 export function GitHubInstalled() {
   const [params] = useSearchParams();
@@ -25,7 +25,8 @@ export function GitHubInstalled() {
     }
 
     void navigate(
-      whence.from ?? settingsPath(whence.slug, whence.teamId, 'integrations'),
+      whence.from ??
+        teamSettingsPath(whence.slug, whence.teamId, 'integrations'),
       { replace: true },
     );
   }, [connected, navigate, whence]);
@@ -35,7 +36,7 @@ export function GitHubInstalled() {
   }
 
   const back =
-    whence.from ?? settingsPath(whence.slug, whence.teamId, 'integrations');
+    whence.from ?? teamSettingsPath(whence.slug, whence.teamId, 'integrations');
 
   return (
     <main className="flex min-h-svh items-center justify-center px-4">

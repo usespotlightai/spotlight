@@ -8,8 +8,6 @@ import { TokenCreated } from '@/components/features/tokens/TokenCreated';
 import { TokenRow } from '@/components/features/tokens/TokenRow';
 import { TokenRowSkeleton } from '@/components/features/tokens/TokenRowSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
-import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import type { CreatedWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -39,8 +37,6 @@ export function Tokens() {
 
   return (
     <>
-      <PageHeader title={<Breadcrumbs segments={[{ label: 'Tokens' }]} />} />
-
       <SettingsPage
         title="Tokens"
         description="A workspace token lets Terraform or a script act in this workspace, within what the token may do. Only owners and admins of the workspace can see, create and revoke them."

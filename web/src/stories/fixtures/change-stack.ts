@@ -22,7 +22,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
   repository: null,
   state: 'ready',
   failure: null,
-  checkState: null,
+  check: null,
   files: [
     {
       path: 'control-plane/src/schemas/invitation.schema.ts',

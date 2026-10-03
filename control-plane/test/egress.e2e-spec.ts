@@ -126,6 +126,7 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
       .put(`/api/hosts/${HOST}`)
       .set('Authorization', `Bearer ${TOKEN}`)
       .send({
+        session: 'session_1',
         name: 'build-box',
         release: '0.1.0',
         executor: 'docker',

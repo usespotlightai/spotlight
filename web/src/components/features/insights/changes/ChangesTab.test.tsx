@@ -228,7 +228,7 @@ const showing = () =>
     <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?tab=changes']}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/:section"
+          path="/w/:slug/team/:teamId/insights"
           element={<TeamInsights slug="acme" teamId="team_1" />}
         />
       </Routes>

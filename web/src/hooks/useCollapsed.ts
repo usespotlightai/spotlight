@@ -24,15 +24,13 @@ export function useCollapsed(storageKey: string) {
 
   const toggle = useCallback(
     (id: string) => {
-      setCollapsed((current) => {
-        const next = current.includes(id)
-          ? current.filter((each) => each !== id)
-          : [...current, id];
-        remember(storageKey, next);
-        return next;
-      });
+      const next = collapsed.includes(id)
+        ? collapsed.filter((each) => each !== id)
+        : [...collapsed, id];
+      setCollapsed(next);
+      remember(storageKey, next);
     },
-    [storageKey],
+    [collapsed, storageKey],
   );
 
   return {

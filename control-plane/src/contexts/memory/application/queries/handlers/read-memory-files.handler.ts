@@ -51,7 +51,7 @@ export class ReadMemoryFilesHandler
               async (each) =>
                 [
                   each.approval.by.value,
-                  await this.people.nameOf(each.approval.by),
+                  (await this.people.find(each.approval.by))?.name ?? null,
                 ] as const,
             ),
         ),

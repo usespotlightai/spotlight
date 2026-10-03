@@ -111,7 +111,7 @@ const showing = (search: string) =>
     <MemoryRouter initialEntries={[`/w/acme/team/team_1/insights${search}`]}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/:section"
+          path="/w/:slug/team/:teamId/insights"
           element={
             <>
               <TeamInsights slug="acme" teamId="team_1" />

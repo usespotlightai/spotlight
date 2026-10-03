@@ -73,7 +73,7 @@ const showing = (query = '?tab=candidates') =>
     <MemoryRouter initialEntries={[`/w/acme/team/team_1/insights${query}`]}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/:section"
+          path="/w/:slug/team/:teamId/insights"
           element={<TeamInsights slug="acme" teamId="team_1" />}
         />
       </Routes>

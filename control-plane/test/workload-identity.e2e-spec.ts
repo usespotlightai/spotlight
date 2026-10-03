@@ -72,6 +72,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
       .set('Authorization', `Bearer ${token}`)
       .set('Spotlight-Trust', trust)
       .send({
+        session: 'session_1',
         name: 'pod-a',
         release: '0.1.0',
         executor: 'docker',
@@ -272,6 +273,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
       workspaceId: answered.body.workspace,
       trustId: trust.id,
       poolId: null,
+      session: 'session_1',
       name: 'pod-a',
       release: '0.1.0',
       executor: 'docker',

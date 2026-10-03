@@ -4,6 +4,7 @@ import type { Admission } from '@runners/domain/value-objects/admission.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import type { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -17,8 +18,10 @@ interface State {
   readonly id: HostId;
   readonly workspaceId: WorkspaceId;
   readonly admission: Admission;
+  readonly session: HostSession;
   readonly report: HostReport;
   readonly firstSeenAt: Date;
+  readonly upSince: Date;
   readonly lastSeenAt: Date;
   readonly version: number;
 }
@@ -32,6 +35,7 @@ export class RunnerHost extends EventRecorder {
     id: HostId;
     workspaceId: WorkspaceId;
     admission: Admission;
+    session: HostSession;
     report: HostReport;
     at: Date;
   }): RunnerHost {
@@ -39,8 +43,10 @@ export class RunnerHost extends EventRecorder {
       id: input.id,
       workspaceId: input.workspaceId,
       admission: input.admission,
+      session: input.session,
       report: input.report,
       firstSeenAt: input.at,
+      upSince: input.at,
       lastSeenAt: input.at,
       version: 0,
     }).noticingItStartedServing(null);
@@ -59,6 +65,12 @@ export class RunnerHost extends EventRecorder {
         'was last seen before it was first seen',
       );
     }
+    if (state.upSince < state.firstSeenAt || state.upSince > state.lastSeenAt) {
+      throw new InconsistentStateError(
+        'runner host',
+        'came up outside the time it was seen',
+      );
+    }
 
     return new RunnerHost(state);
   }
@@ -75,12 +87,20 @@ export class RunnerHost extends EventRecorder {
     return this.state.admission;
   }
 
+  get session(): HostSession {
+    return this.state.session;
+  }
+
   get report(): HostReport {
     return this.state.report;
   }
 
   get firstSeenAt(): Date {
     return this.state.firstSeenAt;
+  }
+
+  get upSince(): Date {
+    return this.state.upSince;
   }
 
   get lastSeenAt(): Date {
@@ -118,15 +138,23 @@ export class RunnerHost extends EventRecorder {
   reportedThrough(input: {
     admission: Admission;
     workspaceId: WorkspaceId;
+    session: HostSession;
     report: HostReport;
     at: Date;
   }): RunnerHost {
     if (this.servesThrough(input.admission)) {
+      if (input.at <= this.state.lastSeenAt) {
+        return this;
+      }
+
       return new RunnerHost({
         ...this.state,
+        session: input.session,
         report: input.report,
-        lastSeenAt:
-          input.at > this.state.lastSeenAt ? input.at : this.state.lastSeenAt,
+        upSince: this.cameUpAgain(input.session, input.at)
+          ? input.at
+          : this.state.upSince,
+        lastSeenAt: input.at,
       }).noticingItStartedServing(this);
     }
 
@@ -141,10 +169,16 @@ export class RunnerHost extends EventRecorder {
       ...this.state,
       workspaceId: input.workspaceId,
       admission: input.admission,
+      session: input.session,
       report: input.report,
       firstSeenAt: input.at,
+      upSince: input.at,
       lastSeenAt: input.at,
     }).noticingItStartedServing(null);
+  }
+
+  private cameUpAgain(session: HostSession, at: Date): boolean {
+    return !session.equals(this.state.session) || !this.answersAt(at);
   }
 
   get servesAHarness(): boolean {

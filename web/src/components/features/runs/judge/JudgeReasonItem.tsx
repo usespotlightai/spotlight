@@ -2,11 +2,8 @@ import { useState } from 'react';
 import { CitationChip } from '@/components/features/runs/judge/CitationChip';
 import { CitedHunk } from '@/components/features/runs/judge/CitedHunk';
 import { CitedStep } from '@/components/features/runs/judge/CitedStep';
-import { type FileChange, linesOfHunk } from '@/lib/changes';
-import { useChangesPanel } from '@/lib/changes-panel';
 import {
   type Citation,
-  fileOfHunk,
   hunkShown,
   type JudgeReason,
   stepShown,
@@ -20,23 +17,16 @@ const keyOf = (citation: Citation): string =>
 
 type JudgeReasonItemProps = {
   reason: JudgeReason;
-  files: readonly FileChange[];
 };
 
-export function JudgeReasonItem({ reason, files }: JudgeReasonItemProps) {
+export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
   const [unfolded, setUnfolded] = useState<string | null>(null);
-  const { open } = useChangesPanel();
   const anchors = useStepAnchors();
   const shown = reason.citations.find((each) => keyOf(each) === unfolded);
 
   const follow = (citation: Citation) => {
-    const file = citation.hunk ? fileOfHunk(citation.hunk, files) : null;
     const step = citation.step?.index;
 
-    if (file && citation.hunk) {
-      open(file, linesOfHunk(citation.hunk.header) ?? undefined);
-      return;
-    }
     if (step !== undefined && anchors.holds(step)) {
       setUnfolded(null);
       anchors.focus(step);

@@ -172,7 +172,6 @@ import { NoticeSearchReflections } from '@replays/application/services/notice-se
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
-import { SearchAgents } from '@replays/application/services/search-agents.service';
 import { SearchSights } from '@replays/application/services/search-sights.service';
 import { SearchSummaries } from '@replays/application/services/search-summaries.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
@@ -183,6 +182,7 @@ import { ChangeReview } from '@replays/infrastructure/acl/change-review.adapter'
 import { ConfigRepository } from '@replays/infrastructure/acl/config-repository.adapter';
 import { Outcomes } from '@replays/infrastructure/acl/outcomes.adapter';
 import { People } from '@replays/infrastructure/acl/people.adapter';
+import { SearchAgents } from '@replays/infrastructure/acl/search-agents.adapter';
 import { SearchNotices } from '@replays/infrastructure/acl/search-notices.adapter';
 import { Work } from '@replays/infrastructure/acl/work.adapter';
 import { Sha256Digest } from '@replays/infrastructure/hashing/sha256-digest';

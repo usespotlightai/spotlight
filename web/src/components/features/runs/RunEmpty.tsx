@@ -1,6 +1,6 @@
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
-import type { TeamRun } from '@/lib/run';
+import { buttonVariants } from '@/components/ui/button-variants';
+import { idleNoteOf, type TeamRun } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
@@ -12,12 +12,8 @@ type RunEmptyProps = {
 
 export function RunEmpty({ slug, teamId, run }: RunEmptyProps) {
   return (
-    <div className="mt-6 flex flex-col items-center gap-3 text-center">
-      <p className="text-muted-foreground text-sm">
-        {run.state === 'failed'
-          ? 'This run failed before any work was done.'
-          : 'This run ended before any work was done.'}
-      </p>
+    <div className="flex flex-col items-center gap-3 text-center">
+      <p className="text-muted-foreground text-sm">{idleNoteOf(run)}</p>
 
       {run.taskId && (
         <TrailLink

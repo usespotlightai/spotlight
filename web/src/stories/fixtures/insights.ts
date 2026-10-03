@@ -212,14 +212,16 @@ const OVERVIEW: InsightsOverview = {
     {
       lineId: LINE_ID,
       stationId: 'station_implementation',
-      fingerprint: 'b7d4a60c8e2f1a9b3d5c7e9f',
+      fingerprint:
+        'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
       firstRunAt: daysAgo(18),
       runId: 'run_implementation_1',
     },
     {
       lineId: LINE_ID,
       stationId: 'station_review',
-      fingerprint: '3f2a9c1e5b7d4a60',
+      fingerprint:
+        'c81e4f07a2d6b9e3f5a7c1d3e5b7a9f1c3e5d7b9a1f3c5e7d9b1a3f5c7e9d1b3',
       firstRunAt: daysAgo(6),
       runId: 'run_review_1',
     },
@@ -770,7 +772,8 @@ const run = (
 ): InsightsRun => ({
   taskId: `task_${over.runId}`,
   lineId: LINE_ID,
-  fingerprint: 'b7d4a60c8e2f1a9b3d5c7e9f',
+  fingerprint:
+    'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
   harness: 'claude-code',
   model: 'opus',
   effort: 'high',

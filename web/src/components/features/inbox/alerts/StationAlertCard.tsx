@@ -5,7 +5,7 @@ import { ImproveStationLink } from '@/components/features/stations/ImproveStatio
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { useLines } from '@/hooks/api/useLines';
 import { useStationAlert } from '@/hooks/api/useStationAlert';
 import { notFound } from '@/lib/error';

@@ -208,6 +208,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         refused: each.refused ?? null,
       })),
       firstSeenAt: host.firstSeenAt,
+      upSince: host.upSince,
       lastSeenAt: host.lastSeenAt,
     }));
   }

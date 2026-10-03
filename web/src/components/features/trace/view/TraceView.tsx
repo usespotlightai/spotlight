@@ -8,25 +8,17 @@ import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useLingering } from '@/hooks/useLingering';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { took } from '@/lib/inbox';
-import { rowsOf, type Trace } from '@/lib/trace';
+import { NAMES_PANE, rowsOf, type Trace } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
 const LEAVING = 150;
 
-export const NAMES_PANE = {
-  property: '--names',
-  storageKey: 'spotlight.trace-names-width',
-  min: 200,
-  max: 640,
-  initial: 320,
-  label: 'Resize the names',
-};
-
 type TraceViewProps = {
   trace: Trace;
+  teamId: string;
 };
 
-export function TraceView({ trace }: TraceViewProps) {
+export function TraceView({ trace, teamId }: TraceViewProps) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
   const names = usePaneWidth<HTMLDivElement>(NAMES_PANE);
@@ -100,6 +92,7 @@ export function TraceView({ trace }: TraceViewProps) {
                       <TraceRow
                         key={row.node.id}
                         node={row.node}
+                        teamId={teamId}
                         depth={row.depth}
                         holding={row.children}
                         trace={trace}
@@ -131,6 +124,7 @@ export function TraceView({ trace }: TraceViewProps) {
         {held && (
           <SpanDetail
             node={held}
+            teamId={teamId}
             open={chosen !== null}
             duration={LEAVING}
             ref={panel}

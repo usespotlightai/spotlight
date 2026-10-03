@@ -1,7 +1,7 @@
-import { Brain } from 'lucide-react';
+import { Spool } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { teamSectionPath } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
@@ -9,7 +9,7 @@ export function NoMemories({ slug, teamId }: { slug: string; teamId: string }) {
   return (
     <div className="flex justify-center rounded-xl border border-border px-4 py-10">
       <EmptyState
-        icon={Brain}
+        icon={Spool}
         title="No memories yet"
         action={
           <TrailLink

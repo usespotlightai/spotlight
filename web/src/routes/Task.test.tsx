@@ -171,7 +171,8 @@ describe('Task', () => {
       ]);
       renderAt('task_1');
 
-      expect(screen.getAllByText('Awaiting review')).toHaveLength(2);
+      expect(screen.getAllByText('Waiting for you')).toHaveLength(1);
+      expect(screen.getByText('Answered')).toBeInTheDocument();
     });
 
     it('opens the conversation where that run asked', () => {
@@ -184,7 +185,7 @@ describe('Task', () => {
       renderAt('task_1');
 
       expect(
-        screen.getByRole('link', { name: /Awaiting review/ }),
+        screen.getByRole('link', { name: /Waiting for you/ }),
       ).toHaveAttribute('href', '/w/acme/inbox/task_1%3A5?run=run_7');
     });
 
@@ -192,7 +193,7 @@ describe('Task', () => {
       worked.mockReturnValue([run()]);
       renderAt('task_1');
 
-      expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument();
+      expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
     });
 
     it('puts the asking above the run that raised it', () => {
@@ -206,7 +207,7 @@ describe('Task', () => {
         .getAllByRole('listitem')
         .map((each) => each.textContent);
 
-      expect(told[1]).toContain('Awaiting review');
+      expect(told[1]).toContain('Waiting for you');
       expect(told[2]).toContain('Implementation');
     });
   });

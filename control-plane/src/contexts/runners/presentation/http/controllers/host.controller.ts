@@ -76,6 +76,7 @@ export class HostController {
       new ReportHostPresenceCommand(
         { bearer: bearerIn(authorization), trust },
         hostId,
+        body?.session ?? '',
         {
           name: body?.name ?? '',
           release: body?.release ?? '',

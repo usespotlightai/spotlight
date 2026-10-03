@@ -82,10 +82,9 @@ describe('RunRow, what a run is doing', () => {
     expect(
       screen.getByRole('link', { name: 'Waiting for you' }),
     ).toHaveAttribute('href', '/inbox/task_1:3');
-    expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument();
   });
 
-  it('keeps awaiting review for a run that is over and owed one', () => {
+  it('says waiting for you for a run that is over and still owed an answer', () => {
     shown(
       <RunRow
         run={run('completed', OWED)}
@@ -95,8 +94,7 @@ describe('RunRow, what a run is doing', () => {
     );
 
     expect(
-      screen.getByRole('link', { name: 'Awaiting review' }),
+      screen.getByRole('link', { name: 'Waiting for you' }),
     ).toHaveAttribute('href', '/inbox/task_1:3');
-    expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
   });
 });

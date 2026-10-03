@@ -1,17 +1,33 @@
 import type {
   ChangeStackDto,
+  CheckedStepDto,
   RunChangeStacksDto,
+  StackCheckDto,
 } from '@change-review/application/dto/change-stack.dto';
 import {
   ChangeStackResponseDto,
+  CheckedStepResponseDto,
   DiffFileResponseDto,
   DiffHunkResponseDto,
   FileNoteResponseDto,
   RunChangeStacksResponseDto,
+  StackCheckResponseDto,
   StackCohortResponseDto,
   StackLayerResponseDto,
   StackRangeResponseDto,
 } from '@change-review/presentation/http/dto/change-stack.response.dto';
+
+const stepOf = (step: CheckedStepDto): CheckedStepResponseDto =>
+  new CheckedStepResponseDto(step.step, step.passed, step.output, step.tookMs);
+
+const checkOf = (check: StackCheckDto): StackCheckResponseDto =>
+  new StackCheckResponseDto(
+    check.command,
+    check.state,
+    check.reason,
+    check.whole && stepOf(check.whole),
+    check.layers.map(stepOf),
+  );
 
 const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
   new ChangeStackResponseDto(
@@ -62,7 +78,7 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
           ),
         ),
     ),
-    stack.check?.state ?? null,
+    stack.check && checkOf(stack.check),
   );
 
 export const ChangeStackHttpMapper = {

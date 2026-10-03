@@ -111,22 +111,6 @@ vi.mock('@/hooks/api/useRunMemories', () => ({
     errorUpdateCount: 0,
   }),
 }));
-
-const config = vi.fn((): unknown => ({
-  fingerprint: null,
-  config: null,
-  changedSince: null,
-}));
-
-vi.mock('@/hooks/api/useRunConfig', () => ({
-  runConfigKeys: { forRun: () => ['run-config'] },
-  useRunConfig: () => ({
-    data: config(),
-    isPending: false,
-    errorUpdateCount: 0,
-  }),
-}));
-
 vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   changeStackKeys: { forRun: () => ['change-stacks'] },
   useRunChangeStacks: () => ({ data: undefined }),
@@ -152,10 +136,6 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
 
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
-}));
-
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({ mutateAsync: vi.fn() }),
 }));
 
 const STATION = {
@@ -351,148 +331,8 @@ describe('Run', () => {
       renderRun();
 
       expect(
-        screen.queryByText(/before any work was done/),
+        screen.queryByText(/before the agent started/),
       ).not.toBeInTheDocument();
-    });
-  });
-
-  describe('the config it ran with', () => {
-    beforeEach(() => {
-      config.mockReturnValue({
-        fingerprint:
-          '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
-        config: null,
-        changedSince: {
-          runId: 'run_0',
-          taskId: 'task_0',
-          fingerprint: 'aa11bb22cc33dd44',
-          changes: [
-            {
-              part: 'prompt',
-              name: null,
-              kind: 'changed',
-              was: null,
-              now: null,
-            },
-            {
-              part: 'effort',
-              name: null,
-              kind: 'changed',
-              was: 'high',
-              now: 'xhigh',
-            },
-          ],
-        },
-      });
-    });
-
-    it('names the config by the start of its fingerprint, keeping the whole of it to hand', () => {
-      renderRun();
-
-      const fingerprint = document.querySelector(
-        '[data-slot="run-config"] [data-slot="fingerprint"]',
-      );
-      expect(fingerprint).toHaveTextContent('3f2a9c1e');
-      expect(fingerprint).toHaveAttribute(
-        'title',
-        '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
-      );
-    });
-
-    it('says what changed since the station’s previous run, and leads to it', () => {
-      renderRun();
-
-      expect(
-        screen.getByRole('link', { name: 'the station’s previous run' }),
-      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_0');
-      expect(
-        screen.getByRole('list', { name: 'What changed' }),
-      ).toHaveTextContent('Prompt changed·Effort high → xhigh');
-    });
-
-    it('says nothing changed where the run is the first with its config', () => {
-      config.mockReturnValue({
-        fingerprint: '3f2a9c1e5b7d',
-        config: null,
-        changedSince: null,
-      });
-
-      renderRun();
-
-      expect(
-        document.querySelector('[data-slot="run-config"]'),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole('list', { name: 'What changed' }),
-      ).not.toBeInTheDocument();
-    });
-
-    it('shows nothing of a config where the run kept none', () => {
-      config.mockReturnValue({
-        fingerprint: null,
-        config: null,
-        changedSince: null,
-      });
-
-      renderRun();
-
-      expect(
-        document.querySelector('[data-slot="run-config"]'),
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  describe('what it spent', () => {
-    const spent = () => document.querySelector('[data-slot="run-spend"]');
-
-    it('splits the tokens beside the cost', () => {
-      conversation.mockReturnValue(
-        said({
-          spend: {
-            cost: 1.8742,
-            currency: 'USD',
-            inputTokens: 3_120,
-            outputTokens: 18_840,
-            cacheReadTokens: 2_412_300,
-            cacheWriteTokens: 61_400,
-          },
-        }),
-      );
-
-      renderRun();
-
-      expect(spent()).toHaveTextContent(
-        'Spent$1.87·Input3.1k·Output18.8k·Cache read2.4M·Cache write61.4k',
-      );
-    });
-
-    it('says what the harness never reported was not reported, rather than none', () => {
-      conversation.mockReturnValue(
-        said({
-          spend: {
-            cost: null,
-            currency: null,
-            inputTokens: 4_480,
-            outputTokens: 0,
-            cacheReadTokens: 988_160,
-            cacheWriteTokens: null,
-          },
-        }),
-      );
-
-      renderRun();
-
-      expect(spent()).toHaveTextContent(
-        'Spentnot reported·Input4.5k·Output0·Cache read988.2k·Cache writenot reported',
-      );
-    });
-
-    it('shows no spend before the run has ended', () => {
-      conversation.mockReturnValue(said({ spend: null }));
-
-      renderRun();
-
-      expect(spent()).not.toBeInTheDocument();
     });
   });
 
@@ -517,6 +357,9 @@ describe('Run', () => {
       },
       spend: null,
       journals: [{ runId: 'run_1', attempt: 1, steps: [step], spans: [] }],
+      briefing: '## Implementation\n\nDrain the stuck retry queues.',
+      agent: { harness: 'claude-code', model: 'opus', effort: 'medium' },
+      repositories: ['acme/worker'],
       ...over,
     });
 
@@ -568,12 +411,17 @@ describe('Run', () => {
       );
     });
 
-    it('shows what it did, but offers no way to talk to it', () => {
+    it('shows what it was told and what it did, with a composer nobody can use', () => {
       renderRun();
 
+      expect(
+        screen.getByText(/Drain the stuck retry queues\./),
+      ).toBeInTheDocument();
       expect(screen.getByText('queue-stats --all')).toBeInTheDocument();
-      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-      expect(screen.getByText(/Nobody can talk to it/)).toBeInTheDocument();
+      expect(
+        screen.getByRole('textbox', { name: 'Message the agent' }),
+      ).toHaveAttribute('contenteditable', 'false');
+      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     });
   });
 
@@ -586,15 +434,68 @@ describe('Run', () => {
     ).toBeInTheDocument();
   });
 
+  it('ends a finished run with a way to copy the whole conversation', () => {
+    renderRun();
+
+    expect(
+      within(screen.getByRole('toolbar', { name: 'Run actions' })).getByRole(
+        'button',
+        { name: 'Copy the conversation' },
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says how long ago the conversation last moved, beside its actions', () => {
+    renderRun();
+
+    expect(
+      within(screen.getByRole('toolbar', { name: 'Run actions' })).getByText(
+        /ago|just now|[A-Z][a-z]{2} \d/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the run actions back until the run has finished', () => {
+    runs.mockReturnValue([run({ state: 'claimed' })]);
+
+    renderRun();
+
+    expect(screen.queryByRole('toolbar', { name: 'Run actions' })).toBeNull();
+  });
+
+  it('leaves the config and the spend to the traces', () => {
+    conversation.mockReturnValue(
+      said({
+        spend: {
+          cost: 1.8742,
+          currency: 'USD',
+          inputTokens: 3_120,
+          outputTokens: 18_840,
+          cacheReadTokens: 2_412_300,
+          cacheWriteTokens: 61_400,
+        },
+      }),
+    );
+
+    renderRun();
+
+    expect(
+      document.querySelector('[data-slot="run-config"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="run-spend"]'),
+    ).not.toBeInTheDocument();
+  });
+
   describe('when nothing was done', () => {
-    it('says the run failed before any work was done, and leads to the task', () => {
+    it('says the run failed before the agent started, and leads to the task', () => {
       runs.mockReturnValue([run({ state: 'failed' })]);
       conversation.mockReturnValue(said({ notes: [] }));
 
       renderRun();
 
       expect(
-        screen.getByText('This run failed before any work was done.'),
+        screen.getByText('Failed before the agent started.'),
       ).toBeInTheDocument();
       expect(
         screen.getByRole('link', { name: 'Open the task' }),
@@ -611,7 +512,7 @@ describe('Run', () => {
         screen.getByText('Implementation is working…'),
       ).toBeInTheDocument();
       expect(
-        screen.queryByText(/before any work was done/),
+        screen.queryByText(/before the agent started/),
       ).not.toBeInTheDocument();
     });
 
@@ -625,7 +526,7 @@ describe('Run', () => {
 
       expect(screen.getByText('queue-stats --all')).toBeInTheDocument();
       expect(
-        screen.queryByText(/before any work was done/),
+        screen.queryByText(/before the agent started/),
       ).not.toBeInTheDocument();
     });
   });
@@ -646,7 +547,7 @@ describe('Run', () => {
           name: 'Send it back to Implementation',
         }),
       ).toHaveAttribute(
-        'placeholder',
+        'aria-placeholder',
         'Say what to change, and Implementation starts again…',
       );
     });
@@ -719,7 +620,7 @@ describe('Run', () => {
       expect(
         screen.getByRole('textbox', { name: 'Answer Implementation' }),
       ).toHaveAttribute(
-        'placeholder',
+        'aria-placeholder',
         'Answer the question, and the run carries on…',
       );
     });
@@ -764,7 +665,7 @@ describe('Run', () => {
       renderRun();
 
       expect(
-        screen.queryByText(/before any work was done/),
+        screen.queryByText(/before the agent started/),
       ).not.toBeInTheDocument();
       expect(screen.getByText('Waiting for you')).toBeInTheDocument();
     });
@@ -880,23 +781,34 @@ describe('Run', () => {
         },
         spend: null,
         journals: [{ runId: 'run_1', attempt: 1, steps: [step], spans: [] }],
+        briefing: '# Searching for a better station',
       });
     });
 
-    it('says which iteration of which search it is, and what it spent', () => {
+    it('leaves which iteration it is to the breadcrumbs, and says how it failed at the end', () => {
       const { container } = renderRun();
-      const banner = container.querySelector(
-        '[data-slot="search-run-banner"]',
-      ) as HTMLElement;
 
-      expect(banner).toHaveTextContent('Iteration 2 of');
-      expect(banner).toHaveTextContent('$0.50 · 1 model call not priced');
-      expect(banner).toHaveTextContent(
-        'It failed: the runner was lost, so it goes unscored',
-      );
       expect(
-        screen.getByText(/A search’s agent runs on its own/),
+        container.querySelector('[data-slot="search-run-banner"]'),
+      ).toBeNull();
+      expect(screen.getByText('Runner lost (not scored).')).toBeInTheDocument();
+    });
+
+    it('shows what its agent was told, and a composer nobody can use', () => {
+      renderRun();
+
+      expect(
+        screen.getByText(/Searching for a better station/),
       ).toBeInTheDocument();
+      const composer = screen.getByRole('textbox', {
+        name: 'Message the agent',
+      });
+      expect(composer).toHaveAttribute('contenteditable', 'false');
+      expect(composer).toHaveAttribute(
+        'aria-placeholder',
+        'This agent runs autonomously and can’t receive messages.',
+      );
+      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     });
   });
 });

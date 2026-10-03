@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { togglesDisclosure } from '@/lib/disclosure';
 
 const NEAR = 80;
 
@@ -20,6 +21,12 @@ export function useStickToBottom<T extends HTMLElement>() {
       following = near();
     };
 
+    const onClick = (event: MouseEvent) => {
+      if (togglesDisclosure(event.target)) {
+        following = false;
+      }
+    };
+
     const grew = new ResizeObserver(() => {
       if (following) {
         el.scrollTop = el.scrollHeight;
@@ -28,10 +35,12 @@ export function useStickToBottom<T extends HTMLElement>() {
     grew.observe(content);
 
     el.addEventListener('scroll', onScroll, { passive: true });
+    el.addEventListener('click', onClick, { capture: true });
 
     return () => {
       grew.disconnect();
       el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('click', onClick, { capture: true });
     };
   }, []);
 

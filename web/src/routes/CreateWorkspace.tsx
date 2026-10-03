@@ -1,4 +1,10 @@
-import { type ChangeEvent, type SubmitEvent, useId, useState } from 'react';
+import {
+  type ChangeEvent,
+  type SubmitEvent,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
@@ -9,6 +15,7 @@ import {
   useCreateWorkspace,
   WorkspaceSlugTakenError,
 } from '@/hooks/api/useCreateWorkspace';
+import { openedJustNow } from '@/hooks/api/useInbox';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { inboxPath } from '@/lib/inbox';
@@ -31,12 +38,12 @@ export function CreateWorkspace() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [teamName, setTeamName] = useState('');
-  const [slugTakenOver, setSlugTakenOver] = useState(false);
+  const slugTakenOver = useRef(false);
 
   const onNameChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value;
     setName(next);
-    if (!slugTakenOver) {
+    if (!slugTakenOver.current) {
       setSlug(slugify(next));
     }
   };
@@ -44,7 +51,7 @@ export function CreateWorkspace() {
   const onSlugChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = sanitizeSlug(event.target.value);
     setSlug(next);
-    setSlugTakenOver(next !== '');
+    slugTakenOver.current = next !== '';
   };
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -59,6 +66,7 @@ export function CreateWorkspace() {
       { name: name.trim(), slug: slugify(slug), teamName: teamName.trim() },
       {
         onSuccess: (workspace) => {
+          openedJustNow(workspace.slug);
           void navigate(inboxPath(workspace.slug), { replace: true });
         },
       },

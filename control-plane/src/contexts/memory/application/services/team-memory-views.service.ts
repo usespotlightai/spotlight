@@ -5,7 +5,7 @@ import type {
   TeamMemoryDto,
 } from '@memory/application/dto/team-memory.dto';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
-import type { PeoplePort } from '@memory/application/ports/people.port';
+import type { PeoplePort, Person } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
@@ -21,10 +21,10 @@ export class TeamMemoryViews {
   ) {}
 
   async summaries(held: readonly Memory[]): Promise<TeamMemoryDto[]> {
-    const names = new Map<string, string | null>();
+    const people = new Map<string, Person | null>();
     const used = await this.uses.runsUsing(held.map((each) => each.id));
 
-    return Promise.all(held.map((each) => this.summaryOf(each, names, used)));
+    return Promise.all(held.map((each) => this.summaryOf(each, people, used)));
   }
 
   async detail(memory: Memory): Promise<TeamMemoryDetailDto> {
@@ -54,14 +54,19 @@ export class TeamMemoryViews {
 
   private async summaryOf(
     memory: Memory,
-    names: Map<string, string | null>,
+    people: Map<string, Person | null>,
     used: ReadonlyMap<string, number>,
   ): Promise<TeamMemoryDto> {
     const person = async (id: UserId): Promise<PersonDto> => {
-      if (!names.has(id.value)) {
-        names.set(id.value, await this.people.nameOf(id));
+      if (!people.has(id.value)) {
+        people.set(id.value, await this.people.find(id));
       }
-      return { id: id.value, name: names.get(id.value) ?? null };
+      const found = people.get(id.value);
+      return {
+        id: id.value,
+        name: found?.name ?? null,
+        image: found?.image ?? null,
+      };
     };
     const { retirement, grounds, scope } = memory;
 

@@ -1,5 +1,5 @@
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { NewReviewComment } from '@/components/features/review/NewReviewComment';
 import { ReviewGutterPlus } from '@/components/features/review/ReviewGutterPlus';
 import { ReviewThreadCard } from '@/components/features/review/ReviewThreadCard';
@@ -39,7 +39,7 @@ export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
       ? composing
       : null;
   const shownComposer = useLingering(composingHere, UNFOLD_MS);
-  const firstSeen = useRef<ReadonlySet<string> | null>(null);
+  const [firstSeen, setFirstSeen] = useState<ReadonlySet<string> | null>(null);
   const [dragging, setDragging] = useState<SelectedLineRange | null>(null);
   const [pointedAt, setPointedAt] = useState<SelectedLineRange | null>(null);
 
@@ -63,8 +63,8 @@ export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
     [threads, shownComposer],
   );
 
-  if (firstSeen.current === null && reviewing?.review) {
-    firstSeen.current = new Set(threads.map(({ root }) => root.id));
+  if (firstSeen === null && reviewing?.review) {
+    setFirstSeen(new Set(threads.map(({ root }) => root.id)));
   }
 
   if (!reviewing) {
@@ -83,7 +83,7 @@ export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
             onPointedAt={(pointing) =>
               setPointedAt(pointing ? rangeOf(metadata.thread.root) : null)
             }
-            appear={!firstSeen.current?.has(metadata.thread.root.id)}
+            appear={!firstSeen?.has(metadata.thread.root.id)}
           />
         ) : metadata?.kind === 'composer' ? (
           <NewReviewComment

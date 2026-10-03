@@ -39,8 +39,8 @@ const unheardParkings = 3
 
 const carryOn = "The runner working on this was lost before your turn ended. Carry on where you left off."
 
-type gone interface {
-	Gone() bool
+type lostRun interface {
+	Lost() bool
 }
 
 type wake int
@@ -370,8 +370,8 @@ func renew(
 			return
 		case <-ticker.C:
 			stop, err := lease.RenewLease(ctx, runID)
-			var lost gone
-			if errors.As(err, &lost) && lost.Gone() {
+			var lost lostRun
+			if errors.As(err, &lost) && lost.Lost() {
 				log.Info("the run is no longer held by this runner", "error", err)
 				onLost()
 				return

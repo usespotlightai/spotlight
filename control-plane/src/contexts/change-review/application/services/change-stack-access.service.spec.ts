@@ -19,6 +19,7 @@ const access = (
     member?: boolean;
     task?: Partial<ReviewedTask> | null;
     run?: Partial<ReviewedRun> | null;
+    ranFor?: TeamId | null;
   } = {},
 ) =>
   new ChangeStackAccess(
@@ -60,6 +61,8 @@ const access = (
               currentRunId: null,
               ...over.task,
             },
+      teamOfRun: async () =>
+        over.ranFor === undefined ? TeamId.of('team_1') : over.ranFor,
     } as unknown as WorkPort,
   );
 
@@ -118,6 +121,55 @@ describe('who may see a run’s change stacks', () => {
     ).toBeNull();
     expect(
       await access({ member: false }).ofRun('team_1', 'run_1', 'user_1'),
+    ).toBeNull();
+  });
+});
+
+describe('who may see a replay’s or a search’s change stacks', () => {
+  const replay = { taskId: null, isReplay: true };
+
+  it('is a member of the team the replay ran for', async () => {
+    expect(
+      (await access({ run: replay }).ofRun('team_1', 'run_1', 'user_1'))?.id
+        .value,
+    ).toBe('run_1');
+    expect(
+      (
+        await access({ run: { taskId: null, isSearch: true } }).ofRun(
+          'team_1',
+          'run_1',
+          'user_1',
+        )
+      )?.id.value,
+    ).toBe('run_1');
+  });
+
+  it('is nobody outside that team, nor for a replay whose team is gone or in another workspace', async () => {
+    expect(
+      await access({ run: replay, member: false }).ofRun(
+        'team_1',
+        'run_1',
+        'user_1',
+      ),
+    ).toBeNull();
+    expect(
+      await access({ run: replay, ranFor: TeamId.of('team_2') }).ofRun(
+        'team_1',
+        'run_1',
+        'user_1',
+      ),
+    ).toBeNull();
+    expect(
+      await access({ run: replay, ranFor: null }).ofRun(
+        'team_1',
+        'run_1',
+        'user_1',
+      ),
+    ).toBeNull();
+    expect(
+      await access({
+        run: { ...replay, workspaceId: WorkspaceId.of('ws_2') },
+      }).ofRun('team_1', 'run_1', 'user_1'),
     ).toBeNull();
   });
 });

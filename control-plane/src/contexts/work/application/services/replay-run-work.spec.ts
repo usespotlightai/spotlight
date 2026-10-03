@@ -12,8 +12,26 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const REPLAYED_AS = StationConfig.rehydrate(
+  {
+    prompt: null,
+    harness: 'dev',
+    model: null,
+    effort: null,
+    profile: null,
+    image: null,
+    repositories: [],
+    skills: [],
+    tools: [],
+    decisions: false,
+    memories: false,
+  },
+  'f'.repeat(64),
+);
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
@@ -42,6 +60,7 @@ const replay = () =>
     id: RunId.of('run_2'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
+    configuredAs: REPLAYED_AS,
     subject: RunSubject.replay(
       RunId.of('run_1'),
       TaskId.of('task_1'),

@@ -2,7 +2,6 @@ import type { QueryClient } from '@tanstack/react-query';
 import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { lineKeys } from '@/hooks/api/useLines';
 import { repositoryKeys } from '@/hooks/api/useRepositories';
-import { runConfigKeys } from '@/hooks/api/useRunConfig';
 import { runConversationKeys } from '@/hooks/api/useRunConversation';
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
@@ -13,7 +12,6 @@ import type {
   HarnessResponseDto,
   JournalStepResponseDto,
   LineResponseDto,
-  RunConfigResponseDto,
   RunConversationResponseDto,
   RunJournalResponseDto,
   RunStationResponseDto,
@@ -28,13 +26,7 @@ import {
   seedNoRunMemories,
   seedRunMemories,
 } from '@/stories/fixtures/run-memories';
-import {
-  failRunScores,
-  seedClaimsRunScores,
-  seedHiddenRunScores,
-  seedNoRunScores,
-  seedRunScores,
-} from '@/stories/fixtures/run-scores';
+import { seedNoRunScores } from '@/stories/fixtures/run-scores';
 
 export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
@@ -233,34 +225,11 @@ const WORKSPACE: WorkspaceResponseDto = {
   teams: [{ id: TEAM_ID, name: 'Platform' }],
 };
 
-const FINGERPRINT =
-  '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9';
-
-const CONFIG: RunConfigResponseDto = {
-  fingerprint: FINGERPRINT,
-  config: {
-    prompt: 'Implement the spec on the task.',
-    harness: 'claude-code',
-    model: 'claude-opus-5',
-    effort: 'xhigh',
-    profile: null,
-    image: null,
-    repositories: [{ name: 'acme/worker', setup: 'npm ci' }],
-    skills: [{ key: 'reviewing', digest: 'c0ffee' }],
-    tools: [],
-    decisions: true,
-    memories: true,
-    judge: null,
-  },
-  changedSince: null,
-};
-
 const seedAround = (
   client: QueryClient,
   standing: Partial<TaskResponseDto> = {},
 ) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
-  client.setQueryData(runConfigKeys.forRun(RUN_ID), CONFIG);
   client.setQueryData(
     taskKeys.forTeam(TEAM_ID),
     TASKS.map((each) => ({ ...each, ...standing })),
@@ -306,9 +275,6 @@ const seedPausedRun = (
 
 export const seedWaitingRun = (client: QueryClient) =>
   seedPausedRun(client, 'waiting', minutesAgo(22));
-
-export const seedParkedRun = (client: QueryClient) =>
-  seedPausedRun(client, 'parked', minutesAgo(7));
 
 const ANSWER = {
   position: 1,
@@ -377,64 +343,6 @@ export const seedCarryingOnRun = (client: QueryClient) => {
   seedRunMemories(client, TEAM_ID, RUN_ID);
 };
 
-export const seedChangedConfigRun = (client: QueryClient) => {
-  seedRun(client);
-  client.setQueryData(runConfigKeys.forRun(RUN_ID), {
-    ...CONFIG,
-    changedSince: {
-      runId: 'run_retries_1',
-      taskId: 'task_webhooks',
-      fingerprint:
-        'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
-      changes: [
-        {
-          part: 'prompt',
-          name: null,
-          kind: 'changed',
-          was: null,
-          now: null,
-        },
-        {
-          part: 'effort',
-          name: null,
-          kind: 'changed',
-          was: 'high',
-          now: 'xhigh',
-        },
-        {
-          part: 'skill',
-          name: 'reviewing',
-          kind: 'added',
-          was: null,
-          now: null,
-        },
-        {
-          part: 'memories',
-          name: null,
-          kind: 'changed',
-          was: 'off',
-          now: 'on',
-        },
-      ],
-    },
-  } satisfies RunConfigResponseDto);
-};
-
-export const seedPartlyReportedRun = (client: QueryClient) => {
-  seedRun(client);
-  client.setQueryData(runConversationKeys.forRun(RUN_ID), {
-    ...CONVERSATION,
-    spend: {
-      cost: null,
-      currency: null,
-      inputTokens: 4_480,
-      outputTokens: 12_210,
-      cacheReadTokens: 988_160,
-      cacheWriteTokens: null,
-    },
-  } satisfies RunConversationResponseDto);
-};
-
 export const rememberingRun = (client: QueryClient) => {
   seedRun(client);
   client.removeQueries({ queryKey: runMemoryKeys.forRun(TEAM_ID, RUN_ID) });
@@ -442,6 +350,7 @@ export const rememberingRun = (client: QueryClient) => {
 
 export const rememberedFailedRun = (client: QueryClient) => {
   seedRun(client);
+  client.removeQueries({ queryKey: runMemoryKeys.forRun(TEAM_ID, RUN_ID) });
   failRunMemories(client, TEAM_ID, RUN_ID);
 };
 
@@ -461,43 +370,4 @@ export const emptyRun = (client: QueryClient) => {
 export const failRun = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   failQuery(client, teamRunKeys.forTeam(TEAM_ID));
-};
-
-const EDITED: RunJournalResponseDto[] = JOURNAL.map((journal) => ({
-  ...journal,
-  steps: [
-    ...journal.steps,
-    step({
-      tool: 'edit',
-      text: 'services/worker/retry.ts',
-      change: {
-        path: '/workspace/worker/services/retry.ts',
-        before:
-          'export const retry = async (job: Job) => {\n  await deliver(job);\n};\n',
-        after:
-          'export const retry = async (job: Job) => {\n  const answer = await deliver(job);\n  if (!answer.ok) await later(job);\n};\n',
-      },
-    }),
-  ],
-}));
-
-export const seedJudgedRun = (client: QueryClient) => {
-  seedRun(client);
-  client.setQueryData(journalKeys.forTask(TASK_ID), EDITED);
-  seedRunScores(client, RUN_ID, TASK_ID);
-};
-
-export const seedClaimsJudgedRun = (client: QueryClient) => {
-  seedJudgedRun(client);
-  seedClaimsRunScores(client, RUN_ID, TASK_ID);
-};
-
-export const seedJudgeHiddenRun = (client: QueryClient) => {
-  seedJudgedRun(client);
-  seedHiddenRunScores(client, RUN_ID, TASK_ID);
-};
-
-export const judgingFailedRun = (client: QueryClient) => {
-  seedRun(client);
-  failRunScores(client, RUN_ID);
 };

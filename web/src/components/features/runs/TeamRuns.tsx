@@ -63,16 +63,14 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
 
   return (
     <>
-      {!loading(runs) && (
-        <ViewPills views={RUN_FILTERS} current={filter} onChange={remember} />
-      )}
+      <ViewPills views={RUN_FILTERS} current={filter} onChange={remember} />
 
       {loading(runs) ? (
         <TeamRunsSkeleton />
       ) : shown.length === 0 ? (
         <Notice>
           <p className="text-muted-foreground text-sm">
-            Nothing is awaiting review.
+            Nothing is waiting for you.
           </p>
         </Notice>
       ) : (

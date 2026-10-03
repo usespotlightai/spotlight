@@ -1,4 +1,5 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { runnerPoolKeys } from '@/hooks/api/useRunnerPools';
 import { createRunnerPool } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 
@@ -20,6 +21,8 @@ export class RunnerPoolNameTakenError extends Error {
 }
 
 export function useCreateRunnerPool(workspaceId: string) {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationKey: ['runner-pools', 'create'],
     mutationFn: async (key: string): Promise<CreatedRunnerPool> => {
@@ -41,5 +44,9 @@ export function useCreateRunnerPool(workspaceId: string) {
 
       throw new Error(messageOf(error, 'Could not create the pool'));
     },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: runnerPoolKeys.forWorkspace(workspaceId),
+      }),
   });
 }

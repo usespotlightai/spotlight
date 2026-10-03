@@ -14,4 +14,6 @@ export interface TaskAsidesPort {
   reopen(aside: AsideOf): Promise<void>;
 
   settle(aside: AsideOf): Promise<void>;
+
+  idOf(aside: AsideOf): Promise<string | null>;
 }

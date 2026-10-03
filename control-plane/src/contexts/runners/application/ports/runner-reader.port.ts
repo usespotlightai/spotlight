@@ -40,6 +40,7 @@ export interface HostSummary {
   readonly running: readonly string[];
   readonly images: readonly HostImageSummary[];
   readonly firstSeenAt: Date;
+  readonly upSince: Date;
   readonly lastSeenAt: Date;
 }
 

@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, within } from '@testing-library/react';
+import userEvent, {
+  PointerEventsCheckLevel,
+} from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
@@ -9,17 +11,6 @@ const navigate = vi.fn();
 vi.mock('react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router')>()),
   useNavigate: () => navigate,
-}));
-
-const exportWorkspace = vi.fn();
-vi.mock('@/lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/api')>()),
-  exportWorkspace: (options: unknown) => exportWorkspace(options),
-}));
-
-const saveFile = vi.fn();
-vi.mock('@/lib/download', () => ({
-  saveFile: (blob: Blob, name: string) => saveFile(blob, name),
 }));
 
 const signOut = vi.fn();
@@ -39,28 +30,39 @@ vi.mock('@/hooks/api/useWorkspaces', () => ({
   }),
 }));
 
-const renderMenu = () =>
+const renderMenu = (noneAnswering = false) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <WorkspaceMenu id="ws_1" name="Acme Inc." slug="acme-inc" />
+        <WorkspaceMenu
+          name="Acme Inc."
+          slug="acme-inc"
+          noneAnswering={noneAnswering}
+        />
       </MemoryRouter>
     </QueryClientProvider>,
   );
 
 const open = async () => {
-  const user = userEvent.setup();
+  const user = userEvent.setup({
+    pointerEventsCheck: PointerEventsCheckLevel.Never,
+  });
   renderMenu();
   await user.click(screen.getByRole('button', { name: /Acme Inc\./ }));
   await screen.findByRole('menu');
   return user;
 };
 
+const openWorkspaces = async () => {
+  const user = await open();
+  await user.click(screen.getByRole('menuitem', { name: 'Switch workspace' }));
+  await screen.findByRole('menuitemradio', { name: /Acme Inc\./ });
+  return user;
+};
+
 beforeEach(() => {
   navigate.mockReset();
   signOut.mockReset();
-  exportWorkspace.mockReset();
-  saveFile.mockReset();
 });
 
 describe('WorkspaceMenu', () => {
@@ -73,13 +75,13 @@ describe('WorkspaceMenu', () => {
   });
 
   it('names the signed-in account', async () => {
-    await open();
+    await openWorkspaces();
 
     expect(screen.getByText('dev@example.com')).toBeInTheDocument();
   });
 
   it('marks the workspace currently being viewed', async () => {
-    await open();
+    await openWorkspaces();
 
     expect(
       screen.getByRole('menuitemradio', { name: /Acme Inc\./ }),
@@ -90,73 +92,66 @@ describe('WorkspaceMenu', () => {
   });
 
   it('switches to another workspace', async () => {
-    const user = await open();
+    const user = await openWorkspaces();
 
-    await user.click(screen.getByRole('menuitemradio', { name: /Örebro Co/ }));
+    screen.getByRole('menuitemradio', { name: /Örebro Co/ }).focus();
+    await user.keyboard('{Enter}');
 
     expect(navigate).toHaveBeenCalledWith('/w/orebro-co');
   });
 
   it('stays put when the current workspace is chosen again', async () => {
-    const user = await open();
+    const user = await openWorkspaces();
 
-    await user.click(screen.getByRole('menuitemradio', { name: /Acme Inc\./ }));
+    screen.getByRole('menuitemradio', { name: /Acme Inc\./ }).focus();
+    await user.keyboard('{Enter}');
 
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('opens workspace creation in a new tab', async () => {
+  it('leads to the workspace settings', async () => {
     await open();
 
+    expect(screen.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc/settings',
+    );
+  });
+
+  it('leads to the settings to invite and manage members', async () => {
+    await open();
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Invite and manage members' }),
+    ).toHaveAttribute('href', '/w/acme-inc/settings');
+  });
+
+  it('flags the menu and its settings when no host is answering', async () => {
+    const user = userEvent.setup();
+    renderMenu(true);
+
+    expect(
+      screen.getByRole('img', { name: 'No host is answering' }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Acme Inc\./ }));
+
+    expect(
+      within(
+        await screen.findByRole('menuitem', { name: /Settings/ }),
+      ).getByRole('img', { name: 'No host is answering' }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens workspace creation in a new tab', async () => {
+    await openWorkspaces();
+
     const create = screen.getByRole('menuitem', {
-      name: 'Create or join a workspace',
+      name: 'Create or join a workspace…',
     });
 
     expect(create).toHaveAttribute('href', '/workspaces/new');
     expect(create).toHaveAttribute('target', '_blank');
-  });
-
-  it('downloads the workspace as a Terraform module', async () => {
-    exportWorkspace.mockResolvedValue({
-      data: { files: [{ path: 'main.tf', content: '' }] },
-    });
-    const user = await open();
-
-    await user.click(
-      screen.getByRole('menuitem', { name: 'Download as Terraform' }),
-    );
-
-    await waitFor(() =>
-      expect(saveFile).toHaveBeenCalledWith(
-        expect.any(Blob),
-        'acme-inc-terraform.zip',
-      ),
-    );
-    expect(exportWorkspace).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { id: 'ws_1' } }),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
-    );
-  });
-
-  it('stays open and offers to try again when the download fails', async () => {
-    exportWorkspace.mockRejectedValueOnce(new Error('offline'));
-    const user = await open();
-
-    await user.click(
-      screen.getByRole('menuitem', { name: 'Download as Terraform' }),
-    );
-
-    const retry = await screen.findByRole('menuitem', {
-      name: 'Could not download. Try again',
-    });
-    expect(saveFile).not.toHaveBeenCalled();
-
-    exportWorkspace.mockResolvedValue({ data: { files: [] } });
-    await user.click(retry);
-
-    await waitFor(() => expect(saveFile).toHaveBeenCalledOnce());
   });
 
   it('logs the user out', async () => {

@@ -43,6 +43,8 @@ export interface ReviewedTask {
 export interface WorkPort {
   run(runId: RunId): Promise<ReviewedRun | null>;
 
+  teamOfRun(runId: RunId): Promise<TeamId | null>;
+
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
   reasoning(runId: RunId): Promise<RunReasoning | null>;

@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import type { Attachment } from '@/lib/attachment';
@@ -13,6 +13,7 @@ type RunBriefingProps = {
 export function RunBriefing({ briefing, attachments }: RunBriefingProps) {
   const [open, setOpen] = useState(false);
   const text = useRef<HTMLParagraphElement>(null);
+  const shown = useId();
 
   const toggle = () => {
     if (open && text.current) {
@@ -24,16 +25,9 @@ export function RunBriefing({ briefing, attachments }: RunBriefingProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <SaidCard>
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={open}
-          aria-label={
-            open ? 'Show less of the prompt' : 'Show the whole prompt'
-          }
-          className="group/briefing relative block w-full text-left outline-none"
-        >
+        <div className="group/briefing relative">
           <p
+            id={shown}
             ref={text}
             className={cn(
               'whitespace-pre-wrap text-foreground text-sm leading-6',
@@ -46,14 +40,28 @@ export function RunBriefing({ briefing, attachments }: RunBriefingProps) {
             {briefing}
           </p>
 
-          <ChevronDown
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            aria-controls={shown}
+            aria-label={
+              open ? 'Show less of the prompt' : 'Show the whole prompt'
+            }
             className={cn(
-              'absolute right-0 bottom-0 size-3.5 shrink-0 text-muted-foreground transition-transform group-hover/briefing:text-foreground',
-              open && 'rotate-180',
+              'absolute rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              open ? 'right-0 bottom-0 size-3.5' : 'inset-0',
             )}
-            aria-hidden
-          />
-        </button>
+          >
+            <ChevronDown
+              className={cn(
+                'absolute right-0 bottom-0 size-3.5 shrink-0 text-muted-foreground transition-transform group-hover/briefing:text-foreground',
+                open && 'rotate-180',
+              )}
+              aria-hidden
+            />
+          </button>
+        </div>
       </SaidCard>
 
       <AttachmentTiles attachments={attachments} />

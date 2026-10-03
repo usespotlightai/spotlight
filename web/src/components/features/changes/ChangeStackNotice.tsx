@@ -2,7 +2,7 @@ import { CircleDashed, Layers, TriangleAlert } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Notice } from '@/components/shared/Notice';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import type { ChangeStack } from '@/lib/change-stack';
 import { cn } from '@/lib/utils';
 

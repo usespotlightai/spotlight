@@ -1,9 +1,5 @@
-import type {
-  RunSpendResponseDto,
-  TaskRunResponseDto,
-  TeamRunResponseDto,
-} from '@/lib/api';
-import { counted, spentIn } from '@/lib/inbox';
+import type { TaskRunResponseDto, TeamRunResponseDto } from '@/lib/api';
+import { counted } from '@/lib/inbox';
 
 export type Run = TaskRunResponseDto;
 
@@ -11,31 +7,22 @@ export type TeamRun = TeamRunResponseDto;
 
 export type Review = NonNullable<Run['review']>;
 
-export type RunSpend = RunSpendResponseDto;
-
-export const TOKEN_COUNTS = [
-  { key: 'inputTokens', label: 'Input' },
-  { key: 'outputTokens', label: 'Output' },
-  { key: 'cacheReadTokens', label: 'Cache read' },
-  { key: 'cacheWriteTokens', label: 'Cache write' },
-] as const;
-
 export const tokensShown = (count: number | null): string =>
   count === null ? 'not reported' : counted(count);
-
-export const runCost = (spend: RunSpend): string =>
-  spend.cost !== null && spend.currency
-    ? spentIn(spend.cost, spend.currency)
-    : 'not reported';
-
-export const reviewInk = (review: Review): string =>
-  review.state === 'owed' ? 'text-muted-foreground' : 'text-faint opacity-70';
 
 export const working = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'claimed' || run.state === 'queued';
 
-export const waitsOnPerson = (run: Run): boolean =>
+export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
+  run.state === 'failed'
+    ? 'Failed before the agent started.'
+    : 'Ended before the agent started.';
+
+export const waitsOnPerson = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'waiting' || run.state === 'parked';
+
+export const owesYou = (run: Pick<Run, 'state' | 'review'>): boolean =>
+  waitsOnPerson(run) || run.review?.state === 'owed';
 
 export const standing = (run: Run): string | null => {
   if (waitsOnPerson(run)) {
@@ -105,7 +92,7 @@ export const byAge = <T extends { startedAt: string }>(
 
 export const RUN_FILTERS = [
   { id: 'all', label: 'All' },
-  { id: 'awaiting-review', label: 'Awaiting Review' },
+  { id: 'waiting-for-you', label: 'Waiting for you' },
 ] as const;
 
 export type RunFilter = (typeof RUN_FILTERS)[number]['id'];
@@ -119,5 +106,5 @@ export const asRunFilter = (raw: string): RunFilter =>
 
 export const inRunFilter = (
   filter: RunFilter,
-  run: Pick<TeamRun, 'review'>,
-): boolean => filter === 'all' || run.review?.state === 'owed';
+  run: Pick<TeamRun, 'state' | 'review'>,
+): boolean => filter === 'all' || owesYou(run);

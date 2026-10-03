@@ -250,12 +250,14 @@ describe('whether a workspace is ready to run', () => {
       id: randomUUID(),
       workspaceId: workspaceId.value,
       poolId: await pooled(workspaceId, 'pull'),
+      session: 'session_1',
       name: 'build-box',
       release: '1.0.0',
       executor: 'docker',
       capacity: 1,
       images: over.images ?? [SERVING],
       firstSeenAt: over.lastSeenAt ?? NOW,
+      upSince: over.lastSeenAt ?? NOW,
       lastSeenAt: over.lastSeenAt ?? NOW,
     });
 

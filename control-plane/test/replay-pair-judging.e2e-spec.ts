@@ -539,6 +539,7 @@ beforeAll(async () => {
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
       name: 'pairing-box',
+      session: 'session_1',
       release: '0.1.0',
       executor: 'docker',
       capacity: 8,

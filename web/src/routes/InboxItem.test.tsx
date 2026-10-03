@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InboxItem } from '@/routes/InboxItem';
+import { pressEnter, write } from '@/test/lexical';
 
 const answer = vi.fn();
 const read = vi.fn();
@@ -712,7 +713,7 @@ describe('InboxItem', () => {
     const person = userEvent.setup();
     renderItem();
 
-    await person.type(
+    await write(
       screen.getByRole('textbox', { name: 'Answer Implementation' }),
       'The retry queue.',
     );
@@ -729,30 +730,28 @@ describe('InboxItem', () => {
     );
   });
 
-  it('sends on Enter, and keeps a newline on Shift+Enter', async () => {
-    const person = userEvent.setup();
+  it('sends on Enter, and not on Shift+Enter', async () => {
     renderItem();
 
     const box = screen.getByRole('textbox', { name: 'Answer Implementation' });
 
-    await person.type(box, 'first{Shift>}{Enter}{/Shift}second');
+    await write(box, 'first');
+    await pressEnter(box, { shift: true });
     expect(answer).not.toHaveBeenCalled();
 
-    await person.type(box, '{Enter}');
+    await pressEnter(box);
     expect(answer).toHaveBeenCalledWith(
-      expect.objectContaining({ body: 'first\nsecond' }),
+      expect.objectContaining({ body: 'first' }),
       expect.anything(),
     );
   });
 
   it('will not send an empty answer', async () => {
-    const person = userEvent.setup();
     renderItem();
 
-    await person.type(
-      screen.getByRole('textbox', { name: 'Answer Implementation' }),
-      '   {Enter}',
-    );
+    const box = screen.getByRole('textbox', { name: 'Answer Implementation' });
+    await write(box, '   ');
+    await pressEnter(box);
 
     expect(answer).not.toHaveBeenCalled();
   });

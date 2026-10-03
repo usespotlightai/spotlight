@@ -100,10 +100,6 @@ vi.mock('@/hooks/api/useAddTask', () => ({
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
 }));
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({ mutateAsync: vi.fn() }),
-}));
-
 const renderAt = (lineId: string) =>
   render(
     <MemoryRouter initialEntries={[`/w/acme/team/team_1/lines/${lineId}`]}>

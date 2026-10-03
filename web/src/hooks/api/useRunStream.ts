@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 
 const EVERY_MS = 500;
 
@@ -7,8 +7,7 @@ export function useRunStream(
   live: boolean,
   onBump: () => void,
 ) {
-  const bump = useRef(onBump);
-  bump.current = onBump;
+  const bump = useEffectEvent(onBump);
 
   useEffect(() => {
     if (!runId || !live) {
@@ -27,7 +26,7 @@ export function useRunStream(
 
     const flush = () => {
       pending = false;
-      bump.current();
+      bump();
     };
 
     stream.onmessage = () => {

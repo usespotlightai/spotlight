@@ -13,7 +13,7 @@ export function TaskState({ task, reviewTo }: TaskStateProps) {
   if (task.awaitingReview) {
     const asked = (
       <Pill lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}>
-        Awaiting review
+        Waiting for you
       </Pill>
     );
 

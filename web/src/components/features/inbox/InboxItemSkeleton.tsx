@@ -1,6 +1,6 @@
 import { ConversationSkeleton } from '@/components/features/inbox/conversation/ConversationSkeleton';
 import { InboxHeaderSkeleton } from '@/components/features/inbox/InboxHeaderSkeleton';
-import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
+import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 
 export function InboxItemSkeleton() {
   return (
@@ -11,9 +11,9 @@ export function InboxItemSkeleton() {
     >
       <InboxHeaderSkeleton />
 
-      <ChangesPanel>
+      <RunSidePanel>
         <ConversationSkeleton />
-      </ChangesPanel>
+      </RunSidePanel>
     </div>
   );
 }

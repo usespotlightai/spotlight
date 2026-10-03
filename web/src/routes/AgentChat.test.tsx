@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentChat } from '@/routes/AgentChat';
+import { write } from '@/test/lexical';
 
 const chat = vi.fn();
 const chatError = vi.fn();
@@ -44,8 +45,10 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 
+const said = vi.fn();
+
 vi.mock('@/hooks/api/useSayInChat', () => ({
-  useSayInChat: () => ({ mutate: vi.fn(), isPending: false }),
+  useSayInChat: () => ({ mutate: said, isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useStopChat', () => ({
@@ -53,15 +56,28 @@ vi.mock('@/hooks/api/useStopChat', () => ({
 }));
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
-  useHarnesses: () => ({ data: [] }),
+  useHarnesses: () => ({
+    data: [
+      {
+        id: 'claude-code',
+        name: 'Claude Code',
+        models: [{ id: 'opus', name: 'Opus 5' }],
+        defaultModel: '',
+        efforts: ['low', 'high'],
+      },
+      {
+        id: 'cursor',
+        name: 'Cursor',
+        models: [],
+        defaultModel: '',
+        efforts: [],
+      },
+    ],
+  }),
 }));
 
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
-}));
-
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({ mutateAsync: vi.fn() }),
 }));
 
 const planning = (over: Record<string, unknown> = {}) => ({
@@ -187,12 +203,17 @@ describe('AgentChat', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the traces shared with the agent, each leading to its trace', () => {
+  it('shows the traces shared with the agent inside what the person said, each leading to its trace', () => {
     renderChat();
 
-    expect(
-      screen.getByRole('link', { name: /Drain the stuck retry queues/ }),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/observability/tasks/task_9');
+    const trace = screen.getByRole('link', {
+      name: /Drain the stuck retry queues/,
+    });
+    expect(trace).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/tasks/task_9/trace',
+    );
+    expect(trace.closest('p')).toHaveTextContent('Help me plan the retries.');
   });
 
   it('names the station it is improving, leading to it', () => {
@@ -243,5 +264,37 @@ describe('AgentChat', () => {
     renderChat();
 
     expect(screen.queryByText('Nothing said yet')).not.toBeInTheDocument();
+  });
+
+  it('answers with the model and effort picked, but keeps the chat on its harness', async () => {
+    said.mockReset();
+    renderChat();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Agent/ }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Harness/ }));
+    expect(
+      await screen.findByRole('menuitemradio', { name: /Cursor/ }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Model/ }));
+    fireEvent.click(
+      await screen.findByRole('menuitemradio', { name: 'Opus 5' }),
+    );
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Effort/ }));
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'High' }));
+
+    expect(screen.getByRole('button', { name: /^Agent/ })).toHaveTextContent(
+      'Claude Code Opus 5 High',
+    );
+
+    await write(
+      screen.getByRole('textbox', { name: 'Say something to the agent' }),
+      'Think harder.',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(said).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'opus', effort: 'high' }),
+      expect.anything(),
+    );
   });
 });

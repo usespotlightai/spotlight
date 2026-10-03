@@ -39,6 +39,7 @@ const drafting = (
       isSearch: over.isSearch === true,
     }),
     wasWorkedBy: async () => over.worked !== false,
+    teamOfRun: async () => null,
     reasoning: async () => null,
     task: async () => null,
     taskWithPullRequest: async () => null,

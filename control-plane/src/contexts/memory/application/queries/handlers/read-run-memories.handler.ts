@@ -3,6 +3,7 @@ import type {
   RunProposalDto,
 } from '@memory/application/dto/team-memory.dto';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
+import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import type { ReadRunMemoriesQuery } from '@memory/application/queries/read-run-memories.query';
 import type { MemoryAccess } from '@memory/application/services/memory-access.service';
@@ -30,6 +31,7 @@ export class ReadRunMemoriesHandler
     private readonly uses: MemoryUsesPort,
     private readonly reviews: MemoryReviews,
     private readonly views: TeamMemoryViews,
+    private readonly reviewItems: ReviewsPort,
   ) {}
 
   async execute(query: ReadRunMemoriesQuery): Promise<RunMemoriesDto> {
@@ -57,12 +59,17 @@ export class ReadRunMemoriesHandler
         this.held(clearance, recalled),
         run.taskId ? this.proposedIn(run.taskId, runId) : [],
       ]);
+      const reviewItemId =
+        run.taskId && proposed.length > 0
+          ? await this.reviewItems.reviewItemOf(run.taskId, runId)
+          : null;
 
       return {
         briefed: await this.views.summaries(briefed),
         cut: await this.views.summaries(cut),
         recalled: await this.views.summaries(remembered),
         proposed,
+        reviewItemId,
       };
     } catch (error) {
       rethrowAsFault(error);

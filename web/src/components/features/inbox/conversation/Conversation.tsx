@@ -4,6 +4,7 @@ import { InboxWorking } from '@/components/features/inbox/conversation/InboxWork
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { togglesDisclosure } from '@/lib/disclosure';
 import {
   type Conversing,
   HELD_AT_TOP,
@@ -50,8 +51,6 @@ const marksIn = (item: Conversing): Set<number> => {
 
 const CLOSE = 80;
 
-const SETTLING_MS = 250;
-
 const put = (
   box: HTMLDivElement,
   inside: HTMLDivElement,
@@ -80,6 +79,7 @@ type ConversationProps = {
   openAt?: number | null;
   opening?: ReactNode;
   live?: ReactNode;
+  closing?: ReactNode;
   footer: ReactNode;
   deciding?: Deciding;
 };
@@ -90,6 +90,7 @@ export function Conversation({
   openAt,
   opening,
   live,
+  closing,
   footer,
   deciding,
 }: ConversationProps) {
@@ -113,21 +114,7 @@ export function Conversation({
     following.current = held.current === null;
     ours.current = put(box, inside, held.current);
 
-    let settled = false;
-    let quiet: ReturnType<typeof setTimeout>;
-
-    const stirred = () => {
-      settled = false;
-      clearTimeout(quiet);
-      quiet = setTimeout(() => {
-        settled = true;
-      }, SETTLING_MS);
-    };
-    stirred();
-
     const grew = new ResizeObserver(() => {
-      stirred();
-
       if (held.current !== null) {
         ours.current = put(box, inside, held.current) || ours.current;
         return;
@@ -137,26 +124,23 @@ export function Conversation({
         return;
       }
 
-      const foot = box.scrollHeight - box.clientHeight;
-
-      const far = foot - box.scrollTop > box.clientHeight;
-      const stillness = window.matchMedia?.(
-        '(prefers-reduced-motion: reduce)',
-      )?.matches;
-      const cut = !settled || far || stillness;
-
       const was = box.scrollTop;
-      box.scrollTo({ top: foot, behavior: cut ? 'auto' : 'smooth' });
-
-      if (cut) {
-        ours.current = box.scrollTop !== was || ours.current;
-      }
+      box.scrollTo({ top: box.scrollHeight - box.clientHeight });
+      ours.current = box.scrollTop !== was || ours.current;
     });
     grew.observe(inside);
 
+    const toggled = (event: Event) => {
+      if (togglesDisclosure(event.target)) {
+        held.current = null;
+        following.current = false;
+      }
+    };
+    box.addEventListener('click', toggled, true);
+
     return () => {
-      clearTimeout(quiet);
       grew.disconnect();
+      box.removeEventListener('click', toggled, true);
     };
   }, [item.id, openAt]);
 
@@ -266,6 +250,8 @@ export function Conversation({
               </section>
             );
           })}
+
+          {closing && <div className="mt-3">{closing}</div>}
         </div>
       </div>
 

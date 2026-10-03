@@ -10,6 +10,7 @@ export const MEMORY_STANDING_NAMES = MEMORY_STANDINGS;
 export interface PersonDto {
   readonly id: string;
   readonly name: string | null;
+  readonly image: string | null;
 }
 
 export interface MemoryRetirementDto {
@@ -67,4 +68,5 @@ export interface RunMemoriesDto {
   readonly cut: readonly TeamMemoryDto[];
   readonly recalled: readonly TeamMemoryDto[];
   readonly proposed: readonly RunProposalDto[];
+  readonly reviewItemId: string | null;
 }

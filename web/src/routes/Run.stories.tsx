@@ -5,7 +5,6 @@ import { Run } from '@/routes/Run';
 import {
   failReplayRun,
   REPLAY_RUN_ID,
-  seedClaimsReplayRun,
   seedEmptyReplayRun,
   seedReplayRun,
   seedReplayRunAwaiting,
@@ -13,18 +12,11 @@ import {
 import {
   emptyRun,
   failRun,
-  judgingFailedRun,
   RUN_ID,
   rememberedFailedRun,
   rememberingRun,
   SLUG,
   seedCarryingOnRun,
-  seedChangedConfigRun,
-  seedClaimsJudgedRun,
-  seedJudgedRun,
-  seedJudgeHiddenRun,
-  seedParkedRun,
-  seedPartlyReportedRun,
   seedRun,
   seedWaitingRun,
   TEAM_ID,
@@ -85,24 +77,6 @@ export const WithData: Story = {
   ),
 };
 
-export const ConfigChanged: Story = {
-  name: 'Config changed since the previous run',
-  render: () => (
-    <StoryPage at={at} seed={seedChangedConfigRun}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const PartlyReported: Story = {
-  name: 'Spend the harness partly reported',
-  render: () => (
-    <StoryPage at={at} seed={seedPartlyReportedRun}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
 export const Remembered: Story = {
   render: () => (
     <StoryPage at={at} seed={seedRun}>
@@ -111,7 +85,7 @@ export const Remembered: Story = {
   ),
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(
-      await canvas.findByRole('button', { name: /Remembered/ }),
+      await canvas.findByRole('button', { name: 'Remembered' }),
     );
   },
 };
@@ -122,6 +96,11 @@ export const RememberedFailed: Story = {
       {routes}
     </StoryPage>
   ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      await canvas.findByRole('button', { name: 'Remembered' }),
+    );
+  },
 };
 
 export const RememberedLoading: Story = {
@@ -130,6 +109,11 @@ export const RememberedLoading: Story = {
       {routes}
     </StoryPage>
   ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      await canvas.findByRole('button', { name: 'Remembered' }),
+    );
+  },
 };
 
 export const WaitingForYou: Story = {
@@ -141,54 +125,10 @@ export const WaitingForYou: Story = {
   ),
 };
 
-export const Parked: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedParkedRun}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
 export const CarryingOn: Story = {
   name: 'Carrying on after the answer',
   render: () => (
     <StoryPage at={at} seed={seedCarryingOnRun}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Judged: Story = {
-  name: 'Judged',
-  render: () => (
-    <StoryPage at={at} seed={seedJudgedRun}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const JudgedByClaims: Story = {
-  name: 'Judged by claims',
-  render: () => (
-    <StoryPage at={at} seed={seedClaimsJudgedRun}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const JudgeHidden: Story = {
-  name: 'Judge score hidden',
-  render: () => (
-    <StoryPage at={at} seed={seedJudgeHiddenRun}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const JudgeFailed: Story = {
-  name: 'Judge score error',
-  render: () => (
-    <StoryPage at={at} seed={judgingFailedRun}>
       {routes}
     </StoryPage>
   ),
@@ -225,15 +165,6 @@ export const Replay: Story = {
   name: 'Replay run',
   render: () => (
     <StoryPage at={replayAt} seed={seedReplayRun}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const ReplayByClaims: Story = {
-  name: 'Replay run judged by claims',
-  render: () => (
-    <StoryPage at={replayAt} seed={seedClaimsReplayRun}>
       {routes}
     </StoryPage>
   ),

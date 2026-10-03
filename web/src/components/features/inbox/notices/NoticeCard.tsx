@@ -1,6 +1,7 @@
 import { Lightbulb } from 'lucide-react';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import {
   type InboxNotice,
   NOTICE_DISMISS,

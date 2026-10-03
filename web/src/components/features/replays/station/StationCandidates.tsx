@@ -8,7 +8,7 @@ import { CandidateRow } from '@/components/features/replays/station/CandidateRow
 import { CandidatesSkeleton } from '@/components/features/replays/station/CandidatesSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { failed, loading } from '@/lib/query';
 import {
   candidatesInOrder,

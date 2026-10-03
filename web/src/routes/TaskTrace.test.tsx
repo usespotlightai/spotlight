@@ -23,6 +23,15 @@ vi.mock('@/hooks/api/useTasks', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useRunScores', () => ({
+  useRunScores: () => ({
+    data: undefined,
+    isPending: true,
+    isFetching: false,
+    errorUpdateCount: 0,
+  }),
+}));
+
 vi.mock('@/hooks/api/useTaskTrace', () => ({
   useTaskTrace: () => ({
     data: traced(),
@@ -59,12 +68,10 @@ const trace = (roots: unknown[]) => ({
 
 const renderPage = () =>
   render(
-    <MemoryRouter
-      initialEntries={['/w/acme/team/team_1/observability/tasks/task_1']}
-    >
+    <MemoryRouter initialEntries={['/w/acme/team/team_1/tasks/task_1/trace']}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/observability/tasks/:taskId"
+          path="/w/:slug/team/:teamId/tasks/:taskId/trace"
           element={<TaskTrace />}
         />
       </Routes>
@@ -96,9 +103,9 @@ describe('TaskTrace', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the trace' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Observability' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Fix the queue' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/observability',
+      '/w/acme/team/team_1/tasks/task_1',
     );
     expect(screen.queryByText('No runs yet')).not.toBeInTheDocument();
   });
@@ -108,8 +115,8 @@ describe('TaskTrace', () => {
 
     renderPage();
 
-    expect(screen.getByRole('link', { name: 'Observability' })).toBeVisible();
     expect(screen.queryByText('Task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Trace')).not.toBeInTheDocument();
     expect(screen.getByText('Implementation')).toBeInTheDocument();
   });
 

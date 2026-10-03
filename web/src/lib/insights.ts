@@ -102,6 +102,7 @@ export const INSIGHTS_TABS = [
   { id: 'tools', label: 'Tools' },
   { id: 'memory', label: 'Memory' },
   { id: 'runs', label: 'Runs' },
+  { id: 'traces', label: 'Traces' },
 ] as const;
 
 export type InsightsTab = (typeof INSIGHTS_TABS)[number]['id'];

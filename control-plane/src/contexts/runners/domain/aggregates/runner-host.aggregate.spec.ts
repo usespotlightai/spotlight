@@ -3,6 +3,7 @@ import { HostTakenError } from '@runners/domain/exceptions/host-taken.error';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -29,6 +30,10 @@ const SERVING = [
 
 type Images = Parameters<typeof HostReport.of>[0]['images'];
 
+const FIRST_SESSION = HostSession.of('session_1');
+
+const NEXT_SESSION = HostSession.of('session_2');
+
 const reportOf = (running: string[] = [], images: Images = []) =>
   HostReport.of({
     name: 'build-box',
@@ -44,6 +49,7 @@ const present = (images: Images = []) =>
     id: HOST,
     workspaceId: WorkspaceId.of('ws_1'),
     admission: THROUGH_POOL,
+    session: FIRST_SESSION,
     report: reportOf([], images),
     at: FIRST_SEEN,
   });
@@ -51,14 +57,23 @@ const present = (images: Images = []) =>
 const kindsOf = (host: RunnerHost) =>
   host.pullEvents().map((each) => each.kind);
 
-const rehydrated = (over: { version?: number; firstSeenAt?: Date } = {}) =>
+const rehydrated = (
+  over: {
+    version?: number;
+    firstSeenAt?: Date;
+    upSince?: Date;
+    lastSeenAt?: Date;
+  } = {},
+) =>
   RunnerHost.rehydrate({
     id: HOST,
     workspaceId: WorkspaceId.of('ws_1'),
     admission: THROUGH_POOL,
+    session: FIRST_SESSION,
     report: reportOf(),
     firstSeenAt: over.firstSeenAt ?? FIRST_SEEN,
-    lastSeenAt: FIRST_SEEN,
+    upSince: over.upSince ?? over.firstSeenAt ?? FIRST_SEEN,
+    lastSeenAt: over.lastSeenAt ?? FIRST_SEEN,
     version: over.version ?? 3,
   });
 
@@ -73,7 +88,17 @@ const reportedThrough = (
   host.reportedThrough({
     admission,
     workspaceId,
+    session: FIRST_SESSION,
     report: reportOf(running, images),
+    at,
+  });
+
+const reportedIn = (host: RunnerHost, session: HostSession, at: Date) =>
+  host.reportedThrough({
+    admission: THROUGH_POOL,
+    workspaceId: WorkspaceId.of('ws_1'),
+    session,
+    report: reportOf(),
     at,
   });
 
@@ -103,16 +128,75 @@ describe('RunnerHost', () => {
     expect(reported.servesThrough(THROUGH_POOL)).toBe(true);
   });
 
-  it('never goes back to having been seen earlier on a report that arrives late', () => {
+  it('is up since it first reports', () => {
+    expect(present().upSince).toEqual(FIRST_SEEN);
+  });
+
+  it('stays up since then while the same session keeps answering', () => {
     const reported = reportedThrough(
-      reportedThrough(present(), THROUGH_POOL, later(30_000)),
+      reportedThrough(present(), THROUGH_POOL, later(60_000)),
+      THROUGH_POOL,
+      later(120_000),
+    );
+
+    expect(reported.upSince).toEqual(FIRST_SEEN);
+  });
+
+  it('is up again from a report with a new session, however soon it comes', () => {
+    const restarted = reportedIn(present(), NEXT_SESSION, later(5_000));
+
+    expect(restarted.session).toEqual(NEXT_SESSION);
+    expect(restarted.upSince).toEqual(later(5_000));
+    expect(restarted.firstSeenAt).toEqual(FIRST_SEEN);
+  });
+
+  it('is up again when it answers after going quiet', () => {
+    const back = reportedThrough(present(), THROUGH_POOL, later(10 * 60_000));
+
+    expect(back.upSince).toEqual(later(10 * 60_000));
+  });
+
+  it('stays up since its restart when the session before it reports late', () => {
+    const late = reportedIn(
+      reportedIn(present(), NEXT_SESSION, later(30_000)),
+      FIRST_SESSION,
+      later(10_000),
+    );
+
+    expect(late.session).toEqual(NEXT_SESSION);
+    expect(late.upSince).toEqual(later(30_000));
+    expect(reportedIn(late, NEXT_SESSION, later(60_000)).upSince).toEqual(
+      later(30_000),
+    );
+  });
+
+  it('keeps the newer report over one that arrives late', () => {
+    const reported = reportedThrough(
+      reportedThrough(present(), THROUGH_POOL, later(30_000), ['runner_1']),
       THROUGH_POOL,
       later(10_000),
-      ['runner_1'],
     );
 
     expect(reported.lastSeenAt).toEqual(later(30_000));
     expect(reported.report.running).toHaveLength(1);
+  });
+
+  it('ignores a late report, even from a new session', () => {
+    const late = reportedIn(
+      reportedThrough(present(), THROUGH_POOL, later(30_000)),
+      NEXT_SESSION,
+      later(10_000),
+    );
+
+    expect(late.session).toEqual(FIRST_SESSION);
+    expect(late.upSince).toEqual(FIRST_SEEN);
+  });
+
+  it('takes nothing from a report no later than the last, so there is nothing to save', () => {
+    const seen = reportedThrough(present(), THROUGH_POOL, later(30_000));
+
+    expect(reportedIn(seen, NEXT_SESSION, later(30_000))).toBe(seen);
+    expect(reportedIn(seen, NEXT_SESSION, later(10_000))).toBe(seen);
   });
 
   it('carries the version it was read at through a report', () => {
@@ -139,6 +223,7 @@ describe('RunnerHost', () => {
     expect(rehomed.servesThrough(THROUGH_POOL)).toBe(false);
     expect(rehomed.workspaceId.value).toBe('ws_1');
     expect(rehomed.firstSeenAt).toEqual(later(90_000));
+    expect(rehomed.upSince).toEqual(later(90_000));
     expect(rehomed.lastSeenAt).toEqual(later(90_000));
     expect(rehomed.report.running).toHaveLength(1);
   });
@@ -237,6 +322,18 @@ describe('RunnerHost', () => {
     expect(() => rehydrated({ firstSeenAt: later(1) })).toThrow(
       InconsistentStateError,
     );
+  });
+
+  it('is not read back up since before it was first seen or after it was last seen', () => {
+    expect(() =>
+      rehydrated({ upSince: later(-1), lastSeenAt: later(60_000) }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      rehydrated({ upSince: later(60_001), lastSeenAt: later(60_000) }),
+    ).toThrow(InconsistentStateError);
+    expect(
+      rehydrated({ upSince: later(60_000), lastSeenAt: later(60_000) }).upSince,
+    ).toEqual(later(60_000));
   });
 
   it('is not read back at an impossible version', () => {

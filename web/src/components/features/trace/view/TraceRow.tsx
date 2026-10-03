@@ -1,13 +1,15 @@
 import { ChevronRight } from 'lucide-react';
 import { memo } from 'react';
 import { TraceBar } from '@/components/features/trace/view/TraceBar';
-import type { Trace, TraceNode } from '@/lib/trace';
+import { TraceRunVerdict } from '@/components/features/trace/view/TraceRunVerdict';
+import { runIdOf, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
 export const INDENT = 14;
 
 type TraceRowProps = {
   node: TraceNode;
+  teamId: string;
   depth: number;
   holding: number;
   trace: Trace;
@@ -19,6 +21,7 @@ type TraceRowProps = {
 
 export const TraceRow = memo(function TraceRow({
   node,
+  teamId,
   depth,
   holding,
   trace,
@@ -27,6 +30,8 @@ export const TraceRow = memo(function TraceRow({
   onPick,
   onToggle,
 }: TraceRowProps) {
+  const runId = runIdOf(node);
+
   return (
     <li
       className={cn(
@@ -69,6 +74,8 @@ export const TraceRow = memo(function TraceRow({
         >
           {node.name}
         </button>
+
+        {runId && <TraceRunVerdict teamId={teamId} runId={runId} />}
       </div>
 
       <TraceBar node={node} trace={trace} />

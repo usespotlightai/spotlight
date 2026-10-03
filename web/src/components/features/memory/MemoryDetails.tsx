@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { MemoryForm } from '@/components/features/memory/MemoryForm';
 import { MemoryGrounds } from '@/components/features/memory/MemoryGrounds';
-import { RetireMemoryDialog } from '@/components/features/memory/RetireMemoryDialog';
+import { RetireReply } from '@/components/features/memory/RetireReply';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { useEditMemory } from '@/hooks/api/useEditMemory';
-import { useRetireMemory } from '@/hooks/api/useRetireMemory';
 import { useTeamMemory } from '@/hooks/api/useTeamMemory';
 import type { LineResponseDto } from '@/lib/api';
 import { failed, loading } from '@/lib/query';
@@ -31,7 +30,6 @@ export function MemoryDetails({
 }: MemoryDetailsProps) {
   const query = useTeamMemory(teamId, memoryId);
   const edit = useEditMemory();
-  const retire = useRetireMemory();
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
 
@@ -64,7 +62,7 @@ export function MemoryDetails({
 
   return (
     <div className="flex flex-col gap-3">
-      <MemoryGrounds grounds={memory} startsOpen={false} />
+      <MemoryGrounds grounds={memory} defaultOpen={false} />
 
       {grounds && (
         <p className="flex gap-3">
@@ -92,7 +90,7 @@ export function MemoryDetails({
         </p>
       )}
 
-      {memory.standing === 'stands' && (
+      {memory.standing === 'stands' && !retiring && (
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -104,14 +102,7 @@ export function MemoryDetails({
           >
             Edit
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              retire.reset();
-              setRetiring(true);
-            }}
-          >
+          <Button size="sm" variant="ghost" onClick={() => setRetiring(true)}>
             Retire
           </Button>
         </div>
@@ -136,20 +127,11 @@ export function MemoryDetails({
         />
       )}
 
-      {retiring && (
-        <RetireMemoryDialog
-          open={retiring}
-          onOpenChange={setRetiring}
-          pending={retire.isPending}
-          failed={retire.isError}
-          onRetire={(reason) =>
-            retire.mutate(
-              { teamId, memoryId, reason },
-              { onSuccess: () => setRetiring(false) },
-            )
-          }
-        />
-      )}
+      <RetireReply
+        open={retiring}
+        retirable={memory.standing === 'stands' ? { teamId, memoryId } : null}
+        onCancel={() => setRetiring(false)}
+      />
     </div>
   );
 }

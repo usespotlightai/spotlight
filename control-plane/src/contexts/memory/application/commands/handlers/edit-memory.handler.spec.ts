@@ -51,7 +51,7 @@ const editing = (member = true) => {
   } as unknown as WorkPort;
   const people = {
     memberOf: async () => (member ? { workspaceId: WORKSPACE, by: ADA } : null),
-    nameOf: async () => 'Ada',
+    find: async () => ({ name: 'Ada', image: null }),
   } as unknown as PeoplePort;
   const repository = memories as unknown as MemoryRepository;
   const handler = new EditMemoryHandler(

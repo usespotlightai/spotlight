@@ -1,6 +1,6 @@
 import type { StationResponseDto, TaskResponseDto } from '@/lib/api';
 import { stationShare } from '@/lib/station';
-import { teamPath, teamSectionPath } from '@/lib/team';
+import { teamPath } from '@/lib/team';
 
 export type Task = TaskResponseDto;
 
@@ -20,8 +20,7 @@ export const taskTracePath = (
   slug: string,
   teamId: string,
   taskId: string,
-): string =>
-  `${teamSectionPath(slug, teamId, 'observability')}/tasks/${taskId}`;
+): string => `${taskPath(slug, teamId, taskId)}/trace`;
 
 export const tasksAt = (
   tasks: readonly Task[] | undefined,
@@ -88,7 +87,8 @@ export const moveTargetFor = (
 ): MoveTarget | null => {
   const backlog = stations.find((each) => each.kind === 'backlog');
   const start = stations.find((each) => each.kind === 'work');
-  const picked = tasks.filter((each) => selected.includes(each.id));
+  const chosen = new Set(selected);
+  const picked = tasks.filter((each) => chosen.has(each.id));
 
   if (!backlog || !start || picked.length === 0) {
     return null;

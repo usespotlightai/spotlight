@@ -24,7 +24,7 @@ const showing = (now: Flow['delivery']) =>
     <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?tab=flow']}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/:section"
+          path="/w/:slug/team/:teamId/insights"
           element={<DeliveryStages delivery={now} before={delivery()} />}
         />
       </Routes>

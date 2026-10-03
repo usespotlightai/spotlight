@@ -17,7 +17,7 @@ const WORDING: Record<SetupStepKey, Wording> = {
     says: 'Connect Spotlight to the repository your team will work with. This lets Spotlight interact with your code through GitHub.',
   },
   harness: {
-    title: 'Run a harness',
+    title: 'Connect a host',
     says: 'Connect a computer that runs agents with a harness such as Claude Code, from the Runners page. Spotlight’s built-in lines start working as soon as it reports in.',
   },
 };

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNoContentResponse,
@@ -48,6 +49,7 @@ import {
 } from '@work/presentation/http/dto/chat.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { ChatHttpMapper } from '@work/presentation/http/mappers/chat.http.mapper';
+import { givenChoice } from '@work/presentation/http/mappers/given-choice';
 import { givenIds } from '@work/presentation/http/mappers/given-ids';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
@@ -95,6 +97,7 @@ export class ChatController {
     summary: 'Start planning with the team’s agent',
   })
   @ApiCreatedResponse({ type: ChatResponseDto })
+  @ApiBadRequestResponse({ description: 'A model or effort that is not text' })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
   @ApiUnprocessableEntityResponse({
     description: 'An unknown harness, model, effort or repository',
@@ -112,8 +115,8 @@ export class ChatController {
         teamId,
         user.id,
         body.harness,
-        body.model ?? null,
-        body.effort ?? null,
+        givenChoice(body.model, 'model') ?? null,
+        givenChoice(body.effort, 'effort') ?? null,
         Array.isArray(body.repositories) ? body.repositories : [],
         body.body ?? '',
         givenIds(body.attachments),
@@ -188,7 +191,9 @@ export class ChatController {
   })
   @ApiParam({ name: 'chatId', type: String })
   @ApiNoContentResponse({ description: 'The agent hears it' })
+  @ApiBadRequestResponse({ description: 'A model or effort that is not text' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
+  @ApiUnprocessableEntityResponse({ description: 'An unknown model or effort' })
   async say(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,
@@ -203,6 +208,8 @@ export class ChatController {
         body.body ?? '',
         givenIds(body.attachments),
         givenIds(body.traces),
+        givenChoice(body.model, 'model'),
+        givenChoice(body.effort, 'effort'),
       ),
     );
   }

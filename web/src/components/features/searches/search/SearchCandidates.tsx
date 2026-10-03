@@ -6,7 +6,7 @@ import { IterationGroup } from '@/components/features/searches/search/IterationG
 import { SearchCandidateRow } from '@/components/features/searches/search/SearchCandidateRow';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
 import { byIteration, type SearchDetail } from '@/lib/search';
 import { cn } from '@/lib/utils';

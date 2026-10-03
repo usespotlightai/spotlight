@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -69,7 +69,7 @@ const memory = (over: Partial<Memory> = {}): Memory => ({
   stationId: null,
   repository: null,
   paths: [],
-  approvedBy: { id: 'user_2', name: 'Maya Chen' },
+  approvedBy: { id: 'user_2', name: 'Maya Chen', image: null },
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
@@ -140,7 +140,7 @@ describe('TeamMemory', () => {
         standing: 'retired',
         retirement: {
           at: '2026-09-27T11:00:00.000Z',
-          by: { id: 'user_2', name: 'Maya Chen' },
+          by: { id: 'user_2', name: 'Maya Chen', image: null },
           reason: 'It was fixed.',
           supersededBy: null,
         },
@@ -150,12 +150,13 @@ describe('TeamMemory', () => {
     showing('/w/acme/team/team_1/memory?standing=retired');
 
     expect(asked[0]?.standing).toBe('retired');
-    expect(
-      screen.getByText('Retired by Maya Chen: It was fixed.'),
-    ).toBeVisible();
+    const why = screen.getByRole('figure', { name: 'Why it was retired' });
+    expect(within(why).getByText('Maya Chen')).toBeVisible();
+    expect(within(why).getByText('retired this')).toBeVisible();
+    expect(within(why).getByText('It was fixed.')).toBeVisible();
   });
 
-  it('narrows the list by what is chosen, kept in the address', async () => {
+  it('shows the retired memories when asked, kept in the address', async () => {
     memoriesState.data = [memory()];
     showing();
 
@@ -198,22 +199,6 @@ describe('TeamMemory', () => {
     );
   });
 
-  it('narrows the list to a kind', async () => {
-    memoriesState.data = [memory()];
-    showing();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Kind: Every kind' }),
-    );
-    await userEvent.click(
-      await screen.findByRole('menuitemradio', { name: 'Failure' }),
-    );
-
-    expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent(
-      '?kind=failure',
-    );
-  });
-
   it('says nothing matches rather than inviting a first memory when filtered', () => {
     memoriesState.data = [];
     showing('/w/acme/team/team_1/memory?kind=failure');
@@ -228,14 +213,6 @@ describe('TeamMemory', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the team’s memory' }),
     ).toBeInTheDocument();
-  });
-
-  it('keeps the filters when the memory could not be loaded', () => {
-    memoriesState.errorUpdateCount = 1;
-    showing('/w/acme/team/team_1/memory?path=.');
-
-    expect(screen.getByRole('textbox', { name: 'Path' })).toHaveValue('.');
-    expect(screen.getByRole('alert')).toBeVisible();
   });
 
   it('offers to try again when the memory could not be loaded', async () => {

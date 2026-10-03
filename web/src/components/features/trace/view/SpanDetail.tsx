@@ -1,4 +1,5 @@
 import type { Ref } from 'react';
+import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { DetailFields } from '@/components/features/trace/view/detail/DetailFields';
 import { DetailHeader } from '@/components/features/trace/view/detail/DetailHeader';
 import { DetailSection } from '@/components/features/trace/view/detail/DetailSection';
@@ -12,7 +13,7 @@ import {
   holdings,
   restOf,
 } from '@/lib/detail';
-import type { TraceNode } from '@/lib/trace';
+import { runIdOf, type TraceNode } from '@/lib/trace';
 
 const DETAIL_PANE: PaneConfig = {
   storageKey: 'spotlight.trace-detail-width',
@@ -24,16 +25,19 @@ const DETAIL_PANE: PaneConfig = {
 
 export function SpanDetail({
   node,
+  teamId,
   open,
   duration,
   ref,
 }: {
   node: TraceNode;
+  teamId: string;
   open: boolean;
   duration?: number;
   ref?: Ref<HTMLElement>;
 }) {
   const { step } = node;
+  const runId = runIdOf(node);
 
   const asked = askedOf(node);
   const answered = answeredBy(node);
@@ -56,6 +60,8 @@ export function SpanDetail({
     <SidePane pane={DETAIL_PANE} open={open} duration={duration} ref={ref}>
       <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 py-4 scrollbar-hide">
         <DetailHeader node={node} />
+
+        {runId && <RunJudgeScore teamId={teamId} runId={runId} />}
 
         {asked && <DetailTold told={asked} />}
         {answered && <DetailTold told={answered} />}

@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { DiffTally } from '@/components/shared/DiffTally';
 import { type FileChange, fileName, tallyFile } from '@/lib/changes';
-import { useChangesPanel } from '@/lib/changes-panel';
+import { useRunSidePanel } from '@/lib/run-side-panel';
 import { cn } from '@/lib/utils';
 
 export function RunChangeFile({ file }: { file: FileChange }) {
-  const { selected, open } = useChangesPanel();
+  const { selected, open } = useRunSidePanel();
   const { added, removed } = useMemo(() => tallyFile(file), [file]);
 
   const active = selected === file;

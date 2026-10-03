@@ -1,26 +1,15 @@
 import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
-import { GainWithPairs } from '@/components/features/replays/GainWithPairs';
-import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
-import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
-import { ScoredRate } from '@/components/features/replays/ScoredRate';
-import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenTasksBadge';
+import { CandidateGains } from '@/components/features/searches/search/CandidateGains';
+import { CandidateHeading } from '@/components/features/searches/search/CandidateHeading';
+import { CandidateReplayLinks } from '@/components/features/searches/search/CandidateReplayLinks';
+import { CandidateScores } from '@/components/features/searches/search/CandidateScores';
 import { PickCandidate } from '@/components/features/searches/search/PickCandidate';
-import { Pill } from '@/components/shared/Pill';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type ReplayedStation, replayPath } from '@/lib/replay';
-import { pairsJudged, THE_SEARCH_START } from '@/lib/replay-words';
+import type { ReplayedStation } from '@/lib/replay';
 import {
-  candidateName,
-  costPerRunShown,
-  heldOutShown,
   type SearchCandidate,
   searchCandidateAnchor,
   searchChanges,
 } from '@/lib/search';
-import { GAIN_ON_HELD_OUT, GAIN_ON_SEARCHED } from '@/lib/search-words';
-import { cn } from '@/lib/utils';
-
-const LINK = 'text-foreground underline-offset-2 hover:underline';
 
 type SearchCandidateRowProps = {
   at: ReplayedStation;
@@ -35,33 +24,13 @@ export function SearchCandidateRow({
   candidate,
   currency,
 }: SearchCandidateRowProps) {
-  const changes = searchChanges(candidate);
-
   return (
     <li
       id={searchCandidateAnchor(candidate.candidateId)}
       data-slot="search-candidate"
       className="flex flex-col gap-1.5 rounded-md px-2 py-2 text-sm"
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <span
-          className={cn(
-            'min-w-0 truncate font-medium text-foreground',
-            !candidate.seed && 'font-mono',
-          )}
-        >
-          {candidateName(candidate)}
-        </span>
-        {candidate.onFrontier && (
-          <Pill className="text-primary">On the frontier</Pill>
-        )}
-        {candidate.onlyOnSeenTasks && (
-          <OnlyOnSeenTasksBadge mark={candidate.onlyOnSeenTasks} />
-        )}
-        {candidate.replayState && candidate.replayState !== 'finished' && (
-          <ReplayStatePill state={candidate.replayState} />
-        )}
-      </div>
+      <CandidateHeading candidate={candidate} />
 
       {candidate.hypothesis && (
         <p className="whitespace-pre-line text-foreground text-sm leading-6">
@@ -75,88 +44,14 @@ export function SearchCandidateRow({
         </p>
       ) : (
         <ChangedFromLive
-          changes={changes}
+          changes={searchChanges(candidate)}
           same="The same as the live config."
         />
       )}
 
-      <dl className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
-        <div className="flex gap-1">
-          <dt>Searched</dt>
-          <dd className="text-foreground tabular-nums">
-            <ScoredRate
-              rate={candidate.searchScore}
-              interval={candidate.searchInterval}
-              scored={candidate.searchScored}
-            />
-          </dd>
-        </div>
-        <div className="flex gap-1">
-          <dt>Held out</dt>
-          <dd className="text-foreground tabular-nums">
-            <HeldOutScore
-              rate={candidate.heldOutScore}
-              interval={candidate.heldOutInterval}
-              unscored={heldOutShown(candidate)}
-            />
-          </dd>
-        </div>
-        <div className="flex gap-1">
-          <dt>Cost per run</dt>
-          <dd className="text-foreground tabular-nums">
-            {costPerRunShown(candidate.costPerRun, currency)}
-          </dd>
-        </div>
-      </dl>
-
-      {(candidate.searchedGain ||
-        candidate.heldOutGain ||
-        pairsJudged(candidate.searchedPairs) ||
-        pairsJudged(candidate.heldOutPairs)) && (
-        <dl
-          data-slot="gain-over-seed"
-          className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground text-xs"
-        >
-          {(candidate.searchedGain || pairsJudged(candidate.searchedPairs)) && (
-            <div className="flex gap-1">
-              <dt>{GAIN_ON_SEARCHED}</dt>
-              <dd>
-                <GainWithPairs
-                  gain={candidate.searchedGain}
-                  pairs={candidate.searchedPairs}
-                  against={THE_SEARCH_START}
-                />
-              </dd>
-            </div>
-          )}
-          {(candidate.heldOutGain || pairsJudged(candidate.heldOutPairs)) && (
-            <div className="flex gap-1">
-              <dt>{GAIN_ON_HELD_OUT}</dt>
-              <dd>
-                <GainWithPairs
-                  gain={candidate.heldOutGain}
-                  pairs={candidate.heldOutPairs}
-                  against={THE_SEARCH_START}
-                />
-              </dd>
-            </div>
-          )}
-        </dl>
-      )}
-
-      <p className="flex flex-wrap gap-x-3 text-xs">
-        <TrailLink to={replayPath(at, candidate.replayId)} className={LINK}>
-          {candidate.seed ? 'Its replay of the set' : 'Its replay'}
-        </TrailLink>
-        {candidate.heldOutReplayId && (
-          <TrailLink
-            to={replayPath(at, candidate.heldOutReplayId)}
-            className={LINK}
-          >
-            Its held-out replay
-          </TrailLink>
-        )}
-      </p>
+      <CandidateScores candidate={candidate} currency={currency} />
+      <CandidateGains candidate={candidate} />
+      <CandidateReplayLinks at={at} candidate={candidate} />
 
       <PickCandidate
         teamId={at.teamId}

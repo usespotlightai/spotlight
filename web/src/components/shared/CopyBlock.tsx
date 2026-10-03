@@ -8,9 +8,10 @@ type CopyBlockProps = {
   text: string;
   label: string;
   focused?: boolean;
+  onCopy?: () => void;
 };
 
-export function CopyBlock({ text, label, focused }: CopyBlockProps) {
+export function CopyBlock({ text, label, focused, onCopy }: CopyBlockProps) {
   const { copied, copy } = useCopied();
   const button = useRef<HTMLButtonElement>(null);
 
@@ -21,17 +22,22 @@ export function CopyBlock({ text, label, focused }: CopyBlockProps) {
   }, [focused]);
 
   return (
-    <div className="flex flex-col items-start gap-2">
-      <CodeBlock command={text} className="w-full" />
+    <div className="relative">
+      <CodeBlock command={text} className="pr-10" />
 
       <Button
         ref={button}
-        variant="outline"
-        size="sm"
-        onClick={() => copy(text)}
+        variant="ghost"
+        size="icon-xs"
+        aria-label={copied ? 'Copied' : label}
+        title={label}
+        className="absolute top-1.5 right-1.5 text-muted-foreground"
+        onClick={() => {
+          copy(text);
+          onCopy?.();
+        }}
       >
         <CopyIcon copied={copied} />
-        {copied ? 'Copied' : label}
       </Button>
     </div>
   );

@@ -2,6 +2,7 @@ import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fau
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SayInChatCommand } from '@work/application/commands/chat.commands';
 import type { ChatAtHand } from '@work/application/services/chat-at-hand.service';
@@ -10,6 +11,7 @@ import type { FilesAtHand } from '@work/application/services/files-at-hand.servi
 import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { Effort } from '@work/domain/value-objects/effort.vo';
 
 export class SayInChatHandler
   implements CommandHandlerPort<SayInChatCommand, void>
@@ -39,6 +41,13 @@ export class SayInChatHandler
           body: ChatMessageBody.given(command.body, attachments, traces),
           attachments,
           traces,
+          ...(command.model !== undefined && {
+            model:
+              command.model === null ? null : HarnessModel.of(command.model),
+          }),
+          ...(command.effort !== undefined && {
+            effort: command.effort === null ? null : Effort.of(command.effort),
+          }),
           at: this.clock.now(),
         });
 

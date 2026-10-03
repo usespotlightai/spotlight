@@ -25,7 +25,7 @@ export function UntaskedRunOf({ slug, teamId, runId }: UntaskedRunOfProps) {
   const notReplay = failed(replayed) && notFound(replayed.error);
 
   if (loading(replayed) || (notReplay && loading(searched))) {
-    return <ReplayRunSkeleton footer={null} />;
+    return <ReplayRunSkeleton />;
   }
 
   if (notReplay && failed(searched) && !notFound(searched.error)) {

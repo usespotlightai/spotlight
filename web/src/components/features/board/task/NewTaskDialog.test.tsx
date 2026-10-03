@@ -9,8 +9,8 @@ import type { NewTask } from '@/lib/task';
 const created = vi.fn();
 const uploaded = vi.fn();
 
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({ mutateAsync: uploaded }),
+vi.mock('@/lib/upload-attachment', () => ({
+  uploadAttachment: (input: unknown) => uploaded(input),
 }));
 
 function Harness() {

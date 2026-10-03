@@ -1,12 +1,12 @@
-import { RunSpend } from '@/components/features/runs/RunSpend';
+import { AutonomousComposer } from '@/components/features/runs/AutonomousComposer';
 import { UntaskedRun } from '@/components/features/runs/UntaskedRun';
-import { SearchRunBanner } from '@/components/features/searches/run/SearchRunBanner';
-import { SearchRunFooter } from '@/components/features/searches/run/SearchRunFooter';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useLines } from '@/hooks/api/useLines';
 import { useSearches } from '@/hooks/api/useSearches';
 import { useStationTrail } from '@/hooks/useStationTrail';
+import { failureSentence } from '@/lib/replay-words';
 import {
+  iterationTitle,
   type SearchRun,
   searchLabel,
   searchNumber,
@@ -48,17 +48,16 @@ export function SearchRunPage({ slug, teamId, run }: SearchRunPageProps) {
 
   return (
     <UntaskedRun
+      slug={slug}
+      teamId={teamId}
       trail={trail}
       forward={forward}
       run={run}
-      banner={<SearchRunBanner at={at} run={run} number={number} />}
-      details={<RunSpend spend={run.spend} />}
-      idleNote={
-        run.state === 'failed'
-          ? 'This iteration failed before its agent did any work.'
-          : 'This iteration ended before its agent did any work.'
-      }
-      footer={<SearchRunFooter />}
+      opening={null}
+      title={iterationTitle(run.iteration, number)}
+      briefing={run.briefing}
+      failure={run.failure ? failureSentence(run.failure) : null}
+      footer={<AutonomousComposer slug={slug} agent={run.agent} />}
     />
   );
 }

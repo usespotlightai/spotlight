@@ -139,6 +139,7 @@ const syncing = (over: {
     {
       run: async () => null,
       wasWorkedBy: async () => false,
+      teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => task,
       taskWithPullRequest: async () => null,

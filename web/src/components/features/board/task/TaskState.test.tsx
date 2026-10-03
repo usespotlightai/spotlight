@@ -41,7 +41,7 @@ describe('TaskState', () => {
       />,
     );
 
-    expect(screen.getByText('Awaiting review')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for you')).toBeInTheDocument();
   });
 
   it('leads to the conversation waiting on them', () => {
@@ -53,7 +53,7 @@ describe('TaskState', () => {
     );
 
     expect(
-      screen.getByRole('link', { name: /Awaiting review/ }),
+      screen.getByRole('link', { name: /Waiting for you/ }),
     ).toHaveAttribute('href', '/w/acme/inbox/task_1%3A5');
   });
 
@@ -67,7 +67,7 @@ describe('TaskState', () => {
       />,
     );
 
-    expect(screen.getByText('Awaiting review')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for you')).toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 });

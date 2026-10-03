@@ -12,13 +12,13 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { useTasks } from '@/hooks/api/useTasks';
 import { useTaskTrace } from '@/hooks/api/useTaskTrace';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
-import { teamPath, teamSectionPath } from '@/lib/team';
+import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
@@ -44,20 +44,20 @@ export function TaskTrace() {
               ]
             : []),
           {
-            label: 'Observability',
-            to: teamSectionPath(slug, teamId, 'observability'),
+            label: task?.title ?? 'Task',
+            to: taskId ? taskPath(slug, teamId, taskId) : undefined,
           },
-          { label: task?.title ?? 'Task' },
+          { label: 'Trace' },
         ]
       : [];
-  const { trail, forward } = useTrail(base);
+  const { trail, forward } = useTrail(base, 2);
 
   if (!slug || !teamId || !taskId) {
     return null;
   }
 
   const title = loading(tasks) ? (
-    <TrailSkeleton known={trail.slice(0, -1)} />
+    <TrailSkeleton known={trail.slice(0, -2)} />
   ) : (
     <Breadcrumbs segments={trail} />
   );
@@ -103,7 +103,7 @@ export function TaskTrace() {
 
       {loading(trace) && <TraceViewSkeleton />}
 
-      {trace.data && <TraceView trace={trace.data} />}
+      {trace.data && <TraceView trace={trace.data} teamId={teamId} />}
     </>
   );
 }

@@ -3,7 +3,6 @@ import {
   changesOf,
   type FileChange,
   fileName,
-  linesOfHunk,
   repoRelative,
   tallyOf,
 } from '@/lib/changes';
@@ -122,18 +121,5 @@ describe('tallyOf', () => {
 
   it('is zero for no files', () => {
     expect(tallyOf([])).toEqual({ added: 0, removed: 0 });
-  });
-});
-
-describe('linesOfHunk', () => {
-  it('reads the lines a hunk covers in the changed file', () => {
-    expect(linesOfHunk('@@ -12,4 +12,6 @@')).toEqual({ start: 12, end: 17 });
-    expect(linesOfHunk('@@ -3 +3 @@')).toEqual({ start: 3, end: 3 });
-    expect(linesOfHunk('@@ -0,0 +1,2 @@')).toEqual({ start: 1, end: 2 });
-  });
-
-  it('reads nothing from what is not a hunk header', () => {
-    expect(linesOfHunk(null)).toBeNull();
-    expect(linesOfHunk('not a hunk')).toBeNull();
   });
 });

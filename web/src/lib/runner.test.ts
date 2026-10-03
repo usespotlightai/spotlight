@@ -22,6 +22,7 @@ const host = (over: Partial<HostResponseDto> = {}): HostResponseDto => ({
   running: [],
   images: [],
   firstSeenAt: '2026-08-30T09:00:00.000Z',
+  upSince: '2026-08-30T11:00:00.000Z',
   lastSeenAt: '2026-08-30T11:30:00.000Z',
   answering: true,
   ...over,
@@ -78,8 +79,8 @@ describe('seenAt', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it('says how long an answering host has been up', () => {
-    expect(seenAt(hosted())).toBe('Up since 3h ago');
+  it('says how long an answering host has been up since it last came up', () => {
+    expect(seenAt(hosted())).toBe('Up since 1h ago');
   });
 
   it('says when a silent host was last heard from', () => {

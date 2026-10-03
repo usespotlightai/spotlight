@@ -7,6 +7,8 @@ type SayInChatInput = {
   chatId: string;
   body: string;
   attachments: string[];
+  model: string;
+  effort: string;
 };
 
 export function useSayInChat() {
@@ -18,10 +20,17 @@ export function useSayInChat() {
       chatId,
       body,
       attachments,
+      model,
+      effort,
     }: SayInChatInput) => {
       await sayInChat({
         path: { teamId, chatId },
-        body: { body, attachments },
+        body: {
+          body,
+          attachments,
+          model: model || null,
+          effort: effort || null,
+        },
         throwOnError: true,
       });
     },

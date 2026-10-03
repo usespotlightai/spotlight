@@ -31,7 +31,7 @@ const JUDGE: NonNullable<ReplayEntry['judge']> = {
 
 describe('EntryJudgeClaims', () => {
   it('names each claim in its own words, marked in words, with the judge’s reasons under it', () => {
-    render(<EntryJudgeClaims judge={JUDGE} marks={[true, false]} files={[]} />);
+    render(<EntryJudgeClaims judge={JUDGE} marks={[true, false]} />);
 
     expect(
       [...document.querySelectorAll('[data-slot="claim-verdict"]')].map(

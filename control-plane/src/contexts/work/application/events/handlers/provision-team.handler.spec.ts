@@ -118,7 +118,7 @@ describe('ProvisionTeam', () => {
     expect(raised[0]?.title.value).toBe('Set up your team');
     expect(raised[0]?.stationId).toEqual(seeded[0]?.stations[0]?.id);
     expect(raised[0]?.notes.map((each) => each.kind)).toEqual(['asked']);
-    expect(raised[0]?.notes[0]?.body.value).toContain('2. Run a harness.');
+    expect(raised[0]?.notes[0]?.body.value).toContain('2. Connect a host.');
   });
 
   it('waits to welcome a team until its lines are open', async () => {

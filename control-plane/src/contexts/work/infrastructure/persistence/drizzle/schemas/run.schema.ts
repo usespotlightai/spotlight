@@ -9,6 +9,7 @@ import {
   type AnyPgColumn,
   bigint,
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -105,6 +106,10 @@ export const run = pgTable(
     index('run_task_idx').on(table.taskId),
     index('run_station_idx').on(table.stationId, table.createdAt),
     index('run_station_fingerprint_idx').on(table.stationFingerprint),
+    check(
+      'run_station_config_check',
+      sql`(${table.stationConfig} is null) = (${table.stationFingerprint} is null)`,
+    ),
     index('run_chat_idx').on(table.chatId),
     index('run_replay_of_idx').on(table.replayOfRunId),
     index('run_search_idx').on(table.searchId),

@@ -4,15 +4,7 @@ import { StackNavCohort } from '@/components/features/changes/StackNavCohort';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { usePreloadedLanguages } from '@/hooks/usePreloadedLanguages';
-import { type ChangeStack, layerAt } from '@/lib/change-stack';
-
-export const STACK_NAV_PANE = {
-  storageKey: 'spotlight.change-stack-nav-width',
-  min: 224,
-  max: 560,
-  initial: 288,
-  label: 'Resize the change stack',
-};
+import { type ChangeStack, layerAt, STACK_NAV_PANE } from '@/lib/change-stack';
 
 type ChangeStackViewProps = {
   stack: ChangeStack;

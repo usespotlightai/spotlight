@@ -214,7 +214,7 @@ describe('OAuth2Linking', () => {
     const { it } = linking();
 
     expect(await it.landingFor('team_1', 'slack')).toBe(
-      'https://app.example/w/acme/team/team_1/settings/integrations?connected=slack',
+      'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
     );
   });
 });

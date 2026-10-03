@@ -33,6 +33,8 @@ export function CheckboxSelect({
   readOnly = false,
   className,
 }: CheckboxSelectProps) {
+  const chosen = new Set(value);
+
   const toggle = (option: string, checked: boolean) =>
     onChange(
       checked ? [...value, option] : value.filter((each) => each !== option),
@@ -81,7 +83,7 @@ export function CheckboxSelect({
           options.map((option) => (
             <DropdownMenuCheckboxItem
               key={option}
-              checked={value.includes(option)}
+              checked={chosen.has(option)}
               closeOnClick={false}
               onCheckedChange={(checked) => toggle(option, Boolean(checked))}
             >

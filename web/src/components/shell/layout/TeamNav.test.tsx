@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,8 +13,10 @@ vi.mock('@/hooks/api/useLines', () => ({
     errorUpdateCount: 0,
   }),
 }));
+const tasks = vi.fn();
+
 vi.mock('@/hooks/api/useTasks', () => ({
-  useTasks: () => ({ data: [], isPending: false }),
+  useTasks: () => ({ data: tasks(), isPending: false }),
 }));
 
 const teams = [
@@ -37,18 +39,13 @@ const panels = () =>
 const lineGroups = () =>
   Array.from(document.querySelectorAll('[data-slot="lines"]'));
 
-const linesRow = (index: number) =>
-  screen.getAllByRole('button', { name: /Lines/ })[index];
-
-const settingsGroups = () =>
-  Array.from(document.querySelectorAll('[data-slot="settings"]'));
-
-const settingsRow = (index: number) =>
-  screen.getAllByRole('button', { name: /Settings/ })[index];
+const linesOf = (index: number) =>
+  screen.getAllByRole('list', { name: 'Lines' })[index] as HTMLElement;
 
 beforeEach(() => {
   localStorage.clear();
   lines.mockReturnValue([{ id: 'line_1', name: 'Default', stations: [] }]);
+  tasks.mockReturnValue([]);
 });
 
 describe('TeamNav', () => {
@@ -82,14 +79,16 @@ describe('TeamNav', () => {
     expect(panels()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
   });
 
-  it('groups a team’s lines under a row of their own', () => {
+  it('lists a team’s lines under a label, always in view', () => {
     renderNav();
 
     expect(lineGroups()).toHaveLength(teams.length);
-    expect(screen.getAllByRole('link', { name: 'Default' })).toHaveLength(
-      teams.length,
-    );
-    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      within(linesOf(0)).getByRole('link', { name: 'Default' }),
+    ).toHaveAttribute('href', '/w/acme-inc/team/team_1/lines/line_1');
+    expect(
+      screen.queryByRole('button', { name: /Lines/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows no lines, and nothing in their place, while a team’s lines load', () => {
@@ -101,74 +100,52 @@ describe('TeamNav', () => {
     expect(
       screen.queryByRole('link', { name: 'Default' }),
     ).not.toBeInTheDocument();
-    expect(linesRow(0)).toBeInTheDocument();
+    expect(linesOf(0)).toBeInTheDocument();
   });
 
-  it('closes one team’s line group without touching the other', async () => {
-    const user = userEvent.setup();
-    renderNav();
+  it('marks the line a task stands on, on the task and on its trace', () => {
+    lines.mockReturnValue([
+      { id: 'line_1', name: 'Default', stations: [{ id: 'station_1' }] },
+    ]);
+    tasks.mockReturnValue([{ id: 'task_1', stationId: 'station_1' }]);
 
-    await user.click(linesRow(0) as HTMLElement);
+    renderNav('/w/acme-inc/team/team_1/tasks/task_1/trace');
 
-    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'false');
-    expect(linesRow(1)).toHaveAttribute('aria-expanded', 'true');
-    expect(lineGroups()[0]?.querySelector('ul')).toHaveAttribute('inert');
-    expect(lineGroups()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
-  });
-
-  it('remembers a closed line group across mounts', async () => {
-    const user = userEvent.setup();
-    const { unmount } = renderNav();
-
-    await user.click(linesRow(0) as HTMLElement);
-    unmount();
-
-    renderNav();
-
-    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('groups a team’s settings under a row of their own', () => {
-    renderNav();
-
-    expect(settingsGroups()).toHaveLength(teams.length);
-    expect(settingsRow(0)).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getAllByRole('link', { name: 'General' })[0]).toHaveAttribute(
-      'href',
-      '/w/acme-inc/team/team_1/settings/general',
-    );
     expect(
-      screen.getAllByRole('link', { name: 'Integrations' })[0],
-    ).toHaveAttribute('href', '/w/acme-inc/team/team_1/settings/integrations');
-    expect(screen.getAllByRole('link', { name: 'Skills' })[0]).toHaveAttribute(
-      'href',
-      '/w/acme-inc/team/team_1/settings/skills',
-    );
+      within(linesOf(0)).getByRole('link', { name: 'Default' }),
+    ).toHaveClass('font-medium');
     expect(
-      screen.queryByRole('link', { name: 'Secrets' }),
+      within(linesOf(1)).getByRole('link', { name: 'Default' }),
+    ).not.toHaveClass('font-medium');
+  });
+
+  it('keeps settings out of the team’s sections', () => {
+    renderNav();
+
+    expect(
+      screen.queryByRole('button', { name: /Settings/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Integrations' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Observability' }),
     ).not.toBeInTheDocument();
   });
 
-  it('links each team’s agent first, above its lines', () => {
+  it('orders a team’s sections: agent, lines, runs, insights, memory', () => {
     renderNav();
 
-    const agent = screen.getAllByRole('link', { name: 'Agent' })[0];
-    expect(agent).toHaveAttribute('href', '/w/acme-inc/team/team_1/agent');
-    expect(panels()[0]?.querySelector('a')).toBe(agent);
-    expect(agent?.compareDocumentPosition(linesRow(0) as HTMLElement)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
+    const panel = panels()[0] as HTMLElement;
+    const named = within(panel)
+      .getAllByRole('link')
+      .map((link) => link.textContent);
+
+    expect(named).toEqual(['Agent', 'Default', 'Runs', 'Insights', 'Memory']);
+    expect(within(panel).getByRole('link', { name: 'Agent' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/agent',
     );
-  });
-
-  it('closes a team’s settings without touching its lines', async () => {
-    const user = userEvent.setup();
-    renderNav();
-
-    await user.click(settingsRow(0) as HTMLElement);
-
-    expect(settingsRow(0)).toHaveAttribute('aria-expanded', 'false');
-    expect(settingsGroups()[0]?.querySelector('ul')).toHaveAttribute('inert');
-    expect(linesRow(0)).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('only opens and closes, leaving the page where it is', () => {

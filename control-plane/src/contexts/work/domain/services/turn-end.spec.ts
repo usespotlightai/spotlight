@@ -23,6 +23,7 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -35,6 +36,23 @@ import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
+
+const REPLAYED_AS = StationConfig.rehydrate(
+  {
+    prompt: null,
+    harness: 'dev',
+    model: null,
+    effort: null,
+    profile: null,
+    image: null,
+    repositories: [],
+    skills: [],
+    tools: [],
+    decisions: false,
+    memories: false,
+  },
+  'f'.repeat(64),
+);
 
 const NOW = new Date('2026-09-29T09:00:00.000Z');
 const RUN = RunId.of('run_1');
@@ -282,6 +300,7 @@ describe('the end of a replay’s turn', () => {
       id: RUN,
       workspaceId: WorkspaceId.of('ws_1'),
       harness: HarnessId.of('dev'),
+      configuredAs: REPLAYED_AS,
       subject: RunSubject.replay(
         RunId.of('run_0'),
         TaskId.of('task_1'),

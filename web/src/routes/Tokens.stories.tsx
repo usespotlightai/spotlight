@@ -11,10 +11,10 @@ import {
 } from '@/stories/fixtures/tokens';
 import { StoryPage } from '@/stories/StoryPage';
 
-const routes = <Route path="/w/:slug/tokens" element={<Tokens />} />;
+const routes = <Route path="/w/:slug/settings/tokens" element={<Tokens />} />;
 
 const meta = {
-  title: 'Workspace/Tokens',
+  title: 'Settings/Workspace/Tokens',
 } satisfies Meta;
 
 export default meta;

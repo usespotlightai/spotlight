@@ -72,7 +72,7 @@ const remembering = (held: HeldRun | null = HELD) => {
       },
     } as unknown as MemoryDraftRepository,
     {} as MemoryRepository,
-    new MemoryReviews(work, { nameOf: async () => null } as never),
+    new MemoryReviews(work, { find: async () => null } as never),
     { run: <T>(each: () => Promise<T>) => each() },
     {
       generate: () => {

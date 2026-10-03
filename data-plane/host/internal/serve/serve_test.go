@@ -898,6 +898,10 @@ func TestReportsWhatItIsRunning(t *testing.T) {
 		t.Errorf("reported %+v", first)
 	}
 
+	if first.Session == "" {
+		t.Errorf("reported no session: %+v", first)
+	}
+
 	engine.found = nil
 }
 

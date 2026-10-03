@@ -1,15 +1,20 @@
-import { Link, Outlet, useParams } from 'react-router';
+import { Link, useMatch, useParams } from 'react-router';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
+import { PageOutlet } from '@/components/shell/layout/PageOutlet';
+import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { useLastPlace } from '@/hooks/useLastPlace';
 import { failed, loading } from '@/lib/query';
-import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
+import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
 
 export function Workspace() {
   const { slug } = useParams();
   const workspace = useWorkspace(slug);
+  const inSettings = Boolean(useMatch('/w/:slug/settings/*'));
+  const leftAt = useLastPlace(!inSettings);
 
   if (!slug) {
     return null;
@@ -18,7 +23,7 @@ export function Workspace() {
   if (loading(workspace)) {
     return (
       <DashboardLayout>
-        <Outlet />
+        <PageOutlet />
       </DashboardLayout>
     );
   }
@@ -59,9 +64,19 @@ export function Workspace() {
 
   return (
     <DashboardLayout
-      sidebar={<WorkspaceSidebar slug={slug} workspace={workspace.data} />}
+      sidebar={
+        inSettings ? (
+          <SettingsSidebar
+            slug={slug}
+            back={leftAt ?? workspacePath(slug)}
+            workspace={workspace.data}
+          />
+        ) : (
+          <WorkspaceSidebar slug={slug} workspace={workspace.data} />
+        )
+      }
     >
-      <Outlet />
+      <PageOutlet />
     </DashboardLayout>
   );
 }

@@ -8,6 +8,7 @@ import type { RunnerHostRepository } from '@runners/domain/repositories/runner-h
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -31,6 +32,7 @@ export class ReportHostPresenceHandler
 
       const id = HostId.of(command.hostId);
       const admission = Admission.of(admitted.way.kind, admitted.way.id);
+      const session = HostSession.of(command.session);
       const report = HostReport.of(command.report);
       const at = this.clock.now();
 
@@ -39,6 +41,7 @@ export class ReportHostPresenceHandler
           ? known.reportedThrough({
               admission,
               workspaceId: admitted.workspaceId,
+              session,
               report,
               at,
             })
@@ -46,6 +49,7 @@ export class ReportHostPresenceHandler
               id,
               workspaceId: admitted.workspaceId,
               admission,
+              session,
               report,
               at,
             }),

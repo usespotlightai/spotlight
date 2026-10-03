@@ -1,5 +1,6 @@
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { useLines } from '@/hooks/api/useLines';
 import { linePath } from '@/lib/team';
 import { cn } from '@/lib/utils';

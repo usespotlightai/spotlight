@@ -1,10 +1,10 @@
-import { STACK_NAV_PANE } from '@/components/features/changes/ChangeStackView';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
+import { STACK_NAV_PANE } from '@/lib/change-stack';
 
 const COHORTS = [
   ['w-40', 'w-32', 'w-44'],

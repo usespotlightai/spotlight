@@ -70,6 +70,14 @@ describe('compileLine', () => {
     expect(compiled.ok && compiled.line.stations[0]?.agentPrompt).toBeNull();
   });
 
+  it('points at a line name it refuses', () => {
+    for (const name of ['   ', 'n'.repeat(101)]) {
+      expect(refused({ ...DELIVERY, name })).toEqual([
+        expect.objectContaining({ field: FieldPath.dotted('name') }),
+      ]);
+    }
+  });
+
   it('refuses a prompt of nothing but space', () => {
     expect(
       refused(
@@ -81,6 +89,42 @@ describe('compileLine', () => {
         }),
       )[0],
     ).toMatchObject({ field: FieldPath.dotted('stations.1.prompt') });
+  });
+
+  it('points at a model it refuses rather than failing the whole line', () => {
+    expect(
+      refused(
+        withStation(1, {
+          key: 'code-review',
+          name: 'Code Review',
+          ends: true,
+          harness: 'claude-code',
+          model: 'm'.repeat(61),
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.model') });
+  });
+
+  it('points at a harness, name or description it refuses rather than failing the whole line', () => {
+    const at = (field: string, value: string) =>
+      refused(
+        withStation(1, {
+          key: 'code-review',
+          name: 'Code Review',
+          ends: true,
+          [field]: value,
+        }),
+      )[0];
+
+    expect(at('harness', 'h'.repeat(61))).toMatchObject({
+      field: FieldPath.dotted('stations.1.harness'),
+    });
+    expect(at('name', '   ')).toMatchObject({
+      field: FieldPath.dotted('stations.1.name'),
+    });
+    expect(at('description', 'd'.repeat(501))).toMatchObject({
+      field: FieldPath.dotted('stations.1.description'),
+    });
   });
 
   it('reads a station’s judge and its alerts in the order they were written', () => {

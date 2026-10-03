@@ -1,4 +1,5 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -19,6 +20,7 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -308,6 +310,37 @@ describe('Chat', () => {
     expect(
       said.deliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
     ).toHaveLength(0);
+  });
+
+  it('answers with the model and effort the person picks, keeping the harness, and keeps them when nothing is picked', () => {
+    const picked = started().said({
+      by: LEON,
+      body: ChatMessageBody.of('Think harder.'),
+      model: HarnessModel.of('opus'),
+      effort: Effort.of('high'),
+      at: LATER,
+    });
+
+    expect(picked.model?.value).toBe('opus');
+    expect(picked.effort?.value).toBe('high');
+    expect(picked.harness.value).toBe(started().harness.value);
+
+    const kept = picked.said({
+      by: LEON,
+      body: ChatMessageBody.of('And again.'),
+      at: LATER,
+    });
+    expect(kept.model?.value).toBe('opus');
+
+    const defaulted = kept.said({
+      by: LEON,
+      body: ChatMessageBody.of('Back to the default.'),
+      model: null,
+      effort: null,
+      at: LATER,
+    });
+    expect(defaulted.model).toBeNull();
+    expect(defaulted.effort).toBeNull();
   });
 
   it('wants following up only once its run is done and something is left unheard', () => {

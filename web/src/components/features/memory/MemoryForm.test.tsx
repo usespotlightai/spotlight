@@ -80,7 +80,7 @@ describe('MemoryForm', () => {
       stationId: 'station_build',
       repository: 'acme/api',
       paths: ['src/uploads.ts', 'src/retry.ts'],
-      approvedBy: { id: 'user_2', name: 'Maya Chen' },
+      approvedBy: { id: 'user_2', name: 'Maya Chen', image: null },
       approvedAt: '2026-09-27T10:00:00.000Z',
       supersedes: null,
       retirement: null,

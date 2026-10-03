@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryDetails } from '@/components/features/memory/MemoryDetails';
@@ -18,7 +19,14 @@ vi.mock('@/hooks/api/useEditMemory', () => ({
   useEditMemory: () => ({ mutate: vi.fn(), reset: vi.fn() }),
 }));
 vi.mock('@/hooks/api/useRetireMemory', () => ({
-  useRetireMemory: () => ({ mutate: vi.fn(), reset: vi.fn() }),
+  useRetireMemory: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+  }),
+}));
+vi.mock('@/hooks/api/useSession', () => ({
+  useSession: () => ({ data: { user: { name: 'Ada Lovelace', image: null } } }),
 }));
 
 const detail = (over: Record<string, unknown> = {}) => ({
@@ -33,7 +41,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   stationId: null,
   repository: null,
   paths: [],
-  approvedBy: { id: 'user_2', name: 'Maya Chen' },
+  approvedBy: { id: 'user_2', name: 'Maya Chen', image: null },
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
@@ -78,6 +86,25 @@ describe('MemoryDetails', () => {
 
     expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Retire' })).toBeVisible();
+  });
+
+  it('asks why in place when retiring, not in a dialog', async () => {
+    memoryState.data = detail();
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retire' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(
+      screen.getByRole('form', { name: 'Retire this memory' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible(),
+    );
   });
 
   it('offers nothing to do with a retired memory, and names what replaced it', () => {

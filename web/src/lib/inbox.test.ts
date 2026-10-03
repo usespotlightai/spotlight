@@ -11,6 +11,7 @@ import {
   counted,
   decisionOwed,
   inboxItemPath,
+  lastSpokenAt,
   noticeLinkPath,
   noticeOf,
   noticePath,
@@ -20,6 +21,7 @@ import {
   spentIn,
   spentOn,
   taskItemOf,
+  threadText,
   workedOn,
 } from '@/lib/inbox';
 
@@ -135,6 +137,115 @@ describe('decisionOwed', () => {
   it('owes only an answer where the last question was put in words', () => {
     expect(decisionOwed([asked('approval'), asked('words')])).toBe(false);
     expect(decisionOwed([])).toBe(false);
+  });
+});
+
+describe('threadText', () => {
+  const spoke = (
+    body: string,
+    voice: InboxMessage['voice'],
+    over: Partial<InboxMessage> = {},
+  ) =>
+    ({
+      body,
+      voice,
+      station: 'Implementation',
+      author: null,
+      ...over,
+    }) as InboxMessage;
+
+  const journal = (...steps: { kind: string; text: string }[]) =>
+    ({ runId: 'run_1', steps }) as unknown as RunJournal;
+
+  it('copies the briefing and everything said, in order, naming who said it', () => {
+    expect(
+      threadText({
+        opening: 'Drain the queue.',
+        notes: [
+          spoke('Which queue?', 'station'),
+          spoke('The webhook one.', 'person', {
+            author: { id: 'user_2', name: 'Maya Chen', image: null },
+          }),
+          spoke('  ', 'station'),
+          spoke('Set up the team.', 'world'),
+        ],
+        ran: [journal({ kind: 'said', text: 'Not copied twice.' })],
+        agent: 'Implementation',
+      }),
+    ).toBe(
+      [
+        'Briefing:\nDrain the queue.',
+        'Implementation:\nWhich queue?',
+        'Maya Chen:\nThe webhook one.',
+        'Spotlight:\nSet up the team.',
+      ].join('\n\n'),
+    );
+  });
+
+  it('takes what the agent said from its journal where nobody spoke', () => {
+    expect(
+      threadText({
+        opening: null,
+        notes: [],
+        ran: [
+          journal(
+            { kind: 'thought', text: 'Not said.' },
+            { kind: 'said', text: 'Done.' },
+          ),
+        ],
+        agent: 'Implementation',
+      }),
+    ).toBe('Implementation:\nDone.');
+  });
+
+  it('copies nothing where nothing was said', () => {
+    expect(
+      threadText({
+        opening: '  ',
+        notes: [],
+        ran: [],
+        agent: 'Implementation',
+      }),
+    ).toBe('');
+  });
+});
+
+describe('lastSpokenAt', () => {
+  const spoke = (body: string, at: string) => ({ body, at }) as InboxMessage;
+  const journal = (
+    ...steps: { kind: string; text: string; startedAt: string }[]
+  ) => ({ runId: 'run_1', steps }) as unknown as RunJournal;
+
+  it('dates the last thing said in the conversation', () => {
+    expect(
+      lastSpokenAt(
+        [
+          spoke('First.', '2026-10-03T10:00:00Z'),
+          spoke('Last.', '2026-10-03T11:00:00Z'),
+          spoke(' ', '2026-10-03T12:00:00Z'),
+        ],
+        [],
+      ),
+    ).toBe('2026-10-03T11:00:00Z');
+  });
+
+  it('falls back on what the agent said in its journal, then on nothing', () => {
+    expect(
+      lastSpokenAt(
+        [],
+        [
+          journal(
+            { kind: 'said', text: 'Done.', startedAt: '2026-10-03T09:00:00Z' },
+            {
+              kind: 'thought',
+              text: 'Not said.',
+              startedAt: '2026-10-03T09:30:00Z',
+            },
+          ),
+        ],
+      ),
+    ).toBe('2026-10-03T09:00:00Z');
+    expect(lastSpokenAt([], [])).toBeNull();
   });
 });
 

@@ -75,6 +75,12 @@ interface RanForTeam {
   readonly teamId: string | null;
 }
 
+interface RunAgentSummary {
+  readonly harness: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+}
+
 interface ReplayedRunSummary {
   readonly runId: string;
   readonly taskId: string | null;
@@ -83,6 +89,9 @@ interface ReplayedRunSummary {
 
 export interface ReplayRunSummary extends TaskRunSummary {
   readonly original: ReplayedRunSummary;
+  readonly briefing: string;
+  readonly agent: RunAgentSummary;
+  readonly repositories: readonly string[];
 }
 
 export interface SearchRunSummary extends TaskRunSummary {
@@ -90,6 +99,7 @@ export interface SearchRunSummary extends TaskRunSummary {
   readonly iteration: number;
   readonly failure: string | null;
   readonly endedAt: Date | null;
+  readonly briefing: string;
 }
 
 export const RUN_READER = Symbol('RUN_READER');

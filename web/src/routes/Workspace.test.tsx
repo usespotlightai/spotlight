@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,6 +26,8 @@ vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInbox: () => ({ data: [] }),
 }));
+const hosts = vi.fn();
+
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: {
     all: ['runners'],
@@ -34,14 +36,7 @@ vi.mock('@/hooks/api/useRunners', () => ({
   useRunners: () => ({
     isPending: false,
     errorUpdateCount: 0,
-    data: {
-      hosts: [
-        { id: 'h1', name: 'one', answering: true },
-        { id: 'h2', name: 'two', answering: true },
-        { id: 'h3', name: 'three', answering: false },
-      ],
-      provisioned: [],
-    },
+    data: { hosts: hosts(), provisioned: [] },
   }),
 }));
 vi.mock('@/hooks/api/useSession', () => ({
@@ -72,12 +67,14 @@ const acme = {
   teams: [{ id: 'team_1', name: 'Platform' }],
 };
 
-const renderAt = (slug: string) =>
+const renderAt = (slug: string, rest = '') =>
   render(
-    <MemoryRouter initialEntries={[`/w/${slug}`]}>
+    <MemoryRouter initialEntries={[`/w/${slug}${rest}`]}>
       <Routes>
         <Route path="/w/:slug" element={<Workspace />}>
           <Route index element={<p>section slot</p>} />
+          <Route path="team/:teamId/runs" element={<p>runs slot</p>} />
+          <Route path="settings/*" element={<p>settings slot</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -86,6 +83,11 @@ const renderAt = (slug: string) =>
 beforeEach(() => {
   mockWorkspace.mockReset();
   refetch.mockClear();
+  hosts.mockReturnValue([
+    { id: 'h1', name: 'one', answering: true },
+    { id: 'h2', name: 'two', answering: true },
+    { id: 'h3', name: 'three', answering: false },
+  ]);
 });
 
 describe('Workspace', () => {
@@ -99,25 +101,120 @@ describe('Workspace', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers the tokens to an owner or admin of the workspace', () => {
-    loaded({ ...acme, role: 'admin' });
+  it('leads to the settings from the workspace menu, keeping runners and tokens out of the sidebar', async () => {
+    const person = userEvent.setup();
+    loaded(acme);
 
     renderAt('acme-inc');
 
+    expect(
+      screen.queryByRole('link', { name: 'Settings' }),
+    ).not.toBeInTheDocument();
+
+    await person.click(screen.getByRole('button', { name: /Acme Inc\./ }));
+
+    expect(
+      await screen.findByRole('menuitem', { name: 'Settings' }),
+    ).toHaveAttribute('href', '/w/acme-inc/settings');
+    expect(
+      screen.queryByRole('link', { name: /Runners/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Tokens' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('flags the settings when no host is answering', () => {
+    loaded(acme);
+    hosts.mockReturnValue([{ id: 'h1', name: 'one', answering: false }]);
+
+    renderAt('acme-inc');
+
+    expect(
+      screen.getByRole('img', { name: 'No host is answering' }),
+    ).toBeInTheDocument();
+  });
+
+  it('leaves the settings unflagged while a host still answers', () => {
+    loaded(acme);
+
+    renderAt('acme-inc');
+
+    expect(
+      screen.queryByRole('img', { name: 'No host is answering' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('swaps the sidebar for the settings’ own while in settings', () => {
+    loaded(acme);
+
+    renderAt('acme-inc', '/settings/general');
+
+    const nav = screen.getByRole('navigation', { name: 'Settings' });
+
+    expect(screen.getByText('settings slot')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Inbox/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(nav).getByRole('heading', { name: 'Workspace' }),
+    ).toBeInTheDocument();
+    expect(
+      within(nav).getByRole('heading', { name: 'Platform' }),
+    ).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Skills' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc/settings/team/team_1/skills',
+    );
+  });
+
+  it('offers the tokens to an owner or admin of the workspace', () => {
+    loaded({ ...acme, role: 'admin' });
+
+    renderAt('acme-inc', '/settings/general');
+
     expect(screen.getByRole('link', { name: 'Tokens' })).toHaveAttribute(
       'href',
-      '/w/acme-inc/tokens',
+      '/w/acme-inc/settings/tokens',
     );
   });
 
   it('offers a member no tokens', () => {
     loaded({ ...acme, role: 'member' });
 
-    renderAt('acme-inc');
+    renderAt('acme-inc', '/settings/general');
 
     expect(
       screen.queryByRole('link', { name: 'Tokens' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('leads back from the settings to where the person was', async () => {
+    const person = userEvent.setup();
+    loaded(acme);
+
+    renderAt('acme-inc', '/team/team_1/runs?filter=waiting');
+
+    await person.click(screen.getByRole('button', { name: /Acme Inc\./ }));
+    await person.click(
+      await screen.findByRole('menuitem', { name: 'Settings' }),
+    );
+
+    expect(screen.getByRole('link', { name: 'Back to app' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc/team/team_1/runs?filter=waiting',
+    );
+  });
+
+  it('leads back to the workspace when the settings were opened directly', () => {
+    loaded(acme);
+
+    renderAt('acme-inc', '/settings/general');
+
+    expect(screen.getByRole('link', { name: 'Back to app' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc',
+    );
   });
 
   it('frames the section at that address', () => {
@@ -202,7 +299,7 @@ describe('Workspace', () => {
   it('counts every host the control plane can still hear from', () => {
     loaded(acme);
 
-    renderAt('acme-inc');
+    renderAt('acme-inc', '/settings/general');
 
     const runners = screen.getByRole('link', { name: /Runners/ });
     expect(runners).toHaveTextContent('2');

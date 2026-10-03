@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
 import type { ImprovedStation, SharedTrace } from '@/lib/chat';
+import { erase, pressEnter, textOf, write } from '@/test/lexical';
 
 const started = vi.fn();
 const harnesses = vi.fn();
@@ -13,8 +14,8 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [{ fullName: 'acme/api' }] }),
 }));
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({ mutateAsync: vi.fn() }),
+vi.mock('@/lib/upload-attachment', () => ({
+  uploadAttachment: () => Promise.resolve({ id: 'attachment_1' }),
 }));
 vi.mock('@/hooks/api/useStartChat', () => ({
   useStartChat: () => ({ mutate: started, isPending: false }),
@@ -51,7 +52,7 @@ const showing = (
       slug="acme"
       teamId="team_1"
       traces={traces}
-      improving={improving}
+      defaultImproving={improving}
       onStarted={onStarted}
     />,
   );
@@ -71,7 +72,8 @@ describe('NewChatComposer', () => {
   it('starts a chat with the first harness when none was chosen before', async () => {
     showing();
 
-    await userEvent.type(box(), 'Plan the retries{Enter}');
+    await write(box(), 'Plan the retries');
+    await pressEnter(box());
 
     expect(started).toHaveBeenCalledWith(
       {
@@ -94,18 +96,19 @@ describe('NewChatComposer', () => {
     );
     const { onStarted } = showing();
 
-    await userEvent.type(box(), 'Plan the retries{Enter}');
+    await write(box(), 'Plan the retries');
+    await pressEnter(box());
 
     expect(onStarted).toHaveBeenCalledWith('chat_1');
-    expect(box()).toHaveValue('');
+    expect(textOf(box())).toBe('');
   });
 
   it('shares the traces it was handed, and may start with nothing typed', async () => {
     showing(vi.fn(), [RETRIES]);
 
     expect(
-      screen.getByRole('list', { name: 'Traces to share' }),
-    ).toHaveTextContent('Drain the stuck retry queues');
+      within(box()).getByText('Drain the stuck retry queues'),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -118,14 +121,10 @@ describe('NewChatComposer', () => {
   it('lets a handed trace go before starting', async () => {
     showing(vi.fn(), [RETRIES]);
 
-    await userEvent.click(
-      screen.getByRole('button', {
-        name: 'Remove the trace of Drain the stuck retry queues',
-      }),
-    );
+    await erase(box());
 
     expect(
-      screen.queryByRole('list', { name: 'Traces to share' }),
+      within(box()).queryByText('Drain the stuck retry queues'),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
@@ -136,7 +135,10 @@ describe('NewChatComposer', () => {
     expect(
       screen.getByRole('list', { name: 'Station to improve' }),
     ).toHaveTextContent('Spec');
-    expect(box()).toHaveAttribute('placeholder', 'What should it do better?');
+    expect(box()).toHaveAttribute(
+      'aria-placeholder',
+      'What should it do better?',
+    );
 
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -152,7 +154,8 @@ describe('NewChatComposer', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Stop improving Spec' }),
     );
-    await userEvent.type(box(), 'Plan the retries{Enter}');
+    await write(box(), 'Plan the retries');
+    await pressEnter(box());
 
     expect(
       screen.queryByRole('list', { name: 'Station to improve' }),
@@ -163,7 +166,7 @@ describe('NewChatComposer', () => {
   it('shows which harness it will talk to', () => {
     showing();
 
-    expect(screen.getByRole('button', { name: 'Harness' })).toHaveTextContent(
+    expect(screen.getByRole('button', { name: /^Agent/ })).toHaveTextContent(
       'Claude Code',
     );
   });
@@ -172,6 +175,61 @@ describe('NewChatComposer', () => {
     harnesses.mockReturnValue([]);
     showing();
 
-    expect(box()).toBeDisabled();
+    expect(box()).toHaveAttribute('contenteditable', 'false');
+  });
+
+  it('puts a file it was given inline where the cursor is, and an image above the text', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:preview');
+    showing();
+
+    await write(box(), 'Look at ');
+    await userEvent.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      [
+        new File(['{}'], 'agent.json', { type: 'application/json' }),
+        new File(['png'], 'shot.png', { type: 'image/png' }),
+      ],
+    );
+
+    expect(within(box()).getByText('agent.json')).toBeInTheDocument();
+    expect(within(box()).queryByText('shot.png')).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Images' })).getByRole('img', {
+        name: 'shot.png',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('sends a file with the message, and lets it go when its token is deleted', async () => {
+    showing();
+    const picker = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+
+    await userEvent.upload(
+      picker,
+      new File(['{}'], 'agent.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('button', { name: 'Send' });
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled(),
+    );
+    await erase(box());
+
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+
+    await userEvent.upload(
+      picker,
+      new File(['{}'], 'agent.json', { type: 'application/json' }),
+    );
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(started).toHaveBeenCalledWith(
+      expect.objectContaining({ body: '', attachments: ['attachment_1'] }),
+      expect.anything(),
+    );
   });
 });

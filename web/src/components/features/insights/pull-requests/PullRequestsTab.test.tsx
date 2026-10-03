@@ -175,7 +175,7 @@ const showing = (search = '?tab=pull-requests') =>
     <MemoryRouter initialEntries={[`/w/acme/team/team_1/insights${search}`]}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/:section"
+          path="/w/:slug/team/:teamId/insights"
           element={
             <>
               <TeamInsights slug="acme" teamId="team_1" />
@@ -223,7 +223,7 @@ describe('the Pull requests tab', () => {
 
     expect(
       screen.getByRole('link', { name: 'Connect a repository' }),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/settings/integrations');
+    ).toHaveAttribute('href', '/w/acme/settings/team/team_1/integrations');
   });
 
   it('shows the pull requests still open where nothing merged yet', () => {

@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { harnessKeys } from '@/hooks/api/useHarnesses';
+import { runnerPoolKeys } from '@/hooks/api/useRunnerPools';
 import { runnerKeys } from '@/hooks/api/useRunners';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type {
@@ -71,6 +72,7 @@ const FLEET: Fleet = {
         image('ghcr.io/acme/api-runner:main', [['claude-code', '2.1.270']]),
       ],
       firstSeenAt: minutesAgo(3 * 24 * 60),
+      upSince: minutesAgo(2 * 60),
       lastSeenAt: minutesAgo(0),
       answering: true,
       runs: [
@@ -104,6 +106,7 @@ const FLEET: Fleet = {
         }),
       ],
       firstSeenAt: minutesAgo(40),
+      upSince: minutesAgo(40),
       lastSeenAt: minutesAgo(0),
       answering: true,
       runs: [],
@@ -124,6 +127,7 @@ const FLEET: Fleet = {
         ),
       ],
       firstSeenAt: minutesAgo(9 * 60),
+      upSince: minutesAgo(9 * 60),
       lastSeenAt: minutesAgo(3 * 60),
       answering: false,
       runs: [],
@@ -143,18 +147,14 @@ const FLEET: Fleet = {
   ],
 };
 
-export const seedRunners = (client: QueryClient) => {
-  client.setQueryData(runnerKeys.forWorkspace(SLUG), FLEET);
-  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
-};
-
-const emptyAs =
-  (role: WorkspaceResponseDto['role']) => (client: QueryClient) => {
-    client.setQueryData(runnerKeys.forWorkspace(SLUG), {
-      hosts: [],
-      provisioned: [],
-    } satisfies Fleet);
+const holding =
+  (fleet: Fleet, role: WorkspaceResponseDto['role']) =>
+  (client: QueryClient) => {
+    client.setQueryData(runnerKeys.forWorkspace(SLUG), fleet);
     client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
+    client.setQueryData(runnerPoolKeys.forWorkspace('workspace_acme'), [
+      { key: 'my-computer-1' },
+    ]);
     client.setQueryData(workspaceKeys.detail(SLUG), {
       id: 'workspace_acme',
       name: 'Acme',
@@ -163,6 +163,11 @@ const emptyAs =
       teams: [],
     } satisfies WorkspaceResponseDto);
   };
+
+export const seedRunners = holding(FLEET, 'owner');
+
+const emptyAs = (role: WorkspaceResponseDto['role']) =>
+  holding({ hosts: [], provisioned: [] }, role);
 
 export const emptyRunners = emptyAs('owner');
 

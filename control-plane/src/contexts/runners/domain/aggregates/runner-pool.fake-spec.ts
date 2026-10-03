@@ -7,6 +7,7 @@ import type { RunnerHostRepository } from '@runners/domain/repositories/runner-h
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
@@ -154,6 +155,7 @@ export const aHost = (
     id: input.id ?? HOST_ID,
     workspaceId: through.workspaceId,
     admission: Admission.through(through.id),
+    session: HostSession.of('session_1'),
     report: aHostReport(),
     at: input.at ?? STARTED_AT,
   });
@@ -179,8 +181,10 @@ export const heldHosts = (...known: RunnerHost[]) => {
           id: host.id,
           workspaceId: host.workspaceId,
           admission: host.admission,
+          session: host.session,
           report: host.report,
           firstSeenAt: host.firstSeenAt,
+          upSince: host.upSince,
           lastSeenAt: host.lastSeenAt,
           version: host.version + 1,
         }),

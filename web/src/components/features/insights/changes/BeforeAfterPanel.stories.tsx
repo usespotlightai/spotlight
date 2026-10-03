@@ -36,7 +36,7 @@ function Panel() {
 function Showing({ seed }: { seed: (client: QueryClient) => void }) {
   return (
     <StoryShell at={insightsAt('changes')} seed={seed}>
-      <Route path="/w/:slug/team/:teamId/:section" element={<Panel />} />
+      <Route path="/w/:slug/team/:teamId/insights" element={<Panel />} />
     </StoryShell>
   );
 }

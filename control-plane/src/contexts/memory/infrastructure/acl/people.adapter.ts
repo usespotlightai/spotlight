@@ -3,6 +3,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type {
   Membership,
   PeoplePort,
+  Person,
 } from '@memory/application/ports/people.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -19,7 +20,8 @@ export class People implements PeoplePort {
       : null;
   }
 
-  async nameOf(userId: UserId): Promise<string | null> {
-    return (await this.people.find(userId))?.name ?? null;
+  async find(userId: UserId): Promise<Person | null> {
+    const person = await this.people.find(userId);
+    return person ? { name: person.name, image: person.image } : null;
   }
 }

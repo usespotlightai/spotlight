@@ -1,13 +1,13 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { MemoryDetails } from '@/components/features/memory/MemoryDetails';
+import { RetirementNote } from '@/components/features/memory/RetirementNote';
 import { Pill } from '@/components/shared/Pill';
 import { Unfold } from '@/components/shared/Unfold';
 import type { LineResponseDto } from '@/lib/api';
 import {
   KIND_LABELS,
   placeOf,
-  retiredAs,
   SOURCE_LABELS,
   type TeamMemory,
   usedBy,
@@ -62,11 +62,6 @@ export function TeamMemoryRow({
             <span aria-hidden>·</span>
             <span>{usedBy(memory.runs)}</span>
           </span>
-          {memory.retirement && (
-            <span className="block text-muted-foreground text-xs leading-5">
-              {retiredAs(memory.retirement)}
-            </span>
-          )}
         </span>
         <ChevronDown
           aria-hidden
@@ -76,6 +71,12 @@ export function TeamMemoryRow({
           )}
         />
       </button>
+
+      {memory.retirement && (
+        <div className="text-muted-foreground text-xs leading-5">
+          <RetirementNote retirement={memory.retirement} />
+        </div>
+      )}
 
       <Unfold open={open} appear={false}>
         {seen && (

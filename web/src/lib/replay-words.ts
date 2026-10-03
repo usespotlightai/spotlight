@@ -137,16 +137,15 @@ const CHECK_SKIPS: Record<CheckSkip, string> = {
 type RunFailure = NonNullable<ReplayEntryResponseDto['failure']>;
 
 const RUN_FAILURES: Record<RunFailure, string> = {
-  exited: 'the agent exited with an error',
-  unprepared:
-    'its workspace could not be made ready before the agent began, so it goes unscored',
+  exited: 'agent exited with an error',
+  unprepared: 'workspace setup failed before the agent started (not scored)',
   refused:
-    'Spotlight would not start it as configured, as for a harness profile that is missing or tools, MCP servers or secrets a replay is not given',
-  unprovisioned: 'no runner could be provisioned, so it goes unscored',
-  'hooks-unanswered': 'its hooks never answered, so it goes unscored',
-  'runner-lost': 'the runner was lost, so it goes unscored',
-  'timed-out': 'it kept running past its host’s time limit',
-  superseded: 'it was superseded, so it goes unscored',
+    'configuration not allowed for this run, such as a missing harness profile or tools, MCP servers or secrets a replay is not given',
+  unprovisioned: 'no runner available (not scored)',
+  'hooks-unanswered': 'hooks did not respond (not scored)',
+  'runner-lost': 'runner lost (not scored)',
+  'timed-out': 'exceeded the host’s time limit',
+  superseded: 'superseded (not scored)',
 };
 
 const RUN_STATES: Record<string, string> = {
@@ -201,6 +200,11 @@ export const uncomparedShown = (why: ScoreUncompared): string =>
 
 export const failureShown = (failure: string): string =>
   isKey(RUN_FAILURES, failure) ? RUN_FAILURES[failure] : failure;
+
+export const failureSentence = (failure: string): string => {
+  const shown = failureShown(failure);
+  return `${shown.charAt(0).toUpperCase()}${shown.slice(1)}.`;
+};
 
 export const runStateShown = (state: string): string =>
   RUN_STATES[state] ?? sentence(state);

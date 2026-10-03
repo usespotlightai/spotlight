@@ -160,6 +160,12 @@ export class Run extends EventRecorder {
       );
     }
 
+    if (run.isReplay && !run.configuredAs) {
+      throw new InvalidRunTransitionError(
+        'replays a run only as the station it replays at is configured',
+      );
+    }
+
     const briefed = input.briefedTask ?? null;
 
     if (briefed && !run.taskId) {
@@ -252,6 +258,7 @@ export class Run extends EventRecorder {
     spec: RunSpec;
     startedFrom?: StartingPoint | null;
     askedAPerson?: boolean;
+    configuredAs?: StationConfig | null;
   }): void {
     if (input.attempt < 1) {
       throw new InconsistentStateError('run', 'has no attempt to its name');
@@ -260,6 +267,12 @@ export class Run extends EventRecorder {
       throw new InconsistentStateError(
         'run',
         'replays a run with a spec that does not say what it replays, or the other way round',
+      );
+    }
+    if (input.subject?.isReplay && !input.configuredAs) {
+      throw new InconsistentStateError(
+        'run',
+        'replays a run without the station config it replays with',
       );
     }
     if ((input.subject?.isSearch ?? false) !== input.spec.isSearch) {

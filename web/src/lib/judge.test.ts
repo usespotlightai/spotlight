@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  fileOfHunk,
   gradeOptions,
   scoreShown,
   standingShown,
@@ -55,31 +54,5 @@ describe('judge', () => {
     expect(
       standingShown({ ...STANDING, hiddenBecause: 'unreadable-rubric' }),
     ).toMatch(/cannot be read/);
-  });
-
-  it('finds the changed file a hunk sits in', () => {
-    const file = {
-      path: '/workspace/api/src/uploads.ts',
-      before: '',
-      after: 'x',
-    };
-
-    expect(
-      fileOfHunk(
-        {
-          id: 'api/src/uploads.ts#1',
-          path: 'api/src/uploads.ts',
-          header: null,
-          lines: [],
-        },
-        [file],
-      ),
-    ).toBe(file);
-    expect(
-      fileOfHunk(
-        { id: 'api/other.ts#1', path: 'api/other.ts', header: null, lines: [] },
-        [file],
-      ),
-    ).toBeNull();
   });
 });

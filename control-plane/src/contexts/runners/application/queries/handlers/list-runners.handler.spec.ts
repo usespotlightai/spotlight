@@ -37,6 +37,7 @@ const host = (overrides: Partial<HostSummary> = {}): HostSummary => ({
     },
   ],
   firstSeenAt: ago(3_600_000),
+  upSince: ago(1_800_000),
   lastSeenAt: NOW,
   ...overrides,
 });

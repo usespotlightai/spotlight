@@ -108,6 +108,48 @@ const compileStation = (
     return refused(['check'], error);
   }
 
+  let name: StationName;
+
+  try {
+    name = StationName.of(station.name);
+  } catch (error) {
+    return refused(['name'], error);
+  }
+
+  let description: StationDescription | null = null;
+
+  try {
+    description = station.description
+      ? StationDescription.of(station.description)
+      : null;
+  } catch (error) {
+    return refused(['description'], error);
+  }
+
+  let harness: HarnessId | null = null;
+
+  try {
+    harness = station.harness ? HarnessId.of(station.harness) : null;
+  } catch (error) {
+    return refused(['harness'], error);
+  }
+
+  let model: HarnessModel | null = null;
+
+  try {
+    model = station.model ? HarnessModel.of(station.model) : null;
+  } catch (error) {
+    return refused(['model'], error);
+  }
+
+  let effort: Effort | null = null;
+
+  try {
+    effort = station.effort ? Effort.of(station.effort) : null;
+  } catch (error) {
+    return refused(['effort'], error);
+  }
+
   let placement = RunnerPlacement.anywhere();
 
   try {
@@ -148,17 +190,15 @@ const compileStation = (
     ok: true,
     value: {
       key: StationKey.of(station.key),
-      name: StationName.of(station.name),
+      name,
       kind: station.kind,
       color: station.color
         ? StationColor.of(station.color)
         : StationColor.plain(),
-      description: station.description
-        ? StationDescription.of(station.description)
-        : null,
-      harness: station.harness ? HarnessId.of(station.harness) : null,
-      model: station.model ? HarnessModel.of(station.model) : null,
-      effort: station.effort ? Effort.of(station.effort) : null,
+      description,
+      harness,
+      model,
+      effort,
       profile: station.profile ? ProfileKey.of(station.profile) : null,
       agentPrompt,
       check,
@@ -264,6 +304,19 @@ export const compileLine = (held: unknown): CompiledLine => {
   const path = lineAt(key.value);
   const problems: ConfigurationProblem[] = [];
   const repositories: WorkedRepository[] = [];
+  let name: LineName | null = null;
+
+  try {
+    name = LineName.of(definition.name);
+  } catch (error) {
+    problems.push(
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(['name']),
+        reason: reasoned(error),
+      }),
+    );
+  }
 
   for (const [at, repository] of definition.repositories.entries()) {
     const compiled = compileRepository(path, at, repository);
@@ -353,7 +406,7 @@ export const compileLine = (held: unknown): CompiledLine => {
     }
   }
 
-  if (problems.length > 0) {
+  if (!name || problems.length > 0) {
     return { ok: false, problems };
   }
 
@@ -362,7 +415,7 @@ export const compileLine = (held: unknown): CompiledLine => {
       ok: true,
       line: LinePlan.of({
         key,
-        name: LineName.of(definition.name),
+        name,
         stations,
         reactions: definition.reactions.map((reaction) => ({
           happening: Happening.of(reaction.happening),

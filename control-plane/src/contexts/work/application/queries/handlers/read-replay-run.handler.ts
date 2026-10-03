@@ -47,6 +47,9 @@ export class ReadReplayRunHandler
         original: { ...found.original },
         spend: digest ? RunSpendMapper.toDto(digest) : null,
         journals: journals.map(RunJournalMapper.toDto),
+        briefing: found.briefing,
+        agent: found.agent,
+        repositories: found.repositories,
       };
     } catch (error) {
       rethrowAsFault(error);

@@ -1,21 +1,14 @@
 import { ClaimMark } from '@/components/features/runs/judge/ClaimMark';
 import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
-import type { FileChange } from '@/lib/changes';
 import { CLAIMS_LABEL, claimShown, type JudgeReason } from '@/lib/judge';
 
 type ClaimVerdictsProps = {
   claims: readonly (string | null)[];
   marks: readonly boolean[];
   reasons: readonly JudgeReason[];
-  files: readonly FileChange[];
 };
 
-export function ClaimVerdicts({
-  claims,
-  marks,
-  reasons,
-  files,
-}: ClaimVerdictsProps) {
+export function ClaimVerdicts({ claims, marks, reasons }: ClaimVerdictsProps) {
   return (
     <ol
       data-slot="claim-verdicts"
@@ -39,7 +32,6 @@ export function ClaimVerdicts({
             {why.length > 0 && (
               <JudgeReasons
                 reasons={why}
-                files={files}
                 label={`Why, on ${claimShown(claims, at)}`}
                 className="pl-5"
               />

@@ -73,6 +73,8 @@ const renderComparison = (comparison: EntryComparison[]) =>
         slug="acme"
         teamId="team_1"
         replay={detail(comparison)}
+        picked={null}
+        onPick={() => {}}
       />
     </MemoryRouter>,
   );

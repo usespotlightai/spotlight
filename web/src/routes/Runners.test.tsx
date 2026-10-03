@@ -1,16 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RunnerPoolNameTakenError } from '@/hooks/api/useCreateRunnerPool';
 import { Runners } from '@/routes/Runners';
 
 const fleet = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
 const role = vi.fn();
-const creating = vi.fn();
-const create = vi.fn();
 
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: {
@@ -28,17 +25,6 @@ vi.mock('@/hooks/api/useRunners', () => ({
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({ data: { id: 'workspace_acme', role: role() } }),
-}));
-
-vi.mock('@/hooks/api/useCreateRunnerPool', async (actual) => ({
-  ...(await actual<typeof import('@/hooks/api/useCreateRunnerPool')>()),
-  useCreateRunnerPool: () => ({
-    mutate: create,
-    reset: vi.fn(),
-    isPending: false,
-    error: null,
-    ...creating(),
-  }),
 }));
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
@@ -73,6 +59,7 @@ const host = (over: Record<string, unknown> = {}) => ({
   running: [],
   images: [image()],
   firstSeenAt: '2026-08-20T09:00:00.000Z',
+  upSince: '2026-08-29T09:00:00.000Z',
   lastSeenAt: '2026-08-29T12:00:00.000Z',
   answering: true,
   runs: [],
@@ -96,23 +83,22 @@ const holding = (hosts: unknown[], runners: unknown[] = []) =>
 
 const renderPage = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/runners']}>
+    <MemoryRouter initialEntries={['/w/acme/settings/runners']}>
       <Routes>
-        <Route path="/w/:slug/runners" element={<Runners />} />
+        <Route path="/w/:slug/settings/runners" element={<Runners />} />
       </Routes>
     </MemoryRouter>,
   );
 
 describe('Runners', () => {
   beforeEach(() => {
+    localStorage.clear();
     failing.mockReturnValue(false);
     refetch.mockClear();
     role.mockReturnValue('owner');
-    creating.mockReturnValue({});
-    create.mockClear();
   });
 
-  it('holds the shape of a host while they load, keeping what never changes', () => {
+  it('holds the shape of a host while they load', () => {
     fleet.mockReturnValue(undefined);
 
     renderPage();
@@ -120,8 +106,8 @@ describe('Runners', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the hosts' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Hosts' })).toBeInTheDocument();
-    expect(screen.queryByText(/No host serves/)).not.toBeInTheDocument();
+    expect(screen.getByText('Host')).toBeInTheDocument();
+    expect(screen.queryByText(/No hosts yet/)).not.toBeInTheDocument();
   });
 
   it('says the runners could not be loaded, and tries again when asked', async () => {
@@ -135,7 +121,7 @@ describe('Runners', () => {
       'Runners could not be loaded.',
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.queryByText(/No host serves/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No hosts yet/)).not.toBeInTheDocument();
 
     await person.click(screen.getByRole('button', { name: 'Try again' }));
 
@@ -149,45 +135,39 @@ describe('Runners', () => {
 
     expect(screen.getByText('build-box-1')).toBeInTheDocument();
     expect(screen.getByText('Pool build-farm')).toBeInTheDocument();
-    expect(screen.getByText('Claude Code')).toBeInTheDocument();
-    expect(screen.getByText('2.1.270')).toBeInTheDocument();
+    expect(screen.getByText('Claude Code 2.1.270')).toBeInTheDocument();
   });
 
-  it('names each image a host serves, its default, and the runner and digest in it', () => {
+  it('names a host’s default image, and counts the others', () => {
     holding([
       host({
         images: [
+          image({ usual: false, image: 'ghcr.io/acme/api-runner:main' }),
           image(),
-          image({
-            image: 'ghcr.io/acme/api-runner:main',
-            digest: `ghcr.io/acme/api-runner@sha256:${DIGEST}`,
-            usual: false,
-          }),
         ],
       }),
     ]);
 
     renderPage();
 
-    const images = screen.getByRole('list', { name: 'Runner images' });
-    expect(images).toHaveTextContent(
-      'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
+    const named = screen.getByText('spotlight-runner:20260925-01');
+    expect(named).toHaveAttribute(
+      'title',
+      expect.stringContaining('ghcr.io/acme/api-runner:main'),
     );
-    expect(images).toHaveTextContent('ghcr.io/acme/api-runner:main');
-    expect(screen.getAllByText('Default')).toHaveLength(1);
-    expect(screen.getAllByText('Runner 20260925-01')).toHaveLength(2);
-    expect(screen.getAllByText('sha256:a3f9c2e17b4d')).toHaveLength(2);
+    expect(screen.getByText('+1')).toBeInTheDocument();
   });
 
-  it('says why a host refuses an image', () => {
+  it('says a host refuses an image, and why', () => {
     holding([
       host({
         images: [
+          image(),
           image({
             image: 'ghcr.io/acme/legacy-runner:2025',
             usual: false,
             release: null,
-            harnesses: [],
+            harnesses: [{ id: 'other', version: null }],
             refused:
               'Its runner reports no release, so it is older than the 20260925-01 this control plane needs',
           }),
@@ -197,12 +177,13 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(
-      screen.getByText(
+    expect(screen.getByText('1 refused')).toHaveAttribute(
+      'title',
+      expect.stringContaining(
         'Refused: its runner reports no release, so it is older than the 20260925-01 this control plane needs',
       ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Claude Code')).not.toBeInTheDocument();
+    );
+    expect(screen.queryByText('Other Harness')).not.toBeInTheDocument();
   });
 
   it('names a host serving a trust by the trust', () => {
@@ -213,7 +194,7 @@ describe('Runners', () => {
     expect(screen.getByText('Trust production')).toBeInTheDocument();
   });
 
-  it('names the first few harnesses and counts the rest', () => {
+  it('names every harness a host serves, once', () => {
     holding([
       host({
         images: [
@@ -221,8 +202,14 @@ describe('Runners', () => {
             harnesses: [
               { id: 'claude-code', version: null },
               { id: 'other', version: null },
+            ],
+          }),
+          image({
+            image: 'ghcr.io/acme/api-runner:main',
+            usual: false,
+            harnesses: [
+              { id: 'claude-code', version: null },
               { id: 'third', version: null },
-              { id: 'fourth', version: null },
             ],
           }),
         ],
@@ -231,9 +218,9 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(screen.getByText('Claude Code')).toBeInTheDocument();
+    expect(screen.getAllByText('Claude Code')).toHaveLength(1);
     expect(screen.getByText('Other Harness')).toBeInTheDocument();
-    expect(screen.getByText('+1 more')).toBeInTheDocument();
+    expect(screen.getByText('third')).toBeInTheDocument();
   });
 
   it('says how busy each host is, and which one stopped answering', () => {
@@ -245,9 +232,10 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(screen.getByText('Running 2 of 4')).toBeInTheDocument();
-    expect(screen.getByText('Idle')).toBeInTheDocument();
-    expect(screen.getByText('Not answering')).toBeInTheDocument();
+    const hosts = within(screen.getByRole('region', { name: 'Hosts' }));
+    expect(hosts.getByText('Running 2 of 4')).toBeInTheDocument();
+    expect(hosts.getByText('Idle')).toBeInTheDocument();
+    expect(hosts.getByText('Not answering')).toBeInTheDocument();
   });
 
   it('says how long a host has been up, or when it was last heard from', () => {
@@ -262,90 +250,15 @@ describe('Runners', () => {
     expect(screen.getByText(/^Last seen/)).toBeInTheDocument();
   });
 
-  it('offers to create a pool when no host serves the workspace', async () => {
-    const person = userEvent.setup();
+  it('offers to add the first host on its own page', () => {
     holding([]);
 
     renderPage();
 
-    expect(screen.getByText(/No host serves/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Pool name')).toHaveValue('my-computer');
-
-    await person.click(screen.getByRole('button', { name: 'Create pool' }));
-
-    expect(create).toHaveBeenCalledWith('my-computer');
-  });
-
-  it('keeps a pool name to lowercase words joined by dashes', async () => {
-    const person = userEvent.setup();
-    holding([]);
-
-    renderPage();
-
-    const name = screen.getByLabelText('Pool name');
-    await person.clear(name);
-    await person.type(name, 'Build Box 2');
-    await person.click(screen.getByRole('button', { name: 'Create pool' }));
-
-    expect(create).toHaveBeenCalledWith('build-box-2');
-  });
-
-  it('still shows the install command for a token someone already has', () => {
-    holding([]);
-
-    renderPage();
-
+    expect(screen.getByText(/No hosts yet/)).toBeInTheDocument();
     expect(
-      screen.getByText(/SPOTLIGHT_TOKEN=<pool token>/),
-    ).toBeInTheDocument();
-  });
-
-  it('says a taken pool name is taken, and asks for another', () => {
-    holding([]);
-    creating.mockReturnValue({
-      error: new RunnerPoolNameTakenError('my-computer'),
-    });
-
-    renderPage();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'A pool named my-computer already exists. Choose another name.',
-    );
-    expect(screen.getByLabelText('Pool name')).toHaveAttribute(
-      'aria-invalid',
-      'true',
-    );
-  });
-
-  it('says why a pool could not be created otherwise', () => {
-    holding([]);
-    creating.mockReturnValue({
-      error: new Error('You may not do that to the runner-pool'),
-    });
-
-    renderPage();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'You may not do that to the runner-pool',
-    );
-  });
-
-  it('gives the install command with the new pool’s token, once', () => {
-    holding([]);
-    creating.mockReturnValue({
-      data: { key: 'my-computer', token: 'spt_pool_secret' },
-    });
-
-    renderPage();
-
-    expect(
-      screen.getByText(/SPOTLIGHT_TOKEN=spt_pool_secret/),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/shown only this once/)).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Copy command' }),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText('Pool name')).not.toBeInTheDocument();
+      screen.getByRole('link', { name: 'Add the first host' }),
+    ).toHaveAttribute('href', '/w/acme/settings/runners/new');
   });
 
   it('tells a member who can add a computer, offering no pool', () => {
@@ -354,10 +267,24 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(screen.getByText(/An owner or admin/)).toBeInTheDocument();
+    expect(screen.getByText(/A workspace owner or admin/)).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Create pool' }),
+      screen.queryByRole('link', { name: 'Add the first host' }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Add a host' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers to add another host on its own page', () => {
+    holding([host()]);
+
+    renderPage();
+
+    expect(screen.getByRole('link', { name: 'Add a host' })).toHaveAttribute(
+      'href',
+      '/w/acme/settings/runners/new',
+    );
   });
 
   it('lists runners a push pool provisioned, apart from hosts', () => {
@@ -365,11 +292,11 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(
-      screen.getByRole('heading', { name: 'Provisioned by a pool' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Pool ephemeral')).toBeInTheDocument();
-    expect(screen.getByText('Running')).toBeInTheDocument();
+    const runners = within(
+      screen.getByRole('region', { name: 'Provisioned by a pool' }),
+    );
+    expect(runners.getByText('Pool ephemeral')).toBeInTheDocument();
+    expect(runners.getByText('Running')).toBeInTheDocument();
   });
 
   it('leaves the provisioned section out when there are none', () => {
@@ -378,7 +305,46 @@ describe('Runners', () => {
     renderPage();
 
     expect(
-      screen.queryByRole('heading', { name: 'Provisioned by a pool' }),
+      screen.queryByRole('region', { name: 'Provisioned by a pool' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows only the hosts in the chosen filter, and remembers it', async () => {
+    const person = userEvent.setup();
+    holding(
+      [
+        host({ running: ['runner_1'] }),
+        host({ id: 'second-host-id', name: 'idle-box' }),
+        host({ id: 'third-host-id', name: 'gone-box', answering: false }),
+      ],
+      [provisioned()],
+    );
+
+    renderPage();
+
+    await person.click(screen.getByRole('button', { name: 'Idle' }));
+
+    expect(screen.getByText('idle-box')).toBeInTheDocument();
+    expect(screen.queryByText('build-box-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('gone-box')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pool ephemeral')).not.toBeInTheDocument();
+    expect(localStorage.getItem('spotlight.runner-filter')).toBe('idle');
+
+    await person.click(screen.getByRole('button', { name: 'Running' }));
+
+    expect(screen.getByText('build-box-1')).toBeInTheDocument();
+    expect(screen.getByText('Pool ephemeral')).toBeInTheDocument();
+    expect(screen.queryByText('idle-box')).not.toBeInTheDocument();
+  });
+
+  it('says when no host is in the chosen filter', async () => {
+    const person = userEvent.setup();
+    holding([host()]);
+
+    renderPage();
+
+    await person.click(screen.getByRole('button', { name: 'Not answering' }));
+
+    expect(screen.getByText('Every host is answering.')).toBeInTheDocument();
   });
 });

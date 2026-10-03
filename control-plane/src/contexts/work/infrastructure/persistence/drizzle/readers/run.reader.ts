@@ -9,6 +9,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -340,6 +341,7 @@ export class DrizzleRunReader implements RunReaderPort {
         workspaceId: run.workspaceId,
         searchId: run.searchId,
         iteration: run.searchIteration,
+        spec: run.spec,
       })
       .from(run)
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))
@@ -375,6 +377,7 @@ export class DrizzleRunReader implements RunReaderPort {
       iteration: found.iteration,
       failure: found.failure,
       endedAt: found.endedAt,
+      briefing: RunSpecContract.from(found.spec).briefing,
     };
   }
 
@@ -403,6 +406,8 @@ export class DrizzleRunReader implements RunReaderPort {
         originalRunId: run.replayOfRunId,
         originalTaskId: original.taskId,
         originalTitle: task.title,
+        spec: run.spec,
+        config: run.stationConfig,
       })
       .from(run)
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))
@@ -418,6 +423,15 @@ export class DrizzleRunReader implements RunReaderPort {
       found.workspaceId !== workspaceId.value
     ) {
       return null;
+    }
+
+    const spec = RunSpecContract.from(found.spec);
+
+    if (!found.config || !spec.replay) {
+      throw new InconsistentStateError(
+        'run',
+        `replays without the configuration or checkouts it ran with (${found.id})`,
+      );
     }
 
     const held = await stationsPerLine(
@@ -441,6 +455,13 @@ export class DrizzleRunReader implements RunReaderPort {
         taskId: found.originalTaskId,
         title: found.originalTitle,
       },
+      briefing: spec.briefing,
+      agent: {
+        harness: found.config.harness,
+        model: found.config.model,
+        effort: found.config.effort,
+      },
+      repositories: spec.replay.checkouts.map((each) => each.repository),
     };
   }
 }

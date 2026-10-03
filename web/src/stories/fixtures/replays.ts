@@ -7,12 +7,12 @@ import { replayCheckKeys } from '@/hooks/api/useReplaySetChecks';
 import { replaySetSuggestionKeys } from '@/hooks/api/useReplaySetSuggestions';
 import { replaySetKeys } from '@/hooks/api/useReplaySets';
 import { replayKeys } from '@/hooks/api/useReplays';
-import { runConfigKeys } from '@/hooks/api/useRunConfig';
+import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
 import { teamResourceKeys } from '@/hooks/api/useTeamResource';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
-import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type {
   CandidateResponseDto,
+  ChangeStackResponseDto,
   EntryComparisonResponseDto,
   LineResponseDto,
   ReplayableRunResponseDto,
@@ -30,6 +30,7 @@ import type {
   TeamResourceResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
+import { seedRunMemories } from '@/stories/fixtures/run-memories';
 import {
   LINE_ID,
   STATION_ID,
@@ -45,6 +46,21 @@ export const EMPTY_SET_ID = 'set_flaky_checks';
 export const REPLAY_ID = 'replay_shorter_prompt';
 export const BASELINE_ID = 'replay_baseline';
 export const REPLAY_RUN_ID = 'run_replay_drain';
+
+const RETRY_BEFORE =
+  'export const retry = async (job: Job) => {\n  await deliver(job);\n};\n';
+
+const RETRY_AFTER =
+  'export const retry = async (job: Job) => {\n  const answer = await deliver(job);\n  if (answer.ok || job.tries >= 5) return;\n  await later(job, backoff(job.tries));\n};\n';
+
+const RETRY_TEST_OUTPUT = [
+  ' FAIL  services/retry.test.ts > retry > gives up on a 410 Gone',
+  'AssertionError: expected later to not be called',
+  '  ❯ services/retry.test.ts:42:24',
+  '',
+  ' Test Files  1 failed | 11 passed (12)',
+  '      Tests  1 failed | 63 passed (64)',
+].join('\n');
 
 const ADDRESS = 'platform/default/implementation';
 const LIVE_FINGERPRINT =
@@ -354,9 +370,10 @@ const CANDIDATE_ENTRIES: ReplayEntryResponseDto[] = [
       { code: 'check-failed', detail: 'npm test', steps: [], hunks: [] },
       {
         code: 'judge-failed',
-        detail: 'It left two retries unhandled.',
-        steps: [12],
-        hunks: [],
+        detail:
+          'It retries a 410 Gone like any other failure, so dead endpoints keep getting retried.',
+        steps: [3, 4],
+        hunks: ['h_retry_1'],
       },
     ],
   }),
@@ -939,6 +956,18 @@ export const seedReplayAwaiting = seedReplayAround;
 export const seedReplay = (client: QueryClient) => {
   seedReplayAround(client);
   client.setQueryData(replayKeys.detail(REPLAY_ID), DETAIL);
+  client.setQueryData(replayRunKeys.forRun(REPLAY_RUN_ID), REPLAY_RUN);
+  client.setQueryData(changeStackKeys.forRun(REPLAY_RUN_ID), {
+    stacks: [REPLAY_STACK],
+  });
+  client.setQueryData(replayRunKeys.forRun('run_baseline_drain'), {
+    ...REPLAY_RUN,
+    id: 'run_baseline_drain',
+    journals: [],
+  } satisfies ReplayRunResponseDto);
+  client.setQueryData(changeStackKeys.forRun('run_baseline_drain'), {
+    stacks: [],
+  });
 };
 
 const copiesOf = (
@@ -1060,38 +1089,6 @@ const CLAIMS_JUDGE = (marks: boolean[]): ReplayEntryResponseDto['judge'] => ({
   ],
 });
 
-const PAIR: NonNullable<ReplayEntryResponseDto['pair']> = {
-  state: 'judged',
-  againstRunId: 'run_replay_drain_baseline',
-  outcome: 'tie',
-  model: 'anthropic/claude-opus-5',
-  unpaired: null,
-  readings: [
-    {
-      ownShownFirst: true,
-      outcome: 'win',
-      reasons: [
-        {
-          text: 'Like the accepted change, it stops retrying on a 410.',
-          ownHunks: ['worker/services/retry.ts#1'],
-          theirHunks: [],
-        },
-      ],
-    },
-    {
-      ownShownFirst: false,
-      outcome: 'loss',
-      reasons: [
-        {
-          text: 'The other change keeps later retries for other failures, as the accepted one does.',
-          ownHunks: [],
-          theirHunks: ['worker/services/retry.ts#1', 'worker/queue.ts#2'],
-        },
-      ],
-    },
-  ],
-};
-
 const judgedByClaims = (
   entry: ReplayEntryResponseDto,
   marks: boolean[],
@@ -1181,6 +1178,16 @@ const REPLAY_RUN: ReplayRunResponseDto = {
   },
   review: null,
   original: ORIGINALS[0],
+  briefing: [
+    '## Implementation',
+    '',
+    'Drain the stuck retry queues. Replay the dead-lettered webhook jobs, and keep the billing queue as it is.',
+    '',
+    '- Keep the change small',
+    '- Say what you could not do',
+  ].join('\n'),
+  agent: { harness: 'claude-code', model: 'opus', effort: 'medium' },
+  repositories: ['acme/worker'],
   spend: {
     cost: 0.72,
     currency: 'USD',
@@ -1230,9 +1237,103 @@ const REPLAY_RUN: ReplayRunResponseDto = {
           returned: null,
           change: null,
         },
+        {
+          kind: 'tool',
+          status: 'completed',
+          tool: 'read',
+          text: 'services/worker/retry.ts',
+          detail: null,
+          ms: 300,
+          startedAt: hoursAgo(0.75),
+          locations: [],
+          given: null,
+          returned: null,
+          change: null,
+        },
+        {
+          kind: 'tool',
+          status: 'completed',
+          tool: 'edit',
+          text: 'services/worker/retry.ts',
+          detail: null,
+          ms: 1_100,
+          startedAt: hoursAgo(0.72),
+          locations: [],
+          given: null,
+          returned: null,
+          change: {
+            path: '/workspace/worker/services/retry.ts',
+            before: RETRY_BEFORE,
+            after: RETRY_AFTER,
+          },
+        },
+        {
+          kind: 'tool',
+          status: 'failed',
+          tool: 'execute',
+          text: 'npm test -- retry',
+          detail: RETRY_TEST_OUTPUT,
+          ms: 41_000,
+          startedAt: hoursAgo(0.68),
+          locations: [],
+          given: null,
+          returned: null,
+          change: null,
+        },
+        {
+          kind: 'said',
+          status: null,
+          tool: null,
+          text: 'Retries now back off and stop after five tries. One retry test still fails on a 410; I left it as is.',
+          detail: null,
+          ms: 500,
+          startedAt: hoursAgo(0.62),
+          locations: [],
+          given: null,
+          returned: null,
+          change: null,
+        },
       ],
     },
   ],
+};
+
+const REPLAY_STACK: ChangeStackResponseDto = {
+  id: 'stack_replay_drain',
+  repository: 'acme/worker',
+  state: 'ready',
+  failure: null,
+  check: {
+    command: 'npm test',
+    state: 'checked',
+    reason: null,
+    whole: {
+      step: 'whole',
+      passed: false,
+      output: RETRY_TEST_OUTPUT,
+      tookMs: 41_000,
+    },
+    layers: [],
+  },
+  files: [
+    {
+      path: 'services/retry.ts',
+      previousPath: null,
+      status: 'modified',
+      binary: false,
+      hunks: [
+        {
+          id: 'h_retry_1',
+          oldStart: 1,
+          oldLines: 3,
+          newStart: 1,
+          newLines: 6,
+          patch: '@@ -1,3 +1,6 @@',
+        },
+      ],
+    },
+  ],
+  cohorts: [],
 };
 
 const REPLAY_OF_RUN: ReplayOfRunResponseDto = {
@@ -1250,36 +1351,20 @@ const REPLAY_OF_RUN: ReplayOfRunResponseDto = {
 };
 
 const seedReplayRunAround = (client: QueryClient) => {
-  client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
+  seedStationPlace(client);
   client.setQueryData(teamRunKeys.forTeam(TEAM_ID), []);
-  client.setQueryData(runConfigKeys.forRun(REPLAY_RUN_ID), {
-    fingerprint: CANDIDATE_FINGERPRINT,
-    config: null,
-    changedSince: null,
-  });
+  seedRunMemories(client, TEAM_ID, REPLAY_RUN_ID);
 };
 
 export const seedReplayRunAwaiting = seedReplayRunAround;
 
 export const seedReplayRun = (client: QueryClient) => {
   seedReplayRunAround(client);
+  client.setQueryData(changeStackKeys.forRun(REPLAY_RUN_ID), {
+    stacks: [REPLAY_STACK],
+  });
   client.setQueryData(replayRunKeys.forRun(REPLAY_RUN_ID), REPLAY_RUN);
   client.setQueryData(replayRunKeys.replayOf(REPLAY_RUN_ID), REPLAY_OF_RUN);
-};
-
-export const seedClaimsReplayRun = (client: QueryClient) => {
-  seedReplayRunAround(client);
-  client.setQueryData(replayRunKeys.forRun(REPLAY_RUN_ID), REPLAY_RUN);
-  client.setQueryData(replayRunKeys.replayOf(REPLAY_RUN_ID), {
-    ...REPLAY_OF_RUN,
-    entry: {
-      ...judgedByClaims(
-        CANDIDATE_ENTRIES[0] as ReplayEntryResponseDto,
-        PAIRED_ENTRY_CLAIMS,
-      ),
-      pair: PAIR,
-    },
-  } satisfies ReplayOfRunResponseDto);
 };
 
 export const seedEmptyReplayRun = (client: QueryClient) => {

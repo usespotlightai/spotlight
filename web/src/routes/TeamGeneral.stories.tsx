@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Route } from 'react-router';
-import { settingsPath } from '@/lib/team';
+import { teamSettingsPath } from '@/lib/settings';
 import { TeamGeneral } from '@/routes/TeamGeneral';
 import {
   failTeamGeneral,
@@ -11,17 +11,17 @@ import {
 } from '@/stories/fixtures/team';
 import { StoryPage } from '@/stories/StoryPage';
 
-const at = settingsPath(SLUG, TEAM_ID, 'general');
+const at = teamSettingsPath(SLUG, TEAM_ID, 'general');
 
 const routes = (
   <Route
-    path="/w/:slug/team/:teamId/settings/general"
+    path="/w/:slug/settings/team/:teamId/general"
     element={<TeamGeneral />}
   />
 );
 
 const meta = {
-  title: 'Team/Settings/General',
+  title: 'Settings/Team/General',
 } satisfies Meta;
 
 export default meta;

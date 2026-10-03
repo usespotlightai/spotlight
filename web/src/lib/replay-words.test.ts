@@ -91,7 +91,7 @@ describe('replay words', () => {
 
   it('turns a run failure code into words, and keeps a sentence it does not know', () => {
     expect(reasonShown(reason('run-failed', 'runner-lost'))).toBe(
-      'The run failed: the runner was lost, so it goes unscored',
+      'The run failed: runner lost (not scored)',
     );
     expect(failureShown('The agent stopped answering')).toBe(
       'The agent stopped answering',

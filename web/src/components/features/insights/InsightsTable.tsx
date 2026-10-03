@@ -13,6 +13,7 @@ type InsightsTableProps<T> = {
   columns: readonly InsightsColumn<T>[];
   rows: readonly T[];
   rowKey: (row: T) => string;
+  picked?: string | null;
 };
 
 export function InsightsTable<T>({
@@ -20,6 +21,7 @@ export function InsightsTable<T>({
   columns,
   rows,
   rowKey,
+  picked = null,
 }: InsightsTableProps<T>) {
   return (
     <div className="overflow-x-auto">
@@ -48,7 +50,13 @@ export function InsightsTable<T>({
           {rows.map((row) => (
             <tr
               key={rowKey(row)}
-              className="border-border border-b last:border-b-0"
+              aria-selected={
+                picked === null ? undefined : picked === rowKey(row)
+              }
+              className={cn(
+                'border-border border-b last:border-b-0',
+                picked === rowKey(row) && 'bg-selected',
+              )}
             >
               {columns.map((column) => (
                 <td

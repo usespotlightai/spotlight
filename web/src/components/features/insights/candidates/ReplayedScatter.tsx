@@ -48,7 +48,8 @@ type ReplayedScatterProps = {
 
 export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
   const frontiers = replayedFrontiersOf(points);
-  const rest = points.filter((each) => !frontiers.flat().includes(each));
+  const onFrontier = new Set(frontiers.flat());
+  const rest = points.filter((each) => !onFrontier.has(each));
 
   return (
     <figure data-slot="replayed-scatter" className="flex flex-col gap-1">

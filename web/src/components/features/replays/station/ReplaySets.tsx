@@ -6,11 +6,9 @@ import { RowsSkeleton } from '@/components/features/replays/RowsSkeleton';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { OpenReplaySetButton } from '@/components/features/replays/station/OpenReplaySetButton';
 import { ReplaySetRow } from '@/components/features/replays/station/ReplaySetRow';
-import { MembersOnly } from '@/components/features/team/MembersOnly';
-import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useReplaySets } from '@/hooks/api/useReplaySets';
-import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import type { ReplayedStation } from '@/lib/replay';
 
@@ -31,15 +29,11 @@ export function ReplaySets({ at }: ReplaySetsProps) {
   } else if (failed(sets)) {
     body = (
       <StateBox>
-        {notFound(sets.error) ? (
-          <MembersOnly title="Only the team’s members can see its replays" />
-        ) : (
-          <CouldNotLoad
-            what="The station’s replay sets"
-            retrying={sets.isFetching}
-            onRetry={() => void sets.refetch()}
-          />
-        )}
+        <MembersOnlyOrCouldNotLoad
+          membersOnly="Only the team’s members can see its replays"
+          what="The station’s replay sets"
+          query={sets}
+        />
       </StateBox>
     );
   } else if (listed.length === 0) {

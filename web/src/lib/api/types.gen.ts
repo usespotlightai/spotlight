@@ -1684,6 +1684,12 @@ export type ReplayedRunResponseDto = {
   title: string | null;
 };
 
+export type RunAgentResponseDto = {
+  harness: string;
+  model: string | null;
+  effort: string | null;
+};
+
 export type ReplayRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
@@ -1713,12 +1719,18 @@ export type ReplayRunResponseDto = {
    * What it did and said, attempt by attempt
    */
   journals: Array<RunJournalResponseDto>;
-};
-
-export type SearchRunAgentResponseDto = {
-  harness: string;
-  model: string | null;
-  effort: string | null;
+  /**
+   * What the replay told its agent when it was dispatched
+   */
+  briefing: string;
+  /**
+   * The harness, model and effort the replay ran its agent on
+   */
+  agent: RunAgentResponseDto;
+  /**
+   * The repositories the replay was given
+   */
+  repositories: Array<string>;
 };
 
 export type SearchRunCostResponseDto = {
@@ -1765,7 +1777,7 @@ export type SearchRunResponseDto = {
   /**
    * The harness, model and effort the search ran its agent on
    */
-  agent: SearchRunAgentResponseDto | null;
+  agent: RunAgentResponseDto | null;
   /**
    * How the run failed, once it did
    */
@@ -1777,6 +1789,10 @@ export type SearchRunResponseDto = {
    * What it did and said, attempt by attempt
    */
   journals: Array<RunJournalResponseDto>;
+  /**
+   * What the search told its agent when it dispatched this iteration
+   */
+  briefing: string;
 };
 
 export type ChatImprovingResponseDto = {
@@ -1917,6 +1933,14 @@ export type SayInChatRequestDto = {
    * Tasks whose traces to share with the agent, by task id
    */
   traces?: Array<string>;
+  /**
+   * The model the agent answers this and later messages with; null for the harness default, left out to keep the chat’s
+   */
+  model?: string | null;
+  /**
+   * The effort the agent answers this and later messages with; null for the harness default, left out to keep the chat’s
+   */
+  effort?: string | null;
 };
 
 export type SetupStepResponseDto = {
@@ -2441,6 +2465,10 @@ export type ConnectGitHubRequestDto = {
 
 export type HostPresenceRequestDto = {
   /**
+   * New each time the host starts, so a restart shows as one
+   */
+  session: string;
+  /**
    * What the host calls itself, usually its hostname
    */
   name: string;
@@ -2529,6 +2557,10 @@ export type HostResponseDto = {
    */
   images: Array<HostImageResponseDto>;
   firstSeenAt: string;
+  /**
+   * When it last came up: started, or answered again after going quiet
+   */
+  upSince: string;
   lastSeenAt: string;
   /**
    * Heard from recently enough to be counted on
@@ -2970,6 +3002,30 @@ export type StackCohortResponseDto = {
   layers: Array<StackLayerResponseDto>;
 };
 
+export type CheckedStepResponseDto = {
+  /**
+   * The step it ran: whole, or the layer it checked
+   */
+  step: string;
+  passed: boolean;
+  /**
+   * The end of what the check printed
+   */
+  output: string;
+  tookMs: number;
+};
+
+export type StackCheckResponseDto = {
+  command: string;
+  state: 'waiting' | 'checked' | 'skipped';
+  /**
+   * Why it was skipped, where it was
+   */
+  reason: string | null;
+  whole: CheckedStepResponseDto | null;
+  layers: Array<CheckedStepResponseDto>;
+};
+
 export type ChangeStackResponseDto = {
   id: string;
   repository: string | null;
@@ -2977,7 +3033,10 @@ export type ChangeStackResponseDto = {
   failure: string | null;
   files: Array<DiffFileResponseDto>;
   cohorts: Array<StackCohortResponseDto>;
-  checkState: 'waiting' | 'checked' | 'skipped' | null;
+  /**
+   * What the check ran and what each step printed
+   */
+  check: StackCheckResponseDto | null;
 };
 
 export type RunChangeStacksResponseDto = {
@@ -3710,6 +3769,7 @@ export type ApproveMemoriesRequestDto = {
 export type MemoryPersonResponseDto = {
   id: string;
   name: string | null;
+  image: string | null;
 };
 
 export type MemoryRetirementResponseDto = {
@@ -3894,6 +3954,10 @@ export type RunMemoriesResponseDto = {
    * What the run proposed, drafted or asked to remember
    */
   proposed: Array<RunProposalResponseDto>;
+  /**
+   * The inbox item where people keep or reject what the run proposed; null where it proposed nothing
+   */
+  reviewItemId: string | null;
 };
 
 export type RecallMemoriesRequestDto = {
@@ -10014,6 +10078,10 @@ export type StartChatData = {
 
 export type StartChatErrors = {
   /**
+   * A model or effort that is not text
+   */
+  400: unknown;
+  /**
    * No valid session
    */
   401: unknown;
@@ -10099,6 +10167,10 @@ export type SayInChatData = {
 
 export type SayInChatErrors = {
   /**
+   * A model or effort that is not text
+   */
+  400: unknown;
+  /**
    * No valid session
    */
   401: unknown;
@@ -10106,6 +10178,10 @@ export type SayInChatErrors = {
    * No such chat for this caller
    */
   404: unknown;
+  /**
+   * An unknown model or effort
+   */
+  422: unknown;
 };
 
 export type SayInChatResponses = {

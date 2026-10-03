@@ -75,6 +75,7 @@ const presentHost = async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
+      session: 'session_1',
       name: 'build-box',
       release: '0.1.0',
       executor: 'docker',

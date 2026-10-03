@@ -1,4 +1,5 @@
 import type { WorkspaceTokenResourceResponseDto } from '@/lib/api';
+import { settingsPath } from '@/lib/settings';
 
 export type WorkspaceToken = WorkspaceTokenResourceResponseDto;
 
@@ -63,10 +64,13 @@ export const scopesOf = (
   ...GRANTS.filter((each) => grants.has(each.id)).map((each) => each.id),
 ];
 
-export const scopesTold = (scopes: readonly TokenScope[]): string =>
-  SCOPES.filter((each) => scopes.includes(each.id))
+export const scopesTold = (scopes: readonly TokenScope[]): string => {
+  const held = new Set(scopes);
+
+  return SCOPES.filter((each) => held.has(each.id))
     .map((each) => each.label)
     .join(', ');
+};
 
 export const LIFETIMES = [
   { value: '30', label: '30 days' },
@@ -105,4 +109,4 @@ export const expiryTold = (
   })}`;
 };
 
-export const tokensPath = (slug: string) => `/w/${slug}/tokens`;
+export const tokensPath = (slug: string) => `${settingsPath(slug)}/tokens`;

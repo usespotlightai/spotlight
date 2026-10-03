@@ -895,6 +895,26 @@ func TestParkColdAsksForTheRunToGoBackOnTheQueue(t *testing.T) {
 	}
 }
 
+func TestARefusedCredentialLosesTheRun(t *testing.T) {
+	for status, want := range map[int]bool{
+		http.StatusNotFound:     true,
+		http.StatusUnauthorized: true,
+		http.StatusForbidden:    true,
+		http.StatusConflict:     false,
+		http.StatusBadGateway:   false,
+	} {
+		client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "no", status)
+		})
+
+		_, err := client.RenewLease(context.Background(), "run_1")
+		var rejection *control.Rejection
+		if !errors.As(err, &rejection) || rejection.Lost() != want {
+			t.Errorf("a %d renewal lost the run %v, wanted %v", status, rejection != nil && rejection.Lost(), want)
+		}
+	}
+}
+
 func TestOnlyAMissingRunIsGone(t *testing.T) {
 	for status, want := range map[int]bool{http.StatusNotFound: true, http.StatusConflict: false} {
 		client := serve(t, func(w http.ResponseWriter, _ *http.Request) {

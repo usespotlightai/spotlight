@@ -61,6 +61,17 @@ describe('TaskAsides', () => {
     expect(held[0]?.workspaceId.value).toBe('ws_1');
   });
 
+  it('names the aside it raised, and none it did not', async () => {
+    const { asides } = asiding();
+
+    expect(await asides.idOf(MEMORIES)).toBeNull();
+
+    await asides.raise(MEMORIES);
+
+    expect(await asides.idOf(MEMORIES)).toBe('aside_1');
+    expect(await asides.idOf({ ...MEMORIES, about: 'run_2' })).toBeNull();
+  });
+
   it('raises nothing on a task that is gone', async () => {
     const { asides, held } = asiding({ task: false });
 
