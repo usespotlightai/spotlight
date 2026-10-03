@@ -27,7 +27,7 @@ const sentBack = (runId: string, hour: number) =>
 
 const accepted = (runId: string, hour: number) =>
   endedRecord(runId, { taskId: `task_${runId}`, endedAt: at(hour) }).actedOn(
-    NextAct.of('approved', at(hour)),
+    NextAct.of('closed', at(hour)),
   );
 
 describe('measureOf', () => {

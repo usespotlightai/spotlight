@@ -58,7 +58,7 @@ import {
 } from '@outcomes/domain/services/team-pull-requests';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { INSIGHTS_PERIODS } from '@outcomes/domain/value-objects/insights-period.vo';
-import { PERSON_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
+import { NEXT_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
 import { PULL_REQUEST_TYPES } from '@outcomes/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@outcomes/domain/value-objects/run-ending';
 import {
@@ -538,7 +538,7 @@ export class TeamInsightsController {
   @ApiQuery({
     name: 'next',
     required: false,
-    enum: PERSON_ACTS,
+    enum: NEXT_ACTS,
     description: 'Only runs a person next acted on this way',
   })
   @ApiQuery({

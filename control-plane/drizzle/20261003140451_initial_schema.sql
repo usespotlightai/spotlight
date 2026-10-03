@@ -23,7 +23,7 @@ CREATE TYPE "public"."alert_threshold" AS ENUM('risesBy', 'fallsBy', 'above', 'b
 CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'ungrounded', 'errored', 'interrupted', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."pair_order" AS ENUM('run-first', 'against-first');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_record_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
-CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'approved', 'refused', 'sent-back');--> statement-breakpoint
+CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'sent-back');--> statement-breakpoint
 CREATE TYPE "public"."run_record_checks" AS ENUM('passed', 'failed', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped', 'abandoned', 'withdrawn', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number', 'claims');--> statement-breakpoint
@@ -737,7 +737,7 @@ CREATE TABLE "run_record" (
 	"checked_at" timestamp,
 	"next_act" "run_record_act",
 	"next_at" timestamp,
-	"next_for_approval" boolean DEFAULT false NOT NULL,
+	"approval_answered_at" timestamp,
 	"handed_on_to" text,
 	"handed_on_at" timestamp,
 	"digested" boolean DEFAULT false NOT NULL,

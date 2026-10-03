@@ -1198,7 +1198,6 @@ export class Task extends EventRecorder {
           decision
             ? (this.notes[from.value]?.approval?.subject.tool ?? null)
             : null,
-          decision !== null,
         ),
       );
     }

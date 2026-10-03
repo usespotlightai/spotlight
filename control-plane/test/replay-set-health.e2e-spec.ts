@@ -316,7 +316,7 @@ const anOriginal = async (): Promise<Original> => {
         RunId.of(runId),
         team.workspaceId,
         TaskId.of(taskId),
-      ).actedOn(NextAct.of('approved', at)),
+      ).actedOn(NextAct.of('closed', at)),
     );
 
   return { taskId, runId };

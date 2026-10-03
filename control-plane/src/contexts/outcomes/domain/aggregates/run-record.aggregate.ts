@@ -25,6 +25,7 @@ export class RunRecord extends EventRecorder {
     readonly checks: CheckVerdict | null,
     readonly checkedAt: Date | null,
     readonly next: NextAct | null,
+    readonly approvalAnsweredAt: Date | null,
     readonly cost: RunCost | null,
     readonly handedOn: HandedOn | null,
     readonly tools: RunTools | null,
@@ -51,6 +52,7 @@ export class RunRecord extends EventRecorder {
       null,
       null,
       null,
+      null,
       [],
       0,
     );
@@ -65,6 +67,7 @@ export class RunRecord extends EventRecorder {
     checks: CheckVerdict | null;
     checkedAt: Date | null;
     next: NextAct | null;
+    approvalAnsweredAt: Date | null;
     cost: RunCost | null;
     handedOn: HandedOn | null;
     tools: RunTools | null;
@@ -80,6 +83,11 @@ export class RunRecord extends EventRecorder {
     if ((input.checks === null) !== (input.checkedAt === null)) {
       throw new InvalidOutcomeError('says when its change was checked');
     }
+    if (input.next?.answersApproval) {
+      throw new InvalidOutcomeError(
+        'is decided by what a person did next, never by answering an approval',
+      );
+    }
     if (input.tools !== null && input.cost === null) {
       throw new InvalidOutcomeError('holds the tools it used once digested');
     }
@@ -93,6 +101,7 @@ export class RunRecord extends EventRecorder {
       input.checks,
       input.checkedAt,
       input.next,
+      input.approvalAnsweredAt,
       input.cost,
       input.handedOn,
       input.tools,
@@ -119,6 +128,7 @@ export class RunRecord extends EventRecorder {
       checked ? this.checks : null,
       checked ? this.checkedAt : null,
       known(this.next?.at) ? this.next : null,
+      known(this.approvalAnsweredAt) ? this.approvalAnsweredAt : null,
       this.cost,
       known(this.handedOn?.at) ? this.handedOn : null,
       this.tools,
@@ -144,9 +154,6 @@ export class RunRecord extends EventRecorder {
   }
 
   get turnout(): RunTurnout {
-    if (this.next?.forApproval) {
-      return 'asked';
-    }
     if (this.next?.accepts) {
       return 'accepted';
     }
@@ -156,7 +163,11 @@ export class RunRecord extends EventRecorder {
     if (this.ending === 'failed') {
       return 'failed';
     }
-    if (this.next?.act === 'answered' || this.end?.asked) {
+    if (
+      this.next?.act === 'answered' ||
+      this.end?.asked ||
+      this.approvalAnsweredAt !== null
+    ) {
       return 'asked';
     }
 
@@ -191,7 +202,16 @@ export class RunRecord extends EventRecorder {
   }
 
   actedOn(act: NextAct): RunRecord {
-    return this.next ? this : this.settledWith({ next: act });
+    if (act.answersApproval) {
+      return this.approvalAnsweredAt &&
+        this.approvalAnsweredAt.getTime() <= act.at.getTime()
+        ? this
+        : this.settledWith({ approvalAnsweredAt: act.at });
+    }
+
+    return this.next && !act.before(this.next)
+      ? this
+      : this.settledWith({ next: act });
   }
 
   digested(cost: RunCost, tools: RunTools): RunRecord {
@@ -225,6 +245,7 @@ export class RunRecord extends EventRecorder {
     checks?: CheckVerdict;
     checkedAt?: Date;
     next?: NextAct;
+    approvalAnsweredAt?: Date;
     cost?: RunCost;
     tools?: RunTools;
   }): RunRecord {
@@ -246,6 +267,7 @@ export class RunRecord extends EventRecorder {
     checks?: CheckVerdict;
     checkedAt?: Date;
     next?: NextAct;
+    approvalAnsweredAt?: Date;
     cost?: RunCost;
     handedOn?: HandedOn;
     tools?: RunTools;
@@ -260,6 +282,7 @@ export class RunRecord extends EventRecorder {
       change.checks ?? this.checks,
       change.checkedAt ?? this.checkedAt,
       change.next ?? this.next,
+      change.approvalAnsweredAt ?? this.approvalAnsweredAt,
       change.cost ?? this.cost,
       change.handedOn ?? this.handedOn,
       change.tools ?? this.tools,

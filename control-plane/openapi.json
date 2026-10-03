@@ -18097,8 +18097,6 @@
                 "parked",
                 "closed",
                 "answered",
-                "approved",
-                "refused",
                 "sent-back"
               ],
               "type": "string"
@@ -32523,8 +32521,6 @@
               "parked",
               "closed",
               "answered",
-              "approved",
-              "refused",
               "sent-back"
             ]
           },

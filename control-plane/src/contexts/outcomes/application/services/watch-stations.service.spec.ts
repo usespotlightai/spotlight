@@ -61,7 +61,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
     { now: () => day('2026-09-30', 23), sleep: async () => {} },
   );
 
-  const ran = async (hour: number, act: 'approved' | 'sent-back') => {
+  const ran = async (hour: number, act: 'closed' | 'sent-back') => {
     const record = endedRecord(`run_${hour}`, {
       taskId: `task_${hour}`,
       endedAt: day('2026-09-30', hour),
@@ -81,7 +81,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
     await service.runEnded(event as RunRecordEnded);
   };
 
-  const actedOn = async (hour: number, act: 'approved' | 'sent-back') => {
+  const actedOn = async (hour: number, act: 'closed' | 'sent-back') => {
     const held = await records.of(RunId.of(`run_${hour}`));
     const acted = held?.actedOn(NextAct.of(act, day('2026-09-30', hour + 1)));
     const [event] = acted?.pullEvents() ?? [];
@@ -131,8 +131,8 @@ describe('WatchStations', () => {
   it('raises an alert once the last runs are sent back more than the runs before them', async () => {
     const station = watching([SENT_BACK_RISES]);
 
-    await station.ran(1, 'approved');
-    await station.ran(2, 'approved');
+    await station.ran(1, 'closed');
+    await station.ran(2, 'closed');
     await station.ran(3, 'sent-back');
     expect(station.kinds()).toEqual([]);
 
@@ -149,12 +149,12 @@ describe('WatchStations', () => {
     const station = watching([SENT_BACK_RISES]);
 
     for (const [hour, act] of [
-      [1, 'approved'],
-      [2, 'approved'],
+      [1, 'closed'],
+      [2, 'closed'],
       [3, 'sent-back'],
       [4, 'sent-back'],
-      [5, 'approved'],
-      [6, 'approved'],
+      [5, 'closed'],
+      [6, 'closed'],
       [7, 'sent-back'],
       [8, 'sent-back'],
     ] as const) {
@@ -173,14 +173,14 @@ describe('WatchStations', () => {
     const station = watching([SENT_BACK_RISES]);
 
     for (const [hour, act] of [
-      [1, 'approved'],
-      [2, 'approved'],
+      [1, 'closed'],
+      [2, 'closed'],
       [3, 'sent-back'],
       [4, 'sent-back'],
-      [5, 'approved'],
-      [6, 'approved'],
-      [7, 'approved'],
-      [8, 'approved'],
+      [5, 'closed'],
+      [6, 'closed'],
+      [7, 'closed'],
+      [8, 'closed'],
       [9, 'sent-back'],
       [10, 'sent-back'],
     ] as const) {
@@ -271,7 +271,7 @@ describe('WatchStations', () => {
     ]);
 
     for (const hour of [1, 2, 3, 4]) {
-      await station.ran(hour, 'approved');
+      await station.ran(hour, 'closed');
     }
     await station.ended(5);
 
@@ -287,7 +287,7 @@ describe('WatchStations', () => {
     await station.ended(2);
     expect(station.kinds()).toEqual(['station-alert.raised']);
 
-    await station.actedOn(2, 'approved');
+    await station.actedOn(2, 'closed');
 
     expect(station.kinds()).toEqual([
       'station-alert.raised',

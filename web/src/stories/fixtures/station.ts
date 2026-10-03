@@ -167,7 +167,7 @@ const outcome = (
     currency: 'USD',
   },
   checks: 'passed',
-  next: { act: 'approved', at: hoursAgo(1) },
+  next: { act: 'closed', at: hoursAgo(1) },
   handedOn: null,
   delivery: 'merged',
   ...over,

@@ -27,7 +27,7 @@ const merged = (taskId: string) =>
   }).closed({ pullRequest: PULL, merged: true, at: AT });
 
 describe('runTally', () => {
-  it('counts how the runs ended and what people did next', () => {
+  it('counts how the runs ended and what people did next, never counting an answered approval as accepting or sending back', () => {
     const tally = runTally(
       [
         endedRecord('run_1', { ending: 'failed', failure: 'exited' })
@@ -52,8 +52,8 @@ describe('runTally', () => {
       stopped: 1,
       checksPassed: 1,
       checksFailed: 1,
-      accepted: 2,
-      sentBack: 2,
+      accepted: 1,
+      sentBack: 1,
       handedOn: 0,
       merged: 0,
     });

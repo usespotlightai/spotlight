@@ -46,13 +46,18 @@ const labelled = (change: Partial<Parameters<typeof humanLabelOf>[0]>) =>
 
 describe('humanLabelOf', () => {
   it.each([
-    ['approved', 1, 'accepted'],
     ['closed', 1, 'accepted'],
     ['sent-back', 0, 'sent-back'],
-    ['refused', 0, 'sent-back'],
   ] as const)('reads a run people %s as %s', (act, value, from) => {
     expect(labelled({ record: actedOn(act) })).toMatchObject({ value, from });
   });
+
+  it.each(['approved', 'refused'] as const)(
+    'knows nothing of a run people only %s a tool for',
+    (act) => {
+      expect(labelled({ record: actedOn(act) })).toBeNull();
+    },
+  );
 
   it('reads the task’s pull request where people did nothing that says', () => {
     expect(labelled({ delivery: delivered(true) })).toMatchObject({
@@ -72,7 +77,7 @@ describe('humanLabelOf', () => {
   it('lets a person’s latest grade win over what they did', () => {
     expect(
       labelled({
-        record: actedOn('approved'),
+        record: actedOn('closed'),
         grades: [
           personGrade('run_1', ScoreScale.yesNo(), 1, {
             by: 'user_ada',
@@ -90,7 +95,7 @@ describe('humanLabelOf', () => {
   it('labels a number rubric only by people’s grades', () => {
     const scale = ScoreScale.oneToFive();
 
-    expect(labelled({ scale, record: actedOn('approved') })).toBeNull();
+    expect(labelled({ scale, record: actedOn('closed') })).toBeNull();
     expect(
       labelled({ scale, grades: [personGrade('run_1', scale, 4)] }),
     ).toEqual({ value: 4, marks: null, from: 'grade' });

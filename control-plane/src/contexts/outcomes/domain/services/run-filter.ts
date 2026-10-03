@@ -9,8 +9,8 @@ import {
   within,
 } from '@outcomes/domain/value-objects/insights-period.vo';
 import {
-  PERSON_ACTS,
-  type PersonAct,
+  NEXT_ACTS,
+  type NextActKind,
 } from '@outcomes/domain/value-objects/next-act.vo';
 import {
   RUN_ENDINGS,
@@ -79,7 +79,7 @@ export interface RunFilter {
   readonly refusedTool: string | null;
   readonly refusedServer: Narrowing;
   readonly delivery: DeliveryState | null;
-  readonly next: PersonAct | null;
+  readonly next: NextActKind | null;
   readonly askedWithin: Window | null;
 }
 
@@ -239,6 +239,6 @@ export const runFilterOf = (
   refusedTool: single(asked.refusedTool, 'refused tool'),
   refusedServer: narrowingOf(asked.refusedServer, NO_SERVER, 'refused server'),
   delivery: oneOf(DELIVERY_STATES, asked.delivery, 'delivery'),
-  next: oneOf(PERSON_ACTS, asked.next, 'next act'),
+  next: oneOf(NEXT_ACTS, asked.next, 'next act'),
   askedWithin: askedWithinOf(asked.asked, period),
 });

@@ -26,7 +26,7 @@ describe('RunOutcomes', () => {
     await records.add(
       endedRecord('run_1', { round: 2 })
         .checked('passed', HEARD_AT)
-        .actedOn(NextAct.of('approved', AT)),
+        .actedOn(NextAct.of('closed', AT)),
     );
     await records.add(RunRecord.heardOf(RunId.of('run_2'), WORKSPACE));
     await deliveries.add(
@@ -53,7 +53,7 @@ describe('RunOutcomes', () => {
       failure: null,
       round: 2,
       checks: 'passed',
-      next: { act: 'approved', at: AT.toISOString() },
+      next: { act: 'closed', at: AT.toISOString() },
       delivery: 'open',
     });
   });
@@ -76,7 +76,7 @@ describe('RunOutcomes', () => {
     await records.add(
       endedRecord('run_1', { round: 2 })
         .checked('passed', later(2))
-        .actedOn(NextAct.of('approved', later(3)))
+        .actedOn(NextAct.of('closed', later(3)))
         .supersededByItsTask(later(4)),
     );
     await deliveries.add(
@@ -107,7 +107,7 @@ describe('RunOutcomes', () => {
     expect(await of(later(6))).toMatchObject({
       ending: 'superseded',
       checks: 'passed',
-      next: { act: 'approved' },
+      next: { act: 'closed' },
       delivery: 'merged',
     });
   });

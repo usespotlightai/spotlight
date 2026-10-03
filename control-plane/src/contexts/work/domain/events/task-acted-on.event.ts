@@ -19,6 +19,5 @@ export class TaskActedOn implements DomainEvent {
     readonly after: RunId | null,
     readonly at: Date,
     readonly tool: CalledTool | null = null,
-    readonly forApproval: boolean = false,
   ) {}
 }

@@ -54,7 +54,7 @@ const ran = async (runId: string) => {
     endedAt: ago(2),
     ending: 'completed',
     round: 1,
-    nextAct: runId.endsWith('x') ? 'approved' : null,
+    nextAct: runId.endsWith('x') ? 'closed' : null,
     nextAt: runId.endsWith('x') ? ago(1) : null,
   });
 };

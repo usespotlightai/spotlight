@@ -45,7 +45,7 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
     const runId = `run_${at}`;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
-        NextAct.of(at % 2 === 0 ? 'approved' : 'sent-back', AT),
+        NextAct.of(at % 2 === 0 ? 'closed' : 'sent-back', AT),
       ),
     );
     await scores.add(

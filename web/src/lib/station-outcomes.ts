@@ -47,8 +47,6 @@ const ACTS: Record<Act, string> = {
   parked: 'Parked',
   closed: 'Closed',
   answered: 'Answered',
-  approved: 'Approved',
-  refused: 'Refused',
   'sent-back': 'Sent back',
 };
 
