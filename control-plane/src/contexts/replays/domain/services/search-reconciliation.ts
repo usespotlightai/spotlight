@@ -1,6 +1,7 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { chargeOf } from '@replays/domain/services/replay-charge';
+import { improvedOnBestBefore } from '@replays/domain/services/search-improvement';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
@@ -29,6 +30,7 @@ const withReplays = (
   search: Search,
   replays: readonly Replay[],
   known: readonly ReplayId[],
+  minGain: number,
   at: Date,
   runIds: () => RunId,
 ): Search =>
@@ -44,6 +46,7 @@ const withReplays = (
             { spent: Spend.none(held.budget.ceiling.currency), unpriced: 0 },
             at,
             runIds,
+            false,
           )
         : held;
     }
@@ -52,7 +55,14 @@ const withReplays = (
     const end = endOf(replay);
 
     return end && unended
-      ? held.replayEnded(replayId, end, charge, at, runIds)
+      ? held.replayEnded(
+          replayId,
+          end,
+          charge,
+          at,
+          runIds,
+          improvedOnBestBefore(held, replayId, replays, minGain),
+        )
       : held.replaySpent(replayId, charge);
   }, search);
 
@@ -86,10 +96,11 @@ export const reconciled = (
   replays: readonly Replay[],
   known: readonly ReplayId[],
   runs: readonly SeenRun[],
+  minGain: number,
   at: Date,
   runIds: () => RunId,
 ): Search => {
-  let held = withReplays(search, replays, known, at, runIds);
+  let held = withReplays(search, replays, known, minGain, at, runIds);
   const holding = held.heldRun;
   const running = holding
     ? runs.find((each) => each.run.equals(holding))

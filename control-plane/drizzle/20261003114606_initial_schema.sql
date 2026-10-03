@@ -34,10 +34,13 @@ CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed', 'search
 CREATE TYPE "public"."replay_check_baseline" AS ENUM('awaiting', 'found', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_outcome" AS ENUM('completed', 'failed', 'abandoned', 'withdrawn');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_ending" AS ENUM('iterations-spent', 'ceiling-reached', 'stalled', 'stopped', 'station-gone', 'set-gone', 'seed-failed');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_iteration_kind" AS ENUM('propose', 'reflect');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_iteration_state" AS ENUM('wanted', 'running', 'ended', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_objective" AS ENUM('success', 'cost');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_reflection_outcome" AS ENUM('went-on', 'no-config-cause', 'no-failures', 'did-not-run', 'out-of-budget');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_state" AS ENUM('seeding', 'searching', 'holding-out', 'finished', 'stopped');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'over-budget');--> statement-breakpoint
+CREATE TYPE "public"."notice_form" AS ENUM('ended', 'advice');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'forgone', 'refused');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'parked', 'completed', 'failed', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."aside_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
@@ -997,6 +1000,7 @@ CREATE TABLE "replay_search" (
 	"held_out" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"state" "replay_search_state" NOT NULL,
 	"ending" "replay_search_ending",
+	"started_by" text,
 	"started_at" timestamp NOT NULL,
 	"ended_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
@@ -1006,10 +1010,15 @@ CREATE TABLE "replay_search_iteration" (
 	"search_id" text NOT NULL,
 	"number" integer NOT NULL,
 	"run_id" text NOT NULL,
+	"kind" "replay_search_iteration_kind" NOT NULL,
 	"state" "replay_search_iteration_state" NOT NULL,
 	"proposals" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"agent_spent" jsonb,
+	"standing" text,
+	"outcome" "replay_search_reflection_outcome",
+	"reflected_on" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"causes" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	CONSTRAINT "replay_search_iteration_search_id_number_pk" PRIMARY KEY("search_id","number")
 );
 --> statement-breakpoint
@@ -1321,6 +1330,23 @@ CREATE TABLE "network_call" (
 	"answer_ms" integer,
 	"answer_error" text,
 	"lapsed_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "notice" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"addressee_id" text NOT NULL,
+	"form" "notice_form" NOT NULL,
+	"subject" text NOT NULL,
+	"link" text NOT NULL,
+	"link_label" text NOT NULL,
+	"headline" text NOT NULL,
+	"points" jsonb NOT NULL,
+	"raised_at" timestamp NOT NULL,
+	"read_at" timestamp,
+	"settled_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1707,6 +1733,9 @@ CREATE INDEX "network_call_waiting_idx" ON "network_call" USING btree ("workspac
 CREATE INDEX "network_call_lapsing_idx" ON "network_call" USING btree ("state","lapses_at");--> statement-breakpoint
 CREATE INDEX "network_call_answered_idx" ON "network_call" USING btree ("state","answered_at");--> statement-breakpoint
 CREATE INDEX "network_call_lapsed_idx" ON "network_call" USING btree ("state","lapsed_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "notice_subject_idx" ON "notice" USING btree ("addressee_id","form","subject");--> statement-breakpoint
+CREATE INDEX "notice_addressee_idx" ON "notice" USING btree ("workspace_id","addressee_id");--> statement-breakpoint
+CREATE INDEX "notice_team_idx" ON "notice" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority","created_at");--> statement-breakpoint
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint

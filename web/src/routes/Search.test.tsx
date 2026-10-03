@@ -1,7 +1,24 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SearchDetail, Search as SearchSummary } from '@/lib/search';
+import {
+  type SearchDetail,
+  type Search as SearchSummary,
+  whyItStalledAnchor,
+} from '@/lib/search';
+import {
+  causeActionShown,
+  causeTitleShown,
+  OPEN_FAILED_REPLAY,
+  REFLECTION_KIND,
+  REFLECTION_LOOKING,
+  reflectionIterationShown,
+  reflectionOutcomeShown,
+  SEE_WHY_IT_STALLED,
+  standingShown,
+  UNCAUSED_TITLE,
+  whyItStalledShown,
+} from '@/lib/search-words';
 import { Search } from '@/routes/Search';
 
 const detail = vi.fn((): SearchDetail | undefined => undefined);
@@ -130,19 +147,23 @@ const DETAIL: SearchDetail = {
   iterations: [
     {
       number: 1,
+      kind: 'propose',
       runId: 'run_search_1',
       state: 'ended',
       attempts: 1,
       proposed: ['tests'],
       agentSpent: null,
+      reflection: null,
     },
     {
       number: 2,
+      kind: 'propose',
       runId: 'run_search_2',
       state: 'failed',
       attempts: 0,
       proposed: [],
       agentSpent: null,
+      reflection: null,
     },
   ],
   seed: candidate({
@@ -191,6 +212,51 @@ const DETAIL: SearchDetail = {
   onlyOnSeenTasks: 1,
   minGain: 0.05,
 };
+
+const reflection = (
+  over: Partial<NonNullable<SearchDetail['iterations'][number]['reflection']>>,
+  state: SearchDetail['iterations'][number]['state'] = 'ended',
+): SearchDetail['iterations'][number] => ({
+  number: 3,
+  kind: 'reflect',
+  runId: 'run_search_3',
+  state,
+  attempts: 0,
+  proposed: [],
+  agentSpent: null,
+  reflection: {
+    tasks: [
+      { taskId: 'task_held', originalRunId: 'run_held', replayRunId: 'run_r1' },
+      { taskId: 'task_2', originalRunId: 'run_2', replayRunId: 'run_r2' },
+      { taskId: 'task_3', originalRunId: 'run_3', replayRunId: 'run_r3' },
+    ],
+    causes: [
+      {
+        taskId: 'task_held',
+        originalRunId: 'run_held',
+        replayRunId: 'run_r1',
+        cause: 'judge',
+        evidence:
+          'It failed the change for missing tests a rename does not need.',
+        suggestion: 'Ask for tests only where behaviour changes.',
+        recordedAt: '2026-10-01T11:00:00.000Z',
+      },
+      {
+        taskId: 'task_2',
+        originalRunId: 'run_2',
+        replayRunId: 'run_r2',
+        cause: 'task',
+        evidence: 'The cache it asks to warm was removed.',
+        suggestion: null,
+        recordedAt: '2026-10-01T11:00:00.000Z',
+      },
+    ],
+    standing: 'tests',
+    outcome: 'no-config-cause',
+    endedSearch: true,
+    ...over,
+  },
+});
 
 const renderSearch = () =>
   render(
@@ -499,5 +565,225 @@ describe('Search', () => {
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_seed',
     );
+  });
+
+  describe('when a search stalled and looked for why', () => {
+    const whyAt = (container: HTMLElement, iteration: number) =>
+      container.querySelector(
+        `[data-slot="why-it-stalled"][data-iteration="${iteration}"]`,
+      ) as HTMLElement;
+
+    it('groups what it found by cause, says what to do, and links each to its failed replay run', () => {
+      detail.mockReturnValue({
+        ...DETAIL,
+        ending: 'stalled',
+        iterations: [...DETAIL.iterations, reflection({})],
+      });
+
+      const { container } = renderSearch();
+
+      const why = screen.getByRole('region', { name: whyItStalledShown(3) });
+      expect(why).toBe(whyAt(container, 3));
+      expect(
+        why.querySelector('[data-slot="reflection-standing"]'),
+      ).toHaveTextContent(standingShown({ seed: false, name: 'tests-first' }));
+      expect(
+        why.querySelector('[data-slot="reflection-outcome"]'),
+      ).toHaveTextContent(reflectionOutcomeShown('no-config-cause'));
+
+      const groups = why.querySelectorAll('[data-slot="cause-group"]');
+      expect(
+        [...groups].map((each) => each.getAttribute('data-cause')),
+      ).toEqual(['task', 'judge', 'none']);
+
+      const judge = within(why).getByRole('region', {
+        name: causeTitleShown('judge'),
+      });
+      expect(
+        within(judge).getByText(causeActionShown('judge')),
+      ).toBeInTheDocument();
+      expect(
+        within(judge).getByText('Ask for tests only where behaviour changes.'),
+      ).toBeInTheDocument();
+      expect(
+        within(judge).getByRole('link', {
+          name: `${OPEN_FAILED_REPLAY}: Retry refunds on timeout`,
+        }),
+      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_r1');
+
+      const task = within(why).getByRole('region', {
+        name: causeTitleShown('task'),
+      });
+      expect(
+        within(task).getByText(causeActionShown('task')),
+      ).toBeInTheDocument();
+
+      const none = within(why).getByRole('region', { name: UNCAUSED_TITLE });
+      expect(
+        within(none).getByRole('link', {
+          name: `${OPEN_FAILED_REPLAY}: Task task_3`,
+        }),
+      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_r3');
+    });
+
+    it('says the search went on when the config could still fix some', () => {
+      detail.mockReturnValue({
+        ...DETAIL,
+        state: 'searching',
+        ending: null,
+        iterations: [
+          ...DETAIL.iterations,
+          reflection({
+            outcome: 'went-on',
+            endedSearch: false,
+            causes: [
+              {
+                taskId: 'task_2',
+                originalRunId: 'run_2',
+                replayRunId: 'run_r2',
+                cause: 'config',
+                evidence: 'The prompt never mentions the retry policy.',
+                suggestion: null,
+                recordedAt: '2026-10-01T11:00:00.000Z',
+              },
+            ],
+          }),
+        ],
+      });
+
+      const { container } = renderSearch();
+
+      const why = whyAt(container, 3);
+      expect(
+        why.querySelector('[data-slot="reflection-outcome"]'),
+      ).toHaveTextContent(reflectionOutcomeShown('went-on'));
+      expect(
+        within(why).getByText(causeActionShown('config')),
+      ).toBeInTheDocument();
+    });
+
+    it('says it is still looking while the reflection runs', () => {
+      detail.mockReturnValue({
+        ...DETAIL,
+        state: 'searching',
+        ending: null,
+        iterations: [
+          ...DETAIL.iterations,
+          reflection(
+            { causes: [], outcome: null, endedSearch: false },
+            'running',
+          ),
+        ],
+      });
+
+      const { container } = renderSearch();
+
+      const why = whyAt(container, 3);
+      expect(within(why).getByText(REFLECTION_LOOKING)).toBeInTheDocument();
+      expect(
+        why.querySelector('[data-slot="cause-group"]'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows the reflection apart from the iterations that proposed candidates, linking to its own section', () => {
+      detail.mockReturnValue({
+        ...DETAIL,
+        ending: 'stalled',
+        iterations: [...DETAIL.iterations, reflection({})],
+      });
+
+      const { container } = renderSearch();
+
+      const reflected = container.querySelector(
+        '[data-slot="iteration"][data-kind="reflect"]',
+      ) as HTMLElement;
+      expect(
+        within(reflected).getByText(`· ${REFLECTION_KIND}`),
+      ).toBeInTheDocument();
+      expect(
+        within(reflected).getByText(reflectionIterationShown(3, 2)),
+      ).toBeInTheDocument();
+      expect(
+        within(reflected).getByRole('link', { name: SEE_WHY_IT_STALLED }),
+      ).toHaveAttribute('href', `#${whyItStalledAnchor(3)}`);
+      expect(
+        within(reflected).queryByText(/proposals? taken/),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows every reflection, newest first, each iteration linking to its own', () => {
+      detail.mockReturnValue({
+        ...DETAIL,
+        ending: 'stalled',
+        iterations: [
+          ...DETAIL.iterations,
+          reflection({ outcome: 'went-on', endedSearch: false }),
+          {
+            ...reflection({}),
+            number: 6,
+            runId: 'run_search_6',
+          },
+        ],
+      });
+
+      const { container } = renderSearch();
+
+      const sections = container.querySelectorAll(
+        '[data-slot="why-it-stalled"]',
+      );
+      expect(
+        [...sections].map((each) => each.getAttribute('data-iteration')),
+      ).toEqual(['6', '3']);
+      expect(screen.getByRole('region', { name: whyItStalledShown(6) })).toBe(
+        whyAt(container, 6),
+      );
+
+      const links = [
+        ...container.querySelectorAll(
+          '[data-slot="iteration"][data-kind="reflect"] a[href^="#"]',
+        ),
+      ].map((each) => each.getAttribute('href'));
+      expect(links).toEqual([
+        `#${whyItStalledAnchor(3)}`,
+        `#${whyItStalledAnchor(6)}`,
+      ]);
+      for (const link of links) {
+        expect(container.querySelector(link as string)).not.toBeNull();
+      }
+    });
+
+    it('says when its agent’s run failed before it recorded a cause', () => {
+      detail.mockReturnValue({
+        ...DETAIL,
+        ending: 'stalled',
+        iterations: [
+          ...DETAIL.iterations,
+          reflection(
+            { causes: [], standing: 'seed', outcome: 'did-not-run' },
+            'failed',
+          ),
+        ],
+      });
+
+      const { container } = renderSearch();
+
+      const why = whyAt(container, 3);
+      expect(
+        why.querySelector('[data-slot="reflection-standing"]'),
+      ).toHaveTextContent(standingShown({ seed: true, name: 'seed' }));
+      expect(
+        why.querySelector('[data-slot="reflection-outcome"]'),
+      ).toHaveTextContent(reflectionOutcomeShown('did-not-run'));
+    });
+  });
+
+  it('has no why-it-stalled section when it never looked', () => {
+    detail.mockReturnValue(DETAIL);
+
+    const { container } = renderSearch();
+
+    expect(
+      container.querySelector('[data-slot="why-it-stalled"]'),
+    ).not.toBeInTheDocument();
   });
 });

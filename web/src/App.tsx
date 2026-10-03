@@ -9,6 +9,7 @@ import { GitHubInstalled } from './routes/GitHubInstalled.tsx';
 import { Inbox } from './routes/Inbox.tsx';
 import { InboxIndex } from './routes/InboxIndex.tsx';
 import { InboxItem } from './routes/InboxItem.tsx';
+import { InboxNotice } from './routes/InboxNotice.tsx';
 import { LineBoard } from './routes/LineBoard.tsx';
 import { Login } from './routes/Login.tsx';
 import { Replay } from './routes/Replay.tsx';
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="inbox" element={<Inbox />}>
             <Route index element={<InboxIndex />} />
             <Route path=":itemId" element={<InboxItem />} />
+            <Route path="notices/:noticeId" element={<InboxNotice />} />
           </Route>
 
           <Route path="runners" element={<Runners />} />

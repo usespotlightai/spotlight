@@ -3,6 +3,9 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   bestTermShown,
+  causeActionShown,
+  causeMeaningShown,
+  causeTitleShown,
   endingShown,
   frontierNote,
   iterationStateShown,
@@ -12,6 +15,7 @@ import {
   type PullRequestReason,
   pullRequestReasonShown,
   pullRequestStateShown,
+  reflectionOutcomeShown,
   searchStateShown,
   verdictShown,
   warningShown,
@@ -153,6 +157,17 @@ describe('search words cover every code the API can answer', () => {
       worded(bestTermShown(objective as never), objective);
       worded(frontierNote(objective as never), objective);
       worded(noBestShown(objective as never), objective);
+    }
+  });
+
+  it('words every cause a reflection can find, with what a person can do', () => {
+    for (const cause of codesOf('SearchCauseResponseDto', 'cause')) {
+      worded(causeTitleShown(cause as never), cause);
+      worded(causeMeaningShown(cause as never), cause);
+      worded(causeActionShown(cause as never), cause);
+    }
+    for (const outcome of codesOf('SearchReflectionResponseDto', 'outcome')) {
+      worded(reflectionOutcomeShown(outcome as never), outcome);
     }
   });
 });

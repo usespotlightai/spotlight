@@ -1,10 +1,16 @@
 import type {
   InboxItemResponseDto,
   InboxMessageResponseDto,
+  InboxNoticeResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
+import { teamPath } from '@/lib/team';
 
 export type InboxItem = InboxItemResponseDto;
+
+export type InboxNotice = InboxNoticeResponseDto;
+
+export type InboxEntry = InboxItem | InboxNotice;
 
 export type InboxMessage = InboxMessageResponseDto;
 
@@ -183,6 +189,41 @@ export const inboxItemPath = (slug: string, id: string, runId?: string) =>
   `${inboxPath(slug)}/${encodeURIComponent(id)}${
     runId ? `?run=${encodeURIComponent(runId)}` : ''
   }`;
+
+export const noticePath = (slug: string, id: string) =>
+  `${inboxPath(slug)}/notices/${encodeURIComponent(id)}`;
+
+export const noticeLinkPath = (slug: string, notice: InboxNotice) =>
+  `${teamPath(slug, notice.teamId)}/${notice.link.replace(/^\/+/, '')}`;
+
+export const taskItemOf = (
+  entries: readonly InboxEntry[] | undefined,
+  id: string | undefined,
+): InboxItem | undefined =>
+  entries?.find(
+    (each): each is InboxItem => each.kind === 'task' && each.id === id,
+  );
+
+export const noticeOf = (
+  entries: readonly InboxEntry[] | undefined,
+  id: string | undefined,
+): InboxNotice | undefined =>
+  entries?.find(
+    (each): each is InboxNotice => each.kind === 'notice' && each.id === id,
+  );
+
+export const NOTICE_POINTS_LABEL = 'Details';
+
+export const NOTICE_DISMISS = 'Dismiss';
+
+export const NOTICE_DISMISSED = 'Dismissed. There is nothing left to do here.';
+
+export const NOTICE_DISMISS_FAILED = 'It could not be dismissed. Try again.';
+
+export const GONE_FROM_INBOX = 'Nothing here is waiting on you any more.';
+
+export const noticePreviewOf = (notice: InboxNotice): string =>
+  notice.points[0] ?? '';
 
 export const shownAt = (
   notes: readonly InboxMessage[],

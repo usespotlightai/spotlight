@@ -89,6 +89,7 @@ const message = (over: Record<string, unknown> = {}) => ({
 
 const item = (notes: unknown[], description: string | null = null) => [
   {
+    kind: 'task',
     id: 'task_1:0',
     taskId: 'task_1',
     teamId: 'team_1',

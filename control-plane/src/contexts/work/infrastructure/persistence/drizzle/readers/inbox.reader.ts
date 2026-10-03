@@ -18,7 +18,9 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
+  InboxEntrySummary,
   InboxItemSummary,
+  InboxNoticeSummary,
   InboxReaderPort,
 } from '@work/application/ports/inbox-reader.port';
 import {
@@ -46,12 +48,13 @@ import {
   line,
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
+import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import {
   taskAside,
   taskAsideRead,
 } from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 const FORMS_FOR_TEAM_READERS = ASIDE_FORMS.filter(
@@ -70,7 +73,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
   async listForWorkspaceMember(
     slug: string,
     userId: UserId,
-  ): Promise<InboxItemSummary[] | null> {
+    noticesSettledSince: Date,
+  ): Promise<InboxEntrySummary[] | null> {
     const visible = await this.workspaces.identify(slug);
 
     if (
@@ -80,11 +84,14 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return null;
     }
 
-    const items = await this.conversationsIn(
+    const items: InboxEntrySummary[] = await this.conversationsIn(
       await this.assignedTo(visible, userId),
     );
 
     items.push(...(await this.asidesFor(visible, userId)));
+    items.push(
+      ...(await this.noticesFor(visible, userId, noticesSettledSince)),
+    );
 
     return items.sort((one, other) => +other.askedAt - +one.askedAt);
   }
@@ -166,6 +173,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         const last = notes[notes.length - 1];
 
         items.push({
+          kind: 'task',
           id: ConversationId.of({
             taskId: TaskId.of(row.taskId),
             from: note.position,
@@ -321,6 +329,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       };
 
       return {
+        kind: 'task' as const,
         id: row.id,
         taskId: row.taskId,
         teamId: row.teamId,
@@ -345,5 +354,49 @@ export class DrizzleInboxReader implements InboxReaderPort {
         notes: [],
       };
     });
+  }
+
+  private async noticesFor(
+    workspaceId: string,
+    userId: UserId,
+    settledSince: Date,
+  ): Promise<InboxNoticeSummary[]> {
+    const rows = await this.db
+      .select()
+      .from(notice)
+      .where(
+        and(
+          eq(notice.workspaceId, workspaceId),
+          eq(notice.addresseeId, userId.value),
+          or(isNull(notice.settledAt), gte(notice.settledAt, settledSince)),
+        ),
+      );
+    const onTeam = new Map(
+      await Promise.all(
+        [...new Set(rows.map((row) => row.teamId))].map(
+          async (teamId) =>
+            [
+              teamId,
+              (await this.access.onTeam(teamId, userId)) !== null,
+            ] as const,
+        ),
+      ),
+    );
+
+    return rows
+      .filter((row) => onTeam.get(row.teamId))
+      .map((row) => ({
+        kind: 'notice',
+        id: row.id,
+        teamId: row.teamId,
+        form: row.form,
+        headline: row.headline,
+        points: row.points,
+        link: row.link,
+        linkLabel: row.linkLabel,
+        askedAt: row.raisedAt,
+        unread: row.readAt === null && row.settledAt === null,
+        resolved: row.settledAt !== null,
+      }));
   }
 }

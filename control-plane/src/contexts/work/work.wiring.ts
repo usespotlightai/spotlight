@@ -133,6 +133,7 @@ import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.h
 import { ParkRunHandler } from '@work/application/commands/handlers/park-run.handler';
 import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-inbox-aside.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
+import { ReadNoticeHandler } from '@work/application/commands/handlers/read-notice.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
@@ -141,6 +142,7 @@ import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lea
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
 import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
 import { SealWorkspaceArchiveHandler } from '@work/application/commands/handlers/seal-workspace-archive.handler';
+import { SettleNoticeHandler } from '@work/application/commands/handlers/settle-notice.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
@@ -153,6 +155,7 @@ import {
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
+import { ReadNoticeCommand } from '@work/application/commands/read-notice.command';
 import {
   AppendRunJournalCommand,
   ClaimHostWorkCommand,
@@ -166,6 +169,7 @@ import {
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
 import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
+import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
@@ -268,6 +272,7 @@ import {
   type MemoriesBriefedBeforePort,
 } from '@work/application/ports/memories-briefed-before.port';
 import { NETWORK_CALLS } from '@work/application/ports/network-calls.port';
+import { NOTICES } from '@work/application/ports/notices.port';
 import {
   OUTBOUND_TASK_NOTIFIER,
   type OutboundTaskNotifierPort,
@@ -479,6 +484,8 @@ import { IntegrationTools } from '@work/application/services/integration-tools.s
 import { LineAtHand } from '@work/application/services/line-at-hand.service';
 import { LineViews } from '@work/application/services/line-views.service';
 import { NetworkCalls } from '@work/application/services/network-calls.service';
+import { NoticeAtHand } from '@work/application/services/notice-at-hand.service';
+import { Notices } from '@work/application/services/notices.service';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
 import { PauseMarks } from '@work/application/services/pause-marks.service';
@@ -562,6 +569,7 @@ import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzl
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
+import { DrizzleNoticeRepository } from '@work/infrastructure/persistence/drizzle/repositories/notice.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleStartingPointHoldRepository } from '@work/infrastructure/persistence/drizzle/repositories/starting-point-hold.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -705,6 +713,35 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ) => new TaskAsides(asides, tasks, transaction, ids, clock),
   },
   { provide: TASK_ASIDES, useExisting: TaskAsides },
+
+  DrizzleNoticeRepository,
+
+  {
+    provide: Notices,
+    inject: [
+      DrizzleNoticeRepository,
+      WORKSPACE_ACCESS,
+      TRANSACTION,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      notices: DrizzleNoticeRepository,
+      access: WorkspaceAccessPort,
+      transaction: TransactionPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new Notices(notices, access, transaction, ids, clock),
+  },
+  {
+    provide: NoticeAtHand,
+    inject: [DrizzleNoticeRepository, WORKSPACE_ACCESS],
+    useFactory: (
+      notices: DrizzleNoticeRepository,
+      access: WorkspaceAccessPort,
+    ) => new NoticeAtHand(notices, access),
+  },
+  { provide: NOTICES, useExisting: Notices },
 
   {
     provide: AsideAtHand,
@@ -1516,6 +1553,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUN_DIGESTS,
       RUN_TOOLS,
       RUN_SPENDS,
+      Notices,
     ],
     useFactory: (
       types: EventTypes,
@@ -1545,6 +1583,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       digested: RunDigestReaderPort,
       tools: RunToolsReaderPort,
       spends: RunSpendReaderPort,
+      notices: Notices,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -1579,6 +1618,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           runGrants,
           runners: ending,
           toolUsedHooks,
+          notices,
         }),
       ]);
       return true;
@@ -1801,7 +1841,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       new ProvisionWorkWorker(work, logger),
   },
 
-  ...bindQueryHandler(ListInboxQuery, ListInboxHandler, [INBOX_READER]),
+  ...bindQueryHandler(ListInboxQuery, ListInboxHandler, [INBOX_READER, CLOCK]),
 
   ...bindQueryHandler(ListRunnerActivityQuery, ListRunnerActivityHandler, [
     WORKSPACE_ACCESS,
@@ -1924,6 +1964,16 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ReadInboxAsideCommand, ReadInboxAsideHandler, [
     AsideAtHand,
     DrizzleTaskAsideRepository,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(ReadNoticeCommand, ReadNoticeHandler, [
+    NoticeAtHand,
+    DrizzleNoticeRepository,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(SettleNoticeCommand, SettleNoticeHandler, [
+    NoticeAtHand,
+    DrizzleNoticeRepository,
     CLOCK,
   ]),
   ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [

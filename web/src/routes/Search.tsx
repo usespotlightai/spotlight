@@ -4,6 +4,7 @@ import { SearchFrontier } from '@/components/features/searches/search/SearchFron
 import { SearchHeader } from '@/components/features/searches/search/SearchHeader';
 import { SearchSkeleton } from '@/components/features/searches/search/SearchSkeleton';
 import { SearchSplit } from '@/components/features/searches/search/SearchSplit';
+import { WhyItStalled } from '@/components/features/searches/search/WhyItStalled';
 import { StationLayout } from '@/components/features/stations/StationLayout';
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -23,10 +24,12 @@ import { useStationTrail } from '@/hooks/useStationTrail';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import {
+  reflectionsOf,
   searchesAnchorPath,
   searchLabel,
   searchNumber,
   searchPath,
+  standingOf,
 } from '@/lib/search';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -48,6 +51,7 @@ export function Search() {
       : undefined;
   const number = searchId ? searchNumber(searches.data ?? [], searchId) : null;
   const set = sets.data?.find((each) => each.id === found?.setId);
+  const reflections = found ? reflectionsOf(found) : [];
 
   const base: BreadcrumbSegment[] = [
     ...stationTrail,
@@ -107,6 +111,16 @@ export function Search() {
           number={number}
           setName={set?.name ?? null}
         />
+
+        {reflections.map((reflection) => (
+          <WhyItStalled
+            key={reflection.number}
+            at={at}
+            iteration={reflection}
+            set={set}
+            standing={standingOf(found, reflection)}
+          />
+        ))}
 
         <SearchSplit
           slug={at.slug}

@@ -115,6 +115,7 @@ const searched = (
     chargeOf(seed),
     later(3),
     runIds,
+    true,
   );
 
   while (search.wantedIteration) {
@@ -151,6 +152,7 @@ const searched = (
         chargeOf(replay),
         later(5),
         runIds,
+        true,
       );
     }
   }
@@ -181,6 +183,7 @@ const searched = (
         chargeOf(replay),
         later(7),
         runIds,
+        true,
       );
     }
   }

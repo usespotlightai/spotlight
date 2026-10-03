@@ -41,6 +41,7 @@ const withCandidates = (finished: boolean): Search => {
     charged,
     NOW,
     runIds,
+    true,
   );
   const admitted = ['terse', 'in-order'].reduce(
     (held, name) =>
@@ -59,6 +60,7 @@ const withCandidates = (finished: boolean): Search => {
         charged,
         later(1),
         runIds,
+        true,
       )
     : admitted;
 };

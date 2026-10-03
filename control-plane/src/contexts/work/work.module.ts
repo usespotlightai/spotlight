@@ -15,6 +15,7 @@ import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
 import { HOOKED_TASKS } from '@work/application/ports/hooked-tasks.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
 import { NETWORK_CALLS } from '@work/application/ports/network-calls.port';
+import { NOTICES } from '@work/application/ports/notices.port';
 import { REPLAY_CANDIDATES } from '@work/application/ports/replay-candidates.port';
 import { REPLAY_DISPATCH } from '@work/application/ports/replay-dispatch.port';
 import { REPLAYABLE_RUNS } from '@work/application/ports/replayable-runs.port';
@@ -52,6 +53,7 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     NETWORK_CALLS,
     TASK_NOTES_FROM_HOOKS,
     TASK_ASIDES,
+    NOTICES,
     STATION_RUNS,
     RUN_EVIDENCE,
     REPLAYABLE_RUNS,

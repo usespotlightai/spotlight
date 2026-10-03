@@ -94,3 +94,9 @@ export type CandidatePicked = Planned<{
   readonly outcome: 'picked' | 'already';
   readonly pullRequest: ConfigPullRequestDto;
 }>;
+
+export interface SearchCauseRecorded {
+  readonly taskId: string;
+  readonly cause: string;
+  readonly replayRunId: string;
+}

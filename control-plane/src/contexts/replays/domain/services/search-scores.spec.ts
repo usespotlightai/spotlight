@@ -32,6 +32,7 @@ const searchWith = (): Search => {
       { spent: Spend.of(10, 'USD'), unpriced: 0 },
       NOW,
       ids,
+      true,
     )
     .admitted(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),
@@ -117,6 +118,7 @@ describe('scoresOf', () => {
         { spent: Spend.of(1, 'USD'), unpriced: 0 },
         later(2),
         ids,
+        true,
       )
       .replayEnded(
         ReplayId.of('replay_wordy'),
@@ -124,6 +126,7 @@ describe('scoresOf', () => {
         { spent: Spend.of(1, 'USD'), unpriced: 0 },
         later(2),
         ids,
+        true,
       );
 
     for (let more = 2; more <= search.budget.iterations; more += 1) {

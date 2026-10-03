@@ -5,13 +5,18 @@ import {
   CONFIG_PULL_REQUEST_REFUSALS,
   CONFIG_PULL_REQUEST_STATES,
 } from '@replays/domain/value-objects/config-pull-request-state';
+import { REFLECTION_OUTCOMES } from '@replays/domain/value-objects/reflection-outcome';
 import { RUN_OUTCOMES } from '@replays/domain/value-objects/replay-ending';
 import {
   REPLAY_STATES,
   type ReplayEnd,
 } from '@replays/domain/value-objects/replay-state';
+import type { SearchCauseKind } from '@replays/domain/value-objects/search-cause.vo';
 import { SEARCH_ENDINGS } from '@replays/domain/value-objects/search-ending';
-import { SEARCH_ITERATION_STATES } from '@replays/domain/value-objects/search-iteration.vo';
+import {
+  SEARCH_ITERATION_KINDS,
+  SEARCH_ITERATION_STATES,
+} from '@replays/domain/value-objects/search-iteration.vo';
 import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import {
   ACTIVE_SEARCH_STATES,
@@ -57,6 +62,16 @@ export const replaySearchObjective = pgEnum(
 export const replaySearchIterationState = pgEnum(
   'replay_search_iteration_state',
   SEARCH_ITERATION_STATES,
+);
+
+export const replaySearchReflectionOutcome = pgEnum(
+  'replay_search_reflection_outcome',
+  REFLECTION_OUTCOMES,
+);
+
+export const replaySearchIterationKind = pgEnum(
+  'replay_search_iteration_kind',
+  SEARCH_ITERATION_KINDS,
 );
 
 export interface StoredStationChange {
@@ -130,6 +145,20 @@ export interface StoredSearchProposal {
   readonly candidateId: string;
   readonly name: string;
   readonly replay: StoredSearchReplay;
+  readonly improved: boolean | null;
+}
+
+export interface StoredReflectedTask {
+  readonly taskId: string;
+  readonly originalRunId: string;
+  readonly replayRunId: string;
+}
+
+export interface StoredSearchCause extends StoredReflectedTask {
+  readonly cause: SearchCauseKind;
+  readonly evidence: string;
+  readonly suggestion: string | null;
+  readonly recordedAt: string;
 }
 
 export interface StoredHeldOutReplay {
@@ -335,6 +364,7 @@ export const replaySearch = pgTable(
       .default(sql`'[]'::jsonb`),
     state: replaySearchState('state').notNull(),
     ending: replaySearchEnding('ending'),
+    startedBy: text('started_by'),
     startedAt: timestamp('started_at').notNull(),
     endedAt: timestamp('ended_at'),
     version: integer('version').notNull().default(0),
@@ -360,6 +390,7 @@ export const replaySearchIteration = pgTable(
       .references(() => replaySearch.id, { onDelete: 'cascade' }),
     number: integer('number').notNull(),
     runId: text('run_id').notNull(),
+    kind: replaySearchIterationKind('kind').notNull(),
     state: replaySearchIterationState('state').notNull(),
     proposals: jsonb('proposals')
       .$type<StoredSearchProposal[]>()
@@ -367,6 +398,16 @@ export const replaySearchIteration = pgTable(
       .default(sql`'[]'::jsonb`),
     attempts: integer('attempts').notNull().default(0),
     agentSpent: jsonb('agent_spent').$type<StoredModelSpent>(),
+    standing: text('standing'),
+    outcome: replaySearchReflectionOutcome('outcome'),
+    reflectedOn: jsonb('reflected_on')
+      .$type<StoredReflectedTask[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    causes: jsonb('causes')
+      .$type<StoredSearchCause[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
   },
   (table) => [
     primaryKey({ columns: [table.searchId, table.number] }),

@@ -28,6 +28,8 @@ import { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
 import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import { SearchReflected } from '@replays/domain/events/search-reflected.event';
+import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
 import { SearchStopAsked } from '@replays/domain/events/search-stop-asked.event';
 import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
@@ -47,6 +49,7 @@ import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
+import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -59,6 +62,7 @@ import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
+import { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
@@ -98,6 +102,8 @@ export const REPLAYS_EVENT_TYPES = [
   Hypothesis,
   SearchAgent,
   SearchBudget,
+  SearchCause,
+  ReflectedTask,
   SearchId,
   SearchIteration,
   SearchProposal,
@@ -128,6 +134,8 @@ export const REPLAYS_EVENT_TYPES = [
   SearchEnded,
   SearchHoldingOutWanted,
   SearchIterationWanted,
+  SearchReflected,
+  SearchStalledUnreflected,
   SearchStarted,
   SearchStopAsked,
   ReplayCheckId,

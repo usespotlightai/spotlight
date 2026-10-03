@@ -8,6 +8,7 @@ import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked'
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
 import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { GradeRun } from '@/components/features/inbox/grades/GradeRun';
+import { InboxGone } from '@/components/features/inbox/InboxGone';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { MemoryReview } from '@/components/features/inbox/memories/MemoryReview';
 import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
@@ -27,7 +28,7 @@ import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys, useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { shownAt, workedOn } from '@/lib/inbox';
+import { shownAt, taskItemOf, workedOn } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
 import { teamPath } from '@/lib/team';
@@ -37,7 +38,7 @@ export function InboxItem() {
   const { slug, itemId } = useParams();
   const [params] = useSearchParams();
   const inbox = useInbox(slug);
-  const item = inbox.data?.find((each) => each.id === itemId);
+  const item = taskItemOf(inbox.data, itemId);
   const journal = useTaskJournal(slug, item?.aside ? undefined : item?.taskId);
   const worked = journal.data;
   const { data: workspace } = useWorkspace(slug);
@@ -113,13 +114,7 @@ export function InboxItem() {
   }
 
   if (!item || !slug) {
-    return (
-      <PageNotice>
-        <p className="text-muted-foreground text-sm">
-          Nothing here is waiting on you any more.
-        </p>
-      </PageNotice>
-    );
+    return <InboxGone />;
   }
 
   if (item.aside?.form === 'memories') {

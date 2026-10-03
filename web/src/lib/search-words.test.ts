@@ -16,7 +16,7 @@ describe('search words', () => {
 
   it('says why a search stopped', () => {
     expect(endingShown('stalled')).toBe(
-      'Two iterations in a row found nothing, so it stopped',
+      'It found nothing better twice in a row',
     );
   });
 

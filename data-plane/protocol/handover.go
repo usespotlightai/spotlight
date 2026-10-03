@@ -13,6 +13,7 @@ const (
 	HandoverRememberPath  = "/remember"
 	HandoverHistoryPath   = "/history"
 	HandoverCandidatePath = "/candidates"
+	HandoverCausePath     = "/causes"
 )
 
 const (

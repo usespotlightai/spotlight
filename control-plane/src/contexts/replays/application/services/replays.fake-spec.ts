@@ -332,7 +332,7 @@ export class FakeWork implements WorkPort {
   standing = async (workspace: unknown, runs: readonly RunId[]) =>
     (await this.replayable(workspace, runs)).map((each) => ({
       ...each,
-      title: null,
+      title: null as string | null,
       state: null,
       endedAt: null,
     }));

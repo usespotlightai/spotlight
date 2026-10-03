@@ -33,6 +33,7 @@ const ask = async (path, body) => {
     await ask("recall", { words: "upload retries" }),
     await ask("remark", { handle: "R-1", body: "Done." }),
     await ask("candidates", { name: "terse", hypothesis: "Shorter prompts finish sooner.", station: { prompt: "Be brief." } }),
+    await ask("causes", { taskId: "task_1", cause: "judge", evidence: "The rubric asks for tests.", suggestion: "Drop that line." }),
   ];
   process.stdout.write(said.join("\n"));
 })();
@@ -53,6 +54,7 @@ func TestASearchKeepsOutOfTheTeamsMemoryAndProposesCandidates(t *testing.T) {
 		"recall 422 a search may not recall what the team remembers",
 		"remark 422 a search may not answer a remark",
 		`candidates 200 {"candidateId":"cand_1","name":"terse","replayId":"replay_1"}`,
+		`causes 200 {"taskId":"task_1","cause":"judge","replayRunId":"replayed_1"}`,
 	} {
 		if !strings.Contains(heard, want) {
 			t.Errorf("the agent heard %q, missing %q", heard, want)
@@ -97,23 +99,34 @@ func TestASearchKeepsOutOfTheTeamsMemoryAndProposesCandidates(t *testing.T) {
 		string(written.proposed[0].Station) != `{"prompt":"Be brief."}` {
 		t.Errorf("proposed %+v", written.proposed)
 	}
+	if len(written.caused) != 1 || written.caused[0] != (protocol.CauseRecord{
+		TaskID: "task_1", Cause: "judge", Evidence: "The rubric asks for tests.", Suggestion: "Drop that line.",
+	}) {
+		t.Errorf("caused %+v", written.caused)
+	}
 	if written.done == nil || written.done.Failed {
 		t.Errorf("completion %+v", written.done)
 	}
 }
 
-func TestOnlyASearchProposesCandidates(t *testing.T) {
+func TestOnlyASearchProposesCandidatesAndRecordsCauses(t *testing.T) {
 	written := run(t, asking(t))
 
-	if heard := said(t, written); !strings.Contains(heard, "candidates 501 this run cannot propose a candidate") {
-		t.Errorf("the agent heard %q", heard)
+	heard := said(t, written)
+	for _, want := range []string{
+		"candidates 501 this run cannot propose a candidate",
+		"causes 501 this run cannot record a cause",
+	} {
+		if !strings.Contains(heard, want) {
+			t.Errorf("the agent heard %q, missing %q", heard, want)
+		}
 	}
 
 	written.mu.Lock()
 	defer written.mu.Unlock()
 
-	if len(written.proposed) != 0 {
-		t.Errorf("a station run proposed %+v", written.proposed)
+	if len(written.proposed) != 0 || len(written.caused) != 0 {
+		t.Errorf("a station run proposed %+v and caused %+v", written.proposed, written.caused)
 	}
 }
 

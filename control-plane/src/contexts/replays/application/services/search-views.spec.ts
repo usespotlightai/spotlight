@@ -35,6 +35,7 @@ const heldOutWorld = (
       { spent: Spend.of(10, 'USD'), unpriced: 0 },
       NOW,
       ids,
+      true,
     )
     .admitted(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),
