@@ -1,14 +1,11 @@
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
+import { AcceptAsSignedIn } from '@/components/features/invites/AcceptAsSignedIn';
+import { SignInToAccept } from '@/components/features/invites/SignInToAccept';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
-import { ContinueWithGitHub } from '@/components/shell/auth/ContinueWithGitHub';
-import { ErrorMessage } from '@/components/shell/auth/ErrorMessage';
-import { Button } from '@/components/ui/button';
-import { useAcceptInvite } from '@/hooks/api/useAcceptInvite';
 import { useInvite } from '@/hooks/api/useInvite';
 import { useSession } from '@/hooks/api/useSession';
-import { useSignIn } from '@/hooks/api/useSignIn';
 import { failed, loading } from '@/lib/query';
 
 const WIDTH = 'w-80';
@@ -21,11 +18,8 @@ const SAYS: Record<string, string> = {
 
 export function AcceptInvite() {
   const { token } = useParams();
-  const navigate = useNavigate();
   const { data: session, isPending: reading } = useSession();
   const offer = useInvite(token);
-  const signIn = useSignIn(`/invites/${token}`);
-  const accept = useAcceptInvite(token);
 
   if (loading(offer) || reading) {
     return null;
@@ -56,9 +50,7 @@ export function AcceptInvite() {
     );
   }
 
-  const signedInAs = session?.user.email;
   const closed = invite.standing !== 'open';
-  const asSomeoneElse = signedInAs !== undefined && signedInAs !== invite.email;
 
   return (
     <AuthScreen className={WIDTH}>
@@ -73,46 +65,13 @@ export function AcceptInvite() {
           {SAYS[invite.standing]}
         </p>
       ) : session?.user ? (
-        <div className="flex flex-col gap-3">
-          {asSomeoneElse ? (
-            <p
-              role="alert"
-              className="text-center text-muted-foreground text-sm"
-            >
-              It was sent to {invite.email}, and you are signed in as{' '}
-              {signedInAs}. Sign in as them to accept it.
-            </p>
-          ) : (
-            <Button
-              size="lg"
-              className="self-center rounded-full px-6"
-              disabled={accept.isPending}
-              onClick={() =>
-                accept.mutate(undefined, {
-                  onSuccess: (joined) =>
-                    joined &&
-                    navigate(
-                      `/w/${joined.workspaceSlug}/team/${joined.teamId}`,
-                      { replace: true },
-                    ),
-                })
-              }
-            >
-              {accept.isPending ? 'Joining…' : 'Accept invitation'}
-            </Button>
-          )}
-
-          {accept.isError && <ErrorMessage error={accept.error} />}
-        </div>
+        <AcceptAsSignedIn
+          token={token}
+          invitedEmail={invite.email}
+          signedInAs={session.user.email}
+        />
       ) : (
-        <div className="flex flex-col gap-3">
-          <ContinueWithGitHub
-            onClick={() => signIn.mutate()}
-            disabled={signIn.isPending}
-          />
-
-          {signIn.isError && <ErrorMessage error={signIn.error} />}
-        </div>
+        <SignInToAccept token={token} />
       )}
     </AuthScreen>
   );

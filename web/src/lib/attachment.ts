@@ -8,7 +8,7 @@ export type PendingAttachment = {
   readonly key: string;
   readonly name: string;
   readonly size: number;
-  readonly preview: string | null;
+  readonly image: File | null;
 } & (
   | { readonly state: 'uploading' }
   | { readonly state: 'ready'; readonly id: string }

@@ -5,9 +5,9 @@ import {
   TraceRowSkeleton,
 } from '@/components/features/trace/view/TraceRowSkeleton';
 import { TraceScale } from '@/components/features/trace/view/TraceScale';
-import { NAMES_PANE } from '@/components/features/trace/view/TraceView';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
+import { NAMES_PANE } from '@/lib/trace';
 
 const WATERFALL: readonly TraceRowShape[] = [
   { depth: 0, holding: true, name: 'w-16', left: 0, width: 7 },

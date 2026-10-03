@@ -1,6 +1,7 @@
 import { ArrowUp, Plus } from 'lucide-react';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
+import { cn } from '@/lib/utils';
 
 export function ChatInputSkeleton({ placeholder }: { placeholder: string }) {
   return (
@@ -15,15 +16,15 @@ export function ChatInputSkeleton({ placeholder }: { placeholder: string }) {
         <span className="flex h-7 items-center px-2 text-sm">
           <SkeletonLine className="w-32" />
         </span>
-        <Button
-          type="button"
-          size="icon-sm"
-          className="rounded-full"
-          disabled
+        <span
           aria-hidden
+          className={cn(
+            buttonVariants({ size: 'icon-sm' }),
+            'rounded-full opacity-50',
+          )}
         >
           <ArrowUp />
-        </Button>
+        </span>
       </div>
 
       <div className="flex h-6 items-center px-3 text-sm">

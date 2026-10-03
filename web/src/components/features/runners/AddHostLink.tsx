@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { addHostPath } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 

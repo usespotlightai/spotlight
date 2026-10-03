@@ -1,29 +1,18 @@
 import { useParams } from 'react-router';
-import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { StationReplays } from '@/components/features/replays/station/StationReplays';
-import { StationSearches } from '@/components/features/searches/station/StationSearches';
-import { FixedSettings } from '@/components/features/stations/FixedSettings';
-import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
-import { StationOutcomes } from '@/components/features/stations/outcomes/StationOutcomes';
-import { StationAlerts } from '@/components/features/stations/StationAlerts';
-import { StationJudge } from '@/components/features/stations/StationJudge';
+import { StationHeading } from '@/components/features/stations/StationHeading';
 import { StationLayout } from '@/components/features/stations/StationLayout';
-import { StationPrompt } from '@/components/features/stations/StationPrompt';
 import { StationSkeleton } from '@/components/features/stations/StationSkeleton';
-import { StationSkills } from '@/components/features/stations/StationSkills';
+import { WorkStationSections } from '@/components/features/stations/WorkStationSections';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import {
-  type BreadcrumbSegment,
-  Breadcrumbs,
-} from '@/components/shell/layout/Breadcrumbs';
+import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { failed, loading } from '@/lib/query';
-import { stationShare } from '@/lib/station';
-import { linePath, teamPath } from '@/lib/team';
+import { linePath } from '@/lib/team';
+import { teamCrumb } from '@/lib/team-crumb';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 const ENDS = {
@@ -40,30 +29,13 @@ export function Station() {
 
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
-  const base: BreadcrumbSegment[] = [
-    ...(team
-      ? [
-          {
-            label: team.name,
-            avatar: team.name,
-            to: slug && teamId ? teamPath(slug, teamId) : undefined,
-          },
-        ]
-      : []),
-    ...(line
-      ? [
-          {
-            label: line.name,
-            to:
-              slug && teamId && lineId
-                ? linePath(slug, teamId, lineId)
-                : undefined,
-          },
-        ]
+  const { trail, forward } = useTrail([
+    ...(team && slug ? [teamCrumb(slug, team)] : []),
+    ...(line && slug && teamId
+      ? [{ label: line.name, to: linePath(slug, teamId, line.id) }]
       : []),
     ...(station ? [{ label: station.name }] : []),
-  ];
-  const { trail, forward } = useTrail(base);
+  ]);
 
   useScrollToHash(Boolean(station));
 
@@ -98,101 +70,20 @@ export function Station() {
       <PageHeader title={<Breadcrumbs segments={trail} />} />
 
       <StationLayout>
-        <div className="flex flex-col gap-3">
-          <div className="flex items-start gap-2">
-            <span className="mt-1 p-0.5">
-              <StationIcon
-                share={stationShare(
-                  line.stations.findIndex((each) => each.id === station.id),
-                  line.stations.length,
-                )}
-                color={station.color}
-                className="size-5"
-              />
-            </span>
-
-            <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
-              {station.name}
-            </h1>
-
-            {station.kind === 'work' && (
-              <ImproveStationLink
-                slug={slug}
-                teamId={teamId}
-                improving={{
-                  lineId: line.id,
-                  lineKey: line.key,
-                  lineName: line.name,
-                  stationId: station.id,
-                  stationKey: station.key,
-                  stationName: station.name,
-                }}
-                className="ml-auto"
-              />
-            )}
-          </div>
-
-          {station.description && (
-            <p className="text-foreground text-sm leading-6">
-              {station.description}
-            </p>
-          )}
-
-          {station.kind === 'work' && (
-            <div className="-ml-2 flex flex-wrap items-center gap-2">
-              <FixedSettings
-                slug={slug}
-                harness={station.harness}
-                model={station.model}
-                effort={station.effort}
-                repositories={line.repositories}
-              />
-            </div>
-          )}
-        </div>
+        <StationHeading
+          slug={slug}
+          teamId={teamId}
+          line={line}
+          station={station}
+        />
 
         {station.kind === 'work' ? (
-          <>
-            <StationPrompt
-              stationId={station.id}
-              prompt={station.agentPrompt}
-            />
-
-            <StationSkills skills={station.skills} />
-
-            {station.judge && (
-              <StationJudge
-                slug={slug}
-                teamId={teamId}
-                lineId={line.id}
-                stationId={station.id}
-                judge={station.judge}
-              />
-            )}
-
-            {station.alerts.length > 0 && (
-              <StationAlerts alerts={station.alerts} />
-            )}
-
-            <StationOutcomes
-              slug={slug}
-              teamId={teamId}
-              lineId={line.id}
-              stationId={station.id}
-            />
-
-            <StationReplays
-              at={{ slug, teamId, lineId: line.id, stationId: station.id }}
-              lineKey={line.key}
-              stationKey={station.key}
-            />
-
-            <StationSearches
-              at={{ slug, teamId, lineId: line.id, stationId: station.id }}
-              source={line.source}
-              replayCheck={line.replayCheck}
-            />
-          </>
+          <WorkStationSections
+            slug={slug}
+            teamId={teamId}
+            line={line}
+            station={station}
+          />
         ) : (
           <p className="text-muted-foreground text-sm leading-6">
             {ENDS[station.kind]}

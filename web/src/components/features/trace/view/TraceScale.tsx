@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
-
-export const TICKS = [0, 0.25, 0.5, 0.75, 1];
+import { TICKS } from '@/lib/trace';
 
 const placed = (tick: number) =>
   tick === 1

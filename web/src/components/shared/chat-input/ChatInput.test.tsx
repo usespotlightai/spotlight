@@ -14,8 +14,8 @@ import { erase, restore, snapshot, textOf, write } from '@/test/lexical';
 
 const uploaded = vi.fn();
 
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({ mutateAsync: uploaded }),
+vi.mock('@/lib/upload-attachment', () => ({
+  uploadAttachment: (input: unknown) => uploaded(input),
 }));
 
 type Enabled = Extract<ComponentProps<typeof ChatInput>, { pending: boolean }>;

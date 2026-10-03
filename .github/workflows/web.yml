@@ -43,6 +43,9 @@ jobs:
       - name: Unused code and dependencies
         run: npm run knip
 
+      - name: React Doctor
+        run: npm run doctor
+
       - name: Typecheck and build
         run: npm run build
 

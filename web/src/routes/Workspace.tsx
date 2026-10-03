@@ -1,7 +1,8 @@
-import { Link, Outlet, useMatch, useParams } from 'react-router';
+import { Link, useMatch, useParams } from 'react-router';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
+import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -22,7 +23,7 @@ export function Workspace() {
   if (loading(workspace)) {
     return (
       <DashboardLayout>
-        <Outlet />
+        <PageOutlet />
       </DashboardLayout>
     );
   }
@@ -75,7 +76,7 @@ export function Workspace() {
         )
       }
     >
-      <Outlet />
+      <PageOutlet />
     </DashboardLayout>
   );
 }

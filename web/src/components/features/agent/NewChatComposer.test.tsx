@@ -14,10 +14,8 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [{ fullName: 'acme/api' }] }),
 }));
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({
-    mutateAsync: () => Promise.resolve({ id: 'attachment_1' }),
-  }),
+vi.mock('@/lib/upload-attachment', () => ({
+  uploadAttachment: () => Promise.resolve({ id: 'attachment_1' }),
 }));
 vi.mock('@/hooks/api/useStartChat', () => ({
   useStartChat: () => ({ mutate: started, isPending: false }),
@@ -54,7 +52,7 @@ const showing = (
       slug="acme"
       teamId="team_1"
       traces={traces}
-      improving={improving}
+      defaultImproving={improving}
       onStarted={onStarted}
     />,
   );

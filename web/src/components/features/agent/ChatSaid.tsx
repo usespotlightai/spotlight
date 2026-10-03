@@ -12,7 +12,7 @@ type ChatSaidProps = {
   message: ChatMessage;
 };
 
-const TOKEN =
+const REFERENCE_LINK =
   'rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring';
 
 export function ChatSaid({ slug, teamId, message }: ChatSaidProps) {
@@ -31,7 +31,7 @@ export function ChatSaid({ slug, teamId, message }: ChatSaidProps) {
               key={file.id}
               href={downloadPath(slug, file.id)}
               download={file.name}
-              className={TOKEN}
+              className={REFERENCE_LINK}
             >
               <ReferenceToken
                 reference={{ kind: 'file', key: file.id, name: file.name }}
@@ -42,7 +42,7 @@ export function ChatSaid({ slug, teamId, message }: ChatSaidProps) {
             <TrailLink
               key={trace.taskId}
               to={taskTracePath(slug, teamId, trace.taskId)}
-              className={TOKEN}
+              className={REFERENCE_LINK}
             >
               <ReferenceToken
                 reference={{

@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router';
 import GithubMark from '@/components/shared/icons/GithubMark';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { installUrlFor } from '@/lib/github';
 import { cn } from '@/lib/utils';
 

@@ -1,10 +1,11 @@
-import { Outlet, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { InboxListSkeleton } from '@/components/features/inbox/InboxListSkeleton';
 import { InboxRow } from '@/components/features/inbox/InboxRow';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useCollapsed } from '@/hooks/useCollapsed';
@@ -111,7 +112,7 @@ export function Inbox() {
           />
         </div>
 
-        <Outlet />
+        <PageOutlet />
       </div>
     </TrailContext>
   );

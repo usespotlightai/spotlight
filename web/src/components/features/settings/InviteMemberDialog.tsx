@@ -1,4 +1,4 @@
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,6 +26,7 @@ export function InviteMemberDialog({
   const invite = useInviteToTeam(teamId);
   const [email, setEmail] = useState('');
   const fieldId = useId();
+  const field = useRef<HTMLInputElement>(null);
 
   const forget = () => {
     setEmail('');
@@ -48,7 +49,7 @@ export function InviteMemberDialog({
       onOpenChange={onOpenChange}
       onOpenChangeComplete={(settled) => !settled && forget()}
     >
-      <DialogContent>
+      <DialogContent initialFocus={field}>
         <DialogHeader>
           <DialogTitle>Add a member</DialogTitle>
           <DialogDescription>
@@ -61,7 +62,7 @@ export function InviteMemberDialog({
           <div className="rounded-lg border-[0.5px] border-border bg-card p-1 focus-within:border-ring">
             <input
               id={fieldId}
-              autoFocus
+              ref={field}
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}

@@ -1,10 +1,11 @@
-import { ExternalLink, GitPullRequestArrow, Loader2 } from 'lucide-react';
-import { PullRequestRefusal } from '@/components/features/searches/search/PullRequestRefusal';
+import { GitPullRequestArrow } from 'lucide-react';
+import { OpenedPullRequest } from '@/components/features/searches/search/OpenedPullRequest';
+import { PullRequestOpening } from '@/components/features/searches/search/PullRequestOpening';
+import { RefusedPullRequest } from '@/components/features/searches/search/RefusedPullRequest';
 import { Button } from '@/components/ui/button';
 import { usePickSearchCandidate } from '@/hooks/api/usePickSearchCandidate';
 import { messageOf } from '@/lib/error';
 import { pickRefusal, type SearchCandidate } from '@/lib/search';
-import { pullRequestStateShown } from '@/lib/search-words';
 
 type PickCandidateProps = {
   teamId: string;
@@ -31,50 +32,17 @@ export function PickCandidate({
   }
 
   if (opened?.state === 'opening') {
-    return (
-      <p
-        data-slot="pull-request"
-        role="status"
-        className="flex items-center gap-1.5 text-muted-foreground text-xs"
-      >
-        <Loader2 aria-hidden className="size-3.5 animate-spin" />
-        {pullRequestStateShown('opening')}
-      </p>
-    );
+    return <PullRequestOpening />;
   }
 
   if (opened?.state === 'opened') {
-    return (
-      <p data-slot="pull-request" className="flex items-center gap-1.5 text-xs">
-        <GitPullRequestArrow aria-hidden className="size-3.5 text-primary" />
-        {opened.url ? (
-          <a
-            href={opened.url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1 text-foreground underline-offset-2 hover:underline"
-          >
-            {pullRequestStateShown('opened')}
-            <ExternalLink aria-hidden className="size-3" />
-          </a>
-        ) : (
-          <span className="text-foreground">
-            {pullRequestStateShown('opened')}
-          </span>
-        )}
-      </p>
-    );
+    return <OpenedPullRequest url={opened.url} />;
   }
 
   return (
     <div data-slot="pick" className="flex flex-col gap-1.5 text-xs">
       {opened?.state === 'refused' && (
-        <div className="flex flex-col gap-1 rounded-lg border border-border px-2.5 py-2">
-          <p className="font-medium text-destructive">
-            {pullRequestStateShown('refused')}
-          </p>
-          {opened.reason && <PullRequestRefusal reason={opened.reason} />}
-        </div>
+        <RefusedPullRequest reason={opened.reason} />
       )}
 
       <div className="flex flex-wrap items-center gap-2">

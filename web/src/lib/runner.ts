@@ -183,8 +183,9 @@ export const connectedIn = (
 const SUGGESTED_POOL = 'my-computer';
 
 export const suggestedPoolName = (taken: readonly string[]): string => {
+  const names = new Set(taken);
   let n = 1;
-  while (taken.includes(`${SUGGESTED_POOL}-${n}`)) {
+  while (names.has(`${SUGGESTED_POOL}-${n}`)) {
     n += 1;
   }
   return `${SUGGESTED_POOL}-${n}`;

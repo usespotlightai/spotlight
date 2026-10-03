@@ -1,4 +1,10 @@
-import { type ChangeEvent, type SubmitEvent, useId, useState } from 'react';
+import {
+  type ChangeEvent,
+  type SubmitEvent,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
@@ -32,12 +38,12 @@ export function CreateWorkspace() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [teamName, setTeamName] = useState('');
-  const [slugTakenOver, setSlugTakenOver] = useState(false);
+  const slugTakenOver = useRef(false);
 
   const onNameChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value;
     setName(next);
-    if (!slugTakenOver) {
+    if (!slugTakenOver.current) {
       setSlug(slugify(next));
     }
   };
@@ -45,7 +51,7 @@ export function CreateWorkspace() {
   const onSlugChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = sanitizeSlug(event.target.value);
     setSlug(next);
-    setSlugTakenOver(next !== '');
+    slugTakenOver.current = next !== '';
   };
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {

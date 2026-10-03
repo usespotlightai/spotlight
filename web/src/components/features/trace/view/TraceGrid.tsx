@@ -1,5 +1,5 @@
 import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
-import { TICKS } from '@/components/features/trace/view/TraceScale';
+import { TICKS } from '@/lib/trace';
 
 export function TraceGrid() {
   return (

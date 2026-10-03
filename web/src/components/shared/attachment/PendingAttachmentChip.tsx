@@ -1,6 +1,7 @@
 import { CircleAlert, LoaderCircle } from 'lucide-react';
 import { AttachmentChip } from '@/components/shared/attachment/AttachmentChip';
 import { ChipRemoveButton } from '@/components/shared/attachment/ChipRemoveButton';
+import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
 import { type PendingAttachment, sized } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
 
@@ -20,8 +21,12 @@ export function PendingAttachmentChip({
       <LoaderCircle className="size-4 animate-spin" aria-label="Uploading" />
     ) : failed ? (
       <CircleAlert className="size-4 text-destructive" aria-hidden />
-    ) : attachment.preview ? (
-      <img src={attachment.preview} alt="" className="size-full object-cover" />
+    ) : attachment.image ? (
+      <ImagePreview
+        image={attachment.image}
+        alt=""
+        className="size-full object-cover"
+      />
     ) : undefined;
 
   return (

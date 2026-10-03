@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { PendingAttachments } from '@/components/shared/attachment/PendingAttachments';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
@@ -34,7 +34,7 @@ export function NewTaskDialog({
   onCreate,
 }: NewTaskDialogProps) {
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const description = useRef('');
   const [more, setMore] = useState(false);
   const [round, setRound] = useState(0);
   const draft = useAttachments(slug);
@@ -43,7 +43,7 @@ export function NewTaskDialog({
 
   const forget = () => {
     setTitle('');
-    setDescription('');
+    description.current = '';
     draft.clear();
     setRound((each) => each + 1);
   };
@@ -56,7 +56,7 @@ export function NewTaskDialog({
 
     onCreate({
       title: title.trim(),
-      description: description.trim(),
+      description: description.current.trim(),
       attachments: draft.ids,
     });
 
@@ -101,7 +101,9 @@ export function NewTaskDialog({
             <MarkdownEditor
               key={round}
               initialValue=""
-              onChange={setDescription}
+              onChange={(written) => {
+                description.current = written;
+              }}
               placeholder="Add description…"
               ariaLabel="Task description"
               className="min-h-24 border-none bg-transparent p-0"

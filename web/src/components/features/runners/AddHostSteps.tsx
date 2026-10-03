@@ -38,6 +38,9 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
     null,
   );
   const shown = picked?.at === at ? picked.step : at;
+  const suggested = suggestedPoolName(
+    (pools.data ?? []).map((pool) => pool.key),
+  );
   const pick = (step: number) => () => setPicked({ step, at });
 
   return (
@@ -54,9 +57,8 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
           </div>
         ) : (
           <CreatePoolForm
-            suggested={suggestedPoolName(
-              (pools.data ?? []).map((pool) => pool.key),
-            )}
+            key={suggested}
+            defaultName={suggested}
             creating={creating.isPending || Boolean(created)}
             error={creating.error}
             onCreate={(name) => creating.mutate(name)}

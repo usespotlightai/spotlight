@@ -1,5 +1,5 @@
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { idleNoteOf, type TeamRun } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 import { cn } from '@/lib/utils';

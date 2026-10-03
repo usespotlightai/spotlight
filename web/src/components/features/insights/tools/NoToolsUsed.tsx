@@ -1,7 +1,7 @@
 import { Wrench } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { teamSettingsPath } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 

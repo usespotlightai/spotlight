@@ -5,8 +5,8 @@ import { MAX_ATTACHMENT_BYTES } from '@/lib/attachment';
 
 const uploaded = vi.fn();
 
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({ mutateAsync: uploaded }),
+vi.mock('@/lib/upload-attachment', () => ({
+  uploadAttachment: (input: unknown) => uploaded(input),
 }));
 
 const text = () => new File(['notes'], 'notes.txt', { type: 'text/plain' });
@@ -63,34 +63,20 @@ describe('useAttachments', () => {
     });
   });
 
-  it('previews an image, and lets the preview go with the file', () => {
+  it('keeps an image to preview, and nothing to preview for other files', () => {
     uploaded.mockReturnValue(new Promise(() => {}));
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview');
-    const revoked = vi.spyOn(URL, 'revokeObjectURL');
     const { result } = renderHook(() => useAttachments('acme'));
+    const picture = image();
 
-    act(() => result.current.add([image(), text()]));
+    act(() => result.current.add([picture, text()]));
 
     const [shot, notes] = result.current.attachments;
-    expect(shot?.preview).toBe('blob:preview');
-    expect(notes?.preview).toBeNull();
+    expect(shot?.image).toBe(picture);
+    expect(notes?.image).toBeNull();
 
     act(() => result.current.remove(shot?.key ?? ''));
 
-    expect(revoked).toHaveBeenCalledWith('blob:preview');
     expect(result.current.attachments).toHaveLength(1);
-  });
-
-  it('lets the previews go when it is done with', () => {
-    uploaded.mockReturnValue(new Promise(() => {}));
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview');
-    const revoked = vi.spyOn(URL, 'revokeObjectURL');
-    const { result, unmount } = renderHook(() => useAttachments('acme'));
-
-    act(() => result.current.add([image()]));
-    unmount();
-
-    expect(revoked).toHaveBeenCalledWith('blob:preview');
   });
 
   it('forgets a file removed while it was still going up', async () => {

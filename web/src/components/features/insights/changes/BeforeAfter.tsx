@@ -6,7 +6,7 @@ import { ImproveStationLink } from '@/components/features/stations/ImproveStatio
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { Fingerprint } from '@/components/shared/Fingerprint';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
 import {
   type InsightsPeriod,

@@ -1,5 +1,6 @@
 import {
   $applyNodeReplacement,
+  $createTextNode,
   DecoratorNode,
   type LexicalNode,
   type NodeKey,
@@ -60,9 +61,17 @@ export class ReferenceNode extends DecoratorNode<ReactNode> {
   }
 }
 
-export const $createReferenceNode = (reference: Reference): ReferenceNode =>
+const $createReferenceNode = (reference: Reference): ReferenceNode =>
   $applyNodeReplacement(new ReferenceNode(reference));
 
 export const $isReferenceNode = (
   node: LexicalNode | null | undefined,
 ): node is ReferenceNode => node instanceof ReferenceNode;
+
+export const $spacedReferences = (
+  references: readonly Reference[],
+): LexicalNode[] =>
+  references.flatMap((reference) => [
+    $createReferenceNode(reference),
+    $createTextNode(' '),
+  ]);

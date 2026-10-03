@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
 import type { PendingAttachment } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
 
@@ -20,9 +21,9 @@ export function ImageThumbs({ images, onRemove }: ImageThumbsProps) {
           className="group relative size-14 overflow-hidden rounded-lg border border-border"
           title={image.state === 'failed' ? image.problem : image.name}
         >
-          {image.preview && (
-            <img
-              src={image.preview}
+          {image.image && (
+            <ImagePreview
+              image={image.image}
               alt={image.name}
               className={cn(
                 'size-full object-cover',

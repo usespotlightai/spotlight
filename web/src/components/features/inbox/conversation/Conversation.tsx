@@ -1,10 +1,4 @@
-import {
-  Fragment,
-  type MouseEvent,
-  type ReactNode,
-  useLayoutEffect,
-  useRef,
-} from 'react';
+import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
 import { InboxMessage } from '@/components/features/inbox/conversation/InboxMessage';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
@@ -56,8 +50,6 @@ const marksIn = (item: Conversing): Set<number> => {
 };
 
 const CLOSE = 80;
-
-const SETTLING_MS = 250;
 
 const put = (
   box: HTMLDivElement,
@@ -122,21 +114,7 @@ export function Conversation({
     following.current = held.current === null;
     ours.current = put(box, inside, held.current);
 
-    let settled = false;
-    let quiet: ReturnType<typeof setTimeout>;
-
-    const stirred = () => {
-      settled = false;
-      clearTimeout(quiet);
-      quiet = setTimeout(() => {
-        settled = true;
-      }, SETTLING_MS);
-    };
-    stirred();
-
     const grew = new ResizeObserver(() => {
-      stirred();
-
       if (held.current !== null) {
         ours.current = put(box, inside, held.current) || ours.current;
         return;
@@ -146,26 +124,23 @@ export function Conversation({
         return;
       }
 
-      const foot = box.scrollHeight - box.clientHeight;
-
-      const far = foot - box.scrollTop > box.clientHeight;
-      const stillness = window.matchMedia?.(
-        '(prefers-reduced-motion: reduce)',
-      )?.matches;
-      const cut = !settled || far || stillness;
-
       const was = box.scrollTop;
-      box.scrollTo({ top: foot, behavior: cut ? 'auto' : 'smooth' });
-
-      if (cut) {
-        ours.current = box.scrollTop !== was || ours.current;
-      }
+      box.scrollTo({ top: box.scrollHeight - box.clientHeight });
+      ours.current = box.scrollTop !== was || ours.current;
     });
     grew.observe(inside);
 
+    const toggled = (event: Event) => {
+      if (togglesDisclosure(event.target)) {
+        held.current = null;
+        following.current = false;
+      }
+    };
+    box.addEventListener('click', toggled, true);
+
     return () => {
-      clearTimeout(quiet);
       grew.disconnect();
+      box.removeEventListener('click', toggled, true);
     };
   }, [item.id, openAt]);
 
@@ -186,19 +161,11 @@ export function Conversation({
       box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
   };
 
-  const toggled = (event: MouseEvent<HTMLDivElement>) => {
-    if (togglesDisclosure(event.target)) {
-      held.current = null;
-      following.current = false;
-    }
-  };
-
   return (
     <>
       <div
         ref={scroller}
         onScroll={watched}
-        onClickCapture={toggled}
         className="min-h-0 flex-1 overflow-y-auto"
       >
         <div

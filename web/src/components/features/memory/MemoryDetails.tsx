@@ -62,7 +62,7 @@ export function MemoryDetails({
 
   return (
     <div className="flex flex-col gap-3">
-      <MemoryGrounds grounds={memory} startsOpen={false} />
+      <MemoryGrounds grounds={memory} defaultOpen={false} />
 
       {grounds && (
         <p className="flex gap-3">

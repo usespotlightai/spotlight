@@ -8,19 +8,10 @@ import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useLingering } from '@/hooks/useLingering';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { took } from '@/lib/inbox';
-import { rowsOf, type Trace } from '@/lib/trace';
+import { NAMES_PANE, rowsOf, type Trace } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
 const LEAVING = 150;
-
-export const NAMES_PANE = {
-  property: '--names',
-  storageKey: 'spotlight.trace-names-width',
-  min: 200,
-  max: 640,
-  initial: 320,
-  label: 'Resize the names',
-};
 
 type TraceViewProps = {
   trace: Trace;

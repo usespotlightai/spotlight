@@ -1,7 +1,8 @@
 import { createContext, useContext } from 'react';
 import type { PendingAttachment } from '@/lib/attachment';
+import type { SharedTrace } from '@/lib/chat';
 
-export type ReferenceKind = 'file' | 'trace';
+type ReferenceKind = 'file' | 'trace';
 
 export interface Reference {
   readonly kind: ReferenceKind;
@@ -39,6 +40,12 @@ const CODE = new Set([
   'html',
   'css',
 ]);
+
+export const traceReference = (trace: SharedTrace): Reference => ({
+  kind: 'trace',
+  key: trace.taskId,
+  name: trace.title,
+});
 
 export const isCode = (name: string): boolean =>
   CODE.has(name.slice(name.lastIndexOf('.') + 1).toLowerCase());

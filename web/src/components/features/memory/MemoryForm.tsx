@@ -47,12 +47,12 @@ export function MemoryForm({
   failed,
   onSave,
 }: MemoryFormProps) {
-  const [kind, setKind] = useState(kindOf(initial?.kind ?? null));
+  const [kind, setKind] = useState(() => kindOf(initial?.kind ?? null));
   const [body, setBody] = useState(initial?.body ?? '');
   const [lineId, setLineId] = useState(initial?.lineId ?? null);
   const [stationId, setStationId] = useState(initial?.stationId ?? null);
   const [repository, setRepository] = useState(initial?.repository ?? null);
-  const [paths, setPaths] = useState(initial?.paths.join(', ') ?? '');
+  const [paths, setPaths] = useState(() => initial?.paths.join(', ') ?? '');
 
   const line = lines.find((each) => each.id === lineId);
   const repositories = [

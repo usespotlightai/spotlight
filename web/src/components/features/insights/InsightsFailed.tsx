@@ -1,6 +1,4 @@
-import { MembersOnly } from '@/components/features/team/MembersOnly';
-import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { notFound } from '@/lib/error';
+import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 
 type InsightsFailedProps = {
   what: string;
@@ -14,15 +12,11 @@ type InsightsFailedProps = {
 export function InsightsFailed({ what, query }: InsightsFailedProps) {
   return (
     <div className="flex justify-center rounded-xl border border-border py-10">
-      {notFound(query.error) ? (
-        <MembersOnly title="Only the team’s members can see its Insights" />
-      ) : (
-        <CouldNotLoad
-          what={what}
-          retrying={query.isFetching}
-          onRetry={() => void query.refetch()}
-        />
-      )}
+      <MembersOnlyOrCouldNotLoad
+        membersOnly="Only the team’s members can see its Insights"
+        what={what}
+        query={query}
+      />
     </div>
   );
 }

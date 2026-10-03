@@ -1,46 +1,19 @@
-import {
-  type ClipboardEvent,
-  type DragEvent,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import { useUploadAttachment } from '@/hooks/api/useUploadAttachment';
+import { type ClipboardEvent, type DragEvent, useRef, useState } from 'react';
 import {
   drawn,
   filesIn,
   type PendingAttachment,
   refused,
 } from '@/lib/attachment';
+import { uploadAttachment } from '@/lib/upload-attachment';
 
 type Outcome =
   | { readonly state: 'ready'; readonly id: string }
   | { readonly state: 'failed'; readonly problem: string };
 
 export function useAttachments(slug: string) {
-  const upload = useUploadAttachment();
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const counted = useRef(0);
-
-  const previews = useRef(new Set<string>());
-
-  useEffect(
-    () => () => {
-      for (const preview of previews.current) {
-        URL.revokeObjectURL(preview);
-      }
-    },
-    [],
-  );
-
-  const letGo = (gone: readonly PendingAttachment[]) => {
-    for (const { preview } of gone) {
-      if (preview) {
-        URL.revokeObjectURL(preview);
-        previews.current.delete(preview);
-      }
-    }
-  };
 
   const settle = (key: string, outcome: Outcome) =>
     setAttachments((all) =>
@@ -51,18 +24,13 @@ export function useAttachments(slug: string) {
     const added = files.map((file) => {
       counted.current += 1;
 
-      const preview = drawn(file.type) ? URL.createObjectURL(file) : null;
       const problem = refused(file);
-
-      if (preview) {
-        previews.current.add(preview);
-      }
 
       const pending: PendingAttachment = {
         key: String(counted.current),
         name: file.name,
         size: file.size,
-        preview,
+        image: drawn(file.type) ? file : null,
         ...(problem ? { state: 'failed', problem } : { state: 'uploading' }),
       };
 
@@ -76,7 +44,7 @@ export function useAttachments(slug: string) {
         continue;
       }
 
-      upload.mutateAsync({ slug, file }).then(
+      uploadAttachment({ slug, file }).then(
         ({ id }) => settle(pending.key, { state: 'ready', id }),
         () =>
           settle(pending.key, { state: 'failed', problem: 'Upload failed' }),
@@ -87,14 +55,10 @@ export function useAttachments(slug: string) {
   };
 
   const remove = (key: string) => {
-    letGo(attachments.filter((each) => each.key === key));
     setAttachments((all) => all.filter((each) => each.key !== key));
   };
 
-  const clear = () => {
-    letGo(attachments);
-    setAttachments([]);
-  };
+  const clear = () => setAttachments([]);
 
   const handlersFor = (take: (files: readonly File[]) => void) => {
     const took = (event: ClipboardEvent | DragEvent, files: File[]) => {

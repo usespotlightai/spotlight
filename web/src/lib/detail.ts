@@ -141,27 +141,33 @@ export const holdings = (node: TraceNode): Holding => {
   return { rows, faults, kinds };
 };
 
-const PROMOTED = [
+const PROMOTED = new Set([
   'gen_ai.request.model',
   'llm.model_name',
   'gen_ai.usage.input_tokens',
   'gen_ai.usage.output_tokens',
   'gen_ai.usage.prompt_tokens',
   'gen_ai.usage.completion_tokens',
-];
+]);
 
 export const restOf = (node: TraceNode) =>
-  node.span?.attributes.filter((each) => !PROMOTED.includes(each.name)) ?? [];
+  node.span?.attributes.filter((each) => !PROMOTED.has(each.name)) ?? [];
 
 export const reported = (
   node: TraceNode,
   ...names: readonly string[]
 ): string | null => {
-  for (const name of names) {
-    const held = node.span?.attributes.find((each) => each.name === name);
+  const values = new Map(
+    [...(node.span?.attributes ?? [])]
+      .reverse()
+      .map((each) => [each.name, each.value]),
+  );
 
-    if (held) {
-      return held.value;
+  for (const name of names) {
+    const held = values.get(name);
+
+    if (held !== undefined) {
+      return held;
     }
   }
 

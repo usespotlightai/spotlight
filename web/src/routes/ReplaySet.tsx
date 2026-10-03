@@ -5,8 +5,7 @@ import { SetChecks } from '@/components/features/replays/set/SetChecks';
 import { SetReplays } from '@/components/features/replays/set/SetReplays';
 import { SetRuns } from '@/components/features/replays/set/SetRuns';
 import { StationLayout } from '@/components/features/stations/StationLayout';
-import { MembersOnly } from '@/components/features/team/MembersOnly';
-import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import {
   type BreadcrumbSegment,
@@ -18,9 +17,9 @@ import { useReplays } from '@/hooks/api/useReplays';
 import { useSearches } from '@/hooks/api/useSearches';
 import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
-import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import { replaySetPath, replaysAnchorPath } from '@/lib/replay';
+import { replayedStationOf } from '@/lib/replayed-station';
 import { ongoing } from '@/lib/search';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -38,10 +37,7 @@ export function ReplaySet() {
       candidate.lineId === lineId &&
       candidate.stationId === stationId,
   );
-  const at =
-    slug && teamId && lineId && stationId
-      ? { slug, teamId, lineId, stationId }
-      : null;
+  const at = replayedStationOf({ slug, teamId, lineId, stationId });
 
   const searching = Boolean(
     set &&
@@ -63,15 +59,11 @@ export function ReplaySet() {
   if (failed(sets)) {
     return (
       <PageNotice>
-        {notFound(sets.error) ? (
-          <MembersOnly title="Only the team’s members can see its replays" />
-        ) : (
-          <CouldNotLoad
-            what="The replay set"
-            retrying={sets.isFetching}
-            onRetry={() => void sets.refetch()}
-          />
-        )}
+        <MembersOnlyOrCouldNotLoad
+          membersOnly="Only the team’s members can see its replays"
+          what="The replay set"
+          query={sets}
+        />
       </PageNotice>
     );
   }

@@ -64,6 +64,8 @@ export function TraceList({
     );
   }
 
+  const chosen = new Set(selected);
+
   const toggle = (taskId: string, on: boolean) =>
     setSelected((current) =>
       on ? [...current, taskId] : current.filter((each) => each !== taskId),
@@ -74,7 +76,7 @@ export function TraceList({
       state: {
         trail,
         traces: worked
-          .filter((trace) => selected.includes(trace.taskId))
+          .filter((trace) => chosen.has(trace.taskId))
           .map(({ taskId, title }) => ({ taskId, title })),
       },
     });
@@ -92,7 +94,7 @@ export function TraceList({
               key={trace.taskId}
               trace={trace}
               to={taskTracePath(slug, teamId, trace.taskId)}
-              selected={selected.includes(trace.taskId)}
+              selected={chosen.has(trace.taskId)}
               onSelectedChange={(on) => toggle(trace.taskId, on)}
             />
           ))}

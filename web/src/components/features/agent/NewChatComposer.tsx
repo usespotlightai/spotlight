@@ -14,7 +14,7 @@ type NewChatComposerProps = {
   slug: string;
   teamId: string;
   traces: readonly SharedTrace[];
-  improving: ImprovedStation | null;
+  defaultImproving: ImprovedStation | null;
   onStarted: (chatId: string) => void;
 };
 
@@ -22,7 +22,7 @@ export function NewChatComposer({
   slug,
   teamId,
   traces: handed,
-  improving: handedStation,
+  defaultImproving,
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
@@ -30,7 +30,7 @@ export function NewChatComposer({
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);
-  const [improving, setImproving] = useState(handedStation);
+  const [improving, setImproving] = useState(defaultImproving);
   const start = useStartChat();
 
   const harness = harnesses?.some((each) => each.id === held)

@@ -1,6 +1,6 @@
 import { MousePointer2 } from 'lucide-react';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 import type { ImprovedStation } from '@/lib/chat';
 import { teamSectionPath } from '@/lib/team';
 import { cn } from '@/lib/utils';

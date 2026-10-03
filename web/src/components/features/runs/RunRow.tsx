@@ -1,9 +1,8 @@
-import { Inbox } from 'lucide-react';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { RunOwedMarker } from '@/components/features/runs/RunOwedMarker';
 import { InProgress } from '@/components/shared/InProgress';
-import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { owesYou, type Run, standing, waitsOnPerson } from '@/lib/run';
+import { type Run, standing, waitsOnPerson } from '@/lib/run';
 import { since } from '@/lib/runner';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
@@ -27,14 +26,6 @@ export function RunRow({
 }: RunRowProps) {
   const waits = waitsOnPerson(run);
   const stands = standing(run);
-  const leadsToReview = Boolean(run.review) && !inTrail;
-
-  const marker =
-    owesYou(run) && !(inTrail && run.review) ? (
-      <Pill lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}>
-        Waiting for you
-      </Pill>
-    ) : null;
 
   return (
     <li
@@ -68,17 +59,7 @@ export function RunRow({
       )}
 
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        {marker &&
-          (leadsToReview ? (
-            <TrailLink
-              to={reviewTo ?? ''}
-              className="relative z-10 outline-none"
-            >
-              {marker}
-            </TrailLink>
-          ) : (
-            marker
-          ))}
+        <RunOwedMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
 
         {run.state === 'claimed' && <InProgress />}
 

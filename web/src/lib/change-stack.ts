@@ -139,3 +139,11 @@ export const tallyOf = (
 
   return { added, removed };
 };
+
+export const STACK_NAV_PANE = {
+  storageKey: 'spotlight.change-stack-nav-width',
+  min: 224,
+  max: 560,
+  initial: 288,
+  label: 'Resize the change stack',
+};

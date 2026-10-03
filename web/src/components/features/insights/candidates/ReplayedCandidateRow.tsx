@@ -1,27 +1,11 @@
-import { ExternalLink } from 'lucide-react';
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
+import { ReplayedAgainstLive } from '@/components/features/insights/candidates/ReplayedAgainstLive';
+import { ReplayedCandidateFigures } from '@/components/features/insights/candidates/ReplayedCandidateFigures';
+import { ReplayedCandidateLinks } from '@/components/features/insights/candidates/ReplayedCandidateLinks';
+import { ReplayedCandidateTitle } from '@/components/features/insights/candidates/ReplayedCandidateTitle';
 import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
-import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
-import { Pill } from '@/components/shared/Pill';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
-import {
-  againstLive,
-  changeLinkOf,
-  comparedShown,
-  costAgainstLiveShown,
-  heldOutShown,
-  liveShown,
-  markShown,
-  replaySuccessShown,
-  type SetCandidate,
-  tasksShown,
-} from '@/lib/insights-candidates';
-import { type ReplayedStation, replayPath } from '@/lib/replay';
-import { costPerRunShown } from '@/lib/search';
+import { comparedShown, type SetCandidate } from '@/lib/insights-candidates';
+import type { ReplayedStation } from '@/lib/replay';
 import { configChangesOf } from '@/lib/station-config';
-
-const LINK =
-  'flex items-center gap-1 text-foreground underline-offset-2 hover:underline';
 
 type ReplayedCandidateRowProps = {
   at: ReplayedStation;
@@ -32,30 +16,12 @@ export function ReplayedCandidateRow({
   at,
   candidate,
 }: ReplayedCandidateRowProps) {
-  const heldOut = heldOutShown(candidate);
-  const change = changeLinkOf(at, candidate);
-  const costAgainstLive = costAgainstLiveShown(candidate);
-  const delta = againstLive(candidate).delta;
-  const comparison = candidate.live ? replayPath(at, candidate.replayId) : null;
-  const merged = !change.external && change.to === comparison;
-
   return (
     <li
       data-slot="replayed-candidate"
       className="flex min-w-0 flex-col gap-1.5 py-2 text-sm"
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="min-w-0 truncate font-medium font-mono text-foreground">
-          {candidate.name}
-        </span>
-        <Pill>{markShown(candidate.kind)}</Pill>
-        {candidate.onFrontier && (
-          <Pill className="text-primary">On the frontier</Pill>
-        )}
-        {candidate.replayState && candidate.replayState !== 'finished' && (
-          <ReplayStatePill state={candidate.replayState} />
-        )}
-      </div>
+      <ReplayedCandidateTitle candidate={candidate} />
 
       {candidate.hypothesis && (
         <p className="whitespace-pre-line text-foreground text-sm leading-6">
@@ -68,81 +34,15 @@ export function ReplayedCandidateRow({
         same="The same as the live config."
       />
 
-      <dl className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
-        <div className="flex gap-1">
-          <dt>Replayed</dt>
-          <dd className="text-foreground tabular-nums">
-            {tasksShown(candidate.tasks, candidate.runs)}
-          </dd>
-        </div>
-        <div className="flex gap-1">
-          <dt>
-            {candidate.kind === 'searched' ? 'Search score' : 'Replay success'}
-          </dt>
-          <dd className="text-foreground tabular-nums">
-            {replaySuccessShown(candidate.successRate, candidate.scored)}
-          </dd>
-        </div>
-        {heldOut && (
-          <div data-slot="held-out" className="flex gap-1">
-            <dt>Held out</dt>
-            <dd className="text-foreground tabular-nums">{heldOut}</dd>
-          </div>
-        )}
-        <div className="flex gap-1">
-          <dt>Cost per run</dt>
-          <dd className="text-foreground tabular-nums">
-            {costPerRunShown(candidate.costPerRun, candidate.currency)}
-          </dd>
-        </div>
-      </dl>
+      <ReplayedCandidateFigures candidate={candidate} />
 
-      {candidate.live && candidate.compared > 0 && (
-        <div
-          data-slot="against-live"
-          className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs"
-        >
-          <span className="text-foreground tabular-nums">
-            {liveShown(candidate)}
-          </span>
-          {delta && <DeltaShown delta={delta} against={null} />}
-        </div>
-      )}
-
-      {candidate.compared > 0 && costAgainstLive && (
-        <p
-          data-slot="cost-against-live"
-          className="text-muted-foreground text-xs tabular-nums"
-        >
-          {costAgainstLive}
-        </p>
-      )}
+      <ReplayedAgainstLive candidate={candidate} />
 
       <p data-slot="compared" className="text-muted-foreground text-xs">
         {comparedShown(candidate)}
       </p>
 
-      <p className="flex flex-wrap gap-x-3 text-xs">
-        {comparison && !merged && (
-          <TrailLink to={comparison} className={LINK}>
-            Baseline comparison
-          </TrailLink>
-        )}
-        {merged ? (
-          <TrailLink to={change.to} className={LINK}>
-            Its changes and baseline comparison
-          </TrailLink>
-        ) : change.external ? (
-          <a href={change.to} target="_blank" rel="noreferrer" className={LINK}>
-            {change.label}
-            <ExternalLink aria-hidden className="size-3" />
-          </a>
-        ) : (
-          <TrailLink to={change.to} className={LINK}>
-            {change.label}
-          </TrailLink>
-        )}
-      </p>
+      <ReplayedCandidateLinks at={at} candidate={candidate} />
     </li>
   );
 }

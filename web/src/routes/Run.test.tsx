@@ -138,10 +138,6 @@ vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
 }));
 
-vi.mock('@/hooks/api/useUploadAttachment', () => ({
-  useUploadAttachment: () => ({ mutateAsync: vi.fn() }),
-}));
-
 const STATION = {
   id: 'station_3',
   name: 'Implementation',

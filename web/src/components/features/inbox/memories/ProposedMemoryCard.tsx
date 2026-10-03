@@ -83,7 +83,7 @@ export function ProposedMemoryCard({
         </p>
       )}
 
-      <MemoryGrounds grounds={memory} startsOpen={outside} />
+      <MemoryGrounds grounds={memory} defaultOpen={outside} />
 
       {settled ? (
         <p className="text-muted-foreground text-sm leading-6">{settled}</p>

@@ -8,7 +8,7 @@ import { sanitizeSlug, slugify } from '@/lib/slug';
 const LONGEST_NAME = 64;
 
 type CreatePoolFormProps = {
-  suggested: string;
+  defaultName: string;
   creating: boolean;
   error: unknown;
   onCreate: (name: string) => void;
@@ -21,7 +21,7 @@ const refusal = (error: unknown): string =>
     : messageOf(error);
 
 export function CreatePoolForm({
-  suggested,
+  defaultName,
   creating,
   error,
   onCreate,
@@ -29,7 +29,7 @@ export function CreatePoolForm({
 }: CreatePoolFormProps) {
   const nameId = useId();
   const errorId = useId();
-  const [name, setName] = useState(suggested);
+  const [name, setName] = useState(defaultName);
   const named = slugify(name);
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {

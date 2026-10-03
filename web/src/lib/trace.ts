@@ -47,3 +47,14 @@ export const runIdOf = (node: TraceNode): string | null =>
   node.kind === 'run' && node.id.startsWith(RUN)
     ? node.id.slice(RUN.length)
     : null;
+
+export const NAMES_PANE = {
+  property: '--names',
+  storageKey: 'spotlight.trace-names-width',
+  min: 200,
+  max: 640,
+  initial: 320,
+  label: 'Resize the names',
+};
+
+export const TICKS = [0, 0.25, 0.5, 0.75, 1];

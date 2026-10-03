@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 type MemoryGroundsProps = {
   grounds: MemoryGround;
-  startsOpen: boolean;
+  defaultOpen: boolean;
 };
 
 const SPOKEN_BY: Record<string, string> = {
@@ -14,8 +14,8 @@ const SPOKEN_BY: Record<string, string> = {
   world: 'Someone outside Spotlight said',
 };
 
-export function MemoryGrounds({ grounds, startsOpen }: MemoryGroundsProps) {
-  const [open, setOpen] = useState(startsOpen);
+export function MemoryGrounds({ grounds, defaultOpen }: MemoryGroundsProps) {
+  const [open, setOpen] = useState(defaultOpen);
   const cited = grounds.steps.length + grounds.notes.length;
 
   if (cited === 0) {
