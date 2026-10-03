@@ -2,13 +2,23 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  bestTermShown,
+  causeActionShown,
+  causeMeaningShown,
+  causeTitleShown,
   endingShown,
+  frontierNote,
   iterationStateShown,
+  noBestShown,
+  objectiveNote,
+  objectiveShown,
   type PullRequestReason,
   pullRequestReasonShown,
   pullRequestStateShown,
+  reflectionOutcomeShown,
   searchStateShown,
   verdictShown,
+  warningShown,
 } from '@/lib/search-words';
 
 type Schema = {
@@ -85,6 +95,79 @@ describe('search words cover every code the API can answer', () => {
     }
     for (const why of codesOf('ReplayCheckResponseDto', 'undecidedBecause')) {
       worded(verdictShown('undecided', why as never), why);
+    }
+  });
+
+  it('words every warning a search estimate can give', () => {
+    worded(warningShown({ kind: 'noise-unmeasured' }), 'noise-unmeasured');
+    worded(
+      warningShown({
+        kind: 'noisy',
+        spread: 0.2,
+        minGain: 0.05,
+        suggestedRepeats: 5,
+        neededRepeats: 5,
+      }),
+      'noisy',
+    );
+    worded(warningShown({ kind: 'saturated', rate: 0.97 }), 'saturated');
+    worded(
+      warningShown({ kind: 'judge-unstable', agreement: 0.6, compared: 10 }),
+      'judge-unstable',
+    );
+    worded(
+      warningShown({ kind: 'flaky-checks', flaky: 2, rechecked: 9 }),
+      'flaky-checks',
+    );
+    worded(
+      warningShown({
+        kind: 'sanity-failed',
+        gain: 0,
+        low: -0.1,
+        high: 0.1,
+        worseTasks: 1,
+      }),
+      'sanity-failed',
+    );
+    expect(
+      [
+        'NoiseUnmeasuredWarningResponseDto',
+        'NoisyWarningResponseDto',
+        'SaturatedWarningResponseDto',
+        'JudgeUnstableWarningResponseDto',
+        'FlakyChecksWarningResponseDto',
+        'SanityFailedWarningResponseDto',
+      ]
+        .flatMap((schema) => codesOf(schema, 'kind'))
+        .sort(),
+    ).toEqual([
+      'flaky-checks',
+      'judge-unstable',
+      'noise-unmeasured',
+      'noisy',
+      'sanity-failed',
+      'saturated',
+    ]);
+  });
+
+  it('words every objective a search can aim for', () => {
+    for (const objective of codesOf('SearchEstimateResponseDto', 'objective')) {
+      worded(objectiveShown(objective as never), objective);
+      worded(objectiveNote(objective as never), objective);
+      worded(bestTermShown(objective as never), objective);
+      worded(frontierNote(objective as never), objective);
+      worded(noBestShown(objective as never), objective);
+    }
+  });
+
+  it('words every cause a reflection can find, with what a person can do', () => {
+    for (const cause of codesOf('SearchCauseResponseDto', 'cause')) {
+      worded(causeTitleShown(cause as never), cause);
+      worded(causeMeaningShown(cause as never), cause);
+      worded(causeActionShown(cause as never), cause);
+    }
+    for (const outcome of codesOf('SearchReflectionResponseDto', 'outcome')) {
+      worded(reflectionOutcomeShown(outcome as never), outcome);
     }
   });
 });

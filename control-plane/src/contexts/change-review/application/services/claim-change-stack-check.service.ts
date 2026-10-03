@@ -68,9 +68,14 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     });
   }
 
-  async unclaim(stackId: string, runner: RunnerId, now: Date): Promise<void> {
+  async unclaim(
+    stackId: string,
+    recheck: boolean,
+    runner: RunnerId,
+    now: Date,
+  ): Promise<void> {
     for (let attempt = 1; ; attempt++) {
-      const held = await this.checks.find(ChangeStackId.of(stackId));
+      const held = await this.checks.find(ChangeStackId.of(stackId), recheck);
 
       if (!held?.beingCheckedBy(runner, now)) {
         return;
@@ -90,11 +95,12 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
   async renewLease(
     runId: RunId,
     stackId: string,
+    recheck: boolean,
     runner: RunnerId,
     now: Date,
   ): Promise<CheckLeaseRenewal> {
     for (let attempt = 1; ; attempt++) {
-      const check = await this.checks.find(ChangeStackId.of(stackId));
+      const check = await this.checks.find(ChangeStackId.of(stackId), recheck);
 
       if (!check?.beingCheckedBy(runner, now) || !check.checkableAt(now)) {
         return 'stop';
@@ -134,6 +140,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
 
     return {
       stackId: stack.id.value,
+      recheck: claimed.recheck,
       runId: stack.runId.value,
       repository: stack.repository?.value ?? null,
       base: stack.base?.value ?? null,

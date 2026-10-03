@@ -115,7 +115,7 @@ const travelled = (search: Search): Search => {
   const runs = searchRunIds();
 
   return search
-    .replayEnded(SEED, 'finished', charged(5), NOW, runs)
+    .replayEnded(SEED, 'finished', charged(5), NOW, runs, true)
     .runQueued(RunId.of('search_run_1'))
     .admitted(RunId.of('search_run_1'), {
       candidateId: CandidateId.of('candidate_terse'),
@@ -141,6 +141,7 @@ const travelled = (search: Search): Search => {
       charged(2.5),
       later(2),
       runs,
+      true,
     );
 };
 
@@ -221,6 +222,7 @@ describe('DrizzleSearchRepository', () => {
           () => 'completed',
         ),
       ],
+      0.05,
       () => ReplayId.of('held_terse'),
       later(4),
     );
@@ -230,6 +232,7 @@ describe('DrizzleSearchRepository', () => {
       charged(1),
       later(5),
       runs,
+      true,
     );
 
     await searches.add(search);

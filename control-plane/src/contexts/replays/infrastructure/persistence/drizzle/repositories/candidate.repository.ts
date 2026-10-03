@@ -14,6 +14,7 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -89,7 +90,14 @@ const toCandidate = (row: CandidateRow): Candidate =>
     line: row.lineFields ? PlannedLine.of(row.lineFields) : null,
     scoring: CandidateScoring.of({
       checksChanges: row.checksChanges,
-      rubric: row.rubric,
+      judge:
+        row.claims === null || row.passShare === null
+          ? null
+          : JudgeCriteria.of({
+              rubric: row.rubric,
+              claims: row.claims,
+              passShare: row.passShare,
+            }),
       rubricVersion: row.rubricVersion,
     }),
     changedFrom: StationChanges.of(
@@ -220,7 +228,9 @@ export class DrizzleCandidateRepository implements CandidateRepository {
           scoringDigest: added.digests.scoring,
           lineFields: added.line?.value ?? null,
           checksChanges: added.scoring.checksChanges,
-          rubric: added.scoring.rubric,
+          rubric: added.scoring.judge?.rubric ?? null,
+          claims: added.scoring.judge ? [...added.scoring.judge.claims] : null,
+          passShare: added.scoring.judge?.passShare ?? null,
           rubricVersion: added.scoring.rubricVersion,
           changedFrom: added.changedFrom.from.value,
           changes: added.changedFrom.changes.map((each) => ({ ...each })),

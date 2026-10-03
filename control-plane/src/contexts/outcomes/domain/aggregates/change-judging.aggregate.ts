@@ -6,8 +6,9 @@ import {
   type Verdict,
 } from '@outcomes/domain/services/grounded-verdict';
 import type { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
+import type { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
-import { rubricScaleOf } from '@outcomes/domain/value-objects/rubric.vo';
+import type { JudgingRound } from '@outcomes/domain/value-objects/judging-round';
 import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -23,10 +24,10 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 interface State {
   readonly runId: RunId;
+  readonly round: JudgingRound;
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly rubric: string;
-  readonly scale: ScoreScale;
+  readonly criteria: JudgeCriteria;
   readonly reference: RunId | null;
   readonly askedAt: Date;
   readonly work: OwedWork | null;
@@ -48,13 +49,10 @@ export class ChangeJudging
     runId: RunId;
     workspaceId: WorkspaceId;
     teamId: TeamId;
-    rubric: string;
+    criteria: JudgeCriteria;
     reference: RunId | null;
     now: Date;
   }): ChangeJudging {
-    if (!input.rubric.trim()) {
-      throw InvalidScoreError.ofJudging('has a rubric to judge by');
-    }
     if (input.reference?.equals(input.runId)) {
       throw InvalidScoreError.ofJudging(
         'compares a change with another run’s, never its own',
@@ -63,10 +61,10 @@ export class ChangeJudging
 
     return new ChangeJudging({
       runId: input.runId,
+      round: 1,
       workspaceId: input.workspaceId,
       teamId: input.teamId,
-      rubric: input.rubric,
-      scale: rubricScaleOf(input.rubric),
+      criteria: input.criteria,
       reference: input.reference,
       askedAt: input.now,
       work: OwedWork.fresh(),
@@ -77,7 +75,7 @@ export class ChangeJudging
     });
   }
 
-  static rehydrate(state: Omit<State, 'scale'>): ChangeJudging {
+  static rehydrate(state: State): ChangeJudging {
     const settled = [state.work, state.judgedAt, state.failure].filter(
       (each) => each !== null,
     );
@@ -89,11 +87,15 @@ export class ChangeJudging
       );
     }
 
-    return new ChangeJudging({ ...state, scale: rubricScaleOf(state.rubric) });
+    return new ChangeJudging(state);
   }
 
   get runId(): RunId {
     return this.state.runId;
+  }
+
+  get round(): JudgingRound {
+    return this.state.round;
   }
 
   get workspaceId(): WorkspaceId {
@@ -104,12 +106,12 @@ export class ChangeJudging
     return this.state.teamId;
   }
 
-  get rubric(): string {
-    return this.state.rubric;
+  get criteria(): JudgeCriteria {
+    return this.state.criteria;
   }
 
   get scale(): ScoreScale {
-    return this.state.scale;
+    return this.state.criteria.scale;
   }
 
   get reference(): RunId | null {
@@ -138,6 +140,25 @@ export class ChangeJudging
 
   get version(): number {
     return this.state.version;
+  }
+
+  askedAgain(now: Date): ChangeJudging {
+    if (this.state.round !== 1 || this.state.judgedAt === null) {
+      throw InvalidScoreError.ofJudging(
+        'is asked a second time only of a change judged once already',
+      );
+    }
+
+    return new ChangeJudging({
+      ...this.state,
+      round: 2,
+      askedAt: now,
+      work: OwedWork.fresh(),
+      judgedAt: null,
+      failure: null,
+      spent: ModelUsage.none(),
+      version: 0,
+    });
   }
 
   get owesWork(): boolean {
@@ -208,7 +229,7 @@ export class ChangeJudging
 
     const spending = this.usedModel(input.usage);
     const grounded = groundedVerdict(
-      this.state.scale,
+      this.state.criteria,
       input.verdict,
       input.evidence,
     );
@@ -225,9 +246,13 @@ export class ChangeJudging
     judged.record(
       new ChangeJudged(
         this.state.runId,
+        this.state.round,
         this.state.workspaceId,
-        this.state.scale,
+        this.state.criteria.scale,
         grounded.value,
+        grounded.marks,
+        this.state.criteria.claims,
+        this.state.criteria.passShare,
         input.model,
         grounded.reasons,
         input.evidence.reference !== null,
@@ -247,6 +272,7 @@ export class ChangeJudging
     ended.record(
       new ChangeJudgingFailed(
         this.state.runId,
+        this.state.round,
         this.state.workspaceId,
         failure,
         this.state.spent,

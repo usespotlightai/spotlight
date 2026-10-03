@@ -35,6 +35,8 @@ type Rememberer func(ctx context.Context, remembered protocol.Remembering) (json
 
 type Proposer func(ctx context.Context, proposal protocol.CandidateProposal) (json.RawMessage, error)
 
+type CauseRecorder func(ctx context.Context, record protocol.CauseRecord) (json.RawMessage, error)
+
 type Refusal struct {
 	Because string
 }
@@ -66,6 +68,7 @@ type Server struct {
 	recall    Recaller
 	remember  Rememberer
 	propose   Proposer
+	cause     CauseRecorder
 
 	mu       sync.Mutex
 	declared *protocol.Outcome
@@ -138,6 +141,10 @@ func (s *Server) Candidates(propose Proposer) {
 	s.propose = propose
 }
 
+func (s *Server) Causes(record CauseRecorder) {
+	s.cause = record
+}
+
 func (s *Server) Spoken() <-chan struct{} {
 	return s.spoken
 }
@@ -208,6 +215,11 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	if path.Clean(request.URL.Path) == protocol.HandoverCandidatePath {
 		s.proposed(writer, request)
+		return
+	}
+
+	if path.Clean(request.URL.Path) == protocol.HandoverCausePath {
+		s.caused(writer, request)
 		return
 	}
 
@@ -461,6 +473,38 @@ func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	s.answered(writer, func() (json.RawMessage, error) { return answer, err })
+}
+
+func (s *Server) caused(writer http.ResponseWriter, request *http.Request) {
+	if s.cause == nil {
+		refuse(writer, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
+		return
+	}
+
+	var record protocol.CauseRecord
+	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&record); err != nil {
+		refuse(writer, http.StatusBadRequest, "unreadable cause")
+		return
+	}
+
+	if strings.TrimSpace(record.TaskID) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "name the task the cause is for")
+		return
+	}
+
+	if !protocol.IsSearchCause(record.Cause) {
+		refuse(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
+			"%q is no cause: a cause is one of %s", record.Cause, strings.Join(protocol.SearchCauses, ", "),
+		))
+		return
+	}
+
+	if strings.TrimSpace(record.Evidence) == "" {
+		refuse(writer, http.StatusUnprocessableEntity, "say what in the runs shows the cause")
+		return
+	}
+
+	s.answered(writer, func() (json.RawMessage, error) { return s.cause(request.Context(), record) })
 }
 
 func jsonObject(raw json.RawMessage) bool {

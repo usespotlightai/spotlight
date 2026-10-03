@@ -1,4 +1,5 @@
 import { ShieldCheck } from 'lucide-react';
+import { HealthLines } from '@/components/features/replays/HealthLines';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type CandidatesSet, healthShown } from '@/lib/insights-candidates';
@@ -30,6 +31,12 @@ export function ReplaySetHealth({ at, set, now }: ReplaySetHealthProps) {
       <p className="text-muted-foreground text-xs">
         {healthShown(set.health, now)}
       </p>
+      <HealthLines
+        setName={set.name}
+        health={set.health}
+        minGain={set.health.minGain}
+        compact
+      />
       {!set.baseline && (
         <p className="text-muted-foreground text-xs">
           The live config was never replayed over it, so nothing is compared

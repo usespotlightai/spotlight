@@ -146,7 +146,7 @@ export class Judging extends EventRecorder implements OwesWork<Judging> {
     }
 
     const grounded = groundedVerdict(
-      this.rubric.scale,
+      this.rubric.criteria,
       input.verdict,
       input.evidence,
     );
@@ -169,6 +169,7 @@ export class Judging extends EventRecorder implements OwesWork<Judging> {
         this.rubric.version,
         this.rubric.scale,
         grounded.value,
+        grounded.marks,
         input.model,
         grounded.reasons,
         input.evidence.seenFor(grounded.reasons),

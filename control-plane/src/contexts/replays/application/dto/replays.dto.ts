@@ -1,3 +1,4 @@
+import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export interface ReplaySetEntryDto {
@@ -9,6 +10,119 @@ export interface ReplaySetEntryDto {
   readonly addedAt: string;
   readonly refusal: string | null;
   readonly reason: string | null;
+  readonly outcome: OriginalOutcome;
+  readonly origin: string | null;
+}
+
+export interface OutcomeCountDto {
+  readonly outcome: OriginalOutcome;
+  readonly count: number;
+}
+
+export interface OriginCountDto {
+  readonly origin: string;
+  readonly count: number;
+}
+
+export interface BalanceWarningDto {
+  readonly dominant: OriginalOutcome;
+  readonly count: number;
+  readonly entries: number;
+}
+
+export interface SetCompositionDto {
+  readonly outcomes: readonly OutcomeCountDto[];
+  readonly origins: readonly OriginCountDto[];
+  readonly oldest: string | null;
+  readonly median: string | null;
+  readonly newest: string | null;
+  readonly balanceWarning: BalanceWarningDto | null;
+}
+
+export interface RateIntervalDto {
+  readonly rate: number;
+  readonly low: number;
+  readonly high: number;
+}
+
+export interface GainReadingDto {
+  readonly gain: number;
+  readonly low: number;
+  readonly high: number;
+  readonly verdict: 'better' | 'worse' | 'within-noise';
+  readonly minGain: number;
+  readonly tasks: number;
+}
+
+export interface SetNoiseDto {
+  readonly replayId: string;
+  readonly fingerprint: string;
+  readonly repeats: number;
+  readonly perRepeat: readonly number[];
+  readonly spread: number;
+  readonly flippedTasks: readonly string[];
+  readonly measuredAt: string;
+}
+
+export interface SetSaturationDto {
+  readonly replayId: string;
+  readonly rate: number;
+  readonly interval: RateIntervalDto | null;
+  readonly saturated: boolean;
+  readonly measuredAt: string;
+}
+
+export interface JudgeConsistencyDto {
+  readonly replayId: string;
+  readonly compared: number;
+  readonly agreed: number;
+  readonly pending: number;
+  readonly agreement: number | null;
+  readonly unstable: boolean;
+}
+
+export interface FlakyCheckDto {
+  readonly taskId: string;
+  readonly originalRunId: string;
+  readonly runId: string;
+  readonly first: string;
+  readonly recheck: string;
+}
+
+export interface CheckConsistencyDto {
+  readonly replayId: string;
+  readonly rechecked: number;
+  readonly pending: number;
+  readonly flaky: readonly FlakyCheckDto[];
+}
+
+export interface WorseTaskDto {
+  readonly taskId: string;
+  readonly originalRunId: string;
+  readonly live: number;
+  readonly stronger: number;
+}
+
+export interface SanityReadingDto {
+  readonly replayId: string;
+  readonly candidateId: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+  readonly repeats: number;
+  readonly state: string;
+  readonly againstReplayId: string | null;
+  readonly againstState: string | null;
+  readonly gain: GainReadingDto | null;
+  readonly rewardsStrongerModel: boolean | null;
+  readonly worse: readonly WorseTaskDto[];
+}
+
+export interface SetHealthDto {
+  readonly noise: SetNoiseDto | null;
+  readonly saturation: SetSaturationDto | null;
+  readonly judge: JudgeConsistencyDto | null;
+  readonly checks: CheckConsistencyDto | null;
+  readonly sanity: SanityReadingDto | null;
 }
 
 export interface ReplaySetDto {
@@ -19,6 +133,9 @@ export interface ReplaySetDto {
   readonly createdAt: string;
   readonly stationGone: boolean;
   readonly guardsChanges: boolean;
+  readonly health: SetHealthDto;
+  readonly minGain: number;
+  readonly composition: SetCompositionDto;
   readonly entries: readonly ReplaySetEntryDto[];
 }
 
@@ -30,6 +147,10 @@ export interface ReplayableRunDto {
   readonly endedAt: string;
   readonly refusal: string | null;
   readonly reason: string | null;
+}
+
+export interface SuggestedRunDto extends ReplayableRunDto {
+  readonly outcome: OriginalOutcome;
 }
 
 export interface SpendDto {
@@ -63,6 +184,63 @@ export interface EntryJudgeDto {
   readonly referenced: boolean | null;
   readonly model: string | null;
   readonly unjudged: string | null;
+  readonly marks: readonly boolean[] | null;
+  readonly claims: readonly string[];
+  readonly passShare: number | null;
+  readonly reasons: readonly EntryJudgeReasonDto[];
+}
+
+export interface EntryCitedStepDto {
+  readonly index: number;
+  readonly kind: string | null;
+  readonly tool: string | null;
+  readonly text: string | null;
+}
+
+export interface EntryCitedHunkDto {
+  readonly id: string;
+  readonly path: string | null;
+  readonly header: string | null;
+  readonly lines: readonly string[];
+}
+
+export interface EntryCitationDto {
+  readonly kind: 'step' | 'hunk';
+  readonly step: EntryCitedStepDto | null;
+  readonly hunk: EntryCitedHunkDto | null;
+}
+
+export interface EntryJudgeReasonDto {
+  readonly text: string;
+  readonly claim: number | null;
+  readonly citations: readonly EntryCitationDto[];
+}
+
+export interface EntryPairReasonDto {
+  readonly text: string;
+  readonly ownHunks: readonly string[];
+  readonly theirHunks: readonly string[];
+}
+
+export interface EntryPairReadingDto {
+  readonly ownShownFirst: boolean;
+  readonly outcome: 'win' | 'loss' | 'tie';
+  readonly reasons: readonly EntryPairReasonDto[];
+}
+
+export interface EntryPairDto {
+  readonly state: 'asked' | 'judged' | 'unpaired';
+  readonly againstRunId: string;
+  readonly outcome: 'win' | 'loss' | 'tie' | null;
+  readonly model: string | null;
+  readonly unpaired: string | null;
+  readonly readings: readonly EntryPairReadingDto[];
+}
+
+export interface PairTallyDto {
+  readonly wins: number;
+  readonly losses: number;
+  readonly ties: number;
 }
 
 export type EntryResultDto = 'pending' | 'succeeded' | 'failed' | 'unscored';
@@ -71,6 +249,7 @@ export interface ReplayEntryDto {
   readonly position: number;
   readonly originalRunId: string;
   readonly taskId: string;
+  readonly repeat: number;
   readonly runId: string | null;
   readonly fingerprint: string | null;
   readonly phase: 'waiting' | 'dispatched' | 'settled';
@@ -89,6 +268,11 @@ export interface ReplayEntryDto {
   readonly judge: EntryJudgeDto | null;
   readonly draftingSpent: ModelSpentDto | null;
   readonly judgingSpent: ModelSpentDto | null;
+  readonly secondJudge: EntryJudgeDto | null;
+  readonly rejudgingSpent: ModelSpentDto | null;
+  readonly recheck: EntryChecksDto | null;
+  readonly pair: EntryPairDto | null;
+  readonly pairingSpent: ModelSpentDto | null;
   readonly result: EntryResultDto;
   readonly succeeded: boolean | null;
   readonly reasons: readonly EntryReasonDto[];
@@ -105,7 +289,10 @@ export interface ReplayTotalsDto {
   readonly notRun: number;
   readonly succeeded: number | null;
   readonly successRate: number | null;
+  readonly interval: RateIntervalDto | null;
   readonly scored: number;
+  readonly tasks: number;
+  readonly tasksScored: number;
   readonly unscored: number;
   readonly spent: SpendDto;
   readonly spentElsewhere: readonly SpendDto[];
@@ -136,9 +323,14 @@ export interface ReplayDto {
   readonly checks: boolean;
   readonly state: string;
   readonly ceiling: SpendDto;
+  readonly repeats: number;
+  readonly probe: boolean;
   readonly startedAt: string;
   readonly endedAt: string | null;
   readonly totals: ReplayTotalsDto;
+  readonly againstBaseline: GainReadingDto | null;
+  readonly pairedWith: string | null;
+  readonly pairsAgainstBaseline: PairTallyDto | null;
   readonly entries: readonly ReplayEntryDto[];
 }
 
@@ -146,14 +338,17 @@ export interface EntryComparisonDto {
   readonly originalRunId: string;
   readonly taskId: string;
   readonly title: string | null;
-  readonly candidate: ReplayEntryDto;
-  readonly baseline: ReplayEntryDto | null;
+  readonly candidate: readonly ReplayEntryDto[];
+  readonly baseline: readonly ReplayEntryDto[];
+  readonly candidateSuccess: number | null;
+  readonly baselineSuccess: number | null;
   readonly costDelta: number | null;
   readonly msDelta: number | null;
   readonly stepsDelta: number | null;
   readonly scoreDelta: number | null;
   readonly scoreUncompared: string | null;
   readonly regressed: boolean;
+  readonly pair: 'win' | 'loss' | 'tie' | null;
 }
 
 export interface ReplaySearchDto {
@@ -164,6 +359,7 @@ export interface ReplaySearchDto {
 export interface ReplayDetailDto extends ReplayDto {
   readonly search: ReplaySearchDto | null;
   readonly baselineReplayId: string | null;
+  readonly comparedWithReplayId: string | null;
   readonly comparison: readonly EntryComparisonDto[];
 }
 

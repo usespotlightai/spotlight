@@ -36,6 +36,14 @@ const gradeIn = (
     ? body.value
     : null;
 
+const claimsIn = (
+  body: GradeRunRequestDto | undefined,
+): readonly boolean[] | null =>
+  Array.isArray(body?.claims) &&
+  body.claims.every((each) => typeof each === 'boolean')
+    ? body.claims
+    : null;
+
 @ApiTags('outcomes')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @ApiParam({ name: 'teamId', type: String })
@@ -89,7 +97,13 @@ export class RunScoresController {
   ): Promise<RunScoresResponseDto> {
     return new RunScoresResponseDto(
       await this.commandBus.execute<GradeRunCommand, RunScoresDto>(
-        new GradeRunCommand(teamId, runId, gradeIn(body), user.id),
+        new GradeRunCommand(
+          teamId,
+          runId,
+          gradeIn(body),
+          claimsIn(body),
+          user.id,
+        ),
       ),
     );
   }

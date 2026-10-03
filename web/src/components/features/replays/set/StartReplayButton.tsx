@@ -1,47 +1,36 @@
 import { Play } from 'lucide-react';
-import { useState } from 'react';
 import { StartReplayDialog } from '@/components/features/replays/set/StartReplayDialog';
-import { Button } from '@/components/ui/button';
-import type { ReplayedStation, ReplaySet } from '@/lib/replay';
+import { DialogButton } from '@/components/shared/DialogButton';
+import type { Replay, ReplayedStation, ReplaySet } from '@/lib/replay';
+import { START_REPLAY } from '@/lib/replay-words';
 
 type StartReplayButtonProps = {
   at: ReplayedStation;
   set: ReplaySet;
-  hasBaseline: boolean;
+  baseline: Pick<Replay, 'repeats'> | null;
   refusedBecause: string | null;
 };
 
 export function StartReplayButton({
   at,
   set,
-  hasBaseline,
+  baseline,
   refusedBecause,
 }: StartReplayButtonProps) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="flex flex-col items-center gap-1">
-      <Button
-        type="button"
-        size="sm"
-        className="rounded-full"
-        disabled={refusedBecause !== null}
-        onClick={() => setOpen(true)}
-      >
-        <Play aria-hidden />
-        Start a replay
-      </Button>
-      {refusedBecause && (
-        <span className="text-muted-foreground text-xs">{refusedBecause}</span>
+    <DialogButton
+      label={START_REPLAY}
+      icon={Play}
+      refusedBecause={refusedBecause}
+      dialog={(open, onOpenChange) => (
+        <StartReplayDialog
+          at={at}
+          set={set}
+          baseline={baseline}
+          open={open}
+          onOpenChange={onOpenChange}
+        />
       )}
-
-      <StartReplayDialog
-        at={at}
-        set={set}
-        hasBaseline={hasBaseline}
-        open={open}
-        onOpenChange={setOpen}
-      />
-    </div>
+    />
   );
 }

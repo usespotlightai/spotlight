@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import {
+  PAIRING_STATE,
+  Replay,
+} from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayMovedOnError } from '@replays/domain/exceptions/replay-moved-on.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { STANDING_BASELINE_STATES } from '@replays/domain/services/baseline';
@@ -8,6 +11,10 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
+import {
+  EntryPairing,
+  PairVerdict,
+} from '@replays/domain/value-objects/entry-pairing.vo';
 import {
   type EntryReason,
   isEntryReasonCode,
@@ -25,8 +32,11 @@ import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import {
   replay,
+  replayCandidate,
   replayEntry,
+  type StoredEntryChecks,
   type StoredEntryJudging,
+  type StoredEntryPairing,
   type StoredModelSpent,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
@@ -48,9 +58,11 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lte,
   ne,
   or,
   type SQL,
+  sql,
 } from 'drizzle-orm';
 
 type ReplayRow = typeof replay.$inferSelect;
@@ -58,6 +70,8 @@ type ReplayRow = typeof replay.$inferSelect;
 type EntryRow = typeof replayEntry.$inferSelect;
 
 const DISPATCHING = ['queued', 'running'] as const;
+
+const NEWEST_READ_FOR_HEALTH = 3;
 
 const ofThisReplay = eq(replayEntry.replayId, replay.id);
 
@@ -178,12 +192,16 @@ const judgingRow = (judging: EntryJudging | null): StoredEntryJudging | null =>
     verdict: judging.verdict && {
       scale: judging.verdict.scale,
       value: judging.verdict.value,
+      marks: judging.verdict.marks && [...judging.verdict.marks],
+      claims: [...judging.verdict.claims],
+      passShare: judging.verdict.passShare,
       model: judging.verdict.model,
       referenced: judging.verdict.referenced,
       reasons: judging.verdict.reasons.map((each) => ({
         text: each.text,
         steps: [...each.steps],
         hunks: [...each.hunks],
+        claim: each.claim,
       })),
     },
     unjudged: judging.unjudged,
@@ -205,11 +223,46 @@ const storedSpent = (spent: ModelSpent | null): StoredModelSpent | null =>
     unpriced: spent.unpriced,
   };
 
+const checksRow = (checks: ChangeChecks | null): StoredEntryChecks | null =>
+  checks && {
+    state: checks.state,
+    failedAt: [...checks.failedAt],
+    why: checks.why,
+  };
+
+const pairingOf = (stored: StoredEntryPairing | null): EntryPairing | null =>
+  stored &&
+  EntryPairing.rehydrate({
+    against: RunId.of(stored.against),
+    verdict: stored.verdict && PairVerdict.of(stored.verdict),
+    unpaired: stored.unpaired,
+  });
+
+const pairingRow = (pairing: EntryPairing | null): StoredEntryPairing | null =>
+  pairing && {
+    against: pairing.against.value,
+    verdict: pairing.verdict && {
+      outcome: pairing.verdict.outcome,
+      model: pairing.verdict.model,
+      readings: pairing.verdict.readings.map((reading) => ({
+        ownShownFirst: reading.ownShownFirst,
+        outcome: reading.outcome,
+        reasons: reading.reasons.map((each) => ({
+          text: each.text,
+          ownHunks: [...each.ownHunks],
+          theirHunks: [...each.theirHunks],
+        })),
+      })),
+    },
+    unpaired: pairing.unpaired,
+  };
+
 const toEntry = (row: EntryRow): ReplayEntry =>
   ReplayEntry.rehydrate({
     position: row.position,
     original: RunId.of(row.originalRunId),
     taskId: TaskId.of(row.taskId),
+    repeat: row.repeat,
     run: row.runId ? RunId.of(row.runId) : null,
     queued: row.queued,
     fingerprint: row.fingerprint
@@ -226,6 +279,11 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     judgingSpent: modelSpentOf(row.judgingSpent),
     succeeded: row.succeeded,
     reasons: reasonsOf(row),
+    secondJudging: judgingOf(row.secondJudging),
+    rejudgingSpent: modelSpentOf(row.rejudgingSpent),
+    recheck: row.recheck ? ChangeChecks.rehydrate(row.recheck) : null,
+    pairing: pairingOf(row.pairing),
+    pairingSpent: modelSpentOf(row.pairingSpent),
   });
 
 const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
@@ -250,6 +308,10 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
         ? null
         : Spend.of(row.unpricedRate, row.ceilingCurrency),
     among: row.among ? row.among.map((each) => RunId.of(each)) : null,
+    repeats: row.repeats,
+    probe: row.probe,
+    comparedWith: row.comparedWith ? ReplayId.of(row.comparedWith) : null,
+    pairsWith: row.pairsWith ? ReplayId.of(row.pairsWith) : null,
     searchId: row.searchId ? SearchId.of(row.searchId) : null,
     state: row.state,
     entries: entries
@@ -267,6 +329,7 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   position: entry.position,
   originalRunId: entry.original.value,
   taskId: entry.taskId.value,
+  repeat: entry.repeat,
   runId: entry.run?.value ?? null,
   queued: entry.queued,
   fingerprint: entry.fingerprint?.value ?? null,
@@ -289,11 +352,7 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   outputTokens: entry.measures?.tokens.output ?? null,
   cacheReadTokens: entry.measures?.tokens.cacheRead ?? null,
   cacheWriteTokens: entry.measures?.tokens.cacheWrite ?? null,
-  checks: entry.checks && {
-    state: entry.checks.state,
-    failedAt: [...entry.checks.failedAt],
-    why: entry.checks.why,
-  },
+  checks: checksRow(entry.checks),
   judging: judgingRow(entry.judging),
   draftingSpent: storedSpent(entry.draftingSpent),
   judgingSpent: storedSpent(entry.judgingSpent),
@@ -304,6 +363,11 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
     steps: [...each.steps],
     hunks: [...each.hunks],
   })),
+  secondJudging: judgingRow(entry.secondJudging),
+  rejudgingSpent: storedSpent(entry.rejudgingSpent),
+  recheck: checksRow(entry.recheck),
+  pairing: pairingRow(entry.pairing),
+  pairingSpent: storedSpent(entry.pairingSpent),
 });
 
 @Injectable()
@@ -339,6 +403,20 @@ export class DrizzleReplayRepository implements ReplayRepository {
 
   ofCandidate(candidateId: CandidateId): Promise<readonly Replay[]> {
     return this.withEntries(eq(replay.candidateId, candidateId.value));
+  }
+
+  async pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]> {
+    const rows = await this.context.db
+      .select({ id: replay.id })
+      .from(replay)
+      .where(
+        and(
+          eq(replay.pairsWith, replayId.value),
+          eq(replay.state, PAIRING_STATE),
+        ),
+      );
+
+    return rows.map((each) => ReplayId.of(each.id));
   }
 
   ofSearch(searchId: SearchId): Promise<readonly Replay[]> {
@@ -379,6 +457,50 @@ export class DrizzleReplayRepository implements ReplayRepository {
         )
         .orderBy(asc(replay.setId), desc(replay.startedAt), asc(replay.id)),
     );
+  }
+
+  async healthReadOfSets(
+    setIds: readonly ReplaySetId[],
+  ): Promise<readonly Replay[]> {
+    if (setIds.length === 0) {
+      return [];
+    }
+
+    const ranked = this.context.db
+      .select({
+        id: replay.id,
+        place:
+          sql<number>`row_number() over (partition by ${replay.setId}, ${replayCandidate.kind}, ${replay.probe}, ${replay.repeats} order by coalesce(${replay.endedAt}, ${replay.startedAt}) desc, ${replay.id} desc)`.as(
+            'place',
+          ),
+      })
+      .from(replay)
+      .innerJoin(replayCandidate, eq(replayCandidate.id, replay.candidateId))
+      .where(
+        and(
+          inArray(replay.setId, [...new Set(setIds.map((each) => each.value))]),
+          isNull(replay.among),
+          isNull(replay.searchId),
+          or(
+            and(eq(replayCandidate.kind, 'live'), eq(replay.state, 'finished')),
+            eq(replayCandidate.kind, 'sanity'),
+          ),
+        ),
+      )
+      .as('ranked');
+    const kept = await this.context.db
+      .select({ id: ranked.id })
+      .from(ranked)
+      .where(lte(ranked.place, NEWEST_READ_FOR_HEALTH));
+
+    return kept.length === 0
+      ? []
+      : this.withEntries(
+          inArray(
+            replay.id,
+            kept.map((each) => each.id),
+          ),
+        );
   }
 
   async ofTeamStartedSince(
@@ -503,6 +625,10 @@ export class DrizzleReplayRepository implements ReplayRepository {
       unpricedRate: held.unpricedRate?.amount ?? null,
       ceilingCurrency: held.ceiling.currency,
       among: held.among ? held.among.map((each) => each.value) : null,
+      repeats: held.repeats,
+      probe: held.probe,
+      comparedWith: held.comparedWith?.value ?? null,
+      pairsWith: held.pairsWith?.value ?? null,
       searchId: held.searchId?.value ?? null,
       state: held.current,
       startedAt: held.startedAt,

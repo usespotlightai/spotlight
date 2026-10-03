@@ -25,6 +25,7 @@ import {
   refuseStationOutcomes,
   STATION_ID,
   seedStationAwaitingOutcomes,
+  seedStationClaimsJudge,
   seedStationJudgeAwaiting,
   seedStationJudgeEmpty,
   seedStationJudgeHidden,
@@ -138,6 +139,15 @@ export const JudgeMembersOnly: Story = {
   name: 'Judge members only',
   render: () => (
     <StoryPage at={at} seed={refuseStationJudge}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const JudgeByClaims: Story = {
+  name: 'Judge by claims',
+  render: () => (
+    <StoryPage at={at} seed={seedStationClaimsJudge}>
       {routes}
     </StoryPage>
   ),

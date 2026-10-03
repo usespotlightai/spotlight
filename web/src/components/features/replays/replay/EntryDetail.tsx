@@ -3,6 +3,8 @@ import type { Ref } from 'react';
 import { EntryOutcome } from '@/components/features/replays/outcome/EntryOutcome';
 import { OutcomePart } from '@/components/features/replays/outcome/OutcomePart';
 import { EntryResult } from '@/components/features/replays/replay/EntryResult';
+import { EntryJudgeClaims } from '@/components/features/replays/run/EntryJudgeClaims';
+import { EntryPairReadings } from '@/components/features/replays/run/EntryPairReadings';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -10,6 +12,7 @@ import {
   type ReplayEntry,
   titleShown,
 } from '@/lib/replay';
+import { copyShown } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 
 const ENTRY_PANE: PaneConfig = {
@@ -41,7 +44,7 @@ export function EntryDetail({
   ref,
 }: EntryDetailProps) {
   const side = (title: string, entry: ReplayEntry) => (
-    <OutcomePart title={title}>
+    <OutcomePart key={entry.repeat} title={title}>
       <div className="flex items-center gap-2 text-xs">
         <EntryResult entry={entry} runTo={null} reasons={false} />
         {entry.runId && (
@@ -50,9 +53,28 @@ export function EntryDetail({
           </TrailLink>
         )}
       </div>
+      {entry.judge?.marks && (
+        <EntryJudgeClaims judge={entry.judge} marks={entry.judge.marks} />
+      )}
+      {entry.pair && (
+        <EntryPairReadings
+          pair={entry.pair}
+          againstTo={runPath(slug, teamId, entry.pair.againstRunId)}
+        />
+      )}
       <EntryOutcome key={entry.runId ?? title} teamId={teamId} entry={entry} />
     </OutcomePart>
   );
+
+  const sides = (title: string, copies: readonly ReplayEntry[]) =>
+    copies.map((entry) =>
+      side(
+        copies.length > 1
+          ? `${title}, ${copyShown(entry.repeat).toLowerCase()}`
+          : title,
+        entry,
+      ),
+    );
 
   return (
     <SidePane pane={ENTRY_PANE} open={open} ref={ref}>
@@ -71,8 +93,11 @@ export function EntryDetail({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-4 pt-2 pb-6 scrollbar-hide">
-        {side(row.baseline ? 'This replay' : 'Result', row.candidate)}
-        {row.baseline && side('Baseline', row.baseline)}
+        {sides(
+          row.baseline.length > 0 ? 'This replay' : 'Result',
+          row.candidate,
+        )}
+        {sides('Baseline', row.baseline)}
       </div>
     </SidePane>
   );

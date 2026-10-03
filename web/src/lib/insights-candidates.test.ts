@@ -6,8 +6,8 @@ import {
   costAgainstLiveShown,
   healthShown,
   heldOutShown,
-  liveShown,
   markShown,
+  onTheSameShown,
   replayedChart,
   replayedFrontiersOf,
   type SetCandidate,
@@ -89,8 +89,14 @@ describe('replayedChart', () => {
             search: {
               searchId: 'search_2',
               state: 'finished',
+              objective: 'success',
               startedAt: '2026-09-28T10:00:00.000Z',
-              seed: { successRate: 0.5, costPerRun: 0.5, scored: 10 },
+              seed: {
+                successRate: 0.5,
+                interval: null,
+                costPerRun: 0.5,
+                scored: 10,
+              },
             },
           },
         ],
@@ -191,8 +197,8 @@ describe('stationReplayedChart', () => {
 });
 
 describe('heldOutShown', () => {
-  it('says a searched candidate’s held-out score, or why there is none', () => {
-    expect(heldOutShown(picked as SetCandidate)).toBe('67% of 7 held-out runs');
+  it('says why a searched candidate has no held-out score', () => {
+    expect(heldOutShown(picked as SetCandidate)).toBe('–');
     expect(heldOutShown(terse as SetCandidate)).toBe('Not held out');
     expect(
       heldOutShown({
@@ -201,6 +207,7 @@ describe('heldOutShown', () => {
           replayId: 'r',
           state: 'running',
           score: null,
+          interval: null,
           tasks: 6,
           runs: 0,
         },
@@ -250,9 +257,9 @@ describe('changeLinkOf', () => {
   });
 });
 
-describe('liveShown and costAgainstLiveShown', () => {
+describe('onTheSameShown and costAgainstLiveShown', () => {
   it('sets the candidate beside live on the runs both replayed', () => {
-    expect(liveShown(proposed)).toBe('67% vs live 75% on the same 12 runs');
+    expect(onTheSameShown(proposed.compared)).toBe('on the same 12 runs');
     expect(costAgainstLiveShown(proposed)).toBe(
       'cost $0.24 vs live $0.21 a run on the same 12 runs',
     );
@@ -262,7 +269,12 @@ describe('liveShown and costAgainstLiveShown', () => {
     expect(
       costAgainstLiveShown({
         ...proposed,
-        live: { successRate: 0.75, costPerRun: 0.21, currency: 'EUR' },
+        live: {
+          successRate: 0.75,
+          interval: null,
+          costPerRun: 0.21,
+          currency: 'EUR',
+        },
       }),
     ).toBeNull();
   });
@@ -293,6 +305,12 @@ describe('healthShown', () => {
           oldestRunEndedAt: ago(41),
           newestRunEndedAt: ago(3),
           lastAddedAt: ago(2),
+          noise: null,
+          saturation: null,
+          judge: null,
+          checks: null,
+          sanity: null,
+          minGain: 0.05,
         },
         NOW,
       ),
@@ -308,6 +326,12 @@ describe('healthShown', () => {
           oldestRunEndedAt: ago(0),
           newestRunEndedAt: ago(0),
           lastAddedAt: ago(1),
+          noise: null,
+          saturation: null,
+          judge: null,
+          checks: null,
+          sanity: null,
+          minGain: 0.05,
         },
         NOW,
       ),
@@ -320,6 +344,12 @@ describe('healthShown', () => {
           oldestRunEndedAt: ago(5),
           newestRunEndedAt: ago(0),
           lastAddedAt: null,
+          noise: null,
+          saturation: null,
+          judge: null,
+          checks: null,
+          sanity: null,
+          minGain: 0.05,
         },
         NOW,
       ),
@@ -335,6 +365,12 @@ describe('healthShown', () => {
           oldestRunEndedAt: null,
           newestRunEndedAt: null,
           lastAddedAt: null,
+          noise: null,
+          saturation: null,
+          judge: null,
+          checks: null,
+          sanity: null,
+          minGain: 0.05,
         },
         NOW,
       ),

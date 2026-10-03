@@ -145,7 +145,9 @@ export class RunEvidences implements RunEvidencePort {
           teamId: line.teamId.value,
           lineId: line.id.value,
           rubric: judge.rubric,
-          rubricVersion: this.digest.sha256(judge.rubric),
+          claims: judge.claims,
+          passShare: judge.passShare,
+          rubricVersion: this.digest.sha256(judge.criteria),
           sample: judge.sample,
           trust: judge.trust,
         }

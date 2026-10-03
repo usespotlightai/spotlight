@@ -327,7 +327,7 @@ describe('forgetting the checks of a deleted task', () => {
     await repository.remove(check.forgotten(NOW));
 
     await expect(repository.ofTask(task)).resolves.toEqual([]);
-    await expect(repository.find(other.stackId)).resolves.not.toBeNull();
+    await expect(repository.find(other.stackId, false)).resolves.not.toBeNull();
     expect(dispatched.map((each) => each.kind)).toContain(
       'change-stack.check-reservation-dropped',
     );

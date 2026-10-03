@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { countShown, spendShown } from '@/lib/insights';
+import { repeatsShown } from '@/lib/replay-words';
 import { durationShown, type SearchEstimate } from '@/lib/search';
 
 type SearchEstimateSummaryProps = {
   estimate: SearchEstimate | undefined;
+  repeats: number;
   asked: boolean;
   estimating: boolean;
   refusal: string | null;
@@ -14,6 +16,7 @@ const ROW = 'flex items-baseline justify-between gap-3';
 
 export function SearchEstimateSummary({
   estimate,
+  repeats,
   asked,
   estimating,
   refusal,
@@ -51,6 +54,10 @@ export function SearchEstimateSummary({
             {countShown(estimate.searchedTasks)} searched ·{' '}
             {countShown(estimate.heldOutTasks)} held out
           </dd>
+        </div>
+        <div className={ROW}>
+          <dt className="text-muted-foreground">Copies</dt>
+          <dd className="text-foreground">{repeatsShown(repeats)}</dd>
         </div>
         <div className={ROW}>
           <dt className="text-muted-foreground">At most</dt>

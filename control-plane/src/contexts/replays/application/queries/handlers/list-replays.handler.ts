@@ -2,9 +2,10 @@ import type { ReplayDto } from '@replays/application/dto/replays.dto';
 import type { ListReplaysQuery } from '@replays/application/queries/list-replays.query';
 import { replayView } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { baselineOf } from '@replays/domain/services/baseline';
+import { baselineOf, comparedAgainst } from '@replays/domain/services/baseline';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -15,6 +16,7 @@ export class ListReplaysHandler
     private readonly access: ReplaysAccess,
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
+    private readonly healths: SetHealths,
   ) {}
 
   async execute(query: ListReplaysQuery): Promise<readonly ReplayDto[]> {
@@ -29,6 +31,7 @@ export class ListReplaysHandler
         replays.map((each) => each.candidateId),
       );
       const baseline = baselineOf(replays);
+      const { minGain } = await this.healths.standardAt(set.station);
 
       return [...replays]
         .sort(
@@ -41,6 +44,8 @@ export class ListReplaysHandler
               candidate.id.equals(each.candidateId),
             ) ?? null,
             baseline,
+            comparedAgainst(each, replays),
+            minGain,
           ),
         );
     } catch (error) {

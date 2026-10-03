@@ -15,6 +15,7 @@ import {
   InMemoryReplays,
   PERSON,
 } from '@replays/application/services/replays.fake-spec';
+import { SetHealths } from '@replays/application/services/set-healths.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -61,6 +62,7 @@ const read = (period = '30d', mayPlan: boolean | null = false) => {
     pullRequests,
     work,
     { now: () => now, sleep: async () => {} },
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
   ).execute(
     new ReadReplayedCandidatesQuery(STATION.teamId.value, PERSON, period),
   );

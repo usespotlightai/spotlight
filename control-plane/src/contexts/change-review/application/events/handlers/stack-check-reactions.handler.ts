@@ -44,7 +44,7 @@ export class StackCheckReactions {
   async onReordered(stackId: ChangeStackId): Promise<void> {
     const [stack, check] = await Promise.all([
       this.stacks.find(stackId),
-      this.checks.find(stackId),
+      this.checks.find(stackId, false),
     ]);
 
     if (stack && check?.reordering) {
@@ -55,7 +55,7 @@ export class StackCheckReactions {
   }
 
   async onReorderingEnded(stackId: ChangeStackId): Promise<void> {
-    const check = await this.checks.find(stackId);
+    const check = await this.checks.find(stackId, false);
 
     if (check?.reordering) {
       await this.checks.save(check.keptLayers());

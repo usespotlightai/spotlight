@@ -2,7 +2,9 @@ import { ProblemException } from '@platform/http/resources/problem.exception';
 import type {
   SearchAgentAsked,
   SearchBudgetAsked,
+  SearchObjectiveAsked,
 } from '@replays/application/commands/start-search.command';
+import { isSearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -84,6 +86,7 @@ const optionalTextAt = (
 export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
   const budget = fieldsOf(fieldsOf(body).budget);
   const concurrency = budget.concurrency;
+  const repeats = budget.repeats;
 
   return {
     iterations: countAt(
@@ -104,6 +107,14 @@ export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
             budget,
             ['budget', 'concurrency'],
             'is how many replay runs the search runs at once, as a number',
+          ),
+    repeats:
+      repeats === undefined || repeats === null
+        ? null
+        : countAt(
+            budget,
+            ['budget', 'repeats'],
+            'is how many times each replay replays each run, as a number',
           ),
   };
 };
@@ -131,6 +142,50 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
       'names the agent’s effort, or is left out',
     ),
   };
+};
+
+export const objectiveIn = (body: unknown): SearchObjectiveAsked => {
+  const held = fieldsOf(body).objective;
+
+  if (held === undefined || held === null) {
+    return null;
+  }
+
+  return isSearchObjective(held)
+    ? held
+    : refusedAt(['objective'], 'is success or cost, or is left out');
+};
+
+export const strongerModelIn = (
+  body: unknown,
+): { readonly model: string | null; readonly effort: string | null } => {
+  const held = fieldsOf(body);
+
+  return {
+    model: optionalTextAt(
+      held,
+      ['model'],
+      'names the stronger model to replay the set under, or is left out',
+    ),
+    effort: optionalTextAt(
+      held,
+      ['effort'],
+      'names the higher effort to replay the set at, or is left out',
+    ),
+  };
+};
+
+export const repeatsIn = (body: unknown): number => {
+  const held = fieldsOf(body);
+  const repeats = held.repeats;
+
+  return repeats === undefined || repeats === null
+    ? 1
+    : countAt(
+        held,
+        ['repeats'],
+        'is how many times the replay replays each run, as a number',
+      );
 };
 
 export const referenceIn = (

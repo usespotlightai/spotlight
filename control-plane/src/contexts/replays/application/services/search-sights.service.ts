@@ -34,6 +34,7 @@ const runsOf = (
           {
             runId: entry.run.value,
             original: entry.original.value,
+            repeat: entry.repeat,
             succeeded: entry.succeeded,
             reasons: entry.reasons.map(reasonOf),
             verdict: entry.verdict

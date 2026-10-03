@@ -33,6 +33,28 @@ const setOf = (tasks: number, over: Partial<ReplaySet> = {}): ReplaySet => ({
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: Array.from({ length: tasks + 1 }, (_, place) => ({
     runId: `run_${place}`,
     taskId: `task_${Math.min(place, tasks - 1)}`,
@@ -42,6 +64,8 @@ const setOf = (tasks: number, over: Partial<ReplaySet> = {}): ReplaySet => ({
     addedAt: '2026-10-01T09:00:00.000Z',
     refusal: null,
     reason: null,
+    outcome: 'other',
+    origin: 'person',
   })),
   ...over,
 });
@@ -58,12 +82,19 @@ const candidate = (over: Partial<SearchCandidate>): SearchCandidate => ({
   replayState: 'finished',
   heldOutReplayId: null,
   heldOutReplayState: null,
+  searchInterval: null,
+  heldOutInterval: null,
+  searchedGain: null,
+  heldOutGain: null,
+  searchedPairs: null,
+  heldOutPairs: null,
   searchScore: 0.5,
   searchScored: 4,
   heldOutScore: null,
   costPerRun: 0.5,
   spent: { amount: 2, currency: 'USD' },
   onFrontier: false,
+  onlyOnSeenTasks: null,
   pullRequest: null,
   ...over,
 });
@@ -72,6 +103,7 @@ const INPUTS = {
   iterations: '3',
   perIteration: '2',
   concurrency: '4',
+  repeats: '1',
   amount: '20',
   currency: 'USD',
 };
@@ -120,6 +152,7 @@ describe('search', () => {
       iterations: 3,
       perIteration: 2,
       concurrency: 4,
+      repeats: 1,
       ceiling: { amount: 20, currency: 'USD' },
     });
 
@@ -127,12 +160,14 @@ describe('search', () => {
       ...INPUTS,
       iterations: '11',
       perIteration: '1.5',
+      repeats: '6',
       amount: '',
     });
 
     expect(budget).toBeNull();
     expect(problems.iterations).toBe('Give a whole number from 1 to 10.');
     expect(problems.perIteration).toBe('Give a whole number from 1 to 5.');
+    expect(problems.repeats).toBe('Give a whole number from 1 to 5.');
     expect(problems.ceiling).toBe('Give a ceiling above nothing.');
     expect(problems.concurrency).toBeUndefined();
   });
@@ -143,6 +178,7 @@ describe('search', () => {
     expect(fieldOf('agent.effort')).toBe('agent');
     expect(fieldOf('budget.ceiling.currency')).toBe('ceiling');
     expect(fieldOf('budget.perIteration')).toBe('perIteration');
+    expect(fieldOf('budget.repeats')).toBe('repeats');
     expect(fieldOf('setId')).toBe('set');
     expect(fieldOf('elsewhere')).toBeNull();
 
@@ -186,7 +222,6 @@ describe('search', () => {
         candidate({ heldOutReplayId: 'h', heldOutReplayState: 'running' }),
       ),
     ).toBe('Replaying');
-    expect(heldOutShown(candidate({ heldOutScore: 0.75 }))).toBe('75%');
     expect(heldOutShown(candidate({ seed: true }))).toBe('–');
   });
 

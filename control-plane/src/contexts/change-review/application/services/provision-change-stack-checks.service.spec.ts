@@ -60,7 +60,7 @@ const provisioning = (
     awaitingProvision,
     check: (stack: string) => held.get(stack) as StackCheck,
     service: new ProvisionChangeStackChecks({
-      find,
+      open: find,
       save,
       awaitingProvision,
       withLapsedReservations,

@@ -1,4 +1,5 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import { FrontierChart } from '@/components/features/searches/search/FrontierChart';
 import { FrontierTable } from '@/components/features/searches/search/FrontierTable';
 import { stateShown } from '@/lib/replay-words';
@@ -7,8 +8,8 @@ import {
   candidatesOf,
   frontierPoints,
   type SearchDetail,
-  scoreShown,
 } from '@/lib/search';
+import { frontierNote, onlyOnSeenTasksCountShown } from '@/lib/search-words';
 
 type SearchFrontierProps = {
   search: SearchDetail;
@@ -21,11 +22,21 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
   return (
     <InsightsCard
       title="Success against cost"
-      description="How often each candidate succeeded on the searched tasks, against what it spent a run. The frontier joins those no other succeeds as often for less; the live config is always on it."
+      description={frontierNote(search.objective)}
       table={
         <FrontierTable candidates={candidatesOf(search)} currency={currency} />
       }
     >
+      {search.onlyOnSeenTasks > 0 && (
+        <p
+          data-slot="only-on-seen-tasks-count"
+          role="note"
+          className="text-amber-700 text-xs leading-5 dark:text-amber-300"
+        >
+          {onlyOnSeenTasksCountShown(search.onlyOnSeenTasks)}
+        </p>
+      )}
+
       {priced.length === 0 ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
           No candidate has a priced score yet. Show the table for what there is.
@@ -37,12 +48,18 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
       {unpriced.length > 0 && (
         <p data-slot="unpriced" className="text-muted-foreground text-xs">
           Not priced, so not shown:{' '}
-          {unpriced
-            .map(
-              (each) =>
-                `${candidateName(each)} (${scoreShown(each.searchScore)})`,
-            )
-            .join(', ')}
+          {unpriced.map((each, place) => (
+            <span key={each.candidateId}>
+              {place > 0 && ', '}
+              {candidateName(each)} (
+              <RateWithInterval
+                rate={each.searchScore}
+                interval={each.searchInterval}
+                className="text-muted-foreground"
+              />
+              )
+            </span>
+          ))}
           .
         </p>
       )}

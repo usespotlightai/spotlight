@@ -330,6 +330,7 @@ describe('ReadRunnerHistoryHandler', () => {
             {
               runId: 'run_c',
               original: 'run_9',
+              repeat: 1,
               succeeded: false,
               reasons: ['check-failed'],
               verdict: 'fail',
@@ -337,6 +338,7 @@ describe('ReadRunnerHistoryHandler', () => {
             {
               runId: 'run_hidden_c',
               original: 'run_2',
+              repeat: 1,
               succeeded: true,
               reasons: [],
               verdict: null,
@@ -418,6 +420,7 @@ describe('ReadRunnerHistoryHandler', () => {
       expect(candidate?.runs[0]).toMatchObject({
         runId: 'run_c',
         original: 'run_9',
+        repeat: 1,
         taskId: 'task_of_run_9',
         succeeded: false,
         reasons: ['check-failed'],

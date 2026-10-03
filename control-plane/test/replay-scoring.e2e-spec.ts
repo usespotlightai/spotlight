@@ -237,6 +237,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title: `Drain queue ${runId.slice(0, 4)}`,
@@ -311,7 +312,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
           RunId.of(runId),
           team.workspaceId,
           TaskId.of(taskId),
-        ).actedOn(NextAct.of('approved', at)),
+        ).actedOn(NextAct.of('closed', at)),
       );
   }
 
@@ -445,7 +446,13 @@ beforeAll(async () => {
       agentPrompt: 'Build it.',
       diffs: true,
       check: 'npm test',
-      judge: { rubric: RUBRIC, sample: 0.1, trust: 0.6 },
+      judge: {
+        rubric: RUBRIC,
+        claims: [],
+        passShare: 1,
+        sample: 0.1,
+        trust: 0.6,
+      },
     },
     {
       id: SHIP,
@@ -691,8 +698,8 @@ describe('a replay at a station that checks and judges', () => {
             unpriced: number;
           } | null;
           reasons: { code: string; detail: string | null; steps: number[] }[];
-        };
-        baseline: { result: string } | null;
+        }[];
+        baseline: { result: string }[];
       }[];
     };
 
@@ -708,8 +715,8 @@ describe('a replay at a station that checks and judges', () => {
         each.originalRunId,
         each.regressed,
         each.scoreDelta,
-        each.candidate.result,
-        each.baseline?.result,
+        each.candidate[0]?.result,
+        each.baseline[0]?.result,
       ]),
     ).toEqual([
       [second.runId, true, -2, 'failed', 'succeeded'],
@@ -717,29 +724,29 @@ describe('a replay at a station that checks and judges', () => {
     ]);
 
     const [regressed, kept] = detail.comparison;
-    expect(kept?.candidate.draftingSpent).toEqual({
+    expect(kept?.candidate[0]?.draftingSpent).toEqual({
       spends: [{ amount: 0.02, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(kept?.candidate.judgingSpent).toEqual({
+    expect(kept?.candidate[0]?.judgingSpent).toEqual({
       spends: [{ amount: 0.01, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(regressed?.candidate.checks).toEqual({
+    expect(regressed?.candidate[0]?.checks).toEqual({
       state: 'failed',
       failedAt: ['the whole change'],
       why: null,
     });
-    expect(regressed?.candidate.judge).toMatchObject({
+    expect(regressed?.candidate[0]?.judge).toMatchObject({
       score: 2,
       passed: false,
       referenced: false,
     });
-    expect(regressed?.candidate.reasons.map((each) => each.code)).toEqual([
+    expect(regressed?.candidate[0]?.reasons.map((each) => each.code)).toEqual([
       'check-failed',
       'judge-failed',
     ]);
-    expect(kept?.candidate.judge).toMatchObject({
+    expect(kept?.candidate[0]?.judge).toMatchObject({
       score: 5,
       passed: true,
       referenced: true,
@@ -808,6 +815,7 @@ describe('a task run’s change', () => {
 
     await db.insert(schema.task).values({
       id: taskId,
+      openedFrom: 'person',
       workspaceId: team.workspaceId.value,
       stationId: BUILD,
       title: 'Retry uploads',

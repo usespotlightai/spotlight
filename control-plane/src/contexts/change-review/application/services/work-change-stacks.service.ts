@@ -63,7 +63,7 @@ export class WorkChangeStacks implements OwedWorkPort {
       return this.drafting.drafted(stack);
     }
 
-    const check = await this.checks.find(stack.id);
+    const check = await this.checks.find(stack.id, false);
 
     return check
       ? this.reordering.reordered(stack, check)

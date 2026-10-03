@@ -91,6 +91,9 @@ import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
+import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
+import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
@@ -129,6 +132,7 @@ import { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -231,6 +235,7 @@ export const WORK_EVENT_TYPES = [
   TaskDescription,
   TaskNoteBody,
   TaskRank,
+  TaskOrigin,
   TaskRevision,
   TaskTitle,
   ToolCall,
@@ -243,6 +248,9 @@ export const WORK_EVENT_TYPES = [
   WayOut,
   WorkspaceArchiveId,
   TaskAsideId,
+  NoticeId,
+  NoticeLink,
+  NoticeWording,
   AsideAbout,
   AsideRead,
   BriefedMemories,

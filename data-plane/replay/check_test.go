@@ -200,7 +200,7 @@ func (s *checkServer) serve() *httptest.Server {
 func checkAnswer(verdict string) string {
 	regressions := `[]`
 	if verdict == "failed" {
-		regressions = `[{"taskId":"task_2","title":"Drain the queue","candidate":"failed","baseline":"succeeded","scoreDelta":null,"reasons":[{"code":"check-failed","detail":"npm test"}]}]`
+		regressions = `[{"taskId":"task_2","title":"Drain the queue","candidate":["failed"],"baseline":["succeeded"],"scoreDelta":null,"reasons":[{"code":"check-failed","detail":"npm test"}]}]`
 	}
 	undecided := `null`
 	if verdict == "undecided" {
@@ -209,9 +209,10 @@ func checkAnswer(verdict string) string {
 
 	return `{"id":"check_1","setName":"Queue fixes","replayId":"replay_1","keptLive":["check","judge"],
   "verdict":"` + verdict + `","undecidedBecause":` + undecided + `,"tasks":3,"compared":3,
-  "threshold":{"mostRegressions":0,"ceiling":{"amount":10,"currency":"USD"}},
-  "candidate":{"state":"finished","entries":3,"scored":3,"succeeded":2,"successRate":0.6667,"spent":{"amount":1.5,"currency":"USD"}},
-  "baseline":{"state":"finished","entries":3,"scored":3,"succeeded":3,"successRate":1,"spent":{"amount":1.2,"currency":"USD"}},
+  "threshold":{"mostRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
+  "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"verdict":"within-noise","minGain":0.05,"tasks":3},
+  "candidate":{"state":"finished","entries":9,"scored":9,"succeeded":6,"successRate":0.6667,"interval":{"rate":0.6667,"low":0.3333,"high":1},"tasksScored":3,"spent":{"amount":1.5,"currency":"USD"}},
+  "baseline":{"state":"finished","entries":3,"scored":3,"succeeded":3,"successRate":1,"interval":{"rate":1,"low":1,"high":1},"tasksScored":3,"spent":{"amount":1.2,"currency":"USD"}},
   "regressions":` + regressions + `,"replayUrl":"https://app.example.test/w/acme/team/` + coreTeam + `/lines/` + deliveryLine + `/stations/st_build/replays/replay_1"}`
 }
 
@@ -258,8 +259,8 @@ func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
 	if reference := body["reference"].(map[string]any); reference["commit"] != "4F7C2A9E" || reference["pullRequest"] != float64(42) {
 		t.Fatalf("reference = %v", reference)
 	}
-	if len(body) != 4 {
-		t.Fatalf("body carries more than the station and its reference: %v", body)
+	if len(body) != 5 || body["repeats"] != float64(1) {
+		t.Fatalf("body carries more than the station, its reference and its repeats: %v", body)
 	}
 	if !strings.HasPrefix(s.keys[0], "replay-check-") || s.tokens[0] != "Bearer "+token {
 		t.Fatalf("key %q, token %q", s.keys[0], s.tokens[0])
@@ -283,6 +284,42 @@ func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
 	written, _ := os.ReadFile(summary)
 	if !strings.Contains(string(written), "| core/delivery/build | passed |") {
 		t.Fatalf("summary:\n%s", written)
+	}
+}
+
+func TestCheckReplaysEachRunAsOftenAsAskedAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
+	s := &checkServer{t: t, verdict: []string{"passed"}}
+	server := s.serve()
+	defer server.Close()
+
+	summary := filepath.Join(t.TempDir(), "summary.md")
+	env := map[string]string{urlVar: server.URL, tokenVar: token, "GITHUB_STEP_SUMMARY": summary}
+	got := runCheck(t, env, withoutUnknowns(t, planFixture(t)), "--repeats", "3")
+	runCheck(t, env, withoutUnknowns(t, planFixture(t)))
+
+	if got.code != 0 {
+		t.Fatalf("code = %d, out:\n%s%s", got.code, got.out, got.errOut)
+	}
+	if s.posted[0]["repeats"] != float64(3) || s.keys[0] == s.keys[1] {
+		t.Fatalf("posted %v with keys %v, want 3 repeats under a key of their own", s.posted[0], s.keys)
+	}
+	for _, want := range []string{
+		"each run replayed 3 times",
+		"candidate 6 of 9 succeeded, 67% (33–100%) over 3 tasks, baseline 3 of 3 succeeded, 100% (100–100%) over 3 tasks",
+		"Within noise of the baseline: -33 points (-100 to +0) over 3 tasks, not clearly past the 5-point gain that counts as real",
+	} {
+		if !strings.Contains(got.out, want) {
+			t.Errorf("output lacks %q:\n%s", want, got.out)
+		}
+	}
+
+	written, _ := os.ReadFile(summary)
+	if !strings.Contains(string(written), "| Gain |") || !strings.Contains(string(written), "-33 points (-100 to +0), within noise") {
+		t.Fatalf("summary:\n%s", written)
+	}
+
+	if bad := runCheck(t, env, planFixture(t), "--repeats", "6"); bad.code != refusedExit || !strings.Contains(bad.errOut, "--repeats") {
+		t.Fatalf("--repeats 6 answered %d: %s", bad.code, bad.errOut)
 	}
 }
 
@@ -639,7 +676,7 @@ func TestStepSummaryEscapesMarkdown(t *testing.T) {
 		Station: "core/delivery/build",
 		Status:  checkFailed,
 		Check: &checkRead{Regressions: []checkRegression{{
-			TaskID: "task_1", Title: &title, Candidate: "failed",
+			TaskID: "task_1", Title: &title, Candidate: []string{"failed"},
 		}}},
 	}}}
 

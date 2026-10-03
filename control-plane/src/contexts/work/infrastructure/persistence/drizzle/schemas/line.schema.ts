@@ -15,6 +15,7 @@ export interface ReplayCheckRow {
   readonly mostRegressions: number;
   readonly ceiling: number;
   readonly currency: string;
+  readonly minGain: number;
 }
 
 export interface ConfigSourceRow {
@@ -23,7 +24,9 @@ export interface ConfigSourceRow {
 }
 
 export interface StationJudgeRow {
-  readonly rubric: string;
+  readonly rubric: string | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly sample: number;
   readonly trust: number;
 }

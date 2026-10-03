@@ -1,18 +1,33 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+  type ApiPropertyOptions,
+  getSchemaPath,
+} from '@nestjs/swagger';
+import type { SearchCauseRecorded } from '@replays/application/dto/replay-outcomes.dto';
 import type {
+  OnlyOnSeenTasksDto,
+  ReflectedTaskDto,
   SearchAgentDto,
   SearchAllotmentsDto,
   SearchBestDto,
   SearchBudgetDto,
   SearchCandidateDto,
+  SearchCauseDto,
   SearchDetailDto,
   SearchEstimateDto,
   SearchIterationDto,
+  SearchReflectionDto,
   SearchRunsEstimateDto,
   SearchSplitDto,
   SearchSplitEntryDto,
   SearchSummaryDto,
+  SearchWarningDto,
 } from '@replays/application/dto/searches.dto';
+import { ONLY_ON_SEEN_TASKS } from '@replays/domain/services/overfit';
+import { REFLECTION_OUTCOMES } from '@replays/domain/value-objects/reflection-outcome';
+import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import {
   MOST_CONCURRENCY,
@@ -20,13 +35,26 @@ import {
   MOST_PER_ITERATION,
   SEARCH_CONCURRENCY,
 } from '@replays/domain/value-objects/search-budget.vo';
+import {
+  MOST_CAUSE_TEXT,
+  SEARCH_CAUSES,
+} from '@replays/domain/value-objects/search-cause.vo';
 import { SEARCH_ENDINGS } from '@replays/domain/value-objects/search-ending';
-import { SEARCH_ITERATION_STATES } from '@replays/domain/value-objects/search-iteration.vo';
+import {
+  SEARCH_ITERATION_KINDS,
+  SEARCH_ITERATION_STATES,
+} from '@replays/domain/value-objects/search-iteration.vo';
+import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { CandidatePullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
 import { StationChangeResponseDto } from '@replays/presentation/http/dto/replay-candidate-resource.response.dto';
 import {
+  GainReadingResponseDto,
+  gainResponse,
+  intervalResponse,
   ModelSpentResponseDto,
+  PairTallyResponseDto,
+  RateIntervalResponseDto,
   SpendResponseDto,
   StartReplayCeilingRequestDto,
 } from '@replays/presentation/http/dto/replays.response.dto';
@@ -34,6 +62,13 @@ import {
 const SEARCH_CANDIDATE_SLUG =
   'lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters';
 
+const ONLY_ON_SEEN_TASKS_PROPERTY: ApiPropertyOptions = {
+  enum: [...ONLY_ON_SEEN_TASKS, null],
+  nullable: true,
+  type: String,
+  description:
+    'marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished',
+};
 export class SearchAgentRequestDto {
   @ApiProperty({
     example: 'claude-code',
@@ -88,7 +123,226 @@ export class SearchBudgetRequestDto {
     description: `How many of its replay runs it runs at once, beside the team’s own; ${SEARCH_CONCURRENCY} unless told`,
   })
   readonly concurrency?: number;
+
+  @ApiPropertyOptional({
+    example: 1,
+    minimum: 1,
+    maximum: MOST_REPEATS,
+    description:
+      'How many times each of its replays replays each run: the seed, every candidate and the held-out replays; 1 unless told. Runs and cost grow with it',
+  })
+  readonly repeats?: number;
 }
+
+class NoiseUnmeasuredWarningResponseDto {
+  @ApiProperty({
+    enum: ['noise-unmeasured'],
+    description:
+      'No finished replay of the live config ran the set more than once, so nobody knows how much its success moves by chance',
+  })
+  readonly kind = 'noise-unmeasured' as const;
+}
+
+class NoisyWarningResponseDto {
+  @ApiProperty({
+    enum: ['noisy'],
+    description:
+      'The set’s success moves more between copies than the line’s min_gain, so a single copy cannot tell a real gain from noise',
+  })
+  readonly kind = 'noisy' as const;
+
+  @ApiProperty({
+    example: 0.12,
+    description: 'How far the set’s success moved between copies',
+  })
+  readonly spread: number;
+
+  @ApiProperty({ example: 0.05 })
+  readonly minGain: number;
+
+  @ApiProperty({
+    example: 6,
+    description:
+      'The repeats it would take to bring the noise under min_gain, however many; more than 5 means no search of this set can tell such a gain from noise',
+  })
+  readonly neededRepeats: number;
+
+  @ApiProperty({
+    example: 5,
+    description: 'The repeats to ask for: the needed ones, at most 5',
+  })
+  readonly suggestedRepeats: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'noisy' }>) {
+    this.spread = warning.spread;
+    this.minGain = warning.minGain;
+    this.neededRepeats = warning.neededRepeats;
+    this.suggestedRepeats = warning.suggestedRepeats;
+  }
+}
+
+class SaturatedWarningResponseDto {
+  @ApiProperty({
+    enum: ['saturated'],
+    description:
+      'The live config passes more than 95% of the set already, so a search for more success has little room; a search for the same success at less cost does',
+  })
+  readonly kind = 'saturated' as const;
+
+  @ApiProperty({
+    example: 0.97,
+    description: 'The live config’s success on the set',
+  })
+  readonly rate: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'saturated' }>) {
+    this.rate = warning.rate;
+  }
+}
+
+class JudgeUnstableWarningResponseDto {
+  @ApiProperty({
+    enum: ['judge-unstable'],
+    description:
+      'The judge, asked twice of the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance',
+  })
+  readonly kind = 'judge-unstable' as const;
+
+  @ApiProperty({
+    example: 0.7,
+    description: 'The share of changes it passed or failed alike both times',
+  })
+  readonly agreement: number;
+
+  @ApiProperty({ example: 12, description: 'How many changes it judged twice' })
+  readonly compared: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'judge-unstable' }>) {
+    this.agreement = warning.agreement;
+    this.compared = warning.compared;
+  }
+}
+
+class FlakyChecksWarningResponseDto {
+  @ApiProperty({
+    enum: ['flaky-checks'],
+    description:
+      'The station’s check, run twice on the same change, passed one time and failed the other on some tasks',
+  })
+  readonly kind = 'flaky-checks' as const;
+
+  @ApiProperty({ example: 2, description: 'How many changes it flipped on' })
+  readonly flaky: number;
+
+  @ApiProperty({
+    example: 12,
+    description: 'How many changes it checked twice',
+  })
+  readonly rechecked: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'flaky-checks' }>) {
+    this.flaky = warning.flaky;
+    this.rechecked = warning.rechecked;
+  }
+}
+
+class SanityFailedWarningResponseDto {
+  @ApiProperty({
+    enum: ['sanity-failed'],
+    description:
+      'A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off',
+  })
+  readonly kind = 'sanity-failed' as const;
+
+  @ApiProperty({
+    example: -0.02,
+    description: 'The stronger config’s gain in success over the live one',
+  })
+  readonly gain: number;
+
+  @ApiProperty({ example: -0.15 })
+  readonly low: number;
+
+  @ApiProperty({ example: 0.1 })
+  readonly high: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'How many tasks the stronger config did worse on',
+  })
+  readonly worseTasks: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'sanity-failed' }>) {
+    this.gain = warning.gain;
+    this.low = warning.low;
+    this.high = warning.high;
+    this.worseTasks = warning.worseTasks;
+  }
+}
+
+type SearchWarningResponseDto =
+  | NoiseUnmeasuredWarningResponseDto
+  | NoisyWarningResponseDto
+  | SaturatedWarningResponseDto
+  | JudgeUnstableWarningResponseDto
+  | FlakyChecksWarningResponseDto
+  | SanityFailedWarningResponseDto;
+
+const warningResponse = (
+  warning: SearchWarningDto,
+): SearchWarningResponseDto => {
+  switch (warning.kind) {
+    case 'noisy':
+      return new NoisyWarningResponseDto(warning);
+    case 'saturated':
+      return new SaturatedWarningResponseDto(warning);
+    case 'judge-unstable':
+      return new JudgeUnstableWarningResponseDto(warning);
+    case 'flaky-checks':
+      return new FlakyChecksWarningResponseDto(warning);
+    case 'sanity-failed':
+      return new SanityFailedWarningResponseDto(warning);
+    default:
+      return new NoiseUnmeasuredWarningResponseDto();
+  }
+};
+
+const WARNINGS_SCHEMA: ApiPropertyOptions = {
+  type: 'array',
+  items: {
+    oneOf: [
+      { $ref: getSchemaPath(NoiseUnmeasuredWarningResponseDto) },
+      { $ref: getSchemaPath(NoisyWarningResponseDto) },
+      { $ref: getSchemaPath(SaturatedWarningResponseDto) },
+      { $ref: getSchemaPath(JudgeUnstableWarningResponseDto) },
+      { $ref: getSchemaPath(FlakyChecksWarningResponseDto) },
+      { $ref: getSchemaPath(SanityFailedWarningResponseDto) },
+    ],
+    discriminator: {
+      propertyName: 'kind',
+      mapping: {
+        'noise-unmeasured': getSchemaPath(NoiseUnmeasuredWarningResponseDto),
+        noisy: getSchemaPath(NoisyWarningResponseDto),
+        saturated: getSchemaPath(SaturatedWarningResponseDto),
+        'judge-unstable': getSchemaPath(JudgeUnstableWarningResponseDto),
+        'flaky-checks': getSchemaPath(FlakyChecksWarningResponseDto),
+        'sanity-failed': getSchemaPath(SanityFailedWarningResponseDto),
+      },
+    },
+  },
+};
+
+const WARNING_MODELS = [
+  NoiseUnmeasuredWarningResponseDto,
+  NoisyWarningResponseDto,
+  SaturatedWarningResponseDto,
+  JudgeUnstableWarningResponseDto,
+  FlakyChecksWarningResponseDto,
+  SanityFailedWarningResponseDto,
+];
+
+const OBJECTIVE_SAYS =
+  'success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs';
 
 export class EstimateSearchRequestDto {
   @ApiProperty({ description: 'The replay set at the station to search on' })
@@ -96,6 +350,12 @@ export class EstimateSearchRequestDto {
 
   @ApiProperty({ type: SearchBudgetRequestDto })
   readonly budget!: SearchBudgetRequestDto;
+
+  @ApiPropertyOptional({
+    enum: SEARCH_OBJECTIVES,
+    description: `What the search looks for: ${OBJECTIVE_SAYS}. Left out, cost on a set the live config saturates, else success`,
+  })
+  readonly objective?: 'success' | 'cost';
 }
 
 export class StartSearchRequestDto extends EstimateSearchRequestDto {
@@ -103,6 +363,7 @@ export class StartSearchRequestDto extends EstimateSearchRequestDto {
   readonly agent!: SearchAgentRequestDto;
 }
 
+@ApiExtraModels(...WARNING_MODELS)
 export class SearchStartedResponseDto {
   @ApiProperty()
   readonly id: string;
@@ -113,9 +374,29 @@ export class SearchStartedResponseDto {
   })
   readonly seedReplayId: string;
 
-  constructor(started: { readonly id: string; readonly seedReplayId: string }) {
+  @ApiProperty({
+    enum: SEARCH_OBJECTIVES,
+    description: `What the search looks for: ${OBJECTIVE_SAYS}`,
+  })
+  readonly objective: 'success' | 'cost';
+
+  @ApiProperty({
+    ...WARNINGS_SCHEMA,
+    description:
+      'What makes its results hard to trust; the search starts all the same',
+  })
+  readonly warnings: SearchWarningResponseDto[];
+
+  constructor(started: {
+    readonly id: string;
+    readonly seedReplayId: string;
+    readonly objective: 'success' | 'cost';
+    readonly warnings: readonly SearchWarningDto[];
+  }) {
     this.id = started.id;
     this.seedReplayId = started.seedReplayId;
+    this.objective = started.objective;
+    this.warnings = started.warnings.map(warningResponse);
   }
 }
 
@@ -149,11 +430,18 @@ export class SearchBudgetResponseDto {
   @ApiProperty({ example: SEARCH_CONCURRENCY })
   readonly concurrency: number;
 
+  @ApiProperty({
+    example: 1,
+    description: 'How many times each of its replays replays each run',
+  })
+  readonly repeats: number;
+
   constructor(budget: SearchBudgetDto) {
     this.iterations = budget.iterations;
     this.perIteration = budget.perIteration;
     this.ceiling = new SpendResponseDto(budget.ceiling);
     this.concurrency = budget.concurrency;
+    this.repeats = budget.repeats;
   }
 }
 
@@ -177,12 +465,26 @@ export class SearchBestResponseDto {
   readonly searchScore: number | null;
 
   @ApiProperty({
+    type: RateIntervalResponseDto,
+    nullable: true,
+    description: 'Its success rate on the searched tasks with its 95% interval',
+  })
+  readonly searchInterval: RateIntervalResponseDto | null;
+
+  @ApiProperty({
     nullable: true,
     type: Number,
     description:
       'Its success rate on the held-out tasks, 0 to 1, once they are replayed',
   })
   readonly heldOutScore: number | null;
+
+  @ApiProperty({
+    type: RateIntervalResponseDto,
+    nullable: true,
+    description: 'Its held-out success rate with its 95% interval',
+  })
+  readonly heldOutInterval: RateIntervalResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -192,13 +494,19 @@ export class SearchBestResponseDto {
   })
   readonly costPerRun: number | null;
 
+  @ApiProperty(ONLY_ON_SEEN_TASKS_PROPERTY)
+  readonly onlyOnSeenTasks: OnlyOnSeenTasksDto | null;
+
   constructor(best: SearchBestDto) {
     this.candidateId = best.candidateId;
     this.name = best.name;
     this.seed = best.seed;
     this.searchScore = best.searchScore;
+    this.searchInterval = intervalResponse(best.searchInterval);
     this.heldOutScore = best.heldOutScore;
+    this.heldOutInterval = intervalResponse(best.heldOutInterval);
     this.costPerRun = best.costPerRun;
+    this.onlyOnSeenTasks = best.onlyOnSeenTasks;
   }
 }
 
@@ -227,7 +535,7 @@ export class SearchResponseDto {
     enum: [...SEARCH_ENDINGS, null],
     type: String,
     description:
-      'Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config',
+      'Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config',
   })
   readonly ending: string | null;
 
@@ -236,6 +544,12 @@ export class SearchResponseDto {
 
   @ApiProperty({ type: SearchBudgetResponseDto })
   readonly budget: SearchBudgetResponseDto;
+
+  @ApiProperty({
+    enum: SEARCH_OBJECTIVES,
+    description: `What it looks for, which orders its frontier and its best: ${OBJECTIVE_SAYS}`,
+  })
+  readonly objective: 'success' | 'cost';
 
   @ApiProperty({
     type: SpendResponseDto,
@@ -254,7 +568,7 @@ export class SearchResponseDto {
     nullable: true,
     type: SearchBestResponseDto,
     description:
-      'The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it',
+      'The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it',
   })
   readonly best: SearchBestResponseDto | null;
 
@@ -273,6 +587,7 @@ export class SearchResponseDto {
     this.ending = search.ending;
     this.agent = new SearchAgentResponseDto(search.agent);
     this.budget = new SearchBudgetResponseDto(search.budget);
+    this.objective = search.objective;
     this.spent = new SpendResponseDto(search.spent);
     this.iterationsRun = search.iterationsRun;
     this.proposed = search.proposed;
@@ -329,9 +644,118 @@ export class SearchSplitResponseDto {
   }
 }
 
+export class ReflectedTaskResponseDto {
+  @ApiProperty()
+  readonly taskId: string;
+
+  @ApiProperty({ description: 'The run the set holds for the task' })
+  readonly originalRunId: string;
+
+  @ApiProperty({
+    description:
+      'The replay run that failed it, of the best config so far, to link to',
+  })
+  readonly replayRunId: string;
+
+  constructor(task: ReflectedTaskDto) {
+    this.taskId = task.taskId;
+    this.originalRunId = task.originalRunId;
+    this.replayRunId = task.replayRunId;
+  }
+}
+
+export class SearchCauseResponseDto extends ReflectedTaskResponseDto {
+  @ApiProperty({
+    enum: SEARCH_CAUSES,
+    description:
+      'config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work',
+  })
+  readonly cause: string;
+
+  @ApiProperty({ description: 'What in the runs shows the cause' })
+  readonly evidence: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'What to change, as the agent suggests it',
+  })
+  readonly suggestion: string | null;
+
+  @ApiProperty()
+  readonly recordedAt: string;
+
+  constructor(cause: SearchCauseDto) {
+    super(cause);
+    this.cause = cause.cause;
+    this.evidence = cause.evidence;
+    this.suggestion = cause.suggestion;
+    this.recordedAt = cause.recordedAt;
+  }
+}
+
+export class SearchReflectionResponseDto {
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'The candidate whose failures it looked into: the best config before it, the seed’s id when nothing beat the live config; none until it looked',
+  })
+  readonly standing: string | null;
+
+  @ApiProperty({
+    type: ReflectedTaskResponseDto,
+    isArray: true,
+    description:
+      'The searched tasks the best config so far still failed, which it looked into; never a held-out one',
+  })
+  readonly tasks: ReflectedTaskResponseDto[];
+
+  @ApiProperty({
+    type: SearchCauseResponseDto,
+    isArray: true,
+    description: 'One cause for each task it recorded one for',
+  })
+  readonly causes: SearchCauseResponseDto[];
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...REFLECTION_OUTCOMES, null],
+    type: String,
+    description:
+      'How it ended, once it did: went-on when it found a cause the config can fix and the search carried on; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; out-of-budget when it found a config cause but the search had no budget left to try it',
+  })
+  readonly outcome: string | null;
+
+  @ApiProperty({
+    description:
+      'True when the search stopped searching once it ended, for whatever outcome other than went-on',
+  })
+  readonly endedSearch: boolean;
+
+  constructor(reflection: SearchReflectionDto) {
+    this.standing = reflection.standing;
+    this.outcome = reflection.outcome;
+    this.tasks = reflection.tasks.map(
+      (each) => new ReflectedTaskResponseDto(each),
+    );
+    this.causes = reflection.causes.map(
+      (each) => new SearchCauseResponseDto(each),
+    );
+    this.endedSearch = reflection.endedSearch;
+  }
+}
+
 export class SearchIterationResponseDto {
   @ApiProperty({ example: 1 })
   readonly number: number;
+
+  @ApiProperty({
+    enum: SEARCH_ITERATION_KINDS,
+    description:
+      'propose when its agent proposes candidates; reflect when, after two propose iterations in a row found nothing better than the best before them, its agent looks into why the remaining tasks fail',
+  })
+  readonly kind: string;
 
   @ApiProperty({ description: 'The agent run of this iteration' })
   readonly runId: string;
@@ -363,14 +787,25 @@ export class SearchIterationResponseDto {
   })
   readonly agentSpent: ModelSpentResponseDto | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: SearchReflectionResponseDto,
+    description: 'What a reflect iteration looked into and found',
+  })
+  readonly reflection: SearchReflectionResponseDto | null;
+
   constructor(iteration: SearchIterationDto) {
     this.number = iteration.number;
+    this.kind = iteration.kind;
     this.runId = iteration.runId;
     this.state = iteration.state;
     this.attempts = iteration.attempts;
     this.proposed = [...iteration.proposed];
     this.agentSpent = iteration.agentSpent
       ? new ModelSpentResponseDto(iteration.agentSpent)
+      : null;
+    this.reflection = iteration.reflection
+      ? new SearchReflectionResponseDto(iteration.reflection)
       : null;
   }
 }
@@ -439,7 +874,17 @@ export class SearchCandidateResponseDto {
   })
   readonly searchScore: number | null;
 
-  @ApiProperty({ description: 'How many searched tasks it was scored on' })
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'Its success rate on the searched tasks with its 95% interval',
+  })
+  readonly searchInterval: RateIntervalResponseDto | null;
+
+  @ApiProperty({
+    description:
+      'How many searched replay runs, copies included, it was scored on',
+  })
   readonly searchScored: number;
 
   @ApiProperty({
@@ -449,6 +894,45 @@ export class SearchCandidateResponseDto {
       'Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished',
   })
   readonly heldOutScore: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'Its held-out success rate with its 95% interval',
+  })
+  readonly heldOutInterval: RateIntervalResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'Its gain over the seed on the searched tasks, paired task by task, and whether it is within noise; null for the seed',
+  })
+  readonly searchedGain: GainReadingResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'Its gain over the seed on the held-out tasks, once its held-out replay finished; null for the seed',
+  })
+  readonly heldOutGain: GainReadingResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: PairTallyResponseDto,
+    description:
+      'Searched tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed',
+  })
+  readonly searchedPairs: PairTallyResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: PairTallyResponseDto,
+    description:
+      'Held-out tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed or before its held-out replay',
+  })
+  readonly heldOutPairs: PairTallyResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -466,6 +950,9 @@ export class SearchCandidateResponseDto {
       'Whether no other candidate, nor the seed, succeeds as often for less',
   })
   readonly onFrontier: boolean;
+
+  @ApiProperty(ONLY_ON_SEEN_TASKS_PROPERTY)
+  readonly onlyOnSeenTasks: OnlyOnSeenTasksDto | null;
 
   @ApiProperty({
     type: CandidatePullRequestResponseDto,
@@ -490,11 +977,22 @@ export class SearchCandidateResponseDto {
     this.heldOutReplayId = candidate.heldOutReplayId;
     this.heldOutReplayState = candidate.heldOutReplayState;
     this.searchScore = candidate.searchScore;
+    this.searchInterval = intervalResponse(candidate.searchInterval);
     this.searchScored = candidate.searchScored;
     this.heldOutScore = candidate.heldOutScore;
+    this.heldOutInterval = intervalResponse(candidate.heldOutInterval);
+    this.searchedGain = gainResponse(candidate.searchedGain);
+    this.heldOutGain = gainResponse(candidate.heldOutGain);
+    this.searchedPairs = candidate.searchedPairs
+      ? new PairTallyResponseDto(candidate.searchedPairs)
+      : null;
+    this.heldOutPairs = candidate.heldOutPairs
+      ? new PairTallyResponseDto(candidate.heldOutPairs)
+      : null;
     this.costPerRun = candidate.costPerRun;
     this.spent = new SpendResponseDto(candidate.spent);
     this.onFrontier = candidate.onFrontier;
+    this.onlyOnSeenTasks = candidate.onlyOnSeenTasks;
     this.pullRequest = candidate.pullRequest
       ? new CandidatePullRequestResponseDto(candidate.pullRequest)
       : null;
@@ -526,6 +1024,20 @@ export class SearchDetailResponseDto extends SearchResponseDto {
   })
   readonly frontier: string[];
 
+  @ApiProperty({
+    example: 1,
+    description:
+      'How many frontier candidates gained only on the tasks the search could see',
+  })
+  readonly onlyOnSeenTasks: number;
+
+  @ApiProperty({
+    example: 0.05,
+    description:
+      'The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none',
+  })
+  readonly minGain: number;
+
   constructor(search: SearchDetailDto) {
     super(search);
     this.split = new SearchSplitResponseDto(search.split);
@@ -537,6 +1049,8 @@ export class SearchDetailResponseDto extends SearchResponseDto {
       (each) => new SearchCandidateResponseDto(each),
     );
     this.frontier = [...search.frontier];
+    this.onlyOnSeenTasks = search.onlyOnSeenTasks;
+    this.minGain = search.minGain;
   }
 }
 
@@ -604,6 +1118,7 @@ export class SearchAllotmentsResponseDto {
   }
 }
 
+@ApiExtraModels(...WARNING_MODELS)
 export class SearchEstimateResponseDto {
   @ApiProperty({ description: 'Tasks its agent sees' })
   readonly searchedTasks: number;
@@ -636,6 +1151,25 @@ export class SearchEstimateResponseDto {
   })
   readonly estimatedDuration: number | null;
 
+  @ApiProperty({
+    example: 0.05,
+    description: 'The smallest gain its line counts as real',
+  })
+  readonly minGain: number;
+
+  @ApiProperty({
+    enum: SEARCH_OBJECTIVES,
+    description: `What it would look for, as asked or as the set’s health suggests: ${OBJECTIVE_SAYS}`,
+  })
+  readonly objective: 'success' | 'cost';
+
+  @ApiProperty({
+    ...WARNINGS_SCHEMA,
+    description:
+      'What would make its results hard to trust; a search may start all the same',
+  })
+  readonly warnings: SearchWarningResponseDto[];
+
   constructor(estimate: SearchEstimateDto) {
     this.searchedTasks = estimate.searchedTasks;
     this.heldOutTasks = estimate.heldOutTasks;
@@ -645,6 +1179,9 @@ export class SearchEstimateResponseDto {
       estimate.perReplayAllotments,
     );
     this.estimatedDuration = estimate.estimatedDuration;
+    this.minGain = estimate.minGain;
+    this.objective = estimate.objective;
+    this.warnings = estimate.warnings.map(warningResponse);
   }
 }
 
@@ -689,5 +1226,49 @@ export class SearchCandidateProposedResponseDto {
     this.candidateId = proposed.candidateId;
     this.name = proposed.name;
     this.replayId = proposed.replayId;
+  }
+}
+
+export class RecordSearchCauseRequestDto {
+  @ApiProperty({
+    description:
+      'A failing task the reflection’s briefing lists, by its task id',
+  })
+  readonly taskId!: string;
+
+  @ApiProperty({
+    enum: SEARCH_CAUSES,
+    description:
+      'config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work',
+  })
+  readonly cause!: string;
+
+  @ApiProperty({
+    description: `What in the runs shows the cause, in 1 to ${MOST_CAUSE_TEXT} characters`,
+  })
+  readonly evidence!: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: `What a person, or the next iteration, should change, in at most ${MOST_CAUSE_TEXT} characters`,
+  })
+  readonly suggestion?: string | null;
+}
+
+export class SearchCauseRecordedResponseDto {
+  @ApiProperty()
+  readonly taskId: string;
+
+  @ApiProperty({ enum: SEARCH_CAUSES })
+  readonly cause: string;
+
+  @ApiProperty({ description: 'The failing replay run the cause is about' })
+  readonly replayRunId: string;
+
+  constructor(recorded: SearchCauseRecorded) {
+    this.taskId = recorded.taskId;
+    this.cause = recorded.cause;
+    this.replayRunId = recorded.replayRunId;
   }
 }

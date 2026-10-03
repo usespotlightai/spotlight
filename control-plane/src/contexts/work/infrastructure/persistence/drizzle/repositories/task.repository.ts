@@ -36,6 +36,7 @@ import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -150,6 +151,7 @@ const toTask = (
       ? StationId.of(row.raisedAtStationId)
       : null,
     raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
+    openedFrom: TaskOrigin.of(row.openedFrom),
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
     revision: TaskRevision.of(row.revision),
@@ -200,6 +202,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         createdAt: added.createdAt,
         raisedAtStationId: added.raisedAt?.value ?? null,
         raisedById: added.raisedBy?.value ?? null,
+        openedFrom: added.openedFrom.value,
         assigneeId: added.assignee?.value ?? null,
         pullRequest: added.pullRequest?.value ?? null,
         reviewing: added.reviewing,

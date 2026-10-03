@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StartSearchDialog } from '@/components/features/searches/station/StartSearchDialog';
@@ -60,6 +60,28 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: Array.from({ length: tasks }, (_, place) => ({
     runId: `run_${id}_${place}`,
     taskId: `task_${place}`,
@@ -69,12 +91,15 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
     addedAt: '2026-10-01T09:00:00.000Z',
     refusal: null,
     reason: null,
+    outcome: 'other',
+    origin: 'person',
   })),
 });
 
 const SETS = [setOf('small', 'Two tasks', 2), setOf('big', 'Billing work', 7)];
 
 const ESTIMATE: SearchEstimate = {
+  objective: 'success',
   searchedTasks: 5,
   heldOutTasks: 2,
   runs: { seed: 7, searchReplays: 30, heldOutReplays: 8, agent: 3, total: 48 },
@@ -86,12 +111,14 @@ const ESTIMATE: SearchEstimate = {
     agentRun: { amount: 0.66, currency: 'USD' },
   },
   estimatedDuration: 5_400_000,
+  minGain: 0.05,
+  warnings: [],
 };
 
-const renderDialog = () =>
+const renderDialog = (sets: readonly ReplaySet[] = SETS) =>
   render(
     <MemoryRouter>
-      <StartSearchDialog at={AT} sets={SETS} open onOpenChange={vi.fn()} />
+      <StartSearchDialog at={AT} sets={sets} open onOpenChange={vi.fn()} />
     </MemoryRouter>,
   );
 
@@ -172,9 +199,71 @@ describe('StartSearchDialog', () => {
     expect(summary).toHaveTextContent('$20.00');
     expect(summary).toHaveTextContent('$1.80 per candidate');
     expect(summary).toHaveTextContent('About 1h 30m');
+    expect(summary).toHaveTextContent('CopiesEach run once');
+    expect(screen.queryByRole('list', { name: 'Warnings' })).toBeNull();
   });
 
-  it('starts the search on the chosen set with the budget and agent', () => {
+  it('warns that nobody measured the set’s noise, and starts all the same', () => {
+    estimate.mockReturnValue({
+      ...ESTIMATE,
+      warnings: [{ kind: 'noise-unmeasured' }],
+    });
+
+    renderDialog();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    const warnings = screen.getByRole('list', { name: 'Warnings' });
+    expect(
+      warnings.querySelector('[data-kind="noise-unmeasured"]'),
+    ).toHaveTextContent(
+      /Nobody has measured how much this set’s success moves by chance/,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Start search' }),
+    ).not.toBeDisabled();
+  });
+
+  it('offers the repeats that would bring a noisy set’s noise down', () => {
+    estimate.mockReturnValue({
+      ...ESTIMATE,
+      warnings: [
+        {
+          kind: 'noisy',
+          spread: 0.15,
+          minGain: 0.05,
+          suggestedRepeats: 5,
+          neededRepeats: 5,
+        },
+      ],
+    });
+
+    renderDialog();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    expect(screen.getByRole('list', { name: 'Warnings' })).toHaveTextContent(
+      'This set’s success moved 15 pts between copies of the same runs, more than the +5 pts the line counts as real. Replaying each run 5 times would bring that down.',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Replay each run 5 times' }),
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Repeats' })).toHaveValue('5');
+    expect(
+      screen.queryByRole('button', { name: 'Replay each run 5 times' }),
+    ).toBeNull();
+    expect(screen.getByRole('region', { name: 'Estimate' })).toHaveTextContent(
+      'Each run 5 times',
+    );
+  });
+
+  it('starts the search on the chosen set with the budget and agent, leaving its aim to the server until the estimate has one', () => {
     renderDialog();
 
     fireEvent.change(
@@ -193,12 +282,122 @@ describe('StartSearchDialog', () => {
           iterations: 3,
           perIteration: 2,
           concurrency: 4,
+          repeats: 1,
           ceiling: { amount: 20, currency: 'USD' },
         },
         agent: { harness: 'claude-code', model: null },
+        objective: null,
       },
       expect.anything(),
     );
+  });
+
+  it('aims for the same success for less on a set the live config saturates, and says why', () => {
+    estimate.mockReturnValue({
+      ...ESTIMATE,
+      objective: 'cost',
+      warnings: [{ kind: 'saturated', rate: 0.97 }],
+    });
+
+    renderDialog();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    const aim = screen.getByRole('group', { name: 'Aim for' });
+    expect(
+      within(aim).getByRole('radio', { name: /The same success for less/ }),
+    ).toBeChecked();
+    expect(aim).toHaveTextContent(
+      'Chosen for you: the live config already succeeds on 97% of this set, so there is little room to succeed more.',
+    );
+    expect(
+      screen
+        .getByRole('list', { name: 'Warnings' })
+        .querySelector('[data-kind="saturated"]'),
+    ).toHaveTextContent('Aim for the same success for less');
+
+    fireEvent.click(within(aim).getByRole('radio', { name: /More success/ }));
+
+    expect(aim).not.toHaveTextContent('Chosen for you');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start search' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ objective: 'success' }),
+      expect.anything(),
+    );
+  });
+
+  it('shows the aim a saturated set takes before the estimate arrives, without asking for it', () => {
+    const big = setOf('big', 'Billing work', 7);
+    renderDialog([
+      {
+        ...big,
+        health: {
+          ...big.health,
+          saturation: {
+            replayId: 'replay_live',
+            rate: 0.97,
+            interval: { rate: 0.97, low: 0.9, high: 1 },
+            saturated: true,
+            measuredAt: '2026-10-02T09:00:00.000Z',
+          },
+        },
+      },
+    ]);
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    const aim = screen.getByRole('group', { name: 'Aim for' });
+    expect(
+      within(aim).getByRole('radio', { name: /The same success for less/ }),
+    ).toBeChecked();
+    expect(aim).toHaveTextContent('Chosen for you');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start search' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ objective: null }),
+      expect.anything(),
+    );
+  });
+
+  it('warns of a judge that disagrees with itself, flaky checks and a set that does not reward a stronger model', () => {
+    estimate.mockReturnValue({
+      ...ESTIMATE,
+      warnings: [
+        { kind: 'judge-unstable', agreement: 0.6, compared: 10 },
+        { kind: 'flaky-checks', flaky: 2, rechecked: 9 },
+        {
+          kind: 'sanity-failed',
+          gain: -0.02,
+          low: -0.1,
+          high: 0.06,
+          worseTasks: 3,
+        },
+      ],
+    });
+
+    renderDialog();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    const warnings = screen.getByRole('list', { name: 'Warnings' });
+    expect(
+      warnings.querySelector('[data-kind="judge-unstable"]'),
+    ).toHaveTextContent('the judge gave the same verdict only 60% of the time');
+    expect(
+      warnings.querySelector('[data-kind="flaky-checks"]'),
+    ).toHaveTextContent('on 2 of 9 changes it ran twice');
+    expect(
+      warnings.querySelector('[data-kind="sanity-failed"]'),
+    ).toHaveTextContent('(−2 pts, likely −10 to +6) and did worse on 3 tasks');
   });
 
   it('shows a refusal on the field it names', () => {

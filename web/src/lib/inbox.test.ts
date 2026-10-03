@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  InboxEntry,
   InboxItem,
   InboxMessage,
+  InboxNotice,
   JournalStep,
   RunJournal,
 } from '@/lib/inbox';
@@ -10,10 +12,15 @@ import {
   decisionOwed,
   inboxItemPath,
   lastSpokenAt,
+  noticeLinkPath,
+  noticeOf,
+  noticePath,
+  noticePreviewOf,
   previewOf,
   shownAt,
   spentIn,
   spentOn,
+  taskItemOf,
   threadText,
   workedOn,
 } from '@/lib/inbox';
@@ -359,5 +366,51 @@ describe('workedOn', () => {
       'before',
       'after',
     ]);
+  });
+});
+
+const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
+  kind: 'notice',
+  id: 'notice_1',
+  teamId: 'team_1',
+  form: 'ended',
+  headline: 'The search stalled',
+  points: ['Fix the judge’s rubric (Rename the worker): it wants tests.'],
+  link: 'lines/line_1/stations/station_1/searches/search_1',
+  linkLabel: 'Open the search',
+  askedAt: '2026-10-01T10:00:00.000Z',
+  unread: true,
+  resolved: false,
+  ...over,
+});
+
+describe('notices', () => {
+  it('addresses a notice in the inbox apart from conversations', () => {
+    expect(noticePath('acme', 'notice 1')).toBe(
+      '/w/acme/inbox/notices/notice%201',
+    );
+  });
+
+  it('turns the link within its team into a full route', () => {
+    expect(noticeLinkPath('acme', notice())).toBe(
+      '/w/acme/team/team_1/lines/line_1/stations/station_1/searches/search_1',
+    );
+  });
+
+  it('previews its first point', () => {
+    expect(noticePreviewOf(notice())).toBe(
+      'Fix the judge’s rubric (Rename the worker): it wants tests.',
+    );
+  });
+
+  it('tells a notice from a conversation sharing its id', () => {
+    const entries: InboxEntry[] = [
+      notice({ id: 'same' }),
+      { kind: 'task', id: 'same' } as InboxItem,
+    ];
+
+    expect(noticeOf(entries, 'same')?.kind).toBe('notice');
+    expect(taskItemOf(entries, 'same')?.kind).toBe('task');
+    expect(noticeOf(entries, 'other')).toBeUndefined();
   });
 });

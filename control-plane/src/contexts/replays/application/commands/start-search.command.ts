@@ -1,5 +1,7 @@
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 
+export type SearchObjectiveAsked = 'success' | 'cost' | null;
+
 export interface SearchAgentAsked {
   readonly harness: string;
   readonly model: string | null;
@@ -11,6 +13,7 @@ export interface SearchBudgetAsked {
   readonly perIteration: number;
   readonly ceiling: { readonly amount: number; readonly currency: string };
   readonly concurrency: number | null;
+  readonly repeats: number | null;
 }
 
 export class StartSearchCommand {
@@ -21,6 +24,7 @@ export class StartSearchCommand {
     readonly setId: string,
     readonly agent: SearchAgentAsked,
     readonly budget: SearchBudgetAsked,
+    readonly objective: SearchObjectiveAsked,
     readonly actor: Actor,
   ) {}
 }

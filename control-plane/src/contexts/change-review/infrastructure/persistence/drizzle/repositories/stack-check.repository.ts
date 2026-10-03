@@ -36,7 +36,7 @@ import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-plac
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, gt, gte, isNull, lt, lte, or } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, isNull, lt, lte, or } from 'drizzle-orm';
 
 type Row = typeof stackCheck.$inferSelect;
 
@@ -46,6 +46,7 @@ const toStackCheck = (row: Row): StackCheck =>
     runId: RunId.of(row.runId),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     replay: row.replay,
+    recheck: row.recheck,
     workspaceId: WorkspaceId.of(row.workspaceId),
     request: CheckRequest.of(
       row.command,
@@ -129,6 +130,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         .insert(stackCheck)
         .values({
           stackId: added.stackId.value,
+          recheck: added.recheck,
           runId: added.runId.value,
           taskId: added.taskId?.value ?? null,
           replay: added.replay,
@@ -154,6 +156,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         .where(
           and(
             eq(stackCheck.stackId, saved.stackId.value),
+            eq(stackCheck.recheck, saved.recheck),
             eq(stackCheck.version, saved.version),
           ),
         )
@@ -167,11 +170,30 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     });
   }
 
-  async find(stackId: ChangeStackId): Promise<StackCheck | null> {
+  async find(
+    stackId: ChangeStackId,
+    recheck: boolean,
+  ): Promise<StackCheck | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(
+        and(
+          eq(stackCheck.stackId, stackId.value),
+          eq(stackCheck.recheck, recheck),
+        ),
+      )
+      .limit(1);
+
+    return row ? toStackCheck(row) : null;
+  }
+
+  async open(stackId: ChangeStackId): Promise<StackCheck | null> {
     const [row] = await this.context.db
       .select()
       .from(stackCheck)
       .where(eq(stackCheck.stackId, stackId.value))
+      .orderBy(desc(stackCheck.recheck))
       .limit(1);
 
     return row ? toStackCheck(row) : null;
@@ -202,6 +224,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         .where(
           and(
             eq(stackCheck.stackId, removed.stackId.value),
+            eq(stackCheck.recheck, removed.recheck),
             eq(stackCheck.version, removed.version),
           ),
         )
@@ -296,7 +319,11 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           ),
         ),
       )
-      .orderBy(asc(stackCheck.waitingSince), asc(stackCheck.stackId))
+      .orderBy(
+        asc(stackCheck.waitingSince),
+        asc(stackCheck.stackId),
+        asc(stackCheck.recheck),
+      )
       .limit(page.most)
       .offset(page.skip);
 

@@ -54,6 +54,42 @@ describe('estimateOf', () => {
     expect(estimateOf(budget, split, []).ms).toBeNull();
   });
 
+  it('counts every copy when each replay replays its runs more than once', () => {
+    const once = SearchBudget.of({
+      iterations: 2,
+      perIteration: 2,
+      ceiling: Spend.ceiling(100, 'USD'),
+    });
+    const thrice = SearchBudget.of({
+      iterations: 2,
+      perIteration: 2,
+      ceiling: Spend.ceiling(100, 'USD'),
+      repeats: 3,
+    });
+    const split = HeldOutSplit.costliest(
+      setOf([1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+      (searched, heldOut) => once.unitsFor(searched, heldOut),
+    );
+
+    expect(estimateOf(thrice, split, []).runs).toEqual({
+      seed: 30,
+      searchReplays: 84,
+      heldOutReplays: 18,
+      agent: 2,
+      total: 134,
+    });
+    expect(thrice.allot(split).perRun.amount).toBeLessThan(
+      once.allot(split).perRun.amount,
+    );
+    expect(
+      thrice
+        .allot(split)
+        .searchReplay.equals(
+          thrice.allot(split).perRun.scaled(split.searched.length * 3, 1),
+        ),
+    ).toBe(true);
+  });
+
   it('holds out the tasks that leave each run the smallest share, so no search of the set the estimate accepts is refused or gets less per run', () => {
     const shapes = [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],

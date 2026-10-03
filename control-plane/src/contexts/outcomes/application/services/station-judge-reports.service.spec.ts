@@ -24,6 +24,8 @@ const JUDGE: StationJudge = {
   lineId: 'line_1',
   rubric: 'Did the run retry uploads?',
   rubricVersion: RUBRIC_VERSION,
+  claims: [],
+  passShare: 1,
   sample: 1,
   trust: 0.5,
 };
@@ -43,7 +45,7 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
     const runId = `run_${at}`;
     await records.add(
       endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
-        NextAct.of(at % 2 === 0 ? 'approved' : 'sent-back', AT),
+        NextAct.of(at % 2 === 0 ? 'closed' : 'sent-back', AT),
       ),
     );
     await scores.add(

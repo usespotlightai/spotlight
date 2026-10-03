@@ -26,12 +26,19 @@ const CANDIDATE: SearchCandidate = {
   replayState: 'finished',
   heldOutReplayId: null,
   heldOutReplayState: null,
+  searchInterval: null,
+  heldOutInterval: null,
+  searchedGain: null,
+  heldOutGain: null,
+  searchedPairs: null,
+  heldOutPairs: null,
   searchScore: 0.8,
   searchScored: 5,
   heldOutScore: null,
   costPerRun: 0.9,
   spent: { amount: 4.5, currency: 'USD' },
   onFrontier: true,
+  onlyOnSeenTasks: null,
   pullRequest: null,
 };
 
@@ -53,6 +60,15 @@ describe('PickCandidate', () => {
       searchId: 'search_1',
       candidateId: 'candidate_1',
     });
+  });
+
+  it('warns before picking a candidate that gained only on the tasks the search could see, and still lets it be picked', () => {
+    renderPick({ ...CANDIDATE, onlyOnSeenTasks: 'marked' });
+
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Its gain showed only on the tasks the search could see.',
+    );
+    expect(screen.getByRole('button', { name: 'Pick' })).toBeEnabled();
   });
 
   it('waits for the candidate’s replay before it may be picked', () => {

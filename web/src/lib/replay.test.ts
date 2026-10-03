@@ -1,20 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import type { EntryComparison, Replay, ReplaySet } from '@/lib/replay';
+import type {
+  EntryComparison,
+  Replay,
+  ReplayEntry,
+  ReplaySet,
+} from '@/lib/replay';
 import {
+  baselineTotalsFor,
   ceilingFrom,
   ceilingShare,
   comparisonInOrder,
+  copiesTally,
   costDeltaShown,
+  counterpartShown,
+  flippedTitles,
   judgeScoreShown,
   latestOf,
+  meanCostOf,
+  meanMsOf,
   msDeltaShown,
   proposeCommand,
+  repeatsFrom,
   replayPath,
   replaySetPath,
   spendBreakdown,
   startRefusal,
   stationAddress,
-  successAgainst,
+  strongerAsked,
+  strongerProblem,
+  strongerRefusal,
 } from '@/lib/replay';
 
 const totals = (successRate: number | null) =>
@@ -24,6 +38,17 @@ const replay = (id: string, successRate: number | null) => ({
   id,
   totals: totals(successRate),
 });
+
+const copy = (
+  result: ReplayEntry['result'],
+  amount: number | null,
+  ms: number | null,
+) =>
+  ({
+    result,
+    cost: amount === null ? null : { amount, currency: 'USD' },
+    ms,
+  }) as ReplayEntry;
 
 const row = (originalRunId: string, regressed: boolean) =>
   ({ originalRunId, regressed }) as EntryComparison;
@@ -47,25 +72,108 @@ describe('replays', () => {
     ).toEqual(['b', 'd', 'a', 'c']);
   });
 
-  it('compares the success rate with the baseline in points', () => {
-    expect(successAgainst(replay('r', 0.75), replay('b', 0.5))).toEqual({
-      now: '75% succeeded',
-      baseline: '50%',
-      delta: { shown: '+25 pts', tone: 'good' },
-    });
-    expect(successAgainst(replay('r', 0.25), replay('b', 0.5)).delta).toEqual({
-      shown: '−25 pts',
-      tone: 'bad',
-    });
+  it('compares with the baseline’s totals, but not the baseline with itself', () => {
+    expect(
+      baselineTotalsFor(replay('r', 0.75), replay('b', 0.5))?.successRate,
+    ).toBe(0.5);
+    expect(baselineTotalsFor(replay('b', 0.5), replay('b', 0.5))).toBeNull();
+    expect(baselineTotalsFor(replay('r', 0.75), null)).toBeNull();
   });
 
-  it('compares nothing with itself, nor before anything is scored', () => {
-    expect(successAgainst(replay('b', 0.5), replay('b', 0.5)).delta).toBeNull();
-    expect(successAgainst(replay('r', null), replay('b', 0.5))).toEqual({
-      now: 'No score yet',
-      baseline: '50%',
-      delta: null,
-    });
+  it('reads repeats as a whole number from 1 to 5', () => {
+    expect(repeatsFrom('3')).toBe(3);
+    expect(repeatsFrom('0')).toBe('Give a whole number from 1 to 5.');
+    expect(repeatsFrom('6')).toBe('Give a whole number from 1 to 5.');
+    expect(repeatsFrom('2.5')).toBe('Give a whole number from 1 to 5.');
+  });
+
+  it('tallies a task’s copies and averages their cost and time', () => {
+    const copies = [
+      copy('succeeded', 0.5, 60_000),
+      copy('failed', 1.5, null),
+      copy('unscored', 1, 120_000),
+    ];
+
+    expect(copiesTally(copies)).toEqual({ succeeded: 1, scored: 2 });
+    expect(meanCostOf(copies)).toEqual({ amount: 1, currency: 'USD' });
+    expect(meanMsOf(copies)).toBe(90_000);
+    expect(meanCostOf([copy('pending', null, null)])).toBeNull();
+    expect(meanMsOf([copy('pending', null, null)])).toBeNull();
+  });
+
+  it('names the tasks whose copies went both ways', () => {
+    const set = {
+      entries: [
+        { taskId: 'task_a', title: 'Fix the queue' },
+        { taskId: 'task_b', title: null },
+      ],
+    } as ReplaySet;
+
+    expect(
+      flippedTitles(set, {
+        flippedTasks: ['task_a', 'task_b'],
+      } as never),
+    ).toEqual(['Fix the queue', 'A deleted task']);
+  });
+
+  it('asks only for what differs from the live config, and nothing when nothing does', () => {
+    const live = { harness: 'claude-code', model: 'sonnet', effort: 'medium' };
+
+    expect(strongerAsked(live, 'opus', 'medium')).toEqual({ model: 'opus' });
+    expect(strongerAsked(live, 'sonnet', 'high')).toEqual({ effort: 'high' });
+    expect(strongerAsked(live, 'sonnet', 'medium')).toBeNull();
+    expect(strongerAsked(live, '', '')).toBeNull();
+  });
+
+  it('wants a model the harness offers, or an effort higher than the live one', () => {
+    const live = { harness: 'claude-code', model: 'sonnet', effort: 'medium' };
+    const offer = {
+      models: ['sonnet', 'opus'],
+      efforts: ['low', 'medium', 'high'],
+    };
+
+    expect(strongerProblem(live, 'opus', 'high', offer)).toBeNull();
+    expect(strongerProblem(live, 'sonnet', 'medium', offer)).toBe(
+      'Choose a model or an effort other than the live config’s.',
+    );
+    expect(strongerProblem(live, 'sonnet', 'low', offer)).toBe(
+      'That effort is not higher than the live config’s. Pick a higher one, or keep the live effort.',
+    );
+    expect(strongerProblem(live, 'haiku', 'medium', offer)).toBe(
+      'Its harness does not offer that model.',
+    );
+    expect(
+      strongerProblem({ ...live, effort: null }, 'sonnet', 'low', offer),
+    ).toBe(
+      'That effort is not higher than the live config’s. Pick a higher one, or keep the live effort.',
+    );
+    expect(
+      strongerProblem({ ...live, effort: null }, 'sonnet', 'medium', offer),
+    ).toBeNull();
+  });
+
+  it('cannot try a stronger model at a station without a harness', () => {
+    const set = {
+      stationGone: false,
+      entries: [{ taskId: 'task_a' }],
+    } as ReplaySet;
+
+    expect(
+      strongerRefusal(set, { harness: null, model: null, effort: null }),
+    ).toBe('The station names no harness, so there is no model to choose.');
+    expect(
+      strongerRefusal(set, {
+        harness: 'claude-code',
+        model: null,
+        effort: null,
+      }),
+    ).toBeNull();
+    expect(
+      strongerRefusal(
+        { ...set, entries: [] },
+        { harness: 'claude-code', model: null, effort: null },
+      ),
+    ).toBe('Add runs to the set first.');
   });
 
   it('takes the newest replay as the latest', () => {
@@ -78,7 +186,7 @@ describe('replays', () => {
     expect(latestOf([])).toBeNull();
   });
 
-  it('splits what a replay spent into its runs, drafting and judging, in its ceiling’s currency', () => {
+  it('splits what a replay spent into its runs, drafting, judging and side-by-side judging, in its ceiling’s currency', () => {
     const usd = (amount: number) => ({ amount, currency: 'USD' });
 
     expect(
@@ -89,6 +197,7 @@ describe('replays', () => {
             cost: usd(1),
             draftingSpent: { spends: [usd(0.1)], unpriced: 0 },
             judgingSpent: null,
+            pairingSpent: { spends: [usd(0.05)], unpriced: 0 },
           },
           {
             cost: { amount: 9, currency: 'EUR' },
@@ -97,10 +206,16 @@ describe('replays', () => {
               spends: [usd(0.2), { amount: 1, currency: 'EUR' }],
               unpriced: 1,
             },
+            pairingSpent: null,
           },
         ] as Replay['entries'],
       }),
-    ).toEqual({ runs: usd(1), drafting: usd(0.1), judging: usd(0.2) });
+    ).toEqual({
+      runs: usd(1),
+      drafting: usd(0.1),
+      judging: usd(0.2),
+      pairing: usd(0.05),
+    });
   });
 
   it('caps the share of the ceiling spent at all of it', () => {
@@ -116,6 +231,24 @@ describe('replays', () => {
     expect(msDeltaShown(90_000)).toBe('+1m 30s');
   });
 
+  it('names what a replay was set beside: the baseline, the search’s starting config, the live config or an earlier baseline', () => {
+    const candidate = (kind: 'proposed' | 'searched' | 'sanity') =>
+      ({ kind }) as Replay['candidate'];
+
+    expect(counterpartShown('base', candidate('proposed'), 'base')).toBe(
+      'the baseline',
+    );
+    expect(counterpartShown('seed', candidate('searched'), 'base')).toBe(
+      'the search’s starting config',
+    );
+    expect(counterpartShown('live', candidate('sanity'), 'base')).toBe(
+      'the live config',
+    );
+    expect(counterpartShown('older', candidate('proposed'), 'base')).toBe(
+      'an earlier baseline',
+    );
+  });
+
   it('shows a judge’s score on its own scale', () => {
     const judged = (scale: 'yes-no' | 'number', score: number) => ({
       state: 'judged' as const,
@@ -125,11 +258,23 @@ describe('replays', () => {
       referenced: null,
       model: null,
       unjudged: null,
+      marks: null,
+      passShare: null,
+      claims: [],
+      reasons: [],
     });
 
     expect(judgeScoreShown(judged('yes-no', 1))).toBe('Yes');
     expect(judgeScoreShown(judged('number', 4))).toBe('4/5');
     expect(judgeScoreShown(null)).toBe('–');
+    expect(
+      judgeScoreShown({
+        ...judged('number', 2 / 3),
+        scale: 'claims',
+        marks: [true, true, false],
+        passShare: 1,
+      }),
+    ).toBe('2 of 3 claims met');
   });
 
   it('fills the station address into the propose command', () => {

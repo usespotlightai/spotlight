@@ -12,6 +12,7 @@ import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -26,6 +27,8 @@ import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo'
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+const STRONGER_MODEL_PARTS: readonly string[] = ['model', 'effort'];
 
 interface State {
   readonly id: CandidateId;
@@ -126,6 +129,26 @@ export class Candidate extends EventRecorder {
       'searched',
       input.changedFrom,
       { search: input.search },
+    );
+  }
+
+  static sanity(input: Proposal & { changedFrom: StationChanges }): Candidate {
+    const changed = new Set(input.changedFrom.changes.map((each) => each.part));
+
+    if (
+      changed.size === 0 ||
+      [...changed].some((part) => !STRONGER_MODEL_PARTS.includes(part))
+    ) {
+      throw new InvalidCandidateError(
+        `that checks a set rewards a stronger model changes only the live config’s ${STRONGER_MODEL_PARTS.join(' or ')}`,
+      );
+    }
+
+    return Candidate.made(
+      input,
+      CandidateName.sanity(input.at),
+      'sanity',
+      input.changedFrom,
     );
   }
 
@@ -240,6 +263,14 @@ export class Candidate extends EventRecorder {
     return this.state.kind === 'live';
   }
 
+  get isSanity(): boolean {
+    return this.state.kind === 'sanity';
+  }
+
+  get basedOn(): StationFingerprint {
+    return this.state.changedFrom.from;
+  }
+
   get isProposed(): boolean {
     return this.state.kind === 'proposed';
   }
@@ -260,8 +291,8 @@ export class Candidate extends EventRecorder {
     return this.state.scoring;
   }
 
-  get rubric(): string | null {
-    return this.state.scoring.rubric;
+  get judge(): JudgeCriteria | null {
+    return this.state.scoring.judge;
   }
 
   get rubricVersion(): string | null {

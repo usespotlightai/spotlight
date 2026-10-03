@@ -132,6 +132,7 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title: `Drain queue ${runId.slice(0, 4)}`,
@@ -561,7 +562,13 @@ beforeAll(async () => {
     lineId: DELIVERY,
     repository: Repository.of('acme/api').value,
   });
-  const judged = { rubric: RUBRIC, sample: 0.1, trust: 0.6 };
+  const judged = {
+    rubric: RUBRIC,
+    claims: [],
+    passShare: 1,
+    sample: 0.1,
+    trust: 0.6,
+  };
   await db.insert(schema.station).values([
     {
       id: randomUUID(),

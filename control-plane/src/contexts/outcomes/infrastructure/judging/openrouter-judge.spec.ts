@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const ASK: JudgeAsk = {
   rubric: 'Did the run retry uploads without a queue?',
+  claims: [],
   scale: 'yes-no',
   title: 'Retry uploads',
   description: 'They fail on a flaky network.',
@@ -153,6 +154,29 @@ describe('judging a run through OpenRouter', () => {
     expect(shape.properties.reasons.maxItems).toBe(5);
   });
 
+  it('asks for every claim, in order, met or not, each with reasons of its own', async () => {
+    const claims = [{ index: 0, met: true, reasons: REASONS }];
+    const { asked, fetch } = answering(completed(JSON.stringify({ claims })));
+
+    const verdict = await judging(fetch, {
+      ...ASK,
+      rubric: null,
+      claims: ['It retries the upload.'],
+      scale: 'claims',
+    });
+
+    const body = JSON.parse(String(asked[0]?.body));
+    const system = body.messages[0].content as string;
+    expect(verdict.verdict).toEqual({ claims });
+    expect(body.response_format.json_schema.name).toBe('claims_verdict');
+    expect(system).toContain('<claims>\n0. It retries the upload.\n</claims>');
+    expect(system).not.toContain('<rubric>');
+    expect(
+      body.response_format.json_schema.schema.properties.claims.items.properties
+        .reasons.maxItems,
+    ).toBe(3);
+  });
+
   it('asks for a number from 1 to 5 on a number rubric', async () => {
     const { asked, fetch } = answering(
       completed(JSON.stringify({ score: 4, reasons: REASONS })),
@@ -160,7 +184,7 @@ describe('judging a run through OpenRouter', () => {
 
     const verdict = await judging(fetch, { ...ASK, scale: 'number' });
 
-    expect(verdict.verdict.value).toBe(4);
+    expect(verdict.verdict).toMatchObject({ value: 4 });
     expect(
       JSON.parse(String(asked[0]?.body)).response_format.json_schema.name,
     ).toBe('number_verdict');

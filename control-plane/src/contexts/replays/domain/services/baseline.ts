@@ -14,7 +14,12 @@ const STANDS: readonly string[] = STANDING_BASELINE_STATES;
 const newestFirst = (one: Replay, other: Replay): number =>
   other.startedAt.getTime() - one.startedAt.getTime();
 
-const covers = (baseline: Replay, runs: readonly RunId[]): boolean =>
+const covers = (
+  baseline: Replay,
+  runs: readonly RunId[],
+  repeats: number,
+): boolean =>
+  baseline.repeats >= repeats &&
   runs.every((run) => baseline.originals.some((each) => each.equals(run)));
 
 export const baselineOf = (replays: readonly Replay[]): Replay | null =>
@@ -22,29 +27,30 @@ export const baselineOf = (replays: readonly Replay[]): Replay | null =>
     .filter((each) => each.baseline && STANDS.includes(each.current))
     .sort(newestFirst)[0] ?? null;
 
-export const needsBaseline = (
-  set: ReplaySet,
-  replays: readonly Replay[],
-  liveScoring: string,
-): boolean => {
-  const baseline = baselineOf(
-    replays.filter((each) => each.scoringDigest === liveScoring),
-  );
+export const comparedAgainst = (
+  replay: Replay,
+  setReplays: readonly Replay[],
+): Replay | null => {
+  const pairsWith = replay.pairsWith;
+  const against = pairsWith
+    ? (setReplays.find((each) => each.id.equals(pairsWith)) ?? null)
+    : baselineOf(setReplays);
 
-  return !baseline || !covers(baseline, set.runs);
+  return against && !against.id.equals(replay.id) ? against : null;
 };
 
 export const baselineFor = (
   replays: readonly Replay[],
   liveScoring: string,
   runs: readonly RunId[],
+  repeats: number,
 ): Replay | null => {
   const matching = [...replays]
     .filter(
       (each) =>
         each.baseline &&
         each.scoringDigest === liveScoring &&
-        covers(each, runs),
+        covers(each, runs, repeats),
     )
     .sort(newestFirst);
 
@@ -55,3 +61,23 @@ export const baselineFor = (
     null
   );
 };
+
+export const standingBaselineFor = (
+  set: ReplaySet,
+  replays: readonly Replay[],
+  liveScoring: string,
+  repeats: number,
+): Replay | null =>
+  baselineFor(
+    replays.filter((each) => STANDS.includes(each.current)),
+    liveScoring,
+    set.runs,
+    repeats,
+  );
+
+export const needsBaseline = (
+  set: ReplaySet,
+  replays: readonly Replay[],
+  liveScoring: string,
+  repeats: number,
+): boolean => !standingBaselineFor(set, replays, liveScoring, repeats);

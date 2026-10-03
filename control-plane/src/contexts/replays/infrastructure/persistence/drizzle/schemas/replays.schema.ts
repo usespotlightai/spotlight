@@ -5,13 +5,19 @@ import {
   CONFIG_PULL_REQUEST_REFUSALS,
   CONFIG_PULL_REQUEST_STATES,
 } from '@replays/domain/value-objects/config-pull-request-state';
+import { REFLECTION_OUTCOMES } from '@replays/domain/value-objects/reflection-outcome';
 import { RUN_OUTCOMES } from '@replays/domain/value-objects/replay-ending';
 import {
   REPLAY_STATES,
   type ReplayEnd,
 } from '@replays/domain/value-objects/replay-state';
+import type { SearchCauseKind } from '@replays/domain/value-objects/search-cause.vo';
 import { SEARCH_ENDINGS } from '@replays/domain/value-objects/search-ending';
-import { SEARCH_ITERATION_STATES } from '@replays/domain/value-objects/search-iteration.vo';
+import {
+  SEARCH_ITERATION_KINDS,
+  SEARCH_ITERATION_STATES,
+} from '@replays/domain/value-objects/search-iteration.vo';
+import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import {
   ACTIVE_SEARCH_STATES,
   SEARCH_STATES,
@@ -48,9 +54,24 @@ export const replaySearchEnding = pgEnum(
   SEARCH_ENDINGS,
 );
 
+export const replaySearchObjective = pgEnum(
+  'replay_search_objective',
+  SEARCH_OBJECTIVES,
+);
+
 export const replaySearchIterationState = pgEnum(
   'replay_search_iteration_state',
   SEARCH_ITERATION_STATES,
+);
+
+export const replaySearchReflectionOutcome = pgEnum(
+  'replay_search_reflection_outcome',
+  REFLECTION_OUTCOMES,
+);
+
+export const replaySearchIterationKind = pgEnum(
+  'replay_search_iteration_kind',
+  SEARCH_ITERATION_KINDS,
 );
 
 export interface StoredStationChange {
@@ -85,13 +106,35 @@ export interface StoredEntryReason {
 export interface StoredEntryVerdict {
   readonly scale: string;
   readonly value: number;
+  readonly marks: readonly boolean[] | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly model: string;
   readonly referenced: boolean;
   readonly reasons: readonly {
     readonly text: string;
     readonly steps: readonly number[];
     readonly hunks: readonly string[];
+    readonly claim: number | null;
   }[];
+}
+
+export interface StoredEntryPairing {
+  readonly against: string;
+  readonly verdict: {
+    readonly outcome: string;
+    readonly model: string;
+    readonly readings: readonly {
+      readonly ownShownFirst: boolean;
+      readonly outcome: string;
+      readonly reasons: readonly {
+        readonly text: string;
+        readonly ownHunks: readonly string[];
+        readonly theirHunks: readonly string[];
+      }[];
+    }[];
+  } | null;
+  readonly unpaired: string | null;
 }
 
 export interface StoredEntryJudging {
@@ -124,6 +167,20 @@ export interface StoredSearchProposal {
   readonly candidateId: string;
   readonly name: string;
   readonly replay: StoredSearchReplay;
+  readonly improved: boolean | null;
+}
+
+export interface StoredReflectedTask {
+  readonly taskId: string;
+  readonly originalRunId: string;
+  readonly replayRunId: string;
+}
+
+export interface StoredSearchCause extends StoredReflectedTask {
+  readonly cause: SearchCauseKind;
+  readonly evidence: string;
+  readonly suggestion: string | null;
+  readonly recordedAt: string;
 }
 
 export interface StoredHeldOutReplay {
@@ -188,6 +245,8 @@ export const replayCandidate = pgTable(
     lineFields: jsonb('line_fields').$type<StoredPlannedLine>(),
     checksChanges: boolean('checks_changes').notNull(),
     rubric: text('rubric'),
+    claims: jsonb('claims').$type<string[]>(),
+    passShare: doublePrecision('pass_share'),
     rubricVersion: text('rubric_version'),
     changedFrom: text('changed_from').notNull(),
     changes: jsonb('changes').$type<StoredStationChange[]>().notNull(),
@@ -230,6 +289,10 @@ export const replay = pgTable(
     ceilingCurrency: text('ceiling_currency').notNull(),
     unpricedRate: doublePrecision('unpriced_rate'),
     among: jsonb('among').$type<string[]>(),
+    repeats: integer('repeats').notNull(),
+    probe: boolean('probe').notNull().default(false),
+    comparedWith: text('compared_with'),
+    pairsWith: text('pairs_with'),
     searchId: text('search_id'),
     state: replayState('state').notNull(),
     startedAt: timestamp('started_at').notNull(),
@@ -243,6 +306,7 @@ export const replay = pgTable(
     index('replay_team_state_idx').on(table.teamId, table.state),
     index('replay_team_started_idx').on(table.teamId, table.startedAt),
     index('replay_search_idx').on(table.searchId),
+    index('replay_pairs_with_idx').on(table.pairsWith),
   ],
 );
 
@@ -255,6 +319,7 @@ export const replayEntry = pgTable(
     position: integer('position').notNull(),
     originalRunId: text('original_run_id').notNull(),
     taskId: text('task_id').notNull(),
+    repeat: integer('repeat').notNull(),
     runId: text('run_id'),
     queued: boolean('queued').notNull().default(false),
     fingerprint: text('fingerprint'),
@@ -286,6 +351,11 @@ export const replayEntry = pgTable(
       .$type<StoredEntryReason[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    secondJudging: jsonb('second_judging').$type<StoredEntryJudging>(),
+    rejudgingSpent: jsonb('rejudging_spent').$type<StoredModelSpent>(),
+    recheck: jsonb('recheck').$type<StoredEntryChecks>(),
+    pairing: jsonb('pairing').$type<StoredEntryPairing>(),
+    pairingSpent: jsonb('pairing_spent').$type<StoredModelSpent>(),
   },
   (table) => [
     primaryKey({ columns: [table.replayId, table.position] }),
@@ -310,6 +380,8 @@ export const replaySearch = pgTable(
     ceilingAmount: doublePrecision('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),
     concurrency: integer('concurrency').notNull(),
+    repeats: integer('repeats').notNull(),
+    objective: replaySearchObjective('objective').notNull(),
     split: jsonb('split').$type<StoredSplit>().notNull(),
     seedCandidateId: text('seed_candidate_id').notNull(),
     seedFingerprint: text('seed_fingerprint').notNull(),
@@ -320,6 +392,7 @@ export const replaySearch = pgTable(
       .default(sql`'[]'::jsonb`),
     state: replaySearchState('state').notNull(),
     ending: replaySearchEnding('ending'),
+    startedBy: text('started_by'),
     startedAt: timestamp('started_at').notNull(),
     endedAt: timestamp('ended_at'),
     version: integer('version').notNull().default(0),
@@ -345,6 +418,7 @@ export const replaySearchIteration = pgTable(
       .references(() => replaySearch.id, { onDelete: 'cascade' }),
     number: integer('number').notNull(),
     runId: text('run_id').notNull(),
+    kind: replaySearchIterationKind('kind').notNull(),
     state: replaySearchIterationState('state').notNull(),
     proposals: jsonb('proposals')
       .$type<StoredSearchProposal[]>()
@@ -352,6 +426,16 @@ export const replaySearchIteration = pgTable(
       .default(sql`'[]'::jsonb`),
     attempts: integer('attempts').notNull().default(0),
     agentSpent: jsonb('agent_spent').$type<StoredModelSpent>(),
+    standing: text('standing'),
+    outcome: replaySearchReflectionOutcome('outcome'),
+    reflectedOn: jsonb('reflected_on')
+      .$type<StoredReflectedTask[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    causes: jsonb('causes')
+      .$type<StoredSearchCause[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
   },
   (table) => [
     primaryKey({ columns: [table.searchId, table.number] }),
@@ -387,8 +471,10 @@ export const replayCheck = pgTable(
     candidateBehaviour: text('candidate_behaviour').notNull(),
     candidateScoring: text('candidate_scoring').notNull(),
     mostRegressions: integer('most_regressions').notNull(),
+    minGain: doublePrecision('min_gain').notNull(),
     ceilingAmount: doublePrecision('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),
+    repeats: integer('repeats').notNull(),
     keptLive: jsonb('kept_live').$type<string[]>().notNull(),
     baseline: replayCheckBaseline('baseline').notNull(),
     createdAt: timestamp('created_at').notNull(),

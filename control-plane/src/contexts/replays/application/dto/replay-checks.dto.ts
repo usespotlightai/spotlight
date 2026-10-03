@@ -1,5 +1,7 @@
 import type {
   EntryResultDto,
+  GainReadingDto,
+  RateIntervalDto,
   SpendDto,
 } from '@replays/application/dto/replays.dto';
 import type {
@@ -13,6 +15,8 @@ export interface CheckSideDto {
   readonly scored: number;
   readonly succeeded: number | null;
   readonly successRate: number | null;
+  readonly interval: RateIntervalDto | null;
+  readonly tasksScored: number;
   readonly spent: SpendDto | null;
 }
 
@@ -20,8 +24,8 @@ export interface CheckRegressionDto {
   readonly taskId: string;
   readonly originalRunId: string;
   readonly title: string | null;
-  readonly candidate: EntryResultDto;
-  readonly baseline: EntryResultDto | null;
+  readonly candidate: readonly EntryResultDto[];
+  readonly baseline: readonly EntryResultDto[];
   readonly scoreDelta: number | null;
   readonly reasons: readonly {
     readonly code: string;
@@ -50,9 +54,12 @@ export interface ReplayCheckDto {
   readonly keptLive: readonly string[];
   readonly threshold: {
     readonly mostRegressions: number;
+    readonly minGain: number;
     readonly ceiling: SpendDto;
     readonly unpricedRun: SpendDto | null;
   };
+  readonly repeats: number;
+  readonly gain: GainReadingDto | null;
   readonly verdict: CheckVerdict;
   readonly undecidedBecause: UndecidedBecause | null;
   readonly tasks: number;

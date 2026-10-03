@@ -1,4 +1,7 @@
-import type { SearchBudgetAsked } from '@replays/application/commands/start-search.command';
+import type {
+  SearchBudgetAsked,
+  SearchObjectiveAsked,
+} from '@replays/application/commands/start-search.command';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 export class EstimateSearchQuery {
@@ -8,6 +11,7 @@ export class EstimateSearchQuery {
     readonly stationId: string,
     readonly setId: string,
     readonly budget: SearchBudgetAsked,
+    readonly objective: SearchObjectiveAsked,
     readonly principal: Principal,
   ) {}
 }

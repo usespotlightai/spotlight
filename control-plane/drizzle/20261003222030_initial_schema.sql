@@ -21,22 +21,27 @@ CREATE TYPE "public"."memory_use_way" AS ENUM('briefed', 'recalled');--> stateme
 CREATE TYPE "public"."alert_measure" AS ENUM('sent_back_rate', 'accepted_rate', 'checks_failed_rate', 'failed_rate', 'merged_rate', 'cost_per_run');--> statement-breakpoint
 CREATE TYPE "public"."alert_threshold" AS ENUM('risesBy', 'fallsBy', 'above', 'below');--> statement-breakpoint
 CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'ungrounded', 'errored', 'interrupted', 'unavailable');--> statement-breakpoint
+CREATE TYPE "public"."pair_order" AS ENUM('run-first', 'against-first');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_record_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
-CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'approved', 'refused', 'sent-back');--> statement-breakpoint
+CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'sent-back');--> statement-breakpoint
 CREATE TYPE "public"."run_record_checks" AS ENUM('passed', 'failed', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped', 'abandoned', 'withdrawn', 'superseded');--> statement-breakpoint
-CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number');--> statement-breakpoint
+CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number', 'claims');--> statement-breakpoint
 CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
 CREATE TYPE "public"."task_delivery_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."config_pull_request_refusal" AS ENUM('no-source', 'repository-unreachable', 'file-missing', 'file-unparsable', 'block-not-found', 'blocks-ambiguous', 'computed-attribute', 'drifted', 'edit-failed', 'branch-taken', 'file-unwritable', 'github-refused');--> statement-breakpoint
 CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'refused');--> statement-breakpoint
-CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed', 'searched', 'planned');--> statement-breakpoint
+CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed', 'searched', 'planned', 'sanity');--> statement-breakpoint
 CREATE TYPE "public"."replay_check_baseline" AS ENUM('awaiting', 'found', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_outcome" AS ENUM('completed', 'failed', 'abandoned', 'withdrawn');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_ending" AS ENUM('iterations-spent', 'ceiling-reached', 'stalled', 'stopped', 'station-gone', 'set-gone', 'seed-failed');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_iteration_kind" AS ENUM('propose', 'reflect');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_iteration_state" AS ENUM('wanted', 'running', 'ended', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_objective" AS ENUM('success', 'cost');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_reflection_outcome" AS ENUM('went-on', 'no-config-cause', 'no-failures', 'did-not-run', 'out-of-budget');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_state" AS ENUM('seeding', 'searching', 'holding-out', 'finished', 'stopped');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'over-budget');--> statement-breakpoint
+CREATE TYPE "public"."notice_form" AS ENUM('ended', 'advice');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'forgone', 'refused');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'parked', 'completed', 'failed', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."aside_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
@@ -207,7 +212,8 @@ CREATE TABLE "review_sync" (
 );
 --> statement-breakpoint
 CREATE TABLE "stack_check" (
-	"stack_id" text PRIMARY KEY NOT NULL,
+	"stack_id" text NOT NULL,
+	"recheck" boolean DEFAULT false NOT NULL,
 	"run_id" text NOT NULL,
 	"task_id" text,
 	"replay" boolean DEFAULT false NOT NULL,
@@ -230,7 +236,8 @@ CREATE TABLE "stack_check" (
 	"reserved_until" timestamp,
 	"provision_failures" integer DEFAULT 0 NOT NULL,
 	"next_provision_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "stack_check_stack_id_recheck_pk" PRIMARY KEY("stack_id","recheck")
 );
 --> statement-breakpoint
 CREATE TABLE "harness_profile" (
@@ -570,10 +577,13 @@ CREATE TABLE "memory_use" (
 );
 --> statement-breakpoint
 CREATE TABLE "change_judging" (
-	"run_id" text PRIMARY KEY NOT NULL,
+	"run_id" text NOT NULL,
+	"round" integer NOT NULL,
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
-	"rubric" text NOT NULL,
+	"rubric" text,
+	"claims" jsonb NOT NULL,
+	"pass_share" double precision NOT NULL,
 	"reference_run_id" text,
 	"spent" jsonb NOT NULL,
 	"asked_at" timestamp NOT NULL,
@@ -583,7 +593,8 @@ CREATE TABLE "change_judging" (
 	"judged_at" timestamp,
 	"failure" "judging_failure",
 	"failed_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "change_judging_run_id_round_pk" PRIMARY KEY("run_id","round")
 );
 --> statement-breakpoint
 CREATE TABLE "chat_record" (
@@ -625,7 +636,9 @@ CREATE TABLE "judging" (
 	"station_id" text NOT NULL,
 	"task_id" text NOT NULL,
 	"fingerprint" text,
-	"rubric" text NOT NULL,
+	"rubric" text,
+	"claims" jsonb NOT NULL,
+	"pass_share" double precision NOT NULL,
 	"rubric_version" text NOT NULL,
 	"asked_at" timestamp NOT NULL,
 	"owed" boolean NOT NULL,
@@ -635,6 +648,29 @@ CREATE TABLE "judging" (
 	"failure" "judging_failure",
 	"failed_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "pair_judging" (
+	"run_id" text NOT NULL,
+	"against_run_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"rubric" text,
+	"claims" jsonb NOT NULL,
+	"pass_share" double precision NOT NULL,
+	"reference_run_id" text NOT NULL,
+	"most_attempts" integer NOT NULL,
+	"shown_order" "pair_order" NOT NULL,
+	"spent" jsonb NOT NULL,
+	"asked_at" timestamp NOT NULL,
+	"owed" boolean NOT NULL,
+	"work_attempts" integer DEFAULT 0 NOT NULL,
+	"work_due_at" timestamp,
+	"judged_at" timestamp,
+	"failure" "judging_failure",
+	"failed_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "pair_judging_run_id_against_run_id_pk" PRIMARY KEY("run_id","against_run_id")
 );
 --> statement-breakpoint
 CREATE TABLE "pending_review" (
@@ -695,11 +731,13 @@ CREATE TABLE "run_record" (
 	"ending" "run_record_ending",
 	"failure" text,
 	"round" integer,
+	"asked" boolean DEFAULT false NOT NULL,
 	"superseded_at" timestamp,
 	"checks" "run_record_checks",
 	"checked_at" timestamp,
 	"next_act" "run_record_act",
 	"next_at" timestamp,
+	"approval_answered_at" timestamp,
 	"handed_on_to" text,
 	"handed_on_at" timestamp,
 	"digested" boolean DEFAULT false NOT NULL,
@@ -731,7 +769,8 @@ CREATE TABLE "score" (
 	"fingerprint" text,
 	"source" "score_source" NOT NULL,
 	"kind" "score_kind" NOT NULL,
-	"value" integer NOT NULL,
+	"value" double precision NOT NULL,
+	"marks" jsonb,
 	"rubric_version" text,
 	"model" text,
 	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
@@ -857,6 +896,10 @@ CREATE TABLE "replay" (
 	"ceiling_currency" text NOT NULL,
 	"unpriced_rate" double precision,
 	"among" jsonb,
+	"repeats" integer NOT NULL,
+	"probe" boolean DEFAULT false NOT NULL,
+	"compared_with" text,
+	"pairs_with" text,
 	"search_id" text,
 	"state" "replay_state" NOT NULL,
 	"started_at" timestamp NOT NULL,
@@ -883,6 +926,8 @@ CREATE TABLE "replay_candidate" (
 	"line_fields" jsonb,
 	"checks_changes" boolean NOT NULL,
 	"rubric" text,
+	"claims" jsonb,
+	"pass_share" double precision,
 	"rubric_version" text,
 	"changed_from" text NOT NULL,
 	"changes" jsonb NOT NULL,
@@ -916,8 +961,10 @@ CREATE TABLE "replay_check" (
 	"candidate_behaviour" text NOT NULL,
 	"candidate_scoring" text NOT NULL,
 	"most_regressions" integer NOT NULL,
+	"min_gain" double precision NOT NULL,
 	"ceiling_amount" double precision NOT NULL,
 	"ceiling_currency" text NOT NULL,
+	"repeats" integer NOT NULL,
 	"kept_live" jsonb NOT NULL,
 	"baseline" "replay_check_baseline" NOT NULL,
 	"created_at" timestamp NOT NULL
@@ -928,6 +975,7 @@ CREATE TABLE "replay_entry" (
 	"position" integer NOT NULL,
 	"original_run_id" text NOT NULL,
 	"task_id" text NOT NULL,
+	"repeat" integer NOT NULL,
 	"run_id" text,
 	"queued" boolean DEFAULT false NOT NULL,
 	"fingerprint" text,
@@ -956,6 +1004,11 @@ CREATE TABLE "replay_entry" (
 	"judging" jsonb,
 	"succeeded" boolean,
 	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"second_judging" jsonb,
+	"rejudging_spent" jsonb,
+	"recheck" jsonb,
+	"pairing" jsonb,
+	"pairing_spent" jsonb,
 	CONSTRAINT "replay_entry_replay_id_position_pk" PRIMARY KEY("replay_id","position")
 );
 --> statement-breakpoint
@@ -974,6 +1027,8 @@ CREATE TABLE "replay_search" (
 	"ceiling_amount" double precision NOT NULL,
 	"ceiling_currency" text NOT NULL,
 	"concurrency" integer NOT NULL,
+	"repeats" integer NOT NULL,
+	"objective" "replay_search_objective" NOT NULL,
 	"split" jsonb NOT NULL,
 	"seed_candidate_id" text NOT NULL,
 	"seed_fingerprint" text NOT NULL,
@@ -981,6 +1036,7 @@ CREATE TABLE "replay_search" (
 	"held_out" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"state" "replay_search_state" NOT NULL,
 	"ending" "replay_search_ending",
+	"started_by" text,
 	"started_at" timestamp NOT NULL,
 	"ended_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
@@ -990,10 +1046,15 @@ CREATE TABLE "replay_search_iteration" (
 	"search_id" text NOT NULL,
 	"number" integer NOT NULL,
 	"run_id" text NOT NULL,
+	"kind" "replay_search_iteration_kind" NOT NULL,
 	"state" "replay_search_iteration_state" NOT NULL,
 	"proposals" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"agent_spent" jsonb,
+	"standing" text,
+	"outcome" "replay_search_reflection_outcome",
+	"reflected_on" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"causes" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	CONSTRAINT "replay_search_iteration_search_id_number_pk" PRIMARY KEY("search_id","number")
 );
 --> statement-breakpoint
@@ -1310,6 +1371,23 @@ CREATE TABLE "network_call" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "notice" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"addressee_id" text NOT NULL,
+	"form" "notice_form" NOT NULL,
+	"subject" text NOT NULL,
+	"link" text NOT NULL,
+	"link_label" text NOT NULL,
+	"headline" text NOT NULL,
+	"points" jsonb NOT NULL,
+	"raised_at" timestamp NOT NULL,
+	"read_at" timestamp,
+	"settled_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "replay_run_claim" (
 	"run_id" text PRIMARY KEY NOT NULL,
 	"claimed_as" "replay_run_claimed" NOT NULL,
@@ -1435,6 +1513,7 @@ CREATE TABLE "task" (
 	"rank" text DEFAULT 'i' NOT NULL,
 	"raised_at_station_id" text,
 	"raised_by_id" text,
+	"opened_from" text NOT NULL,
 	"assignee_id" text,
 	"current_run_id" text,
 	"session_id" text,
@@ -1609,6 +1688,8 @@ CREATE INDEX "forgotten_task_workspace_idx" ON "forgotten_task" USING btree ("wo
 CREATE INDEX "judging_owed_idx" ON "judging" USING btree ("asked_at") WHERE "judging"."owed";--> statement-breakpoint
 CREATE INDEX "judging_task_idx" ON "judging" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "judging_workspace_idx" ON "judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
+CREATE INDEX "pair_judging_owed_idx" ON "pair_judging" USING btree ("asked_at") WHERE "pair_judging"."owed";--> statement-breakpoint
+CREATE INDEX "pair_judging_workspace_idx" ON "pair_judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "pull_request_record_opened_idx" ON "pull_request_record" USING btree ("workspace_id","opened_at");--> statement-breakpoint
 CREATE INDEX "pull_request_record_repository_idx" ON "pull_request_record" USING btree ("workspace_id","repository");--> statement-breakpoint
 CREATE INDEX "pull_request_record_owner_idx" ON "pull_request_record" USING btree ("owner_task_id");--> statement-breakpoint
@@ -1642,6 +1723,7 @@ CREATE INDEX "replay_candidate_idx" ON "replay" USING btree ("candidate_id");-->
 CREATE INDEX "replay_team_state_idx" ON "replay" USING btree ("team_id","state");--> statement-breakpoint
 CREATE INDEX "replay_team_started_idx" ON "replay" USING btree ("team_id","started_at");--> statement-breakpoint
 CREATE INDEX "replay_search_idx" ON "replay" USING btree ("search_id");--> statement-breakpoint
+CREATE INDEX "replay_pairs_with_idx" ON "replay" USING btree ("pairs_with");--> statement-breakpoint
 CREATE INDEX "replay_candidate_station_idx" ON "replay_candidate" USING btree ("station_id");--> statement-breakpoint
 CREATE INDEX "replay_candidate_team_idx" ON "replay_candidate" USING btree ("team_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "replay_candidate_address_idx" ON "replay_candidate" USING btree ("team_id","line_key","station_key","name") WHERE "replay_candidate"."kind" = 'proposed';--> statement-breakpoint
@@ -1694,6 +1776,9 @@ CREATE INDEX "network_call_waiting_idx" ON "network_call" USING btree ("workspac
 CREATE INDEX "network_call_lapsing_idx" ON "network_call" USING btree ("state","lapses_at");--> statement-breakpoint
 CREATE INDEX "network_call_answered_idx" ON "network_call" USING btree ("state","answered_at");--> statement-breakpoint
 CREATE INDEX "network_call_lapsed_idx" ON "network_call" USING btree ("state","lapsed_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "notice_subject_idx" ON "notice" USING btree ("addressee_id","form","subject");--> statement-breakpoint
+CREATE INDEX "notice_addressee_idx" ON "notice" USING btree ("workspace_id","addressee_id");--> statement-breakpoint
+CREATE INDEX "notice_team_idx" ON "notice" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority","created_at");--> statement-breakpoint
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint

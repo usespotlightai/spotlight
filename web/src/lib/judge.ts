@@ -1,6 +1,7 @@
 import type {
   CitationResponseDto,
   CitedHunkResponseDto,
+  ClaimAgreementResponseDto,
   GradeResponseDto,
   JudgeCoverageResponseDto,
   JudgeReasonResponseDto,
@@ -32,9 +33,17 @@ export type CitedHunk = CitedHunkResponseDto;
 
 export type Grade = GradeResponseDto;
 
+export type ClaimAgreement = ClaimAgreementResponseDto;
+
 export type ScoreKind = RunScores['kind'];
 
+export type RatedKind = Exclude<ScoreKind, 'claims'>;
+
 export type GradeValue = boolean | number;
+
+export type GradeAnswer =
+  | { readonly value: GradeValue }
+  | { readonly claims: readonly boolean[] };
 
 export type GradeOption = {
   readonly value: GradeValue;
@@ -51,21 +60,80 @@ const ONE_TO_FIVE: readonly GradeOption[] = [1, 2, 3, 4, 5].map((value) => ({
   label: String(value),
 }));
 
-export const gradeOptions = (kind: ScoreKind): readonly GradeOption[] =>
+export const gradeOptions = (kind: RatedKind): readonly GradeOption[] =>
   kind === 'yes-no' ? YES_NO : ONE_TO_FIVE;
 
-export const valueOfGrade = (kind: ScoreKind, value: GradeValue): number =>
+export const valueOfGrade = (kind: RatedKind, value: GradeValue): number =>
   kind === 'yes-no' ? (value ? 1 : 0) : Number(value);
+
+export const claimsMetShown = (marks: readonly boolean[]): string =>
+  `${marks.filter(Boolean).length} of ${marks.length} claims met`;
 
 export const scoreShown = (score: {
   readonly kind: ScoreKind;
   readonly label: string;
-}): string =>
-  score.kind === 'yes-no'
-    ? score.label === 'yes'
-      ? 'Yes'
-      : 'No'
-    : `${score.label} of 5`;
+  readonly marks?: readonly boolean[] | null;
+}): string => {
+  switch (score.kind) {
+    case 'yes-no':
+      return score.label === 'yes' ? 'Yes' : 'No';
+    case 'number':
+      return `${score.label} of 5`;
+    case 'claims':
+      return score.marks ? claimsMetShown(score.marks) : score.label;
+  }
+};
+
+export const sharesOn = (kind: ScoreKind): boolean => kind !== 'number';
+
+const TREND_CAPTIONS: Record<ScoreKind, string> = {
+  'yes-no': 'share scored yes, by day',
+  number: 'mean score, by day',
+  claims: 'share of claims met, by day',
+};
+
+export const trendCaptionShown = (kind: ScoreKind): string =>
+  TREND_CAPTIONS[kind];
+
+export const claimShown = (
+  claims: readonly (string | null)[],
+  index: number,
+): string => claims[index] ?? `Claim ${index + 1}`;
+
+export const REWORDED_CLAIM =
+  'Its words changed since the judge marked it, so it reads by its place.';
+
+export const markShown = (met: boolean): string => (met ? 'Met' : 'Not met');
+
+export const passShareShown = (passShare: number): string =>
+  passShare >= 1
+    ? 'A run passes when it meets every claim.'
+    : `A run passes when it meets at least ${percentShown(passShare)} of its claims.`;
+
+export const CLAIMS_LABEL = 'Claims';
+
+export const CLAIMS_QUESTION = 'Does the run meet each claim?';
+
+export const SAVE_GRADE = 'Save grade';
+
+export const ANSWER_EVERY_CLAIM = 'Answer every claim to save your grade.';
+
+export const CLAIM_AGREEMENT_LABEL = 'Agreement claim by claim';
+
+export const POOLED_KAPPA = 'Cohen’s kappa, every claim';
+
+export const CLAIM_COLUMN = 'Claim';
+
+export const KAPPA_COLUMN = 'Cohen’s kappa';
+
+export const AGREED_COLUMN = 'Agreed';
+
+export const RUNS_COLUMN = 'Runs';
+
+export const YOUR_GRADE = 'Your grade';
+
+export const claimsGradedShown = (grade: string): string =>
+  `You graded it ${grade.toLowerCase()}. Change any answer and save again to change your mind.`;
 
 const MEASURES: Record<NonNullable<JudgeStanding['measure']>, string> = {
   kappa: 'Cohen’s kappa',

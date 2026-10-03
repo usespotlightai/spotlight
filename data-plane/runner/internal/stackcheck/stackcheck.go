@@ -30,8 +30,8 @@ const (
 var errNoLongerHeld = errors.New("the check is no longer held")
 
 type Control interface {
-	RenewCheckLease(ctx context.Context, runID, stackID string) (bool, error)
-	RecordChangeStackCheck(ctx context.Context, runID, stackID string, checked protocol.StackChecked) error
+	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
+	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackChecked) error
 }
 
 type Options struct {
@@ -70,7 +70,7 @@ func Perform(ctx context.Context, client Control, check protocol.StackCheck, opt
 		return
 	}
 
-	if err := client.RecordChangeStackCheck(ctx, check.RunID, check.StackID, checked); err != nil {
+	if err := client.RecordChangeStackCheck(ctx, check.RunID, check.StackID, check.Recheck, checked); err != nil {
 		opts.Log.Warn("could not report a change stack check", "stack", check.StackID, "error", err)
 	}
 }
@@ -90,7 +90,7 @@ func (o Options) renew(
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				stop, err := client.RenewCheckLease(ctx, check.RunID, check.StackID)
+				stop, err := client.RenewCheckLease(ctx, check.RunID, check.StackID, check.Recheck)
 				switch {
 				case err == nil && stop:
 					o.Log.Info("told to stop checking a change stack", "stack", check.StackID)

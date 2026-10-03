@@ -37,6 +37,7 @@ export class StartWantedBaseline {
           set,
           await this.replays.ofSet(set.id),
           candidate.scoringDigest,
+          event.repeats,
         )
       ) {
         await this.candidates.save(candidate.abandoned());
@@ -50,6 +51,7 @@ export class StartWantedBaseline {
           candidate,
           baseline: true,
           ceiling: event.ceiling,
+          repeats: event.repeats,
           ...(event.unpricedRate ? { unpricedRate: event.unpricedRate } : {}),
           at: this.clock.now(),
           by: Attribution.spotlight(set.workspaceId),

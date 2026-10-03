@@ -134,6 +134,7 @@ const aTask = async (title: string): Promise<string> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title,
@@ -528,6 +529,7 @@ describe('a search run reading its station’s history', () => {
             runs: [candidate, heldOutCandidate].map((each) => ({
               runId: each,
               original: each === candidate ? original : hidden,
+              repeat: 1,
               succeeded: true,
               reasons: [],
               verdict: 'pass',

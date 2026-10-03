@@ -47,6 +47,7 @@ export const endOf = (
     ending?: RunEnding;
     failure?: string | null;
     round?: number;
+    asked?: boolean;
     harness?: string;
     model?: string | null;
     effort?: string | null;
@@ -73,6 +74,7 @@ export const endOf = (
     ending: change.ending ?? 'completed',
     failure: change.failure ?? null,
     round: change.round ?? 1,
+    asked: change.asked ?? false,
   });
 
 export const costOf = (

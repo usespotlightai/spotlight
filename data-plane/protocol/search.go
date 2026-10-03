@@ -3,6 +3,7 @@ package protocol
 import (
 	"encoding/json"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -29,4 +30,23 @@ type ProposedCandidate struct {
 	CandidateID string `json:"candidateId"`
 	Name        string `json:"name"`
 	ReplayID    string `json:"replayId"`
+}
+
+var SearchCauses = []string{"config", "task", "judge", "check", "infra"}
+
+func IsSearchCause(cause string) bool {
+	return slices.Contains(SearchCauses, cause)
+}
+
+type CauseRecord struct {
+	TaskID     string `json:"taskId"`
+	Cause      string `json:"cause"`
+	Evidence   string `json:"evidence"`
+	Suggestion string `json:"suggestion,omitempty"`
+}
+
+type RecordedCause struct {
+	TaskID      string `json:"taskId"`
+	Cause       string `json:"cause"`
+	ReplayRunID string `json:"replayRunId"`
 }

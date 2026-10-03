@@ -1,5 +1,6 @@
 import { ShieldCheck } from 'lucide-react';
 import { spentIn } from '@/lib/inbox';
+import { minGainSentence } from '@/lib/replay-words';
 import { type LineReplayCheck, regressionsShown } from '@/lib/search';
 
 type ReplayCheckThresholdProps = {
@@ -27,7 +28,7 @@ export function ReplayCheckThreshold({
           <span className="text-foreground tabular-nums">
             {spentIn(replayCheck.ceiling, replayCheck.currency)}
           </span>
-          .
+          ; {minGainSentence(replayCheck.minGain)}.
         </span>
       ) : (
         <span className="min-w-0">

@@ -10,9 +10,17 @@ export type HealthResponseDto = {
 
 export type StationJudgeResponseDto = {
   /**
-   * What a good run looks like, in Markdown
+   * What a good run looks like, in Markdown. Null when the judge goes by its claims alone
    */
-  rubric: string;
+  rubric: string | null;
+  /**
+   * Checkable claims the judge marks met or unmet, in order. Empty when the judge goes by its rubric
+   */
+  claims: Array<string>;
+  /**
+   * The share of claims a run must meet to pass, from 0 to 1. 1 means every claim
+   */
+  passShare: number;
   /**
    * The share of runs judged, from 0 to 1
    */
@@ -130,6 +138,10 @@ export type LineReplayCheckResponseDto = {
    * The currency of the ceiling
    */
   currency: string;
+  /**
+   * The smallest gain in success, as a share, that counts as more than noise when replays are compared
+   */
+  minGain: number;
 };
 
 export type LineResponseDto = {
@@ -300,6 +312,10 @@ export type ClaimedCheckStepResponseDto = {
 
 export type ClaimedCheckResponseDto = {
   stackId: string;
+  /**
+   * It checks a replay’s change a second time; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found
+   */
+  recheck: boolean;
   runId: string;
   /**
    * Which checkout to check
@@ -571,6 +587,10 @@ export type HistoryCandidateRunResponseDto = {
    * The task run it replayed
    */
   original: string;
+  /**
+   * Which copy of the task run it is, from 1
+   */
+  repeat: number;
   taskId: string;
   title: string;
   fingerprint: string | null;
@@ -1177,6 +1197,10 @@ export type InboxMessageResponseDto = {
 
 export type InboxItemResponseDto = {
   /**
+   * A task’s conversation or what was put aside beside it
+   */
+  kind: 'task';
+  /**
    * One conversation a person was asked to own
    */
   id: string;
@@ -1237,6 +1261,41 @@ export type InboxItemResponseDto = {
    */
   aside: InboxAsideResponseDto | null;
   notes: Array<InboxMessageResponseDto>;
+};
+
+export type InboxNoticeResponseDto = {
+  /**
+   * Word put to one person about their team’s work, outside any task
+   */
+  kind: 'notice';
+  id: string;
+  teamId: string;
+  /**
+   * ended when work the person started has ended and they may want to act on how; advice when it carries on but suggests something they could fix
+   */
+  form: 'ended' | 'advice';
+  headline: string;
+  /**
+   * What happened, then what it suggests, one point each
+   */
+  points: Array<string>;
+  /**
+   * Where to look, as a path within its team
+   */
+  link: string;
+  /**
+   * What to call the link, naming where it leads
+   */
+  linkLabel: string;
+  askedAt: string;
+  /**
+   * Not seen yet
+   */
+  unread: boolean;
+  /**
+   * True once its person settled it
+   */
+  resolved: boolean;
 };
 
 export type AnswerInboxItemRequestDto = {
@@ -3934,7 +3993,7 @@ export type MemoryFileResponseDto = {
 };
 
 export type NextActResponseDto = {
-  act: 'started' | 'parked' | 'closed' | 'answered' | 'approved' | 'refused' | 'sent-back';
+  act: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
   at: string;
 };
 
@@ -4070,7 +4129,15 @@ export type StationJudgeSettingsResponseDto = {
   /**
    * The scale its rubric scores on; none where it cannot be read
    */
-  kind: 'yes-no' | 'number' | null;
+  kind: 'yes-no' | 'number' | 'claims' | null;
+  /**
+   * The claims the judge marks met or unmet, in order; empty where it goes by its rubric
+   */
+  claims: Array<string>;
+  /**
+   * The share of claims a run must meet to pass, from 0 to 1
+   */
+  passShare: number;
   sample: number;
   trust: number;
 };
@@ -4081,7 +4148,7 @@ export type JudgeStandingResponseDto = {
    */
   trusted: boolean;
   /**
-   * How agreement is measured: Cohen’s kappa for yes or no scores, Spearman’s correlation for numbers
+   * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
    */
   measure: 'kappa' | 'spearman' | null;
   agreement: number | null;
@@ -4096,6 +4163,19 @@ export type JudgeStandingResponseDto = {
   hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
 };
 
+export type ClaimAgreementResponseDto = {
+  /**
+   * The claim’s place, from 0
+   */
+  index: number;
+  /**
+   * Runs where both the judge and people marked this claim
+   */
+  pairs: number;
+  observed: number | null;
+  kappa: number | null;
+};
+
 export type AgreementResponseDto = {
   pairs: number;
   /**
@@ -4108,6 +4188,10 @@ export type AgreementResponseDto = {
    * The mean absolute difference between the two scores
    */
   mae: number | null;
+  /**
+   * For a judge of claims, how often it agrees with people on each claim; the figures above pool every claim. Empty otherwise
+   */
+  claims: Array<ClaimAgreementResponseDto>;
 };
 
 export type ConfusionResponseDto = {
@@ -4134,7 +4218,7 @@ export type TrendPointResponseDto = {
 
 export type RubricVersionResponseDto = {
   rubricVersion: string;
-  kind: 'yes-no' | 'number';
+  kind: 'yes-no' | 'number' | 'claims';
   /**
    * Whether this is the station’s rubric now
    */
@@ -4198,14 +4282,22 @@ export type CitationResponseDto = {
 export type JudgeReasonResponseDto = {
   text: string;
   citations: Array<CitationResponseDto>;
+  /**
+   * The place of the claim this reason is about, from 0; none on a rubric’s scale
+   */
+  claim: number | null;
 };
 
 export type JudgeScoreResponseDto = {
-  kind: 'yes-no' | 'number';
+  kind: 'yes-no' | 'number' | 'claims';
   /**
-   * 1 for yes and 0 for no, or a whole number from 1 to 5
+   * 1 for yes and 0 for no, a whole number from 1 to 5, or the share of claims met
    */
   value: number;
+  /**
+   * Whether each claim was met, in order; none on a rubric’s scale
+   */
+  marks: Array<boolean> | null;
   label: string;
   rubricVersion: string;
   model: string;
@@ -4219,8 +4311,12 @@ export type GradeResponseDto = {
    * Whether the caller gave this grade
    */
   mine: boolean;
-  kind: 'yes-no' | 'number';
+  kind: 'yes-no' | 'number' | 'claims';
   value: number;
+  /**
+   * Whether the person found each claim met, in order; none on a rubric’s scale
+   */
+  marks: Array<boolean> | null;
   label: string;
   at: string;
 };
@@ -4232,7 +4328,11 @@ export type RunScoresResponseDto = {
   /**
    * The scale the run is graded on: its judge’s, else its station’s rubric’s, else yes or no
    */
-  kind: 'yes-no' | 'number';
+  kind: 'yes-no' | 'number' | 'claims';
+  /**
+   * The claims the run is graded on, in order, on a claims scale, empty on any other; a claim reads null where its words changed since the judge marked it
+   */
+  claims: Array<string | null>;
   /**
    * Whether the judge scored the run
    */
@@ -4250,9 +4350,13 @@ export type RunScoresResponseDto = {
 
 export type GradeRunRequestDto = {
   /**
-   * Yes or no, or a whole number from 1 to 5, on the run’s scale
+   * Yes or no, or a whole number from 1 to 5, on the run’s scale; left out on a claims scale
    */
-  value: boolean | number;
+  value?: boolean | number;
+  /**
+   * Whether each claim was met, in order, on a claims scale; left out otherwise
+   */
+  claims?: Array<boolean>;
 };
 
 export type InsightsPeriodResponseDto = {
@@ -5133,7 +5237,7 @@ export type StationStandingResponseDto = {
    */
   trusted: boolean;
   /**
-   * How agreement is measured: Cohen’s kappa for yes or no scores, Spearman’s correlation for numbers
+   * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
    */
   measure: 'kappa' | 'spearman' | null;
   agreement: number | null;
@@ -5771,7 +5875,7 @@ export type ReplayCandidateResourceResponseDto = {
   /**
    * proposed by a person or a token; or live, a snapshot of the station’s config Spotlight takes to replay as a baseline, which only goes with its replays
    */
-  kind: 'live' | 'proposed' | 'searched' | 'planned';
+  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'sanity';
   /**
    * The station block it replays the station under, in the shape the line resource holds a station in
    */
@@ -5791,6 +5895,255 @@ export type ReplayCandidateResourceListResponseDto = {
    * Every one there is, each as a read would answer it, in address order
    */
   items: Array<ReplayCandidateResourceResponseDto>;
+};
+
+export type SetNoiseResponseDto = {
+  /**
+   * The finished live replay, run more than once, the noise was measured on
+   */
+  replayId: string;
+  /**
+   * The live config fingerprint it replayed
+   */
+  fingerprint: string;
+  repeats: number;
+  /**
+   * The success rate of each copy of the set, in order
+   */
+  perRepeat: Array<number>;
+  /**
+   * The highest copy’s success rate less the lowest’s
+   */
+  spread: number;
+  /**
+   * Tasks whose copies disagree, succeeding in one and failing in another
+   */
+  flippedTasks: Array<string>;
+  measuredAt: string;
+};
+
+export type RateIntervalResponseDto = {
+  /**
+   * The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks
+   */
+  rate: number;
+  /**
+   * The low end of the 95% interval, bootstrapped over the tasks
+   */
+  low: number;
+  /**
+   * The high end of the 95% interval, bootstrapped over the tasks
+   */
+  high: number;
+};
+
+export type SetSaturationResponseDto = {
+  /**
+   * The newest finished replay of the live config over the whole set it was read from
+   */
+  replayId: string;
+  /**
+   * The live config’s success rate
+   */
+  rate: number;
+  interval: RateIntervalResponseDto | null;
+  /**
+   * Its success rate is above 0.95: a search has little room to succeed more, and looks for the same success at less cost unless told otherwise
+   */
+  saturated: boolean;
+  measuredAt: string;
+};
+
+export type JudgeConsistencyResponseDto = {
+  /**
+   * The probe: the newest finished replay of the live config that checked the set
+   */
+  replayId: string;
+  /**
+   * Changes the judge judged twice, both times with a verdict
+   */
+  compared: number;
+  /**
+   * Of those, the ones it passed or failed alike both times
+   */
+  agreed: number;
+  /**
+   * Second judgings still to come
+   */
+  pending: number;
+  /**
+   * agreed out of compared; null before any is compared
+   */
+  agreement: number | null;
+  /**
+   * It agreed with itself less than 0.8 of the time, so its verdicts are partly chance
+   */
+  unstable: boolean;
+};
+
+export type FlakyCheckResponseDto = {
+  taskId: string;
+  /**
+   * The original run the replay run replayed
+   */
+  originalRunId: string;
+  /**
+   * The probe’s replay run whose change flipped
+   */
+  runId: string;
+  first: 'passed' | 'failed';
+  recheck: 'passed' | 'failed';
+};
+
+export type CheckConsistencyResponseDto = {
+  /**
+   * The probe whose changes were checked again
+   */
+  replayId: string;
+  /**
+   * Changes checked twice, both times passing or failing
+   */
+  rechecked: number;
+  /**
+   * Second checks still to come
+   */
+  pending: number;
+  /**
+   * The changes whose check passed once and failed once
+   */
+  flaky: Array<FlakyCheckResponseDto>;
+};
+
+export type GainReadingResponseDto = {
+  /**
+   * The success rate gained over what it is compared with, on the tasks both scored
+   */
+  gain: number;
+  /**
+   * The low end of the 95% interval of the gain, a paired bootstrap over the tasks
+   */
+  low: number;
+  /**
+   * The high end of the 95% interval of the gain
+   */
+  high: number;
+  /**
+   * better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise
+   */
+  verdict: 'better' | 'worse' | 'within-noise';
+  /**
+   * The smallest gain the line counts as real
+   */
+  minGain: number;
+  /**
+   * The tasks both sides scored, paired
+   */
+  tasks: number;
+};
+
+export type WorseTaskResponseDto = {
+  taskId: string;
+  originalRunId: string;
+  /**
+   * The live config’s success on the task
+   */
+  live: number;
+  /**
+   * The stronger config’s success on the task
+   */
+  stronger: number;
+};
+
+export type SanityReadingResponseDto = {
+  /**
+   * The newest replay of the live config with a stronger model
+   */
+  replayId: string;
+  candidateId: string;
+  model: string | null;
+  effort: string | null;
+  repeats: number;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  /**
+   * The replay of the live config, run at least as often, it is compared with, chosen when it started
+   */
+  againstReplayId: string | null;
+  /**
+   * How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be, so start another
+   */
+  againstState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | 'gone' | null;
+  gain: GainReadingResponseDto | null;
+  /**
+   * The stronger config did clearly better; false means the set does not reward a stronger model, so its tasks may be unclear or its scoring off; null until compared
+   */
+  rewardsStrongerModel: boolean | null;
+  worse: Array<WorseTaskResponseDto>;
+};
+
+export type SetHealthResponseDto = {
+  /**
+   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   */
+  noise: SetNoiseResponseDto | null;
+  /**
+   * How much of the set the live config passes already; null until it replayed the whole set
+   */
+  saturation: SetSaturationResponseDto | null;
+  /**
+   * How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged
+   */
+  judge: JudgeConsistencyResponseDto | null;
+  /**
+   * Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked
+   */
+  checks: CheckConsistencyResponseDto | null;
+  /**
+   * Whether a stronger model or higher effort does better on the set; null until one was replayed
+   */
+  sanity: SanityReadingResponseDto | null;
+};
+
+export type OutcomeCountResponseDto = {
+  outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
+  count: number;
+};
+
+export type OriginCountResponseDto = {
+  origin: string;
+  count: number;
+};
+
+export type BalanceWarningResponseDto = {
+  dominant: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
+  count: number;
+  entries: number;
+};
+
+export type SetCompositionResponseDto = {
+  /**
+   * How many of its runs turned out each way, every outcome listed in one order
+   */
+  outcomes: Array<OutcomeCountResponseDto>;
+  /**
+   * How many of its tasks came from each origin, the most common first
+   */
+  origins: Array<OriginCountResponseDto>;
+  /**
+   * When its oldest run ended; null while none has
+   */
+  oldest: string | null;
+  /**
+   * The median of when its runs ended; null while none has
+   */
+  median: string | null;
+  /**
+   * When its newest run ended; null while none has
+   */
+  newest: string | null;
+  /**
+   * Set when one outcome is more than two thirds of a set of at least 6 runs
+   */
+  balanceWarning: BalanceWarningResponseDto | null;
 };
 
 export type ReplaySetEntryResponseDto = {
@@ -5814,6 +6167,14 @@ export type ReplaySetEntryResponseDto = {
    */
   refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
+  /**
+   * How the original run turned out: asked when what a person did next was decide an approval it asked for; else accepted or sent back by what a person did next; else failed; else asked when it ended waiting on a person or a person answered it; else other
+   */
+  outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
+  /**
+   * Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station handed it on; null once the task is deleted
+   */
+  origin: string | null;
 };
 
 export type ReplaySetResponseDto = {
@@ -5830,6 +6191,18 @@ export type ReplaySetResponseDto = {
    * Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set
    */
   guardsChanges: boolean;
+  /**
+   * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and whether it rewards a stronger model
+   */
+  health: SetHealthResponseDto;
+  /**
+   * The smallest gain in success its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
+   */
+  minGain: number;
+  /**
+   * What the set is made of: how its runs turned out, where their tasks came from, and when they ended
+   */
+  composition: SetCompositionResponseDto;
   entries: Array<ReplaySetEntryResponseDto>;
 };
 
@@ -5844,6 +6217,23 @@ export type ReplayableRunResponseDto = {
    */
   refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
+};
+
+export type SuggestedRunResponseDto = {
+  runId: string;
+  taskId: string | null;
+  title: string;
+  state: string;
+  endedAt: string;
+  /**
+   * Why it cannot be replayed; null when it can
+   */
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  reason: string | null;
+  /**
+   * How the run turned out
+   */
+  outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
 };
 
 export type OpenReplaySetRequestDto = {
@@ -5868,7 +6258,7 @@ export type AddReplaySetEntryRequestDto = {
 export type CandidateResponseDto = {
   id: string;
   name: string;
-  kind: 'live' | 'proposed' | 'searched' | 'planned';
+  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'sanity';
   /**
    * The StationConfig fingerprint, as runs record it
    */
@@ -5893,13 +6283,25 @@ export type ReplayTotalsResponseDto = {
   notRun: number;
   succeeded: number | null;
   /**
-   * Of the scored entries, the share that succeeded
+   * Per task, the share of its scored copies that succeeded, averaged over the tasks scored
    */
   successRate: number | null;
+  /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
   /**
    * Entries that succeeded or failed
    */
   scored: number;
+  /**
+   * Original runs it replays, each once or more
+   */
+  tasks: number;
+  /**
+   * Original runs with at least one scored copy
+   */
+  tasksScored: number;
   /**
    * Entries done that nothing could score
    */
@@ -5926,6 +6328,21 @@ export type ReplayTotalsResponseDto = {
   medianMs: number | null;
 };
 
+export type PairTallyResponseDto = {
+  /**
+   * Tasks where the judge found the change better
+   */
+  wins: number;
+  /**
+   * Tasks where the judge found the change worse
+   */
+  losses: number;
+  /**
+   * Tasks where the judge found neither change better
+   */
+  ties: number;
+};
+
 export type EntryChecksResponseDto = {
   /**
    * drafting or checking until its change stacks settle and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
@@ -5941,23 +6358,77 @@ export type EntryChecksResponseDto = {
   why: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time' | 'no-image' | 'unprovisioned' | 'nobody-checked' | 'skipped' | 'undrafted' | 'no-check-asked' | null;
 };
 
+export type EntryCitedStepResponseDto = {
+  /**
+   * Where the step sits in the run’s journal
+   */
+  index: number;
+  /**
+   * Always null here: a replay keeps no copy of what the judge read
+   */
+  kind: string | null;
+  tool: string | null;
+  text: string | null;
+};
+
+export type EntryCitedHunkResponseDto = {
+  id: string;
+  /**
+   * Always null here: a replay keeps no copy of what the judge read
+   */
+  path: string | null;
+  header: string | null;
+  lines: Array<string>;
+};
+
+export type EntryCitationResponseDto = {
+  kind: 'step' | 'hunk';
+  step: EntryCitedStepResponseDto | null;
+  hunk: EntryCitedHunkResponseDto | null;
+};
+
+export type EntryJudgeReasonResponseDto = {
+  text: string;
+  citations: Array<EntryCitationResponseDto>;
+  /**
+   * The place of the claim this reason is about, from 0; none on a rubric’s scale
+   */
+  claim: number | null;
+};
+
 export type EntryJudgeResponseDto = {
   state: 'asked' | 'judged' | 'unjudged';
-  scale: 'yes-no' | 'number' | null;
+  scale: 'yes-no' | 'number' | 'claims' | null;
   /**
-   * 0 or 1 on a yes-no rubric, 1 to 5 on a number one
+   * 0 or 1 on a yes-no rubric, 1 to 5 on a number one, or the share of claims met
    */
   score: number | null;
   /**
-   * Yes on a yes-no rubric, or at least 4 on a number one
+   * Yes on a yes-no rubric, at least 4 on a number one, or at least the pass share of claims met
    */
   passed: boolean | null;
+  /**
+   * Whether each claim was met, in order; null unless the judge goes by claims
+   */
+  marks: Array<boolean> | null;
+  /**
+   * The share of claims a run had to meet to pass; null unless the judge goes by claims
+   */
+  passShare: number | null;
   /**
    * Whether it was judged against the change people accepted for the original run; without one, on the rubric alone
    */
   referenced: boolean | null;
   model: string | null;
   unjudged: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'stopped-before-judging' | null;
+  /**
+   * The claims the judge marked, in order, as worded when it judged; empty unless it goes by claims
+   */
+  claims: Array<string>;
+  /**
+   * The judge’s grounded reasons, each naming the claim it is about on a claims judge
+   */
+  reasons: Array<EntryJudgeReasonResponseDto>;
 };
 
 export type ModelSpentResponseDto = {
@@ -5969,6 +6440,45 @@ export type ModelSpentResponseDto = {
    * Calls that came back with no price
    */
   unpriced: number;
+};
+
+export type EntryPairReasonResponseDto = {
+  text: string;
+  /**
+   * The hunks of this entry’s change the reason cites
+   */
+  ownHunks: Array<string>;
+  /**
+   * The hunks of the baseline’s change the reason cites
+   */
+  theirHunks: Array<string>;
+};
+
+export type EntryPairReadingResponseDto = {
+  /**
+   * Whether this entry’s change was shown first, as A; each pair is read both ways round
+   */
+  ownShownFirst: boolean;
+  outcome: 'win' | 'loss' | 'tie';
+  reasons: Array<EntryPairReasonResponseDto>;
+};
+
+export type EntryPairResponseDto = {
+  state: 'asked' | 'judged' | 'unpaired';
+  /**
+   * The run of the same task, in the replay in pairedWith, this change was set beside
+   */
+  againstRunId: string;
+  /**
+   * Whether the judge, not knowing which change was which, found this one better (win), worse (loss) or as good (tie)
+   */
+  outcome: 'win' | 'loss' | 'tie' | null;
+  model: string | null;
+  unpaired: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'other-rubric' | 'budget' | null;
+  /**
+   * The two readings, one with each change shown first; where they disagree the outcome is a tie
+   */
+  readings: Array<EntryPairReadingResponseDto>;
 };
 
 export type EntryReasonResponseDto = {
@@ -5997,6 +6507,10 @@ export type ReplayEntryResponseDto = {
    */
   originalRunId: string;
   taskId: string;
+  /**
+   * Which copy of the original run this is, from 1
+   */
+  repeat: number;
   /**
    * The replay run, once one is queued
    */
@@ -6034,6 +6548,26 @@ export type ReplayEntryResponseDto = {
    */
   judgingSpent: ModelSpentResponseDto | null;
   /**
+   * A probe’s second judging of the same change, to see whether the judge agrees with itself; it never changes the run’s result
+   */
+  secondJudge: EntryJudgeResponseDto | null;
+  /**
+   * What the second judging cost; what is in the ceiling’s currency is spent against it
+   */
+  rejudgingSpent: ModelSpentResponseDto | null;
+  /**
+   * A probe’s second check of the same change, to see whether the check is flaky; it never changes the run’s result
+   */
+  recheck: EntryChecksResponseDto | null;
+  /**
+   * Its change set side by side with that of the replay in pairedWith for the same task, judged blind both ways round; it never changes the run’s result
+   */
+  pair: EntryPairResponseDto | null;
+  /**
+   * What the side-by-side judging cost; what is in the ceiling’s currency is spent against it
+   */
+  pairingSpent: ModelSpentResponseDto | null;
+  /**
    * pending while its run, checks or judge are still to come; unscored when nothing could say whether it succeeded
    */
   result: 'pending' | 'succeeded' | 'failed' | 'unscored';
@@ -6066,9 +6600,29 @@ export type ReplayResponseDto = {
   checks: boolean;
   state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
   ceiling: SpendResponseDto;
+  /**
+   * How many times it replays each run of its set
+   */
+  repeats: number;
+  /**
+   * It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice
+   */
+  probe: boolean;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
+  /**
+   * Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none
+   */
+  againstBaseline: GainReadingResponseDto | null;
+  /**
+   * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   */
+  pairedWith: string | null;
+  /**
+   * Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is
+   */
+  pairsAgainstBaseline: PairTallyResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
 };
 
@@ -6083,6 +6637,10 @@ export type StartReplayRequestDto = {
    */
   candidate: string;
   ceiling: StartReplayCeilingRequestDto;
+  /**
+   * How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals
+   */
+  repeats?: number;
 };
 
 export type StartedBaselineResponseDto = {
@@ -6109,6 +6667,44 @@ export type ReplayStartedResponseDto = {
   baseline: StartedBaselineResponseDto | null;
 };
 
+export type ProbeReplaySetRequestDto = {
+  ceiling: StartReplayCeilingRequestDto;
+};
+
+export type StartSanityReplayRequestDto = {
+  /**
+   * The stronger model to replay the set under, one its harness offers; the live config’s when left out
+   */
+  model?: string;
+  /**
+   * The higher effort to replay the set at; the live config’s when left out. Name a model, an effort, or both
+   */
+  effort?: string;
+  ceiling: StartReplayCeilingRequestDto;
+  /**
+   * How many times to replay each run, 1 when left out
+   */
+  repeats?: number;
+};
+
+export type SanityComparisonResponseDto = {
+  id: string;
+  ceiling: SpendResponseDto;
+};
+
+export type SanityReplayStartedResponseDto = {
+  id: string;
+  /**
+   * The stronger config it replays: the live one, but stronger
+   */
+  candidateId: string;
+  ceiling: SpendResponseDto;
+  /**
+   * A replay of the live config, run as often, started beside it to compare with when the set had none, under a ceiling of its own equal to the one asked for
+   */
+  comparison: SanityComparisonResponseDto | null;
+};
+
 export type ReplaySearchResponseDto = {
   /**
    * The search the replay belongs to
@@ -6127,10 +6723,24 @@ export type EntryComparisonResponseDto = {
    * The title of the task the original run worked, as it reads now; null once the task is deleted
    */
   title: string | null;
-  candidate: ReplayEntryResponseDto;
-  baseline: ReplayEntryResponseDto | null;
   /**
-   * Candidate cost less the baseline’s, once both settled
+   * Each copy of the task the candidate replayed
+   */
+  candidate: Array<ReplayEntryResponseDto>;
+  /**
+   * Each copy of the task the baseline replayed; none without one
+   */
+  baseline: Array<ReplayEntryResponseDto>;
+  /**
+   * The share of the candidate’s scored copies that succeeded
+   */
+  candidateSuccess: number | null;
+  /**
+   * The share of the baseline’s scored copies that succeeded
+   */
+  baselineSuccess: number | null;
+  /**
+   * Candidate cost less the baseline’s, each averaged over its copies, once both settled
    */
   costDelta: number | null;
   msDelta: number | null;
@@ -6144,9 +6754,13 @@ export type EntryComparisonResponseDto = {
    */
   scoreUncompared: 'unjudged' | 'other-rubric' | 'other-reference' | null;
   /**
-   * The baseline succeeded on this task and the candidate failed, or its judge score dropped
+   * The baseline’s share of copies that succeeded is more than half above the candidate’s (with one copy each: the baseline succeeded and the candidate failed), or its average judge score dropped
    */
   regressed: boolean;
+  /**
+   * Whether the judge, comparing the candidate’s change blind with that of the replay in pairedWith, found it better (win), worse (loss) or as good (tie), by most of its copies; null where none was compared so
+   */
+  pair: 'win' | 'loss' | 'tie' | null;
 };
 
 export type ReplayDetailResponseDto = {
@@ -6171,11 +6785,35 @@ export type ReplayDetailResponseDto = {
   checks: boolean;
   state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
   ceiling: SpendResponseDto;
+  /**
+   * How many times it replays each run of its set
+   */
+  repeats: number;
+  /**
+   * It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice
+   */
+  probe: boolean;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
+  /**
+   * Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none
+   */
+  againstBaseline: GainReadingResponseDto | null;
+  /**
+   * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   */
+  pairedWith: string | null;
+  /**
+   * Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is
+   */
+  pairsAgainstBaseline: PairTallyResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
+  /**
+   * The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none
+   */
+  comparedWithReplayId: string | null;
   /**
    * The search it belongs to, when a search started it
    */
@@ -6226,6 +6864,10 @@ export type SearchBudgetResponseDto = {
   perIteration: number;
   ceiling: SpendResponseDto;
   concurrency: number;
+  /**
+   * How many times each of its replays replays each run
+   */
+  repeats: number;
 };
 
 export type SearchBestResponseDto = {
@@ -6240,13 +6882,25 @@ export type SearchBestResponseDto = {
    */
   searchScore: number | null;
   /**
+   * Its success rate on the searched tasks with its 95% interval
+   */
+  searchInterval: RateIntervalResponseDto | null;
+  /**
    * Its success rate on the held-out tasks, 0 to 1, once they are replayed
    */
   heldOutScore: number | null;
   /**
+   * Its held-out success rate with its 95% interval
+   */
+  heldOutInterval: RateIntervalResponseDto | null;
+  /**
    * What it spent per searched run, in the search’s currency; unknown while any of its spend went unpriced or was in another currency
    */
   costPerRun: number | null;
+  /**
+   * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
+   */
+  onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
 };
 
 export type SearchResponseDto = {
@@ -6259,11 +6913,15 @@ export type SearchResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config
    */
   ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
+  /**
+   * What it looks for, which orders its frontier and its best: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   */
+  objective: 'success' | 'cost';
   /**
    * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
    */
@@ -6277,7 +6935,7 @@ export type SearchResponseDto = {
    */
   proposed: number;
   /**
-   * The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it
+   * The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it
    */
   best: SearchBestResponseDto | null;
   startedAt: string;
@@ -6301,6 +6959,10 @@ export type SearchBudgetRequestDto = {
    * How many of its replay runs it runs at once, beside the team’s own; 4 unless told
    */
   concurrency?: number;
+  /**
+   * How many times each of its replays replays each run: the seed, every candidate and the held-out replays; 1 unless told. Runs and cost grow with it
+   */
+  repeats?: number;
 };
 
 export type EstimateSearchRequestDto = {
@@ -6309,6 +6971,95 @@ export type EstimateSearchRequestDto = {
    */
   setId: string;
   budget: SearchBudgetRequestDto;
+  /**
+   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success
+   */
+  objective?: 'success' | 'cost';
+};
+
+export type NoiseUnmeasuredWarningResponseDto = {
+  /**
+   * No finished replay of the live config ran the set more than once, so nobody knows how much its success moves by chance
+   */
+  kind: 'noise-unmeasured';
+};
+
+export type NoisyWarningResponseDto = {
+  /**
+   * The set’s success moves more between copies than the line’s min_gain, so a single copy cannot tell a real gain from noise
+   */
+  kind: 'noisy';
+  /**
+   * How far the set’s success moved between copies
+   */
+  spread: number;
+  minGain: number;
+  /**
+   * The repeats it would take to bring the noise under min_gain, however many; more than 5 means no search of this set can tell such a gain from noise
+   */
+  neededRepeats: number;
+  /**
+   * The repeats to ask for: the needed ones, at most 5
+   */
+  suggestedRepeats: number;
+};
+
+export type SaturatedWarningResponseDto = {
+  /**
+   * The live config passes more than 95% of the set already, so a search for more success has little room; a search for the same success at less cost does
+   */
+  kind: 'saturated';
+  /**
+   * The live config’s success on the set
+   */
+  rate: number;
+};
+
+export type JudgeUnstableWarningResponseDto = {
+  /**
+   * The judge, asked twice of the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance
+   */
+  kind: 'judge-unstable';
+  /**
+   * The share of changes it passed or failed alike both times
+   */
+  agreement: number;
+  /**
+   * How many changes it judged twice
+   */
+  compared: number;
+};
+
+export type FlakyChecksWarningResponseDto = {
+  /**
+   * The station’s check, run twice on the same change, passed one time and failed the other on some tasks
+   */
+  kind: 'flaky-checks';
+  /**
+   * How many changes it flipped on
+   */
+  flaky: number;
+  /**
+   * How many changes it checked twice
+   */
+  rechecked: number;
+};
+
+export type SanityFailedWarningResponseDto = {
+  /**
+   * A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off
+   */
+  kind: 'sanity-failed';
+  /**
+   * The stronger config’s gain in success over the live one
+   */
+  gain: number;
+  low: number;
+  high: number;
+  /**
+   * How many tasks the stronger config did worse on
+   */
+  worseTasks: number;
 };
 
 export type SearchRunsEstimateResponseDto = {
@@ -6372,6 +7123,18 @@ export type SearchEstimateResponseDto = {
    * Roughly how long it takes at its concurrency, in milliseconds, from how long the set’s runs took; unknown when none of them was timed
    */
   estimatedDuration: number | null;
+  /**
+   * The smallest gain its line counts as real
+   */
+  minGain: number;
+  /**
+   * What it would look for, as asked or as the set’s health suggests: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   */
+  objective: 'success' | 'cost';
+  /**
+   * What would make its results hard to trust; a search may start all the same
+   */
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | SanityFailedWarningResponseDto>;
 };
 
 export type SearchAgentRequestDto = {
@@ -6389,6 +7152,10 @@ export type StartSearchRequestDto = {
    */
   setId: string;
   budget: SearchBudgetRequestDto;
+  /**
+   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success
+   */
+  objective?: 'success' | 'cost';
   agent: SearchAgentRequestDto;
 };
 
@@ -6398,6 +7165,14 @@ export type SearchStartedResponseDto = {
    * The replay of the live config over the whole set, the search starts from; its agent runs once it ends
    */
   seedReplayId: string;
+  /**
+   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   */
+  objective: 'success' | 'cost';
+  /**
+   * What makes its results hard to trust; the search starts all the same
+   */
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | SanityFailedWarningResponseDto>;
 };
 
 export type SearchSplitEntryResponseDto = {
@@ -6418,8 +7193,72 @@ export type SearchSplitResponseDto = {
   heldOut: Array<SearchSplitEntryResponseDto>;
 };
 
+export type ReflectedTaskResponseDto = {
+  taskId: string;
+  /**
+   * The run the set holds for the task
+   */
+  originalRunId: string;
+  /**
+   * The replay run that failed it, of the best config so far, to link to
+   */
+  replayRunId: string;
+};
+
+export type SearchCauseResponseDto = {
+  taskId: string;
+  /**
+   * The run the set holds for the task
+   */
+  originalRunId: string;
+  /**
+   * The replay run that failed it, of the best config so far, to link to
+   */
+  replayRunId: string;
+  /**
+   * config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work
+   */
+  cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
+  /**
+   * What in the runs shows the cause
+   */
+  evidence: string;
+  /**
+   * What to change, as the agent suggests it
+   */
+  suggestion: string | null;
+  recordedAt: string;
+};
+
+export type SearchReflectionResponseDto = {
+  /**
+   * The candidate whose failures it looked into: the best config before it, the seed’s id when nothing beat the live config; none until it looked
+   */
+  standing: string | null;
+  /**
+   * The searched tasks the best config so far still failed, which it looked into; never a held-out one
+   */
+  tasks: Array<ReflectedTaskResponseDto>;
+  /**
+   * One cause for each task it recorded one for
+   */
+  causes: Array<SearchCauseResponseDto>;
+  /**
+   * How it ended, once it did: went-on when it found a cause the config can fix and the search carried on; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; out-of-budget when it found a config cause but the search had no budget left to try it
+   */
+  outcome: 'went-on' | 'no-config-cause' | 'no-failures' | 'did-not-run' | 'out-of-budget' | null;
+  /**
+   * True when the search stopped searching once it ended, for whatever outcome other than went-on
+   */
+  endedSearch: boolean;
+};
+
 export type SearchIterationResponseDto = {
   number: number;
+  /**
+   * propose when its agent proposes candidates; reflect when, after two propose iterations in a row found nothing better than the best before them, its agent looks into why the remaining tasks fail
+   */
+  kind: 'propose' | 'reflect';
   /**
    * The agent run of this iteration
    */
@@ -6440,6 +7279,10 @@ export type SearchIterationResponseDto = {
    * What its agent run spent, once digested
    */
   agentSpent: ModelSpentResponseDto | null;
+  /**
+   * What a reflect iteration looked into and found
+   */
+  reflection: SearchReflectionResponseDto | null;
 };
 
 export type ConfigPullRequestReasonResponseDto = {
@@ -6513,13 +7356,37 @@ export type SearchCandidateResponseDto = {
    */
   searchScore: number | null;
   /**
-   * How many searched tasks it was scored on
+   * Its success rate on the searched tasks with its 95% interval
+   */
+  searchInterval: RateIntervalResponseDto | null;
+  /**
+   * How many searched replay runs, copies included, it was scored on
    */
   searchScored: number;
   /**
    * Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished
    */
   heldOutScore: number | null;
+  /**
+   * Its held-out success rate with its 95% interval
+   */
+  heldOutInterval: RateIntervalResponseDto | null;
+  /**
+   * Its gain over the seed on the searched tasks, paired task by task, and whether it is within noise; null for the seed
+   */
+  searchedGain: GainReadingResponseDto | null;
+  /**
+   * Its gain over the seed on the held-out tasks, once its held-out replay finished; null for the seed
+   */
+  heldOutGain: GainReadingResponseDto | null;
+  /**
+   * Searched tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed
+   */
+  searchedPairs: PairTallyResponseDto | null;
+  /**
+   * Held-out tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed or before its held-out replay
+   */
+  heldOutPairs: PairTallyResponseDto | null;
   /**
    * What it spent per searched run; unknown while any of it went unpriced or was in another currency
    */
@@ -6529,6 +7396,10 @@ export type SearchCandidateResponseDto = {
    * Whether no other candidate, nor the seed, succeeds as often for less
    */
   onFrontier: boolean;
+  /**
+   * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
+   */
+  onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
   /**
    * The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed
    */
@@ -6545,11 +7416,15 @@ export type SearchDetailResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two iterations found nothing, was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config
    */
   ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
+  /**
+   * What it looks for, which orders its frontier and its best: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   */
+  objective: 'success' | 'cost';
   /**
    * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
    */
@@ -6563,7 +7438,7 @@ export type SearchDetailResponseDto = {
    */
   proposed: number;
   /**
-   * The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it
+   * The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it
    */
   best: SearchBestResponseDto | null;
   startedAt: string;
@@ -6579,6 +7454,14 @@ export type SearchDetailResponseDto = {
    * The candidates no other beats on both success and cost, by id, cheapest first; the seed always among them
    */
   frontier: Array<string>;
+  /**
+   * How many frontier candidates gained only on the tasks the search could see
+   */
+  onlyOnSeenTasks: number;
+  /**
+   * The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
+   */
+  minGain: number;
 };
 
 export type ConfigPullRequestResponseDto = {
@@ -6643,6 +7526,10 @@ export type StartReplayCheckRequestDto = {
     [key: string]: unknown;
   };
   reference?: PlannedReferenceRequestDto;
+  /**
+   * How many times the check replays each run of the set, 1 when left out; the line’s ceiling covers all of them
+   */
+  repeats?: number;
 };
 
 export type ReplayCheckReferenceResponseDto = {
@@ -6655,6 +7542,10 @@ export type ReplayCheckThresholdResponseDto = {
    * How many tasks the change may regress on and still pass, taken from the live line’s replay_check when the check started
    */
   mostRegressions: number;
+  /**
+   * The smallest gain in success the live line’s replay_check counts as real, when the check started
+   */
+  minGain: number;
   /**
    * The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay reaching its ceiling starts no more runs, though runs already going finish, so it may end a little over it
    */
@@ -6674,6 +7565,14 @@ export type ReplayCheckSideResponseDto = {
   scored: number;
   succeeded: number | null;
   successRate: number | null;
+  /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
+   * Tasks with at least one scored copy
+   */
+  tasksScored: number;
   spent: SpendResponseDto | null;
 };
 
@@ -6686,8 +7585,14 @@ export type ReplayCheckRegressionResponseDto = {
   taskId: string;
   originalRunId: string;
   title: string | null;
-  candidate: 'pending' | 'succeeded' | 'failed' | 'unscored';
-  baseline: 'pending' | 'succeeded' | 'failed' | 'unscored' | null;
+  /**
+   * The result of each copy the candidate replayed
+   */
+  candidate: Array<'pending' | 'succeeded' | 'failed' | 'unscored'>;
+  /**
+   * The result of each copy the baseline replayed
+   */
+  baseline: Array<'pending' | 'succeeded' | 'failed' | 'unscored'>;
   scoreDelta: number | null;
   reasons: Array<ReplayCheckReasonResponseDto>;
 };
@@ -6724,6 +7629,14 @@ export type ReplayCheckResponseDto = {
    */
   keptLive: Array<'check' | 'judge' | 'diffs' | 'runners'>;
   threshold: ReplayCheckThresholdResponseDto;
+  /**
+   * How many times the check replays each run of the set
+   */
+  repeats: number;
+  /**
+   * The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the verdict
+   */
+  gain: GainReadingResponseDto | null;
   /**
    * failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise
    */
@@ -6799,6 +7712,34 @@ export type SearchCandidateProposedResponseDto = {
   replayId: string;
 };
 
+export type RecordSearchCauseRequestDto = {
+  /**
+   * A failing task the reflection’s briefing lists, by its task id
+   */
+  taskId: string;
+  /**
+   * config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work
+   */
+  cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
+  /**
+   * What in the runs shows the cause, in 1 to 4000 characters
+   */
+  evidence: string;
+  /**
+   * What a person, or the next iteration, should change, in at most 4000 characters
+   */
+  suggestion?: string | null;
+};
+
+export type SearchCauseRecordedResponseDto = {
+  taskId: string;
+  cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
+  /**
+   * The failing replay run the cause is about
+   */
+  replayRunId: string;
+};
+
 export type ReplayedPeriodResponseDto = {
   name: '7d' | '30d' | '90d';
   /**
@@ -6812,6 +7753,26 @@ export type ReplayedPeriodResponseDto = {
 };
 
 export type ReplaySetHealthResponseDto = {
+  /**
+   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   */
+  noise: SetNoiseResponseDto | null;
+  /**
+   * How much of the set the live config passes already; null until it replayed the whole set
+   */
+  saturation: SetSaturationResponseDto | null;
+  /**
+   * How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged
+   */
+  judge: JudgeConsistencyResponseDto | null;
+  /**
+   * Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked
+   */
+  checks: CheckConsistencyResponseDto | null;
+  /**
+   * Whether a stronger model or higher effort does better on the set; null until one was replayed
+   */
+  sanity: SanityReadingResponseDto | null;
   /**
    * How many distinct tasks its runs worked; fewer than its runs when a task was worked more than once
    */
@@ -6832,6 +7793,10 @@ export type ReplaySetHealthResponseDto = {
    * When a task was last added to it; null while it holds none
    */
   lastAddedAt: string | null;
+  /**
+   * The smallest gain in success its line counts as real
+   */
+  minGain: number;
 };
 
 export type ReplayedBaselineResponseDto = {
@@ -6850,6 +7815,10 @@ export type ReplayedBaselineResponseDto = {
    */
   successRate: number | null;
   /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
    * What it spent per scored run; unknown while any of it went unpriced or was in another currency
    */
   costPerRun: number | null;
@@ -6864,6 +7833,10 @@ export type ReplayedHeldOutResponseDto = {
    * Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished
    */
   score: number | null;
+  /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
   /**
    * How many distinct tasks the search held out
    */
@@ -6880,6 +7853,10 @@ export type ReplayedLiveResponseDto = {
    */
   successRate: number | null;
   /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
    * What it spent per scored run; unknown while any of it went unpriced or was in another currency
    */
   costPerRun: number | null;
@@ -6895,6 +7872,10 @@ export type ReplayedSeedResponseDto = {
    */
   successRate: number | null;
   /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
    * What it spent per scored run; unknown while any of it went unpriced or was in another currency
    */
   costPerRun: number | null;
@@ -6907,6 +7888,10 @@ export type ReplayedSeedResponseDto = {
 export type ReplayedSearchResponseDto = {
   searchId: string;
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
+  /**
+   * What the search looks for, which decides whether this candidate is on its frontier
+   */
+  objective: 'success' | 'cost';
   startedAt: string;
   /**
    * The live config the search started from, scored on the same searched runs as its candidates, in the candidate’s currency
@@ -6952,6 +7937,10 @@ export type ReplayedCandidateResponseDto = {
    */
   successRate: number | null;
   /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
    * How many of its runs it was scored on
    */
   scored: number;
@@ -6973,6 +7962,10 @@ export type ReplayedCandidateResponseDto = {
    */
   successRateOnCompared: number | null;
   /**
+   * The candidate’s success rate on the compared runs with its 95% interval over their tasks; null without a baseline
+   */
+  intervalOnCompared: RateIntervalResponseDto | null;
+  /**
    * What the candidate spent per run on the compared runs only, in its own currency, to set beside live; unknown while any of it went unpriced, and null without a baseline
    */
   costPerRunOnCompared: number | null;
@@ -6984,6 +7977,10 @@ export type ReplayedCandidateResponseDto = {
    * How many of its runs the baseline replayed too: the runs live and successRateOnCompared cover
    */
   compared: number;
+  /**
+   * Its gain in success over the baseline on the compared runs, paired task by task, and whether it is within noise; null without a baseline
+   */
+  againstLive: GainReadingResponseDto | null;
   /**
    * Whether no other candidate of its search, nor the seed, succeeds as often for less; null unless searched
    */
@@ -7722,7 +8719,12 @@ export type RenewCheckLeaseData = {
     runId: string;
     stackId: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * true when the check is the recheck of a replay’s change, as its claim said
+     */
+    recheck?: boolean;
+  };
   url: '/runs/{runId}/change-stack-checks/{stackId}/lease';
 };
 
@@ -8343,7 +9345,7 @@ export type ListInboxErrors = {
 };
 
 export type ListInboxResponses = {
-  200: Array<InboxItemResponseDto>;
+  200: Array<InboxItemResponseDto | InboxNoticeResponseDto>;
 };
 
 export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
@@ -8441,6 +9443,66 @@ export type ReadInboxAsideResponses = {
 };
 
 export type ReadInboxAsideResponse = ReadInboxAsideResponses[keyof ReadInboxAsideResponses];
+
+export type ReadInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/read';
+};
+
+export type ReadInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxNoticeResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type ReadInboxNoticeResponse = ReadInboxNoticeResponses[keyof ReadInboxNoticeResponses];
+
+export type SettleInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/settle';
+};
+
+export type SettleInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type SettleInboxNoticeResponses = {
+  /**
+   * It is settled
+   */
+  204: void;
+};
+
+export type SettleInboxNoticeResponse = SettleInboxNoticeResponses[keyof SettleInboxNoticeResponses];
 
 export type ReadTaskJournalData = {
   body?: never;
@@ -13724,7 +14786,12 @@ export type RecordChangeStackCheckData = {
     runId: string;
     stackId: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * true when the check is the recheck of a replay’s change, as its claim said
+     */
+    recheck?: boolean;
+  };
   url: '/runs/{runId}/change-stack-checks/{stackId}';
 };
 
@@ -15773,7 +16840,7 @@ export type ListInsightsRunsData = {
     /**
      * Only runs a person next acted on this way
      */
-    next?: 'started' | 'parked' | 'closed' | 'answered' | 'approved' | 'refused' | 'sent-back';
+    next?: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
     /**
      * Only runs of tasks whose pull request stands this way
      */
@@ -16357,6 +17424,49 @@ export type ListReplayableRunsResponses = {
 
 export type ListReplayableRunsResponse = ListReplayableRunsResponses[keyof ListReplayableRunsResponses];
 
+export type ListReplaySetSuggestionsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/suggestions';
+};
+
+export type ListReplaySetSuggestionsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListReplaySetSuggestionsError = ListReplaySetSuggestionsErrors[keyof ListReplaySetSuggestionsErrors];
+
+export type ListReplaySetSuggestionsResponses = {
+  200: Array<SuggestedRunResponseDto>;
+};
+
+export type ListReplaySetSuggestionsResponse = ListReplaySetSuggestionsResponses[keyof ListReplaySetSuggestionsResponses];
+
 export type DeleteReplaySetData = {
   body?: never;
   headers?: {
@@ -16771,6 +17881,108 @@ export type StartReplayResponses = {
 };
 
 export type StartReplayResponse = StartReplayResponses[keyof StartReplayResponses];
+
+export type ProbeReplaySetData = {
+  body: ProbeReplaySetRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/probes';
+};
+
+export type ProbeReplaySetErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * A ceiling of nothing or more than it takes, or a set with no runs
+   */
+  422: ProblemResponseDto;
+};
+
+export type ProbeReplaySetError = ProbeReplaySetErrors[keyof ProbeReplaySetErrors];
+
+export type ProbeReplaySetResponses = {
+  201: ReplayStartedResponseDto;
+};
+
+export type ProbeReplaySetResponse = ProbeReplaySetResponses[keyof ProbeReplaySetResponses];
+
+export type StartSanityReplayData = {
+  body: StartSanityReplayRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/sanity-replays';
+};
+
+export type StartSanityReplayErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * Neither a model nor an effort other than the live config’s, one its harness does not offer, a ceiling of nothing, or a set with no runs
+   */
+  422: ProblemResponseDto;
+};
+
+export type StartSanityReplayError = StartSanityReplayErrors[keyof StartSanityReplayErrors];
+
+export type StartSanityReplayResponses = {
+  201: SanityReplayStartedResponseDto;
+};
+
+export type StartSanityReplayResponse = StartSanityReplayResponses[keyof StartSanityReplayResponses];
 
 export type ReadReplayData = {
   body?: never;
@@ -17462,6 +18674,42 @@ export type ProposeSearchCandidateResponses = {
 };
 
 export type ProposeSearchCandidateResponse = ProposeSearchCandidateResponses[keyof ProposeSearchCandidateResponses];
+
+export type RecordSearchCauseData = {
+  body: RecordSearchCauseRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/search-causes';
+};
+
+export type RecordSearchCauseErrors = {
+  /**
+   * Missing, spent or wrong runner token
+   */
+  401: unknown;
+  /**
+   * The search no longer holds this run, it is no search run this runner holds, or the task is none the reflection looks into
+   */
+  404: ProblemResponseDto;
+  /**
+   * The run proposes candidates; it looks into no causes
+   */
+  409: ProblemResponseDto;
+  /**
+   * A cause that is none of config, task, judge, check or infra, no evidence, or text too long
+   */
+  422: ProblemResponseDto;
+};
+
+export type RecordSearchCauseError = RecordSearchCauseErrors[keyof RecordSearchCauseErrors];
+
+export type RecordSearchCauseResponses = {
+  201: SearchCauseRecordedResponseDto;
+};
+
+export type RecordSearchCauseResponse = RecordSearchCauseResponses[keyof RecordSearchCauseResponses];
 
 export type ReadConfigPullRequestData = {
   body?: never;

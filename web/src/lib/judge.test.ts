@@ -19,6 +19,16 @@ describe('judge', () => {
   it('shows a score in words people use', () => {
     expect(scoreShown({ kind: 'yes-no', label: 'yes' })).toBe('Yes');
     expect(scoreShown({ kind: 'number', label: '4' })).toBe('4 of 5');
+    expect(
+      scoreShown({
+        kind: 'claims',
+        label: '67% of claims met',
+        marks: [true, false, true],
+      }),
+    ).toBe('2 of 3 claims met');
+    expect(scoreShown({ kind: 'claims', label: '67% of claims met' })).toBe(
+      '67% of claims met',
+    );
   });
 
   it('offers the grades a scale allows, and reads them back as values', () => {

@@ -1,7 +1,8 @@
 import { ReplayedFigure } from '@/components/features/insights/candidates/ReplayedFigure';
+import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
+import { ScoredRate } from '@/components/features/replays/ScoredRate';
 import {
   heldOutShown,
-  replaySuccessShown,
   type SetCandidate,
   tasksShown,
 } from '@/lib/insights-candidates';
@@ -26,11 +27,20 @@ export function ReplayedCandidateFigures({
           candidate.kind === 'searched' ? 'Search score' : 'Replay success'
         }
       >
-        {replaySuccessShown(candidate.successRate, candidate.scored)}
+        <ScoredRate
+          rate={candidate.successRate}
+          interval={candidate.interval}
+          scored={candidate.scored}
+        />
       </ReplayedFigure>
       {heldOut && (
         <ReplayedFigure label="Held out" slot="held-out">
-          {heldOut}
+          <HeldOutScore
+            rate={candidate.heldOut?.score ?? null}
+            interval={candidate.heldOut?.interval ?? null}
+            runs={candidate.heldOut?.runs ?? null}
+            unscored={heldOut}
+          />
         </ReplayedFigure>
       )}
       <ReplayedFigure label="Cost per run">

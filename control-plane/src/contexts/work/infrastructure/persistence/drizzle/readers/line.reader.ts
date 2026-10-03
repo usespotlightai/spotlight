@@ -213,6 +213,7 @@ const group = (
             mostRegressions: row.lineReplayCheck.mostRegressions,
             ceiling: row.lineReplayCheck.ceiling,
             currency: row.lineReplayCheck.currency,
+            minGain: row.lineReplayCheck.minGain,
           }
         : null,
       stations: [],

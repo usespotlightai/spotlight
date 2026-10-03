@@ -87,7 +87,7 @@ export interface ReplayedWorld {
   readonly candidates: readonly Candidate[];
 }
 
-const heldOut = (
+export const heldOutOf = (
   search: Search,
   replays: readonly Replay[],
   ids: () => RunId,
@@ -103,6 +103,7 @@ const heldOut = (
       { spent: Spend.of(1, 'USD'), unpriced: 0 },
       later(2),
       ids,
+      true,
     );
   }
   while (held.heldRun) {
@@ -115,6 +116,7 @@ const heldOut = (
 
   return held.heldOutFrom(
     replays,
+    0.05,
     () => ReplayId.of('replay_held_terse'),
     later(4),
   );
@@ -130,6 +132,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
       { spent: Spend.of(20, 'USD'), unpriced: 0 },
       NOW,
       ids,
+      true,
     )
     .admitted(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),
@@ -165,7 +168,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
       searching.split.searchedRuns,
     ),
   ];
-  const search = holdingOut ? heldOut(searching, searched, ids) : searching;
+  const search = holdingOut ? heldOutOf(searching, searched, ids) : searching;
 
   return {
     set,

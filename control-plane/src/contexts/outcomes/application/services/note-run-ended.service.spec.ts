@@ -55,12 +55,18 @@ const noting = (runs: readonly EndedRun[]) => {
       now: () => HEARD_AT,
       sleep: async () => {},
     }),
-    ended: (runId: string, outcome = 'completed', stopped = false) =>
+    ended: (
+      runId: string,
+      outcome = 'completed',
+      stopped = false,
+      asked = false,
+    ) =>
       new NoteRunEnded(work, records, forgotten, inTransaction).ended({
         runId,
         outcome,
         stopped,
         failure: outcome === 'failed' ? 'exited' : null,
+        asked,
       }),
     stored: async (runId: string) => records.of(RunId.of(runId)),
   };
@@ -80,6 +86,17 @@ describe('noting that a run ended', () => {
     expect(record?.end?.place.taskId.value).toBe('task_1');
     expect(record?.end?.endedAt).toEqual(at(10));
     expect(record?.end?.round).toBe(1);
+  });
+
+  it('records that it ended waiting on a person', async () => {
+    const noted = noting([endedRun('run_1'), endedRun('run_2')]);
+
+    await noted.ended('run_1', 'completed', false, true);
+    await noted.ended('run_2');
+
+    expect((await noted.stored('run_1'))?.end?.asked).toBe(true);
+    expect((await noted.stored('run_1'))?.turnout).toBe('asked');
+    expect((await noted.stored('run_2'))?.end?.asked).toBe(false);
   });
 
   it('records a run a person stopped as stopped', async () => {

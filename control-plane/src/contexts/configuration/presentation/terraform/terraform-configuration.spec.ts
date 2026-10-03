@@ -130,6 +130,7 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     most_regressions = 1
     ceiling          = 12.5
     currency         = "USD"
+    min_gain         = 0.05
   }
 
   source {
@@ -227,6 +228,51 @@ describe('workspaceTerraform', () => {
     expect(fileOf(HELD, 'judges/core/delivery/implementation.md')).toBe(
       'A good run changes only what the task asks for.\n',
     );
+  });
+
+  it('writes a judge’s claims one to a line and its pass share, with a rubric file only where it has a rubric', () => {
+    const line = heldAs('line');
+    const claimsOnly: HeldConfigurationDto = {
+      ...HELD,
+      resources: HELD.resources.map((each) =>
+        each === line
+          ? {
+              ...line,
+              definition: {
+                ...line.definition,
+                stations: line.definition.stations.map((station) =>
+                  station.judge
+                    ? {
+                        ...station,
+                        judge: {
+                          claims: [
+                            'It adds a test.',
+                            'It touches only what the task names.',
+                          ],
+                          passShare: 0.5,
+                          sample: 0.2,
+                          trust: 0.6,
+                        },
+                      }
+                    : station,
+                ),
+              },
+            }
+          : each,
+      ),
+    };
+
+    const main = mainOf(claimsOnly);
+
+    expect(main).toMatch(
+      /judge \{\n\s+claims = \[\n\s+"It adds a test\.",\n\s+"It touches only what the task names\.",\n\s+\]\n\s+pass_share = 0\.5\n\s+sample\s+= 0\.2\n\s+trust\s+= 0\.6\n\s+\}/,
+    );
+    expect(main).not.toContain('judges/core/delivery/implementation.md');
+    expect(
+      workspaceTerraform(claimsOnly).some((each) =>
+        each.path.startsWith('judges/'),
+      ),
+    ).toBe(false);
   });
 
   it('keeps each skill file as it is, read with file()', () => {

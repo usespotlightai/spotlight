@@ -32,6 +32,7 @@ export class RenewCheckLeaseHandler
       return await this.checks.renewLease(
         RunId.of(command.runId),
         command.stackId,
+        command.recheck,
         renewing,
         at,
       );

@@ -61,6 +61,7 @@ import {
   PEOPLE,
   type PeoplePort,
 } from '@change-review/application/ports/people.port';
+import { REPLAY_RECHECKS } from '@change-review/application/ports/replay-rechecks.port';
 import {
   REVIEW_LINKS,
   type ReviewLinksPort,
@@ -106,6 +107,7 @@ import { DraftChangeStack } from '@change-review/application/services/draft-chan
 import { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import { ProvisionChangeStackChecks } from '@change-review/application/services/provision-change-stack-checks.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
+import { RecheckReplayChanges } from '@change-review/application/services/recheck-replay-changes.service';
 import { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
 import { ReviewAccess } from '@change-review/application/services/review-access.service';
 import { RunChangeChecks } from '@change-review/application/services/run-change-checks.service';
@@ -294,6 +296,15 @@ const adapters: Provider[] = [
       checks: DrizzleStackCheckRepository,
       clock: ClockPort,
     ) => new RunChangeChecks(stacks, checks, clock),
+  },
+  {
+    provide: REPLAY_RECHECKS,
+    inject: [DrizzleStackCheckRepository, TRANSACTION, CLOCK],
+    useFactory: (
+      checks: DrizzleStackCheckRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new RecheckReplayChanges(checks, transaction, clock),
   },
   {
     provide: StackCheckReactions,

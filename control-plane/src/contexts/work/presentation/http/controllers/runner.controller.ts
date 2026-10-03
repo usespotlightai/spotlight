@@ -373,6 +373,13 @@ export class RunnerController {
       'so a long check is not handed to a second runner. The answer ' +
       'carries back whether the runner should stop checking.',
   })
+  @ApiQuery({
+    name: 'recheck',
+    required: false,
+    type: Boolean,
+    description:
+      'true when the check is the recheck of a replay’s change, as its claim said',
+  })
   @ApiOkResponse({ type: RenewCheckLeaseResponseDto })
   @ApiNotFoundResponse({
     description:
@@ -384,12 +391,13 @@ export class RunnerController {
   async renewCheckLease(
     @Param('runId') runId: string,
     @Param('stackId') stackId: string,
+    @Query('recheck') recheck: string | undefined,
     @CurrentRunner() runnerId: string,
   ): Promise<RenewCheckLeaseResponseDto> {
     const renewal = await this.commandBus.execute<
       RenewCheckLeaseCommand,
       CheckLeaseRenewal
-    >(new RenewCheckLeaseCommand(runId, stackId, runnerId));
+    >(new RenewCheckLeaseCommand(runId, stackId, recheck === 'true', runnerId));
 
     return new RenewCheckLeaseResponseDto(renewal === 'stop');
   }

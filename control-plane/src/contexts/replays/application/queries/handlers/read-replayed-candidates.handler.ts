@@ -3,11 +3,14 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
 import { replayedCandidatesView } from '@replays/application/services/replayed-candidate-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
@@ -35,6 +38,7 @@ export class ReadReplayedCandidatesHandler
     private readonly pullRequests: ConfigPullRequestRepository,
     private readonly work: WorkPort,
     private readonly clock: ClockPort,
+    private readonly healths: SetHealths,
   ) {}
 
   async execute(
@@ -97,6 +101,21 @@ export class ReadReplayedCandidatesHandler
         ),
       ]);
 
+      const live = await this.healths.standardsAt(
+        seen.map((each) => each.station),
+      );
+      const healths = await this.healths.ofSets(seen, live);
+      const standards = new Map(
+        seen.map((set) => [
+          set.id.value,
+          {
+            health: healths.get(set.id.value) ?? UNREAD_HEALTH,
+            minGain:
+              live.get(set.station.stationId)?.minGain ?? DEFAULT_MIN_GAIN,
+          },
+        ]),
+      );
+
       return replayedCandidatesView({
         period,
         truncated: found.length > MOST_REPLAYED,
@@ -108,6 +127,7 @@ export class ReadReplayedCandidatesHandler
         candidates,
         pullRequests,
         standing,
+        standards,
       });
     } catch (error) {
       rethrowAsFault(error);

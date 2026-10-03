@@ -51,6 +51,11 @@ const InboxItem = lazyPage(
   (module) => module.InboxItem,
 );
 
+const InboxNotice = lazyPage(
+  () => import('./routes/InboxNotice.tsx'),
+  (module) => module.InboxNotice,
+);
+
 const Insights = lazyPage(
   () => import('./routes/Insights.tsx'),
   (module) => module.Insights,
@@ -204,6 +209,7 @@ export default function App() {
             <Route path="inbox" element={<Inbox />}>
               <Route index element={<InboxIndex />} />
               <Route path=":itemId" element={<InboxItem />} />
+              <Route path="notices/:noticeId" element={<InboxNotice />} />
             </Route>
 
             <Route path="settings">

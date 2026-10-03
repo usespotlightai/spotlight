@@ -1,27 +1,30 @@
 import type {
   FieldErrorResponseDto,
   LineReplayCheckResponseDto,
+  ReflectedTaskResponseDto,
   ReplayCheckSummaryResponseDto,
   SearchAgentRequestDto,
   SearchBudgetRequestDto,
   SearchCandidateResponseDto,
+  SearchCauseResponseDto,
   SearchDetailResponseDto,
   SearchEstimateResponseDto,
   SearchIterationResponseDto,
   SearchResponseDto,
   SearchRunResponseDto,
-  SearchSplitEntryResponseDto,
 } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 import { spentIn } from '@/lib/inbox';
 import { lasted } from '@/lib/insights';
-import { percentShown } from '@/lib/judge';
 import {
+  type CountBounds,
   ceilingFrom,
+  countFrom,
+  REPEAT_BOUNDS,
   type ReplayedStation,
   type ReplaySet,
 } from '@/lib/replay';
-import type { SearchState } from '@/lib/search-words';
+import type { CauseKind, SearchState } from '@/lib/search-words';
 import { stationPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
@@ -32,7 +35,6 @@ type SearchIteration = SearchIterationResponseDto;
 export type SearchEstimate = SearchEstimateResponseDto;
 export type SearchBudget = SearchBudgetRequestDto;
 export type SearchAgent = SearchAgentRequestDto;
-export type SplitEntry = SearchSplitEntryResponseDto;
 export type SearchRun = SearchRunResponseDto;
 export type ReplayCheckSummary = ReplayCheckSummaryResponseDto;
 export type LineReplayCheck = LineReplayCheckResponseDto;
@@ -47,13 +49,12 @@ const LEAST_TASKS = 5;
 
 export const DEFAULT_CONCURRENCY = 4;
 
-type Bounds = { readonly least: number; readonly most: number };
-
 const BOUNDS = {
   iterations: { least: 1, most: 10 },
   perIteration: { least: 1, most: 5 },
   concurrency: { least: 1, most: 10 },
-} as const satisfies Record<string, Bounds>;
+  repeats: REPEAT_BOUNDS,
+} as const satisfies Record<string, CountBounds>;
 
 type BudgetCount = keyof typeof BOUNDS;
 type BudgetField = BudgetCount | 'ceiling';
@@ -63,6 +64,7 @@ export type BudgetInputs = {
   readonly iterations: string;
   readonly perIteration: string;
   readonly concurrency: string;
+  readonly repeats: string;
   readonly amount: string;
   readonly currency: string;
 };
@@ -168,28 +170,19 @@ export const startRefusal = (
     : `No replay set covers ${LEAST_TASKS} different tasks yet.`;
 };
 
-const countFrom = (text: string, { least, most }: Bounds): number | string => {
-  const value = Number(text);
-
-  return text.trim() !== '' &&
-    Number.isInteger(value) &&
-    value >= least &&
-    value <= most
-    ? value
-    : `Give a whole number from ${least} to ${most}.`;
-};
-
 export const budgetFrom = (
   inputs: BudgetInputs,
 ): { budget: SearchBudget | null; problems: FieldProblems } => {
   const iterations = countFrom(inputs.iterations, BOUNDS.iterations);
   const perIteration = countFrom(inputs.perIteration, BOUNDS.perIteration);
   const concurrency = countFrom(inputs.concurrency, BOUNDS.concurrency);
+  const repeats = countFrom(inputs.repeats, BOUNDS.repeats);
   const ceiling = ceilingFrom(inputs.amount, inputs.currency);
   const problems: FieldProblems = {
     ...(typeof iterations === 'string' ? { iterations } : {}),
     ...(typeof perIteration === 'string' ? { perIteration } : {}),
     ...(typeof concurrency === 'string' ? { concurrency } : {}),
+    ...(typeof repeats === 'string' ? { repeats } : {}),
     ...(typeof ceiling === 'string' ? { ceiling } : {}),
   };
 
@@ -197,13 +190,14 @@ export const budgetFrom = (
     typeof iterations === 'string' ||
     typeof perIteration === 'string' ||
     typeof concurrency === 'string' ||
+    typeof repeats === 'string' ||
     typeof ceiling === 'string'
   ) {
     return { budget: null, problems };
   }
 
   return {
-    budget: { iterations, perIteration, concurrency, ceiling },
+    budget: { iterations, perIteration, concurrency, repeats, ceiling },
     problems,
   };
 };
@@ -212,6 +206,7 @@ const FIELDS: readonly [prefix: string, field: SearchField][] = [
   ['budget.iterations', 'iterations'],
   ['budget.perIteration', 'perIteration'],
   ['budget.concurrency', 'concurrency'],
+  ['budget.repeats', 'repeats'],
   ['budget.ceiling', 'ceiling'],
   ['agent', 'agent'],
   ['setId', 'set'],
@@ -268,18 +263,12 @@ export const refusalsOf = (
   };
 };
 
-export const scoreShown = (rate: number | null): string =>
-  rate === null ? '–' : percentShown(rate);
-
 export const costPerRunShown = (
   cost: number | null,
   currency: string,
 ): string => (cost === null ? 'Unpriced' : spentIn(cost, currency));
 
 export const heldOutShown = (candidate: SearchCandidate): string => {
-  if (candidate.heldOutScore !== null) {
-    return percentShown(candidate.heldOutScore);
-  }
   if (candidate.seed) {
     return '–';
   }
@@ -344,6 +333,62 @@ export const byIteration = (detail: SearchDetail): IterationGroup[] => {
     }));
 };
 
+type SearchCause = SearchCauseResponseDto;
+export type ReflectedTask = ReflectedTaskResponseDto;
+
+const CAUSE_ORDER: readonly CauseKind[] = [
+  'task',
+  'judge',
+  'check',
+  'infra',
+  'config',
+];
+
+export const whyItStalledAnchor = (iteration: number): string =>
+  `why-it-stalled-${iteration}`;
+
+export const reflectionsOf = (detail: SearchDetail): SearchIteration[] =>
+  detail.iterations
+    .filter((each) => each.kind === 'reflect')
+    .sort((one, other) => other.number - one.number);
+
+export const reflecting = (iteration: SearchIteration): boolean =>
+  !iteration.reflection?.outcome;
+
+export const standingOf = (
+  detail: SearchDetail,
+  iteration: SearchIteration,
+): SearchCandidate | null =>
+  candidatesOf(detail).find(
+    (each) => each.candidateId === iteration.reflection?.standing,
+  ) ?? null;
+
+export type CauseGroup = {
+  readonly cause: CauseKind;
+  readonly causes: readonly SearchCause[];
+};
+
+export const causesByKind = (iteration: SearchIteration): CauseGroup[] => {
+  const causes = iteration.reflection?.causes ?? [];
+
+  return CAUSE_ORDER.map((cause) => ({
+    cause,
+    causes: causes.filter((each) => each.cause === cause),
+  })).filter((group) => group.causes.length > 0);
+};
+
+export const uncausedTasks = (iteration: SearchIteration): ReflectedTask[] => {
+  const reflection = iteration.reflection;
+
+  if (!reflection || reflecting(iteration)) {
+    return [];
+  }
+
+  const caused = new Set(reflection.causes.map((each) => each.taskId));
+
+  return reflection.tasks.filter((each) => !caused.has(each.taskId));
+};
+
 export type FrontierPoint = {
   readonly id: string;
   readonly name: string;
@@ -394,8 +439,8 @@ export const candidateName = (candidate: SearchCandidate): string =>
 export const iterationsShown = (search: Search): string =>
   `${search.iterationsRun} of ${search.budget.iterations} ${search.budget.iterations === 1 ? 'iteration' : 'iterations'}`;
 
-export const heldOutTitle = (
-  entry: SplitEntry,
+export const setTaskTitle = (
+  entry: { readonly runId: string; readonly taskId: string },
   set: ReplaySet | undefined,
 ): string =>
   set?.entries.find((each) => each.runId === entry.runId)?.title ??

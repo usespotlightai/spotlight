@@ -22,7 +22,10 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import { needsBaseline } from '@replays/domain/services/baseline';
+import {
+  needsBaseline,
+  standingBaselineFor,
+} from '@replays/domain/services/baseline';
 import {
   type ScoringField,
   scoredLive,
@@ -73,6 +76,7 @@ interface Planned {
   readonly station: unknown;
   readonly line: PlannedLine | null;
   readonly reference: PlannedReference;
+  readonly repeats: number;
 }
 
 export class StartReplayCheckHandler
@@ -121,6 +125,7 @@ export class StartReplayCheckHandler
             ? null
             : PlannedLine.of(command.change.line),
         reference: PlannedReference.of(command.change.reference),
+        repeats: command.repeats,
       };
       let reused = false;
 
@@ -142,6 +147,7 @@ export class StartReplayCheckHandler
                   commit: planned.reference.commit,
                   pullRequest: planned.reference.pullRequest,
                 },
+                repeats: planned.repeats,
               },
             },
             async () => {
@@ -255,7 +261,15 @@ export class StartReplayCheckHandler
     for (const each of [...earlier].reverse()) {
       const { reading } = await this.readings.of(each);
 
-      if (each.reusableFor(set, setEntries, threshold, reading.verdict)) {
+      if (
+        each.reusableFor(
+          set,
+          setEntries,
+          threshold,
+          planned.repeats,
+          reading.verdict,
+        )
+      ) {
         return { id: each.id.value, reused: true };
       }
     }
@@ -274,10 +288,12 @@ export class StartReplayCheckHandler
       line: planned.line,
       at,
     });
+    const setReplays = await this.replays.ofSet(set.id);
     const wanting = needsBaseline(
       set,
-      await this.replays.ofSet(set.id),
+      setReplays,
       examined.liveDigests.scoring,
+      planned.repeats,
     )
       ? {
           id: ReplayId.of(this.ids.generate()),
@@ -294,7 +310,18 @@ export class StartReplayCheckHandler
         candidate,
         baseline: false,
         ceiling: threshold.ceiling,
-        unpricedRate: threshold.unpricedRunIn(set.entries.length),
+        unpricedRate: threshold.unpricedRunIn(
+          set.entries.length * planned.repeats,
+        ),
+        repeats: planned.repeats,
+        pairsWith: wanting
+          ? wanting.id
+          : (standingBaselineFor(
+              set,
+              setReplays,
+              examined.liveDigests.scoring,
+              planned.repeats,
+            )?.id ?? null),
         at,
         by,
         wanting,
@@ -316,6 +343,7 @@ export class StartReplayCheckHandler
       liveDigests: examined.liveDigests,
       candidateDigests: examined.digests,
       threshold,
+      repeats: planned.repeats,
       keptLive: scored.keptLive,
       createdAt: at,
       by,

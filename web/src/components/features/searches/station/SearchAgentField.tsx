@@ -5,22 +5,22 @@ type SearchAgentFieldProps = {
   harness: string;
   model: string;
   effort: string;
-  problem: string | null;
-  readOnly: boolean;
   onHarness: (harness: string) => void;
   onModel: (model: string) => void;
   onEffort: (effort: string) => void;
+  problem: string | null;
+  disabled: boolean;
 };
 
 export function SearchAgentField({
   harness,
   model,
   effort,
-  problem,
-  readOnly,
   onHarness,
   onModel,
   onEffort,
+  problem,
+  disabled,
 }: SearchAgentFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -30,7 +30,7 @@ export function SearchAgentField({
           value={harness}
           onChange={onHarness}
           allowNone={false}
-          readOnly={readOnly}
+          readOnly={disabled}
           className="w-auto"
         />
         <ModelEffortSelect
@@ -39,7 +39,7 @@ export function SearchAgentField({
           onModel={onModel}
           effort={effort}
           onEffort={onEffort}
-          readOnly={readOnly}
+          readOnly={disabled}
           iconless
           className="w-auto"
         />

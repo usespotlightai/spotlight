@@ -103,6 +103,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     outcome: 'completed',
     failure: null,
     stopped: false,
+    asked: false,
   };
 
   await app.get(EventOutbox).record([ended as never]);
@@ -112,7 +113,7 @@ const ranAndEnded = async (minutesAgo: number) => {
 
 const actedOn = async (
   runId: string,
-  act: 'sent-back' | 'approved',
+  act: 'sent-back' | 'closed',
   minutesAgo: number,
 ) => {
   const acted: TaskActedOnIntegrationEvent = {
@@ -258,7 +259,7 @@ describe('a station alert (e2e)', () => {
         ),
       );
 
-    await actedOn(unanswered?.runId as string, 'approved', 4);
+    await actedOn(unanswered?.runId as string, 'closed', 4);
 
     const [recovered] = await settled(async () => {
       const alerts = await alertsAtStation();

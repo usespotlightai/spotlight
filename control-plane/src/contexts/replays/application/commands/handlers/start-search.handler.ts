@@ -11,6 +11,7 @@ import {
   searchBudgetOf,
   splitOf,
 } from '@replays/application/services/search-terms';
+import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { SetStations } from '@replays/application/services/set-stations.service';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
@@ -19,6 +20,8 @@ import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import { objectiveFor } from '@replays/domain/services/search-objective';
+import { searchWarningsOf } from '@replays/domain/services/search-warnings';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -45,6 +48,7 @@ export class StartSearchHandler
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
     private readonly stations: SetStations,
+    private readonly healths: SetHealths,
   ) {}
 
   async execute(command: StartSearchCommand): Promise<SearchStartedOutcome> {
@@ -75,6 +79,9 @@ export class StartSearchHandler
 
       const id = SearchId.of(this.ids.generate());
       const seedId = ReplayId.of(this.ids.generate());
+      const standard = await this.healths.standardAt(seen.station);
+      const health = await this.healths.ofSet(seen, standard);
+      const objective = objectiveFor(command.objective, health);
       const live = await this.snapshots.taken(seen);
 
       try {
@@ -108,6 +115,7 @@ export class StartSearchHandler
               set,
               agent,
               budget,
+              objective,
               split,
               seed: { candidate: live, replayId: seedId },
               at,
@@ -124,6 +132,7 @@ export class StartSearchHandler
               unpricedRate: allotment.perRun,
               at,
               by,
+              repeats: budget.repeats,
               searchId: id,
             }),
           );
@@ -134,7 +143,13 @@ export class StartSearchHandler
         throw error;
       }
 
-      return { outcome: 'started', id: id.value, seedReplayId: seedId.value };
+      return {
+        outcome: 'started',
+        id: id.value,
+        seedReplayId: seedId.value,
+        objective,
+        warnings: searchWarningsOf(health, standard.minGain, budget.repeats),
+      };
     } catch (error) {
       if (error instanceof SearchTermsRefusedError) {
         return { outcome: 'invalid', problems: error.problems };

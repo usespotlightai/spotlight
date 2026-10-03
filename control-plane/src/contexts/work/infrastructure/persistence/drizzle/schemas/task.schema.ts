@@ -79,6 +79,7 @@ export const task = pgTable(
       { onDelete: 'set null' },
     ),
     raisedById: text('raised_by_id'),
+    openedFrom: text('opened_from').notNull(),
     assigneeId: text('assignee_id'),
     currentRunId: text('current_run_id'),
     sessionId: text('session_id'),

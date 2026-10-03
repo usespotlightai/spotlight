@@ -41,6 +41,7 @@ describe('Score', () => {
         fingerprint: null,
         scale: ScoreScale.yesNo(),
         value: 1,
+        marks: null,
         rubricVersion: RUBRIC_VERSION,
         model: 'some/model',
         reasons: [],
@@ -62,6 +63,7 @@ describe('Score', () => {
       fingerprint: null,
       scale: ScoreScale.yesNo(),
       value: 1,
+      marks: null,
       rubricVersion: RUBRIC_VERSION,
       model: 'some/model',
       reasons: Array.from({ length: 5 }, (_, at) =>
@@ -95,6 +97,7 @@ describe('Score', () => {
         source: 'person',
         scale: ScoreScale.yesNo(),
         value: 1,
+        marks: null,
         rubricVersion: null,
         model: null,
         reasons: [],
@@ -122,6 +125,7 @@ describe('Score', () => {
     const regraded = grade.regraded({
       scale: ScoreScale.yesNo(),
       value: 0,
+      marks: null,
       rubricVersion: RUBRIC_VERSION,
       at: LATER,
     });
@@ -139,6 +143,7 @@ describe('Score', () => {
       grade.regraded({
         scale: ScoreScale.yesNo(),
         value: 1,
+        marks: null,
         rubricVersion: RUBRIC_VERSION,
         at: LATER,
       }),
@@ -150,9 +155,81 @@ describe('Score', () => {
       judgeScore('run_1', ScoreScale.yesNo(), 1).regraded({
         scale: ScoreScale.yesNo(),
         value: 0,
+        marks: null,
         rubricVersion: RUBRIC_VERSION,
         at: LATER,
       }),
     ).toThrow(InvalidScoreError);
+  });
+
+  it('on a claims scale is the share of claims met, marked one by one', () => {
+    const score = judgeScore('run_1', ScoreScale.claims(), 0, {
+      marks: [true, false, true, true],
+    });
+
+    expect(score.value).toBe(0.75);
+    expect(score.marks).toEqual([true, false, true, true]);
+    expect(score.scale.labelOf(score.value)).toBe('75% of claims met');
+  });
+
+  it('on a claims scale from the judge gives a reason for every claim, each naming its claim', () => {
+    expect(() =>
+      Score.judged({
+        id: ScoreId.of('score_1'),
+        runId: RunId.of('run_1'),
+        workspaceId: WORKSPACE,
+        place: placeOf(),
+        fingerprint: null,
+        scale: ScoreScale.claims(),
+        value: 0.5,
+        marks: [true, false],
+        rubricVersion: RUBRIC_VERSION,
+        model: 'some/model',
+        reasons: [
+          JudgeReason.of({
+            text: 'It retries.',
+            citations: [Citation.ofStep(1)],
+            claim: 0,
+          }),
+        ],
+        seen: SeenEvidence.none(),
+        at: LATER,
+      }),
+    ).toThrow(InvalidScoreError);
+  });
+
+  it('on a claims scale holds a value that is the share its marks give, and marks only there', () => {
+    expect(() =>
+      personGrade('run_1', ScoreScale.claims(), 0).regraded({
+        scale: ScoreScale.claims(),
+        value: 1,
+        marks: [true, false],
+        rubricVersion: RUBRIC_VERSION,
+        at: LATER,
+      }),
+    ).toThrow(InvalidScoreError);
+    expect(() =>
+      personGrade('run_1', ScoreScale.yesNo(), 1, { marks: [true] }),
+    ).toThrow(InvalidScoreError);
+    expect(() => personGrade('run_1', ScoreScale.claims(), 1)).toThrow(
+      InvalidScoreError,
+    );
+  });
+
+  it('from a person on a claims scale is regraded claim by claim', () => {
+    const grade = personGrade('run_1', ScoreScale.claims(), 0, {
+      marks: [true, true],
+    });
+
+    const regraded = grade.regraded({
+      scale: ScoreScale.claims(),
+      value: 0.5,
+      marks: [true, false],
+      rubricVersion: RUBRIC_VERSION,
+      at: LATER,
+    });
+
+    expect(regraded.marks).toEqual([true, false]);
+    expect(regraded.value).toBe(0.5);
   });
 });

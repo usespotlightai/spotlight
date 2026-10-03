@@ -41,6 +41,7 @@ import { ListSetReplayChecksQuery } from '@replays/application/queries/list-set-
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import {
   referenceIn,
+  repeatsIn,
   textAt,
 } from '@replays/presentation/http/controllers/requests';
 import {
@@ -157,6 +158,7 @@ export class ReplayChecksController {
           line: fieldsOf(body).line,
           reference: referenceIn(body),
         },
+        repeatsIn(body),
         actor,
         key,
       ),

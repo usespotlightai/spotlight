@@ -15,6 +15,7 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import {
@@ -23,6 +24,7 @@ import {
 } from '@replays/domain/value-objects/replay-state';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
+import { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
@@ -35,6 +37,8 @@ import {
   replaySearch,
   replaySearchIteration,
   type StoredModelSpent,
+  type StoredReflectedTask,
+  type StoredSearchCause,
   type StoredSearchReplay,
   type StoredSplitEntry,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
@@ -46,6 +50,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   and,
@@ -128,20 +133,60 @@ const storedSpent = (spent: ModelSpent | null): StoredModelSpent | null =>
     unpriced: spent.unpriced,
   };
 
+const reflectedTaskOf = (stored: StoredReflectedTask): ReflectedTask =>
+  ReflectedTask.of({
+    taskId: TaskId.of(stored.taskId),
+    originalRunId: RunId.of(stored.originalRunId),
+    replayRunId: RunId.of(stored.replayRunId),
+  });
+
+const storedReflectedTask = (task: ReflectedTask): StoredReflectedTask => ({
+  taskId: task.taskId.value,
+  originalRunId: task.originalRunId.value,
+  replayRunId: task.replayRunId.value,
+});
+
+const causeOf = (stored: StoredSearchCause): SearchCause =>
+  SearchCause.rehydrate({
+    taskId: TaskId.of(stored.taskId),
+    originalRunId: RunId.of(stored.originalRunId),
+    replayRunId: RunId.of(stored.replayRunId),
+    cause: stored.cause,
+    evidence: stored.evidence,
+    suggestion: stored.suggestion,
+    recordedAt: new Date(stored.recordedAt),
+  });
+
+const storedCause = (cause: SearchCause): StoredSearchCause => ({
+  taskId: cause.taskId.value,
+  originalRunId: cause.originalRunId.value,
+  replayRunId: cause.replayRunId.value,
+  cause: cause.cause,
+  evidence: cause.evidence,
+  suggestion: cause.suggestion,
+  recordedAt: cause.recordedAt.toISOString(),
+});
+
 const toIteration = (row: IterationRow, currency: string): SearchIteration =>
   SearchIteration.rehydrate({
     number: row.number,
     runId: RunId.of(row.runId),
+    kind: row.kind,
     state: row.state,
     proposals: row.proposals.map((each) =>
       SearchProposal.of({
         candidateId: CandidateId.of(each.candidateId),
         name: CandidateName.searched(each.name),
         replay: searchReplayOf(each.replay, currency),
+        improved: each.improved,
       }),
     ),
     attempts: row.attempts,
     agentSpent: modelSpentOf(row.agentSpent),
+    standing: row.standing ? CandidateId.of(row.standing) : null,
+    outcome: row.outcome,
+    reflectedOn: row.reflectedOn.map(reflectedTaskOf),
+    causes: row.causes.map(causeOf),
   });
 
 const toSearch = (
@@ -167,7 +212,9 @@ const toSearch = (
       perIteration: row.perIteration,
       ceiling: Spend.ceiling(row.ceilingAmount, row.ceilingCurrency),
       concurrency: row.concurrency,
+      repeats: row.repeats,
     }),
+    objective: row.objective,
     split: HeldOutSplit.rehydrate({
       searched: splitEntriesOf(row.split.searched),
       heldOut: splitEntriesOf(row.split.heldOut),
@@ -187,6 +234,7 @@ const toSearch = (
     })),
     state: row.state,
     ending: row.ending,
+    startedBy: row.startedBy ? UserId.of(row.startedBy) : null,
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     version: row.version,
@@ -418,6 +466,8 @@ export class DrizzleSearchRepository implements SearchRepository {
       ceilingAmount: held.budget.ceiling.amount,
       ceilingCurrency: held.budget.ceiling.currency,
       concurrency: held.budget.concurrency,
+      repeats: held.budget.repeats,
+      objective: held.objective,
       split: {
         searched: storedSplitEntries(held.split.searched),
         heldOut: storedSplitEntries(held.split.heldOut),
@@ -431,6 +481,7 @@ export class DrizzleSearchRepository implements SearchRepository {
       })),
       state: held.current,
       ending: held.ending,
+      startedBy: held.startedBy?.value ?? null,
       startedAt: held.startedAt,
       endedAt: held.endedAt,
     };
@@ -447,14 +498,20 @@ export class DrizzleSearchRepository implements SearchRepository {
           searchId: held.id.value,
           number: each.number,
           runId: each.runId.value,
+          kind: each.kind,
           state: each.current,
           proposals: each.proposals.map((proposal) => ({
             candidateId: proposal.candidateId.value,
             name: proposal.name.value,
             replay: storedReplay(proposal.replay),
+            improved: proposal.improved,
           })),
           attempts: each.attempts,
           agentSpent: storedSpent(each.agentSpent),
+          standing: each.standing?.value ?? null,
+          outcome: each.outcome,
+          reflectedOn: each.reflectedOn.map(storedReflectedTask),
+          causes: each.causes.map(storedCause),
         })),
       );
     }

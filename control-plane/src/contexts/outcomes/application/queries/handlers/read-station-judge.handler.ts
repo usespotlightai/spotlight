@@ -36,6 +36,8 @@ export class ReadStationJudgeHandler
           ? {
               rubricVersion: judge.rubricVersion,
               kind: judge.scale?.kind ?? null,
+              claims: [...judge.claims],
+              passShare: judge.passShare,
               sample: judge.sample,
               trust: judge.trust,
             }

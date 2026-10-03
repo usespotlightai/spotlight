@@ -30,7 +30,7 @@ type reporter struct {
 	refusal  error
 }
 
-func (r *reporter) RenewCheckLease(_ context.Context, _, _ string) (bool, error) {
+func (r *reporter) RenewCheckLease(_ context.Context, _, _ string, _ bool) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.renewals++
@@ -38,7 +38,7 @@ func (r *reporter) RenewCheckLease(_ context.Context, _, _ string) (bool, error)
 }
 
 func (r *reporter) RecordChangeStackCheck(
-	_ context.Context, _ string, stackID string, checked protocol.StackChecked,
+	_ context.Context, _ string, stackID string, _ bool, checked protocol.StackChecked,
 ) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

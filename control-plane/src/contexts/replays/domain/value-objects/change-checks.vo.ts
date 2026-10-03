@@ -105,6 +105,10 @@ export class ChangeChecks {
       : new ChangeChecks('none', [], null);
   }
 
+  static checking(): ChangeChecks {
+    return new ChangeChecks('checking', [], null);
+  }
+
   static rehydrate(input: {
     state: string;
     failedAt: readonly string[];

@@ -1,13 +1,16 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import type {
+  JudgingAgainOrdered,
   JudgingOrder,
   JudgingOrdered,
   OutcomesPort,
+  PairJudgingOrder,
 } from '@replays/application/ports/outcomes.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   AgentRefusal,
   ExaminedCandidate,
+  HarnessOffer,
   HeldSearchRun,
   ReplayRunOrder,
   ReplayRunQueued,
@@ -45,6 +48,7 @@ import type { ReplayRepository } from '@replays/domain/repositories/replay.repos
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
+import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStanding } from '@replays/domain/value-objects/change-checks.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -165,6 +169,13 @@ export class InMemoryReplays {
       [...this.replays.values()].filter((each) =>
         each.candidateId.equals(candidateId),
       ),
+    pairingWith: async (replayId) =>
+      [...this.replays.values()]
+        .filter(
+          (each) =>
+            (each.pairsWith?.equals(replayId) ?? false) && each.takesPairings,
+        )
+        .map((each) => each.id),
     ofSearch: async (searchId) =>
       [...this.replays.values()].filter(
         (each) => each.searchId?.equals(searchId) ?? false,
@@ -180,6 +191,10 @@ export class InMemoryReplays {
         );
         return found ? [found] : [];
       }),
+    healthReadOfSets: async (setIds) =>
+      [...this.replays.values()].filter((each) =>
+        setIds.some((id) => each.setId.equals(id)),
+      ),
     ofTeamStartedSince: async (teamId, since, most) =>
       [...this.replays.values()]
         .filter(
@@ -326,9 +341,10 @@ export class FakeWork implements WorkPort {
   standing = async (workspace: unknown, runs: readonly RunId[]) =>
     (await this.replayable(workspace, runs)).map((each) => ({
       ...each,
-      title: null,
+      title: null as string | null,
       state: null,
       endedAt: null,
+      origin: null,
     }));
 
   recentAt = async () => [];
@@ -392,6 +408,13 @@ export class FakeWork implements WorkPort {
   refusingAgent: AgentRefusal | null = null;
 
   agentRefusal = () => this.refusingAgent;
+
+  offer: HarnessOffer | null = {
+    models: ['sonnet', 'opus'],
+    efforts: ['low', 'medium', 'high'],
+  };
+
+  harnessOffer = async () => this.offer;
 
   readonly searchesDispatched: SearchRunOrder[] = [];
 
@@ -484,24 +507,57 @@ export const accessFor = (
 
 export class FakeChangeReview implements ChangeReviewPort {
   readonly stacks = new Map<string, StackStanding[]>();
+  readonly rechecks = new Map<string, StackStanding[]>();
+  readonly recheckAsked: string[] = [];
+  recheckableStacks: readonly string[] = ['stack_1'];
 
   async stacksOf(run: RunId): Promise<readonly StackStanding[]> {
     return this.stacks.get(run.value) ?? [];
+  }
+
+  async rechecksOf(run: RunId): Promise<readonly StackStanding[]> {
+    return this.rechecks.get(run.value) ?? [];
+  }
+
+  async recheckable(): Promise<readonly string[]> {
+    return this.recheckableStacks;
+  }
+
+  async recheck(run: RunId, stackId: string): Promise<void> {
+    this.recheckAsked.push(`${run.value}#${stackId}`);
   }
 }
 
 export class FakeOutcomes implements OutcomesPort {
   readonly accepted = new Set<string>();
   readonly asked: JudgingOrder[] = [];
+  readonly askedAgain: string[] = [];
+  readonly pairsAsked: PairJudgingOrder[] = [];
   answer: JudgingOrdered = 'asked';
+  pairAnswer: JudgingOrdered = 'asked';
+  againAnswer: JudgingAgainOrdered = 'asked';
+
+  async judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
+    this.askedAgain.push(run.value);
+    return this.againAnswer;
+  }
 
   async acceptedAfter(run: RunId): Promise<boolean> {
     return this.accepted.has(run.value);
   }
 
+  async turnedOut(): Promise<ReadonlyMap<string, OriginalOutcome>> {
+    return new Map([...this.accepted].map((run) => [run, 'accepted'] as const));
+  }
+
   async judge(order: JudgingOrder): Promise<JudgingOrdered> {
     this.asked.push(order);
     return this.answer;
+  }
+
+  async judgePair(order: PairJudgingOrder): Promise<JudgingOrdered> {
+    this.pairsAsked.push(order);
+    return this.pairAnswer;
   }
 }
 

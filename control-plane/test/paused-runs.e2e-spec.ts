@@ -119,6 +119,7 @@ const aHeldTask = async (
 
   await db.insert(schema.task).values({
     id: taskId,
+    openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: at,
     title: 'Drain the queue',

@@ -11,7 +11,10 @@ import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
+import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
+import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { RunOutcome } from '@replays/domain/value-objects/replay-ending';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -22,6 +25,7 @@ import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
@@ -79,7 +83,7 @@ const versionOf = (text: string): string => {
 
 export const UNSCORED = CandidateScoring.of({
   checksChanges: false,
-  rubric: null,
+  judge: null,
   rubricVersion: null,
 });
 
@@ -89,9 +93,14 @@ export const RUBRIC =
 export const candidateOf = (
   kind: 'live' | 'proposed',
   id = `candidate_${kind}`,
-  rubric: string | null = null,
+  rubric: string | JudgeCriteria | null = null,
   check: string | null = null,
+  fingerprint = FINGERPRINT,
 ): Candidate => {
+  const judge =
+    typeof rubric === 'string'
+      ? JudgeCriteria.of({ rubric, claims: [], passShare: 1 })
+      : rubric;
   const made = {
     id: CandidateId.of(id),
     station: STATION,
@@ -100,15 +109,34 @@ export const candidateOf = (
       key: 'build',
       name: 'Build',
       kind: 'work',
-      ...(rubric ? { judge: { rubric, sample: 0.1, trust: 0.6 } } : {}),
+      ...(judge
+        ? {
+            judge: {
+              ...(judge.rubric === null ? {} : { rubric: judge.rubric }),
+              ...(judge.claims.length > 0
+                ? { claims: [...judge.claims], passShare: judge.passShare }
+                : {}),
+              sample: 0.1,
+              trust: 0.6,
+            },
+          }
+        : {}),
       ...(check ? { diffs: true, check } : {}),
     }),
-    fingerprint: FINGERPRINT,
+    fingerprint,
     digests: kind === 'live' ? LIVE_DIGESTS : DIGESTS,
     scoring: CandidateScoring.of({
       checksChanges: check !== null,
-      rubric,
-      rubricVersion: rubric ? versionOf(rubric) : null,
+      judge,
+      rubricVersion: judge
+        ? versionOf(
+            JSON.stringify({
+              rubric: judge.rubric,
+              claims: judge.claims,
+              passShare: judge.passShare,
+            }),
+          )
+        : null,
     }),
     at: NOW,
   };
@@ -179,6 +207,9 @@ export const aReplay = (
     at?: Date;
     among?: readonly RunId[];
     searchId?: SearchId;
+    repeats?: number;
+    probe?: boolean;
+    pairsWith?: string;
   } = {},
 ): Replay => {
   const started = Replay.started({
@@ -191,6 +222,9 @@ export const aReplay = (
     by: BY,
     ...(input.among ? { among: input.among } : {}),
     ...(input.searchId ? { searchId: input.searchId } : {}),
+    ...(input.repeats === undefined ? {} : { repeats: input.repeats }),
+    ...(input.probe ? { probe: true } : {}),
+    ...(input.pairsWith ? { pairsWith: ReplayId.of(input.pairsWith) } : {}),
   });
 
   started.pullEvents();
@@ -264,6 +298,7 @@ export const aBudget = (
     perIteration: number;
     ceiling: number;
     concurrency: number;
+    repeats: number;
   }> = {},
 ): SearchBudget =>
   SearchBudget.of({
@@ -271,6 +306,7 @@ export const aBudget = (
     perIteration: input.perIteration ?? 2,
     ceiling: Spend.ceiling(input.ceiling ?? 100, 'USD'),
     ...(input.concurrency ? { concurrency: input.concurrency } : {}),
+    ...(input.repeats ? { repeats: input.repeats } : {}),
   });
 
 export const aSearch = (
@@ -279,6 +315,7 @@ export const aSearch = (
     count?: number;
     budget?: SearchBudget;
     set?: ReplaySet;
+    objective?: SearchObjective;
   } = {},
 ): Search => {
   const set = input.set ?? aSet(input.count ?? 10);
@@ -288,6 +325,7 @@ export const aSearch = (
     set,
     agent: AGENT,
     budget: input.budget ?? aBudget(),
+    objective: input.objective ?? 'success',
     split: HeldOutSplit.drawn({
       searchId: id,
       entries: set.entries,
@@ -329,6 +367,9 @@ export const replayFor = (
   candidateId: string,
   among: readonly RunId[] | null,
   live = false,
+  repeats = 1,
+  searchId: SearchId | null = SEARCH_ID,
+  pairsWith: string | null = null,
 ): Replay => {
   const started = Replay.started({
     id: ReplayId.of(id),
@@ -338,8 +379,10 @@ export const replayFor = (
     ceiling: Spend.ceiling(100, 'USD'),
     at: NOW,
     by: BY,
-    searchId: SEARCH_ID,
+    ...(searchId ? { searchId } : {}),
+    repeats,
     ...(among ? { among } : {}),
+    ...(pairsWith ? { pairsWith: ReplayId.of(pairsWith) } : {}),
   });
 
   started.pullEvents();
@@ -349,7 +392,7 @@ export const replayFor = (
 
 export const replayedAs = (
   replay: Replay,
-  outcomeOf: (original: string) => RunOutcome,
+  outcomeOf: (original: string, repeat: number) => RunOutcome,
   cost: number | null = 1,
   currency = 'USD',
 ): Replay => {
@@ -360,8 +403,100 @@ export const replayedAs = (
 
     return held
       .confirmed(run, FINGERPRINT, NOW)
-      .ended(run, endOf(outcomeOf(entry.original.value)))
+      .ended(run, endOf(outcomeOf(entry.original.value, entry.repeat)))
       .reviewed(run, PASSED, null, later(60_000))
       .measured(run, measuresOf(cost, 60_000, 10, currency), later(61_000));
   }, reserved);
 };
+
+export const CONCLUDING_CHECKS = ChangeChecks.of([
+  {
+    repository: 'api',
+    state: 'passed',
+    skip: null,
+    failedAt: [],
+    spent: ModelSpent.of([], 0),
+  },
+]);
+
+export const CONCLUDING_VERDICT = JudgeVerdict.of({
+  scale: 'number',
+  value: 4,
+  marks: null,
+  claims: [],
+  passShare: 1,
+  model: 'judge/model',
+  referenced: true,
+  reasons: [],
+});
+
+export const runOf = (replay: string, at: number) =>
+  RunId.of(`${replay}_run_${at}`);
+
+export const concludedAll = (
+  replay: Replay,
+  options: {
+    changedLines?: number;
+    judged?: boolean;
+    judgingCost?: number;
+  } = {},
+): Replay => {
+  let held = replay.reserving(
+    replay.entries.length,
+    (() => {
+      let at = 0;
+      return () => {
+        const run = runOf(replay.id.value, at);
+        at += 1;
+        return run;
+      };
+    })(),
+  );
+
+  for (const entry of held.entries) {
+    const run = entry.run as RunId;
+    held = held
+      .confirmed(run, FINGERPRINT, NOW)
+      .ended(run, endOf('completed'))
+      .measured(
+        run,
+        measuresOf(1, 60_000, 10, 'USD', options.changedLines ?? 4),
+        later(61_000),
+      )
+      .reviewed(run, CONCLUDING_CHECKS, null, later(62_000));
+
+    if (options.judged ?? true) {
+      held = held.judged(
+        run,
+        CONCLUDING_VERDICT,
+        options.judgingCost === undefined
+          ? null
+          : ModelSpent.of([Spend.of(options.judgingCost, 'USD')], 0),
+        later(63_000),
+      );
+    }
+  }
+
+  held.pullEvents();
+  return held;
+};
+
+export const pairVerdictOf = (winner: 'run' | 'against' | 'tie'): PairVerdict =>
+  PairVerdict.fromWinner({
+    winner,
+    model: 'judge/model',
+    readings: [
+      {
+        runShownFirst: true,
+        winner: winner === 'tie' ? 'run' : winner,
+        reasons: [
+          { text: 'It drains fast.', runHunks: ['a#1'], againstHunks: ['b#1'] },
+        ],
+      },
+      {
+        runShownFirst: false,
+        winner: winner === 'tie' ? 'against' : winner,
+        reasons: [],
+      },
+    ],
+  });

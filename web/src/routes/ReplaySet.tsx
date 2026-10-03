@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+import { SetHealth } from '@/components/features/replays/set/health/SetHealth';
 import { ReplaySetHeader } from '@/components/features/replays/set/ReplaySetHeader';
 import { ReplaySetSkeleton } from '@/components/features/replays/set/ReplaySetSkeleton';
 import { SetChecks } from '@/components/features/replays/set/SetChecks';
@@ -28,7 +29,7 @@ export function ReplaySet() {
   const stationTrail = useStationTrail({ slug, teamId, lineId, stationId });
   const sets = useTeamReplaySets(teamId);
   const replays = useReplays(teamId, setId);
-  const { line } = useStation(teamId, lineId, stationId);
+  const { lines, line, station } = useStation(teamId, lineId, stationId);
   const searches = useSearches(teamId, lineId, stationId);
 
   const set = sets.data?.find(
@@ -91,6 +92,8 @@ export function ReplaySet() {
           replayCheck={line ? line.replayCheck : undefined}
           searching={searching}
         />
+
+        <SetHealth at={at} set={set} live={station ?? null} liveQuery={lines} />
 
         <SetReplays at={at} set={set} replays={replays} />
 

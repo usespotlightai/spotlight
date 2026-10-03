@@ -41,7 +41,9 @@ const started = (
       mostRegressions: 0,
       ceiling: 10,
       currency: 'USD',
+      minGain: 0.05,
     }),
+    repeats: 1,
     keptLive: ['diffs', 'check'],
     createdAt: NOW,
     by: BY,
@@ -77,26 +79,81 @@ describe('ReplayCheck', () => {
       mostRegressions: 0,
       ceiling: 10,
       currency: 'USD',
+      minGain: 0.05,
     });
     const raised = ReplayThreshold.of({
       mostRegressions: 1,
       ceiling: 10,
       currency: 'USD',
+      minGain: 0.05,
     });
     const reusable = (verdict: 'running' | 'passed' | 'failed' | 'undecided') =>
-      check.reusableFor(SET, 'entries_1', threshold, verdict);
+      check.reusableFor(SET, 'entries_1', threshold, 1, verdict);
 
     expect(reusable('running')).toBe(true);
     expect(reusable('passed')).toBe(true);
     expect(reusable('failed')).toBe(true);
     expect(reusable('undecided')).toBe(false);
-    expect(check.reusableFor(SET, 'entries_1', raised, 'passed')).toBe(false);
-    expect(check.reusableFor(SET, 'entries_2', threshold, 'passed')).toBe(
+    expect(check.reusableFor(SET, 'entries_1', raised, 1, 'passed')).toBe(
+      false,
+    );
+    expect(check.reusableFor(SET, 'entries_2', threshold, 1, 'passed')).toBe(
       false,
     );
     expect(
-      check.reusableFor(aSet(1, 'set_other'), 'entries_1', threshold, 'passed'),
+      check.reusableFor(
+        aSet(1, 'set_other'),
+        'entries_1',
+        threshold,
+        1,
+        'passed',
+      ),
     ).toBe(false);
+  });
+
+  it('is reused only when it replays each run as many times as asked, and replays each from 1 to 5 times', () => {
+    const check = started({
+      setId: SET.id,
+      setEntries: 'entries_1',
+      repeats: 3,
+    });
+    const threshold = ReplayThreshold.of({
+      mostRegressions: 0,
+      ceiling: 10,
+      currency: 'USD',
+      minGain: 0.05,
+    });
+
+    expect(check.reusableFor(SET, 'entries_1', threshold, 3, 'passed')).toBe(
+      true,
+    );
+    expect(check.reusableFor(SET, 'entries_1', threshold, 1, 'passed')).toBe(
+      false,
+    );
+    expect(() => started({ repeats: 0 })).toThrow(InvalidReplayCheckError);
+    expect(() => started({ repeats: 6 })).toThrow(InvalidReplayCheckError);
+  });
+
+  it('is reused under another min gain, which only reads the gain and is a share above 0 and at most 1', () => {
+    const check = started({ setId: SET.id, setEntries: 'entries_1' });
+    const wider = ReplayThreshold.of({
+      mostRegressions: 0,
+      ceiling: 10,
+      currency: 'USD',
+      minGain: 0.1,
+    });
+
+    expect(check.reusableFor(SET, 'entries_1', wider, 1, 'passed')).toBe(true);
+    for (const minGain of [0, -0.1, 1.5, Number.NaN]) {
+      expect(() =>
+        ReplayThreshold.of({
+          mostRegressions: 0,
+          ceiling: 10,
+          currency: 'USD',
+          minGain,
+        }),
+      ).toThrow(InvalidReplayCheckError);
+    }
   });
 
   it('charges a run without a price its share of the ceiling', () => {
@@ -105,6 +162,7 @@ describe('ReplayCheck', () => {
         mostRegressions: 0,
         ceiling: 9,
         currency: 'USD',
+        minGain: 0.05,
       }).unpricedRunIn(3).amount,
     ).toBe(3);
   });
@@ -120,16 +178,27 @@ describe('ReplayCheck', () => {
 
   it('takes a threshold of whole tasks and a ceiling a replay may spend', () => {
     expect(() =>
-      ReplayThreshold.of({ mostRegressions: -1, ceiling: 10, currency: 'USD' }),
+      ReplayThreshold.of({
+        mostRegressions: -1,
+        ceiling: 10,
+        currency: 'USD',
+        minGain: 0.05,
+      }),
     ).toThrow(InvalidReplayCheckError);
     expect(() =>
-      ReplayThreshold.of({ mostRegressions: 0, ceiling: 0, currency: 'USD' }),
+      ReplayThreshold.of({
+        mostRegressions: 0,
+        ceiling: 0,
+        currency: 'USD',
+        minGain: 0.05,
+      }),
     ).toThrow(InvalidSpendError);
     expect(
       ReplayThreshold.of({
         mostRegressions: 2,
         ceiling: 5,
         currency: 'eur',
+        minGain: 0.05,
       }).allows(2),
     ).toBe(true);
   });

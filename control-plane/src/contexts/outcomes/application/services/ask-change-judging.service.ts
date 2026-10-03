@@ -1,4 +1,5 @@
 import type {
+  ChangeJudgingAgainAnswer,
   ChangeJudgingAnswer,
   ChangeJudgingAsk,
   ChangeJudgingPort,
@@ -7,6 +8,7 @@ import type { JudgePort } from '@outcomes/application/ports/judge.port';
 import { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggregate';
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
+import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -33,7 +35,11 @@ export class AskChangeJudging implements ChangeJudgingPort {
         runId: RunId.of(asked.runId),
         workspaceId: WorkspaceId.of(asked.workspaceId),
         teamId: TeamId.of(asked.teamId),
-        rubric: asked.rubric,
+        criteria: JudgeCriteria.of({
+          rubric: asked.rubric,
+          claims: asked.claims,
+          passShare: asked.passShare,
+        }),
         reference: asked.reference ? RunId.of(asked.reference) : null,
         now: this.clock.now(),
       });
@@ -45,11 +51,32 @@ export class AskChangeJudging implements ChangeJudgingPort {
     }
 
     await this.transaction.run(async () => {
-      if (!(await this.judgings.of(judging.runId))) {
+      if (!(await this.judgings.of(judging.runId, judging.round))) {
         await this.judgings.add(judging);
       }
     });
 
     return 'asked';
+  }
+
+  async askAgain(runId: string): Promise<ChangeJudgingAgainAnswer> {
+    if (!this.judge.available) {
+      return 'unavailable';
+    }
+
+    const run = RunId.of(runId);
+
+    return this.transaction.run(async () => {
+      const first = await this.judgings.of(run, 1);
+
+      if (!first?.judgedAt) {
+        return 'unjudged';
+      }
+      if (!(await this.judgings.of(run, 2))) {
+        await this.judgings.add(first.askedAgain(this.clock.now()));
+      }
+
+      return 'asked';
+    });
   }
 }

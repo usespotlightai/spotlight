@@ -31,6 +31,7 @@ export const replayCheckRow = (
         mostRegressions: policy.mostRegressions,
         ceiling: policy.ceiling,
         currency: policy.currency,
+        minGain: policy.minGain,
       }
     : null;
 
@@ -100,6 +101,8 @@ export const stationColumnsOf = (each: Station) => ({
   judge: each.judge
     ? {
         rubric: each.judge.rubric,
+        claims: [...each.judge.claims],
+        passShare: each.judge.passShare,
         sample: each.judge.sample,
         trust: each.judge.trust,
       }

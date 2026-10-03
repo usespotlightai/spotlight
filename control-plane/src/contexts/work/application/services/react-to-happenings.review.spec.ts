@@ -32,6 +32,7 @@ import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -406,6 +407,7 @@ describe('ReactToHappenings, asked for a review', () => {
       createdAt: NOW,
       raisedAt: null,
       raisedBy: null,
+      openedFrom: TaskOrigin.person(),
       pullRequestLink: PullRequestLink.reviewing(PullRequestUrl.of(PULL), {
         outside: false,
       }),

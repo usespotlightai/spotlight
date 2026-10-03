@@ -5,12 +5,36 @@ import type { RunScoresViews } from '@outcomes/application/services/run-scores-v
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
+import type { GradingTerms } from '@outcomes/domain/services/grading-terms';
 import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+
+const gradedOn = (
+  terms: GradingTerms,
+  command: GradeRunCommand,
+): { value: number; marks: readonly boolean[] | null } => {
+  if (terms.scale.byClaims) {
+    if (command.claims === null || command.value !== null) {
+      throw new InvalidScoreError(
+        'from a person on a claims scale marks each claim met or not',
+      );
+    }
+
+    return {
+      value: terms.scale.valueOfClaims(command.claims, terms.claims.length),
+      marks: [...command.claims],
+    };
+  }
+  if (command.value === null || command.claims !== null) {
+    throw new InvalidScoreError('from a person gives a grade');
+  }
+
+  return { value: terms.scale.valueOf(command.value), marks: null };
+};
 
 export class GradeRunHandler
   implements CommandHandlerPort<GradeRunCommand, RunScoresDto>
@@ -32,20 +56,14 @@ export class GradeRunHandler
       );
       const run = await this.views.onTeam(clearance, command.runId);
 
-      if (command.value === null) {
-        throw new InvalidScoreError('from a person gives a grade');
-      }
-
-      const raw = command.value;
-
       await this.transaction.run(async () => {
         const terms = await this.views.gradingTerms(
           run,
           await this.scores.ofRuns([run.record.runId]),
         );
         const graded = {
+          ...gradedOn(terms, command),
           scale: terms.scale,
-          value: terms.scale.valueOf(raw),
           rubricVersion: terms.rubricVersion,
           at: this.clock.now(),
         };

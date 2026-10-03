@@ -1,24 +1,51 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type {
   CandidateDto,
+  CheckConsistencyDto,
   EntryChecksDto,
+  EntryCitationDto,
+  EntryCitedHunkDto,
+  EntryCitedStepDto,
   EntryComparisonDto,
   EntryJudgeDto,
+  EntryJudgeReasonDto,
+  EntryPairDto,
+  EntryPairReadingDto,
+  EntryPairReasonDto,
   EntryReasonDto,
+  FlakyCheckDto,
+  GainReadingDto,
+  JudgeConsistencyDto,
   ModelSpentDto,
+  PairTallyDto,
+  RateIntervalDto,
   ReplayDetailDto,
   ReplayDto,
   ReplayEntryDto,
   ReplayOfRunDto,
   ReplaySearchDto,
   ReplayTotalsDto,
+  SanityReadingDto,
+  SetHealthDto,
+  SetNoiseDto,
+  SetSaturationDto,
   SpendDto,
+  WorseTaskDto,
 } from '@replays/application/dto/replays.dto';
+import { GAIN_VERDICTS } from '@replays/domain/services/gain-reading';
 import { SCORES_UNCOMPARED } from '@replays/domain/services/replay-results';
+import {
+  JUDGE_UNSTABLE_BELOW,
+  SATURATED_ABOVE,
+} from '@replays/domain/services/set-health';
 import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
 import { CHECKS_STATES } from '@replays/domain/value-objects/change-checks.vo';
 import { CHECK_SKIPS } from '@replays/domain/value-objects/check-skip';
 import { UNJUDGED_BECAUSE } from '@replays/domain/value-objects/entry-judging.vo';
+import {
+  PAIR_OUTCOMES,
+  UNPAIRED_BECAUSE,
+} from '@replays/domain/value-objects/entry-pairing.vo';
 import { ENTRY_REASON_CODES } from '@replays/domain/value-objects/entry-reason';
 import {
   JUDGE_SCALES,
@@ -26,8 +53,413 @@ import {
 } from '@replays/domain/value-objects/judge-verdict.vo';
 import { REPLAY_ENDINGS } from '@replays/domain/value-objects/replay-ending';
 import { REPLAY_REFUSALS } from '@replays/domain/value-objects/replay-refusal';
+import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { RUN_FAILURE_CODES } from '@shared-kernel/domain/value-objects/run-failure-code';
+
+export class RateIntervalResponseDto {
+  @ApiProperty({
+    example: 0.62,
+    description:
+      'The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks',
+  })
+  readonly rate: number;
+
+  @ApiProperty({
+    example: 0.48,
+    description: 'The low end of the 95% interval, bootstrapped over the tasks',
+  })
+  readonly low: number;
+
+  @ApiProperty({
+    example: 0.75,
+    description:
+      'The high end of the 95% interval, bootstrapped over the tasks',
+  })
+  readonly high: number;
+
+  constructor(interval: RateIntervalDto) {
+    this.rate = interval.rate;
+    this.low = interval.low;
+    this.high = interval.high;
+  }
+}
+
+export class GainReadingResponseDto {
+  @ApiProperty({
+    example: 0.08,
+    description:
+      'The success rate gained over what it is compared with, on the tasks both scored',
+  })
+  readonly gain: number;
+
+  @ApiProperty({
+    example: -0.02,
+    description:
+      'The low end of the 95% interval of the gain, a paired bootstrap over the tasks',
+  })
+  readonly low: number;
+
+  @ApiProperty({
+    example: 0.18,
+    description: 'The high end of the 95% interval of the gain',
+  })
+  readonly high: number;
+
+  @ApiProperty({
+    enum: GAIN_VERDICTS,
+    description:
+      'better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise',
+  })
+  readonly verdict: string;
+
+  @ApiProperty({
+    example: 0.05,
+    description: 'The smallest gain the line counts as real',
+  })
+  readonly minGain: number;
+
+  @ApiProperty({ description: 'The tasks both sides scored, paired' })
+  readonly tasks: number;
+
+  constructor(gain: GainReadingDto) {
+    this.gain = gain.gain;
+    this.low = gain.low;
+    this.high = gain.high;
+    this.verdict = gain.verdict;
+    this.minGain = gain.minGain;
+    this.tasks = gain.tasks;
+  }
+}
+
+export class SetNoiseResponseDto {
+  @ApiProperty({
+    description:
+      'The finished live replay, run more than once, the noise was measured on',
+  })
+  readonly replayId: string;
+
+  @ApiProperty({ description: 'The live config fingerprint it replayed' })
+  readonly fingerprint: string;
+
+  @ApiProperty({ example: 3 })
+  readonly repeats: number;
+
+  @ApiProperty({
+    type: Number,
+    isArray: true,
+    description: 'The success rate of each copy of the set, in order',
+  })
+  readonly perRepeat: number[];
+
+  @ApiProperty({
+    example: 0.1,
+    description: 'The highest copy’s success rate less the lowest’s',
+  })
+  readonly spread: number;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description:
+      'Tasks whose copies disagree, succeeding in one and failing in another',
+  })
+  readonly flippedTasks: string[];
+
+  @ApiProperty()
+  readonly measuredAt: string;
+
+  constructor(noise: SetNoiseDto) {
+    this.replayId = noise.replayId;
+    this.fingerprint = noise.fingerprint;
+    this.repeats = noise.repeats;
+    this.perRepeat = [...noise.perRepeat];
+    this.spread = noise.spread;
+    this.flippedTasks = [...noise.flippedTasks];
+    this.measuredAt = noise.measuredAt;
+  }
+}
+
+export const intervalResponse = (
+  interval: RateIntervalDto | null,
+): RateIntervalResponseDto | null =>
+  interval ? new RateIntervalResponseDto(interval) : null;
+
+export const gainResponse = (
+  gain: GainReadingDto | null,
+): GainReadingResponseDto | null =>
+  gain ? new GainReadingResponseDto(gain) : null;
+
+export class SetSaturationResponseDto {
+  @ApiProperty({
+    description:
+      'The newest finished replay of the live config over the whole set it was read from',
+  })
+  readonly replayId: string;
+
+  @ApiProperty({ example: 0.97, description: 'The live config’s success rate' })
+  readonly rate: number;
+
+  @ApiProperty({ nullable: true, type: RateIntervalResponseDto })
+  readonly interval: RateIntervalResponseDto | null;
+
+  @ApiProperty({
+    description: `Its success rate is above ${SATURATED_ABOVE}: a search has little room to succeed more, and looks for the same success at less cost unless told otherwise`,
+  })
+  readonly saturated: boolean;
+
+  @ApiProperty()
+  readonly measuredAt: string;
+
+  constructor(saturation: SetSaturationDto) {
+    this.replayId = saturation.replayId;
+    this.rate = saturation.rate;
+    this.interval = intervalResponse(saturation.interval);
+    this.saturated = saturation.saturated;
+    this.measuredAt = saturation.measuredAt;
+  }
+}
+
+export class JudgeConsistencyResponseDto {
+  @ApiProperty({
+    description:
+      'The probe: the newest finished replay of the live config that checked the set',
+  })
+  readonly replayId: string;
+
+  @ApiProperty({
+    description: 'Changes the judge judged twice, both times with a verdict',
+  })
+  readonly compared: number;
+
+  @ApiProperty({
+    description: 'Of those, the ones it passed or failed alike both times',
+  })
+  readonly agreed: number;
+
+  @ApiProperty({ description: 'Second judgings still to come' })
+  readonly pending: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.92,
+    description: 'agreed out of compared; null before any is compared',
+  })
+  readonly agreement: number | null;
+
+  @ApiProperty({
+    description: `It agreed with itself less than ${JUDGE_UNSTABLE_BELOW} of the time, so its verdicts are partly chance`,
+  })
+  readonly unstable: boolean;
+
+  constructor(judge: JudgeConsistencyDto) {
+    this.replayId = judge.replayId;
+    this.compared = judge.compared;
+    this.agreed = judge.agreed;
+    this.pending = judge.pending;
+    this.agreement = judge.agreement;
+    this.unstable = judge.unstable;
+  }
+}
+
+export class FlakyCheckResponseDto {
+  @ApiProperty()
+  readonly taskId: string;
+
+  @ApiProperty({ description: 'The original run the replay run replayed' })
+  readonly originalRunId: string;
+
+  @ApiProperty({ description: 'The probe’s replay run whose change flipped' })
+  readonly runId: string;
+
+  @ApiProperty({ enum: ['passed', 'failed'] })
+  readonly first: string;
+
+  @ApiProperty({ enum: ['passed', 'failed'] })
+  readonly recheck: string;
+
+  constructor(flaky: FlakyCheckDto) {
+    this.taskId = flaky.taskId;
+    this.originalRunId = flaky.originalRunId;
+    this.runId = flaky.runId;
+    this.first = flaky.first;
+    this.recheck = flaky.recheck;
+  }
+}
+
+export class CheckConsistencyResponseDto {
+  @ApiProperty({ description: 'The probe whose changes were checked again' })
+  readonly replayId: string;
+
+  @ApiProperty({
+    description: 'Changes checked twice, both times passing or failing',
+  })
+  readonly rechecked: number;
+
+  @ApiProperty({ description: 'Second checks still to come' })
+  readonly pending: number;
+
+  @ApiProperty({
+    type: FlakyCheckResponseDto,
+    isArray: true,
+    description: 'The changes whose check passed once and failed once',
+  })
+  readonly flaky: FlakyCheckResponseDto[];
+
+  constructor(checks: CheckConsistencyDto) {
+    this.replayId = checks.replayId;
+    this.rechecked = checks.rechecked;
+    this.pending = checks.pending;
+    this.flaky = checks.flaky.map((each) => new FlakyCheckResponseDto(each));
+  }
+}
+
+export class WorseTaskResponseDto {
+  @ApiProperty()
+  readonly taskId: string;
+
+  @ApiProperty()
+  readonly originalRunId: string;
+
+  @ApiProperty({ description: 'The live config’s success on the task' })
+  readonly live: number;
+
+  @ApiProperty({ description: 'The stronger config’s success on the task' })
+  readonly stronger: number;
+
+  constructor(worse: WorseTaskDto) {
+    this.taskId = worse.taskId;
+    this.originalRunId = worse.originalRunId;
+    this.live = worse.live;
+    this.stronger = worse.stronger;
+  }
+}
+
+export class SanityReadingResponseDto {
+  @ApiProperty({
+    description: 'The newest replay of the live config with a stronger model',
+  })
+  readonly replayId: string;
+
+  @ApiProperty()
+  readonly candidateId: string;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly model: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly effort: string | null;
+
+  @ApiProperty()
+  readonly repeats: number;
+
+  @ApiProperty({ enum: REPLAY_STATES })
+  readonly state: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'The replay of the live config, run at least as often, it is compared with, chosen when it started',
+  })
+  readonly againstReplayId: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...REPLAY_STATES, 'gone', null],
+    type: String,
+    description:
+      'How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be, so start another',
+  })
+  readonly againstState: string | null;
+
+  @ApiProperty({ nullable: true, type: GainReadingResponseDto })
+  readonly gain: GainReadingResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Boolean,
+    description:
+      'The stronger config did clearly better; false means the set does not reward a stronger model, so its tasks may be unclear or its scoring off; null until compared',
+  })
+  readonly rewardsStrongerModel: boolean | null;
+
+  @ApiProperty({ type: WorseTaskResponseDto, isArray: true })
+  readonly worse: WorseTaskResponseDto[];
+
+  constructor(sanity: SanityReadingDto) {
+    this.replayId = sanity.replayId;
+    this.candidateId = sanity.candidateId;
+    this.model = sanity.model;
+    this.effort = sanity.effort;
+    this.repeats = sanity.repeats;
+    this.state = sanity.state;
+    this.againstReplayId = sanity.againstReplayId;
+    this.againstState = sanity.againstState;
+    this.gain = gainResponse(sanity.gain);
+    this.rewardsStrongerModel = sanity.rewardsStrongerModel;
+    this.worse = sanity.worse.map((each) => new WorseTaskResponseDto(each));
+  }
+}
+
+export class SetHealthResponseDto {
+  @ApiProperty({
+    nullable: true,
+    type: SetNoiseResponseDto,
+    description:
+      'How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has',
+  })
+  readonly noise: SetNoiseResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: SetSaturationResponseDto,
+    description:
+      'How much of the set the live config passes already; null until it replayed the whole set',
+  })
+  readonly saturation: SetSaturationResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: JudgeConsistencyResponseDto,
+    description:
+      'How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged',
+  })
+  readonly judge: JudgeConsistencyResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: CheckConsistencyResponseDto,
+    description:
+      'Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked',
+  })
+  readonly checks: CheckConsistencyResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: SanityReadingResponseDto,
+    description:
+      'Whether a stronger model or higher effort does better on the set; null until one was replayed',
+  })
+  readonly sanity: SanityReadingResponseDto | null;
+
+  constructor(health: SetHealthDto) {
+    this.noise = health.noise ? new SetNoiseResponseDto(health.noise) : null;
+    this.saturation = health.saturation
+      ? new SetSaturationResponseDto(health.saturation)
+      : null;
+    this.judge = health.judge
+      ? new JudgeConsistencyResponseDto(health.judge)
+      : null;
+    this.checks = health.checks
+      ? new CheckConsistencyResponseDto(health.checks)
+      : null;
+    this.sanity = health.sanity
+      ? new SanityReadingResponseDto(health.sanity)
+      : null;
+  }
+}
 
 export class SpendResponseDto {
   @ApiProperty({ example: 4.2 })
@@ -128,6 +560,107 @@ export class EntryChecksResponseDto {
   }
 }
 
+export class EntryCitedStepResponseDto {
+  @ApiProperty({
+    example: 12,
+    description: 'Where the step sits in the run’s journal',
+  })
+  readonly index: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'Always null here: a replay keeps no copy of what the judge read',
+  })
+  readonly kind: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly tool: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly text: string | null;
+
+  constructor(step: EntryCitedStepDto) {
+    this.index = step.index;
+    this.kind = step.kind;
+    this.tool = step.tool;
+    this.text = step.text;
+  }
+}
+
+export class EntryCitedHunkResponseDto {
+  @ApiProperty({ example: 'api/src/uploads.ts#2' })
+  readonly id: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'Always null here: a replay keeps no copy of what the judge read',
+  })
+  readonly path: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly header: string | null;
+
+  @ApiProperty({ type: String, isArray: true })
+  readonly lines: string[];
+
+  constructor(hunk: EntryCitedHunkDto) {
+    this.id = hunk.id;
+    this.path = hunk.path;
+    this.header = hunk.header;
+    this.lines = [...hunk.lines];
+  }
+}
+
+export class EntryCitationResponseDto {
+  @ApiProperty({ enum: ['step', 'hunk'] })
+  readonly kind: string;
+
+  @ApiProperty({ type: EntryCitedStepResponseDto, nullable: true })
+  readonly step: EntryCitedStepResponseDto | null;
+
+  @ApiProperty({ type: EntryCitedHunkResponseDto, nullable: true })
+  readonly hunk: EntryCitedHunkResponseDto | null;
+
+  constructor(citation: EntryCitationDto) {
+    this.kind = citation.kind;
+    this.step = citation.step
+      ? new EntryCitedStepResponseDto(citation.step)
+      : null;
+    this.hunk = citation.hunk
+      ? new EntryCitedHunkResponseDto(citation.hunk)
+      : null;
+  }
+}
+
+export class EntryJudgeReasonResponseDto {
+  @ApiProperty({ example: 'It retried the upload inside the request.' })
+  readonly text: string;
+
+  @ApiProperty({ type: EntryCitationResponseDto, isArray: true })
+  readonly citations: EntryCitationResponseDto[];
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 0,
+    description:
+      'The place of the claim this reason is about, from 0; none on a rubric’s scale',
+  })
+  readonly claim: number | null;
+
+  constructor(reason: EntryJudgeReasonDto) {
+    this.text = reason.text;
+    this.claim = reason.claim;
+    this.citations = reason.citations.map(
+      (each) => new EntryCitationResponseDto(each),
+    );
+  }
+}
+
 export class EntryJudgeResponseDto {
   @ApiProperty({ enum: ['asked', 'judged', 'unjudged'] })
   readonly state: string;
@@ -138,16 +671,36 @@ export class EntryJudgeResponseDto {
   @ApiProperty({
     nullable: true,
     type: Number,
-    description: '0 or 1 on a yes-no rubric, 1 to 5 on a number one',
+    description:
+      '0 or 1 on a yes-no rubric, 1 to 5 on a number one, or the share of claims met',
   })
   readonly score: number | null;
 
   @ApiProperty({
     nullable: true,
     type: Boolean,
-    description: `Yes on a yes-no rubric, or at least ${PASSING_SCORE} on a number one`,
+    description: `Yes on a yes-no rubric, at least ${PASSING_SCORE} on a number one, or at least the pass share of claims met`,
   })
   readonly passed: boolean | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Boolean,
+    isArray: true,
+    example: [true, false, true],
+    description:
+      'Whether each claim was met, in order; null unless the judge goes by claims',
+  })
+  readonly marks: boolean[] | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 1,
+    description:
+      'The share of claims a run had to meet to pass; null unless the judge goes by claims',
+  })
+  readonly passShare: number | null;
 
   @ApiProperty({
     nullable: true,
@@ -167,6 +720,23 @@ export class EntryJudgeResponseDto {
   })
   readonly unjudged: string | null;
 
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['It adds a test that fails without it.'],
+    description:
+      'The claims the judge marked, in order, as worded when it judged; empty unless it goes by claims',
+  })
+  readonly claims: string[];
+
+  @ApiProperty({
+    type: EntryJudgeReasonResponseDto,
+    isArray: true,
+    description:
+      'The judge’s grounded reasons, each naming the claim it is about on a claims judge',
+  })
+  readonly reasons: EntryJudgeReasonResponseDto[];
+
   constructor(judge: EntryJudgeDto) {
     this.state = judge.state;
     this.scale = judge.scale;
@@ -175,6 +745,134 @@ export class EntryJudgeResponseDto {
     this.referenced = judge.referenced;
     this.model = judge.model;
     this.unjudged = judge.unjudged;
+    this.marks = judge.marks ? [...judge.marks] : null;
+    this.passShare = judge.passShare;
+    this.claims = [...judge.claims];
+    this.reasons = judge.reasons.map(
+      (each) => new EntryJudgeReasonResponseDto(each),
+    );
+  }
+}
+
+export class EntryPairReasonResponseDto {
+  @ApiProperty({ example: 'Its change drains the queue in order.' })
+  readonly text: string;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'The hunks of this entry’s change the reason cites',
+  })
+  readonly ownHunks: string[];
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'The hunks of the baseline’s change the reason cites',
+  })
+  readonly theirHunks: string[];
+
+  constructor(reason: EntryPairReasonDto) {
+    this.text = reason.text;
+    this.ownHunks = [...reason.ownHunks];
+    this.theirHunks = [...reason.theirHunks];
+  }
+}
+
+export class EntryPairReadingResponseDto {
+  @ApiProperty({
+    description:
+      'Whether this entry’s change was shown first, as A; each pair is read both ways round',
+  })
+  readonly ownShownFirst: boolean;
+
+  @ApiProperty({ enum: PAIR_OUTCOMES })
+  readonly outcome: string;
+
+  @ApiProperty({ type: EntryPairReasonResponseDto, isArray: true })
+  readonly reasons: EntryPairReasonResponseDto[];
+
+  constructor(reading: EntryPairReadingDto) {
+    this.ownShownFirst = reading.ownShownFirst;
+    this.outcome = reading.outcome;
+    this.reasons = reading.reasons.map(
+      (each) => new EntryPairReasonResponseDto(each),
+    );
+  }
+}
+
+export class EntryPairResponseDto {
+  @ApiProperty({ enum: ['asked', 'judged', 'unpaired'] })
+  readonly state: string;
+
+  @ApiProperty({
+    description:
+      'The run of the same task, in the replay in pairedWith, this change was set beside',
+  })
+  readonly againstRunId: string;
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...PAIR_OUTCOMES, null],
+    type: String,
+    description:
+      'Whether the judge, not knowing which change was which, found this one better (win), worse (loss) or as good (tie)',
+  })
+  readonly outcome: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  readonly model: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...UNPAIRED_BECAUSE, null],
+    type: String,
+  })
+  readonly unpaired: string | null;
+
+  @ApiProperty({
+    type: EntryPairReadingResponseDto,
+    isArray: true,
+    description:
+      'The two readings, one with each change shown first; where they disagree the outcome is a tie',
+  })
+  readonly readings: EntryPairReadingResponseDto[];
+
+  constructor(pair: EntryPairDto) {
+    this.state = pair.state;
+    this.againstRunId = pair.againstRunId;
+    this.outcome = pair.outcome;
+    this.model = pair.model;
+    this.unpaired = pair.unpaired;
+    this.readings = pair.readings.map(
+      (each) => new EntryPairReadingResponseDto(each),
+    );
+  }
+}
+
+export class PairTallyResponseDto {
+  @ApiProperty({
+    example: 4,
+    description: 'Tasks where the judge found the change better',
+  })
+  readonly wins: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Tasks where the judge found the change worse',
+  })
+  readonly losses: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Tasks where the judge found neither change better',
+  })
+  readonly ties: number;
+
+  constructor(tally: PairTallyDto) {
+    this.wins = tally.wins;
+    this.losses = tally.losses;
+    this.ties = tally.ties;
   }
 }
 
@@ -187,6 +885,12 @@ export class ReplayEntryResponseDto {
 
   @ApiProperty()
   readonly taskId: string;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Which copy of the original run this is, from 1',
+  })
+  readonly repeat: number;
 
   @ApiProperty({
     nullable: true,
@@ -280,6 +984,46 @@ export class ReplayEntryResponseDto {
   readonly judgingSpent: ModelSpentResponseDto | null;
 
   @ApiProperty({
+    nullable: true,
+    type: EntryJudgeResponseDto,
+    description:
+      'A probe’s second judging of the same change, to see whether the judge agrees with itself; it never changes the run’s result',
+  })
+  readonly secondJudge: EntryJudgeResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: ModelSpentResponseDto,
+    description:
+      'What the second judging cost; what is in the ceiling’s currency is spent against it',
+  })
+  readonly rejudgingSpent: ModelSpentResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: EntryChecksResponseDto,
+    description:
+      'A probe’s second check of the same change, to see whether the check is flaky; it never changes the run’s result',
+  })
+  readonly recheck: EntryChecksResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: EntryPairResponseDto,
+    description:
+      'Its change set side by side with that of the replay in pairedWith for the same task, judged blind both ways round; it never changes the run’s result',
+  })
+  readonly pair: EntryPairResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: ModelSpentResponseDto,
+    description:
+      'What the side-by-side judging cost; what is in the ceiling’s currency is spent against it',
+  })
+  readonly pairingSpent: ModelSpentResponseDto | null;
+
+  @ApiProperty({
     enum: ['pending', 'succeeded', 'failed', 'unscored'],
     description:
       'pending while its run, checks or judge are still to come; unscored when nothing could say whether it succeeded',
@@ -301,6 +1045,7 @@ export class ReplayEntryResponseDto {
     this.position = entry.position;
     this.originalRunId = entry.originalRunId;
     this.taskId = entry.taskId;
+    this.repeat = entry.repeat;
     this.runId = entry.runId;
     this.fingerprint = entry.fingerprint;
     this.phase = entry.phase;
@@ -324,6 +1069,19 @@ export class ReplayEntryResponseDto {
       : null;
     this.judgingSpent = entry.judgingSpent
       ? new ModelSpentResponseDto(entry.judgingSpent)
+      : null;
+    this.secondJudge = entry.secondJudge
+      ? new EntryJudgeResponseDto(entry.secondJudge)
+      : null;
+    this.rejudgingSpent = entry.rejudgingSpent
+      ? new ModelSpentResponseDto(entry.rejudgingSpent)
+      : null;
+    this.recheck = entry.recheck
+      ? new EntryChecksResponseDto(entry.recheck)
+      : null;
+    this.pair = entry.pair ? new EntryPairResponseDto(entry.pair) : null;
+    this.pairingSpent = entry.pairingSpent
+      ? new ModelSpentResponseDto(entry.pairingSpent)
       : null;
     this.result = entry.result;
     this.succeeded = entry.succeeded;
@@ -364,12 +1122,26 @@ export class ReplayTotalsResponseDto {
   @ApiProperty({
     nullable: true,
     type: Number,
-    description: 'Of the scored entries, the share that succeeded',
+    description:
+      'Per task, the share of its scored copies that succeeded, averaged over the tasks scored',
   })
   readonly successRate: number | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
   @ApiProperty({ description: 'Entries that succeeded or failed' })
   readonly scored: number;
+
+  @ApiProperty({ description: 'Original runs it replays, each once or more' })
+  readonly tasks: number;
+
+  @ApiProperty({ description: 'Original runs with at least one scored copy' })
+  readonly tasksScored: number;
 
   @ApiProperty({
     description: 'Entries done that nothing could score',
@@ -424,7 +1196,10 @@ export class ReplayTotalsResponseDto {
     this.notRun = totals.notRun;
     this.succeeded = totals.succeeded;
     this.successRate = totals.successRate;
+    this.interval = intervalResponse(totals.interval);
     this.scored = totals.scored;
+    this.tasks = totals.tasks;
+    this.tasksScored = totals.tasksScored;
     this.unscored = totals.unscored;
     this.spent = new SpendResponseDto(totals.spent);
     this.spentElsewhere = totals.spentElsewhere.map(
@@ -507,6 +1282,18 @@ export class ReplayResponseDto {
   @ApiProperty({ type: SpendResponseDto })
   readonly ceiling: SpendResponseDto;
 
+  @ApiProperty({
+    example: 1,
+    description: 'How many times it replays each run of its set',
+  })
+  readonly repeats: number;
+
+  @ApiProperty({
+    description:
+      'It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice',
+  })
+  readonly probe: boolean;
+
   @ApiProperty()
   readonly startedAt: string;
 
@@ -515,6 +1302,30 @@ export class ReplayResponseDto {
 
   @ApiProperty({ type: ReplayTotalsResponseDto })
   readonly totals: ReplayTotalsResponseDto;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none',
+  })
+  readonly againstBaseline: GainReadingResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none',
+  })
+  readonly pairedWith: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: PairTallyResponseDto,
+    description:
+      'Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is',
+  })
+  readonly pairsAgainstBaseline: PairTallyResponseDto | null;
 
   @ApiProperty({ type: ReplayEntryResponseDto, isArray: true })
   readonly entries: ReplayEntryResponseDto[];
@@ -531,9 +1342,16 @@ export class ReplayResponseDto {
     this.checks = replay.checks;
     this.state = replay.state;
     this.ceiling = new SpendResponseDto(replay.ceiling);
+    this.repeats = replay.repeats;
+    this.probe = replay.probe;
     this.startedAt = replay.startedAt;
     this.endedAt = replay.endedAt;
     this.totals = new ReplayTotalsResponseDto(replay.totals);
+    this.againstBaseline = gainResponse(replay.againstBaseline);
+    this.pairedWith = replay.pairedWith;
+    this.pairsAgainstBaseline = replay.pairsAgainstBaseline
+      ? new PairTallyResponseDto(replay.pairsAgainstBaseline)
+      : null;
     this.entries = replay.entries.map(
       (each) => new ReplayEntryResponseDto(each),
     );
@@ -555,16 +1373,40 @@ export class EntryComparisonResponseDto {
   })
   readonly title: string | null;
 
-  @ApiProperty({ type: ReplayEntryResponseDto })
-  readonly candidate: ReplayEntryResponseDto;
+  @ApiProperty({
+    type: ReplayEntryResponseDto,
+    isArray: true,
+    description: 'Each copy of the task the candidate replayed',
+  })
+  readonly candidate: ReplayEntryResponseDto[];
 
-  @ApiProperty({ nullable: true, type: ReplayEntryResponseDto })
-  readonly baseline: ReplayEntryResponseDto | null;
+  @ApiProperty({
+    type: ReplayEntryResponseDto,
+    isArray: true,
+    description:
+      'Each copy of the task the baseline replayed; none without one',
+  })
+  readonly baseline: ReplayEntryResponseDto[];
 
   @ApiProperty({
     nullable: true,
     type: Number,
-    description: 'Candidate cost less the baseline’s, once both settled',
+    description: 'The share of the candidate’s scored copies that succeeded',
+  })
+  readonly candidateSuccess: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description: 'The share of the baseline’s scored copies that succeeded',
+  })
+  readonly baselineSuccess: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description:
+      'Candidate cost less the baseline’s, each averaged over its copies, once both settled',
   })
   readonly costDelta: number | null;
 
@@ -593,24 +1435,38 @@ export class EntryComparisonResponseDto {
 
   @ApiProperty({
     description:
-      'The baseline succeeded on this task and the candidate failed, or its judge score dropped',
+      'The baseline’s share of copies that succeeded is more than half above the candidate’s (with one copy each: the baseline succeeded and the candidate failed), or its average judge score dropped',
   })
   readonly regressed: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...PAIR_OUTCOMES, null],
+    type: String,
+    description:
+      'Whether the judge, comparing the candidate’s change blind with that of the replay in pairedWith, found it better (win), worse (loss) or as good (tie), by most of its copies; null where none was compared so',
+  })
+  readonly pair: string | null;
 
   constructor(compared: EntryComparisonDto) {
     this.originalRunId = compared.originalRunId;
     this.taskId = compared.taskId;
     this.title = compared.title;
-    this.candidate = new ReplayEntryResponseDto(compared.candidate);
-    this.baseline = compared.baseline
-      ? new ReplayEntryResponseDto(compared.baseline)
-      : null;
+    this.candidate = compared.candidate.map(
+      (each) => new ReplayEntryResponseDto(each),
+    );
+    this.baseline = compared.baseline.map(
+      (each) => new ReplayEntryResponseDto(each),
+    );
+    this.candidateSuccess = compared.candidateSuccess;
+    this.baselineSuccess = compared.baselineSuccess;
     this.costDelta = compared.costDelta;
     this.msDelta = compared.msDelta;
     this.stepsDelta = compared.stepsDelta;
     this.scoreDelta = compared.scoreDelta;
     this.scoreUncompared = compared.scoreUncompared;
     this.regressed = compared.regressed;
+    this.pair = compared.pair;
   }
 }
 
@@ -637,6 +1493,14 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
 
   @ApiProperty({
     nullable: true,
+    type: String,
+    description:
+      'The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none',
+  })
+  readonly comparedWithReplayId: string | null;
+
+  @ApiProperty({
+    nullable: true,
     type: ReplaySearchResponseDto,
     description: 'The search it belongs to, when a search started it',
   })
@@ -652,6 +1516,7 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
   constructor(replay: ReplayDetailDto) {
     super(replay);
     this.baselineReplayId = replay.baselineReplayId;
+    this.comparedWithReplayId = replay.comparedWithReplayId;
     this.search = replay.search
       ? new ReplaySearchResponseDto(replay.search)
       : null;
@@ -683,6 +1548,99 @@ export class StartReplayRequestDto {
 
   @ApiProperty({ type: StartReplayCeilingRequestDto })
   readonly ceiling!: StartReplayCeilingRequestDto;
+
+  @ApiProperty({
+    required: false,
+    example: 1,
+    minimum: 1,
+    maximum: MOST_REPEATS,
+    description:
+      'How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals',
+  })
+  readonly repeats?: number;
+}
+
+export class ProbeReplaySetRequestDto {
+  @ApiProperty({ type: StartReplayCeilingRequestDto })
+  readonly ceiling!: StartReplayCeilingRequestDto;
+}
+
+export class StartSanityReplayRequestDto {
+  @ApiPropertyOptional({
+    example: 'opus',
+    description:
+      'The stronger model to replay the set under, one its harness offers; the live config’s when left out',
+  })
+  readonly model?: string;
+
+  @ApiPropertyOptional({
+    example: 'high',
+    description:
+      'The higher effort to replay the set at; the live config’s when left out. Name a model, an effort, or both',
+  })
+  readonly effort?: string;
+
+  @ApiProperty({ type: StartReplayCeilingRequestDto })
+  readonly ceiling!: StartReplayCeilingRequestDto;
+
+  @ApiPropertyOptional({
+    example: 1,
+    minimum: 1,
+    maximum: MOST_REPEATS,
+    description: 'How many times to replay each run, 1 when left out',
+  })
+  readonly repeats?: number;
+}
+
+export class SanityComparisonResponseDto {
+  @ApiProperty()
+  readonly id: string;
+
+  @ApiProperty({ type: SpendResponseDto })
+  readonly ceiling: SpendResponseDto;
+
+  constructor(comparison: { readonly id: string; readonly ceiling: SpendDto }) {
+    this.id = comparison.id;
+    this.ceiling = new SpendResponseDto(comparison.ceiling);
+  }
+}
+
+export class SanityReplayStartedResponseDto {
+  @ApiProperty()
+  readonly id: string;
+
+  @ApiProperty({
+    description: 'The stronger config it replays: the live one, but stronger',
+  })
+  readonly candidateId: string;
+
+  @ApiProperty({ type: SpendResponseDto })
+  readonly ceiling: SpendResponseDto;
+
+  @ApiProperty({
+    nullable: true,
+    type: SanityComparisonResponseDto,
+    description:
+      'A replay of the live config, run as often, started beside it to compare with when the set had none, under a ceiling of its own equal to the one asked for',
+  })
+  readonly comparison: SanityComparisonResponseDto | null;
+
+  constructor(started: {
+    readonly id: string;
+    readonly candidateId: string;
+    readonly ceiling: SpendDto;
+    readonly comparison: {
+      readonly id: string;
+      readonly ceiling: SpendDto;
+    } | null;
+  }) {
+    this.id = started.id;
+    this.candidateId = started.candidateId;
+    this.ceiling = new SpendResponseDto(started.ceiling);
+    this.comparison = started.comparison
+      ? new SanityComparisonResponseDto(started.comparison)
+      : null;
+  }
 }
 
 export class StartedBaselineResponseDto {

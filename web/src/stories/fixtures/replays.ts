@@ -4,6 +4,7 @@ import { replayableRunKeys } from '@/hooks/api/useReplayableRuns';
 import { replayCandidateKeys } from '@/hooks/api/useReplayCandidates';
 import { replayRunKeys } from '@/hooks/api/useReplayRun';
 import { replayCheckKeys } from '@/hooks/api/useReplaySetChecks';
+import { replaySetSuggestionKeys } from '@/hooks/api/useReplaySetSuggestions';
 import { replaySetKeys } from '@/hooks/api/useReplaySets';
 import { replayKeys } from '@/hooks/api/useReplays';
 import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
@@ -24,6 +25,8 @@ import type {
   ReplayRunResponseDto,
   ReplaySetResponseDto,
   ReplayTotalsResponseDto,
+  SetCompositionResponseDto,
+  SuggestedRunResponseDto,
   TeamResourceResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
@@ -149,6 +152,21 @@ const ORIGINALS = [
   },
 ] as const;
 
+const composedOf = (
+  counts: Readonly<Record<string, number>>,
+  origins: SetCompositionResponseDto['origins'],
+  ended: { oldest: string; median: string; newest: string } | null,
+): SetCompositionResponseDto => ({
+  outcomes: (
+    ['accepted', 'sent-back', 'asked', 'failed', 'other'] as const
+  ).map((outcome) => ({ outcome, count: counts[outcome] ?? 0 })),
+  origins,
+  oldest: ended?.oldest ?? null,
+  median: ended?.median ?? null,
+  newest: ended?.newest ?? null,
+  balanceWarning: null,
+});
+
 const SET: ReplaySetResponseDto = {
   id: SET_ID,
   lineId: LINE_ID,
@@ -157,6 +175,22 @@ const SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(30),
   stationGone: false,
   guardsChanges: false,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: composedOf(
+    { accepted: 1, 'sent-back': 1, failed: 1 },
+    [
+      { origin: 'person', count: 2 },
+      { origin: 'slack', count: 1 },
+    ],
+    { oldest: hoursAgo(74), median: hoursAgo(50), newest: hoursAgo(28) },
+  ),
   entries: [
     {
       ...ORIGINALS[0],
@@ -165,6 +199,8 @@ const SET: ReplaySetResponseDto = {
       addedAt: hoursAgo(29),
       refusal: null,
       reason: null,
+      outcome: 'accepted',
+      origin: 'person',
     },
     {
       ...ORIGINALS[1],
@@ -173,6 +209,8 @@ const SET: ReplaySetResponseDto = {
       addedAt: hoursAgo(29),
       refusal: null,
       reason: null,
+      outcome: 'sent-back',
+      origin: 'slack',
     },
     {
       ...ORIGINALS[2],
@@ -181,8 +219,25 @@ const SET: ReplaySetResponseDto = {
       addedAt: hoursAgo(29),
       refusal: 'task-gone',
       reason: 'the task it worked was deleted',
+      outcome: 'failed',
+      origin: 'person',
     },
   ],
+};
+
+const LOPSIDED_SET: ReplaySetResponseDto = {
+  ...SET,
+  composition: {
+    ...composedOf(
+      { accepted: 1, failed: 7 },
+      [
+        { origin: 'person', count: 5 },
+        { origin: 'github', count: 3 },
+      ],
+      { oldest: hoursAgo(400), median: hoursAgo(120), newest: hoursAgo(28) },
+    ),
+    balanceWarning: { dominant: 'failed', count: 7, entries: 8 },
+  },
 };
 
 const EMPTY_SET: ReplaySetResponseDto = {
@@ -193,6 +248,15 @@ const EMPTY_SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(3),
   stationGone: false,
   guardsChanges: false,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: composedOf({}, [], null),
   entries: [],
 };
 
@@ -209,7 +273,10 @@ const totals = (
   notRun: 0,
   succeeded: 1,
   successRate: 0.5,
+  interval: { rate: 0.5, low: 0, high: 1 },
   scored: 2,
+  tasks: 3,
+  tasksScored: 2,
   unscored: 1,
   spent: { amount: 2.41, currency: 'USD' },
   spentElsewhere: [],
@@ -229,6 +296,7 @@ const entry = (
   },
 ): ReplayEntryResponseDto => ({
   taskId: `task_${over.position}`,
+  repeat: 1,
   runId: `${over.originalRunId}_replayed`,
   fingerprint: CANDIDATE_FINGERPRINT,
   phase: 'settled',
@@ -252,9 +320,18 @@ const entry = (
     referenced: true,
     model: 'anthropic/claude-opus-5',
     unjudged: null,
+    marks: null,
+    passShare: null,
+    claims: [],
+    reasons: [],
   },
   draftingSpent: { spends: [{ amount: 0.02, currency: 'USD' }], unpriced: 0 },
   judgingSpent: { spends: [{ amount: 0.03, currency: 'USD' }], unpriced: 0 },
+  secondJudge: null,
+  rejudgingSpent: null,
+  recheck: null,
+  pair: null,
+  pairingSpent: null,
   result: 'succeeded',
   succeeded: true,
   reasons: [
@@ -284,6 +361,10 @@ const CANDIDATE_ENTRIES: ReplayEntryResponseDto[] = [
       referenced: true,
       model: 'anthropic/claude-opus-5',
       unjudged: null,
+      marks: null,
+      passShare: null,
+      claims: [],
+      reasons: [],
     },
     reasons: [
       { code: 'check-failed', detail: 'npm test', steps: [], hunks: [] },
@@ -316,6 +397,11 @@ const CANDIDATE_ENTRIES: ReplayEntryResponseDto[] = [
     judge: null,
     draftingSpent: null,
     judgingSpent: null,
+    secondJudge: null,
+    rejudgingSpent: null,
+    recheck: null,
+    pair: null,
+    pairingSpent: null,
     result: 'unscored',
     succeeded: null,
     reasons: [
@@ -351,6 +437,10 @@ const BASELINE_ENTRIES: ReplayEntryResponseDto[] = CANDIDATE_ENTRIES.map(
               referenced: true,
               model: 'anthropic/claude-opus-5',
               unjudged: null,
+              marks: null,
+              passShare: null,
+              claims: [],
+              reasons: [],
             },
             reasons: [
               {
@@ -374,9 +464,14 @@ const BASELINE: ReplayResponseDto = {
   checks: true,
   state: 'finished',
   ceiling: { amount: 5, currency: 'USD' },
+  repeats: 1,
+  probe: false,
   startedAt: hoursAgo(26),
   endedAt: hoursAgo(25),
   totals: totals({ successRate: 0.5, succeeded: 1 }),
+  againstBaseline: null,
+  pairedWith: null,
+  pairsAgainstBaseline: null,
   entries: BASELINE_ENTRIES,
 };
 
@@ -390,6 +485,8 @@ const CANDIDATE_REPLAY: ReplayResponseDto = {
   checks: true,
   state: 'running',
   ceiling: { amount: 5, currency: 'USD' },
+  repeats: 1,
+  probe: false,
   startedAt: hoursAgo(1),
   endedAt: null,
   totals: totals({
@@ -397,6 +494,16 @@ const CANDIDATE_REPLAY: ReplayResponseDto = {
     succeeded: 1,
     spent: { amount: 1.23, currency: 'USD' },
   }),
+  againstBaseline: {
+    gain: 0,
+    low: -0.5,
+    high: 0.5,
+    verdict: 'within-noise',
+    minGain: 0.05,
+    tasks: 3,
+  },
+  pairedWith: BASELINE_ID,
+  pairsAgainstBaseline: { wins: 1, losses: 1, ties: 0 },
   entries: CANDIDATE_ENTRIES,
 };
 
@@ -410,8 +517,12 @@ const compared = (
   title:
     ORIGINALS.find((each) => each.runId === candidate.originalRunId)?.title ??
     null,
-  candidate,
-  baseline,
+  candidate: [candidate],
+  baseline: [baseline],
+  candidateSuccess:
+    candidate.succeeded === null ? null : Number(candidate.succeeded),
+  baselineSuccess:
+    baseline.succeeded === null ? null : Number(baseline.succeeded),
   costDelta:
     candidate.cost && baseline.cost
       ? candidate.cost.amount - baseline.cost.amount
@@ -424,12 +535,14 @@ const compared = (
   scoreDelta: null,
   scoreUncompared: null,
   regressed: false,
+  pair: null,
   ...over,
 });
 
 const DETAIL: ReplayDetailResponseDto = {
   ...CANDIDATE_REPLAY,
   baselineReplayId: BASELINE_ID,
+  comparedWithReplayId: BASELINE_ID,
   search: null,
   comparison: [
     compared(
@@ -445,6 +558,7 @@ const DETAIL: ReplayDetailResponseDto = {
       {
         scoreDelta: -2,
         regressed: true,
+        pair: null,
       },
     ),
     compared(
@@ -460,20 +574,24 @@ const DETAIL: ReplayDetailResponseDto = {
 const BASELINE_DETAIL: ReplayDetailResponseDto = {
   ...BASELINE,
   baselineReplayId: BASELINE_ID,
+  comparedWithReplayId: null,
   search: null,
   comparison: BASELINE_ENTRIES.map((each) => ({
     originalRunId: each.originalRunId,
     taskId: each.taskId,
     title:
       ORIGINALS.find((one) => one.runId === each.originalRunId)?.title ?? null,
-    candidate: each,
-    baseline: null,
+    candidate: [each],
+    baseline: [],
+    candidateSuccess: each.succeeded === null ? null : Number(each.succeeded),
+    baselineSuccess: null,
     costDelta: null,
     msDelta: null,
     stepsDelta: null,
     scoreDelta: null,
     scoreUncompared: null,
     regressed: false,
+    pair: null,
   })),
 };
 
@@ -502,6 +620,29 @@ const REPLAYABLE: ReplayableRunResponseDto[] = [
     endedAt: hoursAgo(900),
     refusal: 'archive-gone',
     reason: 'the workspace archive it started from is no longer kept',
+  },
+];
+
+const SUGGESTED: SuggestedRunResponseDto[] = [
+  {
+    runId: 'run_cache_1',
+    taskId: 'task_cache',
+    title: 'Warm the pricing cache on deploy',
+    state: 'completed',
+    endedAt: hoursAgo(12),
+    refusal: null,
+    reason: null,
+    outcome: 'accepted',
+  },
+  {
+    runId: 'run_refunds_2',
+    taskId: 'task_refunds',
+    title: 'Retry refunds on timeout',
+    state: 'completed',
+    endedAt: hoursAgo(20),
+    refusal: null,
+    reason: null,
+    outcome: 'sent-back',
   },
 ];
 
@@ -543,6 +684,8 @@ const seedSetAround = (client: QueryClient) => {
   client.setQueryData(teamResourceKeys.detail(TEAM_ID), TEAM);
   client.setQueryData(replayCandidateKeys.forStation(ADDRESS), CANDIDATES);
   client.setQueryData(replayableRunKeys.forStation(STATION_ID), REPLAYABLE);
+  client.setQueryData(replaySetSuggestionKeys.forSet(SET_ID), SUGGESTED);
+  client.setQueryData(replaySetSuggestionKeys.forSet(EMPTY_SET_ID), []);
 };
 
 export const seedReplaySetAwaiting = seedSetAround;
@@ -602,7 +745,12 @@ const withThreshold = (client: QueryClient) => {
       line.id === LINE_ID
         ? {
             ...line,
-            replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+            replayCheck: {
+              mostRegressions: 0,
+              ceiling: 10,
+              currency: 'USD',
+              minGain: 0.05,
+            },
           }
         : line,
     ),
@@ -623,6 +771,149 @@ export const seedReplaySet = (client: QueryClient) => {
   seedSetWithReplays(client);
   client.setQueryData(replayCheckKeys.forSet(SET_ID), checksPage(CHECKS));
 };
+
+const NOISE: ReplaySetResponseDto['health']['noise'] = {
+  replayId: BASELINE_ID,
+  fingerprint: LIVE_FINGERPRINT,
+  repeats: 3,
+  perRepeat: [0.5, 0.67, 0.83],
+  spread: 0.33,
+  flippedTasks: [ORIGINALS[1].taskId],
+  measuredAt: hoursAgo(25),
+};
+
+const UNHEALTHY: ReplaySetResponseDto['health'] = {
+  noise: NOISE,
+  saturation: {
+    replayId: BASELINE_ID,
+    rate: 0.97,
+    interval: { rate: 0.97, low: 0.9, high: 1 },
+    saturated: true,
+    measuredAt: hoursAgo(25),
+  },
+  judge: {
+    replayId: BASELINE_ID,
+    compared: 9,
+    agreed: 6,
+    pending: 0,
+    agreement: 0.67,
+    unstable: true,
+  },
+  checks: {
+    replayId: BASELINE_ID,
+    rechecked: 9,
+    pending: 0,
+    flaky: [
+      {
+        taskId: ORIGINALS[0].taskId,
+        originalRunId: ORIGINALS[0].runId,
+        runId: REPLAY_RUN_ID,
+        first: 'passed',
+        recheck: 'failed',
+      },
+    ],
+  },
+  sanity: {
+    replayId: REPLAY_ID,
+    candidateId: PROPOSED.id,
+    model: 'opus',
+    effort: 'max',
+    repeats: 1,
+    state: 'finished',
+    againstReplayId: BASELINE_ID,
+    againstState: 'finished',
+    gain: {
+      gain: -0.03,
+      low: -0.33,
+      high: 0.33,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 3,
+    },
+    rewardsStrongerModel: false,
+    worse: [
+      {
+        taskId: ORIGINALS[1].taskId,
+        originalRunId: ORIGINALS[1].runId,
+        live: 1,
+        stronger: 0.33,
+      },
+    ],
+  },
+};
+
+export const seedReplaySetWithNoise = (client: QueryClient) => {
+  seedReplaySet(client);
+  client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+    {
+      ...SET,
+      guardsChanges: true,
+      health: { ...SET.health, noise: NOISE },
+    },
+    EMPTY_SET,
+  ]);
+};
+
+export const seedUnhealthyReplaySet = (client: QueryClient) => {
+  seedReplaySet(client);
+  client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+    { ...SET, guardsChanges: true, health: UNHEALTHY },
+    EMPTY_SET,
+  ]);
+};
+
+export const seedLopsidedReplaySet = (client: QueryClient) => {
+  seedReplaySet(client);
+  client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+    { ...LOPSIDED_SET, guardsChanges: true },
+    EMPTY_SET,
+  ]);
+};
+
+const seedHealth =
+  (health: ReplaySetResponseDto['health']) => (client: QueryClient) => {
+    seedReplaySet(client);
+    client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+      { ...SET, health },
+      EMPTY_SET,
+    ]);
+  };
+
+const UNHEALTHY_SANITY = UNHEALTHY.sanity as NonNullable<
+  ReplaySetResponseDto['health']['sanity']
+>;
+
+export const seedReplaySetHealthPending = seedHealth({
+  ...UNHEALTHY,
+  judge: {
+    replayId: BASELINE_ID,
+    compared: 0,
+    agreed: 0,
+    pending: 9,
+    agreement: null,
+    unstable: false,
+  },
+  checks: { replayId: BASELINE_ID, rechecked: 0, pending: 9, flaky: [] },
+  sanity: {
+    ...UNHEALTHY_SANITY,
+    state: 'running',
+    againstState: 'running',
+    gain: null,
+    rewardsStrongerModel: null,
+    worse: [],
+  },
+});
+
+export const seedReplaySetSanityUncompared = seedHealth({
+  ...UNHEALTHY,
+  sanity: {
+    ...UNHEALTHY_SANITY,
+    againstState: 'stopped',
+    gain: null,
+    rewardsStrongerModel: null,
+    worse: [],
+  },
+});
 
 export const seedReplaySetChecksAwaiting = seedSetWithReplays;
 
@@ -677,6 +968,166 @@ export const seedReplay = (client: QueryClient) => {
   client.setQueryData(changeStackKeys.forRun('run_baseline_drain'), {
     stacks: [],
   });
+};
+
+const copiesOf = (
+  first: ReplayEntryResponseDto,
+  results: readonly ReplayEntryResponseDto['result'][],
+): ReplayEntryResponseDto[] =>
+  results.map((result, place) => ({
+    ...first,
+    repeat: place + 1,
+    runId: first.runId ? `${first.runId}_${place + 1}` : null,
+    result,
+    succeeded:
+      result === 'succeeded' ? true : result === 'failed' ? false : null,
+  }));
+
+const REPEATED_COMPARISON: EntryComparisonResponseDto[] = DETAIL.comparison.map(
+  (row, place) => {
+    const [candidate] = row.candidate;
+    const [baseline] = row.baseline;
+
+    if (!candidate || !baseline || candidate.result === 'unscored') {
+      return row;
+    }
+
+    const candidateResults: ReplayEntryResponseDto['result'][] =
+      place === 1
+        ? ['failed', 'failed', 'succeeded']
+        : ['succeeded', 'failed', 'succeeded'];
+    const baselineResults: ReplayEntryResponseDto['result'][] =
+      place === 1
+        ? ['succeeded', 'succeeded', 'succeeded']
+        : ['failed', 'failed', 'succeeded'];
+
+    return {
+      ...row,
+      candidate: copiesOf(candidate, candidateResults),
+      baseline: copiesOf(baseline, baselineResults),
+      candidateSuccess: place === 1 ? 1 / 3 : 2 / 3,
+      baselineSuccess: place === 1 ? 1 : 1 / 3,
+    };
+  },
+);
+
+export const seedRepeatedReplay = (client: QueryClient) => {
+  seedReplayAround(client);
+  client.setQueryData(replayKeys.detail(REPLAY_ID), {
+    ...DETAIL,
+    repeats: 3,
+    totals: totals({
+      entries: 9,
+      settled: 9,
+      completed: 6,
+      succeeded: 3,
+      successRate: 0.5,
+      interval: { rate: 0.5, low: 0.33, high: 0.67 },
+      scored: 6,
+      tasks: 3,
+      tasksScored: 2,
+      unscored: 3,
+    }),
+    againstBaseline: {
+      gain: -0.17,
+      low: -0.67,
+      high: 0.33,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 2,
+    },
+    pairsAgainstBaseline: null,
+    comparison: REPEATED_COMPARISON,
+  } satisfies ReplayDetailResponseDto);
+};
+
+const ENTRY_CLAIMS = [
+  'Retries stop on a 410 Gone',
+  'Every other failure is retried later',
+  'The queue is drained',
+];
+
+const CLAIMS_JUDGE = (marks: boolean[]): ReplayEntryResponseDto['judge'] => ({
+  state: 'judged',
+  scale: 'claims',
+  score: marks.filter(Boolean).length / marks.length,
+  passed: marks.every(Boolean),
+  marks,
+  passShare: 1,
+  referenced: true,
+  model: 'anthropic/claude-opus-5',
+  unjudged: null,
+  claims: ENTRY_CLAIMS,
+  reasons: [
+    {
+      text: 'The change returns early on a 410, so those jobs are not retried.',
+      claim: 0,
+      citations: [
+        {
+          kind: 'hunk',
+          step: null,
+          hunk: {
+            id: 'worker/services/retry.ts#1',
+            path: null,
+            header: null,
+            lines: [],
+          },
+        },
+      ],
+    },
+    {
+      text: 'Other failures are dropped instead of being queued for later.',
+      claim: 1,
+      citations: [
+        {
+          kind: 'step',
+          step: { index: 2, kind: null, tool: null, text: null },
+          hunk: null,
+        },
+      ],
+    },
+  ],
+});
+
+const judgedByClaims = (
+  entry: ReplayEntryResponseDto,
+  marks: boolean[],
+): ReplayEntryResponseDto =>
+  entry.judge?.state === 'judged'
+    ? { ...entry, judge: CLAIMS_JUDGE(marks) }
+    : entry;
+
+const PAIRS: EntryComparisonResponseDto['pair'][] = ['win', 'loss', null];
+
+const PAIRED_ENTRY_CLAIMS = [true, false, true];
+
+const PAIRED_COMPARISON: EntryComparisonResponseDto[] = DETAIL.comparison.map(
+  (row, place) => ({
+    ...row,
+    candidate: row.candidate.map((each) =>
+      judgedByClaims(each, PAIRED_ENTRY_CLAIMS),
+    ),
+    baseline: row.baseline.map((each) =>
+      judgedByClaims(each, [true, false, false]),
+    ),
+    pair: PAIRS[place] ?? null,
+  }),
+);
+
+export const seedPairedReplay = (client: QueryClient) => {
+  seedReplayAround(client);
+  client.setQueryData(replayKeys.detail(REPLAY_ID), {
+    ...DETAIL,
+    pairsAgainstBaseline: { wins: 1, losses: 1, ties: 0 },
+    entries: DETAIL.entries.map((each) => ({
+      ...each,
+      pairingSpent: {
+        spends: [{ amount: 0.04, currency: 'USD' }],
+        unpriced: 0,
+      },
+    })),
+    comparison: PAIRED_COMPARISON,
+  } satisfies ReplayDetailResponseDto);
 };
 
 export const seedBaselineReplay = (client: QueryClient) => {

@@ -1,22 +1,31 @@
+import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
+import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenTasksBadge';
 import type { SearchBestResponseDto } from '@/lib/api';
-import { scoreShown } from '@/lib/search';
+import {
+  bestLabelShown,
+  bestOnShown,
+  noBestShown,
+  type SearchObjective,
+} from '@/lib/search-words';
 import { cn } from '@/lib/utils';
 
 type BestCandidateProps = {
   best: SearchBestResponseDto | null;
+  objective: SearchObjective;
   labelled?: boolean;
   className?: string;
 };
 
 export function BestCandidate({
   best,
+  objective,
   labelled = true,
   className,
 }: BestCandidateProps) {
   if (!best) {
     return (
       <span className={cn('text-muted-foreground text-xs', className)}>
-        No best candidate yet
+        {noBestShown(objective)}
       </span>
     );
   }
@@ -28,14 +37,26 @@ export function BestCandidate({
       data-slot="best-candidate"
       className={cn('flex min-w-0 items-center gap-1.5 text-xs', className)}
     >
-      {labelled && <span className="text-muted-foreground">Best:</span>}
+      {labelled && (
+        <span className="text-muted-foreground">
+          {bestLabelShown(objective)}
+        </span>
+      )}
       <span className="truncate text-foreground">
         {best.seed ? 'Live config' : best.name}
       </span>
       <span className="text-muted-foreground tabular-nums">
-        · {scoreShown(heldOut ? best.heldOutScore : best.searchScore)}{' '}
-        {heldOut ? 'held out' : 'searched'}
+        ·{' '}
+        <RateWithInterval
+          rate={heldOut ? best.heldOutScore : best.searchScore}
+          interval={heldOut ? best.heldOutInterval : best.searchInterval}
+          className="text-muted-foreground"
+        />{' '}
+        {bestOnShown(heldOut)}
       </span>
+      {best.onlyOnSeenTasks && (
+        <OnlyOnSeenTasksBadge mark={best.onlyOnSeenTasks} />
+      )}
     </span>
   );
 }

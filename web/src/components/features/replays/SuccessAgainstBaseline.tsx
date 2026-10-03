@@ -1,18 +1,57 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
-import type { SuccessComparison } from '@/lib/replay';
+import { GainVerdict } from '@/components/features/replays/GainVerdict';
+import { PairTally } from '@/components/features/replays/PairTally';
+import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
+import {
+  baselineTotalsFor,
+  counterpartShown,
+  type Replay,
+  type ReplayedStation,
+  replayPath,
+} from '@/lib/replay';
+import {
+  BASELINE,
+  NO_SCORE_YET,
+  pairsJudged,
+  SUCCEEDED,
+  THE_BASELINE,
+} from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 type SuccessAgainstBaselineProps = {
-  success: SuccessComparison;
-  isBaseline: boolean;
+  replay: Pick<
+    Replay,
+    | 'id'
+    | 'isBaseline'
+    | 'totals'
+    | 'againstBaseline'
+    | 'pairsAgainstBaseline'
+    | 'pairedWith'
+    | 'candidate'
+  >;
+  baseline: Pick<Replay, 'id' | 'totals'> | null;
+  at?: ReplayedStation;
   className?: string;
 };
 
 export function SuccessAgainstBaseline({
-  success,
-  isBaseline,
+  replay,
+  baseline,
+  at,
   className,
 }: SuccessAgainstBaselineProps) {
+  const { successRate, interval } = replay.totals;
+  const against = baselineTotalsFor(replay, baseline);
+  const baselineShown = against && against.successRate !== null && (
+    <>
+      {BASELINE}{' '}
+      <RateWithInterval
+        rate={against.successRate}
+        interval={against.interval}
+        className="text-muted-foreground"
+      />
+    </>
+  );
+
   return (
     <span
       data-slot="success-against-baseline"
@@ -21,20 +60,43 @@ export function SuccessAgainstBaseline({
         className,
       )}
     >
-      <span className="text-foreground tabular-nums">{success.now}</span>
-      {isBaseline ? (
-        <span className="text-muted-foreground">· the baseline</span>
-      ) : success.delta ? (
-        <DeltaShown
-          delta={success.delta}
-          against={`baseline ${success.baseline}`}
+      {successRate === null ? (
+        <span className="text-foreground">{NO_SCORE_YET}</span>
+      ) : (
+        <span className="text-foreground">
+          <RateWithInterval rate={successRate} interval={interval} />{' '}
+          {SUCCEEDED}
+        </span>
+      )}
+      {replay.isBaseline ? (
+        <span className="text-muted-foreground">· {THE_BASELINE}</span>
+      ) : replay.againstBaseline ? (
+        <GainVerdict
+          gain={replay.againstBaseline}
+          against={baselineShown || BASELINE}
         />
       ) : (
-        success.baseline !== null && (
+        baselineShown && (
           <span className="text-muted-foreground tabular-nums">
-            · baseline {success.baseline}
+            · {baselineShown}
           </span>
         )
+      )}
+      {replay.pairedWith && pairsJudged(replay.pairsAgainstBaseline) && (
+        <>
+          <span aria-hidden className="text-muted-foreground">
+            ·
+          </span>
+          <PairTally
+            tally={replay.pairsAgainstBaseline}
+            against={counterpartShown(
+              replay.pairedWith,
+              replay.candidate,
+              baseline?.id ?? null,
+            )}
+            to={at ? replayPath(at, replay.pairedWith) : null}
+          />
+        </>
       )}
     </span>
   );

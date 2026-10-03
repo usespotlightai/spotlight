@@ -147,6 +147,7 @@ beforeAll(async () => {
     outcome: 'completed',
     failure: null,
     stopped: false,
+    asked: false,
   };
 
   const record = () => app.get(DrizzleRunRecordRepository).of(RUN);
@@ -590,7 +591,6 @@ describe('the team’s insights (e2e)', () => {
     expect(await total('delivery=merged')).toBe(1);
     expect(await total('delivery=open')).toBe(0);
     expect(await total('next=answered')).toBe(1);
-    expect(await total('next=refused')).toBe(0);
     expect(await total('asked=true')).toBe(1);
     expect(await total(`taskIds=${randomUUID()},${TASK.value}`)).toBe(1);
     expect(await total(`taskIds=${randomUUID()}`)).toBe(0);
@@ -609,6 +609,7 @@ describe('the team’s insights (e2e)', () => {
     expect(await status('outcome=exploded')).toBe(422);
     expect(await status('delivery=shipped')).toBe(422);
     expect(await status('next=shrugged')).toBe(422);
+    expect(await status('next=refused')).toBe(422);
     expect(await status('asked=yes')).toBe(422);
     expect(await status('stationId=a&stationId=b')).toBe(422);
     expect(await status('day=2026-02-30')).toBe(422);
@@ -731,7 +732,14 @@ describe('the team’s insights (e2e)', () => {
     expect(answer.status).toBe(200);
     expect(answer.body.stations[0]).toMatchObject({
       stationId: team.stationId.value,
-      tally: { runs: 1, handedOn: 1, merged: 1, medianMs: 58 * MINUTE },
+      tally: {
+        runs: 1,
+        accepted: 0,
+        sentBack: 0,
+        handedOn: 1,
+        merged: 1,
+        medianMs: 58 * MINUTE,
+      },
       taskFailures: [
         {
           source: 'hook:notify',
@@ -876,6 +884,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       outcome: 'withdrawn',
       failure: null,
       stopped: false,
+      asked: false,
     };
 
     await app.get(EventOutbox).record([ended]);
@@ -944,6 +953,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       outcome: seed.outcome,
       failure: seed.outcome === 'failed' ? 'exited' : null,
       stopped: false,
+      asked: false,
     };
     const superseded: RunSupersededIntegrationEvent = {
       kind: RUN_SUPERSEDED,

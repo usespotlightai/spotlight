@@ -13,6 +13,7 @@ import {
   SLUG,
   seedGradedRun,
   seedGradeRun,
+  seedGradeRunOnClaims,
   seedGradeRunOnFive,
   seedGradeRunWithoutChanges,
   TASK_ID,
@@ -83,6 +84,11 @@ export const Graded: Story = {
 export const OnFive: Story = {
   name: 'From 1 to 5',
   render: () => <Showing seed={seedGradeRunOnFive} />,
+};
+
+export const OnClaims: Story = {
+  name: 'Claim by claim',
+  render: () => <Showing seed={seedGradeRunOnClaims} />,
 };
 
 export const GradeFailed: Story = {

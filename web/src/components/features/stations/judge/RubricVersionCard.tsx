@@ -1,24 +1,34 @@
+import { ClaimAgreements } from '@/components/features/stations/judge/ClaimAgreements';
 import { ConfusionMatrix } from '@/components/features/stations/judge/ConfusionMatrix';
 import { JudgeTrend } from '@/components/features/stations/judge/JudgeTrend';
 import { Pill } from '@/components/shared/Pill';
 import {
+  POOLED_KAPPA,
   percentShown,
   type RubricVersion,
   statShown,
   versionShown,
 } from '@/lib/judge';
 
-export function RubricVersionCard({ version }: { version: RubricVersion }) {
+type RubricVersionCardProps = {
+  version: RubricVersion;
+  claims: readonly string[];
+};
+
+export function RubricVersionCard({ version, claims }: RubricVersionCardProps) {
   const { agreement } = version;
   const figures =
-    version.kind === 'yes-no'
+    version.kind === 'number'
       ? [
-          { label: 'Cohen’s kappa', value: statShown(agreement.kappa) },
-          { label: 'Agreed', value: percentShown(agreement.observed) },
-        ]
-      : [
           { label: 'Spearman’s ρ', value: statShown(agreement.spearman) },
           { label: 'Mean error', value: statShown(agreement.mae) },
+        ]
+      : [
+          {
+            label: version.kind === 'claims' ? POOLED_KAPPA : 'Cohen’s kappa',
+            value: statShown(agreement.kappa),
+          },
+          { label: 'Agreed', value: percentShown(agreement.observed) },
         ];
 
   return (
@@ -47,6 +57,10 @@ export function RubricVersionCard({ version }: { version: RubricVersion }) {
           </div>
         ))}
       </dl>
+
+      {agreement.claims.length > 0 && (
+        <ClaimAgreements agreements={agreement.claims} claims={claims} />
+      )}
 
       {agreement.pairs > 0 && <ConfusionMatrix confusion={version.confusion} />}
 

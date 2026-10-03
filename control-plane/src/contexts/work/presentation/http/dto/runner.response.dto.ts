@@ -63,6 +63,12 @@ export class ClaimedCheckResponseDto {
   @ApiProperty({ example: 'stack_1' })
   readonly stackId: string;
 
+  @ApiProperty({
+    description:
+      'It checks a replay’s change a second time; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found',
+  })
+  readonly recheck: boolean;
+
   @ApiProperty({ example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
   readonly runId: string;
 
@@ -86,6 +92,7 @@ export class ClaimedCheckResponseDto {
 
   constructor(
     stackId: string,
+    recheck: boolean,
     runId: string,
     repository: string | null,
     base: string | null,
@@ -94,6 +101,7 @@ export class ClaimedCheckResponseDto {
     steps: readonly ClaimedCheckStepResponseDto[],
   ) {
     this.stackId = stackId;
+    this.recheck = recheck;
     this.runId = runId;
     this.repository = repository;
     this.base = base;

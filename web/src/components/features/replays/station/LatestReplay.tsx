@@ -3,12 +3,7 @@ import { SuccessAgainstBaseline } from '@/components/features/replays/SuccessAga
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useReplays } from '@/hooks/api/useReplays';
 import { loading } from '@/lib/query';
-import {
-  baselineIn,
-  candidateShown,
-  latestOf,
-  successAgainst,
-} from '@/lib/replay';
+import { baselineIn, candidateShown, latestOf } from '@/lib/replay';
 import { cn } from '@/lib/utils';
 
 type LatestReplayProps = {
@@ -46,10 +41,7 @@ export function LatestReplay({ teamId, setId, className }: LatestReplayProps) {
         Latest: {candidateShown(latest.candidate)}
       </span>
       <ReplayStatePill state={latest.state} />
-      <SuccessAgainstBaseline
-        success={successAgainst(latest, baselineIn(all))}
-        isBaseline={latest.isBaseline}
-      />
+      <SuccessAgainstBaseline replay={latest} baseline={baselineIn(all)} />
     </span>
   );
 }

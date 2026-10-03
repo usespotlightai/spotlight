@@ -89,7 +89,12 @@ describe('renderLineRows', () => {
       ...ROWS,
       line: {
         ...ROWS.line,
-        replayCheck: { mostRegressions: 1, ceiling: 12.5, currency: 'USD' },
+        replayCheck: {
+          mostRegressions: 1,
+          ceiling: 12.5,
+          currency: 'USD',
+          minGain: 0.05,
+        },
       },
     });
 
@@ -97,6 +102,7 @@ describe('renderLineRows', () => {
       mostRegressions: 1,
       ceiling: 12.5,
       currency: 'USD',
+      minGain: 0.05,
     });
     expect(Object.keys(renderLineRows(ROWS))).not.toContain('replayCheck');
     expect(compileLine(rendered).ok).toBe(true);
@@ -150,7 +156,13 @@ describe('renderLineRows', () => {
         ...ROWS.stations.slice(0, 1),
         station('build', {
           finishes: true,
-          judge: { rubric: 'A good run is small.\n', sample: 0.2, trust: 0.6 },
+          judge: {
+            rubric: 'A good run is small.\n',
+            claims: [],
+            passShare: 1,
+            sample: 0.2,
+            trust: 0.6,
+          },
           alerts: [
             {
               measure: 'sent_back_rate',
@@ -203,6 +215,34 @@ describe('renderLineRows', () => {
     ]);
     expect(Object.keys(rendered.stations[0] ?? {})).not.toContain('judge');
     expect(rendered.stations[0]?.alerts).toEqual([]);
+    expect(compileLine(rendered).ok).toBe(true);
+  });
+
+  it('renders a judge’s claims and pass share only where it lists claims, and no rubric where it has none', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      stations: [
+        ...ROWS.stations.slice(0, 1),
+        station('build', {
+          finishes: true,
+          judge: {
+            rubric: null,
+            claims: ['It adds a test.'],
+            passShare: 0.5,
+            sample: 0.2,
+            trust: 0.6,
+          },
+        }),
+        ...ROWS.stations.slice(2),
+      ],
+    });
+
+    expect(rendered.stations[1]?.judge).toEqual({
+      claims: ['It adds a test.'],
+      passShare: 0.5,
+      sample: 0.2,
+      trust: 0.6,
+    });
     expect(compileLine(rendered).ok).toBe(true);
   });
 

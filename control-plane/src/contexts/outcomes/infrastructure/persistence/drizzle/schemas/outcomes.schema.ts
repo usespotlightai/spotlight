@@ -6,9 +6,10 @@ import { CHECK_VERDICTS } from '@outcomes/domain/value-objects/check-verdict';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { JUDGING_FAILURES } from '@outcomes/domain/value-objects/judging-failure.vo';
 import {
-  PERSON_ACTS,
+  NEXT_ACTS,
   type PersonAct,
 } from '@outcomes/domain/value-objects/next-act.vo';
+import { PAIR_ORDERS } from '@outcomes/domain/value-objects/pair-order';
 import { RUN_ENDINGS } from '@outcomes/domain/value-objects/run-ending';
 import { SCORE_KINDS } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SCORE_SOURCES } from '@outcomes/domain/value-objects/score-source';
@@ -90,11 +91,12 @@ export interface StoredOccurrence {
 export interface StoredReason {
   readonly text: string;
   readonly citations: readonly StoredCitation[];
+  readonly claim: number | null;
 }
 
 export const runRecordEnding = pgEnum('run_record_ending', RUN_ENDINGS);
 export const runRecordChecks = pgEnum('run_record_checks', CHECK_VERDICTS);
-export const runRecordAct = pgEnum('run_record_act', PERSON_ACTS);
+export const runRecordAct = pgEnum('run_record_act', NEXT_ACTS);
 export const taskDeliveryState = pgEnum('task_delivery_state', DELIVERY_STATES);
 export const pullRequestRecordState = pgEnum(
   'pull_request_record_state',
@@ -105,6 +107,7 @@ export const alertMeasure = pgEnum('alert_measure', ALERT_MEASURES);
 export const alertThreshold = pgEnum('alert_threshold', ALERT_THRESHOLDS);
 export const scoreKind = pgEnum('score_kind', SCORE_KINDS);
 export const judgingFailure = pgEnum('judging_failure', JUDGING_FAILURE_CODES);
+export const pairOrder = pgEnum('pair_order', PAIR_ORDERS);
 
 export const runRecord = pgTable(
   'run_record',
@@ -128,11 +131,13 @@ export const runRecord = pgTable(
     ending: runRecordEnding('ending'),
     failure: text('failure'),
     round: integer('round'),
+    asked: boolean('asked').notNull().default(false),
     supersededAt: timestamp('superseded_at'),
     checks: runRecordChecks('checks'),
     checkedAt: timestamp('checked_at'),
     nextAct: runRecordAct('next_act'),
     nextAt: timestamp('next_at'),
+    approvalAnsweredAt: timestamp('approval_answered_at'),
     handedOnTo: text('handed_on_to'),
     handedOnAt: timestamp('handed_on_at'),
     digested: boolean('digested').notNull().default(false),
@@ -363,7 +368,9 @@ export const judging = pgTable(
     stationId: text('station_id').notNull(),
     taskId: text('task_id').notNull(),
     fingerprint: text('fingerprint'),
-    rubric: text('rubric').notNull(),
+    rubric: text('rubric'),
+    claims: jsonb('claims').$type<string[]>().notNull(),
+    passShare: doublePrecision('pass_share').notNull(),
     rubricVersion: text('rubric_version').notNull(),
     askedAt: timestamp('asked_at').notNull(),
     owed: boolean('owed').notNull(),
@@ -395,10 +402,13 @@ export interface StoredModelSpend {
 export const changeJudging = pgTable(
   'change_judging',
   {
-    runId: text('run_id').primaryKey(),
+    runId: text('run_id').notNull(),
+    round: integer('round').notNull(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
-    rubric: text('rubric').notNull(),
+    rubric: text('rubric'),
+    claims: jsonb('claims').$type<string[]>().notNull(),
+    passShare: doublePrecision('pass_share').notNull(),
     referenceRunId: text('reference_run_id'),
     spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
     askedAt: timestamp('asked_at').notNull(),
@@ -411,10 +421,41 @@ export const changeJudging = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    primaryKey({ columns: [table.runId, table.round] }),
     index('change_judging_owed_idx')
       .on(table.askedAt)
       .where(sql`${table.owed}`),
     index('change_judging_workspace_idx').on(table.workspaceId, table.teamId),
+  ],
+);
+
+export const pairJudging = pgTable(
+  'pair_judging',
+  {
+    runId: text('run_id').notNull(),
+    againstRunId: text('against_run_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    rubric: text('rubric'),
+    claims: jsonb('claims').$type<string[]>().notNull(),
+    passShare: doublePrecision('pass_share').notNull(),
+    referenceRunId: text('reference_run_id').notNull(),
+    mostAttempts: integer('most_attempts').notNull(),
+    shownOrder: pairOrder('shown_order').notNull(),
+    spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
+    askedAt: timestamp('asked_at').notNull(),
+    owed: boolean('owed').notNull(),
+    workAttempts: integer('work_attempts').notNull().default(0),
+    workDueAt: timestamp('work_due_at'),
+    judgedAt: timestamp('judged_at'),
+    failure: judgingFailure('failure'),
+    failedAt: timestamp('failed_at'),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.runId, table.againstRunId] }),
+    index('pair_judging_owed_idx').on(table.askedAt).where(sql`${table.owed}`),
+    index('pair_judging_workspace_idx').on(table.workspaceId, table.teamId),
   ],
 );
 
@@ -431,7 +472,8 @@ export const score = pgTable(
     fingerprint: text('fingerprint'),
     source: scoreSource('source').notNull(),
     kind: scoreKind('kind').notNull(),
-    value: integer('value').notNull(),
+    value: doublePrecision('value').notNull(),
+    marks: jsonb('marks').$type<boolean[]>(),
     rubricVersion: text('rubric_version'),
     model: text('model'),
     reasons: jsonb('reasons').$type<StoredReason[]>().notNull().default([]),

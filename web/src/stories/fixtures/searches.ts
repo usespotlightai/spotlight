@@ -52,6 +52,28 @@ const SET: ReplaySetResponseDto = {
   createdAt: hoursAgo(80),
   stationGone: false,
   guardsChanges: true,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: TASKS.map((title, place) => ({
     runId: `run_task_${place}`,
     taskId: `task_${place}`,
@@ -61,6 +83,8 @@ const SET: ReplaySetResponseDto = {
     addedAt: hoursAgo(80),
     refusal: null,
     reason: null,
+    outcome: 'other',
+    origin: 'person',
   })),
 };
 
@@ -69,6 +93,28 @@ const SMALL_SET: ReplaySetResponseDto = {
   id: 'set_two_tasks',
   name: 'Two docs tasks',
   guardsChanges: false,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: SET.entries.slice(0, 2),
 };
 
@@ -77,6 +123,7 @@ const BUDGET = {
   perIteration: 2,
   ceiling: { amount: 25, currency: 'USD' },
   concurrency: 4,
+  repeats: 1,
 };
 
 const AGENT = { harness: 'claude-code', model: 'opus', effort: 'high' };
@@ -96,12 +143,19 @@ const candidate = (
   replayState: 'finished',
   heldOutReplayId: null,
   heldOutReplayState: null,
+  searchInterval: null,
+  heldOutInterval: null,
+  searchedGain: null,
+  heldOutGain: null,
+  searchedPairs: null,
+  heldOutPairs: null,
   searchScore: null,
   searchScored: 5,
   heldOutScore: null,
   costPerRun: null,
   spent: { amount: 0, currency: 'USD' },
   onFrontier: false,
+  onlyOnSeenTasks: null,
   pullRequest: null,
   ...over,
 });
@@ -113,7 +167,9 @@ const SEED = candidate({
   iteration: null,
   replayId: 'replay_seed',
   searchScore: 0.4,
+  searchInterval: { rate: 0.4, low: 0, high: 0.8 },
   heldOutScore: 0.5,
+  heldOutInterval: { rate: 0.5, low: 0, high: 1 },
   costPerRun: 0.38,
   spent: { amount: 2.66, currency: 'USD' },
   onFrontier: true,
@@ -132,9 +188,30 @@ const CANDIDATES: SearchCandidateResponseDto[] = [
     heldOutScore: 1,
     heldOutReplayId: 'replay_tests_first_held_out',
     heldOutReplayState: 'finished',
+    searchInterval: { rate: 0.8, low: 0.4, high: 1 },
+    heldOutInterval: { rate: 1, low: 1, high: 1 },
+    searchedGain: {
+      gain: 0.4,
+      low: 0.2,
+      high: 0.6,
+      verdict: 'better',
+      minGain: 0.05,
+      tasks: 5,
+    },
+    heldOutGain: {
+      gain: 0.5,
+      low: 0,
+      high: 1,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 6,
+    },
+    searchedPairs: { wins: 3, losses: 0, ties: 2 },
+    heldOutPairs: { wins: 2, losses: 1, ties: 3 },
     costPerRun: 0.95,
     spent: { amount: 4.75, currency: 'USD' },
     onFrontier: true,
+    onlyOnSeenTasks: 'marked',
     pullRequest: {
       id: 'pr_1',
       state: 'opened',
@@ -160,6 +237,25 @@ const CANDIDATES: SearchCandidateResponseDto[] = [
     heldOutScore: 0.5,
     heldOutReplayId: 'replay_medium_effort_held_out',
     heldOutReplayState: 'finished',
+    searchInterval: { rate: 0.6, low: 0.2, high: 1 },
+    heldOutInterval: { rate: 0.5, low: 0, high: 1 },
+    searchedGain: {
+      gain: 0.2,
+      low: -0.2,
+      high: 0.6,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 5,
+    },
+    heldOutGain: {
+      gain: 0,
+      low: -0.5,
+      high: 0.5,
+      verdict: 'within-noise',
+      minGain: 0.05,
+      tasks: 2,
+    },
+    searchedPairs: { wins: 1, losses: 1, ties: 3 },
     costPerRun: 0.41,
     spent: { amount: 2.05, currency: 'USD' },
     onFrontier: true,
@@ -224,6 +320,7 @@ const DETAIL: SearchDetailResponseDto = {
   ending: 'iterations-spent',
   agent: AGENT,
   budget: BUDGET,
+  objective: 'success',
   spent: { amount: 19.4, currency: 'USD' },
   iterationsRun: 3,
   proposed: 4,
@@ -232,8 +329,11 @@ const DETAIL: SearchDetailResponseDto = {
     name: 'tests-first',
     seed: false,
     searchScore: 0.8,
+    searchInterval: { rate: 0.8, low: 0.6, high: 1 },
     heldOutScore: 1,
+    heldOutInterval: { rate: 1, low: 1, high: 1 },
     costPerRun: 0.95,
+    onlyOnSeenTasks: 'marked',
   },
   startedAt: hoursAgo(6),
   endedAt: hoursAgo(1),
@@ -250,27 +350,33 @@ const DETAIL: SearchDetailResponseDto = {
   iterations: [
     {
       number: 1,
+      kind: 'propose',
       runId: 'run_search_1',
       state: 'ended',
       attempts: 3,
       proposed: ['candidate_tests_first', 'candidate_medium_effort'],
       agentSpent: { spends: [{ amount: 0.62, currency: 'USD' }], unpriced: 0 },
+      reflection: null,
     },
     {
       number: 2,
+      kind: 'propose',
       runId: 'run_search_2',
       state: 'ended',
       attempts: 2,
       proposed: ['candidate_sonnet', 'candidate_review_skill'],
       agentSpent: { spends: [{ amount: 0.58, currency: 'USD' }], unpriced: 0 },
+      reflection: null,
     },
     {
       number: 3,
+      kind: 'propose',
       runId: 'run_search_3',
       state: 'failed',
       attempts: 0,
       proposed: [],
       agentSpent: null,
+      reflection: null,
     },
   ],
   seed: SEED,
@@ -280,6 +386,8 @@ const DETAIL: SearchDetailResponseDto = {
     'candidate_medium_effort',
     'candidate_tests_first',
   ],
+  onlyOnSeenTasks: 1,
+  minGain: 0.05,
 };
 
 const summaryOf = (detail: SearchDetailResponseDto): SearchResponseDto => ({
@@ -291,6 +399,7 @@ const summaryOf = (detail: SearchDetailResponseDto): SearchResponseDto => ({
   ending: detail.ending,
   agent: detail.agent,
   budget: detail.budget,
+  objective: detail.objective,
   spent: detail.spent,
   iterationsRun: detail.iterationsRun,
   proposed: detail.proposed,
@@ -306,6 +415,7 @@ const EARLIER: SearchResponseDto = {
   id: EARLIER_SEARCH_ID,
   state: 'stopped',
   ending: 'stopped',
+  objective: 'success',
   spent: { amount: 3.2, currency: 'USD' },
   iterationsRun: 1,
   proposed: 1,
@@ -314,8 +424,11 @@ const EARLIER: SearchResponseDto = {
     name: 'seed',
     seed: true,
     searchScore: 0.4,
+    searchInterval: { rate: 0.4, low: 0.2, high: 0.6 },
     heldOutScore: null,
+    heldOutInterval: null,
     costPerRun: 0.82,
+    onlyOnSeenTasks: null,
   },
   startedAt: hoursAgo(50),
   endedAt: hoursAgo(49),
@@ -325,6 +438,7 @@ const SEEDING: SearchDetailResponseDto = {
   ...DETAIL,
   state: 'seeding',
   ending: null,
+  objective: 'success',
   spent: { amount: 1.2, currency: 'USD' },
   iterationsRun: 0,
   proposed: 0,
@@ -341,6 +455,8 @@ const SEEDING: SearchDetailResponseDto = {
   },
   candidates: [],
   frontier: [SEED.candidateId],
+  onlyOnSeenTasks: 0,
+  minGain: 0.05,
 };
 
 const withSource = (client: QueryClient) => {
@@ -406,6 +522,121 @@ export const seedSearch = (client: QueryClient) => {
 export const seedSeedingSearch = (client: QueryClient) => {
   seedSearchAround(client);
   client.setQueryData(searchKeys.detail(SEARCH_ID), SEEDING);
+};
+
+const COST_SEARCH: SearchDetailResponseDto = {
+  ...DETAIL,
+  objective: 'cost',
+  best: {
+    candidateId: 'candidate_medium_effort',
+    name: 'medium-effort',
+    seed: false,
+    searchScore: 0.6,
+    searchInterval: { rate: 0.6, low: 0.2, high: 1 },
+    heldOutScore: 0.5,
+    heldOutInterval: { rate: 0.5, low: 0, high: 1 },
+    costPerRun: 0.41,
+    onlyOnSeenTasks: null,
+  },
+};
+
+export const seedCostSearch = (client: QueryClient) => {
+  seedSearchAround(client);
+  client.setQueryData(searchKeys.forStation(STATION_ID), [
+    summaryOf(COST_SEARCH),
+    EARLIER,
+  ]);
+  client.setQueryData(searchKeys.detail(SEARCH_ID), COST_SEARCH);
+};
+
+const STALLED: SearchDetailResponseDto = {
+  ...DETAIL,
+  ending: 'stalled',
+  budget: { ...BUDGET, iterations: 6 },
+  iterationsRun: 5,
+  iterations: [
+    ...DETAIL.iterations.slice(0, 2),
+    {
+      number: 3,
+      kind: 'propose',
+      runId: 'run_search_3',
+      state: 'ended',
+      attempts: 1,
+      proposed: [],
+      agentSpent: { spends: [{ amount: 0.44, currency: 'USD' }], unpriced: 0 },
+      reflection: null,
+    },
+    {
+      number: 4,
+      kind: 'propose',
+      runId: 'run_search_4',
+      state: 'ended',
+      attempts: 2,
+      proposed: [],
+      agentSpent: { spends: [{ amount: 0.41, currency: 'USD' }], unpriced: 0 },
+      reflection: null,
+    },
+    {
+      number: 5,
+      kind: 'reflect',
+      runId: 'run_search_5',
+      state: 'ended',
+      attempts: 0,
+      proposed: [],
+      agentSpent: { spends: [{ amount: 0.37, currency: 'USD' }], unpriced: 0 },
+      reflection: {
+        tasks: [0, 2, 3, 4].map((place) => ({
+          taskId: `task_${place}`,
+          originalRunId: `run_task_${place}`,
+          replayRunId: `run_replay_${place}`,
+        })),
+        causes: [
+          {
+            taskId: 'task_2',
+            originalRunId: 'run_task_2',
+            replayRunId: 'run_replay_2',
+            cause: 'check',
+            evidence:
+              'The billing test failed on a timeout in the payment sandbox, before any changed code ran. The same test failed on the live config’s replay.',
+            suggestion: 'Mock the payment sandbox in the billing test.',
+            recordedAt: hoursAgo(1.2),
+          },
+          {
+            taskId: 'task_3',
+            originalRunId: 'run_task_3',
+            replayRunId: 'run_replay_3',
+            cause: 'task',
+            evidence:
+              'The task asks to warm the pricing cache on deploy, but the cache was removed two weeks ago.',
+            suggestion: null,
+            recordedAt: hoursAgo(1.2),
+          },
+          {
+            taskId: 'task_4',
+            originalRunId: 'run_task_4',
+            replayRunId: 'run_replay_4',
+            cause: 'judge',
+            evidence:
+              'The change renames the worker everywhere, but the judge failed it for not adding tests, which a rename does not need.',
+            suggestion: 'Ask for tests only where the change alters behaviour.',
+            recordedAt: hoursAgo(1.1),
+          },
+        ],
+        standing: 'candidate_tests_first',
+        outcome: 'no-config-cause',
+        endedSearch: true,
+      },
+    },
+  ],
+};
+
+export const seedStalledSearch = (client: QueryClient) => {
+  seedSearchAround(client);
+  client.setQueryData(searchKeys.forStation(STATION_ID), [
+    summaryOf(STALLED),
+    EARLIER,
+  ]);
+  client.setQueryData(searchKeys.detail(SEARCH_ID), STALLED);
 };
 
 export const failSearch = (client: QueryClient) => {

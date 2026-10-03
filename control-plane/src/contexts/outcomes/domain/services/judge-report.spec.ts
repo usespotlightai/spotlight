@@ -26,7 +26,7 @@ const runs = (count: number, agreeing: number) =>
     return {
       score: judgeScore(runId, YES_NO, judged),
       record: endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
-        NextAct.of((judged === 1) === agrees ? 'approved' : 'sent-back', AT),
+        NextAct.of((judged === 1) === agrees ? 'closed' : 'sent-back', AT),
       ),
     };
   });
@@ -62,7 +62,7 @@ describe('judgeReportOf', () => {
       grades: [personGrade('run_1', YES_NO, 0)],
       records: [
         endedRecord('run_1', { taskId: 'task_run_1' }).actedOn(
-          NextAct.of('approved', AT),
+          NextAct.of('closed', AT),
         ),
       ],
       covering: [],

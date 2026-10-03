@@ -3,6 +3,7 @@ import type {
   CheckedChange,
   RunChangeChecksPort,
 } from '@change-review/application/ports/run-change-checks.port';
+import { recheckable } from '@change-review/application/services/recheck-replay-changes.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
@@ -63,17 +64,32 @@ export class RunChangeChecks implements RunChangeChecksPort {
     private readonly clock: ClockPort,
   ) {}
 
-  async ofRun(runId: string): Promise<readonly CheckedChange[]> {
+  ofRun(runId: string): Promise<readonly CheckedChange[]> {
+    return this.standings(runId, false);
+  }
+
+  rechecksOfRun(runId: string): Promise<readonly CheckedChange[]> {
+    return this.standings(runId, true);
+  }
+
+  private async standings(
+    runId: string,
+    rechecks: boolean,
+  ): Promise<readonly CheckedChange[]> {
     const run = RunId.of(runId);
     const [stacks, checks] = await Promise.all([
       this.stacks.ofRun(run),
       this.checks.ofRun(run),
     ]);
     const now = this.clock.now();
+    const rechecked = (stack: ChangeStack): boolean =>
+      checks.some((each) => recheckable(each) && each.stackId.equals(stack.id));
 
-    return stacks.map((stack) => {
+    return stacks.filter(rechecks ? rechecked : () => true).map((stack) => {
       const check =
-        checks.find((each) => each.stackId.equals(stack.id)) ?? null;
+        checks.find(
+          (each) => each.recheck === rechecks && each.stackId.equals(stack.id),
+        ) ?? null;
       const state = stateOf(stack, check, now);
 
       return {

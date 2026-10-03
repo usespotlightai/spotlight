@@ -1,5 +1,7 @@
 import { SEARCHABLE_FIELDS } from '@replays/domain/services/searchable-changes';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
+import type { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 
@@ -18,7 +20,30 @@ export interface SearchBriefingFacts {
   readonly ceiling: Spend;
   readonly searchedTasks: number;
   readonly heldOutTasks: number;
+  readonly objective: SearchObjective;
+  readonly configCauses: readonly SearchCause[];
 }
+
+const AIMS: Readonly<Record<SearchObjective, string>> = {
+  success: `## What counts as better\n\nA candidate is better when it succeeds on more tasks. Where two succeed as often, the cheaper one per run is better.`,
+  cost: `## What counts as better\n\nThe live config already succeeds on nearly every task, so this search looks for the same success at less cost. A candidate is better when it costs less per run and succeeds as often as the live config, within noise. One that succeeds clearly less often is out, however cheap. Look for what the station spends without needing to: a cheaper model or a lower effort, a shorter prompt, fewer tools or skills.`,
+};
+
+const foundOf = (causes: readonly SearchCause[]): string[] =>
+  causes.length === 0
+    ? []
+    : [
+        [
+          '## What looking into the stall found',
+          '',
+          'An earlier iteration looked into why the search stalled, and found these failures a change to the config could fix:',
+          '',
+          ...causes.map(
+            (each) =>
+              `- Task \`${each.taskId.value}\`: ${each.evidence}${each.suggestion ? ` Suggested: ${each.suggestion}` : ''}`,
+          ),
+        ].join('\n'),
+      ];
 
 const money = (spend: Spend): string =>
   `${spend.amount.toFixed(2)} ${spend.currency}`;
@@ -35,6 +60,8 @@ export const SearchBriefing = {
     return [
       '# Searching for a better station',
       `You are iteration ${facts.iteration} of ${facts.iterations} of a search for a better config of the ${facts.stationName} station (\`${key}\`) on the \`${line}\` line. Spotlight replays each candidate you propose on the station's own past tasks and scores it as the station is scored: its checks and its judge. Work from what those replays actually did, not from guesses.`,
+      AIMS[facts.objective],
+      ...foundOf(facts.configCauses),
       `## Where the search started\n\nEvery candidate is a change to this station block, the station's live config when the search started:\n\n\`\`\`json\n${JSON.stringify(facts.seed.value, null, 2)}\n\`\`\``,
       [
         '## What you have to spend',

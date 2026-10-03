@@ -76,6 +76,8 @@ const acting = async (...runs: Ended[]) => {
         tool: each.tool,
         server: each.server,
       })) ?? [],
+    turnout: async (runId: string) =>
+      (await records.of(RunId.of(runId)))?.turnout ?? null,
     next: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.next?.act ?? null,
   };
@@ -116,9 +118,9 @@ describe('noting what a person did after a run', () => {
   it('gives an act that names no run to the task’s latest run that ended before it', async () => {
     const noted = await acting(['run_1', 9], ['run_2', 10], ['run_3', 12]);
 
-    await noted.acted('approved', 11);
+    await noted.acted('closed', 11);
 
-    expect(await noted.next('run_2')).toBe('approved');
+    expect(await noted.next('run_2')).toBe('closed');
     expect(await noted.next('run_1')).toBeNull();
     expect(await noted.next('run_3')).toBeNull();
   });
@@ -154,6 +156,43 @@ describe('noting what a person did after a run', () => {
     await noted.acted('closed', 11);
 
     expect(await noted.next('run_1')).toBe('sent-back');
+  });
+
+  it('counts the first act after a run even when it hears of a later one first', async () => {
+    const noted = await acting(['run_1', 9]);
+
+    await noted.acted('closed', 12, 'run_1');
+    await noted.acted('sent-back', 10, 'run_1');
+
+    expect(await noted.next('run_1')).toBe('sent-back');
+  });
+
+  it('lets the act after a tool approval decide the run, not the approval', async () => {
+    const tool = { tool: 'mcp__linear__create_issue', server: 'linear' };
+    const decided = async (approval: 'approved' | 'refused', act: string) => {
+      const noted = await acting(['run_1', 9]);
+
+      await noted.acted(approval, 10, 'run_1', tool);
+      await noted.acted(act, 11, 'run_1');
+
+      return noted.turnout('run_1');
+    };
+
+    expect(await decided('approved', 'closed')).toBe('accepted');
+    expect(await decided('approved', 'sent-back')).toBe('sent-back');
+    expect(await decided('refused', 'closed')).toBe('accepted');
+  });
+
+  it('reads a run a person only decided a tool approval for as asking, neither accepted nor sent back', async () => {
+    const noted = await acting(['run_1', 9]);
+
+    await noted.acted('approved', 10, 'run_1', {
+      tool: 'mcp__linear__create_issue',
+      server: 'linear',
+    });
+
+    expect(await noted.next('run_1')).toBeNull();
+    expect(await noted.turnout('run_1')).toBe('asked');
   });
 
   it('does not hand a later act to an earlier run already acted on', async () => {

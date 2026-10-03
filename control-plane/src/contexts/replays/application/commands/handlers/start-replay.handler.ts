@@ -12,7 +12,10 @@ import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import { needsBaseline } from '@replays/domain/services/baseline';
+import {
+  needsBaseline,
+  standingBaselineFor,
+} from '@replays/domain/services/baseline';
 import type { ReplaysClearance } from '@replays/domain/services/replays-clearance';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -70,6 +73,7 @@ export class StartReplayHandler
         seen,
         await this.replays.ofSet(seen.id),
         liveScoring,
+        command.repeats,
       );
       const live =
         !asked || wantedBefore ? await this.snapshots.taken(seen) : null;
@@ -88,10 +92,12 @@ export class StartReplayHandler
               throw new UnknownReplaySetError(command.setId);
             }
 
+            const setReplays = await this.replays.ofSet(set.id);
             const needed = needsBaseline(
               set,
-              await this.replays.ofSet(set.id),
+              setReplays,
               liveScoring,
+              command.repeats,
             );
 
             if (needed && asked && !live) {
@@ -115,6 +121,19 @@ export class StartReplayHandler
                 candidate,
                 baseline: asBaseline,
                 ceiling,
+                repeats: command.repeats,
+                probe: command.probe,
+                pairsWith:
+                  asBaseline || command.probe
+                    ? null
+                    : (wanting?.id ??
+                      standingBaselineFor(
+                        set,
+                        setReplays,
+                        liveScoring,
+                        command.repeats,
+                      )?.id ??
+                      null),
                 at: this.clock.now(),
                 by: Attribution.of(command.actor, set.workspaceId),
                 wanting,

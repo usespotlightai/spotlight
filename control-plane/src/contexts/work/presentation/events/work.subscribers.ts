@@ -41,6 +41,7 @@ import type {
   ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
 import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
+import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
 import type { PausedRuns } from '@work/application/services/paused-runs.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
@@ -113,6 +114,7 @@ export const workSubscribers = (reactions: {
   runGrants: RunGrantsPort;
   runners: RunnerHolds;
   toolUsedHooks: ToolUsedHooks;
+  notices: Notices;
 }): readonly DomainEventSubscriber[] => [
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.end-secret-grants-of-ended-run',
@@ -158,6 +160,11 @@ export const workSubscribers = (reactions: {
     'work.abandon-lines-of-disbanded-team',
     [TEAM_DISBANDED],
     (event) => reactions.abandoning.of(TeamId.of(event.teamId)),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'work.forget-notices-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) => reactions.notices.forgetTeam(TeamId.of(event.teamId)),
   ),
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),

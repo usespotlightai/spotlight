@@ -55,6 +55,8 @@ export class AskForJudging {
 
     const rubric = Rubric.readable({
       text: settings.rubric,
+      claims: settings.claims,
+      passShare: settings.passShare,
       version: settings.rubricVersion,
     });
 

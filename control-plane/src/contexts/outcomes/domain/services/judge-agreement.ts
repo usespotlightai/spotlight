@@ -10,6 +10,13 @@ export interface Confusion {
   readonly cells: readonly (readonly number[])[];
 }
 
+interface ClaimAgreement {
+  readonly index: number;
+  readonly pairs: number;
+  readonly observed: number | null;
+  readonly kappa: number | null;
+}
+
 export interface Agreement {
   readonly pairs: number;
   readonly observed: number | null;
@@ -17,6 +24,12 @@ export interface Agreement {
   readonly spearman: number | null;
   readonly mae: number | null;
   readonly confusion: Confusion;
+  readonly claims: readonly ClaimAgreement[];
+}
+
+export interface ClaimsPair {
+  readonly judge: readonly boolean[];
+  readonly human: readonly boolean[];
 }
 
 export interface TrendEntry {
@@ -161,12 +174,56 @@ export const agreementOf = (
   spearman: scale.categorical ? null : spearman(pairs),
   mae: scale.categorical ? null : meanAbsoluteError(pairs),
   confusion: confusionOf(scale.values, pairs),
+  claims: [],
 });
+
+const MET = [0, 1] as const;
+
+const decisionOf = (met: boolean): number => (met ? 1 : 0);
+
+export const claimsAgreementOf = (pairs: readonly ClaimsPair[]): Agreement => {
+  const compared = pairs.filter(
+    (each) => each.judge.length > 0 && each.judge.length === each.human.length,
+  );
+  const count = Math.max(0, ...compared.map((each) => each.judge.length));
+  const decisionsAt = (index: number): ScorePair[] =>
+    compared.flatMap((each) => {
+      const judge = each.judge[index];
+      const human = each.human[index];
+
+      return judge === undefined || human === undefined
+        ? []
+        : [{ judge: decisionOf(judge), human: decisionOf(human) }];
+    });
+  const pooled = Array.from({ length: count }, (_, at) =>
+    decisionsAt(at),
+  ).flat();
+
+  return {
+    pairs: compared.length,
+    observed: observedAgreement(pooled),
+    kappa: cohensKappa(MET, pooled),
+    spearman: null,
+    mae: null,
+    confusion: confusionOf(MET, pooled),
+    claims: Array.from({ length: count }, (_, index) => {
+      const decisions = decisionsAt(index);
+
+      return {
+        index,
+        pairs: decisions.length,
+        observed: observedAgreement(decisions),
+        kappa: cohensKappa(MET, decisions),
+      };
+    }),
+  };
+};
 
 export const headlineOf = (
   scale: ScoreScale,
   agreement: Agreement,
-): number | null => (scale.categorical ? agreement.kappa : agreement.spearman);
+): number | null =>
+  scale.categorical || scale.byClaims ? agreement.kappa : agreement.spearman;
 
 const dayOf = (at: Date): string => at.toISOString().slice(0, 10);
 

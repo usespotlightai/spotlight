@@ -1,3 +1,4 @@
+import type { SetHealths } from '@replays/application/services/set-healths.service';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -20,9 +21,18 @@ export class HoldOutSearch {
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
+    private readonly healths: SetHealths,
   ) {}
 
-  wanted(searchId: SearchId): Promise<void> {
+  async wanted(searchId: SearchId): Promise<void> {
+    const seen = await this.searches.find(searchId);
+
+    if (!seen?.wantsHoldingOut) {
+      return;
+    }
+
+    const { minGain } = await this.healths.standardAt(seen.station);
+
     return this.transaction.run(async () => {
       const search = await this.searches.locked(searchId);
 
@@ -40,6 +50,7 @@ export class HoldOutSearch {
 
       const held = search.heldOutFrom(
         await this.replays.ofSearch(search.id),
+        minGain,
         () => ReplayId.of(this.ids.generate()),
         at,
       );
@@ -73,7 +84,9 @@ export class HoldOutSearch {
             at,
             by: Attribution.spotlight(search.workspaceId),
             among: search.split.heldOutRuns,
+            repeats: search.budget.repeats,
             searchId: search.id,
+            pairsWith: search.seed.replay.replayId,
           }),
         );
       }

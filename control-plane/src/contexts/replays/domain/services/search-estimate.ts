@@ -28,10 +28,11 @@ export const estimateOf = (
 ): SearchEstimate => {
   const allotment = budget.allot(split);
   const k = budget.perIteration;
-  const searched = split.searched.length;
-  const heldOut = split.heldOut.length;
+  const searched = split.searched.length * budget.repeats;
+  const heldOut = split.heldOut.length * budget.repeats;
+  const seed = split.runs * budget.repeats;
   const runs = {
-    seed: split.runs,
+    seed,
     searchReplays: budget.iterations * k * searched,
     heldOutReplays: k * heldOut,
     agent: budget.iterations,
@@ -50,7 +51,7 @@ export const estimateOf = (
         ? null
         : Math.round(
             each *
-              (waves(split.runs) +
+              (waves(seed) +
                 budget.iterations * (1 + waves(k * searched)) +
                 waves(k * heldOut)),
           ),

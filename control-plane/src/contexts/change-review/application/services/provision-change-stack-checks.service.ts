@@ -88,7 +88,7 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
     change: (check: StackCheck) => StackCheck,
   ): Promise<StackCheck | null> {
     for (let attempt = 1; ; attempt++) {
-      const found = await this.checks.find(ChangeStackId.of(stackId));
+      const found = await this.checks.open(ChangeStackId.of(stackId));
       const changed = found ? change(found) : null;
 
       if (!changed || changed === found) {

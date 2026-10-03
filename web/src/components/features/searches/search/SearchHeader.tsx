@@ -1,7 +1,9 @@
 import { CeilingBar } from '@/components/features/replays/CeilingBar';
+import { ScoredRate } from '@/components/features/replays/ScoredRate';
 import { SearchStatePill } from '@/components/features/searches/SearchStatePill';
 import { StopSearchButton } from '@/components/features/searches/search/StopSearchButton';
 import { BestCandidate } from '@/components/features/searches/station/BestCandidate';
+import { Noted } from '@/components/shared/Noted';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { spendShown } from '@/lib/insights';
@@ -10,6 +12,7 @@ import {
   replaySetPath,
   spendOfCeiling,
 } from '@/lib/replay';
+import { minGainSentence, repeatsShown } from '@/lib/replay-words';
 import { since } from '@/lib/runner';
 import {
   iterationsShown,
@@ -17,7 +20,13 @@ import {
   type SearchDetail,
   searchLabel,
 } from '@/lib/search';
-import { endingShown } from '@/lib/search-words';
+import {
+  bestTermShown,
+  endingShown,
+  OBJECTIVE_TERM,
+  objectiveNote,
+  objectiveShown,
+} from '@/lib/search-words';
 
 type SearchHeaderProps = {
   at: ReplayedStation;
@@ -87,7 +96,21 @@ export function SearchHeader({
           {budget.iterations === 1 ? 'iteration' : 'iterations'} ·{' '}
           {budget.perIteration}{' '}
           {budget.perIteration === 1 ? 'candidate' : 'candidates'} each · up to{' '}
-          {spendShown(budget.ceiling)} · {budget.concurrency} at once
+          {spendShown(budget.ceiling)} · {budget.concurrency} at once ·{' '}
+          {repeatsShown(budget.repeats).toLowerCase()}
+        </dd>
+
+        <dt className={TERM}>Live config</dt>
+        <dd className={VALUE}>
+          <ScoredRate
+            rate={search.seed.searchScore}
+            interval={search.seed.searchInterval}
+            scored={search.seed.searchScored}
+          />
+          <span className="text-muted-foreground">
+            {' '}
+            · {minGainSentence(search.minGain)}
+          </span>
         </dd>
 
         <dt className={TERM}>Agent</dt>
@@ -109,9 +132,20 @@ export function SearchHeader({
           <CeilingBar spent={search.spent} ceiling={budget.ceiling} />
         </dd>
 
-        <dt className={TERM}>Best</dt>
+        <dt className={TERM}>{OBJECTIVE_TERM}</dt>
+        <dd data-slot="search-objective" className={VALUE}>
+          <Noted note={objectiveNote(search.objective)}>
+            <span>{objectiveShown(search.objective)}</span>
+          </Noted>
+        </dd>
+
+        <dt className={TERM}>{bestTermShown(search.objective)}</dt>
         <dd>
-          <BestCandidate best={search.best} labelled={false} />
+          <BestCandidate
+            best={search.best}
+            objective={search.objective}
+            labelled={false}
+          />
         </dd>
       </dl>
     </div>

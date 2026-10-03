@@ -20,9 +20,15 @@ export interface ReplayStation {
   readonly source: ReplaySource | null;
 }
 
+interface CandidateJudge {
+  readonly rubric: string | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
+}
+
 export interface CandidateScoring {
   readonly checksChanges: boolean;
-  readonly rubric: string | null;
+  readonly judge: CandidateJudge | null;
   readonly rubricVersion: string | null;
 }
 
@@ -48,6 +54,7 @@ export interface ReplayThreshold {
   readonly mostRegressions: number;
   readonly ceiling: number;
   readonly currency: string;
+  readonly minGain: number;
 }
 
 export interface LiveStation {

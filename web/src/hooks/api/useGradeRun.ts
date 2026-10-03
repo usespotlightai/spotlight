@@ -3,24 +3,26 @@ import { inboxKeys } from '@/hooks/api/useInbox';
 import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { stationJudgeKeys } from '@/hooks/api/useStationJudge';
 import { gradeRun } from '@/lib/api';
-import type { GradeValue } from '@/lib/judge';
+import type { GradeAnswer } from '@/lib/judge';
 
 type GradeRunInput = {
   slug: string;
   teamId: string;
   runId: string;
   stationId: string | undefined;
-  value: GradeValue;
-};
+} & GradeAnswer;
 
 export function useGradeRun() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ teamId, runId, value }: GradeRunInput) => {
+    mutationFn: async ({ teamId, runId, ...answer }: GradeRunInput) => {
       const { data } = await gradeRun({
         path: { teamId, runId },
-        body: { value },
+        body:
+          'claims' in answer
+            ? { claims: [...answer.claims] }
+            : { value: answer.value },
         throwOnError: true,
       });
       return data;

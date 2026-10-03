@@ -55,6 +55,28 @@ const setOf = (tasks: number): ReplaySet => ({
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: Array.from({ length: tasks }, (_, place) => ({
     runId: `run_${place}`,
     taskId: `task_${place}`,
@@ -64,6 +86,8 @@ const setOf = (tasks: number): ReplaySet => ({
     addedAt: '2026-10-01T09:00:00.000Z',
     refusal: null,
     reason: null,
+    outcome: 'other',
+    origin: 'person',
   })),
 });
 
@@ -80,7 +104,9 @@ const SEARCH: Search = {
     perIteration: 2,
     ceiling: { amount: 20, currency: 'USD' },
     concurrency: 4,
+    repeats: 1,
   },
+  objective: 'success',
   spent: { amount: 4.5, currency: 'USD' },
   iterationsRun: 2,
   proposed: 3,
@@ -89,8 +115,11 @@ const SEARCH: Search = {
     name: 'tests-first',
     seed: false,
     searchScore: 0.8,
+    searchInterval: null,
     heldOutScore: null,
+    heldOutInterval: null,
     costPerRun: 0.9,
+    onlyOnSeenTasks: null,
   },
   startedAt: '2026-10-02T09:00:00.000Z',
   endedAt: null,
@@ -177,6 +206,26 @@ describe('StationSearches', () => {
     ).toBeInTheDocument();
   });
 
+  it('marks a search whose best candidate gained only on the tasks it could see, or says too few held-out tasks were scored to tell', () => {
+    const best = SEARCH.best;
+    searches.mockReturnValue([
+      { ...SEARCH, best: best && { ...best, onlyOnSeenTasks: 'marked' } },
+      {
+        ...SEARCH,
+        id: 'search_2',
+        best: best && { ...best, onlyOnSeenTasks: 'too-few-held-out' },
+      },
+    ]);
+    sets.mockReturnValue([setOf(6)]);
+
+    renderSearches();
+
+    expect(screen.getByText('Only on seen tasks')).toBeInTheDocument();
+    expect(
+      screen.getByText('Too few held-out tasks to tell'),
+    ).toBeInTheDocument();
+  });
+
   it('names where a picked candidate opens its pull request', () => {
     searches.mockReturnValue([]);
 
@@ -185,7 +234,12 @@ describe('StationSearches', () => {
         <StationSearches
           at={AT}
           source={{ repository: 'acme/config', path: 'lines/default.tf' }}
-          replayCheck={{ mostRegressions: 1, ceiling: 10, currency: 'USD' }}
+          replayCheck={{
+            mostRegressions: 1,
+            ceiling: 10,
+            currency: 'USD',
+            minGain: 0.05,
+          }}
         />
       </MemoryRouter>,
     );

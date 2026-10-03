@@ -1,23 +1,50 @@
 import type {
   CandidateDto,
   CandidateResourceDto,
+  EntryChecksDto,
   EntryJudgeDto,
+  EntryPairDto,
   EntryResultDto,
+  GainReadingDto,
   ModelSpentDto,
+  PairTallyDto,
+  RateIntervalDto,
   ReplayDto,
   ReplayEntryDto,
   ReplaySearchDto,
   ReplaySetDto,
+  SetCompositionDto,
+  SetHealthDto,
+  SetNoiseDto,
   SpendDto,
 } from '@replays/application/dto/replays.dto';
 import type { StandingRun } from '@replays/application/ports/work.port';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import type { RateInterval } from '@replays/domain/services/bootstrap';
+import {
+  compositionOf,
+  type OriginalOutcome,
+  type SetComposition,
+  turnedOutOf,
+} from '@replays/domain/services/composition';
 import type { Scoring } from '@replays/domain/services/entry-result';
-import { totalsOf } from '@replays/domain/services/replay-results';
+import {
+  type GainReading,
+  gainBetween,
+} from '@replays/domain/services/gain-reading';
+import {
+  type PairTally,
+  pairTallyOf,
+  totalsOf,
+} from '@replays/domain/services/replay-results';
+import type { SetHealth } from '@replays/domain/services/set-health';
+import type { SetNoise } from '@replays/domain/services/set-noise';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
+import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import type { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
+import type { EntryPairing } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { Spend } from '@replays/domain/value-objects/spend.vo';
@@ -26,6 +53,85 @@ export const spendView = (spend: Spend): SpendDto => ({
   amount: spend.amount,
   currency: spend.currency,
 });
+
+export const intervalView = (
+  interval: RateInterval | null,
+): RateIntervalDto | null =>
+  interval && { rate: interval.rate, low: interval.low, high: interval.high };
+
+export const gainView = (gain: GainReading | null): GainReadingDto | null =>
+  gain && {
+    gain: gain.gain,
+    low: gain.low,
+    high: gain.high,
+    verdict: gain.verdict,
+    minGain: gain.minGain,
+    tasks: gain.tasks,
+  };
+
+const noiseView = (noise: SetNoise | null): SetNoiseDto | null =>
+  noise && {
+    replayId: noise.replayId.value,
+    fingerprint: noise.fingerprint.value,
+    repeats: noise.repeats,
+    perRepeat: [...noise.perRepeat],
+    spread: noise.spread,
+    flippedTasks: [...noise.flippedTasks],
+    measuredAt: noise.measuredAt.toISOString(),
+  };
+
+export const healthView = (health: SetHealth): SetHealthDto => {
+  const { saturation, judge, checks, sanity } = health;
+
+  return {
+    noise: noiseView(health.noise),
+    saturation: saturation && {
+      replayId: saturation.replayId.value,
+      rate: saturation.rate,
+      interval: intervalView(saturation.interval),
+      saturated: saturation.saturated,
+      measuredAt: saturation.measuredAt.toISOString(),
+    },
+    judge: judge && {
+      replayId: judge.replayId.value,
+      compared: judge.compared,
+      agreed: judge.agreed,
+      pending: judge.pending,
+      agreement: judge.agreement,
+      unstable: judge.unstable,
+    },
+    checks: checks && {
+      replayId: checks.replayId.value,
+      rechecked: checks.rechecked,
+      pending: checks.pending,
+      flaky: checks.flaky.map((each) => ({
+        taskId: each.taskId.value,
+        originalRunId: each.original.value,
+        runId: each.run.value,
+        first: each.first,
+        recheck: each.recheck,
+      })),
+    },
+    sanity: sanity && {
+      replayId: sanity.replayId.value,
+      candidateId: sanity.candidateId.value,
+      model: sanity.model,
+      effort: sanity.effort,
+      repeats: sanity.repeats,
+      state: sanity.state,
+      againstReplayId: sanity.againstReplayId?.value ?? null,
+      againstState: sanity.againstState,
+      gain: gainView(sanity.gain),
+      rewardsStrongerModel: sanity.rewardsStrongerModel,
+      worse: sanity.worse.map((each) => ({
+        taskId: each.taskId.value,
+        originalRunId: each.original.value,
+        live: each.live,
+        stronger: each.stronger,
+      })),
+    },
+  };
+};
 
 export const modelSpentView = (
   spent: ModelSpent | null,
@@ -64,8 +170,65 @@ const judgeView = (judging: EntryJudging | null): EntryJudgeDto | null => {
     referenced: verdict?.referenced ?? null,
     model: verdict?.model ?? null,
     unjudged: judging.unjudged,
+    marks: verdict?.marks ? [...verdict.marks] : null,
+    claims: verdict ? [...verdict.claims] : [],
+    passShare: verdict?.scale === 'claims' ? verdict.passShare : null,
+    reasons: (verdict?.reasons ?? []).map((each) => ({
+      text: each.text,
+      claim: each.claim,
+      citations: [
+        ...each.steps.map((index) => ({
+          kind: 'step' as const,
+          step: { index, kind: null, tool: null, text: null },
+          hunk: null,
+        })),
+        ...each.hunks.map((id) => ({
+          kind: 'hunk' as const,
+          step: null,
+          hunk: { id, path: null, header: null, lines: [] },
+        })),
+      ],
+    })),
   };
 };
+
+const pairView = (pairing: EntryPairing | null): EntryPairDto | null => {
+  if (!pairing) {
+    return null;
+  }
+
+  const verdict = pairing.verdict;
+
+  return {
+    state: verdict ? 'judged' : pairing.unpaired ? 'unpaired' : 'asked',
+    againstRunId: pairing.against.value,
+    outcome: verdict?.outcome ?? null,
+    model: verdict?.model ?? null,
+    unpaired: pairing.unpaired,
+    readings: (verdict?.readings ?? []).map((reading) => ({
+      ownShownFirst: reading.ownShownFirst,
+      outcome: reading.outcome,
+      reasons: reading.reasons.map((each) => ({
+        text: each.text,
+        ownHunks: [...each.ownHunks],
+        theirHunks: [...each.theirHunks],
+      })),
+    })),
+  };
+};
+
+export const pairTallyView = (tally: PairTally): PairTallyDto => ({
+  wins: tally.wins,
+  losses: tally.losses,
+  ties: tally.ties,
+});
+
+const checksView = (checks: ChangeChecks | null): EntryChecksDto | null =>
+  checks && {
+    state: checks.state,
+    failedAt: [...checks.failedAt],
+    why: checks.why,
+  };
 
 export const entryView = (
   entry: ReplayEntry,
@@ -77,6 +240,7 @@ export const entryView = (
     position: entry.position,
     originalRunId: entry.original.value,
     taskId: entry.taskId.value,
+    repeat: entry.repeat,
     runId: entry.run?.value ?? null,
     fingerprint: entry.fingerprint?.value ?? null,
     phase: phaseOf(entry),
@@ -93,14 +257,15 @@ export const entryView = (
     outputTokens: measures?.tokens.output ?? null,
     cacheReadTokens: measures?.tokens.cacheRead ?? null,
     cacheWriteTokens: measures?.tokens.cacheWrite ?? null,
-    checks: entry.checks && {
-      state: entry.checks.state,
-      failedAt: [...entry.checks.failedAt],
-      why: entry.checks.why,
-    },
+    checks: checksView(entry.checks),
     judge: judgeView(entry.judging),
     draftingSpent: modelSpentView(entry.draftingSpent),
     judgingSpent: modelSpentView(entry.judgingSpent),
+    secondJudge: judgeView(entry.secondJudging),
+    rejudgingSpent: modelSpentView(entry.rejudgingSpent),
+    recheck: checksView(entry.recheck),
+    pair: pairView(entry.pairing),
+    pairingSpent: modelSpentView(entry.pairingSpent),
     result: resultOf(entry, scoring),
     succeeded: entry.succeeded,
     reasons: entry.reasons.map((each) => ({
@@ -159,8 +324,11 @@ export const replayView = (
   replay: Replay,
   candidate: Candidate | null,
   baseline: Replay | null,
+  against: Replay | null,
+  minGain: number,
 ): ReplayDto => {
   const totals = totalsOf(replay);
+  const pairs = pairTallyOf(replay);
 
   return {
     id: replay.id.value,
@@ -175,6 +343,8 @@ export const replayView = (
       amount: replay.ceiling.amount,
       currency: replay.ceiling.currency,
     },
+    repeats: replay.repeats,
+    probe: replay.probe,
     startedAt: replay.startedAt.toISOString(),
     endedAt: replay.endedAt?.toISOString() ?? null,
     totals: {
@@ -188,7 +358,10 @@ export const replayView = (
       notRun: totals.endings['not-run'],
       succeeded: totals.succeeded,
       successRate: totals.successRate,
+      interval: intervalView(totals.interval),
       scored: totals.scored,
+      tasks: totals.tasks,
+      tasksScored: totals.tasksScored,
       unscored: totals.unscored,
       spent: spendView(totals.spent),
       spentElsewhere: totals.spentElsewhere.map(spendView),
@@ -199,25 +372,55 @@ export const replayView = (
       ms: totals.ms,
       medianMs: totals.medianMs,
     },
+    againstBaseline: gainView(against && gainBetween(replay, against, minGain)),
+    pairedWith: replay.pairsWith?.value ?? null,
+    pairsAgainstBaseline: pairs && pairTallyView(pairs),
     entries: replay.entries.map((each) => entryView(each, replay.scoring)),
   };
 };
 
+const compositionView = (composition: SetComposition): SetCompositionDto => ({
+  outcomes: [...composition.outcomes],
+  origins: [...composition.origins],
+  oldest: composition.oldest?.toISOString() ?? null,
+  median: composition.median?.toISOString() ?? null,
+  newest: composition.newest?.toISOString() ?? null,
+  balanceWarning: composition.balanceWarning,
+});
+
 export const setView = (
   set: ReplaySet,
-  replayable: readonly StandingRun[],
-): ReplaySetDto => ({
-  id: set.id.value,
-  lineId: set.station.lineId,
-  stationId: set.station.stationId,
-  name: set.name.value,
-  createdAt: set.createdAt.toISOString(),
-  stationGone: set.isAtGoneStation,
-  guardsChanges: set.guardsChanges,
-  entries: set.entries.map((entry) => {
-    const now = replayable.find((each) => each.runId.equals(entry.runId));
+  standing: readonly StandingRun[],
+  turnouts: ReadonlyMap<string, OriginalOutcome>,
+  health: SetHealth,
+  minGain: number,
+): ReplaySetDto => {
+  const entries = set.entries.map((entry) => ({
+    entry,
+    now: standing.find((each) => each.runId.equals(entry.runId)),
+    outcome: turnedOutOf(turnouts, entry.runId.value),
+  }));
 
-    return {
+  return {
+    id: set.id.value,
+    lineId: set.station.lineId,
+    stationId: set.station.stationId,
+    name: set.name.value,
+    createdAt: set.createdAt.toISOString(),
+    stationGone: set.isAtGoneStation,
+    guardsChanges: set.guardsChanges,
+    health: healthView(health),
+    minGain,
+    composition: compositionView(
+      compositionOf(
+        entries.map(({ now, outcome }) => ({
+          outcome,
+          origin: now?.origin ?? null,
+          endedAt: now?.endedAt ?? null,
+        })),
+      ),
+    ),
+    entries: entries.map(({ entry, now, outcome }) => ({
       runId: entry.runId.value,
       taskId: entry.taskId.value,
       title: now?.title ?? null,
@@ -226,6 +429,8 @@ export const setView = (
       addedAt: entry.addedAt.toISOString(),
       refusal: now?.refusal ?? null,
       reason: now?.reason ?? null,
-    };
-  }),
-});
+      outcome,
+      origin: now?.origin ?? null,
+    })),
+  };
+};

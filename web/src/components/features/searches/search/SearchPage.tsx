@@ -2,6 +2,7 @@ import { SearchCandidates } from '@/components/features/searches/search/SearchCa
 import { SearchFrontier } from '@/components/features/searches/search/SearchFrontier';
 import { SearchHeader } from '@/components/features/searches/search/SearchHeader';
 import { SearchSplit } from '@/components/features/searches/search/SearchSplit';
+import { WhyItStalled } from '@/components/features/searches/search/WhyItStalled';
 import { StationLayout } from '@/components/features/stations/StationLayout';
 import {
   type BreadcrumbSegment,
@@ -9,7 +10,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
-import type { SearchDetail } from '@/lib/search';
+import { reflectionsOf, type SearchDetail, standingOf } from '@/lib/search';
 import { TrailContext } from '@/lib/trail';
 
 type SearchPageProps = {
@@ -40,6 +41,16 @@ export function SearchPage({
           number={number}
           setName={set?.name ?? null}
         />
+
+        {reflectionsOf(search).map((reflection) => (
+          <WhyItStalled
+            key={reflection.number}
+            at={at}
+            iteration={reflection}
+            set={set}
+            standing={standingOf(search, reflection)}
+          />
+        ))}
 
         <SearchSplit
           slug={at.slug}

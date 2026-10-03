@@ -2,9 +2,19 @@ import type {
   ConfigPullRequestReasonResponseDto,
   ReplayCheckResponseDto,
   SearchCandidateResponseDto,
+  SearchCauseResponseDto,
+  SearchEstimateResponseDto,
   SearchIterationResponseDto,
+  SearchReflectionResponseDto,
   SearchResponseDto,
 } from '@/lib/api';
+import { percentShown } from '@/lib/judge';
+import {
+  gainRangeShown,
+  gainShown,
+  minGainShown,
+  pointsShown,
+} from '@/lib/replay-words';
 
 export type SearchState = SearchResponseDto['state'];
 export type SearchEnding = NonNullable<SearchResponseDto['ending']>;
@@ -16,6 +26,15 @@ export type PullRequestReason = ConfigPullRequestReasonResponseDto;
 type ReasonCode = PullRequestReason['code'];
 type CheckVerdict = ReplayCheckResponseDto['verdict'];
 type Undecided = NonNullable<ReplayCheckResponseDto['undecidedBecause']>;
+export type SearchWarning = SearchEstimateResponseDto['warnings'][number];
+export type SearchObjective = SearchEstimateResponseDto['objective'];
+export type CauseKind = SearchCauseResponseDto['cause'];
+export type ReflectionOutcome = NonNullable<
+  SearchReflectionResponseDto['outcome']
+>;
+export type OnlyOnSeenTasks = NonNullable<
+  SearchCandidateResponseDto['onlyOnSeenTasks']
+>;
 
 const STATES: Record<SearchState, string> = {
   seeding: 'Replaying the live config',
@@ -28,7 +47,7 @@ const STATES: Record<SearchState, string> = {
 const ENDINGS: Record<SearchEnding, string> = {
   'iterations-spent': 'It ran every iteration it was given',
   'ceiling-reached': 'It reached its ceiling',
-  stalled: 'Two iterations in a row found nothing, so it stopped',
+  stalled: 'It found nothing better twice in a row',
   stopped: 'A person stopped it',
   'station-gone': 'Its station is gone from its line',
   'set-gone': 'Its replay set was deleted',
@@ -102,3 +121,207 @@ export const verdictShown = (
   verdict === 'undecided' && undecidedBecause
     ? `${CHECK_VERDICTS[verdict]}: ${UNDECIDED[undecidedBecause]}`
     : CHECK_VERDICTS[verdict];
+
+export const warningShown = (warning: SearchWarning): string => {
+  switch (warning.kind) {
+    case 'noise-unmeasured':
+      return 'Nobody has measured how much this set’s success moves by chance, so a small gain may be luck. Use Check this set on the set page, or replay each run more than once.';
+    case 'noisy': {
+      const fix =
+        warning.neededRepeats > warning.suggestedRepeats
+          ? `Even replaying each run ${warning.suggestedRepeats} times, the most allowed, won’t bring it under that, so read small gains with care or raise the line’s smallest real gain.`
+          : `Replaying each run ${warning.suggestedRepeats} times would bring that down.`;
+
+      return `This set’s success moved ${pointsShown(warning.spread)} between copies of the same runs, more than the ${minGainShown(warning.minGain)} the line counts as real. ${fix}`;
+    }
+    case 'saturated':
+      return `The live config already succeeds on ${percentShown(warning.rate)} of this set, so there is little room to succeed more. Aim for the same success for less, or add tasks the live config fails.`;
+    case 'judge-unstable':
+      return `Judging the same change twice, the judge gave the same verdict only ${percentShown(warning.agreement)} of the time over ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}, so its verdicts are partly chance. Make the rubric more specific before you search.`;
+    case 'flaky-checks':
+      return `The check passed once and failed once on ${warning.flaky} of ${warning.rechecked} changes it ran twice, so it may flip a candidate’s result by chance. The set page lists them.`;
+    case 'sanity-failed':
+      return `A stronger model did not do clearly better on this set (${gainShown(warning)}, likely ${gainRangeShown(warning)}) and did worse on ${warning.worseTasks} ${warning.worseTasks === 1 ? 'task' : 'tasks'}, so its tasks may be unclear or its scoring off.`;
+  }
+};
+
+export const repeatsSuggestionShown = (repeats: number): string =>
+  `Replay each run ${repeats} times`;
+
+export const GAIN_ON_SEARCHED = 'Gain over the live config, searched';
+
+export const GAIN_ON_HELD_OUT = 'Gain over the live config, held out';
+
+const OBJECTIVES: Record<SearchObjective, string> = {
+  success: 'More success',
+  cost: 'The same success for less',
+};
+
+const OBJECTIVE_NOTES: Record<SearchObjective, string> = {
+  success: 'Ranks candidates by how often they succeed.',
+  cost: 'Ranks the candidates that succeed as often as the live config, within noise, by what a run costs.',
+};
+
+const BEST_TERMS: Record<SearchObjective, string> = {
+  success: 'Best',
+  cost: 'Cheapest',
+};
+
+const NO_BEST: Record<SearchObjective, string> = {
+  success: 'No best candidate yet',
+  cost: 'No candidate holds its success yet',
+};
+
+const FRONTIER_NOTES: Record<SearchObjective, string> = {
+  success:
+    'How often each candidate succeeded on the searched tasks, against what it spent a run. The frontier joins those no other succeeds as often for less; the live config is always on it.',
+  cost: 'How often each candidate succeeded on the searched tasks, against what it spent a run. This search aims for the same success for less, so the frontier joins only those that succeed as often as the live config, within noise, and that no other matches for less; the live config is always on it.',
+};
+
+export const OBJECTIVE_LABEL = 'Aim for';
+
+export const OBJECTIVE_TERM = 'Aims for';
+
+export const objectiveShown = (objective: SearchObjective): string =>
+  OBJECTIVES[objective];
+
+export const objectiveNote = (objective: SearchObjective): string =>
+  OBJECTIVE_NOTES[objective];
+
+export const objectiveSuggestedShown = (rate: number): string =>
+  `Chosen for you: the live config already succeeds on ${percentShown(rate)} of this set, so there is little room to succeed more.`;
+
+export const bestTermShown = (objective: SearchObjective): string =>
+  BEST_TERMS[objective];
+
+export const bestLabelShown = (objective: SearchObjective): string =>
+  `${BEST_TERMS[objective]}:`;
+
+export const noBestShown = (objective: SearchObjective): string =>
+  NO_BEST[objective];
+
+export const frontierNote = (objective: SearchObjective): string =>
+  FRONTIER_NOTES[objective];
+
+export const bestOnShown = (heldOut: boolean): string =>
+  heldOut ? 'held out' : 'searched';
+
+const ONLY_ON_SEEN_TASKS: Record<OnlyOnSeenTasks, string> = {
+  marked: 'Only on seen tasks',
+  'too-few-held-out': 'Too few held-out tasks to tell',
+};
+
+const ONLY_ON_SEEN_TASKS_NOTES: Record<OnlyOnSeenTasks, string> = {
+  marked:
+    'It beat the live config on the tasks the search could see, but not on the held-out tasks it never saw, so the gain may not carry over to new work.',
+  'too-few-held-out':
+    'It beat the live config on the tasks the search could see, but too few held-out tasks were scored to tell whether the gain carries over to new work.',
+};
+
+export const onlyOnSeenTasksShown = (mark: OnlyOnSeenTasks): string =>
+  ONLY_ON_SEEN_TASKS[mark];
+
+export const onlyOnSeenTasksNote = (mark: OnlyOnSeenTasks): string =>
+  ONLY_ON_SEEN_TASKS_NOTES[mark];
+
+export const ONLY_ON_SEEN_TASKS_PICK =
+  'Its gain showed only on the tasks the search could see. You can still pick it, but the gain may not carry over to new work.';
+
+export const onlyOnSeenTasksCountShown = (count: number): string =>
+  `${count} ${count === 1 ? 'candidate' : 'candidates'} on the frontier gained only on the tasks the search could see, not on the held-out ones.`;
+
+export const SEARCH_CEILING_NOTE =
+  'The most the whole search may spend: its replays and its agent’s runs.';
+
+export const whyItStalledShown = (iteration: number): string =>
+  `Why it stalled, looked into in iteration ${iteration}`;
+
+export const REFLECTION_KIND = 'Looked for why it stalled';
+
+const CAUSE_TITLES: Record<CauseKind, string> = {
+  task: 'The task itself',
+  judge: 'The judge',
+  check: 'The check',
+  infra: 'Around the work',
+  config: 'The station’s config',
+};
+
+const CAUSE_MEANINGS: Record<CauseKind, string> = {
+  task: 'The task is unclear, out of date, or cannot be done as asked, so no config would get it right.',
+  judge:
+    'The work may be fine, but the judge scored it wrong, so its rubric asks for the wrong thing.',
+  check:
+    'The check failed for a reason the change did not cause, such as a broken or flaky test.',
+  infra:
+    'The run failed around the work, for example the runner, the network or a missing tool.',
+  config:
+    'A change to the station’s config, such as its prompt, model or skills, could still fix it.',
+};
+
+const CAUSE_ACTIONS: Record<CauseKind, string> = {
+  task: 'Fix the task, or take it out of the replay set.',
+  judge: 'Fix the judge’s rubric.',
+  check: 'Fix the check.',
+  infra: 'Replay it again. If it keeps failing, fix what the run needs.',
+  config: 'Nothing for you to do: the search keeps trying configs for these.',
+};
+
+export const causeTitleShown = (cause: CauseKind): string =>
+  CAUSE_TITLES[cause];
+
+export const causeMeaningShown = (cause: CauseKind): string =>
+  CAUSE_MEANINGS[cause];
+
+export const causeActionShown = (cause: CauseKind): string =>
+  CAUSE_ACTIONS[cause];
+
+export const UNCAUSED_TITLE = 'No cause recorded';
+
+export const UNCAUSED_NOTE =
+  'Its agent looked into these but recorded no cause for them.';
+
+export const SUGGESTED = 'Suggested:';
+
+export const OPEN_FAILED_REPLAY = 'Open the failed replay run';
+
+const tasksCounted = (count: number): string =>
+  `${count} ${count === 1 ? 'task' : 'tasks'}`;
+
+export const standingShown = (candidate: {
+  readonly seed: boolean;
+  readonly name: string;
+}): string =>
+  `Looked at why ${candidate.seed ? 'the live config' : candidate.name} failed`;
+
+export const reflectionLookedShown = (tasks: number): string =>
+  `After two iterations in a row found nothing better, its agent looked into the ${tasksCounted(tasks)} the best config so far still failed, and sorted them by what caused each failure.`;
+
+export const REFLECTION_LOOKING =
+  'Two iterations in a row found nothing better, so its agent is looking into why the remaining tasks fail.';
+
+const REFLECTION_OUTCOMES: Record<ReflectionOutcome, string> = {
+  'went-on':
+    'The search went on, because a change to the config could still fix some of them.',
+  'no-config-cause':
+    'This ended the search: nothing left the config can fix. What it did not spend is kept.',
+  'no-failures':
+    'No searched task failed, so there was nothing to look into, and the search ended.',
+  'did-not-run':
+    'Its agent’s run failed before it recorded any cause, so the search ended.',
+  'out-of-budget':
+    'A change to the config could still fix some of them, but the search had no budget left to try one, so it ended.',
+};
+
+export const reflectionOutcomeShown = (outcome: ReflectionOutcome): string =>
+  REFLECTION_OUTCOMES[outcome];
+
+export const reflectionIterationShown = (
+  tasks: number,
+  causes: number,
+): string =>
+  `It proposed nothing. It looked into ${tasksCounted(tasks)} the best config so far still failed and recorded ${causes} ${causes === 1 ? 'cause' : 'causes'}.`;
+
+export const REFLECTION_ITERATION_PENDING =
+  'It proposes nothing. Its agent is looking into why the remaining tasks fail.';
+
+export const SEE_WHY_IT_STALLED = 'See why it stalled';

@@ -4,7 +4,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { countShown } from '@/lib/insights';
 import type { ReplaySet } from '@/lib/replay';
 import { runPath } from '@/lib/run';
-import { heldOutTitle, type SearchDetail } from '@/lib/search';
+import { type SearchDetail, setTaskTitle } from '@/lib/search';
 
 type SearchSplitProps = {
   slug: string;
@@ -60,7 +60,7 @@ export function SearchSplit({ slug, teamId, split, set }: SearchSplitProps) {
                     to={runPath(slug, teamId, entry.runId)}
                     className="text-foreground underline-offset-2 hover:underline"
                   >
-                    {heldOutTitle(entry, set)}
+                    {setTaskTitle(entry, set)}
                   </TrailLink>
                 </li>
               ))}

@@ -50,6 +50,28 @@ const SET: ReplaySet = {
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: [],
 };
 
@@ -67,7 +89,17 @@ const replay = (over: Partial<Replay>): Replay =>
     isBaseline: false,
     state: 'finished',
     startedAt: '2026-10-02T09:00:00.000Z',
-    totals: { successRate: 0.75 },
+    totals: { successRate: 0.75, interval: { rate: 0.75, low: 0.5, high: 1 } },
+    againstBaseline: {
+      gain: 0.25,
+      low: 0.05,
+      high: 0.45,
+      verdict: 'better',
+      minGain: 0.05,
+      tasks: 4,
+    },
+    pairedWith: 'baseline',
+    pairsAgainstBaseline: { wins: 2, losses: 1, ties: 1 },
     ...over,
   }) as Replay;
 
@@ -121,6 +153,8 @@ describe('ReplaySets', () => {
             addedAt: '2026-10-01T09:00:00.000Z',
             refusal: null,
             reason: null,
+            outcome: 'other',
+            origin: 'person',
           },
         ],
       },
@@ -130,6 +164,7 @@ describe('ReplaySets', () => {
       replay({
         id: 'baseline',
         isBaseline: true,
+        pairedWith: null,
         startedAt: '2026-10-01T09:00:00.000Z',
         totals: { successRate: 0.5 } as Replay['totals'],
       }),
@@ -144,7 +179,20 @@ describe('ReplaySets', () => {
     expect(screen.getByText('1 run')).toBeInTheDocument();
     expect(screen.getByText('Station gone')).toBeInTheDocument();
     expect(screen.getByText('Latest: Shorter prompt')).toBeInTheDocument();
-    expect(screen.getByText('75% succeeded')).toBeInTheDocument();
-    expect(screen.getByText('+25 pts')).toBeInTheDocument();
+    const success = document.querySelector(
+      '[data-slot="success-against-baseline"]',
+    );
+    expect(success).toHaveTextContent('75% (50–100%) succeeded');
+    expect(
+      success?.querySelector('[data-slot="gain-verdict"]'),
+    ).toHaveAttribute('data-verdict', 'better');
+    expect(success).toHaveTextContent(
+      '+25 pts(+5 to +45)vs baseline 50%· Better',
+    );
+    expect(
+      success?.querySelector('[data-slot="pair-tally"]'),
+    ).toHaveTextContent(
+      'Side by side with the baseline: 2 wins, 1 loss, 1 tie',
+    );
   });
 });

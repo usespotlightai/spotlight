@@ -1,0 +1,108 @@
+import { Injectable } from '@nestjs/common';
+import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { Notice } from '@work/domain/aggregates/notice.aggregate';
+import { NoticeMovedOnError } from '@work/domain/exceptions/notice-moved-on.error';
+import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
+import type { NoticeForm } from '@work/domain/value-objects/notice-form';
+import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
+import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
+import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
+import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
+import { and, eq } from 'drizzle-orm';
+
+type Row = typeof notice.$inferSelect;
+
+const toNotice = (row: Row): Notice =>
+  Notice.rehydrate({
+    id: NoticeId.of(row.id),
+    workspaceId: WorkspaceId.of(row.workspaceId),
+    teamId: TeamId.of(row.teamId),
+    addressee: UserId.of(row.addresseeId),
+    form: row.form,
+    subject: row.subject,
+    link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
+    wording: NoticeWording.of({ headline: row.headline, points: row.points }),
+    raisedAt: row.raisedAt,
+    readAt: row.readAt,
+    settledAt: row.settledAt,
+    version: row.version,
+  });
+
+@Injectable()
+export class DrizzleNoticeRepository implements NoticeRepository {
+  constructor(private readonly context: DrizzleContext) {}
+
+  async add(added: Notice): Promise<void> {
+    await this.context.db.insert(notice).values({
+      id: added.id.value,
+      workspaceId: added.workspaceId.value,
+      teamId: added.teamId.value,
+      addresseeId: added.addressee.value,
+      form: added.form,
+      subject: added.subject,
+      link: added.link.path,
+      linkLabel: added.link.label,
+      headline: added.wording.headline,
+      points: [...added.wording.points],
+      raisedAt: added.raisedAt,
+      readAt: added.readAt,
+      settledAt: added.settledAt,
+      version: added.version,
+    });
+  }
+
+  async save(saved: Notice): Promise<void> {
+    const written = await this.context.db
+      .update(notice)
+      .set({
+        readAt: saved.readAt,
+        settledAt: saved.settledAt,
+        version: saved.version + 1,
+      })
+      .where(
+        and(eq(notice.id, saved.id.value), eq(notice.version, saved.version)),
+      )
+      .returning({ id: notice.id });
+
+    if (written.length === 0) {
+      throw new NoticeMovedOnError(saved.id.value);
+    }
+  }
+
+  async find(id: NoticeId): Promise<Notice | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(notice)
+      .where(eq(notice.id, id.value))
+      .limit(1);
+
+    return row ? toNotice(row) : null;
+  }
+
+  async about(
+    addressee: UserId,
+    form: NoticeForm,
+    subject: string,
+  ): Promise<Notice | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(notice)
+      .where(
+        and(
+          eq(notice.addresseeId, addressee.value),
+          eq(notice.form, form),
+          eq(notice.subject, subject),
+        ),
+      )
+      .limit(1);
+
+    return row ? toNotice(row) : null;
+  }
+
+  async forgetTeam(teamId: TeamId): Promise<void> {
+    await this.context.db.delete(notice).where(eq(notice.teamId, teamId.value));
+  }
+}

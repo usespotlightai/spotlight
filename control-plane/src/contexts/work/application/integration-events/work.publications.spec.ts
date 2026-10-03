@@ -624,6 +624,7 @@ describe('WORK_PUBLICATIONS', () => {
         outcome: 'withdrawn',
         failure: null,
         stopped: false,
+        asked: false,
       },
     ]);
   });

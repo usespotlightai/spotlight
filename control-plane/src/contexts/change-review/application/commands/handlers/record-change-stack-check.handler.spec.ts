@@ -106,6 +106,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
       saved.push(each);
     },
     find: async () => check,
+    open: async () => check,
     ofRun: async () => [],
     ofTask: async () => [],
     remove: async () => undefined,
@@ -127,7 +128,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
 };
 
 const reported = (runner: string) =>
-  new RecordChangeStackCheckCommand(RUN, runner, STACK, null, [
+  new RecordChangeStackCheckCommand(RUN, runner, STACK, false, null, [
     { step: 'whole', passed: true, output: '', tookMs: 10 },
   ]);
 

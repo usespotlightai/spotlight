@@ -170,6 +170,47 @@ describe('compileLine', () => {
     ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.sample') });
   });
 
+  it('reads a judge of claims, and refuses one with neither a rubric nor claims at its rubric', () => {
+    const compiled = compileLine(
+      withStation(1, {
+        ...DELIVERY.stations[1],
+        judge: {
+          claims: ['It adds a test.'],
+          passShare: 1,
+          sample: 0.2,
+          trust: 0.6,
+        },
+      }),
+    );
+
+    expect(compiled.ok && compiled.line.stations[1]?.judge).toMatchObject({
+      rubric: null,
+      claims: ['It adds a test.'],
+      passShare: 1,
+    });
+    expect(
+      refused(
+        withStation(1, {
+          ...DELIVERY.stations[1],
+          judge: { sample: 0.2, trust: 0.6 },
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.rubric') });
+    expect(
+      refused(
+        withStation(1, {
+          ...DELIVERY.stations[1],
+          judge: {
+            claims: ['A claim.'],
+            passShare: 2,
+            sample: 0.2,
+            trust: 0.6,
+          },
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.passShare') });
+  });
+
   it('refuses an alert setting at its own path', () => {
     expect(
       refused(

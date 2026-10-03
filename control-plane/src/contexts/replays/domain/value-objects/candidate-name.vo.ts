@@ -6,6 +6,8 @@ const LIVE_PREFIX = 'Live config';
 
 const PLANNED_PREFIX = 'Planned change';
 
+const SANITY_PREFIX = 'Stronger model';
+
 const SEPARATOR = '/';
 
 const SEARCHED = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -52,6 +54,11 @@ export class CandidateName {
         `is named other than ${PLANNED_PREFIX}, which names the changes Spotlight replays to check them`,
       );
     }
+    if (raw.toLowerCase().startsWith(SANITY_PREFIX.toLowerCase())) {
+      throw new InvalidCandidateError(
+        `is named other than ${SANITY_PREFIX}, which names the replays that check a set rewards a stronger model`,
+      );
+    }
 
     return CandidateName.of(raw);
   }
@@ -74,6 +81,12 @@ export class CandidateName {
   static planned(label: string | null, at: Date): CandidateName {
     return new CandidateName(
       `${PLANNED_PREFIX}, ${label ?? at.toISOString().slice(0, 10)}`,
+    );
+  }
+
+  static sanity(at: Date): CandidateName {
+    return new CandidateName(
+      `${SANITY_PREFIX}, ${at.toISOString().slice(0, 10)}`,
     );
   }
 

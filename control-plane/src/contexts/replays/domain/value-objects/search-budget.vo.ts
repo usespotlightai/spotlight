@@ -1,5 +1,6 @@
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 
 export const MOST_ITERATIONS = 10;
@@ -44,6 +45,7 @@ export class SearchBudget {
     readonly perIteration: number,
     readonly ceiling: Spend,
     readonly concurrency: number,
+    readonly repeats: number,
   ) {}
 
   static of(input: {
@@ -51,6 +53,7 @@ export class SearchBudget {
     perIteration: number;
     ceiling: Spend;
     concurrency?: number;
+    repeats?: number;
   }): SearchBudget {
     return new SearchBudget(
       counted(input.iterations, MOST_ITERATIONS, 'runs its agent'),
@@ -65,13 +68,18 @@ export class SearchBudget {
         MOST_CONCURRENCY,
         'runs a number of replay runs at once',
       ),
+      counted(
+        input.repeats ?? 1,
+        MOST_REPEATS,
+        'replays each run a number of times',
+      ),
     );
   }
 
   allot(split: HeldOutSplit): SearchAllotment {
-    const total = split.runs;
-    const searched = split.searched.length;
-    const heldOut = split.heldOut.length;
+    const total = split.runs * this.repeats;
+    const searched = split.searched.length * this.repeats;
+    const heldOut = split.heldOut.length * this.repeats;
     const k = this.perIteration;
     const margin = (runs: number) => Math.min(this.concurrency, runs);
     const agentRuns = this.ceiling.scaled(AGENT_SLACK.parts, AGENT_SLACK.of);
@@ -79,7 +87,7 @@ export class SearchBudget {
       AGENT_SLACK.of - AGENT_SLACK.parts,
       AGENT_SLACK.of,
     );
-    const units = this.unitsFor(searched, heldOut);
+    const units = this.unitsFor(split.searched.length, split.heldOut.length);
     const perRun = pool.scaled(1, units);
 
     if (perRun.amount < LEAST_RUN) {
@@ -104,8 +112,10 @@ export class SearchBudget {
     };
   }
 
-  unitsFor(searched: number, heldOut: number): number {
+  unitsFor(searchedRuns: number, heldOutRuns: number): number {
     const margin = (runs: number) => Math.min(this.concurrency, runs);
+    const searched = searchedRuns * this.repeats;
+    const heldOut = heldOutRuns * this.repeats;
     const total = searched + heldOut;
     const k = this.perIteration;
 
@@ -131,7 +141,8 @@ export class SearchBudget {
       this.iterations === other.iterations &&
       this.perIteration === other.perIteration &&
       this.ceiling.equals(other.ceiling) &&
-      this.concurrency === other.concurrency
+      this.concurrency === other.concurrency &&
+      this.repeats === other.repeats
     );
   }
 }

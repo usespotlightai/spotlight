@@ -27,7 +27,9 @@ const identifier = (make: (raw: string) => unknown) =>
   });
 
 const judgeSchema = z.object({
-  rubric: z.string(),
+  rubric: z.string().optional(),
+  claims: z.array(z.string()).optional(),
+  passShare: z.number().optional(),
   sample: z.number(),
   trust: z.number(),
 });
@@ -105,6 +107,7 @@ const replayCheckSchema = z.object({
   mostRegressions: z.number().default(0),
   ceiling: z.number().default(10),
   currency: z.string().default('USD'),
+  minGain: z.number().default(0.05),
 });
 
 const sourceSchema = z.object({

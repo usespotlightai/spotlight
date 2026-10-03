@@ -32,6 +32,7 @@ const Usage = `  spotlight handover --next <where> [--note <text>]
   spotlight recall "<words>" | M-12
   spotlight remember --kind <kind> --body "…" [--path <path>]... [--reach team|line|station] [--supersedes M-12]
   spotlight candidate --name <name> --hypothesis <text | @file> <station.json | ->
+  spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]
   spotlight tools
   spotlight <tool> [--<input> <value>...]   as spotlight linear comment --body "..."`
 
@@ -57,6 +58,8 @@ func run(args []string, in io.Reader, out io.Writer) error {
 		return remember(args[1:], in, out)
 	case "candidate":
 		return candidateCmd(args[1:], in, out)
+	case "cause":
+		return causeCmd(args[1:], out)
 	case "tools":
 		return listTools(out)
 	default:

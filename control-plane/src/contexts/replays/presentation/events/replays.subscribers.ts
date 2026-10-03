@@ -2,7 +2,10 @@ import type { AbandonConfigPullRequests } from '@replays/application/services/ab
 import type { AbandonReplayChecks } from '@replays/application/services/abandon-replay-checks.service';
 import type { AbandonReplays } from '@replays/application/services/abandon-replays.service';
 import type { AbandonSearches } from '@replays/application/services/abandon-searches.service';
+import type { AskForPairJudging } from '@replays/application/services/ask-for-pair-judging.service';
 import type { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
+import type { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
+import type { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import type { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
@@ -13,7 +16,10 @@ import type { NoteReplayChangeReviewed } from '@replays/application/services/not
 import type { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
 import type { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
 import type { NoteReplayJudged } from '@replays/application/services/note-replay-judged.service';
+import type { NoteReplayPaired } from '@replays/application/services/note-replay-paired.service';
 import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
+import type { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
+import type { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import type { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abandonment-due.event';
 import type { ConfigPullRequestAbandonmentDue } from '@replays/domain/events/config-pull-request-abandonment-due.event';
@@ -21,18 +27,29 @@ import type { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandon
 import type { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
 import type { ReplayCheckAbandonmentDue } from '@replays/domain/events/replay-check-abandonment-due.event';
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
+import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import type { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
+import type { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
+import type { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import type { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
+import type { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
+import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
+import type { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
+import type { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import type { ReplaySetAbandonmentDue } from '@replays/domain/events/replay-set-abandonment-due.event';
 import type { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
 import type { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import type { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
 import type { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
+import type { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-recheck-wanted.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import type { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-due.event';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
 import type { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
 import type { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import type { SearchReflected } from '@replays/domain/events/search-reflected.event';
+import type { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import {
@@ -48,9 +65,21 @@ import {
   type LineRedefinedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/line-redefined.integration-event';
 import {
+  PAIR_JUDGED,
+  type PairJudgedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pair-judged.integration-event';
+import {
+  PAIR_JUDGING_FAILED,
+  type PairJudgingFailedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pair-judging-failed.integration-event';
+import {
   REPLAY_CHANGE_CHECKED,
   type ReplayChangeCheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-change-checked.integration-event';
+import {
+  REPLAY_CHANGE_RECHECKED,
+  type ReplayChangeRecheckedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/replay-change-rechecked.integration-event';
 import {
   REPLAY_DIGESTED,
   type ReplayDigestedIntegrationEvent,
@@ -87,7 +116,12 @@ export interface ReplaysReactions {
   readonly digesting: NoteReplayDigested;
   readonly reviewing: NoteReplayChangeReviewed;
   readonly asking: AskForReplayJudging;
+  readonly askingAgain: AskForReplayRejudging;
+  readonly askingRecheck: AskForReplayRecheck;
   readonly judging: NoteReplayJudged;
+  readonly pairing: PairReplayEntries;
+  readonly askingPair: AskForPairJudging;
+  readonly paired: NoteReplayPaired;
   readonly holding: HoldSetStartingPoints;
   readonly lettingGo: LetReplayRunsGo;
   readonly abandoning: AbandonReplays;
@@ -100,6 +134,7 @@ export interface ReplaysReactions {
   readonly abandoningSearches: AbandonSearches;
   readonly abandoningChecks: AbandonReplayChecks;
   readonly abandoningPullRequests: AbandonConfigPullRequests;
+  readonly noticingReflections: NoticeSearchReflections;
 }
 
 const spentOf = (event: {
@@ -162,21 +197,133 @@ export const replaysSubscribers = (
     'replays.record-replay-run-judged',
     [CHANGE_JUDGED],
     (event) =>
-      reactions.judging.judged({
-        runId: event.runId,
-        scale: event.scale,
-        value: event.value,
-        model: event.model,
-        referenced: event.referenced,
-        reasons: event.reasons,
-        spent: spentOf(event),
-      }),
+      event.round !== 1
+        ? Promise.resolve()
+        : reactions.judging.judged({
+            runId: event.runId,
+            scale: event.scale,
+            value: event.value,
+            marks: event.marks,
+            claims: event.claims,
+            passShare: event.passShare,
+            model: event.model,
+            referenced: event.referenced,
+            reasons: event.reasons,
+            spent: spentOf(event),
+          }),
   ),
   subscribing<ChangeJudgingFailedIntegrationEvent>(
     'replays.record-replay-run-unjudged',
     [CHANGE_JUDGING_FAILED],
     (event) =>
-      reactions.judging.failed(event.runId, event.failure, spentOf(event)),
+      event.round !== 1
+        ? Promise.resolve()
+        : reactions.judging.failed(event.runId, event.failure, spentOf(event)),
+  ),
+  subscribing<ReplayEntryConcluded>(
+    'replays.find-replays-to-pair',
+    ['replay.entry-concluded'],
+    (event) => reactions.pairing.concluded(event),
+  ),
+  subscribing<ReplayPairingDue>(
+    'replays.pair-replay-entries',
+    ['replay.pairing-due'],
+    (event) => reactions.pairing.due(event.replayId),
+  ),
+  subscribing<ReplayPairJudgingWanted>(
+    'replays.ask-to-judge-pair',
+    ['replay.pair-judging-wanted'],
+    (event) => reactions.askingPair.wanted(event),
+  ),
+  subscribing<PairJudgedIntegrationEvent>(
+    'replays.record-pair-judged',
+    [PAIR_JUDGED],
+    (event) =>
+      reactions.paired.paired({
+        runId: event.runId,
+        againstRunId: event.againstRunId,
+        winner: event.winner,
+        model: event.model,
+        readings: event.readings,
+        spent: spentOf(event),
+      }),
+  ),
+  subscribing<PairJudgingFailedIntegrationEvent>(
+    'replays.record-pair-unjudged',
+    [PAIR_JUDGING_FAILED],
+    (event) =>
+      reactions.paired.failed(
+        event.runId,
+        event.againstRunId,
+        event.failure,
+        spentOf(event),
+      ),
+  ),
+  subscribing<ReplayPairingRefused>(
+    'replays.record-pair-not-judged',
+    ['replay.pairing-refused'],
+    (event) => reactions.paired.refused(event),
+  ),
+  subscribing<ReplayRejudgingWanted>(
+    'replays.ask-to-judge-probed-run-again',
+    ['replay.rejudging-wanted'],
+    (event) => reactions.askingAgain.wanted(event),
+  ),
+  subscribing<ChangeJudgedIntegrationEvent>(
+    'replays.record-probed-run-judged-again',
+    [CHANGE_JUDGED],
+    (event) =>
+      event.round !== 2
+        ? Promise.resolve()
+        : reactions.judging.rejudged({
+            runId: event.runId,
+            scale: event.scale,
+            value: event.value,
+            marks: event.marks,
+            claims: event.claims,
+            passShare: event.passShare,
+            model: event.model,
+            referenced: event.referenced,
+            reasons: event.reasons,
+            spent: spentOf(event),
+          }),
+  ),
+  subscribing<ChangeJudgingFailedIntegrationEvent>(
+    'replays.record-probed-run-unjudged-again',
+    [CHANGE_JUDGING_FAILED],
+    (event) =>
+      event.round !== 2
+        ? Promise.resolve()
+        : reactions.judging.rejudgingFailed(
+            event.runId,
+            event.failure,
+            spentOf(event),
+          ),
+  ),
+  subscribing<ReplayRejudgingRefused>(
+    'replays.record-probed-run-not-judged-again',
+    ['replay.rejudging-refused'],
+    (event) => reactions.judging.rejudgingRefused(event),
+  ),
+  subscribing<ReplayRecheckWanted>(
+    'replays.ask-to-check-probed-run-again',
+    ['replay.recheck-wanted'],
+    (event) => reactions.askingRecheck.wanted(event),
+  ),
+  subscribing<ReplayStackRecheckWanted>(
+    'replays.ask-to-check-probed-stack-again',
+    ['replay.stack-recheck-wanted'],
+    (event) => reactions.askingRecheck.stack(event),
+  ),
+  subscribing<ReplayRecheckUnavailable>(
+    'replays.record-probed-run-not-checked-again',
+    ['replay.recheck-unavailable'],
+    (event) => reactions.reviewing.recheckUnavailable(event),
+  ),
+  subscribing<ReplayChangeRecheckedIntegrationEvent>(
+    'replays.record-probed-run-rechecked',
+    [REPLAY_CHANGE_RECHECKED],
+    (event) => reactions.reviewing.rechecked(event.runId),
   ),
   subscribing<
     ReplaySetEntriesChanged | ReplaySetDeleted | ReplaySetStationGone
@@ -273,6 +420,16 @@ export const replaysSubscribers = (
     'replays.hold-out-search',
     ['replays.search-holding-out-wanted'],
     (event) => reactions.holdingOut.wanted(event.searchId),
+  ),
+  subscribing<SearchReflected>(
+    'replays.notice-search-reflection',
+    ['replays.search-reflected'],
+    (event) => reactions.noticingReflections.reflected(event),
+  ),
+  subscribing<SearchStalledUnreflected>(
+    'replays.notice-unreflected-search-stall',
+    ['replays.search-stalled-unreflected'],
+    (event) => reactions.noticingReflections.stalledUnreflected(event),
   ),
   subscribing<SearchEnded>(
     'replays.let-ended-search-go',

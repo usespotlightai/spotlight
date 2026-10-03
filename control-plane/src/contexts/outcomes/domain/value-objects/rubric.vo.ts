@@ -1,44 +1,44 @@
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
-import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
-import { InvalidRubricScaleError } from '@shared-kernel/domain/exceptions/invalid-rubric-scale.error';
-import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
+import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
+import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 
 const VERSION = /^[0-9a-f]{64}$/;
 
 export const isRubricVersion = (raw: string): boolean => VERSION.test(raw);
 
-export const rubricScaleOf = (text: string): ScoreScale => {
-  try {
-    return ScoreScale.of(RubricScale.of(text).kind);
-  } catch (error) {
-    if (error instanceof InvalidRubricScaleError) {
-      throw InvalidScoreError.ofJudging(`has a rubric whose ${error.message}`);
-    }
-    throw error;
-  }
-};
-
 export class Rubric {
   private constructor(
-    readonly text: string,
+    readonly criteria: JudgeCriteria,
     readonly version: string,
-    readonly scale: ScoreScale,
   ) {}
 
-  static of(input: { text: string; version: string }): Rubric {
-    if (!input.text.trim()) {
-      throw InvalidScoreError.ofJudging('has a rubric to judge by');
-    }
+  static of(input: {
+    text: string | null;
+    claims?: readonly string[];
+    passShare?: number;
+    version: string;
+  }): Rubric {
+    const criteria = JudgeCriteria.of({
+      rubric: input.text,
+      claims: input.claims,
+      passShare: input.passShare,
+    });
+
     if (!isRubricVersion(input.version)) {
       throw InvalidScoreError.ofJudging(
         'names its rubric by a 64-character hex digest',
       );
     }
 
-    return new Rubric(input.text, input.version, rubricScaleOf(input.text));
+    return new Rubric(criteria, input.version);
   }
 
-  static readable(input: { text: string; version: string }): Rubric | null {
+  static readable(input: {
+    text: string | null;
+    claims?: readonly string[];
+    passShare?: number;
+    version: string;
+  }): Rubric | null {
     try {
       return Rubric.of(input);
     } catch (error) {
@@ -47,5 +47,13 @@ export class Rubric {
       }
       throw error;
     }
+  }
+
+  get text(): string | null {
+    return this.criteria.rubric;
+  }
+
+  get scale(): ScoreScale {
+    return this.criteria.scale;
   }
 }

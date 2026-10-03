@@ -7,9 +7,10 @@ import {
   replayView,
 } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { baselineOf } from '@replays/domain/services/baseline';
+import { baselineOf, comparedAgainst } from '@replays/domain/services/baseline';
 import { comparedWith } from '@replays/domain/services/replay-results';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -22,6 +23,7 @@ export class ReadReplayHandler
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly work: WorkPort,
+    private readonly healths: SetHealths,
   ) {}
 
   async execute(query: ReadReplayQuery): Promise<ReplayDetailDto> {
@@ -31,38 +33,42 @@ export class ReadReplayHandler
         query.principal,
       );
       const replay = await this.access.replayOn(clearance, query.replayId);
-      const baseline = baselineOf(await this.replays.ofSet(replay.setId));
-      const against = baseline?.id.equals(replay.id) ? null : baseline;
+      const setReplays = await this.replays.ofSet(replay.setId);
+      const baseline = baselineOf(setReplays);
+      const against = comparedAgainst(replay, setReplays);
       const candidate = await this.candidates.find(replay.candidateId);
       const compared = comparedWith(replay, against);
+      const { minGain } = await this.healths.standardAt(replay.station);
       const titles = new Map(
-        (
-          await this.work.standing(
-            clearance.workspaceId,
-            replay.entries.map((each) => each.original),
-          )
-        ).map((each) => [each.runId.value, each.title]),
+        (await this.work.standing(clearance.workspaceId, replay.originals)).map(
+          (each) => [each.runId.value, each.title],
+        ),
       );
 
       return {
-        ...replayView(replay, candidate, baseline),
+        ...replayView(replay, candidate, baseline, against, minGain),
         baselineReplayId: baseline?.id.value ?? null,
+        comparedWithReplayId: against?.id.value ?? null,
         search: replaySearchView(replay, candidate),
         comparison: compared.map((each) => ({
           originalRunId: each.original,
           taskId: each.taskId,
           title: titles.get(each.original) ?? null,
-          candidate: entryView(each.candidate, replay.scoring),
-          baseline:
-            each.baseline && against
-              ? entryView(each.baseline, against.scoring)
-              : null,
+          candidate: each.candidate.map((copy) =>
+            entryView(copy, replay.scoring),
+          ),
+          baseline: against
+            ? each.baseline.map((copy) => entryView(copy, against.scoring))
+            : [],
+          candidateSuccess: each.candidateSuccess,
+          baselineSuccess: each.baselineSuccess,
           costDelta: each.costDelta,
           msDelta: each.msDelta,
           stepsDelta: each.stepsDelta,
           scoreDelta: each.scoreDelta,
           scoreUncompared: each.scoreUncompared,
           regressed: each.regressed,
+          pair: each.pair,
         })),
       };
     } catch (error) {

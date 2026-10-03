@@ -124,9 +124,9 @@ const held = async () => {
 
   for (const [runId, hour, fingerprint, model, act] of [
     ['run_1', 9, FIRST_CONFIG, 'sonnet', 'sent-back'],
-    ['run_2', 10, FIRST_CONFIG, 'sonnet', 'approved'],
-    ['run_3', 11, SECOND_CONFIG, 'opus', 'approved'],
-    ['run_4', 12, SECOND_CONFIG, 'opus', 'approved'],
+    ['run_2', 10, FIRST_CONFIG, 'sonnet', 'closed'],
+    ['run_3', 11, SECOND_CONFIG, 'opus', 'closed'],
+    ['run_4', 12, SECOND_CONFIG, 'opus', 'closed'],
   ] as const) {
     await records.add(
       costedRecord(runId, {

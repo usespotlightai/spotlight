@@ -8,6 +8,7 @@ import type { ChangeJudgingFailed } from '@outcomes/domain/events/change-judging
 import { ChangeJudgingsInMemory } from '@outcomes/domain/judging.fake-spec';
 import { inTransaction } from '@outcomes/domain/outcomes.fake-spec';
 import type { Verdict } from '@outcomes/domain/services/grounded-verdict';
+import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -61,7 +62,7 @@ const working = async (
       runId: RunId.of('replay_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      rubric: RUBRIC,
+      criteria: JudgeCriteria.of({ rubric: RUBRIC }),
       reference: reference ? RunId.of(reference) : null,
       now: NOW,
     }),
@@ -105,11 +106,79 @@ const working = async (
   return {
     asked,
     judgings,
-    judging: await judgings.of(RunId.of('replay_1')),
+    judging: await judgings.of(RunId.of('replay_1'), 1),
   };
 };
 
 describe('WorkChangeJudgings', () => {
+  it('judges a change claim by claim, saying which claims it met and the share met', async () => {
+    const judgings = new ChangeJudgingsInMemory();
+    await judgings.add(
+      ChangeJudging.asked({
+        runId: RunId.of('replay_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        criteria: JudgeCriteria.of({
+          rubric: null,
+          claims: ['It drains.', 'It keeps the order.'],
+          passShare: 0.5,
+        }),
+        reference: null,
+        now: NOW,
+      }),
+    );
+    judgings.events.length = 0;
+    const asked: JudgeAsk[] = [];
+    const work = new WorkChangeJudgings(
+      judgings,
+      {
+        holds: async () => true,
+        of: async (runId) => evidenceOf(runId, '+drain()'),
+        judgeAt: async () => null,
+      },
+      {
+        available: true,
+        model: 'some/model',
+        judge: async (ask) => {
+          asked.push(ask);
+          return {
+            verdict: {
+              claims: ask.claims.map((_, index) => ({
+                index,
+                met: index === 0,
+                reasons: [
+                  {
+                    text: `Claim ${index}.`,
+                    steps: [2],
+                    hunks: ['api/src/queue.ts#1'],
+                  },
+                ],
+              })),
+            },
+            usage: null,
+          };
+        },
+      },
+      { now: () => NOW, sleep: async () => {} },
+      inTransaction,
+      logger,
+    );
+
+    await work.workDue();
+    await work.idle();
+
+    const [event] = judgings.events as ChangeJudged[];
+    expect(asked[0]).toMatchObject({
+      scale: 'claims',
+      rubric: null,
+      claims: ['It drains.', 'It keeps the order.'],
+    });
+    expect(event?.value).toBe(0.5);
+    expect(event?.marks).toEqual([true, false]);
+    expect(event?.passShare).toBe(0.5);
+    expect(event?.reasons.map((each) => each.claim)).toEqual([0, 1]);
+  });
+
   it('judges the change against the rubric and the reference, citing only its own steps and hunks', async () => {
     const { asked, judgings } = await working(async () => ({
       value: 4,
@@ -164,7 +233,7 @@ describe('WorkChangeJudgings', () => {
       runId: RunId.of('replay_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      rubric: RUBRIC,
+      criteria: JudgeCriteria.of({ rubric: RUBRIC }),
       reference: null,
       now: NOW,
     });

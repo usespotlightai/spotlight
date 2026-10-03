@@ -137,6 +137,7 @@ const ended = (
     outcome,
     failure: ending.failure,
     stopped: ending.stopped,
+    asked: ending.asked,
   });
 
   if (!event.subject) {

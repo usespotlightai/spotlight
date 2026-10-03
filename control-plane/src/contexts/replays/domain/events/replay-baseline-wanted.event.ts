@@ -16,5 +16,6 @@ export class ReplayBaselineWanted implements DomainEvent {
     readonly candidateId: CandidateId,
     readonly ceiling: Spend,
     readonly unpricedRate: Spend | null,
+    readonly repeats: number,
   ) {}
 }

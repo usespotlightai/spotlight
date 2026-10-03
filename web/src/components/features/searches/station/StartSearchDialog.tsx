@@ -1,8 +1,10 @@
-import { CeilingField } from '@/components/features/searches/station/CeilingField';
-import { CountField } from '@/components/features/searches/station/CountField';
+import { ObjectiveChoices } from '@/components/features/searches/station/ObjectiveChoices';
 import { SearchAgentField } from '@/components/features/searches/station/SearchAgentField';
+import { SearchBudgetCounts } from '@/components/features/searches/station/SearchBudgetCounts';
 import { SearchEstimateSummary } from '@/components/features/searches/station/SearchEstimateSummary';
 import { SearchSetField } from '@/components/features/searches/station/SearchSetField';
+import { SearchWarnings } from '@/components/features/searches/station/SearchWarnings';
+import { CeilingField } from '@/components/shared/form/CeilingField';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { useStartSearchForm } from '@/hooks/useStartSearchForm';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
+import { SEARCH_CEILING_NOTE } from '@/lib/search-words';
 
 type StartSearchDialogProps = {
   at: ReplayedStation;
@@ -53,68 +56,62 @@ export function StartSearchDialog({
             sets={sets}
             setId={form.setId}
             problem={form.setProblem}
-            disabled={form.starting}
+            disabled={form.pending}
             onChange={form.chooseSet}
           />
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <CountField
-              label="Iterations"
-              hint="How many times its agent runs, 1 to 10."
-              value={form.inputs.iterations}
-              problem={form.shown('iterations')}
-              disabled={form.starting}
-              onChange={form.change('iterations')}
-            />
-            <CountField
-              label="Candidates per iteration"
-              hint="How many each agent run may propose, 1 to 5."
-              value={form.inputs.perIteration}
-              problem={form.shown('perIteration')}
-              disabled={form.starting}
-              onChange={form.change('perIteration')}
-            />
-            <CountField
-              label="At once"
-              hint="Replay runs it runs together, 1 to 10."
-              value={form.inputs.concurrency}
-              problem={form.shown('concurrency')}
-              disabled={form.starting}
-              onChange={form.change('concurrency')}
-            />
-          </div>
+          <SearchBudgetCounts
+            inputs={form.inputs}
+            problemOf={form.shown}
+            disabled={form.pending}
+            onChange={form.change}
+          />
 
           <CeilingField
             amount={form.inputs.amount}
             currency={form.inputs.currency}
-            problem={form.shown('ceiling')}
-            disabled={form.starting}
             onAmount={form.change('amount')}
             onCurrency={form.change('currency')}
+            placeholder="20.00"
+            disabled={form.pending}
+            problem={form.shown('ceiling')}
+            note={SEARCH_CEILING_NOTE}
+          />
+
+          <ObjectiveChoices
+            value={form.objective}
+            onChange={form.chooseObjective}
+            disabled={form.pending}
+            suggestion={form.objectiveSuggestion}
           />
 
           <SearchAgentField
             harness={form.harness}
             model={form.model}
             effort={form.effort}
-            problem={form.shown('agent')}
-            readOnly={form.starting}
             onHarness={form.chooseHarness}
             onModel={form.chooseModel}
             onEffort={form.chooseEffort}
+            problem={form.shown('agent')}
+            disabled={form.pending}
           />
 
           <SearchEstimateSummary
             estimate={form.estimate.data}
+            repeats={form.settled?.budget.repeats ?? 1}
             asked={form.settled !== null}
             estimating={form.estimate.isFetching}
-            refusal={
-              form.estimate.isError
-                ? (form.estimateRefusal ??
-                  'Fix the field marked above to see an estimate.')
-                : null
-            }
+            refusal={form.estimateRefusal}
           />
+
+          {form.suggested && (
+            <SearchWarnings
+              warnings={form.suggested.warnings}
+              repeats={form.budget?.repeats ?? null}
+              onUseRepeats={(next) => form.change('repeats')(String(next))}
+              disabled={form.pending}
+            />
+          )}
 
           {form.startRefusal && (
             <p role="alert" className="text-destructive text-xs">
@@ -129,9 +126,9 @@ export function StartSearchDialog({
             <Button
               type="submit"
               size="sm"
-              disabled={form.starting || !form.harness}
+              disabled={form.pending || !form.harness}
             >
-              {form.starting ? 'Starting…' : 'Start search'}
+              {form.pending ? 'Starting…' : 'Start search'}
             </Button>
           </DialogFooter>
         </form>

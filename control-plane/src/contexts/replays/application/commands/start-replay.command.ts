@@ -6,6 +6,8 @@ export class StartReplayCommand {
     readonly setId: string,
     readonly candidate: string,
     readonly ceiling: { readonly amount: number; readonly currency: string },
+    readonly repeats: number,
+    readonly probe: boolean,
     readonly actor: Actor,
   ) {}
 }

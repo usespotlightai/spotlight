@@ -1,6 +1,7 @@
 import { useParams } from 'react-router';
 import { InboxItemConversation } from '@/components/features/inbox/conversation/InboxItemConversation';
 import { InboxAsidePage } from '@/components/features/inbox/InboxAsidePage';
+import { InboxGone } from '@/components/features/inbox/InboxGone';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -9,13 +10,14 @@ import { useInboxItemRefresh } from '@/hooks/api/useInboxItemRefresh';
 import { useReadOnSight } from '@/hooks/api/useReadOnSight';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useInboxItemTrail } from '@/hooks/useInboxItemTrail';
+import { taskItemOf } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import { useTrail } from '@/lib/trail';
 
 export function InboxItem() {
   const { slug, itemId } = useParams();
   const inbox = useInbox(slug);
-  const item = inbox.data?.find((each) => each.id === itemId);
+  const item = taskItemOf(inbox.data, itemId);
   const journal = useTaskJournal(slug, item?.aside ? undefined : item?.taskId);
 
   useInboxItemRefresh(slug, item);
@@ -40,13 +42,7 @@ export function InboxItem() {
   }
 
   if (!item || !slug) {
-    return (
-      <PageNotice>
-        <p className="text-muted-foreground text-sm">
-          Nothing here is waiting on you any more.
-        </p>
-      </PageNotice>
-    );
+    return <InboxGone />;
   }
 
   if (item.aside) {

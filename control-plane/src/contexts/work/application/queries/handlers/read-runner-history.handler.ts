@@ -240,6 +240,7 @@ export class ReadRunnerHistoryHandler
               {
                 ...ran,
                 original: run.original,
+                repeat: run.repeat,
                 cost: costOf(digests.get(run.runId) ?? null),
                 succeeded: run.succeeded,
                 reasons: [...run.reasons],

@@ -168,6 +168,7 @@ describe('change review hearing a run begin and end', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
+      asked: false,
     };
     const ofChat: RunEndedIntegrationEvent = {
       ...ofTask,
@@ -209,6 +210,7 @@ describe('change review hearing a run end', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
+      asked: false,
     };
 
     await subscriber?.handle(ofTask);
@@ -304,6 +306,7 @@ describe('change review hearing a stack’s check end', () => {
         null,
         WorkspaceId.of('ws_1'),
         true,
+        false,
         false,
       ),
     );

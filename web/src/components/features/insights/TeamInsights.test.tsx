@@ -437,7 +437,7 @@ describe('TeamInsights', () => {
         sentBackRate: 0.5,
         refused: 1,
         askedTaskIds: [],
-        refusedTaskIds: [],
+        refusedTaskIds: ['task_9'],
       },
       loadBefore: {
         asks: 0,
@@ -475,7 +475,7 @@ describe('TeamInsights', () => {
     );
     expect(screen.getByRole('link', { name: '1' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&next=refused',
+      '/w/acme/team/team_1/insights?tab=runs&taskIds=task_9',
     );
   });
 });

@@ -51,6 +51,21 @@ const item = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const notice = (over: Record<string, unknown> = {}) => ({
+  kind: 'notice',
+  id: 'notice_1',
+  teamId: 'team_1',
+  form: 'ended',
+  headline: 'The search for a better Build config stalled',
+  points: ['Fix the judge’s rubric: it asks for tests a rename never needs.'],
+  link: 'lines/line_1/stations/station_1/searches/search_1',
+  linkLabel: 'Open the search',
+  askedAt: '2026-08-29T13:00:00.000Z',
+  unread: true,
+  resolved: false,
+  ...over,
+});
+
 const renderAt = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
@@ -218,6 +233,44 @@ describe('Inbox', () => {
       expect(
         screen.queryByRole('button', { name: /Resolved/ }),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('a notice about the team’s work', () => {
+    it('sits among what is open, by its headline and first point, unread', () => {
+      waiting.mockReturnValue([notice(), item()]);
+      renderAt('/w/acme/inbox');
+
+      expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
+        '2',
+      );
+
+      const link = screen.getByRole('link', {
+        name: /The search for a better Build config stalled/,
+      });
+      expect(link).toHaveAttribute('href', '/w/acme/inbox/notices/notice_1');
+      expect(link).toHaveTextContent('Unread');
+      expect(link).toHaveTextContent(
+        'Fix the judge’s rubric: it asks for tests a rename never needs.',
+      );
+      expect(
+        link.querySelector('[data-slot="notice-icon"]'),
+      ).toBeInTheDocument();
+    });
+
+    it('moves to resolved once dismissed', () => {
+      waiting.mockReturnValue([
+        notice({ resolved: true, unread: false }),
+        item(),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      expect(
+        screen.getByRole('button', { name: /Resolved/ }),
+      ).toHaveTextContent('1');
+      expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
+        '1',
+      );
     });
   });
 });

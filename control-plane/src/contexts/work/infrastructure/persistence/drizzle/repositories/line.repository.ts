@@ -99,7 +99,15 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     diffs: row.diffs,
     decisions: row.decisions,
     memories: row.memories,
-    judge: row.judge ? StationJudge.of(row.judge) : null,
+    judge: row.judge
+      ? StationJudge.of({
+          rubric: row.judge.rubric,
+          claims: row.judge.claims.length > 0 ? row.judge.claims : null,
+          passShare: row.judge.claims.length > 0 ? row.judge.passShare : null,
+          sample: row.judge.sample,
+          trust: row.judge.trust,
+        })
+      : null,
     alerts: row.alerts.map((each) => StationAlert.of(each)),
     kind: row.kind,
     wayOut: WayOut.of({

@@ -2,12 +2,16 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
+import { GainWithPairs } from '@/components/features/replays/GainWithPairs';
+import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
+import { ScoredRate } from '@/components/features/replays/ScoredRate';
+import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenTasksBadge';
+import { THE_SEARCH_START } from '@/lib/replay-words';
 import {
   candidateName,
   costPerRunShown,
   heldOutShown,
   type SearchCandidate,
-  scoreShown,
 } from '@/lib/search';
 
 type FrontierTableProps = {
@@ -26,6 +30,12 @@ export function FrontierTable({ candidates, currency }: FrontierTableProps) {
           {candidate.onFrontier && (
             <span className="ml-1.5 text-primary">frontier</span>
           )}
+          {candidate.onlyOnSeenTasks && (
+            <OnlyOnSeenTasksBadge
+              mark={candidate.onlyOnSeenTasks}
+              className="ml-1.5 align-middle"
+            />
+          )}
         </>
       ),
     },
@@ -39,14 +49,47 @@ export function FrontierTable({ candidates, currency }: FrontierTableProps) {
       id: 'searched',
       header: 'Searched',
       numeric: true,
-      cell: (candidate) =>
-        `${scoreShown(candidate.searchScore)} of ${candidate.searchScored}`,
+      cell: (candidate) => (
+        <ScoredRate
+          rate={candidate.searchScore}
+          interval={candidate.searchInterval}
+          scored={candidate.searchScored}
+        />
+      ),
+    },
+    {
+      id: 'searched-gain',
+      header: 'Gain on searched',
+      cell: (candidate) => (
+        <GainWithPairs
+          gain={candidate.searchedGain}
+          pairs={candidate.searchedPairs}
+          against={THE_SEARCH_START}
+        />
+      ),
     },
     {
       id: 'held-out',
       header: 'Held out',
       numeric: true,
-      cell: heldOutShown,
+      cell: (candidate) => (
+        <HeldOutScore
+          rate={candidate.heldOutScore}
+          interval={candidate.heldOutInterval}
+          unscored={heldOutShown(candidate)}
+        />
+      ),
+    },
+    {
+      id: 'held-out-gain',
+      header: 'Gain on held out',
+      cell: (candidate) => (
+        <GainWithPairs
+          gain={candidate.heldOutGain}
+          pairs={candidate.heldOutPairs}
+          against={THE_SEARCH_START}
+        />
+      ),
     },
     {
       id: 'cost',

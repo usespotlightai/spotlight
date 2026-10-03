@@ -33,6 +33,7 @@ import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/driz
 import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
+import { DrizzlePairJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pair-judging.repository';
 import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
@@ -247,6 +248,7 @@ beforeAll(async () => {
         deliveries,
         judgings,
         changeJudgings: new DrizzleChangeJudgingRepository(context, quiet),
+        pairJudgings: new DrizzlePairJudgingRepository(context, quiet),
         scores,
         touches,
         failures,

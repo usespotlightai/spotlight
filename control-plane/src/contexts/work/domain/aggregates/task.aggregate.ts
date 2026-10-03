@@ -53,6 +53,7 @@ import type { Clearance } from '@work/domain/value-objects/clearance';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
+import type { Happening } from '@work/domain/value-objects/happening.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
@@ -69,6 +70,7 @@ import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -123,6 +125,7 @@ export class Task extends EventRecorder {
     readonly createdAt: Date,
     readonly raisedAt: StationId | null,
     readonly raisedBy: UserId | null,
+    readonly openedFrom: TaskOrigin,
     readonly pullRequestLink: PullRequestLink | null,
     readonly marks: readonly Mark[],
     readonly finishedAt: Date | null,
@@ -142,13 +145,14 @@ export class Task extends EventRecorder {
     attachments?: readonly Attachment[];
     rank: TaskRank;
     raisedBy?: UserId | null;
-    heard?: boolean;
+    heardFrom?: Happening | null;
     proposedIn?: ProposalOrigin | null;
     now: Date;
     newId: () => string;
   }): Task {
     const station = Task.stationOn(input.line, input.at);
     const raisedBy = input.raisedBy ?? null;
+    const heardFrom = input.heardFrom ?? null;
 
     const task = new Task(
       TaskId.of(input.newId()),
@@ -164,6 +168,7 @@ export class Task extends EventRecorder {
       input.now,
       station.id,
       raisedBy,
+      heardFrom ? TaskOrigin.heardFrom(heardFrom) : TaskOrigin.person(),
       null,
       [],
       null,
@@ -180,7 +185,7 @@ export class Task extends EventRecorder {
         task.stationId,
         raisedBy,
         input.now,
-        input.heard ?? false,
+        heardFrom !== null,
         input.proposedIn ?? null,
       ),
     );
@@ -202,6 +207,7 @@ export class Task extends EventRecorder {
     createdAt: Date;
     raisedAt: StationId | null;
     raisedBy: UserId | null;
+    openedFrom: TaskOrigin;
     pullRequestLink?: PullRequestLink | null;
     marks?: readonly Mark[];
     finishedAt: Date | null;
@@ -242,6 +248,7 @@ export class Task extends EventRecorder {
       input.createdAt,
       input.raisedAt,
       input.raisedBy,
+      input.openedFrom,
       input.pullRequestLink ?? null,
       input.marks ?? [],
       input.finishedAt,
@@ -1309,6 +1316,7 @@ export class Task extends EventRecorder {
       this.createdAt,
       this.raisedAt,
       this.raisedBy,
+      this.openedFrom,
       part.pullRequestLink !== undefined
         ? part.pullRequestLink
         : this.pullRequestLink,

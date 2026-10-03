@@ -322,7 +322,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
           title: opening.title,
           description: opening.description,
           attachments,
-          heard: true,
+          heardFrom: happened.word.happening,
           rank: Placement.atTheBack(
             (await this.placements.placementsAt(opening.at.id)).map(
               (each) => each.rank,

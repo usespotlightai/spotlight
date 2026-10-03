@@ -1,8 +1,10 @@
+import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { chargeOf } from '@replays/domain/services/replay-charge';
+import { improvedOnBestBefore } from '@replays/domain/services/search-improvement';
 import {
   reconciled,
   type SeenRun,
@@ -28,6 +30,7 @@ export class NoteSearchProgress {
   constructor(
     private readonly searches: SearchRepository,
     private readonly replays: ReplayRepository,
+    private readonly healths: SetHealths,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -41,7 +44,9 @@ export class NoteSearchProgress {
     }
 
     return this.changing(searchId, async (search) => {
-      const replay = await this.replays.find(event.replayId);
+      const replays = await this.replays.ofSearch(search.id);
+      const replay = replays.find((each) => each.id.equals(event.replayId));
+      const { minGain } = await this.healths.standardAt(search.station);
 
       return search.replayEnded(
         event.replayId,
@@ -51,6 +56,7 @@ export class NoteSearchProgress {
           : { spent: Spend.none(search.budget.ceiling.currency), unpriced: 0 },
         this.clock.now(),
         this.runIds,
+        improvedOnBestBefore(search, event.replayId, replays, minGain),
       );
     });
   }
@@ -92,6 +98,7 @@ export class NoteSearchProgress {
         await this.replays.ofSearch(fresh.id),
         seen.replayIds,
         runs,
+        (await this.healths.standardAt(fresh.station)).minGain,
         this.clock.now(),
         this.runIds,
       ),

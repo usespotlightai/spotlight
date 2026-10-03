@@ -1,4 +1,10 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import {
+  type RateInterval,
+  rateIntervalOf,
+} from '@replays/domain/services/bootstrap';
+import type { Scoring } from '@replays/domain/services/entry-result';
+import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { Spend } from '@replays/domain/value-objects/spend.vo';
@@ -10,7 +16,10 @@ export interface ReplayTotals {
   readonly endings: Readonly<Record<ReplayEnding, number>>;
   readonly succeeded: number | null;
   readonly successRate: number | null;
+  readonly interval: RateInterval | null;
   readonly scored: number;
+  readonly tasks: number;
+  readonly tasksScored: number;
   readonly unscored: number;
   readonly spent: Spend;
   readonly spentElsewhere: readonly Spend[];
@@ -26,14 +35,23 @@ export interface EntryComparison {
   readonly original: string;
   readonly taskId: string;
   readonly position: number;
-  readonly candidate: ReplayEntry;
-  readonly baseline: ReplayEntry | null;
+  readonly candidate: readonly ReplayEntry[];
+  readonly baseline: readonly ReplayEntry[];
+  readonly candidateSuccess: number | null;
+  readonly baselineSuccess: number | null;
   readonly costDelta: number | null;
   readonly msDelta: number | null;
   readonly stepsDelta: number | null;
   readonly scoreDelta: number | null;
   readonly scoreUncompared: ScoreUncompared | null;
   readonly regressed: boolean;
+  readonly pair: PairOutcome | null;
+}
+
+export interface PairTally {
+  readonly wins: number;
+  readonly losses: number;
+  readonly ties: number;
 }
 
 export const SCORES_UNCOMPARED = [
@@ -62,6 +80,11 @@ const median = (values: readonly number[]): number | null => {
     : (sorted[middle] as number);
 };
 
+const mean = (values: readonly number[]): number | null =>
+  values.length === 0
+    ? null
+    : values.reduce((sum, each) => sum + each, 0) / values.length;
+
 const NO_ENDINGS: Record<ReplayEnding, number> = {
   completed: 0,
   failed: 0,
@@ -71,6 +94,10 @@ const NO_ENDINGS: Record<ReplayEnding, number> = {
   'not-run': 0,
 };
 
+const REGRESSED_BY = 0.5;
+
+const SCORE_EPSILON = 0.01;
+
 const within = (
   entries: readonly ReplayEntry[],
   among: readonly RunId[] | null,
@@ -78,6 +105,60 @@ const within = (
   among
     ? entries.filter((each) => among.some((run) => run.equals(each.original)))
     : entries;
+
+const judgedIn = (
+  entries: readonly ReplayEntry[],
+  scoring: Scoring,
+): readonly ReplayEntry[] =>
+  entries.filter(
+    (each) =>
+      each.isSettled && each.concludedFor(scoring) && each.succeeded !== null,
+  );
+
+export const copiesByOriginal = (
+  entries: readonly ReplayEntry[],
+): ReadonlyMap<string, readonly ReplayEntry[]> => {
+  const copies = new Map<string, ReplayEntry[]>();
+
+  for (const each of [...entries].sort(
+    (one, other) => one.position - other.position,
+  )) {
+    copies.set(each.original.value, [
+      ...(copies.get(each.original.value) ?? []),
+      each,
+    ]);
+  }
+
+  return copies;
+};
+
+const successOf = (
+  copies: readonly ReplayEntry[],
+  scoring: Scoring,
+): number | null => {
+  const judged = judgedIn(copies, scoring);
+
+  return mean(judged.map((each) => (each.succeeded ? 1 : 0)));
+};
+
+export const taskSuccessesOf = (
+  replay: Replay,
+  among: readonly RunId[] | null = null,
+): ReadonlyMap<string, number> => {
+  const successes = new Map<string, number>();
+
+  for (const [original, copies] of copiesByOriginal(
+    within(replay.entries, among),
+  )) {
+    const success = successOf(copies, replay.scoring);
+
+    if (success !== null) {
+      successes.set(original, success);
+    }
+  }
+
+  return successes;
+};
 
 export const totalsOf = (
   replay: Replay,
@@ -106,8 +187,10 @@ export const totalsOf = (
   }
 
   const concluded = settled.filter((each) => each.concludedFor(replay.scoring));
-  const judged = concluded.filter((each) => each.succeeded !== null);
+  const judged = judgedIn(entries, replay.scoring);
   const succeeded = judged.filter((each) => each.succeeded).length;
+  const perTask = [...taskSuccessesOf(replay, among).values()];
+  const interval = rateIntervalOf(perTask, replay.id.value);
   const times = measured.flatMap((each) => (each.ms === null ? [] : [each.ms]));
 
   return {
@@ -115,8 +198,11 @@ export const totalsOf = (
     settled: settled.length,
     endings,
     succeeded: judged.length > 0 ? succeeded : null,
-    successRate: judged.length > 0 ? succeeded / judged.length : null,
+    successRate: interval?.rate ?? null,
+    interval,
     scored: judged.length,
+    tasks: copiesByOriginal(entries).size,
+    tasksScored: perTask.length,
     unscored: concluded.length - judged.length,
     spent: spend.spent,
     spentElsewhere: spend.spentElsewhere,
@@ -129,91 +215,169 @@ export const totalsOf = (
   };
 };
 
-const SCORE_EPSILON = 0.01;
-
 const delta = (
-  candidate: number | null | undefined,
-  baseline: number | null | undefined,
+  candidate: number | null,
+  baseline: number | null,
 ): number | null =>
-  candidate === null ||
-  candidate === undefined ||
-  baseline === null ||
-  baseline === undefined
-    ? null
-    : candidate - baseline;
+  candidate === null || baseline === null ? null : candidate - baseline;
 
-const costOf = (entry: ReplayEntry | null, currency: string): number | null => {
-  const cost = entry?.measures?.cost;
+const meanOver = (
+  copies: readonly ReplayEntry[],
+  measureOf: (entry: ReplayEntry) => number | null | undefined,
+): number | null =>
+  mean(
+    copies.flatMap((each) => {
+      const value = measureOf(each);
 
-  return cost && cost.currency === currency ? cost.amount : null;
-};
+      return value === null || value === undefined ? [] : [value];
+    }),
+  );
+
+const costIn =
+  (currency: string) =>
+  (entry: ReplayEntry): number | null => {
+    const cost = entry.measures?.cost;
+
+    return cost && cost.currency === currency ? cost.amount : null;
+  };
+
+const verdictsOf = (copies: readonly ReplayEntry[]) =>
+  copies.flatMap((each) => (each.verdict ? [each.verdict] : []));
 
 const scoresOf = (
-  candidate: { entry: ReplayEntry; rubric: string | null },
-  baseline: { entry: ReplayEntry | null; rubric: string | null },
+  candidate: { copies: readonly ReplayEntry[]; rubric: string | null },
+  baseline: { copies: readonly ReplayEntry[]; rubric: string | null },
 ): ScoreComparison => {
-  const ours = candidate.entry.verdict;
-  const theirs = baseline.entry?.verdict ?? null;
+  const ours = verdictsOf(candidate.copies);
+  const theirs = verdictsOf(baseline.copies);
+  const every = [...ours, ...theirs];
+  const [first] = every;
 
-  if (!ours || !theirs) {
+  if (ours.length === 0 || theirs.length === 0 || !first) {
     return { delta: null, uncompared: 'unjudged' };
   }
   if (candidate.rubric !== baseline.rubric) {
     return { delta: null, uncompared: 'other-rubric' };
   }
-  if (ours.referenced !== theirs.referenced) {
+  if (every.some((each) => each.referenced !== first.referenced)) {
     return { delta: null, uncompared: 'other-reference' };
   }
+  if (every.some((each) => each.scale !== first.scale)) {
+    return { delta: null, uncompared: null };
+  }
 
-  return { delta: ours.scoredAgainst(theirs), uncompared: null };
+  return {
+    delta: delta(
+      mean(ours.map((each) => each.value)),
+      mean(theirs.map((each) => each.value)),
+    ),
+    uncompared: null,
+  };
 };
 
 const regressedFrom = (
-  candidate: ReplayEntry,
-  baseline: ReplayEntry | null,
+  candidateSuccess: number | null,
+  baselineSuccess: number | null,
   scoreDelta: number | null,
 ): boolean =>
-  baseline !== null &&
-  ((baseline.succeeded === true && candidate.succeeded === false) ||
-    (scoreDelta !== null && scoreDelta < -SCORE_EPSILON));
+  (candidateSuccess !== null &&
+    baselineSuccess !== null &&
+    baselineSuccess - candidateSuccess > REGRESSED_BY) ||
+  (scoreDelta !== null && scoreDelta < -SCORE_EPSILON);
+
+export const pairOutcomeOf = (
+  copies: readonly ReplayEntry[],
+): PairOutcome | null => {
+  const outcomes = copies.flatMap((each) => {
+    const verdict = each.pairing?.verdict;
+
+    return verdict ? [verdict.outcome] : [];
+  });
+  const wins = outcomes.filter((each) => each === 'win').length;
+  const losses = outcomes.filter((each) => each === 'loss').length;
+
+  if (outcomes.length === 0) {
+    return null;
+  }
+  if (wins === losses) {
+    return 'tie';
+  }
+
+  return wins > losses ? 'win' : 'loss';
+};
+
+export const pairTallyOf = (
+  replay: Replay,
+  among: readonly RunId[] | null = null,
+): PairTally | null => {
+  if (!replay.pairsWith) {
+    return null;
+  }
+
+  const outcomes = [...copiesByOriginal(within(replay.entries, among)).values()]
+    .map(pairOutcomeOf)
+    .filter((each) => each !== null);
+
+  return {
+    wins: outcomes.filter((each) => each === 'win').length,
+    losses: outcomes.filter((each) => each === 'loss').length,
+    ties: outcomes.filter((each) => each === 'tie').length,
+  };
+};
 
 export const comparedWith = (
   candidate: Replay,
   baseline: Replay | null,
   among: readonly RunId[] | null = null,
 ): readonly EntryComparison[] => {
-  const currency = candidate.ceiling.currency;
+  const cost = costIn(candidate.ceiling.currency);
+  const against = copiesByOriginal(baseline?.entries ?? []);
 
-  return within(candidate.entries, among)
-    .map((entry) => {
-      const against =
-        baseline?.entries.find((each) =>
-          each.original.equals(entry.original),
-        ) ?? null;
-      const settled = entry.isSettled && (against?.isSettled ?? false);
+  return [...copiesByOriginal(within(candidate.entries, among))]
+    .map(([original, copies]) => {
+      const theirs = against.get(original) ?? [];
+      const settled =
+        copies.every((each) => each.isSettled) &&
+        theirs.length > 0 &&
+        theirs.every((each) => each.isSettled);
+      const measured = (
+        measureOf: (entry: ReplayEntry) => number | null | undefined,
+      ): number | null =>
+        settled
+          ? delta(meanOver(copies, measureOf), meanOver(theirs, measureOf))
+          : null;
       const scores = scoresOf(
-        { entry, rubric: candidate.rubricVersion },
-        { entry: against, rubric: baseline?.rubricVersion ?? null },
+        { copies, rubric: candidate.rubricVersion },
+        { copies: theirs, rubric: baseline?.rubricVersion ?? null },
       );
+      const concluded =
+        settled &&
+        copies.every((each) => each.concludedFor(candidate.scoring)) &&
+        baseline !== null &&
+        theirs.every((each) => each.concludedFor(baseline.scoring));
+      const candidateSuccess = successOf(copies, candidate.scoring);
+      const baselineSuccess = baseline
+        ? successOf(theirs, baseline.scoring)
+        : null;
+      const [first] = copies as [ReplayEntry];
 
       return {
-        original: entry.original.value,
-        taskId: entry.taskId.value,
-        position: entry.position,
-        candidate: entry,
-        baseline: against,
-        costDelta: settled
-          ? delta(costOf(entry, currency), costOf(against, currency))
-          : null,
-        msDelta: settled
-          ? delta(entry.measures?.ms, against?.measures?.ms)
-          : null,
-        stepsDelta: settled
-          ? delta(entry.measures?.steps, against?.measures?.steps)
-          : null,
+        original,
+        taskId: first.taskId.value,
+        position: first.position,
+        candidate: copies,
+        baseline: theirs,
+        candidateSuccess,
+        baselineSuccess,
+        costDelta: measured(cost),
+        msDelta: measured((each) => each.measures?.ms),
+        stepsDelta: measured((each) => each.measures?.steps),
         scoreDelta: scores.delta,
         scoreUncompared: scores.uncompared,
-        regressed: regressedFrom(entry, against, scores.delta),
+        regressed:
+          concluded &&
+          regressedFrom(candidateSuccess, baselineSuccess, scores.delta),
+        pair: pairOutcomeOf(copies),
       };
     })
     .sort(

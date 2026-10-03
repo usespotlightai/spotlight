@@ -49,6 +49,7 @@ const taskRun = async () => {
   });
   await db.insert(schema.task).values({
     id: taskId,
+    openedFrom: 'person',
     workspaceId: 'ws_1',
     stationId,
     title: 'Fix the queue',

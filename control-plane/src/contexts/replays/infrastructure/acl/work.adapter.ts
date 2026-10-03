@@ -1,6 +1,7 @@
 import type {
   AgentRefusal,
   ExaminedCandidate,
+  HarnessOffer,
   HeldSearchRun,
   LiveConfig,
   PickableRun,
@@ -17,6 +18,7 @@ import type {
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
@@ -30,9 +32,11 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { HarnessOffersPort } from '@work/application/ports/harness-offers.port';
 import type {
   ReplayCandidatesPort,
   ReplayStation,
+  CandidateScoring as ScoredBy,
 } from '@work/application/ports/replay-candidates.port';
 import type { ReplayDispatchPort } from '@work/application/ports/replay-dispatch.port';
 import type {
@@ -67,6 +71,13 @@ const replayabilityOf = (each: Replayability): RunReplayability => ({
   reason: each.reason,
 });
 
+const scoringOf = (scoring: ScoredBy): CandidateScoring =>
+  CandidateScoring.of({
+    checksChanges: scoring.checksChanges,
+    judge: scoring.judge && JudgeCriteria.of(scoring.judge),
+    rubricVersion: scoring.rubricVersion,
+  });
+
 export class Work implements WorkPort {
   constructor(
     private readonly runs: ReplayableRunsPort,
@@ -75,7 +86,15 @@ export class Work implements WorkPort {
     private readonly holds: StartingPointHoldsPort,
     private readonly searching: SearchDispatchPort,
     private readonly searchRuns: SearchRunsPort,
+    private readonly offers: HarnessOffersPort,
   ) {}
+
+  harnessOffer(
+    workspaceId: WorkspaceId,
+    harness: string,
+  ): Promise<HarnessOffer | null> {
+    return this.offers.offerOf(workspaceId.value, harness);
+  }
 
   async station(
     lineId: string,
@@ -126,6 +145,7 @@ export class Work implements WorkPort {
       title: each.title,
       state: each.state,
       endedAt: each.endedAt,
+      origin: each.origin,
     }));
   }
 
@@ -140,6 +160,7 @@ export class Work implements WorkPort {
         title: each.title,
         state: each.state,
         endedAt: each.endedAt,
+        origin: each.origin,
       }),
     );
   }
@@ -167,7 +188,7 @@ export class Work implements WorkPort {
           fingerprint: StationFingerprint.of(examined.fingerprint),
           digests: StationDigests.of(examined.digests),
           liveDigests: StationDigests.of(examined.liveDigests),
-          scoring: CandidateScoring.of(examined.scoring),
+          scoring: scoringOf(examined.scoring),
           changedFrom: StationChanges.of(
             StationFingerprint.of(examined.live),
             examined.changes,
@@ -185,7 +206,7 @@ export class Work implements WorkPort {
           lineKey: live.lineKey,
           block: StationBlock.of(live.station),
           fingerprint: StationFingerprint.of(live.fingerprint),
-          scoring: CandidateScoring.of(live.scoring),
+          scoring: scoringOf(live.scoring),
           digests: StationDigests.of(live.digests),
           threshold: live.replayCheck && ReplayThreshold.of(live.replayCheck),
         }

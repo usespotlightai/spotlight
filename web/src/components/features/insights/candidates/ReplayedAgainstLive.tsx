@@ -1,9 +1,10 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
+import { GainVerdict } from '@/components/features/replays/GainVerdict';
+import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import {
-  againstLive,
   costAgainstLiveShown,
-  liveShown,
+  onTheSameShown,
   type SetCandidate,
+  VERSUS_LIVE,
 } from '@/lib/insights-candidates';
 
 type ReplayedAgainstLiveProps = {
@@ -12,7 +13,6 @@ type ReplayedAgainstLiveProps = {
 
 export function ReplayedAgainstLive({ candidate }: ReplayedAgainstLiveProps) {
   const costAgainstLive = costAgainstLiveShown(candidate);
-  const delta = againstLive(candidate).delta;
 
   if (candidate.compared <= 0) {
     return null;
@@ -26,9 +26,22 @@ export function ReplayedAgainstLive({ candidate }: ReplayedAgainstLiveProps) {
           className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs"
         >
           <span className="text-foreground tabular-nums">
-            {liveShown(candidate)}
+            <RateWithInterval
+              rate={candidate.successRateOnCompared}
+              interval={candidate.intervalOnCompared}
+            />{' '}
+            <span className="text-muted-foreground">{VERSUS_LIVE}</span>{' '}
+            <RateWithInterval
+              rate={candidate.live.successRate}
+              interval={candidate.live.interval}
+            />{' '}
+            <span className="text-muted-foreground">
+              {onTheSameShown(candidate.compared)}
+            </span>
           </span>
-          {delta && <DeltaShown delta={delta} against={null} />}
+          {candidate.againstLive && (
+            <GainVerdict gain={candidate.againstLive} />
+          )}
         </div>
       )}
 

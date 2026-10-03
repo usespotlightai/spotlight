@@ -303,6 +303,29 @@ func (c *Client) ProposeCandidate(
 	return out, nil
 }
 
+func (c *Client) RecordCause(
+	ctx context.Context, runID string, record protocol.CauseRecord,
+) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/search-causes", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodPost, path, record, &out); err != nil {
+		var rejection *Rejection
+		if errors.As(err, &rejection) {
+			switch {
+			case rejection.Message != "":
+			case rejection.Status == http.StatusConflict:
+				rejection.Message = "this run proposes candidates; only a run looking into why a search stalled records causes"
+			case rejection.Gone():
+				rejection.Message = "the search no longer holds this run, or the task is none it looks into"
+			}
+		}
+		return nil, fmt.Errorf("record the cause of %s: %w", record.TaskID, err)
+	}
+
+	return out, nil
+}
+
 func (c *Client) Claim(ctx context.Context) (*protocol.Claimed, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
 	defer cancel()
@@ -532,13 +555,22 @@ func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff, 
 	return nil
 }
 
-func (c *Client) RecordChangeStackCheck(
-	ctx context.Context, runID, stackID string, checked protocol.StackChecked,
-) error {
+func checkPath(runID, stackID string, recheck bool, rest string) string {
 	path := fmt.Sprintf(
-		"/api/runs/%s/change-stack-checks/%s",
-		url.PathEscape(runID), url.PathEscape(stackID),
+		"/api/runs/%s/change-stack-checks/%s%s",
+		url.PathEscape(runID), url.PathEscape(stackID), rest,
 	)
+	if recheck {
+		return path + "?recheck=true"
+	}
+
+	return path
+}
+
+func (c *Client) RecordChangeStackCheck(
+	ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackChecked,
+) error {
+	path := checkPath(runID, stackID, recheck, "")
 
 	if err := c.do(ctx, http.MethodPost, path, checked, nil); err != nil {
 		return fmt.Errorf("report a change stack check: %w", err)
@@ -547,11 +579,8 @@ func (c *Client) RecordChangeStackCheck(
 	return nil
 }
 
-func (c *Client) RenewCheckLease(ctx context.Context, runID, stackID string) (bool, error) {
-	path := fmt.Sprintf(
-		"/api/runs/%s/change-stack-checks/%s/lease",
-		url.PathEscape(runID), url.PathEscape(stackID),
-	)
+func (c *Client) RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error) {
+	path := checkPath(runID, stackID, recheck, "/lease")
 
 	var out struct {
 		Stop bool `json:"stop"`

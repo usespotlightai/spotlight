@@ -14,9 +14,17 @@ import type {
 } from '@replays/application/dto/replayed-candidates.dto';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { REPLAYED_PERIODS } from '@replays/domain/value-objects/replayed-period.vo';
+import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { CandidatePullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
 import { StationChangeResponseDto } from '@replays/presentation/http/dto/replay-candidate-resource.response.dto';
+import {
+  GainReadingResponseDto,
+  gainResponse,
+  intervalResponse,
+  RateIntervalResponseDto,
+  SetHealthResponseDto,
+} from '@replays/presentation/http/dto/replays.response.dto';
 
 const RATE =
   'A success rate, 0 to 1, of the past runs it was scored on, each a replay of one past run; a task worked twice counts twice';
@@ -48,7 +56,7 @@ export class ReplayedPeriodResponseDto {
   }
 }
 
-export class ReplaySetHealthResponseDto {
+export class ReplaySetHealthResponseDto extends SetHealthResponseDto {
   @ApiProperty({
     description:
       'How many distinct tasks its runs worked; fewer than its runs when a task was worked more than once',
@@ -84,12 +92,20 @@ export class ReplaySetHealthResponseDto {
   })
   readonly lastAddedAt: string | null;
 
+  @ApiProperty({
+    example: 0.05,
+    description: 'The smallest gain in success its line counts as real',
+  })
+  readonly minGain: number;
+
   constructor(health: ReplaySetHealthDto) {
+    super(health);
     this.tasks = health.tasks;
     this.runs = health.runs;
     this.oldestRunEndedAt = health.oldestRunEndedAt;
     this.newestRunEndedAt = health.newestRunEndedAt;
     this.lastAddedAt = health.lastAddedAt;
+    this.minGain = health.minGain;
   }
 }
 
@@ -113,6 +129,13 @@ export class ReplayedBaselineResponseDto {
   @ApiProperty({ nullable: true, type: Number, description: RATE })
   readonly successRate: number | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
   @ApiProperty({ nullable: true, type: Number, description: PER_RUN })
   readonly costPerRun: number | null;
 
@@ -128,6 +151,7 @@ export class ReplayedBaselineResponseDto {
     this.fingerprint = baseline.fingerprint;
     this.scored = baseline.scored;
     this.successRate = baseline.successRate;
+    this.interval = intervalResponse(baseline.interval);
     this.costPerRun = baseline.costPerRun;
     this.currency = baseline.currency;
     this.endedAt = baseline.endedAt;
@@ -149,6 +173,13 @@ export class ReplayedHeldOutResponseDto {
   })
   readonly score: number | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
   @ApiProperty({ description: 'How many distinct tasks the search held out' })
   readonly tasks: number;
 
@@ -162,6 +193,7 @@ export class ReplayedHeldOutResponseDto {
     this.replayId = heldOut.replayId;
     this.state = heldOut.state;
     this.score = heldOut.score;
+    this.interval = intervalResponse(heldOut.interval);
     this.tasks = heldOut.tasks;
     this.runs = heldOut.runs;
   }
@@ -170,6 +202,13 @@ export class ReplayedHeldOutResponseDto {
 export class ReplayedLiveResponseDto {
   @ApiProperty({ nullable: true, type: Number, description: RATE })
   readonly successRate: number | null;
+
+  @ApiProperty({
+    type: RateIntervalResponseDto,
+    nullable: true,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
 
   @ApiProperty({ nullable: true, type: Number, description: PER_RUN })
   readonly costPerRun: number | null;
@@ -183,6 +222,7 @@ export class ReplayedLiveResponseDto {
 
   constructor(live: ReplayedLiveDto) {
     this.successRate = live.successRate;
+    this.interval = intervalResponse(live.interval);
     this.costPerRun = live.costPerRun;
     this.currency = live.currency;
   }
@@ -197,6 +237,13 @@ export class ReplayedSeedResponseDto {
   })
   readonly successRate: number | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
   @ApiProperty({ nullable: true, type: Number, description: PER_RUN })
   readonly costPerRun: number | null;
 
@@ -205,6 +252,7 @@ export class ReplayedSeedResponseDto {
 
   constructor(seed: ReplayedSeedDto) {
     this.successRate = seed.successRate;
+    this.interval = intervalResponse(seed.interval);
     this.costPerRun = seed.costPerRun;
     this.scored = seed.scored;
   }
@@ -216,6 +264,13 @@ export class ReplayedSearchResponseDto {
 
   @ApiProperty({ enum: SEARCH_STATES })
   readonly state: string;
+
+  @ApiProperty({
+    enum: SEARCH_OBJECTIVES,
+    description:
+      'What the search looks for, which decides whether this candidate is on its frontier',
+  })
+  readonly objective: 'success' | 'cost';
 
   @ApiProperty({ example: '2026-09-30T08:00:00.000Z' })
   readonly startedAt: string;
@@ -230,6 +285,7 @@ export class ReplayedSearchResponseDto {
   constructor(search: ReplayedSearchDto) {
     this.searchId = search.searchId;
     this.state = search.state;
+    this.objective = search.objective;
     this.startedAt = search.startedAt;
     this.seed = new ReplayedSeedResponseDto(search.seed);
   }
@@ -305,6 +361,13 @@ export class ReplayedCandidateResponseDto {
   })
   readonly successRate: number | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
   @ApiProperty({ description: 'How many of its runs it was scored on' })
   readonly scored: number;
 
@@ -339,6 +402,14 @@ export class ReplayedCandidateResponseDto {
   readonly successRateOnCompared: number | null;
 
   @ApiProperty({
+    type: RateIntervalResponseDto,
+    nullable: true,
+    description:
+      'The candidate’s success rate on the compared runs with its 95% interval over their tasks; null without a baseline',
+  })
+  readonly intervalOnCompared: RateIntervalResponseDto | null;
+
+  @ApiProperty({
     nullable: true,
     type: Number,
     description:
@@ -359,6 +430,14 @@ export class ReplayedCandidateResponseDto {
       'How many of its runs the baseline replayed too: the runs live and successRateOnCompared cover',
   })
   readonly compared: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'Its gain in success over the baseline on the compared runs, paired task by task, and whether it is within noise; null without a baseline',
+  })
+  readonly againstLive: GainReadingResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -398,6 +477,7 @@ export class ReplayedCandidateResponseDto {
     this.tasks = candidate.tasks;
     this.runs = candidate.runs;
     this.successRate = candidate.successRate;
+    this.interval = intervalResponse(candidate.interval);
     this.scored = candidate.scored;
     this.heldOut = candidate.heldOut
       ? new ReplayedHeldOutResponseDto(candidate.heldOut)
@@ -409,7 +489,9 @@ export class ReplayedCandidateResponseDto {
       : null;
     this.regressions = candidate.regressions;
     this.compared = candidate.compared;
+    this.againstLive = gainResponse(candidate.againstLive);
     this.successRateOnCompared = candidate.successRateOnCompared;
+    this.intervalOnCompared = intervalResponse(candidate.intervalOnCompared);
     this.costPerRunOnCompared = candidate.costPerRunOnCompared;
     this.onFrontier = candidate.onFrontier;
     this.search = candidate.search

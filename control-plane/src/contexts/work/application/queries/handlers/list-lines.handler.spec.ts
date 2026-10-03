@@ -42,7 +42,12 @@ const board: LineDetail = {
     },
   ],
   repositories: ['acme/api'],
-  replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+  replayCheck: {
+    mostRegressions: 0,
+    ceiling: 10,
+    currency: 'USD',
+    minGain: 0.05,
+  },
   source: { repository: 'acme/platform', path: 'teams/core.tf' },
 };
 
@@ -85,7 +90,12 @@ describe('ListLinesHandler', () => {
           },
         ],
         repositories: ['acme/api'],
-        replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+        replayCheck: {
+          mostRegressions: 0,
+          ceiling: 10,
+          currency: 'USD',
+          minGain: 0.05,
+        },
         source: { repository: 'acme/platform', path: 'teams/core.tf' },
       },
     ]);

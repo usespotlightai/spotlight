@@ -4,6 +4,7 @@ import { ReadReplayQuery } from '@replays/application/queries/read-replay.query'
 import {
   type ReplayedCandidatesSeen,
   replayedCandidatesView,
+  type SetStandard,
 } from '@replays/application/services/replayed-candidate-views';
 import {
   type ReplayedWorld,
@@ -17,6 +18,7 @@ import {
   PERSON,
 } from '@replays/application/services/replays.fake-spec';
 import { searchDetailView } from '@replays/application/services/search-views';
+import { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -31,6 +33,8 @@ import {
   SEARCH_ID,
   STATION,
 } from '@replays/domain/replays.fake-spec';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -45,6 +49,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 let world: ReplayedWorld;
 
+let STANDARDS: ReadonlyMap<string, SetStandard>;
+
 const ended = (original: number, at: string | null): StandingRun => ({
   runId: RunId.of(`original_${original}`),
   taskId: null,
@@ -54,6 +60,7 @@ const ended = (original: number, at: string | null): StandingRun => ({
   title: null,
   state: 'completed',
   endedAt: at ? new Date(at) : null,
+  origin: null,
 });
 
 const seenIn = (
@@ -71,6 +78,7 @@ const seenIn = (
   candidates: world.candidates,
   pullRequests: [],
   standing: [],
+  standards: STANDARDS,
   ...more,
 });
 
@@ -114,11 +122,15 @@ const replayPage = async (replayId: string) => {
     memory.replayRepository,
     memory.candidateRepository,
     work,
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
   ).execute(new ReadReplayQuery(STATION.teamId.value, replayId, PERSON));
 };
 
 beforeEach(() => {
   world = replayedWorld();
+  STANDARDS = new Map([
+    [world.set.id.value, { health: UNREAD_HEALTH, minGain: DEFAULT_MIN_GAIN }],
+  ]);
 });
 
 describe('replayedCandidatesView', () => {
@@ -128,6 +140,7 @@ describe('replayedCandidatesView', () => {
       world.replays,
       world.candidates,
       [],
+      DEFAULT_MIN_GAIN,
     );
 
     for (const name of ['terse', 'wordy']) {
@@ -214,6 +227,7 @@ describe('replayedCandidatesView', () => {
     });
     expect(candidateNamed('terse').live).toEqual({
       successRate: 1,
+      interval: { rate: 1, low: 1, high: 1 },
       costPerRun: 2,
       currency: 'USD',
     });
@@ -236,6 +250,12 @@ describe('replayedCandidatesView', () => {
       oldestRunEndedAt: '2026-07-14T10:00:00.000Z',
       newestRunEndedAt: '2026-09-28T16:20:00.000Z',
       lastAddedAt: NOW.toISOString(),
+      noise: null,
+      saturation: null,
+      judge: null,
+      checks: null,
+      sanity: null,
+      minGain: DEFAULT_MIN_GAIN,
     });
     expect(onlySet().health).toMatchObject({
       oldestRunEndedAt: null,
@@ -295,6 +315,7 @@ describe('replayedCandidatesView', () => {
       world.replays,
       world.candidates,
       [],
+      DEFAULT_MIN_GAIN,
     );
     const searched = page.candidates.find((each) => each.name === 'terse');
 
@@ -303,6 +324,7 @@ describe('replayedCandidatesView', () => {
       replayId: searched?.heldOutReplayId,
       state: searched?.heldOutReplayState,
       score: searched?.heldOutScore,
+      interval: searched?.heldOutInterval,
       tasks: page.split.heldOutTasks,
       runs: world.search.split.heldOut.length,
     });
@@ -329,6 +351,7 @@ describe('replayedCandidatesView', () => {
       world.replays,
       world.candidates,
       [picked],
+      DEFAULT_MIN_GAIN,
     );
 
     expect(
@@ -350,10 +373,12 @@ describe('replayedCandidatesView', () => {
       world.replays,
       world.candidates,
       [],
+      DEFAULT_MIN_GAIN,
     );
 
     expect(candidateNamed('terse').search?.seed).toEqual({
       successRate: page.seed.searchScore,
+      interval: page.seed.searchInterval,
       costPerRun: page.seed.costPerRun,
       scored: page.seed.searchScored,
     });
@@ -421,6 +446,12 @@ describe('replayedCandidatesView', () => {
         searchReplays: [],
         sets: [twice],
         baselines: [baseline],
+        standards: new Map([
+          [
+            twice.id.value,
+            { health: UNREAD_HEALTH, minGain: DEFAULT_MIN_GAIN },
+          ],
+        ]),
       }),
     ).stations;
     const [set] = station?.sets ?? [];
@@ -453,6 +484,7 @@ describe('replayedCandidatesView', () => {
         candidates: world.candidates,
         pullRequests: [],
         standing: [],
+        standards: STANDARDS,
       }),
     ).toMatchObject({ truncated: true, stations: [] });
   });

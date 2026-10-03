@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { listInbox } from '@/lib/api';
-import type { InboxItem } from '@/lib/inbox';
+import type { InboxEntry } from '@/lib/inbox';
 
 export const inboxKeys = {
   forWorkspace: (slug?: string) => ['inbox', slug ?? null] as const,
@@ -18,7 +18,7 @@ export const openedJustNow = (slug: string, now = Date.now()): void => {
 
 export const pollEvery = (
   slug: string,
-  items: readonly InboxItem[] | undefined,
+  items: readonly InboxEntry[] | undefined,
   now = Date.now(),
 ): number => {
   const at = openedAt.get(slug);

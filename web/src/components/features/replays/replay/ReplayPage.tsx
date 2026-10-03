@@ -1,6 +1,7 @@
 import { ListChecks } from 'lucide-react';
 import { useState } from 'react';
 import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
+import { ComparedWith } from '@/components/features/replays/replay/ComparedWith';
 import { EntryDetailOf } from '@/components/features/replays/replay/EntryDetailOf';
 import { ReplayComparison } from '@/components/features/replays/replay/ReplayComparison';
 import { ReplayHeader } from '@/components/features/replays/replay/ReplayHeader';
@@ -21,7 +22,6 @@ import {
   type ReplayedStation,
   type ReplaySet,
   replaySetPath,
-  successAgainst,
 } from '@/lib/replay';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -61,7 +61,7 @@ export function ReplayPage({
             at={at}
             replay={replay}
             setName={set.name}
-            success={successAgainst(replay, baseline)}
+            baseline={baseline}
           />
 
           <section
@@ -69,6 +69,7 @@ export function ReplayPage({
             className="flex flex-col gap-2"
           >
             <ReplaysHeading title="Task by task" id="task-by-task" level="h2" />
+            <ComparedWith at={at} replay={replay} />
 
             {replay.comparison.length === 0 ? (
               <StateBox>

@@ -46,6 +46,7 @@ import { ListTeamSearchesQuery } from '@replays/application/queries/list-team-se
 import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
 import {
   allowed,
+  objectiveIn,
   searchAgentIn,
   searchBudgetIn,
   textAt,
@@ -155,6 +156,7 @@ export class SearchesController {
             stationId,
             textAt(body, 'setId', SET_SAYS),
             searchBudgetIn(body),
+            objectiveIn(body),
             principal,
           ),
         ),
@@ -208,6 +210,7 @@ export class SearchesController {
               textAt(body, 'setId', SET_SAYS),
               searchAgentIn(body),
               searchBudgetIn(body),
+              objectiveIn(body),
               actor,
             ),
           ),

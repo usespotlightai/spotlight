@@ -1,7 +1,12 @@
+import type { GainVerdict } from '@replays/domain/services/gain-reading';
+import { holdsSuccess } from '@replays/domain/services/search-ranking';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
+
 export interface FrontierPoint {
   readonly seed: boolean;
   readonly finished: boolean;
   readonly searchScore: number | null;
+  readonly searchedVerdict: GainVerdict | null;
   readonly costPerRun: number | null;
 }
 
@@ -18,9 +23,15 @@ const dominates = (one: FrontierPoint, other: FrontierPoint): boolean =>
 
 export const frontierOf = <Point extends FrontierPoint>(
   points: readonly Point[],
+  objective: SearchObjective,
 ): readonly Point[] => {
   const standing = points.filter(
-    (each) => each.seed || (each.finished && each.searchScore !== null),
+    (each) =>
+      each.seed ||
+      (each.finished &&
+        each.searchScore !== null &&
+        (objective === 'success' ||
+          holdsSuccess(each.searchedVerdict, each.seed))),
   );
 
   return standing

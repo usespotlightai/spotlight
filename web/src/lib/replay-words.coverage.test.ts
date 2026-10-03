@@ -4,11 +4,14 @@ import { describe, expect, it } from 'vitest';
 import type { EntryReasonResponseDto } from '@/lib/api';
 import {
   checksShown,
+  gainVerdictShown,
   reasonShown,
   refusalShown,
   resultShown,
   stateShown,
+  turnedOutShown,
   uncomparedShown,
+  unpairedShown,
 } from '@/lib/replay-words';
 
 type Schema = {
@@ -48,6 +51,12 @@ const worded = (said: string, code: string) => {
 };
 
 describe('replay words cover every code the API can answer', () => {
+  it('words every reason a change was not judged side by side', () => {
+    for (const code of codesOf('EntryPairResponseDto', 'unpaired')) {
+      worded(unpairedShown(code as never), code);
+    }
+  });
+
   it('words every reason, and every detail a reason carries as a code', () => {
     for (const code of codesOf('EntryReasonResponseDto', 'code')) {
       worded(reasonShown(reason(code as EntryReasonResponseDto['code'])), code);
@@ -89,6 +98,18 @@ describe('replay words cover every code the API can answer', () => {
       'scoreUncompared',
     )) {
       worded(uncomparedShown(why as never), why);
+    }
+  });
+
+  it('words every way a set’s run can have turned out', () => {
+    for (const outcome of codesOf('ReplaySetEntryResponseDto', 'outcome')) {
+      worded(turnedOutShown(outcome as never), outcome);
+    }
+  });
+
+  it('words every verdict a gain reading can give', () => {
+    for (const verdict of codesOf('GainReadingResponseDto', 'verdict')) {
+      worded(gainVerdictShown(verdict as never), verdict);
     }
   });
 });

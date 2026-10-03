@@ -36,6 +36,11 @@ import {
 import { MEMORY_BENCHMARK } from '@outcomes/application/ports/memory-benchmark.port';
 import { MEMORY_USE } from '@outcomes/application/ports/memory-use.port';
 import {
+  PAIR_JUDGE,
+  type PairJudgePort,
+} from '@outcomes/application/ports/pair-judge.port';
+import { PAIR_JUDGING } from '@outcomes/application/ports/pair-judging.port';
+import {
   PEOPLE,
   type PeoplePort,
 } from '@outcomes/application/ports/people.port';
@@ -76,6 +81,7 @@ import { ReadStationJudgeQuery } from '@outcomes/application/queries/read-statio
 import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskChangeJudging } from '@outcomes/application/services/ask-change-judging.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
+import { AskPairJudging } from '@outcomes/application/services/ask-pair-judging.service';
 import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
@@ -105,6 +111,7 @@ import { TrustedJudges } from '@outcomes/application/services/trusted-judges.ser
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { WorkJudgings } from '@outcomes/application/services/work-judgings.service';
+import { WorkPairJudgings } from '@outcomes/application/services/work-pair-judgings.service';
 import { OUTCOMES_EVENT_TYPES } from '@outcomes/domain/event-types';
 import { AlertAsides } from '@outcomes/infrastructure/acl/alert-asides.adapter';
 import { Evidence } from '@outcomes/infrastructure/acl/evidence.adapter';
@@ -114,12 +121,14 @@ import { NoMemoryBenchmark } from '@outcomes/infrastructure/acl/no-memory-benchm
 import { People } from '@outcomes/infrastructure/acl/people.adapter';
 import { Work } from '@outcomes/infrastructure/acl/work.adapter';
 import { OpenRouterJudge } from '@outcomes/infrastructure/judging/openrouter-judge';
+import { OpenRouterPairJudge } from '@outcomes/infrastructure/judging/openrouter-pair-judge';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleFirstSeen } from '@outcomes/infrastructure/persistence/drizzle/readers/first-seen.reader';
 import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
+import { DrizzlePairJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pair-judging.repository';
 import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
@@ -227,7 +236,14 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     useFactory: (env: Env) =>
       new OpenRouterJudge(env.OPENROUTER_API_KEY, env.JUDGE_MODEL),
   },
+  {
+    provide: PAIR_JUDGE,
+    inject: [ENV],
+    useFactory: (env: Env) =>
+      new OpenRouterPairJudge(env.OPENROUTER_API_KEY, env.JUDGE_MODEL),
+  },
   DrizzleRunRecordRepository,
+  DrizzlePairJudgingRepository,
   DrizzleTaskDeliveryRepository,
   DrizzleJudgingRepository,
   DrizzleChangeJudgingRepository,
@@ -514,6 +530,43 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new AskChangeJudging(judgings, judge, transaction, clock),
   },
   {
+    provide: PAIR_JUDGING,
+    inject: [DrizzlePairJudgingRepository, PAIR_JUDGE, TRANSACTION, CLOCK],
+    useFactory: (
+      judgings: DrizzlePairJudgingRepository,
+      judge: PairJudgePort,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new AskPairJudging(judgings, judge, transaction, clock),
+  },
+  {
+    provide: WorkPairJudgings,
+    inject: [
+      DrizzlePairJudgingRepository,
+      EVIDENCE,
+      PAIR_JUDGE,
+      CLOCK,
+      TRANSACTION,
+      LOGGER,
+    ],
+    useFactory: (
+      judgings: DrizzlePairJudgingRepository,
+      evidence: EvidencePort,
+      judge: PairJudgePort,
+      clock: ClockPort,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+    ) =>
+      new WorkPairJudgings(
+        judgings,
+        evidence,
+        judge,
+        clock,
+        transaction,
+        logger,
+      ),
+  },
+  {
     provide: RUN_ACCEPTANCE,
     inject: [DrizzleRunRecordRepository],
     useFactory: (records: DrizzleRunRecordRepository) =>
@@ -554,13 +607,20 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: OwedWorkWorker,
-    inject: [WorkJudgings, WorkChangeJudgings, DropExpiredTombstones, LOGGER],
+    inject: [
+      WorkJudgings,
+      WorkChangeJudgings,
+      WorkPairJudgings,
+      DropExpiredTombstones,
+      LOGGER,
+    ],
     useFactory: (
       judgings: WorkJudgings,
       changes: WorkChangeJudgings,
+      pairs: WorkPairJudgings,
       tombstones: DropExpiredTombstones,
       logger: LoggerPort,
-    ) => new OwedWorkWorker([judgings, changes, tombstones], logger),
+    ) => new OwedWorkWorker([judgings, changes, pairs, tombstones], logger),
   },
   {
     provide: RecordJudgeScore,
@@ -755,6 +815,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       DrizzleTaskDeliveryRepository,
       DrizzleJudgingRepository,
       DrizzleChangeJudgingRepository,
+      DrizzlePairJudgingRepository,
       DrizzleScoreRepository,
       DrizzleTaskTouchesRepository,
       DrizzleTaskFailuresRepository,
@@ -771,6 +832,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       deliveries: DrizzleTaskDeliveryRepository,
       judgings: DrizzleJudgingRepository,
       changeJudgings: DrizzleChangeJudgingRepository,
+      pairJudgings: DrizzlePairJudgingRepository,
       scores: DrizzleScoreRepository,
       touches: DrizzleTaskTouchesRepository,
       failures: DrizzleTaskFailuresRepository,
@@ -788,6 +850,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           deliveries,
           judgings,
           changeJudgings,
+          pairJudgings,
           scores,
           touches,
           failures,

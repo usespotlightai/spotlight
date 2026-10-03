@@ -33,6 +33,21 @@ type entry struct {
 	Result string `json:"result"`
 }
 
+type interval struct {
+	Rate float64 `json:"rate"`
+	Low  float64 `json:"low"`
+	High float64 `json:"high"`
+}
+
+type gainReading struct {
+	Gain    float64 `json:"gain"`
+	Low     float64 `json:"low"`
+	High    float64 `json:"high"`
+	Verdict string  `json:"verdict"`
+	MinGain float64 `json:"minGain"`
+	Tasks   int     `json:"tasks"`
+}
+
 type replayRead struct {
 	ID        string `json:"id"`
 	SetID     string `json:"setId"`
@@ -44,22 +59,27 @@ type replayRead struct {
 	} `json:"candidate"`
 	IsBaseline bool  `json:"isBaseline"`
 	Ceiling    spend `json:"ceiling"`
+	Repeats    int   `json:"repeats"`
 	Totals     struct {
-		Entries     int      `json:"entries"`
-		Settled     int      `json:"settled"`
-		Succeeded   *int     `json:"succeeded"`
-		SuccessRate *float64 `json:"successRate"`
-		Scored      int      `json:"scored"`
-		Unscored    int      `json:"unscored"`
-		Spent       spend    `json:"spent"`
+		Entries     int       `json:"entries"`
+		Settled     int       `json:"settled"`
+		Succeeded   *int      `json:"succeeded"`
+		SuccessRate *float64  `json:"successRate"`
+		Interval    *interval `json:"interval"`
+		Scored      int       `json:"scored"`
+		Tasks       int       `json:"tasks"`
+		TasksScored int       `json:"tasksScored"`
+		Unscored    int       `json:"unscored"`
+		Spent       spend     `json:"spent"`
 	} `json:"totals"`
-	BaselineReplayID *string `json:"baselineReplayId"`
+	AgainstBaseline  *gainReading `json:"againstBaseline"`
+	BaselineReplayID *string      `json:"baselineReplayId"`
 	Comparison       []struct {
 		TaskID     string   `json:"taskId"`
-		Candidate  entry    `json:"candidate"`
-		Baseline   *entry   `json:"baseline"`
+		Candidate  []entry  `json:"candidate"`
+		Baseline   []entry  `json:"baseline"`
 		CostDelta  *float64 `json:"costDelta"`
-		StepsDelta *int     `json:"stepsDelta"`
+		StepsDelta *float64 `json:"stepsDelta"`
 		ScoreDelta *float64 `json:"scoreDelta"`
 		Regressed  bool     `json:"regressed"`
 	} `json:"comparison"`
@@ -87,6 +107,7 @@ const (
 	live         = "live"
 	mostFailures = 5
 	mostBackoff  = 2 * time.Minute
+	mostRepeats  = 5
 )
 
 func backedOff(every time.Duration, failures int) time.Duration {
@@ -154,8 +175,12 @@ func (c *cli) start(args []string) error {
 	candidateNamed := flags.set.String("candidate", "", "the candidate, by name or id, or live")
 	ceiling := flags.set.String("ceiling", "", "the most the replay may spend")
 	currency := flags.set.String("currency", "USD", "the currency the ceiling is in")
+	repeats := flags.set.Int("repeats", 1, "how many times to replay each run")
 	if err := flags.parse(args); err != nil {
 		return err
+	}
+	if *repeats < 1 || *repeats > mostRepeats {
+		return fmt.Errorf("--repeats is how many times to replay each run, from 1 to %d, not %d", mostRepeats, *repeats)
 	}
 	if *setNamed == "" || *candidateNamed == "" {
 		return fmt.Errorf("--set and --candidate name what to replay, and under what\nusage:\n%s", Usage)
@@ -196,7 +221,7 @@ func (c *cli) start(args []string) error {
 	var made started
 	if err := c.api.post(
 		teamPath(at.teamID)+"/replay-sets/"+url.PathEscape(set.ID)+"/replays",
-		map[string]any{"candidate": candidateID, "ceiling": spend{Amount: amount, Currency: *currency}},
+		map[string]any{"candidate": candidateID, "ceiling": spend{Amount: amount, Currency: *currency}, "repeats": *repeats},
 		&raw,
 	); err != nil {
 		return fmt.Errorf("start a replay of %s: %w", set.Name, err)
@@ -210,6 +235,9 @@ func (c *cli) start(args []string) error {
 	}
 
 	fmt.Fprintf(c.out, "Started replay %s of %s under %s, spending at most %s.\n", made.ID, set.Name, *candidateNamed, money(made.Ceiling))
+	if *repeats > 1 {
+		fmt.Fprintf(c.out, "It replays each run %d times, to measure how much its results move by chance.\n", *repeats)
+	}
 	if made.Baseline != nil && made.Baseline.ID != made.ID {
 		fmt.Fprintf(c.out, "Its baseline, the live config, replays beside it as %s, with a ceiling of its own.\n", made.Baseline.ID)
 	}
@@ -404,12 +432,19 @@ func (c *cli) printReplay(read followed) {
 	}
 
 	fmt.Fprintf(c.out, "Replay %s under %s: %s, %s of %s spent%s\n", replay.ID, under, replay.State, money(replay.Totals.Spent), money(replay.Ceiling), overCeiling(replay))
-	fmt.Fprintf(c.out, "Succeeded: %s, %d unscored\n", rate(replay.Totals.Succeeded, replay.Totals.SuccessRate, replay.Totals.Scored), replay.Totals.Unscored)
+	if replay.Repeats > 1 {
+		fmt.Fprintf(c.out, "It replays each run %d times.\n", replay.Repeats)
+	}
+	fmt.Fprintf(c.out, "Succeeded: %s, %d unscored\n", totalsSay(replay), replay.Totals.Unscored)
 	switch {
 	case replay.IsBaseline:
 		fmt.Fprint(c.out, "It is the set's baseline.\n\n")
 	case read.Baseline != nil:
-		fmt.Fprintf(c.out, "Its baseline, %s: %s, %d unscored\n\n", read.Baseline.State, rate(read.Baseline.Totals.Succeeded, read.Baseline.Totals.SuccessRate, read.Baseline.Totals.Scored), read.Baseline.Totals.Unscored)
+		fmt.Fprintf(c.out, "Its baseline, %s: %s, %d unscored\n", read.Baseline.State, totalsSay(*read.Baseline), read.Baseline.Totals.Unscored)
+		if replay.AgainstBaseline != nil {
+			fmt.Fprintf(c.out, "%s\n", gainSays(*replay.AgainstBaseline, "the baseline"))
+		}
+		fmt.Fprintln(c.out)
 	default:
 		fmt.Fprint(c.out, "The set has no baseline to compare against.\n\n")
 	}
@@ -421,13 +456,51 @@ func (c *cli) printReplay(read followed) {
 		if each.Regressed {
 			mark = "REGRESSED"
 		}
-		baseline := "none"
-		if each.Baseline != nil {
-			baseline = each.Baseline.Result
-		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", mark, each.TaskID, each.Candidate.Result, baseline, signed(each.CostDelta), signedInt(each.StepsDelta), signed(each.ScoreDelta))
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", mark, each.TaskID, resultsSay(each.Candidate), resultsSay(each.Baseline), signed(each.CostDelta), signed(each.StepsDelta), signed(each.ScoreDelta))
 	}
 	_ = table.Flush()
+}
+
+func resultsSay(copies []entry) string {
+	if len(copies) == 0 {
+		return "none"
+	}
+
+	results := make([]string, 0, len(copies))
+	for _, each := range copies {
+		results = append(results, each.Result)
+	}
+
+	return strings.Join(results, "/")
+}
+
+func totalsSay(replay replayRead) string {
+	said := rate(replay.Totals.Succeeded, replay.Totals.SuccessRate, replay.Totals.Scored)
+	if replay.Totals.Interval == nil {
+		return said
+	}
+
+	return fmt.Sprintf("%s; %s over %d of %d tasks", said, intervalSays(*replay.Totals.Interval), replay.Totals.TasksScored, replay.Totals.Tasks)
+}
+
+func intervalSays(of interval) string {
+	return fmt.Sprintf("%.0f%% (%.0f–%.0f%%)", of.Rate*100, of.Low*100, of.High*100)
+}
+
+func points(share float64) string {
+	return fmt.Sprintf("%+.0f", share*100)
+}
+
+func gainSays(gain gainReading, against string) string {
+	span := fmt.Sprintf("%s points (%s to %s) over %d tasks", points(gain.Gain), points(gain.Low), points(gain.High), gain.Tasks)
+	switch gain.Verdict {
+	case "better":
+		return fmt.Sprintf("Better than %s: %s, past the %.0f-point gain that counts as real", against, span, gain.MinGain*100)
+	case "worse":
+		return fmt.Sprintf("Worse than %s: %s", against, span)
+	default:
+		return fmt.Sprintf("Within noise of %s: %s, not clearly past the %.0f-point gain that counts as real", against, span, gain.MinGain*100)
+	}
 }
 
 func overCeiling(replay replayRead) string {
@@ -457,14 +530,6 @@ func signed(value *float64) string {
 	}
 
 	return strconv.FormatFloat(*value, 'f', -1, 64)
-}
-
-func signedInt(value *int) string {
-	if value == nil {
-		return "-"
-	}
-
-	return strconv.Itoa(*value)
 }
 
 func (c *cli) printJSON(value any) error {

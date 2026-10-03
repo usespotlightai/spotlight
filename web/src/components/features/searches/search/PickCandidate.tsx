@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { usePickSearchCandidate } from '@/hooks/api/usePickSearchCandidate';
 import { messageOf } from '@/lib/error';
 import { pickRefusal, type SearchCandidate } from '@/lib/search';
+import { ONLY_ON_SEEN_TASKS_PICK } from '@/lib/search-words';
 
 type PickCandidateProps = {
   teamId: string;
@@ -43,6 +44,12 @@ export function PickCandidate({
     <div data-slot="pick" className="flex flex-col gap-1.5 text-xs">
       {opened?.state === 'refused' && (
         <RefusedPullRequest reason={opened.reason} />
+      )}
+
+      {candidate.onlyOnSeenTasks === 'marked' && !opened && (
+        <p role="note" className="text-amber-700 leading-5 dark:text-amber-300">
+          {ONLY_ON_SEEN_TASKS_PICK}
+        </p>
       )}
 
       <div className="flex flex-wrap items-center gap-2">

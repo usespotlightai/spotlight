@@ -8,6 +8,11 @@ import type {
 } from '@replays/application/dto/replayed-candidates.dto';
 import type { StandingRun } from '@replays/application/ports/work.port';
 import { candidatePullRequestView } from '@replays/application/services/config-pull-request-views';
+import {
+  gainView,
+  healthView,
+  intervalView,
+} from '@replays/application/services/replay-views';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -15,11 +20,14 @@ import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate'
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { baselineOf } from '@replays/domain/services/baseline';
 import { frontierOf } from '@replays/domain/services/frontier';
+import { gainBetween } from '@replays/domain/services/gain-reading';
 import { comparedWith } from '@replays/domain/services/replay-results';
 import { scoredOn, scoresOf } from '@replays/domain/services/search-scores';
+import type { SetHealth } from '@replays/domain/services/set-health';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayedCandidatesSeen {
@@ -33,6 +41,12 @@ export interface ReplayedCandidatesSeen {
   readonly candidates: readonly Candidate[];
   readonly pullRequests: readonly ConfigPullRequest[];
   readonly standing: readonly StandingRun[];
+  readonly standards: ReadonlyMap<string, SetStandard>;
+}
+
+export interface SetStandard {
+  readonly health: SetHealth;
+  readonly minGain: number;
 }
 
 interface Placed {
@@ -70,6 +84,7 @@ const extremes = (
 const healthOf = (
   set: ReplaySet,
   standing: readonly StandingRun[],
+  standard: SetStandard,
 ): ReplaySetHealthDto => {
   const ended = extremes(
     standing.flatMap((each) =>
@@ -85,6 +100,8 @@ const healthOf = (
     oldestRunEndedAt: iso(ended.oldest),
     newestRunEndedAt: iso(ended.newest),
     lastAddedAt: iso(extremes(set.entries.map((each) => each.addedAt)).newest),
+    ...healthView(standard.health),
+    minGain: standard.minGain,
   };
 };
 
@@ -103,6 +120,7 @@ const baselineView = (
         ?.fingerprint.value ?? null,
     scored: scored.scored,
     successRate: scored.score,
+    interval: intervalView(scored.interval),
     costPerRun: scored.costPerRun,
     currency,
     endedAt: iso(baseline.endedAt),
@@ -112,19 +130,22 @@ const baselineView = (
 const againstBaseline = (
   replay: Replay | null,
   baseline: Replay | null,
+  minGain: number,
 ): Pick<
   ReplayedCandidateDto,
   | 'live'
   | 'successRateOnCompared'
+  | 'intervalOnCompared'
   | 'costPerRunOnCompared'
   | 'regressions'
   | 'compared'
+  | 'againstLive'
 > => {
   const against =
     replay && baseline && !baseline.id.equals(replay.id) ? baseline : null;
   const compared = (
     replay && against ? comparedWith(replay, against) : []
-  ).filter((each) => each.baseline !== null);
+  ).filter((each) => each.baseline.length > 0);
   const shared = compared.map((each) => RunId.of(each.original));
   const live = against
     ? scoredOn(against, shared, against.ceiling.currency)
@@ -139,16 +160,21 @@ const againstBaseline = (
       against && live
         ? {
             successRate: live.score,
+            interval: intervalView(live.interval),
             costPerRun: live.costPerRun,
             currency: against.ceiling.currency,
           }
         : null,
     successRateOnCompared: ours?.score ?? null,
+    intervalOnCompared: intervalView(ours?.interval ?? null),
     costPerRunOnCompared: ours?.costPerRun ?? null,
     regressions: against
       ? compared.filter((each) => each.regressed).length
       : null,
     compared: compared.length,
+    againstLive: gainView(
+      replay && against && gainBetween(replay, against, minGain, shared),
+    ),
   };
 };
 
@@ -164,9 +190,13 @@ const searchedOf = (
   candidates: readonly Candidate[],
   pullRequests: readonly ConfigPullRequest[],
   baseline: Replay | null,
+  minGain: number,
 ): readonly ReplayedCandidateDto[] => {
-  const scores = scoresOf(search, searchReplays);
-  const frontier = frontierOf([scores.seed, ...scores.candidates]);
+  const scores = scoresOf(search, searchReplays, minGain);
+  const frontier = frontierOf(
+    [scores.seed, ...scores.candidates],
+    search.objective,
+  );
   const currency = search.budget.ceiling.currency;
   const found = (id: ReplayId | null): Replay | null =>
     (id && searchReplays.find((each) => each.id.equals(id))) || null;
@@ -204,12 +234,14 @@ const searchedOf = (
         tasks: search.split.searchedTasks,
         runs: search.split.searched.length,
         successRate: each.searchScore,
+        interval: intervalView(each.searchInterval),
         scored: each.searchScored,
         heldOut: each.heldOutReplayId
           ? {
               replayId: each.heldOutReplayId.value,
               state: heldOut?.current ?? null,
               score: each.heldOutScore,
+              interval: intervalView(each.heldOutInterval),
               tasks: search.split.heldOutTasks,
               runs: scoredOn(heldOut, search.split.heldOutRuns, currency)
                 .scored,
@@ -217,16 +249,18 @@ const searchedOf = (
           : null,
         costPerRun: each.costPerRun,
         currency,
-        ...againstBaseline(replay, baseline),
+        ...againstBaseline(replay, baseline, minGain),
         onFrontier: frontier.some((one) =>
           one.candidateId.equals(each.candidateId),
         ),
         search: {
           searchId: search.id.value,
           state: search.current,
+          objective: search.objective,
           startedAt: search.startedAt.toISOString(),
           seed: {
             successRate: scores.seed.searchScore,
+            interval: intervalView(scores.seed.searchInterval),
             costPerRun: scores.seed.costPerRun,
             scored: scores.seed.searchScored,
           },
@@ -241,6 +275,7 @@ const proposedOf = (
   replay: Replay,
   candidate: Candidate,
   baseline: Replay | null,
+  minGain: number,
 ): ReplayedCandidateDto => {
   const currency = replay.ceiling.currency;
   const scored = scoredOn(replay, null, currency);
@@ -256,13 +291,14 @@ const proposedOf = (
     replayState: replay.current,
     replayedAt: replay.startedAt.toISOString(),
     tasks: tasksIn(replay.entries.map((each) => each.taskId)),
-    runs: replay.entries.length,
+    runs: replay.originals.length,
     successRate: scored.score,
+    interval: intervalView(scored.interval),
     scored: scored.scored,
     heldOut: null,
     costPerRun: scored.costPerRun,
     currency,
-    ...againstBaseline(replay, baseline),
+    ...againstBaseline(replay, baseline, minGain),
     onFrontier: null,
     search: null,
     pullRequest: null,
@@ -292,6 +328,18 @@ export const replayedCandidatesView = (
     ]),
   );
   const baselineAt = (setId: string) => baselines.get(setId) ?? null;
+  const standardOf = (setId: string): SetStandard => {
+    const standard = seen.standards.get(setId);
+
+    if (!standard) {
+      throw new InconsistentStateError(
+        'replayed candidates',
+        `read set ${setId} without its live standard`,
+      );
+    }
+
+    return standard;
+  };
   const searched: Placed[] = seen.searches
     .filter(
       (search) =>
@@ -305,6 +353,7 @@ export const replayedCandidatesView = (
         seen.candidates,
         seen.pullRequests,
         baselineAt(search.setId.value),
+        standardOf(search.setId.value).minGain,
       ).map((candidate) => ({ setId: search.setId.value, candidate })),
     );
   const proposedReplays = grouped(
@@ -332,6 +381,7 @@ export const replayedCandidatesView = (
               replay,
               candidate,
               baselineAt(replay.setId.value),
+              standardOf(replay.setId.value).minGain,
             ),
           },
         ]
@@ -352,7 +402,7 @@ export const replayedCandidatesView = (
               name: set.name.value,
               stationGone: set.isAtGoneStation,
               guardsChanges: set.guardsChanges,
-              health: healthOf(set, seen.standing),
+              health: healthOf(set, seen.standing, standardOf(set.id.value)),
               baseline: baseline
                 ? baselineView(baseline, seen.candidates)
                 : null,

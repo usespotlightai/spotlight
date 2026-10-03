@@ -14,6 +14,7 @@ import {
   type HclBlock,
   HclExpression,
   type HclItem,
+  HclLines,
   type HclValue,
 } from '@platform/hcl/hcl';
 import { formatHcl } from '@platform/hcl/hcl.format';
@@ -316,13 +317,21 @@ const line = (
   const judge = (stationKey: string, set: HeldLineJudge): HclBlock => {
     const path = `judges/${held.teamKey}/${held.key}/${stationKey}.md`;
 
-    files.push({ path, content: set.rubric });
+    if (set.rubric !== undefined) {
+      files.push({ path, content: set.rubric });
+    }
 
     return block(
       'judge',
       [],
       [
-        attribute('rubric', HclExpression.moduleFile(path)),
+        ...(set.rubric === undefined
+          ? []
+          : [attribute('rubric', HclExpression.moduleFile(path))]),
+        ...(set.claims === undefined
+          ? []
+          : [attribute('claims', HclLines.of(set.claims))]),
+        ...present('pass_share', set.passShare),
         attribute('sample', set.sample),
         attribute('trust', set.trust),
       ],
@@ -444,6 +453,7 @@ const line = (
         attribute('most_regressions', policy.mostRegressions),
         attribute('ceiling', policy.ceiling),
         attribute('currency', policy.currency),
+        attribute('min_gain', policy.minGain),
       ],
     );
 

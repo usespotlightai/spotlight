@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
@@ -16,6 +17,7 @@ import {
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
@@ -68,6 +70,13 @@ export class RunnerChangeStackController {
     operationId: 'recordChangeStackCheck',
     summary: 'Report whether each layer of a change stack passed its check',
   })
+  @ApiQuery({
+    name: 'recheck',
+    required: false,
+    type: Boolean,
+    description:
+      'true when the check is the recheck of a replay’s change, as its claim said',
+  })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({
     description: 'Not a run this runner worked, or no such stack of it',
@@ -81,6 +90,7 @@ export class RunnerChangeStackController {
   async recordChangeStackCheck(
     @Param('runId') runId: string,
     @Param('stackId') stackId: string,
+    @Query('recheck') recheck: string | undefined,
     @CurrentRunner() runnerId: string,
     @Body() body: RecordChangeStackCheckRequestDto,
   ): Promise<void> {
@@ -89,6 +99,7 @@ export class RunnerChangeStackController {
         runId,
         runnerId,
         stackId,
+        recheck === 'true',
         body.skipped
           ? {
               code: String(body.skipped.code),

@@ -2,6 +2,8 @@ import type {
   CandidateResponseDto,
   EntryComparisonResponseDto,
   EntryJudgeResponseDto,
+  GainReadingResponseDto,
+  RateIntervalResponseDto,
   ReplayableRunResponseDto,
   ReplayCandidateResourceResponseDto,
   ReplayDetailResponseDto,
@@ -11,18 +13,32 @@ import type {
   ReplayRunResponseDto,
   ReplaySetEntryResponseDto,
   ReplaySetResponseDto,
+  SetCompositionResponseDto,
+  SetNoiseResponseDto,
   SpendResponseDto,
+  SuggestedRunResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
-import type { Delta } from '@/lib/insights';
-import { percentShown } from '@/lib/judge';
-import type { ReplayState } from '@/lib/replay-words';
+import { claimsMetShown, percentShown } from '@/lib/judge';
+import {
+  AGAINST_LIVE,
+  AN_EARLIER_BASELINE,
+  EFFORT_NOT_HIGHER,
+  MODEL_NOT_OFFERED,
+  NO_HARNESS,
+  type ReplayState,
+  SAME_AS_LIVE,
+  THE_BASELINE,
+  THE_SEARCH_START,
+} from '@/lib/replay-words';
 import { stationPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
 export type ReplaySet = ReplaySetResponseDto;
 export type ReplaySetEntry = ReplaySetEntryResponseDto;
 export type ReplayableRun = ReplayableRunResponseDto;
+export type SuggestedRun = SuggestedRunResponseDto;
+export type SetComposition = SetCompositionResponseDto;
 export type Replay = ReplayResponseDto;
 export type ReplayDetail = ReplayDetailResponseDto;
 export type EntryComparison = EntryComparisonResponseDto;
@@ -32,6 +48,9 @@ export type ReplayedCandidate = CandidateResponseDto;
 export type ReplayRun = ReplayRunResponseDto;
 export type ReplayOfRun = ReplayOfRunResponseDto;
 export type Spend = SpendResponseDto;
+export type RateInterval = RateIntervalResponseDto;
+export type GainReading = GainReadingResponseDto;
+export type SetNoise = SetNoiseResponseDto;
 
 export type ReplayedStation = {
   readonly slug: string;
@@ -47,6 +66,13 @@ export const REPLAYS_ANCHOR = 'replays';
 export const PROPOSE_ANCHOR = 'propose-candidate';
 
 const MOST_CEILING = 1_000;
+
+export type CountBounds = { readonly least: number; readonly most: number };
+
+export const REPEAT_BOUNDS = {
+  least: 1,
+  most: 5,
+} as const satisfies CountBounds;
 
 export const USUAL_CURRENCY = 'USD';
 
@@ -98,54 +124,11 @@ export const candidateShown = (candidate: ReplayedCandidate | null): string => {
 export const titleShown = (title: string | null): string =>
   title ?? 'A deleted task';
 
-const successShown = (rate: number | null): string =>
-  rate === null ? 'No score yet' : `${percentShown(rate)} succeeded`;
-
-export type SuccessComparison = {
-  readonly now: string;
-  readonly baseline: string | null;
-  readonly delta: Delta | null;
-};
-
-const POINT = 100;
-
-const pointsShown = (points: number): string =>
-  points === 0
-    ? 'No change'
-    : `${points > 0 ? '+' : '−'}${Math.abs(points)} pts`;
-
-export const successAgainst = (
-  replay: Pick<Replay, 'id' | 'totals'>,
+export const baselineTotalsFor = (
+  replay: Pick<Replay, 'id'>,
   baseline: Pick<Replay, 'id' | 'totals'> | null,
-): SuccessComparison =>
-  successBetween(
-    replay.totals.successRate,
-    baseline && baseline.id !== replay.id ? baseline.totals.successRate : null,
-  );
-
-export const successBetween = (
-  now: number | null,
-  against: number | null,
-): SuccessComparison => {
-  if (now === null || against === null) {
-    return {
-      now: successShown(now),
-      baseline: against === null ? null : percentShown(against),
-      delta: null,
-    };
-  }
-
-  const points = Math.round((now - against) * POINT);
-
-  return {
-    now: successShown(now),
-    baseline: percentShown(against),
-    delta: {
-      shown: pointsShown(points),
-      tone: points === 0 ? 'flat' : points > 0 ? 'good' : 'bad',
-    },
-  };
-};
+): Replay['totals'] | null =>
+  baseline && baseline.id !== replay.id ? baseline.totals : null;
 
 export const scoredShown = (totals: Replay['totals']): string =>
   `${totals.scored} scored · ${totals.unscored} unscored`;
@@ -165,6 +148,7 @@ export type SpendBreakdown = {
   readonly runs: Spend;
   readonly drafting: Spend;
   readonly judging: Spend;
+  readonly pairing: Spend;
 };
 
 const summed = (
@@ -197,6 +181,10 @@ export const spendBreakdown = (
       replay.entries.flatMap((each) => each.judgingSpent?.spends ?? []),
       currency,
     ),
+    pairing: summed(
+      replay.entries.flatMap((each) => each.pairingSpent?.spends ?? []),
+      currency,
+    ),
   };
 };
 
@@ -224,6 +212,31 @@ export const msDeltaShown = (delta: number | null): string =>
 export const scoreDeltaShown = (delta: number | null): string =>
   delta === null ? '–' : `${signOf(delta)}${Math.abs(delta).toFixed(2)}`;
 
+export const counterpartShown = (
+  counterpartId: string,
+  candidate: Replay['candidate'],
+  baselineId: string | null,
+): string => {
+  if (counterpartId === baselineId) {
+    return THE_BASELINE;
+  }
+
+  switch (candidate?.kind) {
+    case 'searched':
+      return THE_SEARCH_START;
+    case 'sanity':
+      return AGAINST_LIVE;
+    default:
+      return AN_EARLIER_BASELINE;
+  }
+};
+
+export type EntryPair = NonNullable<ReplayEntry['pair']>;
+
+export const readingsDisagree = (pair: EntryPair): boolean =>
+  pair.outcome === 'tie' &&
+  new Set(pair.readings.map((each) => each.outcome)).size > 1;
+
 export const judgeScoreShown = (
   judge: EntryJudgeResponseDto | null,
 ): string => {
@@ -231,11 +244,16 @@ export const judgeScoreShown = (
     return '–';
   }
 
-  return judge.scale === 'yes-no'
-    ? judge.score >= 1
-      ? 'Yes'
-      : 'No'
-    : `${judge.score}/5`;
+  switch (judge.scale) {
+    case 'yes-no':
+      return judge.score >= 1 ? 'Yes' : 'No';
+    case 'claims':
+      return judge.marks
+        ? claimsMetShown(judge.marks)
+        : `${percentShown(judge.score)} of claims met`;
+    default:
+      return `${judge.score}/5`;
+  }
 };
 
 export const candidatesInOrder = (
@@ -278,4 +296,127 @@ export const ceilingFrom = (
   }
 
   return { amount: value, currency };
+};
+
+export const countFrom = (
+  text: string,
+  { least, most }: CountBounds,
+): number | string => {
+  const value = Number(text);
+
+  return text.trim() !== '' &&
+    Number.isInteger(value) &&
+    value >= least &&
+    value <= most
+    ? value
+    : `Give a whole number from ${least} to ${most}.`;
+};
+
+export const repeatsFrom = (text: string): number | string =>
+  countFrom(text, REPEAT_BOUNDS);
+
+export type CopiesTally = {
+  readonly succeeded: number;
+  readonly scored: number;
+};
+
+export const copiesTally = (entries: readonly ReplayEntry[]): CopiesTally => ({
+  succeeded: entries.filter((each) => each.result === 'succeeded').length,
+  scored: entries.filter(
+    (each) => each.result === 'succeeded' || each.result === 'failed',
+  ).length,
+});
+
+export const meanCostOf = (entries: readonly ReplayEntry[]): Spend | null => {
+  const costs = entries.map((each) => each.cost);
+  const [first] = costs;
+
+  if (
+    !first ||
+    costs.some((each) => each === null || each.currency !== first.currency)
+  ) {
+    return null;
+  }
+
+  return {
+    amount:
+      costs.reduce((total, each) => total + (each?.amount ?? 0), 0) /
+      costs.length,
+    currency: first.currency,
+  };
+};
+
+export const meanMsOf = (entries: readonly ReplayEntry[]): number | null => {
+  const timed = entries.flatMap((each) => (each.ms === null ? [] : [each.ms]));
+
+  return timed.length === 0
+    ? null
+    : timed.reduce((total, each) => total + each, 0) / timed.length;
+};
+
+export const taskTitleIn = (set: ReplaySet, taskId: string): string =>
+  titleShown(set.entries.find((each) => each.taskId === taskId)?.title ?? null);
+
+export const flippedTitles = (set: ReplaySet, noise: SetNoise): string[] =>
+  noise.flippedTasks.map((taskId) => taskTitleIn(set, taskId));
+
+export type StationLive = {
+  readonly harness: string | null;
+  readonly model: string | null;
+  readonly effort: string | null;
+};
+
+export const strongerRefusal = (
+  set: ReplaySet,
+  live: StationLive | null,
+): string | null => startRefusal(set) ?? (live?.harness ? null : NO_HARNESS);
+
+export const strongerAsked = (
+  live: StationLive,
+  model: string,
+  effort: string,
+): { model?: string; effort?: string } | null => {
+  const asked = {
+    ...(model && model !== live.model ? { model } : {}),
+    ...(effort && effort !== live.effort ? { effort } : {}),
+  };
+
+  return Object.keys(asked).length > 0 ? asked : null;
+};
+
+export type HarnessOffer = {
+  readonly models: readonly string[];
+  readonly efforts: readonly string[];
+};
+
+export const higherEffortsThan = (
+  effort: string | null,
+  offer: HarnessOffer,
+): string[] =>
+  offer.efforts.slice(
+    (effort === null ? 0 : offer.efforts.indexOf(effort)) + 1,
+  );
+
+export const strongerProblem = (
+  live: StationLive,
+  model: string,
+  effort: string,
+  offer: HarnessOffer,
+): string | null => {
+  const asked = strongerAsked(live, model, effort);
+
+  if (!asked) {
+    return SAME_AS_LIVE;
+  }
+  if (asked.model && !offer.models.includes(asked.model)) {
+    return MODEL_NOT_OFFERED;
+  }
+  if (
+    asked.effort &&
+    !higherEffortsThan(live.effort, offer).includes(asked.effort)
+  ) {
+    return EFFORT_NOT_HIGHER;
+  }
+
+  return null;
 };

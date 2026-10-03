@@ -23,6 +23,28 @@ const SET: ReplaySet = {
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
+  minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: [],
 };
 
@@ -56,7 +78,12 @@ describe('GuardsChangesToggle', () => {
       <GuardsChangesToggle
         teamId="team_1"
         set={{ ...SET, guardsChanges: true }}
-        replayCheck={{ mostRegressions: 2, ceiling: 10, currency: 'USD' }}
+        replayCheck={{
+          mostRegressions: 2,
+          ceiling: 10,
+          currency: 'USD',
+          minGain: 0.05,
+        }}
       />,
     );
 

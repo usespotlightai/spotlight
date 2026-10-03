@@ -29,7 +29,12 @@ export class CheckReadings {
       this.sets.find(check.setId),
     ]);
     const baseline = replay
-      ? baselineFor(ofSet, check.liveDigests.scoring, replay.originals)
+      ? baselineFor(
+          ofSet,
+          check.liveDigests.scoring,
+          replay.originals,
+          check.repeats,
+        )
       : null;
     const awaiting =
       check.awaitsBaseline && set !== null && !set.isAtGoneStation;

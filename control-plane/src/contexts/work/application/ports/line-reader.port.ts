@@ -3,7 +3,9 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
 
 export interface StationJudgeSummary {
-  readonly rubric: string;
+  readonly rubric: string | null;
+  readonly claims: readonly string[];
+  readonly passShare: number;
   readonly sample: number;
   readonly trust: number;
 }
@@ -49,6 +51,7 @@ export interface LineReplayCheckSummary {
   readonly mostRegressions: number;
   readonly ceiling: number;
   readonly currency: string;
+  readonly minGain: number;
 }
 
 export interface LineDetail {

@@ -1,8 +1,11 @@
+import { claimsAgreementOf } from '@outcomes/domain/services/judge-agreement';
 import {
   type JudgeStanding,
   showsJudgeOf,
+  standingOf,
   trendShownOf,
 } from '@outcomes/domain/services/judge-standing';
+import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
 
 const CURRENT = 'c'.repeat(64);
@@ -46,5 +49,23 @@ describe('trendShownOf', () => {
     expect(trendShownOf(TREND, false)).toEqual([
       { day: '2026-09-30', judged: 4, judge: null, labelled: 3, people: 0.67 },
     ]);
+  });
+});
+
+describe('standingOf a judge of claims', () => {
+  it('trusts it by its kappa over every claim', () => {
+    const agreed = Array.from({ length: 10 }, (_, at) => ({
+      judge: [at % 2 === 0, true],
+      human: [at % 2 === 0, at % 3 !== 0],
+    }));
+    const agreement = claimsAgreementOf(agreed);
+
+    expect(
+      standingOf({ trust: 0.1, scale: ScoreScale.claims(), agreement }),
+    ).toMatchObject({
+      measure: 'kappa',
+      agreement: agreement.kappa,
+      pairs: 10,
+    });
   });
 });

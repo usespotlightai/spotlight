@@ -1,7 +1,8 @@
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CandidateChoices } from '@/components/features/replays/set/CandidateChoices';
-import { FieldInput } from '@/components/shared/form/FieldInput';
+import { CountField } from '@/components/features/searches/station/CountField';
+import { CeilingField } from '@/components/shared/form/CeilingField';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,39 +19,32 @@ import { messageOf } from '@/lib/error';
 import {
   ceilingFrom,
   LIVE,
+  type Replay,
   type ReplayedStation,
   type ReplaySet,
+  repeatsFrom,
   replayPath,
   USUAL_CURRENCY,
 } from '@/lib/replay';
+import { baselineNoteShown, REPEATS_HINT } from '@/lib/replay-words';
 import { useForwardTrail } from '@/lib/trail';
 
 const LABEL = 'font-medium text-foreground text-xs';
 
+const FIRST_REPEATS = '1';
+
 type StartReplayDialogProps = {
   at: ReplayedStation;
   set: ReplaySet;
-  hasBaseline: boolean;
+  baseline: Pick<Replay, 'repeats'> | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-};
-
-const baselineNote = (proposed: boolean, hasBaseline: boolean): string => {
-  if (!proposed) {
-    return hasBaseline
-      ? 'If the set’s runs changed since its baseline, this replay of the live config becomes the new baseline; otherwise it replays beside it.'
-      : 'The set has no baseline yet, so this replay of the live config becomes it.';
-  }
-
-  return hasBaseline
-    ? 'If the set’s runs changed since its baseline, a new baseline of the live config also starts, with a ceiling of its own the same as this one.'
-    : 'The set has no baseline yet, so a baseline of the live config also starts beside it, with a ceiling of its own the same as this one: the two together may spend up to twice it.';
 };
 
 export function StartReplayDialog({
   at,
   set,
-  hasBaseline,
+  baseline,
   open,
   onOpenChange,
 }: StartReplayDialogProps) {
@@ -58,21 +52,22 @@ export function StartReplayDialog({
   const start = useStartReplay();
   const navigate = useNavigate();
   const trail = useForwardTrail();
-  const amountId = useId();
-  const currencyId = useId();
-  const errorId = useId();
   const [candidate, setCandidate] = useState(LIVE);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(USUAL_CURRENCY);
+  const [repeatsText, setRepeatsText] = useState(FIRST_REPEATS);
   const [tried, setTried] = useState(false);
 
   const ceiling = ceilingFrom(amount, currency);
+  const repeats = repeatsFrom(repeatsText);
   const problem = typeof ceiling === 'string' ? ceiling : null;
+  const repeatsProblem = typeof repeats === 'string' ? repeats : null;
 
   const forget = () => {
     setCandidate(LIVE);
     setAmount('');
     setCurrency(USUAL_CURRENCY);
+    setRepeatsText(FIRST_REPEATS);
     setTried(false);
     start.reset();
   };
@@ -81,12 +76,16 @@ export function StartReplayDialog({
     event.preventDefault();
     setTried(true);
 
-    if (typeof ceiling === 'string' || start.isPending) {
+    if (
+      typeof ceiling === 'string' ||
+      typeof repeats === 'string' ||
+      start.isPending
+    ) {
       return;
     }
 
     start.mutate(
-      { teamId: at.teamId, setId: set.id, candidate, ceiling },
+      { teamId: at.teamId, setId: set.id, candidate, ceiling, repeats },
       {
         onSuccess: (started) => {
           onOpenChange(false);
@@ -128,50 +127,40 @@ export function StartReplayDialog({
             />
           </fieldset>
 
-          <div className="flex flex-col gap-1.5">
-            <span className={LABEL}>Ceiling</span>
-            <div className="flex gap-2">
-              <label htmlFor={amountId} className="sr-only">
-                Most it may spend
-              </label>
-              <FieldInput
-                id={amountId}
-                name="amount"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="5.00"
-                disabled={start.isPending}
-                aria-invalid={shownProblem !== null}
-                aria-describedby={shownProblem || refused ? errorId : undefined}
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-              />
-              <label htmlFor={currencyId} className="sr-only">
-                Currency
-              </label>
-              <FieldInput
-                id={currencyId}
-                name="currency"
-                autoComplete="off"
-                maxLength={3}
-                className="w-20 uppercase"
-                disabled={start.isPending}
-                value={currency}
-                onChange={(event) =>
-                  setCurrency(event.target.value.toUpperCase())
-                }
-              />
-            </div>
-            <p className="text-muted-foreground text-xs leading-5">
-              The most this replay may spend, counting its runs and the drafting
-              and judging of their changes. Once it is spent, nothing more
-              starts. {baselineNote(candidate !== LIVE, hasBaseline)}
-            </p>
-          </div>
+          <CountField
+            label="Repeats"
+            hint={REPEATS_HINT}
+            value={repeatsText}
+            problem={tried ? repeatsProblem : null}
+            disabled={start.isPending}
+            onChange={setRepeatsText}
+          />
 
-          {(shownProblem || refused) && (
-            <p id={errorId} role="alert" className="text-destructive text-xs">
-              {shownProblem ?? refused}
+          <CeilingField
+            amount={amount}
+            currency={currency}
+            onAmount={setAmount}
+            onCurrency={setCurrency}
+            placeholder="5.00"
+            disabled={start.isPending}
+            problem={shownProblem}
+            note={
+              <>
+                The most this replay may spend, counting its runs and the
+                drafting and judging of their changes. Once it is spent, nothing
+                more starts.{' '}
+                {baselineNoteShown(
+                  candidate !== LIVE,
+                  baseline?.repeats ?? null,
+                  typeof repeats === 'number' ? repeats : null,
+                )}
+              </>
+            }
+          />
+
+          {refused && (
+            <p role="alert" className="text-destructive text-xs">
+              {refused}
             </p>
           )}
 

@@ -7,7 +7,7 @@ describe('memoryComparisonOf', () => {
   const at = new Date('2026-09-30T10:00:00.000Z');
   const records = [
     endedRecord('run_1', { taskId: 'task_1' }).actedOn(
-      NextAct.of('approved', at),
+      NextAct.of('closed', at),
     ),
     endedRecord('run_2', { taskId: 'task_2' }).actedOn(
       NextAct.of('sent-back', at),

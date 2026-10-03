@@ -41,6 +41,7 @@ export interface HclField {
 export interface HclGuardedBlock {
   readonly type: string;
   readonly was: Readonly<Record<string, HclLiteral>> | null;
+  readonly unset?: Readonly<Record<string, HclLiteral>>;
 }
 
 export interface HclBlockEdit {
@@ -732,7 +733,7 @@ class Editing {
     for (const [name, was] of Object.entries(guarded.was)) {
       const current = await this.resolved(
         held.body.attributes.find((each) => each.name === name),
-        null,
+        guarded.unset?.[name] ?? null,
         `${guarded.type}.${name}`,
       );
 

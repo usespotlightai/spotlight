@@ -17,6 +17,7 @@ export class RunJudged implements DomainEvent {
     readonly rubricVersion: string,
     readonly scale: ScoreScale,
     readonly value: number,
+    readonly marks: readonly boolean[] | null,
     readonly model: string,
     readonly reasons: readonly JudgeReason[],
     readonly seen: SeenEvidence,

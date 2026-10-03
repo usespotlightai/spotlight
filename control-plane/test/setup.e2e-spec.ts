@@ -8,9 +8,11 @@ import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/driz
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { SystemClock } from '@platform/time/system-clock';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { InboxItemDto } from '@work/application/dto/inbox.dto';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
 import { settling } from '@work/domain/services/setup-list';
@@ -136,6 +138,7 @@ describe('the setup lists a team still has standing', () => {
 
     await db.insert(schema.task).values({
       id: randomUUID(),
+      openedFrom: 'person',
       workspaceId: workspaceId.value,
       stationId: stationId.value,
       title: 'Something else',
@@ -157,7 +160,14 @@ describe('the inbox item a setup list stands as', () => {
         new DrizzleWorkspaceReader(db),
         new DrizzlePersonReader(db),
       ),
-    ).execute(new ListInboxQuery(waiting.slug, waiting.owner.value));
+      new SystemClock(),
+    )
+      .execute(new ListInboxQuery(waiting.slug, waiting.owner.value))
+      .then((entries) =>
+        (entries ?? []).filter(
+          (each): each is InboxItemDto => each.kind === 'task',
+        ),
+      );
 
   let waiting: Awaited<ReturnType<typeof openTeam>>;
 
@@ -166,7 +176,7 @@ describe('the inbox item a setup list stands as', () => {
   });
 
   it('stands owed while a step is still to be taken', async () => {
-    const [item] = (await inbox()) ?? [];
+    const [item] = await inbox();
 
     expect(item?.title).toBe('Set up your team');
     expect(item?.resolved).toBe(false);
@@ -179,7 +189,7 @@ describe('the inbox item a setup list stands as', () => {
       waiting.list.settled(saying as NonNullable<typeof saying>),
     );
 
-    const [item] = (await inbox()) ?? [];
+    const [item] = await inbox();
 
     expect(item?.resolved).toBe(true);
     expect(item?.notes[item.notes.length - 1]?.body).toBe(

@@ -3,6 +3,7 @@ import { CardList } from '@/components/features/replays/CardList';
 import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { AddRunsButton } from '@/components/features/replays/set/AddRunsButton';
+import { SetCompositionBox } from '@/components/features/replays/set/SetCompositionBox';
 import { SetRunRow } from '@/components/features/replays/set/SetRunRow';
 import { EmptyState } from '@/components/shared/EmptyState';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
@@ -35,17 +36,20 @@ export function SetRuns({ at, set, frozen }: SetRunsProps) {
           </EmptyState>
         </StateBox>
       ) : (
-        <CardList label="Runs in the set">
-          {set.entries.map((entry) => (
-            <SetRunRow
-              key={entry.runId}
-              at={at}
-              setId={set.id}
-              entry={entry}
-              frozen={frozen}
-            />
-          ))}
-        </CardList>
+        <>
+          <SetCompositionBox composition={set.composition} />
+          <CardList label="Runs in the set">
+            {set.entries.map((entry) => (
+              <SetRunRow
+                key={entry.runId}
+                at={at}
+                setId={set.id}
+                entry={entry}
+                frozen={frozen}
+              />
+            ))}
+          </CardList>
+        </>
       )}
     </section>
   );

@@ -60,6 +60,8 @@ const allottedOrRefused = (budget: SearchBudget, split: HeldOutSplit) => {
 describe('SearchBudget', () => {
   it(`runs its agent 1 to ${MOST_ITERATIONS} times, taking 1 to ${MOST_PER_ITERATION} candidates from each, ${SEARCH_CONCURRENCY} replay runs at once unless told`, () => {
     expect(aBudget().concurrency).toBe(SEARCH_CONCURRENCY);
+    expect(aBudget().repeats).toBe(1);
+    expect(aBudget({ repeats: 5 }).repeats).toBe(5);
     expect(aBudget({ concurrency: MOST_CONCURRENCY }).concurrency).toBe(
       MOST_CONCURRENCY,
     );
@@ -71,6 +73,8 @@ describe('SearchBudget', () => {
       { perIteration: 0 },
       { perIteration: MOST_PER_ITERATION + 1 },
       { concurrency: MOST_CONCURRENCY + 1 },
+      { repeats: 6 },
+      { repeats: 1.5 },
     ]) {
       expect(() => aBudget(refused)).toThrow(InvalidSearchError);
     }
