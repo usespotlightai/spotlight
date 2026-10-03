@@ -37,7 +37,13 @@ const SET: ReplaySet = {
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
-  noise: null,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
   minGain: 0.05,
   entries: [],
 };

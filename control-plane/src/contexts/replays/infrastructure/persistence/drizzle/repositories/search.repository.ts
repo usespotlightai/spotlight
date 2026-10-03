@@ -169,6 +169,7 @@ const toSearch = (
       concurrency: row.concurrency,
       repeats: row.repeats,
     }),
+    objective: row.objective,
     split: HeldOutSplit.rehydrate({
       searched: splitEntriesOf(row.split.searched),
       heldOut: splitEntriesOf(row.split.heldOut),
@@ -420,6 +421,7 @@ export class DrizzleSearchRepository implements SearchRepository {
       ceilingCurrency: held.budget.ceiling.currency,
       concurrency: held.budget.concurrency,
       repeats: held.budget.repeats,
+      objective: held.objective,
       split: {
         searched: storedSplitEntries(held.split.searched),
         heldOut: storedSplitEntries(held.split.heldOut),

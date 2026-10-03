@@ -57,6 +57,7 @@ export class StackCheck extends EventRecorder {
     readonly runId: RunId,
     readonly taskId: TaskId | null,
     readonly replay: boolean,
+    readonly recheck: boolean,
     readonly workspaceId: WorkspaceId,
     readonly request: CheckRequest,
     readonly phase: CheckPhase,
@@ -87,6 +88,7 @@ export class StackCheck extends EventRecorder {
       input.runId,
       input.taskId,
       input.replay,
+      false,
       input.workspaceId,
       input.request,
       'waiting',
@@ -106,6 +108,7 @@ export class StackCheck extends EventRecorder {
     runId: RunId;
     taskId: TaskId | null;
     replay: boolean;
+    recheck: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
     phase: CheckPhase;
@@ -132,12 +135,19 @@ export class StackCheck extends EventRecorder {
         `has been reordered ${input.rounds} times`,
       );
     }
+    if (input.recheck && (!input.replay || input.rounds > 0)) {
+      throw new InconsistentStateError(
+        'change stack check',
+        'is a recheck only of a replay’s change, and never reorders it',
+      );
+    }
 
     return new StackCheck(
       input.stackId,
       input.runId,
       input.taskId,
       input.replay,
+      input.recheck,
       input.workspaceId,
       input.request,
       input.phase,
@@ -150,6 +160,37 @@ export class StackCheck extends EventRecorder {
       input.provisioning,
       input.version,
     );
+  }
+
+  rechecking(now: Date): StackCheck {
+    if (!this.replay || this.recheck || !this.foundWhole) {
+      throw InvalidChangeStackError.because(
+        'is checked again only once, as a replay’s change its first check passed or failed',
+      );
+    }
+
+    return new StackCheck(
+      this.stackId,
+      this.runId,
+      this.taskId,
+      this.replay,
+      true,
+      this.workspaceId,
+      this.request,
+      'waiting',
+      this.entries,
+      0,
+      null,
+      CheckClaim.none(),
+      now,
+      null,
+      Provisioning.none(),
+      0,
+    );
+  }
+
+  get foundWhole(): boolean {
+    return this.phase === 'checked' && Boolean(this.outcome?.whole);
   }
 
   get reordering(): boolean {
@@ -435,6 +476,7 @@ export class StackCheck extends EventRecorder {
         this.workspaceId,
         this.outcome?.whole?.passed ?? null,
         this.replay,
+        this.recheck,
       ),
     );
 
@@ -459,6 +501,7 @@ export class StackCheck extends EventRecorder {
       outcome.state === 'checked' &&
       outcome.whole?.passed === true &&
       outcome.layers.some((layer) => !layer.passed) &&
+      !this.recheck &&
       this.rounds < MOST_REORDERINGS;
 
     const found = this.with({
@@ -480,6 +523,7 @@ export class StackCheck extends EventRecorder {
               ? (outcome.whole?.passed ?? null)
               : null,
             this.replay,
+            this.recheck,
           ),
     );
 
@@ -523,6 +567,7 @@ export class StackCheck extends EventRecorder {
       this.runId,
       this.taskId,
       this.replay,
+      this.recheck,
       this.workspaceId,
       this.request,
       change.phase ?? this.phase,

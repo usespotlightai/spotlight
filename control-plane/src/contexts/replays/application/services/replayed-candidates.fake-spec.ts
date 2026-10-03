@@ -115,6 +115,7 @@ export const heldOutOf = (
 
   return held.heldOutFrom(
     replays,
+    0.05,
     () => ReplayId.of('replay_held_terse'),
     later(4),
   );

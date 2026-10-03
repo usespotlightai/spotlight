@@ -47,6 +47,7 @@ const candidate = (
 
 const SEARCH = {
   searchId: 'search_1',
+  objective: 'success' as const,
   state: 'finished' as const,
   startedAt: daysAgo(5),
   seed: { successRate: 0.55, interval: null, costPerRun: 0.6, scored: 18 },
@@ -72,6 +73,28 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       flippedTasks: ['task_3', 'task_9', 'task_14'],
       measuredAt: daysAgo(4),
     },
+    saturation: {
+      replayId: 'replay_live_impl_noise',
+      rate: 0.57,
+      interval: { rate: 0.57, low: 0.38, high: 0.75 },
+      saturated: false,
+      measuredAt: daysAgo(4),
+    },
+    judge: {
+      replayId: 'replay_live_impl_noise',
+      compared: 20,
+      agreed: 14,
+      pending: 0,
+      agreement: 0.7,
+      unstable: true,
+    },
+    checks: {
+      replayId: 'replay_live_impl_noise',
+      rechecked: 18,
+      pending: 0,
+      flaky: [],
+    },
+    sanity: null,
     minGain: 0.05,
   },
   baseline: {
@@ -248,6 +271,10 @@ const REVIEW_SET: CandidatesSet = {
     newestRunEndedAt: daysAgo(8),
     lastAddedAt: daysAgo(8),
     noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
     minGain: 0.05,
   },
   baseline: {

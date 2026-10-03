@@ -3,6 +3,8 @@ import type { AbandonReplayChecks } from '@replays/application/services/abandon-
 import type { AbandonReplays } from '@replays/application/services/abandon-replays.service';
 import type { AbandonSearches } from '@replays/application/services/abandon-searches.service';
 import type { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
+import type { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
+import type { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import type { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
@@ -23,11 +25,16 @@ import type { ReplayCheckAbandonmentDue } from '@replays/domain/events/replay-ch
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import type { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
+import type { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
+import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
+import type { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
+import type { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import type { ReplaySetAbandonmentDue } from '@replays/domain/events/replay-set-abandonment-due.event';
 import type { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
 import type { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import type { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
 import type { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
+import type { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-recheck-wanted.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import type { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-due.event';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
@@ -51,6 +58,10 @@ import {
   REPLAY_CHANGE_CHECKED,
   type ReplayChangeCheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-change-checked.integration-event';
+import {
+  REPLAY_CHANGE_RECHECKED,
+  type ReplayChangeRecheckedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/replay-change-rechecked.integration-event';
 import {
   REPLAY_DIGESTED,
   type ReplayDigestedIntegrationEvent,
@@ -87,6 +98,8 @@ export interface ReplaysReactions {
   readonly digesting: NoteReplayDigested;
   readonly reviewing: NoteReplayChangeReviewed;
   readonly asking: AskForReplayJudging;
+  readonly askingAgain: AskForReplayRejudging;
+  readonly askingRecheck: AskForReplayRecheck;
   readonly judging: NoteReplayJudged;
   readonly holding: HoldSetStartingPoints;
   readonly lettingGo: LetReplayRunsGo;
@@ -162,21 +175,83 @@ export const replaysSubscribers = (
     'replays.record-replay-run-judged',
     [CHANGE_JUDGED],
     (event) =>
-      reactions.judging.judged({
-        runId: event.runId,
-        scale: event.scale,
-        value: event.value,
-        model: event.model,
-        referenced: event.referenced,
-        reasons: event.reasons,
-        spent: spentOf(event),
-      }),
+      event.round !== 1
+        ? Promise.resolve()
+        : reactions.judging.judged({
+            runId: event.runId,
+            scale: event.scale,
+            value: event.value,
+            model: event.model,
+            referenced: event.referenced,
+            reasons: event.reasons,
+            spent: spentOf(event),
+          }),
   ),
   subscribing<ChangeJudgingFailedIntegrationEvent>(
     'replays.record-replay-run-unjudged',
     [CHANGE_JUDGING_FAILED],
     (event) =>
-      reactions.judging.failed(event.runId, event.failure, spentOf(event)),
+      event.round !== 1
+        ? Promise.resolve()
+        : reactions.judging.failed(event.runId, event.failure, spentOf(event)),
+  ),
+  subscribing<ReplayRejudgingWanted>(
+    'replays.ask-to-judge-probed-run-again',
+    ['replay.rejudging-wanted'],
+    (event) => reactions.askingAgain.wanted(event),
+  ),
+  subscribing<ChangeJudgedIntegrationEvent>(
+    'replays.record-probed-run-judged-again',
+    [CHANGE_JUDGED],
+    (event) =>
+      event.round !== 2
+        ? Promise.resolve()
+        : reactions.judging.rejudged({
+            runId: event.runId,
+            scale: event.scale,
+            value: event.value,
+            model: event.model,
+            referenced: event.referenced,
+            reasons: event.reasons,
+            spent: spentOf(event),
+          }),
+  ),
+  subscribing<ChangeJudgingFailedIntegrationEvent>(
+    'replays.record-probed-run-unjudged-again',
+    [CHANGE_JUDGING_FAILED],
+    (event) =>
+      event.round !== 2
+        ? Promise.resolve()
+        : reactions.judging.rejudgingFailed(
+            event.runId,
+            event.failure,
+            spentOf(event),
+          ),
+  ),
+  subscribing<ReplayRejudgingRefused>(
+    'replays.record-probed-run-not-judged-again',
+    ['replay.rejudging-refused'],
+    (event) => reactions.judging.rejudgingRefused(event),
+  ),
+  subscribing<ReplayRecheckWanted>(
+    'replays.ask-to-check-probed-run-again',
+    ['replay.recheck-wanted'],
+    (event) => reactions.askingRecheck.wanted(event),
+  ),
+  subscribing<ReplayStackRecheckWanted>(
+    'replays.ask-to-check-probed-stack-again',
+    ['replay.stack-recheck-wanted'],
+    (event) => reactions.askingRecheck.stack(event),
+  ),
+  subscribing<ReplayRecheckUnavailable>(
+    'replays.record-probed-run-not-checked-again',
+    ['replay.recheck-unavailable'],
+    (event) => reactions.reviewing.recheckUnavailable(event),
+  ),
+  subscribing<ReplayChangeRecheckedIntegrationEvent>(
+    'replays.record-probed-run-rechecked',
+    [REPLAY_CHANGE_RECHECKED],
+    (event) => reactions.reviewing.rechecked(event.runId),
   ),
   subscribing<
     ReplaySetEntriesChanged | ReplaySetDeleted | ReplaySetStationGone

@@ -1,6 +1,8 @@
 import { AskChangeJudging } from '@outcomes/application/services/ask-change-judging.service';
+import type { ChangeJudged } from '@outcomes/domain/events/change-judged.event';
 import { ChangeJudgingsInMemory } from '@outcomes/domain/judging.fake-spec';
 import { inTransaction } from '@outcomes/domain/outcomes.fake-spec';
+import { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -42,7 +44,7 @@ describe('AskChangeJudging', () => {
     expect(await service.ask(ASK)).toBe('asked');
     expect(await service.ask(ASK)).toBe('asked');
 
-    const held = await judgings.of(RunId.of('replay_1'));
+    const held = await judgings.of(RunId.of('replay_1'), 1);
     expect(judgings.held.size).toBe(1);
     expect(held?.reference?.value).toBe('original_1');
     expect(held?.scale.kind).toBe('yes-no');
@@ -73,6 +75,105 @@ describe('AskChangeJudging', () => {
     await service.ask({ ...ASK, runId: 'replay_2', teamId: 'team_2' });
     await judgings.removeForTeam(WorkspaceId.of('ws_1'), TeamId.of('team_1'));
 
-    expect([...judgings.held.keys()]).toEqual(['replay_2']);
+    expect([...judgings.held.keys()]).toEqual(['replay_2#1']);
+  });
+});
+
+const judgedAs = async (
+  judgings: ChangeJudgingsInMemory,
+  round: 1 | 2,
+  value: boolean,
+): Promise<void> => {
+  const run = RunId.of('replay_1');
+  const owed = await judgings.of(run, round);
+
+  if (!owed) {
+    throw new Error('no judging was owed');
+  }
+  await judgings.save(owed.leased(NOW));
+
+  const leased = await judgings.of(run, round);
+
+  if (!leased) {
+    throw new Error('the judging went');
+  }
+  await judgings.save(
+    leased.judged({
+      verdict: {
+        value,
+        reasons: [{ text: 'It drains.', steps: [2], hunks: [] }],
+      },
+      usage: null,
+      evidence: JudgeEvidence.of({
+        runId: run,
+        title: 'Drain',
+        description: null,
+        steps: [
+          {
+            index: 2,
+            kind: 'said',
+            tool: null,
+            text: 'Draining it in order.',
+            given: null,
+            returned: null,
+          },
+        ],
+        hunks: [],
+      }),
+      model: 'some/model',
+      now: NOW,
+    }),
+  );
+};
+
+describe('AskChangeJudging, asked again', () => {
+  const judgedOnce = async () => {
+    const asked = asking();
+
+    await asked.service.ask(ASK);
+    await judgedAs(asked.judgings, 1, true);
+    asked.judgings.events.length = 0;
+
+    return asked;
+  };
+
+  it('owes a second judging of a change judged once, with the first one’s rubric and reference, once however often it is asked', async () => {
+    const { judgings, service } = await judgedOnce();
+
+    expect(await service.askAgain('replay_1')).toBe('asked');
+    expect(await service.askAgain('replay_1')).toBe('asked');
+
+    const second = await judgings.of(RunId.of('replay_1'), 2);
+    expect(judgings.held.size).toBe(2);
+    expect(second?.round).toBe(2);
+    expect(second?.owesWork).toBe(true);
+    expect(second?.rubric).toBe(ASK.rubric);
+    expect(second?.reference?.value).toBe('original_1');
+    expect((await judgings.of(RunId.of('replay_1'), 1))?.judgedAt).toEqual(NOW);
+  });
+
+  it('asks nothing again of a change not yet judged', async () => {
+    const { judgings, service } = asking();
+
+    await service.ask(ASK);
+
+    expect(await service.askAgain('replay_1')).toBe('unjudged');
+    expect(await service.askAgain('replay_9')).toBe('unjudged');
+    expect(judgings.held.size).toBe(1);
+  });
+
+  it('says which round a verdict is from', async () => {
+    const { judgings, service } = await judgedOnce();
+
+    await service.askAgain('replay_1');
+    await judgedAs(judgings, 2, false);
+
+    expect(
+      (judgings.events as ChangeJudged[]).map((each) => [
+        each.kind,
+        each.round,
+        each.value,
+      ]),
+    ).toEqual([['change-judging.judged', 2, 0]]);
   });
 });

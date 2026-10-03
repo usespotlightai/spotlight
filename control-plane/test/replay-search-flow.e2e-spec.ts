@@ -803,6 +803,7 @@ describe('a search for a better station config', () => {
       perReplayAllotments: Record<string, { amount: number }>;
       estimatedDuration: number | null;
       minGain: number;
+      objective: string;
       warnings: { kind: string }[];
     };
     const split = HeldOutSplit.drawn({
@@ -844,6 +845,7 @@ describe('a search for a better station config', () => {
     );
     expect(estimate.estimatedDuration).toBeNull();
     expect(estimate.minGain).toBe(0.05);
+    expect(estimate.objective).toBe('success');
     expect(estimate.warnings).toEqual([{ kind: 'noise-unmeasured' }]);
     expect(await db.select().from(schema.replaySearch)).toEqual([]);
 
@@ -1311,6 +1313,130 @@ describe('a search for a better station config', () => {
     );
 
     expect((await searchRow(id))?.ending).toBe('stalled');
+  }, 120_000);
+
+  it('looks for the same success at less cost on a set its live config saturates, ranking the cheapest candidate that succeeds as often first and leaving out a cheaper one that succeeds less', async () => {
+    const setId = await openSet('Saturated', tenTasks);
+    const live = (
+      await owner()
+        .post(`${teamPath()}/replay-sets/${setId}/replays`, {
+          candidate: 'live',
+          ceiling: { amount: 20, currency: 'USD' },
+        })
+        .expect(201)
+    ).body as { id: string };
+
+    await eventually(async () => {
+      await drained(() => ({ score: 5, cost: 0.2 }));
+      return (await replayRow(live.id))?.state === 'finished';
+    }, WITHIN);
+    expect(await replayEnded(live.id)).toBe('finished');
+
+    const budget = { iterations: 2, perIteration: 3, ceiling: 60 };
+    const estimate = (
+      await owner()
+        .post(`${stationPath()}/searches/estimate`, {
+          setId,
+          budget: budgetOf(budget),
+        })
+        .expect(200)
+    ).body as { objective: string; warnings: { kind: string }[] };
+    const told = (
+      await owner()
+        .post(`${stationPath()}/searches/estimate`, {
+          setId,
+          budget: budgetOf(budget),
+          objective: 'success',
+        })
+        .expect(200)
+    ).body as { objective: string };
+
+    expect(estimate.objective).toBe('cost');
+    expect(estimate.warnings).toContainEqual({ kind: 'saturated', rate: 1 });
+    expect(told.objective).toBe('success');
+    await owner()
+      .post(`${stationPath()}/searches/estimate`, {
+        setId,
+        budget: budgetOf(budget),
+        objective: 'speed',
+      })
+      .expect(422);
+
+    const started = (
+      await owner()
+        .post(`${stationPath()}/searches`, {
+          setId,
+          agent: { harness: 'claude-code', model: null, effort: 'high' },
+          budget: budgetOf(budget),
+        })
+        .expect(201)
+    ).body as { id: string; seedReplayId: string; objective: string };
+
+    expect(started.objective).toBe('cost');
+    expect((await searchRow(started.id))?.objective).toBe('cost');
+
+    await drained(() => ({ score: 5, cost: 0.2 }));
+    expect(await replayEnded(started.seedReplayId)).toBe('finished');
+
+    const agent = await heldSearchRun(started.id, 1);
+    const block = await liveBlock();
+    const proposed = async (name: string, prompt: string) =>
+      (
+        await proposing(agent, {
+          name,
+          hypothesis: `${name} keeps the queue drained for less.`,
+          station: { ...block, prompt },
+        }).expect(201)
+      ).body as { replayId: string };
+    const cheap = await proposed('cheap', 'Build it, briefly.');
+    const dear = await proposed('dear', 'Build it, at length.');
+    const careless = await proposed('careless', 'Build it, carelessly.');
+    const plan = (replayId: string) =>
+      replayId === cheap.replayId
+        ? { score: 5, cost: 0.05 }
+        : replayId === dear.replayId
+          ? { score: 5, cost: 0.5 }
+          : replayId === careless.replayId
+            ? { score: 1, cost: 0.01 }
+            : { score: 5, cost: 0.05 };
+
+    await endedSearchRun(agent);
+    await drained(plan);
+    await endedSearchRun(await heldSearchRun(started.id, 2));
+    await eventually(async () => {
+      await app.get(AdvanceSearches).workDue();
+      return (await searchRow(started.id))?.heldOut.length === 1;
+    }, WITHIN);
+    await drained(plan);
+    await eventually(async () => {
+      await judged();
+      return (await searchState(started.id)) === 'finished';
+    }, WITHIN);
+
+    const done = (await searchOf(started.id)) as SearchRead & {
+      objective: string;
+    };
+
+    expect(done.objective).toBe('cost');
+    expect(done.best?.name).toBe('cheap');
+    expect(done.candidates.map((each) => [each.name, each.onFrontier])).toEqual(
+      [
+        ['cheap', true],
+        ['dear', false],
+        ['careless', false],
+      ],
+    );
+    expect(
+      done.candidates.map((each) => [each.name, each.heldOutReplayId !== null]),
+    ).toEqual([
+      ['cheap', true],
+      ['dear', false],
+      ['careless', false],
+    ]);
+    expect(done.frontier).toEqual([
+      done.candidates[0]?.candidateId,
+      done.seed.candidateId,
+    ]);
   }, 120_000);
 
   it('opens one pull request in the line’s config repository for a picked candidate, records why one was refused, and tries again when picked again', async () => {

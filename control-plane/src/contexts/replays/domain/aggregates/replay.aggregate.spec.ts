@@ -4,6 +4,8 @@ import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wan
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
+import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
+import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
@@ -256,6 +258,7 @@ describe('Replay', () => {
               baseline: false,
               ceiling: Spend.ceiling(3, 'USD'),
               repeats: 1,
+              probe: false,
             }),
           ),
         ),
@@ -848,6 +851,216 @@ describe('Replay', () => {
         replay.spendAmong([RunId.of('original_0'), RunId.of('original_2')])
           .spent.amount,
       ).toBe(1);
+    });
+  });
+
+  describe('probing its set', () => {
+    const live = candidateOf('live', 'candidate_probe', RUBRIC, 'npm test');
+    const checksOf = (state: 'passed' | 'failed') =>
+      ChangeChecks.of([
+        {
+          repository: 'api',
+          state,
+          skip: null,
+          failedAt: state === 'failed' ? ['the whole change'] : [],
+          spent: ModelSpent.of([], 0),
+        },
+      ]);
+    const verdictOf = (value: number) =>
+      JudgeVerdict.of({
+        scale: 'number',
+        value,
+        model: 'judge/model',
+        referenced: false,
+        reasons: [],
+      });
+    const judgedRun = (
+      replay: Replay,
+      at: number,
+      checks: ChangeChecks,
+      value: number,
+    ) =>
+      replay
+        .confirmed(run(at), FINGERPRINT, NOW)
+        .ended(run(at), endOf('completed'))
+        .measured(run(at), measuresOf(1), later(61_000))
+        .reviewed(run(at), checks, null, later(62_000))
+        .judged(
+          run(at),
+          verdictOf(value),
+          ModelSpent.of([Spend.of(0.5, 'USD')], 0),
+          later(63_000),
+        );
+    const probed = (ceiling = 100) => {
+      const reservedProbe = reserved(
+        aReplay({
+          count: 1,
+          repeats: 2,
+          candidate: live,
+          probe: true,
+          ceiling,
+        }),
+        2,
+      );
+
+      return judgedRun(
+        judgedRun(reservedProbe, 0, checksOf('passed'), 5),
+        1,
+        checksOf('failed'),
+        2,
+      );
+    };
+
+    it('probes only the live config, every run more than once, outside any search', () => {
+      expect(aReplay({ candidate: live, repeats: 3, probe: true }).probe).toBe(
+        true,
+      );
+      expect(() =>
+        aReplay({
+          candidate: candidateOf('proposed'),
+          repeats: 3,
+          probe: true,
+        }),
+      ).toThrow(InvalidReplayError);
+      expect(() => aReplay({ candidate: live, probe: true })).toThrow(
+        InvalidReplayError,
+      );
+      expect(() =>
+        aReplay({
+          candidate: live,
+          repeats: 3,
+          probe: true,
+          among: [RunId.of('original_0')],
+        }),
+      ).toThrow(InvalidReplayError);
+      expect(() =>
+        aReplay({ candidate: live, repeats: 3, probe: true, searchId: SEARCH }),
+      ).toThrow(InvalidReplayError);
+      expect(aReplay({ candidate: live, repeats: 3 }).probe).toBe(false);
+    });
+
+    it('once finished, asks its judge again of every judged run and to check again every run whose check passed or failed', () => {
+      const replay = probed();
+      const events = replay.pullEvents();
+
+      expect(replay.current).toBe('finished');
+      expect(events.filter((each) => each instanceof ReplayEnded)).toHaveLength(
+        1,
+      );
+      expect(
+        events.filter(
+          (each) =>
+            each instanceof ReplayRejudgingWanted ||
+            each instanceof ReplayRecheckWanted,
+        ),
+      ).toEqual([
+        new ReplayRejudgingWanted(replay.id, replay.workspaceId, run(0)),
+        new ReplayRecheckWanted(replay.id, replay.workspaceId, run(0)),
+        new ReplayRejudgingWanted(replay.id, replay.workspaceId, run(1)),
+        new ReplayRecheckWanted(replay.id, replay.workspaceId, run(1)),
+      ]);
+      expect(
+        replay.entries.map((each) => [
+          each.secondJudging?.pending,
+          each.recheck?.state,
+        ]),
+      ).toEqual([
+        [true, 'checking'],
+        [true, 'checking'],
+      ]);
+    });
+
+    it('keeps the second verdicts and rechecks beside the first, says where they agree, and charges the second judging to its ceiling but not to what its runs cost', () => {
+      const replay = probed();
+      const spentBefore = replay.spent.amount;
+      const answered = replay
+        .rejudged(
+          run(0),
+          verdictOf(4),
+          ModelSpent.of([Spend.of(0.25, 'USD')], 0),
+        )
+        .rejudged(run(1), verdictOf(5), null)
+        .rechecked(run(0), checksOf('passed'))
+        .rechecked(run(1), checksOf('passed'));
+
+      expect(answered.current).toBe('finished');
+      expect(answered.entries.map((each) => each.judgeAgreed)).toEqual([
+        true,
+        false,
+      ]);
+      expect(answered.entries.map((each) => each.checksFlipped)).toEqual([
+        false,
+        true,
+      ]);
+      expect(answered.entries.map((each) => each.succeeded)).toEqual([
+        true,
+        false,
+      ]);
+      expect(answered.spent.amount).toBeCloseTo(spentBefore);
+      expect(answered.charged.amount).toBeCloseTo(spentBefore + 0.25);
+      expect(
+        answered.rejudged(run(0), verdictOf(1), null).entries[0]?.judgeAgreed,
+      ).toBe(true);
+    });
+
+    it('notes a second judging that failed, and a recheck still under way, without agreeing or flipping', () => {
+      const replay = probed()
+        .rejudgingFailed(run(0), 'interrupted', null)
+        .rechecked(run(0), ChangeChecks.checking());
+
+      expect(replay.entries[0]?.secondJudging?.unjudged).toBe('interrupted');
+      expect(replay.entries[0]?.judgeAgreed).toBeNull();
+      expect(replay.entries[0]?.checksFlipped).toBeNull();
+    });
+
+    it('asks the judge again only of as many runs as the ceiling has room for, at what their first judging cost, and checks them all again', () => {
+      const tight = probed(3.6);
+      const events = tight.pullEvents();
+
+      expect(tight.current).toBe('finished');
+      expect(
+        tight.entries.map((each) => [
+          each.secondJudging?.pending ?? null,
+          each.recheck?.state ?? null,
+        ]),
+      ).toEqual([
+        [true, 'checking'],
+        [null, 'checking'],
+      ]);
+      expect(
+        events.filter((each) => each instanceof ReplayRejudgingWanted),
+      ).toHaveLength(1);
+      expect(
+        events.filter((each) => each instanceof ReplayRecheckWanted),
+      ).toHaveLength(2);
+    });
+
+    it('asks nothing again of a replay that is no probe, nor the judge of a probe that spent its ceiling', () => {
+      const plain = judgedRun(
+        reserved(aReplay({ count: 1, candidate: live }), 1),
+        0,
+        checksOf('passed'),
+        5,
+      );
+
+      expect(plain.current).toBe('finished');
+      expect(
+        plain
+          .pullEvents()
+          .filter(
+            (each) =>
+              each instanceof ReplayRejudgingWanted ||
+              each instanceof ReplayRecheckWanted,
+          ),
+      ).toEqual([]);
+      expect(plain.entries[0]?.secondJudging).toBeNull();
+      expect(probed(3).current).toBe('finished');
+      expect(probed(3).entries[0]?.secondJudging).toBeNull();
+      expect(
+        probed(3)
+          .pullEvents()
+          .some((each) => each instanceof ReplayRejudgingWanted),
+      ).toBe(false);
     });
   });
 });

@@ -27,6 +27,7 @@ const checked = (replay: boolean) =>
     WorkspaceId.of('ws_1'),
     true,
     replay,
+    false,
   );
 
 describe('ChangeStackReactions', () => {

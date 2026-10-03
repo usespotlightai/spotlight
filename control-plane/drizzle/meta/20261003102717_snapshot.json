@@ -1,5 +1,5 @@
 {
-  "id": "59383440-354f-47e8-a70e-234ced22abf9",
+  "id": "14f1e216-81a7-4d36-bd08-de0ae0cf83f5",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -1310,8 +1310,15 @@
         "stack_id": {
           "name": "stack_id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
+        },
+        "recheck": {
+          "name": "recheck",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "run_id": {
           "name": "run_id",
@@ -1550,7 +1557,15 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "stack_check_stack_id_recheck_pk": {
+          "name": "stack_check_stack_id_recheck_pk",
+          "columns": [
+            "stack_id",
+            "recheck"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -4679,7 +4694,13 @@
         "run_id": {
           "name": "run_id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
+          "notNull": true
+        },
+        "round": {
+          "name": "round",
+          "type": "integer",
+          "primaryKey": false,
           "notNull": true
         },
         "workspace_id": {
@@ -4804,7 +4825,15 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "change_judging_run_id_round_pk": {
+          "name": "change_judging_run_id_round_pk",
+          "columns": [
+            "run_id",
+            "round"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -7095,6 +7124,19 @@
           "primaryKey": false,
           "notNull": true
         },
+        "probe": {
+          "name": "probe",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "compared_with": {
+          "name": "compared_with",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "search_id": {
           "name": "search_id",
           "type": "text",
@@ -7957,6 +7999,24 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "second_judging": {
+          "name": "second_judging",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejudging_spent": {
+          "name": "rejudging_spent",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recheck": {
+          "name": "recheck",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -8096,6 +8156,13 @@
         "repeats": {
           "name": "repeats",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "objective": {
+          "name": "objective",
+          "type": "replay_search_objective",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -13049,7 +13116,8 @@
         "live",
         "proposed",
         "searched",
-        "planned"
+        "planned",
+        "sanity"
       ]
     },
     "public.replay_check_baseline": {
@@ -13092,6 +13160,14 @@
         "running",
         "ended",
         "failed"
+      ]
+    },
+    "public.replay_search_objective": {
+      "name": "replay_search_objective",
+      "schema": "public",
+      "values": [
+        "success",
+        "cost"
       ]
     },
     "public.replay_search_state": {

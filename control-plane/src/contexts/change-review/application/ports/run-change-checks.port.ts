@@ -28,4 +28,6 @@ export interface CheckedChange {
 
 export interface RunChangeChecksPort {
   ofRun(runId: string): Promise<readonly CheckedChange[]>;
+
+  rechecksOfRun(runId: string): Promise<readonly CheckedChange[]>;
 }

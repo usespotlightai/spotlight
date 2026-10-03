@@ -14,6 +14,10 @@ import {
   type ReplayChangeCheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-change-checked.integration-event';
 import {
+  REPLAY_CHANGE_RECHECKED,
+  type ReplayChangeRecheckedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/replay-change-rechecked.integration-event';
+import {
   REPLAY_STACK_SETTLED,
   type ReplayStackSettledIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-stack-settled.integration-event';
@@ -24,8 +28,20 @@ export const CHANGE_REVIEW_PUBLICATIONS = [
     'change-stack.checked',
     (
       event,
-    ): ChangeCheckedIntegrationEvent | ReplayChangeCheckedIntegrationEvent =>
-      event.replay
+    ):
+      | ChangeCheckedIntegrationEvent
+      | ReplayChangeCheckedIntegrationEvent
+      | ReplayChangeRecheckedIntegrationEvent => {
+      if (event.recheck) {
+        return {
+          kind: REPLAY_CHANGE_RECHECKED,
+          runId: event.runId.value,
+          workspaceId: event.workspaceId.value,
+          passed: event.passed,
+        };
+      }
+
+      return event.replay
         ? {
             kind: REPLAY_CHANGE_CHECKED,
             runId: event.runId.value,
@@ -38,7 +54,8 @@ export const CHANGE_REVIEW_PUBLICATIONS = [
             taskId: event.taskId?.value ?? null,
             workspaceId: event.workspaceId.value,
             passed: event.passed,
-          },
+          };
+    },
   ),
   publishing<ChangeStackShaped>(
     'change-stack.shaped',

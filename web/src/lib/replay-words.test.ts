@@ -7,17 +7,20 @@ import {
   flippedShown,
   gainRangeShown,
   gainShown,
+  healthReadingsOf,
   intervalShown,
   minGainShown,
-  noiseSummaryShown,
   perRepeatShown,
   reasonShown,
   refusalShown,
   repeatsShown,
   replayableShown,
   runStateShown,
+  type SetHealth,
+  sanityRetryable,
   stateNote,
   stateShown,
+  strongerConfigShown,
   uncomparedShown,
   unpricedCallsShown,
   unpricedRunsShown,
@@ -27,6 +30,14 @@ const reason = (
   code: EntryReasonResponseDto['code'],
   detail: string | null = null,
 ): EntryReasonResponseDto => ({ code, detail, steps: [], hunks: [] });
+
+const NEVER_READ: SetHealth = {
+  noise: null,
+  saturation: null,
+  judge: null,
+  checks: null,
+  sanity: null,
+};
 
 describe('replay words', () => {
   it('counts what nobody priced in runs and model calls', () => {
@@ -126,23 +137,142 @@ describe('replay words', () => {
     expect(perRepeatShown([0.5, 0.625])).toBe('50%, 63%');
   });
 
-  it('sums up a set’s noise against what its line counts as real', () => {
-    expect(noiseSummaryShown(null, 0.05)).toBe('Noise not measured');
-    expect(
-      noiseSummaryShown(
-        {
+  it('says plainly that a set’s health was never read, and how to read it', () => {
+    const readings = healthReadingsOf(NEVER_READ, 0.05);
+
+    expect(readings.map((each) => [each.label, each.said, each.tone])).toEqual([
+      ['Noise', 'Not measured', 'unknown'],
+      ['Room to improve', 'Not measured', 'unknown'],
+      ['Judge agreeing with itself', 'Not checked', 'unknown'],
+      ['Flaky checks', 'Not checked', 'unknown'],
+      ['Stronger model', 'Not tried', 'unknown'],
+    ]);
+    expect(readings[2]?.advice).toMatch(/^Check this set to judge each change/);
+  });
+
+  it('reads an unhealthy set line by line, each with what to do', () => {
+    const readings = healthReadingsOf(
+      {
+        noise: {
           replayId: 'r',
           fingerprint: 'f',
           repeats: 3,
-          perRepeat: [0.5, 0.52, 0.53],
-          spread: 0.03,
+          perRepeat: [0.5, 0.6, 0.7],
+          spread: 0.2,
           flippedTasks: [],
           measuredAt: '2026-10-02T09:00:00.000Z',
         },
+        saturation: {
+          replayId: 'r',
+          rate: 0.97,
+          interval: null,
+          saturated: true,
+          measuredAt: '2026-10-02T09:00:00.000Z',
+        },
+        judge: {
+          replayId: 'r',
+          compared: 10,
+          agreed: 7,
+          pending: 2,
+          agreement: 0.7,
+          unstable: true,
+        },
+        checks: {
+          replayId: 'r',
+          rechecked: 12,
+          pending: 0,
+          flaky: [
+            {
+              taskId: 't',
+              originalRunId: 'o',
+              runId: 'n',
+              first: 'passed',
+              recheck: 'failed',
+            },
+          ],
+        },
+        sanity: {
+          replayId: 's',
+          candidateId: 'c',
+          model: 'opus',
+          effort: 'high',
+          repeats: 1,
+          state: 'finished',
+          againstReplayId: 'r',
+          againstState: 'finished',
+          gain: null,
+          rewardsStrongerModel: false,
+          worse: [],
+        },
+      },
+      0.05,
+    );
+
+    expect(readings.map((each) => [each.said, each.tone])).toEqual([
+      ['Success moved 20 pts between 3 copies', 'bad'],
+      ['Almost none: the live config succeeds on 97%', 'bad'],
+      ['Same verdict on 70% of 10 changes', 'bad'],
+      ['1 of 12 changes flipped', 'bad'],
+      ['opus, high effort did not do clearly better', 'bad'],
+    ]);
+    expect(readings[0]?.advice).toBe(
+      'More than the +5 pts the line counts as real, so one copy can’t tell a real gain from chance. Search with each run replayed more times, or raise the line’s min_gain.',
+    );
+    expect(readings[1]?.advice).toMatch(
+      /Search for the same success at less cost/,
+    );
+    expect(readings[2]?.advice).toMatch(/2 second judgings still to come\.$/);
+  });
+
+  it('says plainly when the live replay a stronger model was compared with never finished', () => {
+    const sanity = {
+      replayId: 's',
+      candidateId: 'c',
+      model: 'opus',
+      effort: null,
+      repeats: 1,
+      state: 'finished' as const,
+      againstReplayId: 'r',
+      gain: null,
+      rewardsStrongerModel: null,
+      worse: [],
+    };
+    const readingOf = (
+      againstState: NonNullable<SetHealth['sanity']>['againstState'],
+    ) =>
+      healthReadingsOf(
+        { ...NEVER_READ, sanity: { ...sanity, againstState } },
         0.05,
-      ),
-    ).toBe(
-      'Success moved 3 pts between 3 copies, within the +5 pts the line counts as real',
+      )[4];
+
+    expect(readingOf('stopped')?.said).toBe('Could not be compared');
+    expect(readingOf('stopped')?.advice).toBe(
+      'The live replay it was compared with was stopped, so this can’t be compared. Try the stronger model again.',
+    );
+    expect(readingOf('over-budget')?.advice).toMatch(/ran over its ceiling/);
+    expect(readingOf('gone')?.advice).toMatch(
+      /^The live replay it was compared with is gone/,
+    );
+    expect(readingOf('running')?.said).toBe('Nothing to compare with yet');
+    expect(readingOf('running')?.tone).toBe('pending');
+    expect(sanityRetryable({ state: 'finished', againstState: 'gone' })).toBe(
+      true,
+    );
+    expect(sanityRetryable({ state: 'stopped', againstState: null })).toBe(
+      true,
+    );
+    expect(
+      sanityRetryable({ state: 'finished', againstState: 'running' }),
+    ).toBe(false);
+  });
+
+  it('names a stronger config by what it changed', () => {
+    expect(strongerConfigShown({ model: 'opus', effort: null })).toBe('opus');
+    expect(strongerConfigShown({ model: null, effort: 'high' })).toBe(
+      'high effort',
+    );
+    expect(strongerConfigShown({ model: null, effort: null })).toBe(
+      'A stronger config',
     );
   });
 });

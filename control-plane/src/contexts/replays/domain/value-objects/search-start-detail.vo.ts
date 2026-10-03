@@ -1,6 +1,7 @@
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type {
   ChangeDetail,
   RecordedDetail,
@@ -19,6 +20,7 @@ export class SearchStartDetail implements ChangeDetail {
     readonly ceiling: string,
     readonly heldOutTasks: number,
     readonly repeats: number,
+    readonly objective: SearchObjective,
   ) {}
 
   static of(input: {
@@ -26,6 +28,7 @@ export class SearchStartDetail implements ChangeDetail {
     stationId: string;
     agent: SearchAgent;
     budget: SearchBudget;
+    objective: SearchObjective;
     heldOutTasks: number;
   }): SearchStartDetail {
     return new SearchStartDetail(
@@ -40,6 +43,7 @@ export class SearchStartDetail implements ChangeDetail {
       `${input.budget.ceiling.amount} ${input.budget.ceiling.currency}`,
       input.heldOutTasks,
       input.budget.repeats,
+      input.objective,
     );
   }
 
@@ -56,6 +60,7 @@ export class SearchStartDetail implements ChangeDetail {
       ceiling: this.ceiling,
       heldOutTasks: this.heldOutTasks,
       repeats: this.repeats,
+      objective: this.objective,
     };
   }
 }

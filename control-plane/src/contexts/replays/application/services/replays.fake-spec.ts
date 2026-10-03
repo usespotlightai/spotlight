@@ -1,5 +1,6 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import type {
+  JudgingAgainOrdered,
   JudgingOrder,
   JudgingOrdered,
   OutcomesPort,
@@ -8,6 +9,7 @@ import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   AgentRefusal,
   ExaminedCandidate,
+  HarnessOffer,
   HeldSearchRun,
   ReplayRunOrder,
   ReplayRunQueued,
@@ -180,12 +182,9 @@ export class InMemoryReplays {
         );
         return found ? [found] : [];
       }),
-    repeatedOfSets: async (setIds) =>
-      [...this.replays.values()].filter(
-        (each) =>
-          setIds.some((id) => each.setId.equals(id)) &&
-          each.current === 'finished' &&
-          each.repeats > 1,
+    healthReadOfSets: async (setIds) =>
+      [...this.replays.values()].filter((each) =>
+        setIds.some((id) => each.setId.equals(id)),
       ),
     ofTeamStartedSince: async (teamId, since, most) =>
       [...this.replays.values()]
@@ -400,6 +399,13 @@ export class FakeWork implements WorkPort {
 
   agentRefusal = () => this.refusingAgent;
 
+  offer: HarnessOffer | null = {
+    models: ['sonnet', 'opus'],
+    efforts: ['low', 'medium', 'high'],
+  };
+
+  harnessOffer = async () => this.offer;
+
   readonly searchesDispatched: SearchRunOrder[] = [];
 
   refusingSearch: string | null = null;
@@ -491,16 +497,38 @@ export const accessFor = (
 
 export class FakeChangeReview implements ChangeReviewPort {
   readonly stacks = new Map<string, StackStanding[]>();
+  readonly rechecks = new Map<string, StackStanding[]>();
+  readonly recheckAsked: string[] = [];
+  recheckableStacks: readonly string[] = ['stack_1'];
 
   async stacksOf(run: RunId): Promise<readonly StackStanding[]> {
     return this.stacks.get(run.value) ?? [];
+  }
+
+  async rechecksOf(run: RunId): Promise<readonly StackStanding[]> {
+    return this.rechecks.get(run.value) ?? [];
+  }
+
+  async recheckable(): Promise<readonly string[]> {
+    return this.recheckableStacks;
+  }
+
+  async recheck(run: RunId, stackId: string): Promise<void> {
+    this.recheckAsked.push(`${run.value}#${stackId}`);
   }
 }
 
 export class FakeOutcomes implements OutcomesPort {
   readonly accepted = new Set<string>();
   readonly asked: JudgingOrder[] = [];
+  readonly askedAgain: string[] = [];
   answer: JudgingOrdered = 'asked';
+  againAnswer: JudgingAgainOrdered = 'asked';
+
+  async judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
+    this.askedAgain.push(run.value);
+    return this.againAnswer;
+  }
 
   async acceptedAfter(run: RunId): Promise<boolean> {
     return this.accepted.has(run.value);

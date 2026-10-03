@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StartSearchDialog } from '@/components/features/searches/station/StartSearchDialog';
@@ -60,7 +60,13 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
   guardsChanges: false,
-  noise: null,
+  health: {
+    noise: null,
+    saturation: null,
+    judge: null,
+    checks: null,
+    sanity: null,
+  },
   minGain: 0.05,
   entries: Array.from({ length: tasks }, (_, place) => ({
     runId: `run_${id}_${place}`,
@@ -77,6 +83,7 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
 const SETS = [setOf('small', 'Two tasks', 2), setOf('big', 'Billing work', 7)];
 
 const ESTIMATE: SearchEstimate = {
+  objective: 'success',
   searchedTasks: 5,
   heldOutTasks: 2,
   runs: { seed: 7, searchReplays: 30, heldOutReplays: 8, agent: 3, total: 48 },
@@ -92,10 +99,10 @@ const ESTIMATE: SearchEstimate = {
   warnings: [],
 };
 
-const renderDialog = () =>
+const renderDialog = (sets: readonly ReplaySet[] = SETS) =>
   render(
     <MemoryRouter>
-      <StartSearchDialog at={AT} sets={SETS} open onOpenChange={vi.fn()} />
+      <StartSearchDialog at={AT} sets={sets} open onOpenChange={vi.fn()} />
     </MemoryRouter>,
   );
 
@@ -240,7 +247,7 @@ describe('StartSearchDialog', () => {
     );
   });
 
-  it('starts the search on the chosen set with the budget and agent', () => {
+  it('starts the search on the chosen set with the budget and agent, leaving its aim to the server until the estimate has one', () => {
     renderDialog();
 
     fireEvent.change(
@@ -263,9 +270,118 @@ describe('StartSearchDialog', () => {
           ceiling: { amount: 20, currency: 'USD' },
         },
         agent: { harness: 'claude-code', model: null },
+        objective: null,
       },
       expect.anything(),
     );
+  });
+
+  it('aims for the same success for less on a set the live config saturates, and says why', () => {
+    estimate.mockReturnValue({
+      ...ESTIMATE,
+      objective: 'cost',
+      warnings: [{ kind: 'saturated', rate: 0.97 }],
+    });
+
+    renderDialog();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    const aim = screen.getByRole('group', { name: 'Aim for' });
+    expect(
+      within(aim).getByRole('radio', { name: /The same success for less/ }),
+    ).toBeChecked();
+    expect(aim).toHaveTextContent(
+      'Chosen for you: the live config already succeeds on 97% of this set, so there is little room to succeed more.',
+    );
+    expect(
+      screen
+        .getByRole('list', { name: 'Warnings' })
+        .querySelector('[data-kind="saturated"]'),
+    ).toHaveTextContent('Aim for the same success for less');
+
+    fireEvent.click(within(aim).getByRole('radio', { name: /More success/ }));
+
+    expect(aim).not.toHaveTextContent('Chosen for you');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start search' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ objective: 'success' }),
+      expect.anything(),
+    );
+  });
+
+  it('shows the aim a saturated set takes before the estimate arrives, without asking for it', () => {
+    const big = setOf('big', 'Billing work', 7);
+    renderDialog([
+      {
+        ...big,
+        health: {
+          ...big.health,
+          saturation: {
+            replayId: 'replay_live',
+            rate: 0.97,
+            interval: { rate: 0.97, low: 0.9, high: 1 },
+            saturated: true,
+            measuredAt: '2026-10-02T09:00:00.000Z',
+          },
+        },
+      },
+    ]);
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    const aim = screen.getByRole('group', { name: 'Aim for' });
+    expect(
+      within(aim).getByRole('radio', { name: /The same success for less/ }),
+    ).toBeChecked();
+    expect(aim).toHaveTextContent('Chosen for you');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start search' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ objective: null }),
+      expect.anything(),
+    );
+  });
+
+  it('warns of a judge that disagrees with itself, flaky checks and a set that does not reward a stronger model', () => {
+    estimate.mockReturnValue({
+      ...ESTIMATE,
+      warnings: [
+        { kind: 'judge-unstable', agreement: 0.6, compared: 10 },
+        { kind: 'flaky-checks', flaky: 2, rechecked: 9 },
+        {
+          kind: 'sanity-failed',
+          gain: -0.02,
+          low: -0.1,
+          high: 0.06,
+          worseTasks: 3,
+        },
+      ],
+    });
+
+    renderDialog();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Most it may spend' }),
+      { target: { value: '20' } },
+    );
+
+    const warnings = screen.getByRole('list', { name: 'Warnings' });
+    expect(
+      warnings.querySelector('[data-kind="judge-unstable"]'),
+    ).toHaveTextContent('the judge gave the same verdict only 60% of the time');
+    expect(
+      warnings.querySelector('[data-kind="flaky-checks"]'),
+    ).toHaveTextContent('on 2 of 9 changes it ran twice');
+    expect(
+      warnings.querySelector('[data-kind="sanity-failed"]'),
+    ).toHaveTextContent('(−2 pts, likely −10 to +6) and did worse on 3 tasks');
   });
 
   it('shows a refusal on the field it names', () => {

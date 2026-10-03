@@ -225,6 +225,7 @@ import {
   HARNESS_LAUNCH,
   type HarnessLaunchPort,
 } from '@work/application/ports/harness-launch.port';
+import { HARNESS_OFFERS } from '@work/application/ports/harness-offers.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { HARNESS_TOOL_NAMES } from '@work/application/ports/harness-tool-names.port';
 import {
@@ -470,6 +471,7 @@ import { DispatchSearch } from '@work/application/services/dispatch-search.servi
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
+import { HarnessOffers } from '@work/application/services/harness-offers.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
@@ -1341,6 +1343,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       rendering: LineRenderingPort,
       digest: ContentDigestPort,
     ) => new ReplayCandidates(candidates, rendering, digest),
+  },
+
+  {
+    provide: HARNESS_OFFERS,
+    inject: [HARNESS_LAUNCH, RUNNER_READER],
+    useFactory: (launch: HarnessLaunchPort, runners: RunnerReaderPort) =>
+      new HarnessOffers(launch, runners),
   },
 
   { provide: LINE_RENDERING, useClass: RowsLineRendering },

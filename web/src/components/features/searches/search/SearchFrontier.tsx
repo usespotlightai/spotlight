@@ -9,7 +9,7 @@ import {
   frontierPoints,
   type SearchDetail,
 } from '@/lib/search';
-import { onlyOnSeenTasksCountShown } from '@/lib/search-words';
+import { frontierNote, onlyOnSeenTasksCountShown } from '@/lib/search-words';
 
 type SearchFrontierProps = {
   search: SearchDetail;
@@ -22,7 +22,7 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
   return (
     <InsightsCard
       title="Success against cost"
-      description="How often each candidate succeeded on the searched tasks, against what it spent a run. The frontier joins those no other succeeds as often for less; the live config is always on it."
+      description={frontierNote(search.objective)}
       table={
         <FrontierTable candidates={candidatesOf(search)} currency={currency} />
       }

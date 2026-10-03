@@ -1,4 +1,5 @@
 import type {
+  ChangeJudgingAgainAnswer,
   ChangeJudgingAnswer,
   ChangeJudgingAsk,
   ChangeJudgingPort,
@@ -45,11 +46,32 @@ export class AskChangeJudging implements ChangeJudgingPort {
     }
 
     await this.transaction.run(async () => {
-      if (!(await this.judgings.of(judging.runId))) {
+      if (!(await this.judgings.of(judging.runId, judging.round))) {
         await this.judgings.add(judging);
       }
     });
 
     return 'asked';
+  }
+
+  async askAgain(runId: string): Promise<ChangeJudgingAgainAnswer> {
+    if (!this.judge.available) {
+      return 'unavailable';
+    }
+
+    const run = RunId.of(runId);
+
+    return this.transaction.run(async () => {
+      const first = await this.judgings.of(run, 1);
+
+      if (!first?.judgedAt) {
+        return 'unjudged';
+      }
+      if (!(await this.judgings.of(run, 2))) {
+        await this.judgings.add(first.askedAgain(this.clock.now()));
+      }
+
+      return 'asked';
+    });
   }
 }

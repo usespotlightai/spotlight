@@ -24,7 +24,7 @@ export class RecordChangeStackCheckHandler
     try {
       const runId = RunId.of(command.runId);
       const stackId = ChangeStackId.of(command.stackId);
-      const check = await this.checks.find(stackId);
+      const check = await this.checks.find(stackId, command.recheck);
 
       if (!check?.runId.equals(runId)) {
         throw new UnknownChangeStackError(

@@ -18,7 +18,7 @@ import {
   PERSON,
 } from '@replays/application/services/replays.fake-spec';
 import { searchDetailView } from '@replays/application/services/search-views';
-import { SetNoises } from '@replays/application/services/set-noises.service';
+import { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -34,6 +34,7 @@ import {
   STATION,
 } from '@replays/domain/replays.fake-spec';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -120,14 +121,14 @@ const replayPage = async (replayId: string) => {
     memory.replayRepository,
     memory.candidateRepository,
     work,
-    new SetNoises(work, memory.replayRepository, memory.candidateRepository),
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
   ).execute(new ReadReplayQuery(STATION.teamId.value, replayId, PERSON));
 };
 
 beforeEach(() => {
   world = replayedWorld();
   STANDARDS = new Map([
-    [world.set.id.value, { noise: null, minGain: DEFAULT_MIN_GAIN }],
+    [world.set.id.value, { health: UNREAD_HEALTH, minGain: DEFAULT_MIN_GAIN }],
   ]);
 });
 
@@ -249,6 +250,10 @@ describe('replayedCandidatesView', () => {
       newestRunEndedAt: '2026-09-28T16:20:00.000Z',
       lastAddedAt: NOW.toISOString(),
       noise: null,
+      saturation: null,
+      judge: null,
+      checks: null,
+      sanity: null,
       minGain: DEFAULT_MIN_GAIN,
     });
     expect(onlySet().health).toMatchObject({
@@ -441,7 +446,10 @@ describe('replayedCandidatesView', () => {
         sets: [twice],
         baselines: [baseline],
         standards: new Map([
-          [twice.id.value, { noise: null, minGain: DEFAULT_MIN_GAIN }],
+          [
+            twice.id.value,
+            { health: UNREAD_HEALTH, minGain: DEFAULT_MIN_GAIN },
+          ],
         ]),
       }),
     ).stations;

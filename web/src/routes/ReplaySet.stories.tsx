@@ -15,7 +15,10 @@ import {
   seedReplaySet,
   seedReplaySetAwaiting,
   seedReplaySetChecksAwaiting,
+  seedReplaySetHealthPending,
+  seedReplaySetSanityUncompared,
   seedReplaySetWithNoise,
+  seedUnhealthyReplaySet,
   TEAM_ID,
 } from '@/stories/fixtures/replays';
 import { StoryPage } from '@/stories/StoryPage';
@@ -83,6 +86,32 @@ export const NoiseMeasured: Story = {
   name: 'Noise measured',
   render: () => (
     <StoryPage at={at} seed={seedReplaySetWithNoise}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Unhealthy: Story = {
+  render: () => (
+    <StoryPage at={at} seed={seedUnhealthyReplaySet}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const HealthPending: Story = {
+  name: 'Health being read',
+  render: () => (
+    <StoryPage at={at} seed={seedReplaySetHealthPending}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const SanityUncompared: Story = {
+  name: 'Stronger model could not be compared',
+  render: () => (
+    <StoryPage at={at} seed={seedReplaySetSanityUncompared}>
       {routes}
     </StoryPage>
   ),

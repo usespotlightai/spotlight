@@ -45,7 +45,7 @@ const renewing = (
 };
 
 const renewal = () =>
-  new RenewCheckLeaseCommand('run_1', 'stack_1', 'runner_1');
+  new RenewCheckLeaseCommand('run_1', 'stack_1', false, 'runner_1');
 
 describe('RenewCheckLeaseHandler', () => {
   it('keeps the runner standing while it renews the check it holds', async () => {
@@ -56,6 +56,7 @@ describe('RenewCheckLeaseHandler', () => {
     expect(renewLease).toHaveBeenCalledWith(
       RunId.of('run_1'),
       'stack_1',
+      false,
       RunnerId.of('runner_1'),
       NOW,
     );

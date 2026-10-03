@@ -4,6 +4,7 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { OBJECTIVE_TERM } from '@/lib/search-words';
 
 type SearchSkeletonProps = {
   known: readonly BreadcrumbSegment[];
@@ -15,6 +16,7 @@ const TERMS = [
   'Agent',
   'Progress',
   'Spent',
+  OBJECTIVE_TERM,
   'Best',
 ] as const;
 

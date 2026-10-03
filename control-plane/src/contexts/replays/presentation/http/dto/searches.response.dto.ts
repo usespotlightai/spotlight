@@ -32,6 +32,7 @@ import {
 } from '@replays/domain/value-objects/search-budget.vo';
 import { SEARCH_ENDINGS } from '@replays/domain/value-objects/search-ending';
 import { SEARCH_ITERATION_STATES } from '@replays/domain/value-objects/search-iteration.vo';
+import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { CandidatePullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
 import { StationChangeResponseDto } from '@replays/presentation/http/dto/replay-candidate-resource.response.dto';
@@ -167,16 +168,131 @@ class NoisyWarningResponseDto {
   }
 }
 
+class SaturatedWarningResponseDto {
+  @ApiProperty({
+    enum: ['saturated'],
+    description:
+      'The live config passes more than 95% of the set already, so a search for more success has little room; a search for the same success at less cost does',
+  })
+  readonly kind = 'saturated' as const;
+
+  @ApiProperty({
+    example: 0.97,
+    description: 'The live config’s success on the set',
+  })
+  readonly rate: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'saturated' }>) {
+    this.rate = warning.rate;
+  }
+}
+
+class JudgeUnstableWarningResponseDto {
+  @ApiProperty({
+    enum: ['judge-unstable'],
+    description:
+      'The judge, asked twice of the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance',
+  })
+  readonly kind = 'judge-unstable' as const;
+
+  @ApiProperty({
+    example: 0.7,
+    description: 'The share of changes it passed or failed alike both times',
+  })
+  readonly agreement: number;
+
+  @ApiProperty({ example: 12, description: 'How many changes it judged twice' })
+  readonly compared: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'judge-unstable' }>) {
+    this.agreement = warning.agreement;
+    this.compared = warning.compared;
+  }
+}
+
+class FlakyChecksWarningResponseDto {
+  @ApiProperty({
+    enum: ['flaky-checks'],
+    description:
+      'The station’s check, run twice on the same change, passed one time and failed the other on some tasks',
+  })
+  readonly kind = 'flaky-checks' as const;
+
+  @ApiProperty({ example: 2, description: 'How many changes it flipped on' })
+  readonly flaky: number;
+
+  @ApiProperty({
+    example: 12,
+    description: 'How many changes it checked twice',
+  })
+  readonly rechecked: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'flaky-checks' }>) {
+    this.flaky = warning.flaky;
+    this.rechecked = warning.rechecked;
+  }
+}
+
+class SanityFailedWarningResponseDto {
+  @ApiProperty({
+    enum: ['sanity-failed'],
+    description:
+      'A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off',
+  })
+  readonly kind = 'sanity-failed' as const;
+
+  @ApiProperty({
+    example: -0.02,
+    description: 'The stronger config’s gain in success over the live one',
+  })
+  readonly gain: number;
+
+  @ApiProperty({ example: -0.15 })
+  readonly low: number;
+
+  @ApiProperty({ example: 0.1 })
+  readonly high: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'How many tasks the stronger config did worse on',
+  })
+  readonly worseTasks: number;
+
+  constructor(warning: Extract<SearchWarningDto, { kind: 'sanity-failed' }>) {
+    this.gain = warning.gain;
+    this.low = warning.low;
+    this.high = warning.high;
+    this.worseTasks = warning.worseTasks;
+  }
+}
+
 type SearchWarningResponseDto =
   | NoiseUnmeasuredWarningResponseDto
-  | NoisyWarningResponseDto;
+  | NoisyWarningResponseDto
+  | SaturatedWarningResponseDto
+  | JudgeUnstableWarningResponseDto
+  | FlakyChecksWarningResponseDto
+  | SanityFailedWarningResponseDto;
 
 const warningResponse = (
   warning: SearchWarningDto,
-): SearchWarningResponseDto =>
-  warning.kind === 'noisy'
-    ? new NoisyWarningResponseDto(warning)
-    : new NoiseUnmeasuredWarningResponseDto();
+): SearchWarningResponseDto => {
+  switch (warning.kind) {
+    case 'noisy':
+      return new NoisyWarningResponseDto(warning);
+    case 'saturated':
+      return new SaturatedWarningResponseDto(warning);
+    case 'judge-unstable':
+      return new JudgeUnstableWarningResponseDto(warning);
+    case 'flaky-checks':
+      return new FlakyChecksWarningResponseDto(warning);
+    case 'sanity-failed':
+      return new SanityFailedWarningResponseDto(warning);
+    default:
+      return new NoiseUnmeasuredWarningResponseDto();
+  }
+};
 
 const WARNINGS_SCHEMA: ApiPropertyOptions = {
   type: 'array',
@@ -184,16 +300,36 @@ const WARNINGS_SCHEMA: ApiPropertyOptions = {
     oneOf: [
       { $ref: getSchemaPath(NoiseUnmeasuredWarningResponseDto) },
       { $ref: getSchemaPath(NoisyWarningResponseDto) },
+      { $ref: getSchemaPath(SaturatedWarningResponseDto) },
+      { $ref: getSchemaPath(JudgeUnstableWarningResponseDto) },
+      { $ref: getSchemaPath(FlakyChecksWarningResponseDto) },
+      { $ref: getSchemaPath(SanityFailedWarningResponseDto) },
     ],
     discriminator: {
       propertyName: 'kind',
       mapping: {
         'noise-unmeasured': getSchemaPath(NoiseUnmeasuredWarningResponseDto),
         noisy: getSchemaPath(NoisyWarningResponseDto),
+        saturated: getSchemaPath(SaturatedWarningResponseDto),
+        'judge-unstable': getSchemaPath(JudgeUnstableWarningResponseDto),
+        'flaky-checks': getSchemaPath(FlakyChecksWarningResponseDto),
+        'sanity-failed': getSchemaPath(SanityFailedWarningResponseDto),
       },
     },
   },
 };
+
+const WARNING_MODELS = [
+  NoiseUnmeasuredWarningResponseDto,
+  NoisyWarningResponseDto,
+  SaturatedWarningResponseDto,
+  JudgeUnstableWarningResponseDto,
+  FlakyChecksWarningResponseDto,
+  SanityFailedWarningResponseDto,
+];
+
+const OBJECTIVE_SAYS =
+  'success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs';
 
 export class EstimateSearchRequestDto {
   @ApiProperty({ description: 'The replay set at the station to search on' })
@@ -201,6 +337,12 @@ export class EstimateSearchRequestDto {
 
   @ApiProperty({ type: SearchBudgetRequestDto })
   readonly budget!: SearchBudgetRequestDto;
+
+  @ApiPropertyOptional({
+    enum: SEARCH_OBJECTIVES,
+    description: `What the search looks for: ${OBJECTIVE_SAYS}. Left out, cost on a set the live config saturates, else success`,
+  })
+  readonly objective?: 'success' | 'cost';
 }
 
 export class StartSearchRequestDto extends EstimateSearchRequestDto {
@@ -208,7 +350,7 @@ export class StartSearchRequestDto extends EstimateSearchRequestDto {
   readonly agent!: SearchAgentRequestDto;
 }
 
-@ApiExtraModels(NoiseUnmeasuredWarningResponseDto, NoisyWarningResponseDto)
+@ApiExtraModels(...WARNING_MODELS)
 export class SearchStartedResponseDto {
   @ApiProperty()
   readonly id: string;
@@ -220,6 +362,12 @@ export class SearchStartedResponseDto {
   readonly seedReplayId: string;
 
   @ApiProperty({
+    enum: SEARCH_OBJECTIVES,
+    description: `What the search looks for: ${OBJECTIVE_SAYS}`,
+  })
+  readonly objective: 'success' | 'cost';
+
+  @ApiProperty({
     ...WARNINGS_SCHEMA,
     description:
       'What makes its results hard to trust; the search starts all the same',
@@ -229,10 +377,12 @@ export class SearchStartedResponseDto {
   constructor(started: {
     readonly id: string;
     readonly seedReplayId: string;
+    readonly objective: 'success' | 'cost';
     readonly warnings: readonly SearchWarningDto[];
   }) {
     this.id = started.id;
     this.seedReplayId = started.seedReplayId;
+    this.objective = started.objective;
     this.warnings = started.warnings.map(warningResponse);
   }
 }
@@ -383,6 +533,12 @@ export class SearchResponseDto {
   readonly budget: SearchBudgetResponseDto;
 
   @ApiProperty({
+    enum: SEARCH_OBJECTIVES,
+    description: `What it looks for, which orders its frontier and its best: ${OBJECTIVE_SAYS}`,
+  })
+  readonly objective: 'success' | 'cost';
+
+  @ApiProperty({
     type: SpendResponseDto,
     description:
       'What it spent so far, in its ceiling’s currency: its replays and its agent’s runs',
@@ -399,7 +555,7 @@ export class SearchResponseDto {
     nullable: true,
     type: SearchBestResponseDto,
     description:
-      'The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it',
+      'The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it',
   })
   readonly best: SearchBestResponseDto | null;
 
@@ -418,6 +574,7 @@ export class SearchResponseDto {
     this.ending = search.ending;
     this.agent = new SearchAgentResponseDto(search.agent);
     this.budget = new SearchBudgetResponseDto(search.budget);
+    this.objective = search.objective;
     this.spent = new SpendResponseDto(search.spent);
     this.iterationsRun = search.iterationsRun;
     this.proposed = search.proposed;
@@ -806,7 +963,7 @@ export class SearchAllotmentsResponseDto {
   }
 }
 
-@ApiExtraModels(NoiseUnmeasuredWarningResponseDto, NoisyWarningResponseDto)
+@ApiExtraModels(...WARNING_MODELS)
 export class SearchEstimateResponseDto {
   @ApiProperty({ description: 'Tasks its agent sees' })
   readonly searchedTasks: number;
@@ -846,6 +1003,12 @@ export class SearchEstimateResponseDto {
   readonly minGain: number;
 
   @ApiProperty({
+    enum: SEARCH_OBJECTIVES,
+    description: `What it would look for, as asked or as the set’s health suggests: ${OBJECTIVE_SAYS}`,
+  })
+  readonly objective: 'success' | 'cost';
+
+  @ApiProperty({
     ...WARNINGS_SCHEMA,
     description:
       'What would make its results hard to trust; a search may start all the same',
@@ -862,6 +1025,7 @@ export class SearchEstimateResponseDto {
     );
     this.estimatedDuration = estimate.estimatedDuration;
     this.minGain = estimate.minGain;
+    this.objective = estimate.objective;
     this.warnings = estimate.warnings.map(warningResponse);
   }
 }

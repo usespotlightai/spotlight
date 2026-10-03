@@ -6,6 +6,8 @@ import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wan
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
+import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
+import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
@@ -45,6 +47,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface ReplayedCandidate {
   readonly id: CandidateId;
   readonly isLive: boolean;
+  readonly isSanity: boolean;
   readonly judges: boolean;
   readonly checksChanges: boolean;
   readonly rubricVersion: string | null;
@@ -66,6 +69,8 @@ interface State {
   readonly unpricedRate: Spend | null;
   readonly among: readonly RunId[] | null;
   readonly repeats: number;
+  readonly probe: boolean;
+  readonly comparedWith: ReplayId | null;
   readonly searchId: SearchId | null;
   readonly state: ReplayState;
   readonly entries: readonly ReplayEntry[];
@@ -118,6 +123,8 @@ export class Replay extends EventRecorder {
     wanting?: WantedBaseline | null;
     among?: readonly RunId[];
     repeats?: number;
+    probe?: boolean;
+    comparedWith?: ReplayId;
     searchId?: SearchId;
     unpricedRate?: Spend;
   }): Replay {
@@ -125,6 +132,8 @@ export class Replay extends EventRecorder {
     const wanting = input.wanting ?? null;
     const among = input.among ?? null;
     const repeats = input.repeats ?? 1;
+    const probe = input.probe ?? false;
+    const comparedWith = input.comparedWith ?? null;
 
     set.stillAtItsStation();
 
@@ -162,6 +171,25 @@ export class Replay extends EventRecorder {
       );
     }
     if (
+      input.candidate.isSanity !== (comparedWith !== null) ||
+      comparedWith?.equals(input.id)
+    ) {
+      throw new InvalidReplayError(
+        'replays a stronger model only beside another replay of the live config it is compared with, and only then',
+      );
+    }
+    if (
+      probe &&
+      (!input.candidate.isLive ||
+        among ||
+        repeats < 2 ||
+        input.searchId !== undefined)
+    ) {
+      throw new InvalidReplayError(
+        'probes its set only as the live config, replaying every run more than once, outside any search',
+      );
+    }
+    if (
       among &&
       (among.length === 0 ||
         among.some(
@@ -189,6 +217,8 @@ export class Replay extends EventRecorder {
       unpricedRate: input.unpricedRate ?? null,
       among: among && [...among],
       repeats,
+      probe,
+      comparedWith,
       searchId: input.searchId ?? null,
       state: 'queued',
       entries: copiesOf(
@@ -216,6 +246,7 @@ export class Replay extends EventRecorder {
             baseline: input.baseline,
             ceiling: input.ceiling,
             repeats,
+            probe,
           }),
         ),
       ),
@@ -307,6 +338,14 @@ export class Replay extends EventRecorder {
     return this.state.repeats;
   }
 
+  get probe(): boolean {
+    return this.state.probe;
+  }
+
+  get comparedWith(): ReplayId | null {
+    return this.state.comparedWith;
+  }
+
   get searchId(): SearchId | null {
     return this.state.searchId;
   }
@@ -349,6 +388,34 @@ export class Replay extends EventRecorder {
     return this.state.unpricedRate;
   }
 
+  private unpricedIn(spends: readonly ModelSpent[]): number {
+    const ceiling = this.state.ceiling;
+
+    return spends.reduce(
+      (calls, each) =>
+        calls +
+        each.unpriced +
+        each.spends.filter((spend) => !spend.sameCurrencyAs(ceiling)).length,
+      0,
+    );
+  }
+
+  private chargeOf(spends: readonly ModelSpent[]): Spend {
+    const rate = this.state.unpricedRate;
+    const priced = spends.reduce(
+      (sum, each) => sum.plus(this.spentIn(each)),
+      Spend.none(this.state.ceiling.currency),
+    );
+
+    return rate ? priced.plus(rate.scaled(this.unpricedIn(spends), 1)) : priced;
+  }
+
+  private get rejudgingSpends(): readonly ModelSpent[] {
+    return this.state.entries.flatMap((each) =>
+      each.rejudgingSpent ? [each.rejudgingSpent] : [],
+    );
+  }
+
   get unpricedRuns(): number {
     const ceiling = this.state.ceiling;
 
@@ -361,27 +428,15 @@ export class Replay extends EventRecorder {
       const unpricedRun =
         called && !measures?.cost?.sameCurrencyAs(ceiling) ? 1 : 0;
 
-      return (
-        count +
-        unpricedRun +
-        entry.modelSpends.reduce(
-          (calls, each) =>
-            calls +
-            each.unpriced +
-            each.spends.filter((spend) => !spend.sameCurrencyAs(ceiling))
-              .length,
-          0,
-        )
-      );
+      return count + unpricedRun + this.unpricedIn(entry.modelSpends);
     }, 0);
   }
 
   get charged(): Spend {
     const rate = this.state.unpricedRate;
+    const spent = this.spent.plus(this.chargeOf(this.rejudgingSpends));
 
-    return rate
-      ? this.spent.plus(rate.scaled(this.unpricedRuns, 1))
-      : this.spent;
+    return rate ? spent.plus(rate.scaled(this.unpricedRuns, 1)) : spent;
   }
 
   get unpricedCalls(): number {
@@ -547,6 +602,35 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.judgingFailed(why, spent), at);
   }
 
+  rejudged(
+    run: RunId,
+    verdict: JudgeVerdict,
+    spent: ModelSpent | null,
+  ): Replay {
+    return this.secondRound(run, (entry) => entry.rejudged(verdict, spent));
+  }
+
+  rejudgingFailed(run: RunId, why: string, spent: ModelSpent | null): Replay {
+    return this.secondRound(run, (entry) => entry.rejudgingFailed(why, spent));
+  }
+
+  rechecked(run: RunId, checks: ChangeChecks): Replay {
+    return this.secondRound(run, (entry) => entry.rechecked(checks));
+  }
+
+  private secondRound(
+    run: RunId,
+    change: (entry: ReplayEntry) => ReplayEntry,
+  ): Replay {
+    const entries = this.state.entries.map((each) =>
+      each.ranAs(run) ? change(each) : each,
+    );
+
+    return entries.every((each, place) => each === this.state.entries[place])
+      ? this
+      : this.with({ entries });
+  }
+
   stopped(at: Date, by: Attribution): Replay {
     if (this.state.stoppedAt || !this.isUnderway) {
       throw new ReplayEndedError(this.id.value);
@@ -697,7 +781,47 @@ export class Replay extends EventRecorder {
 
     finished.record(this.endedAs('finished'));
 
-    return finished;
+    return this.state.probe ? finished.probedAgain() : finished;
+  }
+
+  private probedAgain(): Replay {
+    let reserved = this.charged;
+    const entries = this.state.entries.map((entry) => {
+      const rechecked = entry.recheckAsked();
+
+      if (!entry.wantsRejudging) {
+        return rechecked;
+      }
+
+      const expected = reserved.plus(
+        this.chargeOf(entry.judgingSpent ? [entry.judgingSpent] : []),
+      );
+
+      if (!expected.isWithin(this.state.ceiling)) {
+        return rechecked;
+      }
+
+      reserved = expected;
+      return rechecked.rejudgingAsked();
+    });
+    const asked = this.with({ entries });
+
+    for (const [place, entry] of this.state.entries.entries()) {
+      const now = entries[place];
+      const run = entry.run;
+
+      if (!run || !now) {
+        continue;
+      }
+      if (!entry.secondJudging && now.secondJudging) {
+        asked.record(new ReplayRejudgingWanted(this.id, this.workspaceId, run));
+      }
+      if (!entry.recheck && now.recheck) {
+        asked.record(new ReplayRecheckWanted(this.id, this.workspaceId, run));
+      }
+    }
+
+    return asked;
   }
 
   private with(part: Partial<State>): Replay {

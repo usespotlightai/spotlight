@@ -1,4 +1,5 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import {
   type CitedReason,
@@ -37,6 +38,30 @@ export class NoteReplayJudged {
   failed(runId: string, failure: string, spent: ModelSpent): Promise<void> {
     return this.changing(runId, (replay, run, now) =>
       replay.judgingFailed(run, failure, spent, now),
+    );
+  }
+
+  rejudged(event: ReplayRunJudged): Promise<void> {
+    const verdict = JudgeVerdict.of(event);
+
+    return this.changing(event.runId, (replay, run) =>
+      replay.rejudged(run, verdict, event.spent),
+    );
+  }
+
+  rejudgingFailed(
+    runId: string,
+    failure: string,
+    spent: ModelSpent,
+  ): Promise<void> {
+    return this.changing(runId, (replay, run) =>
+      replay.rejudgingFailed(run, failure, spent),
+    );
+  }
+
+  rejudgingRefused(event: ReplayRejudgingRefused): Promise<void> {
+    return this.changing(event.run.value, (replay, run) =>
+      replay.rejudgingFailed(run, event.why, null),
     );
   }
 

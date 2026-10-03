@@ -8,6 +8,7 @@ import {
   SEARCH_ID,
   SLUG,
   STATION_ID,
+  seedCostSearch,
   seedSearch,
   seedSearchAwaiting,
   seedSeedingSearch,
@@ -63,6 +64,15 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedSearch}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const AimsForCost: Story = {
+  name: 'Aims for the same success for less',
+  render: () => (
+    <StoryPage at={at} seed={seedCostSearch}>
       {routes}
     </StoryPage>
   ),

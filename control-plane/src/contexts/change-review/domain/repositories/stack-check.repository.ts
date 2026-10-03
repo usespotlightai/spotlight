@@ -17,7 +17,9 @@ export interface StackCheckRepository {
 
   save(check: StackCheck): Promise<void>;
 
-  find(stackId: ChangeStackId): Promise<StackCheck | null>;
+  find(stackId: ChangeStackId, recheck: boolean): Promise<StackCheck | null>;
+
+  open(stackId: ChangeStackId): Promise<StackCheck | null>;
 
   ofRun(runId: RunId): Promise<readonly StackCheck[]>;
 

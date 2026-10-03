@@ -8,6 +8,7 @@ import type {
   ReplayEntryResponseDto,
   ReplayResponseDto,
   ReplaySetEntryResponseDto,
+  SetHealthResponseDto,
   SetNoiseResponseDto,
 } from '@/lib/api';
 import { percentShown } from '@/lib/judge';
@@ -307,15 +308,12 @@ export const repeatsShown = (repeats: number): string =>
 export const REPEATS_HINT =
   'How many times each run is replayed, 1 to 5. More copies measure the set’s noise and narrow the ranges; runs and spend grow with them.';
 
-export const NOISE_UNMEASURED = 'Not measured';
+const NOISE_UNMEASURED = 'Not measured';
 
-export const NOISE_UNMEASURED_NOTE =
-  'Replay the live config over the set 3 times to see how much its success moves by chance alone.';
-
-export const noiseShown = (noise: SetNoiseResponseDto): string =>
+const noiseShown = (noise: SetNoiseResponseDto): string =>
   `Success moved ${pointsShown(noise.spread)} between ${noise.repeats} copies`;
 
-export const noiseAgainstShown = (
+const noiseAgainstShown = (
   noise: SetNoiseResponseDto,
   minGain: number,
 ): string =>
@@ -331,17 +329,7 @@ export const flippedShown = (count: number): string =>
     ? 'No task went both ways'
     : `${count} ${count === 1 ? 'task' : 'tasks'} went both ways`;
 
-export const noiseSummaryShown = (
-  noise: SetNoiseResponseDto | null,
-  minGain: number,
-): string =>
-  noise
-    ? `${noiseShown(noise)}, ${noiseAgainstShown(noise, minGain)}`
-    : `Noise ${NOISE_UNMEASURED.toLowerCase()}`;
-
-export const NOISE_LABEL = 'Noise';
-
-export const MEASURE_NOISE = 'Measure noise';
+const NOISE_LABEL = 'Noise';
 
 export const START_REPLAY = 'Start a replay';
 
@@ -349,8 +337,6 @@ export const eachCopyShown = (perRepeat: readonly number[]): string =>
   `Each copy: ${perRepeatShown(perRepeat)}`;
 
 export const MEASURED_ON_CONFIG = 'measured on config';
-
-export const NOISE_REPLAY_LINK = 'Its replay';
 
 export const FLIPPED_TASKS_LABEL = 'Tasks that went both ways';
 
@@ -402,3 +388,381 @@ export const baselineNoteShown = (
     ? 'If the set’s runs changed since its baseline, a new baseline of the live config also starts, with a ceiling of its own the same as this one.'
     : 'If the set’s runs changed since its baseline, this replay of the live config becomes the new baseline; otherwise it replays beside it.';
 };
+
+export type SetHealth = SetHealthResponseDto;
+export type HealthKey = keyof SetHealth;
+export type HealthTone = 'good' | 'bad' | 'pending' | 'unknown';
+
+export type HealthReading = {
+  readonly key: HealthKey;
+  readonly label: string;
+  readonly said: string;
+  readonly tone: HealthTone;
+  readonly advice: string;
+};
+
+const UNREAD_HEALTH: SetHealth = {
+  noise: null,
+  saturation: null,
+  judge: null,
+  checks: null,
+  sanity: null,
+};
+
+export const HEALTH_LABEL = 'Health';
+
+export const CHECK_SET = 'Check this set';
+
+export const TRY_STRONGER_MODEL = 'Try a stronger model';
+
+export const HEALTH_NOTE =
+  'Whether this set can tell a better config from a worse one. Check it before you search on it.';
+
+const changesShown = (count: number): string =>
+  counted(count, 'change', 'changes');
+
+const NOT_CHECKED = 'Not checked';
+
+const stillToCome = (count: number, what: string): string =>
+  count === 0 ? '' : ` ${count.toLocaleString()} ${what} still to come.`;
+
+const noiseReading = (
+  noise: SetHealth['noise'],
+  minGain: number,
+): HealthReading => {
+  const base = { key: 'noise', label: NOISE_LABEL } as const;
+
+  if (!noise) {
+    return {
+      ...base,
+      said: NOISE_UNMEASURED,
+      tone: 'unknown',
+      advice:
+        'Check this set to replay the live config over it 3 times and see how much its success moves by chance alone.',
+    };
+  }
+
+  const noisy = noise.spread > minGain;
+
+  return {
+    ...base,
+    said: noiseShown(noise),
+    tone: noisy ? 'bad' : 'good',
+    advice: noisy
+      ? `${sentence(noiseAgainstShown(noise, minGain))}. Search with each run replayed more times, or raise the line’s min_gain.`
+      : `${sentence(noiseAgainstShown(noise, minGain))}, so a gain that size is unlikely to be chance.`,
+  };
+};
+
+const saturationReading = (
+  saturation: SetHealth['saturation'],
+): HealthReading => {
+  const base = { key: 'saturation', label: 'Room to improve' } as const;
+
+  if (!saturation) {
+    return {
+      ...base,
+      said: NOISE_UNMEASURED,
+      tone: 'unknown',
+      advice:
+        'Replay the live config over the whole set to see how much of it succeeds already.',
+    };
+  }
+
+  const succeeds = `the live config succeeds on ${percentShown(saturation.rate)}`;
+
+  return saturation.saturated
+    ? {
+        ...base,
+        said: `Almost none: ${succeeds}`,
+        tone: 'bad',
+        advice:
+          'A search for more success has nowhere to go. Search for the same success at less cost, or add tasks the live config fails.',
+      }
+    : {
+        ...base,
+        said: sentence(succeeds),
+        tone: 'good',
+        advice: 'There is room for a search to find more success.',
+      };
+};
+
+const judgeReading = (judge: SetHealth['judge']): HealthReading => {
+  const base = { key: 'judge', label: 'Judge agreeing with itself' } as const;
+
+  if (!judge) {
+    return {
+      ...base,
+      said: NOT_CHECKED,
+      tone: 'unknown',
+      advice:
+        'Check this set to judge each change a second time and see whether the judge gives the same verdict.',
+    };
+  }
+
+  const pending = stillToCome(judge.pending, 'second judgings');
+
+  if (judge.agreement === null) {
+    return {
+      ...base,
+      said: 'Judging again',
+      tone: 'pending',
+      advice: `Each change is being judged a second time.${pending}`,
+    };
+  }
+
+  const said = `Same verdict on ${percentShown(judge.agreement)} of ${changesShown(judge.compared)}`;
+
+  return judge.unstable
+    ? {
+        ...base,
+        said,
+        tone: 'bad',
+        advice: `Its verdicts are partly chance, so a search would chase luck. Make the rubric more specific before you search.${pending}`,
+      }
+    : {
+        ...base,
+        said,
+        tone: 'good',
+        advice: `Its verdicts hold when it is asked again.${pending}`,
+      };
+};
+
+const checksReading = (checks: SetHealth['checks']): HealthReading => {
+  const base = { key: 'checks', label: 'Flaky checks' } as const;
+
+  if (!checks) {
+    return {
+      ...base,
+      said: NOT_CHECKED,
+      tone: 'unknown',
+      advice:
+        'Check this set to run the station’s check a second time on each change and see whether it gives the same answer.',
+    };
+  }
+
+  const pending = stillToCome(checks.pending, 'second checks');
+
+  if (checks.rechecked === 0) {
+    return {
+      ...base,
+      said: 'Checking again',
+      tone: 'pending',
+      advice: `Each change is being checked a second time.${pending}`,
+    };
+  }
+
+  return checks.flaky.length > 0
+    ? {
+        ...base,
+        said: `${checks.flaky.length} of ${changesShown(checks.rechecked)} flipped`,
+        tone: 'bad',
+        advice: `The check passed once and failed once on these, so it can flip a candidate’s result by chance. Fix the flaky tests, or take these tasks out of the set.${pending}`,
+      }
+    : {
+        ...base,
+        said: `None of ${changesShown(checks.rechecked)} flipped`,
+        tone: 'good',
+        advice: `The check gave the same answer both times.${pending}`,
+      };
+};
+
+export const strongerConfigShown = (
+  sanity: Pick<NonNullable<SetHealth['sanity']>, 'model' | 'effort'>,
+): string =>
+  [sanity.model, sanity.effort && `${sanity.effort} effort`]
+    .filter(Boolean)
+    .join(', ') || 'A stronger config';
+
+type SanityReading = NonNullable<SetHealth['sanity']>;
+type LostComparison = 'stopped' | 'over-budget' | 'gone';
+
+const LOST_COMPARISONS: Record<LostComparison, string> = {
+  stopped: 'was stopped',
+  'over-budget': 'ran over its ceiling',
+  gone: 'is gone',
+};
+
+const comparisonLost = (sanity: Pick<SanityReading, 'againstState'>): boolean =>
+  sanity.againstState !== null &&
+  Object.hasOwn(LOST_COMPARISONS, sanity.againstState);
+
+export const sanityRetryable = (
+  sanity: Pick<SanityReading, 'state' | 'againstState'>,
+): boolean =>
+  comparisonLost(sanity) ||
+  sanity.state === 'stopped' ||
+  sanity.state === 'over-budget';
+
+export const TRY_AGAIN = 'Try again';
+
+const liveEffortShown = (
+  effort: string | null,
+  lowest: string | null,
+): string => {
+  if (effort) {
+    return ` ${effort}`;
+  }
+
+  return lowest ? ` default, counted as its lowest, ${lowest}` : '';
+};
+
+export const strongerHintShown = (
+  effort: string | null,
+  lowest: string | null,
+  higher: readonly string[],
+): string =>
+  `Pick a model the harness offers, or a higher effort than the live config’s${liveEffortShown(effort, lowest)}${higher.length > 0 ? `: ${higher.join(', ')}` : ', which it has none of'}.`;
+
+export const strongerTitleShown = (setName: string): string =>
+  `Try a stronger model on ${setName}`;
+
+export const probeTitleShown = (setName: string): string => `Check ${setName}`;
+
+export const MODEL_AND_EFFORT_LABEL = 'Model and effort';
+
+export const REPEATS_LABEL = 'Repeats';
+
+export const START_STRONGER = 'Start replay';
+
+export const START_PROBE = 'Start the check';
+
+export const STARTING = 'Starting…';
+
+export const LIVE_MODEL_UNREAD = 'The station’s model';
+
+export const HARNESS_MODELS_UNREAD = 'The harness’s models and efforts';
+
+export const compactHealthLabelShown = (label: string): string => `${label}:`;
+
+export const healthListLabelShown = (setName: string): string =>
+  `${HEALTH_LABEL} of ${setName}`;
+
+export const EFFORT_NOT_HIGHER =
+  'That effort is not higher than the live config’s. Pick a higher one, or keep the live effort.';
+
+export const MODEL_NOT_OFFERED = 'Its harness does not offer that model.';
+
+const sanityReading = (sanity: SetHealth['sanity']): HealthReading => {
+  const base = { key: 'sanity', label: 'Stronger model' } as const;
+
+  if (!sanity) {
+    return {
+      ...base,
+      said: 'Not tried',
+      tone: 'unknown',
+      advice:
+        'Replay the set with a stronger model or a higher effort. A good set rewards it; if it doesn’t, its tasks may be unclear or its scoring off.',
+    };
+  }
+
+  const config = strongerConfigShown(sanity);
+
+  if (sanity.state === 'queued' || sanity.state === 'running') {
+    return {
+      ...base,
+      said: `Replaying with ${config}`,
+      tone: 'pending',
+      advice: 'It is compared with the live config once its replay finishes.',
+    };
+  }
+  if (sanity.state !== 'finished') {
+    return {
+      ...base,
+      said: `${config} did not finish`,
+      tone: 'unknown',
+      advice:
+        'Its replay ended before every run did, so nothing was compared. Try the stronger model again with a higher ceiling.',
+    };
+  }
+  if (comparisonLost(sanity)) {
+    return {
+      ...base,
+      said: 'Could not be compared',
+      tone: 'unknown',
+      advice: `The live replay it was compared with ${LOST_COMPARISONS[sanity.againstState as LostComparison]}, so this can’t be compared. Try the stronger model again.`,
+    };
+  }
+  if (sanity.rewardsStrongerModel === null) {
+    return {
+      ...base,
+      said: 'Nothing to compare with yet',
+      tone: 'pending',
+      advice:
+        'It is compared once a replay of the live config, run as often, finishes on the set.',
+    };
+  }
+
+  return sanity.rewardsStrongerModel
+    ? {
+        ...base,
+        said: `${config} did better`,
+        tone: 'good',
+        advice:
+          'The set rewards a stronger config, so it can tell better work apart.',
+      }
+    : {
+        ...base,
+        said: `${config} did not do clearly better`,
+        tone: 'bad',
+        advice:
+          'A stronger config should do better, so the set’s tasks may be unclear or its scoring off. Start with the tasks it did worse on: their rubric or checks may be wrong.',
+      };
+};
+
+export const healthReadingsOf = (
+  health: SetHealth,
+  minGain: number,
+): HealthReading[] => [
+  noiseReading(health.noise, minGain),
+  saturationReading(health.saturation),
+  judgeReading(health.judge),
+  checksReading(health.checks),
+  sanityReading(health.sanity),
+];
+
+export const HEALTH_LINE_LABELS: readonly string[] = healthReadingsOf(
+  UNREAD_HEALTH,
+  0,
+).map((reading) => reading.label);
+
+export const flakyCheckShown = (
+  flaky: Pick<
+    NonNullable<SetHealth['checks']>['flaky'][number],
+    'first' | 'recheck'
+  >,
+): string => `${sentence(flaky.first)}, then ${flaky.recheck}`;
+
+export const worseTaskShown = (
+  worse: Pick<
+    NonNullable<SetHealth['sanity']>['worse'][number],
+    'live' | 'stronger'
+  >,
+): string =>
+  `${percentShown(worse.live)} live, ${percentShown(worse.stronger)} stronger`;
+
+export const FLAKY_TASKS_LABEL = 'Tasks whose check flipped';
+
+export const WORSE_TASKS_LABEL = 'Tasks the stronger model did worse on';
+
+export const AGAINST_LIVE = 'the live config';
+
+export const HEALTH_REPLAY_LINK = 'Its replay';
+
+export const PROBE_NOTE =
+  'Replays the live config over the set 3 times, which measures its noise. Then the judge judges each change again and the check runs again on each, to see whether they give the same answer.';
+
+export const PROBE_CEILING_NOTE =
+  'The most the check may spend: its runs, and judging and checking each change twice. Once it is spent, nothing more starts.';
+
+export const STRONGER_MODEL_NOTE =
+  'Replays the set under the live config with a stronger model or a higher effort. A good set rewards it with clearly more success.';
+
+export const STRONGER_CEILING_NOTE =
+  'The most this replay may spend. If the set has no replay of the live config run as often, one also starts beside it to compare with, with a ceiling of its own the same as this one.';
+
+export const SAME_AS_LIVE =
+  'Choose a model or an effort other than the live config’s.';
+
+export const NO_HARNESS =
+  'The station names no harness, so there is no model to choose.';

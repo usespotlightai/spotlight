@@ -105,7 +105,7 @@ const working = async (
   return {
     asked,
     judgings,
-    judging: await judgings.of(RunId.of('replay_1')),
+    judging: await judgings.of(RunId.of('replay_1'), 1),
   };
 };
 

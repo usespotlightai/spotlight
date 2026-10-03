@@ -344,3 +344,58 @@ describe('Candidate', () => {
     });
   });
 });
+
+describe('Candidate, checking a set rewards a stronger model', () => {
+  const strongerWith = (
+    changes: readonly { part: string; was: string; now: string }[],
+  ) =>
+    Candidate.sanity({
+      id: CandidateId.of('candidate_stronger'),
+      station: STATION,
+      address: AT,
+      block: StationBlock.of({
+        key: 'build',
+        name: 'Build',
+        kind: 'work',
+        model: 'opus',
+      }),
+      fingerprint: StationFingerprint.of('c'.repeat(64)),
+      digests: DIGESTS,
+      scoring: UNSCORED,
+      changedFrom: StationChanges.of(
+        LIVE_FINGERPRINT,
+        changes.map((each) => ({ ...each, name: null, kind: 'changed' })),
+      ),
+      at: NOW,
+    });
+
+  it('changes only the live config’s model or effort, under a name of Spotlight’s, unaudited', () => {
+    const stronger = strongerWith([
+      { part: 'model', was: 'sonnet', now: 'opus' },
+      { part: 'effort', was: 'low', now: 'high' },
+    ]);
+
+    expect(stronger.kind).toBe('sanity');
+    expect(stronger.isSanity).toBe(true);
+    expect(stronger.isLive).toBe(false);
+    expect(stronger.basedOn).toEqual(LIVE_FINGERPRINT);
+    expect(stronger.name.value).toBe('Stronger model, 2026-10-01');
+    expect(stronger.pullEvents()).toEqual([]);
+  });
+
+  it('refuses a stronger config that changes nothing, or anything but the model and effort', () => {
+    expect(() => strongerWith([])).toThrow(InvalidCandidateError);
+    expect(() =>
+      strongerWith([
+        { part: 'model', was: 'sonnet', now: 'opus' },
+        { part: 'prompt', was: 'Build it.', now: 'Build it well.' },
+      ]),
+    ).toThrow(InvalidCandidateError);
+  });
+
+  it('keeps people from naming a proposal as Spotlight names a stronger model', () => {
+    expect(() => CandidateName.proposed('Stronger model, please')).toThrow(
+      InvalidCandidateError,
+    );
+  });
+});

@@ -136,6 +136,7 @@ describe('ClaimsTaken', () => {
       taken.check(
         {
           stackId: 'stack_1',
+          recheck: false,
           runId: 'run_1',
           repository: null,
           base: null,
@@ -146,6 +147,6 @@ describe('ClaimsTaken', () => {
         RUNNER,
       ),
     ).rejects.toThrow('pooled_1 is spent');
-    expect(checks.unclaim).toHaveBeenCalledWith('stack_1', RUNNER, NOW);
+    expect(checks.unclaim).toHaveBeenCalledWith('stack_1', false, RUNNER, NOW);
   });
 });

@@ -3,6 +3,7 @@ import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
   type GainReading,
+  type GainVerdict,
   gainBetween,
 } from '@replays/domain/services/gain-reading';
 import { totalsOf } from '@replays/domain/services/replay-results';
@@ -13,6 +14,10 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 interface CandidateScores {
   readonly candidateId: CandidateId;
+  readonly searchedGain: GainReading | null;
+  readonly heldOutGain: GainReading | null;
+  readonly searchedVerdict: GainVerdict | null;
+  readonly heldOutVerdict: GainVerdict | null;
   readonly replayId: ReplayId;
   readonly heldOutReplayId: ReplayId | null;
   readonly seed: boolean;
@@ -76,8 +81,10 @@ const finished = (replay: Replay | null): boolean =>
 export const scoresOf = (
   search: Search,
   replays: readonly Replay[],
+  minGain: number,
 ): SearchScores => {
   const currency = search.budget.ceiling.currency;
+  const gains = searchGainsOf(search, replays, minGain);
   const found = (id: ReplayId): Replay | null =>
     replays.find((each) => each.id.equals(id)) ?? null;
   const seedReplay = found(search.seed.replay.replayId);
@@ -91,6 +98,10 @@ export const scoresOf = (
   return {
     seed: {
       candidateId: search.seed.candidateId,
+      searchedGain: null,
+      heldOutGain: null,
+      searchedVerdict: null,
+      heldOutVerdict: null,
       replayId: search.seed.replay.replayId,
       heldOutReplayId: null,
       seed: true,
@@ -121,8 +132,14 @@ export const scoresOf = (
         currency,
       );
 
+      const gain = gains.get(proposal.candidateId.value);
+
       return {
         candidateId: proposal.candidateId,
+        searchedGain: gain?.searched ?? null,
+        heldOutGain: gain?.heldOut ?? null,
+        searchedVerdict: gain?.searched?.verdict ?? null,
+        heldOutVerdict: gain?.heldOut?.verdict ?? null,
         replayId: proposal.replay.replayId,
         heldOutReplayId: heldOutId,
         seed: false,
@@ -139,12 +156,12 @@ export const scoresOf = (
   };
 };
 
-export interface SearchGains {
+interface SearchGains {
   readonly searched: GainReading | null;
   readonly heldOut: GainReading | null;
 }
 
-export const searchGainsOf = (
+const searchGainsOf = (
   search: Search,
   replays: readonly Replay[],
   minGain: number,

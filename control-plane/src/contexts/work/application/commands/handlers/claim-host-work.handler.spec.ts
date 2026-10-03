@@ -46,6 +46,7 @@ const taken = () =>
 
 const aCheck: ClaimedCheck = {
   stackId: 'stack_1',
+  recheck: false,
   runId: 'run_1',
   repository: 'widgets',
   base: null,
@@ -325,7 +326,7 @@ describe('ClaimHostWorkHandler', () => {
     });
 
     await expect(handler.execute(pull())).rejects.toThrow('pooled_1 is spent');
-    expect(unclaim).toHaveBeenCalledWith('stack_1', POOLED, NOW);
+    expect(unclaim).toHaveBeenCalledWith('stack_1', false, POOLED, NOW);
   });
 
   it('lets the runner go when nothing turned up while it waited', async () => {

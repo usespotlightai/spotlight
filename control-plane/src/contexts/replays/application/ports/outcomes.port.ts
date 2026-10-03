@@ -14,8 +14,12 @@ export interface JudgingOrder {
 
 export type JudgingOrdered = 'asked' | 'unavailable' | 'unreadable-rubric';
 
+export type JudgingAgainOrdered = 'asked' | 'unavailable' | 'unjudged';
+
 export interface OutcomesPort {
   acceptedAfter(run: RunId): Promise<boolean>;
 
   judge(order: JudgingOrder): Promise<JudgingOrdered>;
+
+  judgeAgain(run: RunId): Promise<JudgingAgainOrdered>;
 }

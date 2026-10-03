@@ -2,7 +2,7 @@ import type { SearchDetailDto } from '@replays/application/dto/searches.dto';
 import type { ReadSearchQuery } from '@replays/application/queries/read-search.query';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { searchDetailView } from '@replays/application/services/search-views';
-import type { SetNoises } from '@replays/application/services/set-noises.service';
+import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -17,7 +17,7 @@ export class ReadSearchHandler
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly pullRequests: ConfigPullRequestRepository,
-    private readonly noises: SetNoises,
+    private readonly healths: SetHealths,
   ) {}
 
   async execute(query: ReadSearchQuery): Promise<SearchDetailDto> {
@@ -33,7 +33,7 @@ export class ReadSearchHandler
           search.proposals.map((each) => each.candidateId),
         ),
         this.pullRequests.ofSearch(search.id),
-        this.noises.standardAt(search.station),
+        this.healths.standardAt(search.station),
       ]);
 
       return searchDetailView(

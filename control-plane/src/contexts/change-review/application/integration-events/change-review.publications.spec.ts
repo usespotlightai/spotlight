@@ -17,6 +17,7 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
       WorkspaceId.of('ws_1'),
       false,
       false,
+      false,
     );
 
     expect(
@@ -75,6 +76,7 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
       WorkspaceId.of('ws_1'),
       true,
       true,
+      false,
     );
 
     expect(
@@ -87,6 +89,31 @@ describe('CHANGE_REVIEW_PUBLICATIONS', () => {
         runId: 'replay_1',
         workspaceId: 'ws_1',
         passed: true,
+      },
+    ]);
+  });
+
+  it('publishes a recheck of a replay’s change apart from its first check', () => {
+    const rechecked = new ChangeStackChecked(
+      ChangeStackId.of('stack_1'),
+      RunId.of('replay_1'),
+      null,
+      WorkspaceId.of('ws_1'),
+      false,
+      true,
+      true,
+    );
+
+    expect(
+      CHANGE_REVIEW_PUBLICATIONS.filter(
+        (each) => each.from === rechecked.kind,
+      ).map((each) => each.publish(rechecked, new Date())),
+    ).toEqual([
+      {
+        kind: 'change-review.replay-change-rechecked.v1',
+        runId: 'replay_1',
+        workspaceId: 'ws_1',
+        passed: false,
       },
     ]);
   });

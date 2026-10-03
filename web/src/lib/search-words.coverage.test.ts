@@ -2,8 +2,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  bestTermShown,
   endingShown,
+  frontierNote,
   iterationStateShown,
+  noBestShown,
+  objectiveNote,
+  objectiveShown,
   type PullRequestReason,
   pullRequestReasonShown,
   pullRequestStateShown,
@@ -101,11 +106,53 @@ describe('search words cover every code the API can answer', () => {
       }),
       'noisy',
     );
+    worded(warningShown({ kind: 'saturated', rate: 0.97 }), 'saturated');
+    worded(
+      warningShown({ kind: 'judge-unstable', agreement: 0.6, compared: 10 }),
+      'judge-unstable',
+    );
+    worded(
+      warningShown({ kind: 'flaky-checks', flaky: 2, rechecked: 9 }),
+      'flaky-checks',
+    );
+    worded(
+      warningShown({
+        kind: 'sanity-failed',
+        gain: 0,
+        low: -0.1,
+        high: 0.1,
+        worseTasks: 1,
+      }),
+      'sanity-failed',
+    );
     expect(
       [
-        ...codesOf('NoiseUnmeasuredWarningResponseDto', 'kind'),
-        ...codesOf('NoisyWarningResponseDto', 'kind'),
-      ].sort(),
-    ).toEqual(['noise-unmeasured', 'noisy']);
+        'NoiseUnmeasuredWarningResponseDto',
+        'NoisyWarningResponseDto',
+        'SaturatedWarningResponseDto',
+        'JudgeUnstableWarningResponseDto',
+        'FlakyChecksWarningResponseDto',
+        'SanityFailedWarningResponseDto',
+      ]
+        .flatMap((schema) => codesOf(schema, 'kind'))
+        .sort(),
+    ).toEqual([
+      'flaky-checks',
+      'judge-unstable',
+      'noise-unmeasured',
+      'noisy',
+      'sanity-failed',
+      'saturated',
+    ]);
+  });
+
+  it('words every objective a search can aim for', () => {
+    for (const objective of codesOf('SearchEstimateResponseDto', 'objective')) {
+      worded(objectiveShown(objective as never), objective);
+      worded(objectiveNote(objective as never), objective);
+      worded(bestTermShown(objective as never), objective);
+      worded(frontierNote(objective as never), objective);
+      worded(noBestShown(objective as never), objective);
+    }
   });
 });

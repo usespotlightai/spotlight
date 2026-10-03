@@ -12,6 +12,7 @@ import {
 } from '@replays/domain/value-objects/replay-state';
 import { SEARCH_ENDINGS } from '@replays/domain/value-objects/search-ending';
 import { SEARCH_ITERATION_STATES } from '@replays/domain/value-objects/search-iteration.vo';
+import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import {
   ACTIVE_SEARCH_STATES,
   SEARCH_STATES,
@@ -46,6 +47,11 @@ export const replaySearchState = pgEnum('replay_search_state', SEARCH_STATES);
 export const replaySearchEnding = pgEnum(
   'replay_search_ending',
   SEARCH_ENDINGS,
+);
+
+export const replaySearchObjective = pgEnum(
+  'replay_search_objective',
+  SEARCH_OBJECTIVES,
 );
 
 export const replaySearchIterationState = pgEnum(
@@ -231,6 +237,8 @@ export const replay = pgTable(
     unpricedRate: doublePrecision('unpriced_rate'),
     among: jsonb('among').$type<string[]>(),
     repeats: integer('repeats').notNull(),
+    probe: boolean('probe').notNull().default(false),
+    comparedWith: text('compared_with'),
     searchId: text('search_id'),
     state: replayState('state').notNull(),
     startedAt: timestamp('started_at').notNull(),
@@ -288,6 +296,9 @@ export const replayEntry = pgTable(
       .$type<StoredEntryReason[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    secondJudging: jsonb('second_judging').$type<StoredEntryJudging>(),
+    rejudgingSpent: jsonb('rejudging_spent').$type<StoredModelSpent>(),
+    recheck: jsonb('recheck').$type<StoredEntryChecks>(),
   },
   (table) => [
     primaryKey({ columns: [table.replayId, table.position] }),
@@ -313,6 +324,7 @@ export const replaySearch = pgTable(
     ceilingCurrency: text('ceiling_currency').notNull(),
     concurrency: integer('concurrency').notNull(),
     repeats: integer('repeats').notNull(),
+    objective: replaySearchObjective('objective').notNull(),
     split: jsonb('split').$type<StoredSplit>().notNull(),
     seedCandidateId: text('seed_candidate_id').notNull(),
     seedFingerprint: text('seed_fingerprint').notNull(),

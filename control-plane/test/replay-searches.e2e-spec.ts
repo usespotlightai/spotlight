@@ -221,6 +221,7 @@ describe('DrizzleSearchRepository', () => {
           () => 'completed',
         ),
       ],
+      0.05,
       () => ReplayId.of('held_terse'),
       later(4),
     );

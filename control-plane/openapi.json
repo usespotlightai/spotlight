@@ -1358,6 +1358,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "recheck",
+            "required": false,
+            "in": "query",
+            "description": "true when the check is the recheck of a replay’s change, as its claim said",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -13952,6 +13961,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "recheck",
+            "required": false,
+            "in": "query",
+            "description": "true when the check is the recheck of a replay’s change, as its claim said",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "requestBody": {
@@ -20244,6 +20262,262 @@
         ]
       }
     },
+    "/teams/{teamId}/replay-sets/{setId}/probes": {
+      "post": {
+        "description": "Each run is replayed 3 times, which measures the set’s noise. Once the probe finishes, every change its check passed or failed is checked a second time, and its judged changes are judged a second time, in order, as far as the probe’s ceiling still has room for them at what their first judging cost; the rest are not judged again. The second judgings count against the probe’s ceiling but not towards what its runs cost. The set’s health then says how often the judge and the check gave the same answer twice. When the set has no baseline, the probe is its baseline.",
+        "operationId": "probeReplaySet",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "setId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProbeReplaySetRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayStartedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A caller who may read the team but not plan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team, set, candidate or replay for this caller",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A ceiling of nothing or more than it takes, or a set with no runs",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Check a set: replay it under the live config three times over, then judge and check each change again",
+        "tags": [
+          "replays"
+        ]
+      }
+    },
+    "/teams/{teamId}/replay-sets/{setId}/sanity-replays": {
+      "post": {
+        "description": "The model is checked against the models the station’s harness offers. When the set has no replay of the live config as it is now, run as often, one starts beside it to compare with, under a ceiling of its own equal to the one asked for. The set’s health then says whether the stronger config did clearly better, and which tasks it did worse on.",
+        "operationId": "startSanityReplay",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "setId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSanityReplayRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SanityReplayStartedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A caller who may read the team but not plan",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team, set, candidate or replay for this caller",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Neither a model nor an effort other than the live config’s, one its harness does not offer, a ceiling of nothing, or a set with no runs",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replay a set under the live config with a stronger model or a higher effort, to see whether the set rewards it",
+        "tags": [
+          "replays"
+        ]
+      }
+    },
     "/teams/{teamId}/replays/{replayId}": {
       "get": {
         "operationId": "readReplay",
@@ -22740,6 +23014,10 @@
             "type": "string",
             "example": "stack_1"
           },
+          "recheck": {
+            "type": "boolean",
+            "description": "It checks a replay’s change a second time; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found"
+          },
           "runId": {
             "type": "string",
             "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
@@ -22772,6 +23050,7 @@
         },
         "required": [
           "stackId",
+          "recheck",
           "runId",
           "repository",
           "base",
@@ -36348,7 +36627,8 @@
               "live",
               "proposed",
               "searched",
-              "planned"
+              "planned",
+              "sanity"
             ],
             "description": "proposed by a person or a token; or live, a snapshot of the station’s config Spotlight takes to replay as a baseline, which only goes with its replays"
           },
@@ -36460,6 +36740,392 @@
           "measuredAt"
         ]
       },
+      "RateIntervalResponseDto": {
+        "type": "object",
+        "properties": {
+          "rate": {
+            "type": "number",
+            "example": 0.62,
+            "description": "The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks"
+          },
+          "low": {
+            "type": "number",
+            "example": 0.48,
+            "description": "The low end of the 95% interval, bootstrapped over the tasks"
+          },
+          "high": {
+            "type": "number",
+            "example": 0.75,
+            "description": "The high end of the 95% interval, bootstrapped over the tasks"
+          }
+        },
+        "required": [
+          "rate",
+          "low",
+          "high"
+        ]
+      },
+      "SetSaturationResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string",
+            "description": "The newest finished replay of the live config over the whole set it was read from"
+          },
+          "rate": {
+            "type": "number",
+            "example": 0.97,
+            "description": "The live config’s success rate"
+          },
+          "interval": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          },
+          "saturated": {
+            "type": "boolean",
+            "description": "Its success rate is above 0.95: a search has little room to succeed more, and looks for the same success at less cost unless told otherwise"
+          },
+          "measuredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "replayId",
+          "rate",
+          "interval",
+          "saturated",
+          "measuredAt"
+        ]
+      },
+      "JudgeConsistencyResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string",
+            "description": "The probe: the newest finished replay of the live config that checked the set"
+          },
+          "compared": {
+            "type": "number",
+            "description": "Changes the judge judged twice, both times with a verdict"
+          },
+          "agreed": {
+            "type": "number",
+            "description": "Of those, the ones it passed or failed alike both times"
+          },
+          "pending": {
+            "type": "number",
+            "description": "Second judgings still to come"
+          },
+          "agreement": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.92,
+            "description": "agreed out of compared; null before any is compared"
+          },
+          "unstable": {
+            "type": "boolean",
+            "description": "It agreed with itself less than 0.8 of the time, so its verdicts are partly chance"
+          }
+        },
+        "required": [
+          "replayId",
+          "compared",
+          "agreed",
+          "pending",
+          "agreement",
+          "unstable"
+        ]
+      },
+      "FlakyCheckResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "originalRunId": {
+            "type": "string",
+            "description": "The original run the replay run replayed"
+          },
+          "runId": {
+            "type": "string",
+            "description": "The probe’s replay run whose change flipped"
+          },
+          "first": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed"
+            ]
+          },
+          "recheck": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "taskId",
+          "originalRunId",
+          "runId",
+          "first",
+          "recheck"
+        ]
+      },
+      "CheckConsistencyResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string",
+            "description": "The probe whose changes were checked again"
+          },
+          "rechecked": {
+            "type": "number",
+            "description": "Changes checked twice, both times passing or failing"
+          },
+          "pending": {
+            "type": "number",
+            "description": "Second checks still to come"
+          },
+          "flaky": {
+            "description": "The changes whose check passed once and failed once",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlakyCheckResponseDto"
+            }
+          }
+        },
+        "required": [
+          "replayId",
+          "rechecked",
+          "pending",
+          "flaky"
+        ]
+      },
+      "GainReadingResponseDto": {
+        "type": "object",
+        "properties": {
+          "gain": {
+            "type": "number",
+            "example": 0.08,
+            "description": "The success rate gained over what it is compared with, on the tasks both scored"
+          },
+          "low": {
+            "type": "number",
+            "example": -0.02,
+            "description": "The low end of the 95% interval of the gain, a paired bootstrap over the tasks"
+          },
+          "high": {
+            "type": "number",
+            "example": 0.18,
+            "description": "The high end of the 95% interval of the gain"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "better",
+              "worse",
+              "within-noise"
+            ],
+            "description": "better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise"
+          },
+          "minGain": {
+            "type": "number",
+            "example": 0.05,
+            "description": "The smallest gain the line counts as real"
+          },
+          "tasks": {
+            "type": "number",
+            "description": "The tasks both sides scored, paired"
+          }
+        },
+        "required": [
+          "gain",
+          "low",
+          "high",
+          "verdict",
+          "minGain",
+          "tasks"
+        ]
+      },
+      "WorseTaskResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "originalRunId": {
+            "type": "string"
+          },
+          "live": {
+            "type": "number",
+            "description": "The live config’s success on the task"
+          },
+          "stronger": {
+            "type": "number",
+            "description": "The stronger config’s success on the task"
+          }
+        },
+        "required": [
+          "taskId",
+          "originalRunId",
+          "live",
+          "stronger"
+        ]
+      },
+      "SanityReadingResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string",
+            "description": "The newest replay of the live config with a stronger model"
+          },
+          "candidateId": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true
+          },
+          "repeats": {
+            "type": "number"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "finished",
+              "stopped",
+              "over-budget"
+            ]
+          },
+          "againstReplayId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The replay of the live config, run at least as often, it is compared with, chosen when it started"
+          },
+          "againstState": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "queued",
+              "running",
+              "finished",
+              "stopped",
+              "over-budget",
+              "gone",
+              null
+            ],
+            "description": "How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be, so start another"
+          },
+          "gain": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
+          },
+          "rewardsStrongerModel": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "The stronger config did clearly better; false means the set does not reward a stronger model, so its tasks may be unclear or its scoring off; null until compared"
+          },
+          "worse": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorseTaskResponseDto"
+            }
+          }
+        },
+        "required": [
+          "replayId",
+          "candidateId",
+          "model",
+          "effort",
+          "repeats",
+          "state",
+          "againstReplayId",
+          "againstState",
+          "gain",
+          "rewardsStrongerModel",
+          "worse"
+        ]
+      },
+      "SetHealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "noise": {
+            "nullable": true,
+            "description": "How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetNoiseResponseDto"
+              }
+            ]
+          },
+          "saturation": {
+            "nullable": true,
+            "description": "How much of the set the live config passes already; null until it replayed the whole set",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetSaturationResponseDto"
+              }
+            ]
+          },
+          "judge": {
+            "nullable": true,
+            "description": "How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JudgeConsistencyResponseDto"
+              }
+            ]
+          },
+          "checks": {
+            "nullable": true,
+            "description": "Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CheckConsistencyResponseDto"
+              }
+            ]
+          },
+          "sanity": {
+            "nullable": true,
+            "description": "Whether a stronger model or higher effort does better on the set; null until one was replayed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SanityReadingResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "noise",
+          "saturation",
+          "judge",
+          "checks",
+          "sanity"
+        ]
+      },
       "ReplaySetEntryResponseDto": {
         "type": "object",
         "properties": {
@@ -36561,13 +37227,11 @@
             "type": "boolean",
             "description": "Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set"
           },
-          "noise": {
-            "nullable": true,
-            "description": "How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has",
-            "type": "object",
+          "health": {
+            "description": "Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and whether it rewards a stronger model",
             "allOf": [
               {
-                "$ref": "#/components/schemas/SetNoiseResponseDto"
+                "$ref": "#/components/schemas/SetHealthResponseDto"
               }
             ]
           },
@@ -36591,7 +37255,7 @@
           "createdAt",
           "stationGone",
           "guardsChanges",
-          "noise",
+          "health",
           "minGain",
           "entries"
         ]
@@ -36724,7 +37388,8 @@
               "live",
               "proposed",
               "searched",
-              "planned"
+              "planned",
+              "sanity"
             ]
           },
           "fingerprint": {
@@ -36747,31 +37412,6 @@
           "fingerprint",
           "station",
           "createdAt"
-        ]
-      },
-      "RateIntervalResponseDto": {
-        "type": "object",
-        "properties": {
-          "rate": {
-            "type": "number",
-            "example": 0.62,
-            "description": "The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks"
-          },
-          "low": {
-            "type": "number",
-            "example": 0.48,
-            "description": "The low end of the 95% interval, bootstrapped over the tasks"
-          },
-          "high": {
-            "type": "number",
-            "example": 0.75,
-            "description": "The high end of the 95% interval, bootstrapped over the tasks"
-          }
-        },
-        "required": [
-          "rate",
-          "low",
-          "high"
         ]
       },
       "ReplayTotalsResponseDto": {
@@ -36898,52 +37538,6 @@
           "medianSteps",
           "ms",
           "medianMs"
-        ]
-      },
-      "GainReadingResponseDto": {
-        "type": "object",
-        "properties": {
-          "gain": {
-            "type": "number",
-            "example": 0.08,
-            "description": "The success rate gained over what it is compared with, on the tasks both scored"
-          },
-          "low": {
-            "type": "number",
-            "example": -0.02,
-            "description": "The low end of the 95% interval of the gain, a paired bootstrap over the tasks"
-          },
-          "high": {
-            "type": "number",
-            "example": 0.18,
-            "description": "The high end of the 95% interval of the gain"
-          },
-          "verdict": {
-            "type": "string",
-            "enum": [
-              "better",
-              "worse",
-              "within-noise"
-            ],
-            "description": "better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise"
-          },
-          "minGain": {
-            "type": "number",
-            "example": 0.05,
-            "description": "The smallest gain the line counts as real"
-          },
-          "tasks": {
-            "type": "number",
-            "description": "The tasks both sides scored, paired"
-          }
-        },
-        "required": [
-          "gain",
-          "low",
-          "high",
-          "verdict",
-          "minGain",
-          "tasks"
         ]
       },
       "EntryChecksResponseDto": {
@@ -37296,6 +37890,36 @@
               }
             ]
           },
+          "secondJudge": {
+            "nullable": true,
+            "description": "A probe’s second judging of the same change, to see whether the judge agrees with itself; it never changes the run’s result",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntryJudgeResponseDto"
+              }
+            ]
+          },
+          "rejudgingSpent": {
+            "nullable": true,
+            "description": "What the second judging cost; what is in the ceiling’s currency is spent against it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ModelSpentResponseDto"
+              }
+            ]
+          },
+          "recheck": {
+            "nullable": true,
+            "description": "A probe’s second check of the same change, to see whether the check is flaky; it never changes the run’s result",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntryChecksResponseDto"
+              }
+            ]
+          },
           "result": {
             "type": "string",
             "enum": [
@@ -37341,6 +37965,9 @@
           "judge",
           "draftingSpent",
           "judgingSpent",
+          "secondJudge",
+          "rejudgingSpent",
+          "recheck",
           "result",
           "succeeded",
           "reasons"
@@ -37398,6 +38025,10 @@
             "example": 1,
             "description": "How many times it replays each run of its set"
           },
+          "probe": {
+            "type": "boolean",
+            "description": "It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice"
+          },
           "startedAt": {
             "type": "string"
           },
@@ -37436,6 +38067,7 @@
           "state",
           "ceiling",
           "repeats",
+          "probe",
           "startedAt",
           "endedAt",
           "totals",
@@ -37545,6 +38177,91 @@
           "id",
           "ceiling",
           "baseline"
+        ]
+      },
+      "ProbeReplaySetRequestDto": {
+        "type": "object",
+        "properties": {
+          "ceiling": {
+            "$ref": "#/components/schemas/StartReplayCeilingRequestDto"
+          }
+        },
+        "required": [
+          "ceiling"
+        ]
+      },
+      "StartSanityReplayRequestDto": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "example": "opus",
+            "description": "The stronger model to replay the set under, one its harness offers; the live config’s when left out"
+          },
+          "effort": {
+            "type": "string",
+            "example": "high",
+            "description": "The higher effort to replay the set at; the live config’s when left out. Name a model, an effort, or both"
+          },
+          "ceiling": {
+            "$ref": "#/components/schemas/StartReplayCeilingRequestDto"
+          },
+          "repeats": {
+            "type": "number",
+            "example": 1,
+            "minimum": 1,
+            "maximum": 5,
+            "description": "How many times to replay each run, 1 when left out"
+          }
+        },
+        "required": [
+          "ceiling"
+        ]
+      },
+      "SanityComparisonResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ceiling": {
+            "$ref": "#/components/schemas/SpendResponseDto"
+          }
+        },
+        "required": [
+          "id",
+          "ceiling"
+        ]
+      },
+      "SanityReplayStartedResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "candidateId": {
+            "type": "string",
+            "description": "The stronger config it replays: the live one, but stronger"
+          },
+          "ceiling": {
+            "$ref": "#/components/schemas/SpendResponseDto"
+          },
+          "comparison": {
+            "nullable": true,
+            "description": "A replay of the live config, run as often, started beside it to compare with when the set had none, under a ceiling of its own equal to the one asked for",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SanityComparisonResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "candidateId",
+          "ceiling",
+          "comparison"
         ]
       },
       "ReplaySearchResponseDto": {
@@ -37705,6 +38422,10 @@
             "example": 1,
             "description": "How many times it replays each run of its set"
           },
+          "probe": {
+            "type": "boolean",
+            "description": "It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice"
+          },
           "startedAt": {
             "type": "string"
           },
@@ -37764,6 +38485,7 @@
           "state",
           "ceiling",
           "repeats",
+          "probe",
           "startedAt",
           "endedAt",
           "totals",
@@ -38030,6 +38752,14 @@
           "budget": {
             "$ref": "#/components/schemas/SearchBudgetResponseDto"
           },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "success",
+              "cost"
+            ],
+            "description": "What it looks for, which orders its frontier and its best: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs"
+          },
           "spent": {
             "description": "What it spent so far, in its ceiling’s currency: its replays and its agent’s runs",
             "allOf": [
@@ -38048,7 +38778,7 @@
           },
           "best": {
             "nullable": true,
-            "description": "The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it",
+            "description": "The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it",
             "type": "object",
             "allOf": [
               {
@@ -38073,6 +38803,7 @@
           "ending",
           "agent",
           "budget",
+          "objective",
           "spent",
           "iterationsRun",
           "proposed",
@@ -38136,6 +38867,14 @@
           },
           "budget": {
             "$ref": "#/components/schemas/SearchBudgetRequestDto"
+          },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "success",
+              "cost"
+            ],
+            "description": "What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success"
           }
         },
         "required": [
@@ -38194,6 +38933,118 @@
           "minGain",
           "neededRepeats",
           "suggestedRepeats"
+        ]
+      },
+      "SaturatedWarningResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "saturated"
+            ],
+            "description": "The live config passes more than 95% of the set already, so a search for more success has little room; a search for the same success at less cost does"
+          },
+          "rate": {
+            "type": "number",
+            "example": 0.97,
+            "description": "The live config’s success on the set"
+          }
+        },
+        "required": [
+          "kind",
+          "rate"
+        ]
+      },
+      "JudgeUnstableWarningResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "judge-unstable"
+            ],
+            "description": "The judge, asked twice of the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance"
+          },
+          "agreement": {
+            "type": "number",
+            "example": 0.7,
+            "description": "The share of changes it passed or failed alike both times"
+          },
+          "compared": {
+            "type": "number",
+            "example": 12,
+            "description": "How many changes it judged twice"
+          }
+        },
+        "required": [
+          "kind",
+          "agreement",
+          "compared"
+        ]
+      },
+      "FlakyChecksWarningResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "flaky-checks"
+            ],
+            "description": "The station’s check, run twice on the same change, passed one time and failed the other on some tasks"
+          },
+          "flaky": {
+            "type": "number",
+            "example": 2,
+            "description": "How many changes it flipped on"
+          },
+          "rechecked": {
+            "type": "number",
+            "example": 12,
+            "description": "How many changes it checked twice"
+          }
+        },
+        "required": [
+          "kind",
+          "flaky",
+          "rechecked"
+        ]
+      },
+      "SanityFailedWarningResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sanity-failed"
+            ],
+            "description": "A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off"
+          },
+          "gain": {
+            "type": "number",
+            "example": -0.02,
+            "description": "The stronger config’s gain in success over the live one"
+          },
+          "low": {
+            "type": "number",
+            "example": -0.15
+          },
+          "high": {
+            "type": "number",
+            "example": 0.1
+          },
+          "worseTasks": {
+            "type": "number",
+            "example": 2,
+            "description": "How many tasks the stronger config did worse on"
+          }
+        },
+        "required": [
+          "kind",
+          "gain",
+          "low",
+          "high",
+          "worseTasks"
         ]
       },
       "SearchRunsEstimateResponseDto": {
@@ -38310,6 +39161,14 @@
             "example": 0.05,
             "description": "The smallest gain its line counts as real"
           },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "success",
+              "cost"
+            ],
+            "description": "What it would look for, as asked or as the set’s health suggests: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs"
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -38319,13 +39178,29 @@
                 },
                 {
                   "$ref": "#/components/schemas/NoisyWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/SaturatedWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/JudgeUnstableWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/FlakyChecksWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/SanityFailedWarningResponseDto"
                 }
               ],
               "discriminator": {
                 "propertyName": "kind",
                 "mapping": {
                   "noise-unmeasured": "#/components/schemas/NoiseUnmeasuredWarningResponseDto",
-                  "noisy": "#/components/schemas/NoisyWarningResponseDto"
+                  "noisy": "#/components/schemas/NoisyWarningResponseDto",
+                  "saturated": "#/components/schemas/SaturatedWarningResponseDto",
+                  "judge-unstable": "#/components/schemas/JudgeUnstableWarningResponseDto",
+                  "flaky-checks": "#/components/schemas/FlakyChecksWarningResponseDto",
+                  "sanity-failed": "#/components/schemas/SanityFailedWarningResponseDto"
                 }
               }
             },
@@ -38340,6 +39215,7 @@
           "perReplayAllotments",
           "estimatedDuration",
           "minGain",
+          "objective",
           "warnings"
         ]
       },
@@ -38383,6 +39259,14 @@
           "budget": {
             "$ref": "#/components/schemas/SearchBudgetRequestDto"
           },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "success",
+              "cost"
+            ],
+            "description": "What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success"
+          },
           "agent": {
             "$ref": "#/components/schemas/SearchAgentRequestDto"
           }
@@ -38403,6 +39287,14 @@
             "type": "string",
             "description": "The replay of the live config over the whole set, the search starts from; its agent runs once it ends"
           },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "success",
+              "cost"
+            ],
+            "description": "What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs"
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -38412,13 +39304,29 @@
                 },
                 {
                   "$ref": "#/components/schemas/NoisyWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/SaturatedWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/JudgeUnstableWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/FlakyChecksWarningResponseDto"
+                },
+                {
+                  "$ref": "#/components/schemas/SanityFailedWarningResponseDto"
                 }
               ],
               "discriminator": {
                 "propertyName": "kind",
                 "mapping": {
                   "noise-unmeasured": "#/components/schemas/NoiseUnmeasuredWarningResponseDto",
-                  "noisy": "#/components/schemas/NoisyWarningResponseDto"
+                  "noisy": "#/components/schemas/NoisyWarningResponseDto",
+                  "saturated": "#/components/schemas/SaturatedWarningResponseDto",
+                  "judge-unstable": "#/components/schemas/JudgeUnstableWarningResponseDto",
+                  "flaky-checks": "#/components/schemas/FlakyChecksWarningResponseDto",
+                  "sanity-failed": "#/components/schemas/SanityFailedWarningResponseDto"
                 }
               }
             },
@@ -38428,6 +39336,7 @@
         "required": [
           "id",
           "seedReplayId",
+          "objective",
           "warnings"
         ]
       },
@@ -38866,6 +39775,14 @@
           "budget": {
             "$ref": "#/components/schemas/SearchBudgetResponseDto"
           },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "success",
+              "cost"
+            ],
+            "description": "What it looks for, which orders its frontier and its best: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs"
+          },
           "spent": {
             "description": "What it spent so far, in its ceiling’s currency: its replays and its agent’s runs",
             "allOf": [
@@ -38884,7 +39801,7 @@
           },
           "best": {
             "nullable": true,
-            "description": "The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it",
+            "description": "The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it",
             "type": "object",
             "allOf": [
               {
@@ -38949,6 +39866,7 @@
           "ending",
           "agent",
           "budget",
+          "objective",
           "spent",
           "iterationsRun",
           "proposed",
@@ -39666,6 +40584,56 @@
       "ReplaySetHealthResponseDto": {
         "type": "object",
         "properties": {
+          "noise": {
+            "nullable": true,
+            "description": "How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetNoiseResponseDto"
+              }
+            ]
+          },
+          "saturation": {
+            "nullable": true,
+            "description": "How much of the set the live config passes already; null until it replayed the whole set",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetSaturationResponseDto"
+              }
+            ]
+          },
+          "judge": {
+            "nullable": true,
+            "description": "How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JudgeConsistencyResponseDto"
+              }
+            ]
+          },
+          "checks": {
+            "nullable": true,
+            "description": "Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CheckConsistencyResponseDto"
+              }
+            ]
+          },
+          "sanity": {
+            "nullable": true,
+            "description": "Whether a stronger model or higher effort does better on the set; null until one was replayed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SanityReadingResponseDto"
+              }
+            ]
+          },
           "tasks": {
             "type": "number",
             "description": "How many distinct tasks its runs worked; fewer than its runs when a task was worked more than once"
@@ -39692,16 +40660,6 @@
             "example": "2026-09-29T09:00:00.000Z",
             "description": "When a task was last added to it; null while it holds none"
           },
-          "noise": {
-            "nullable": true,
-            "description": "How much its success moves between copies of the same runs under the live config; null until a finished live replay ran it more than once",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SetNoiseResponseDto"
-              }
-            ]
-          },
           "minGain": {
             "type": "number",
             "example": 0.05,
@@ -39709,12 +40667,16 @@
           }
         },
         "required": [
+          "noise",
+          "saturation",
+          "judge",
+          "checks",
+          "sanity",
           "tasks",
           "runs",
           "oldestRunEndedAt",
           "newestRunEndedAt",
           "lastAddedAt",
-          "noise",
           "minGain"
         ]
       },
@@ -39922,6 +40884,14 @@
               "stopped"
             ]
           },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "success",
+              "cost"
+            ],
+            "description": "What the search looks for, which decides whether this candidate is on its frontier"
+          },
           "startedAt": {
             "type": "string",
             "example": "2026-09-30T08:00:00.000Z"
@@ -39938,6 +40908,7 @@
         "required": [
           "searchId",
           "state",
+          "objective",
           "startedAt",
           "seed"
         ]

@@ -1,8 +1,8 @@
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CandidateChoices } from '@/components/features/replays/set/CandidateChoices';
 import { CountField } from '@/components/features/searches/station/CountField';
-import { FieldInput } from '@/components/shared/form/FieldInput';
+import { CeilingField } from '@/components/shared/form/CeilingField';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,12 +31,12 @@ import { useForwardTrail } from '@/lib/trail';
 
 const LABEL = 'font-medium text-foreground text-xs';
 
+const FIRST_REPEATS = '1';
+
 type StartReplayDialogProps = {
   at: ReplayedStation;
   set: ReplaySet;
   baseline: Pick<Replay, 'repeats'> | null;
-  firstRepeats?: number;
-  firstCandidate?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -45,8 +45,6 @@ export function StartReplayDialog({
   at,
   set,
   baseline,
-  firstRepeats = 1,
-  firstCandidate = LIVE,
   open,
   onOpenChange,
 }: StartReplayDialogProps) {
@@ -54,13 +52,10 @@ export function StartReplayDialog({
   const start = useStartReplay();
   const navigate = useNavigate();
   const trail = useForwardTrail();
-  const amountId = useId();
-  const currencyId = useId();
-  const errorId = useId();
-  const [candidate, setCandidate] = useState(firstCandidate);
+  const [candidate, setCandidate] = useState(LIVE);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(USUAL_CURRENCY);
-  const [repeatsText, setRepeatsText] = useState(String(firstRepeats));
+  const [repeatsText, setRepeatsText] = useState(FIRST_REPEATS);
   const [tried, setTried] = useState(false);
 
   const ceiling = ceilingFrom(amount, currency);
@@ -69,10 +64,10 @@ export function StartReplayDialog({
   const repeatsProblem = typeof repeats === 'string' ? repeats : null;
 
   const forget = () => {
-    setCandidate(firstCandidate);
+    setCandidate(LIVE);
     setAmount('');
     setCurrency(USUAL_CURRENCY);
-    setRepeatsText(String(firstRepeats));
+    setRepeatsText(FIRST_REPEATS);
     setTried(false);
     start.reset();
   };
@@ -141,55 +136,31 @@ export function StartReplayDialog({
             onChange={setRepeatsText}
           />
 
-          <div className="flex flex-col gap-1.5">
-            <span className={LABEL}>Ceiling</span>
-            <div className="flex gap-2">
-              <label htmlFor={amountId} className="sr-only">
-                Most it may spend
-              </label>
-              <FieldInput
-                id={amountId}
-                name="amount"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="5.00"
-                disabled={start.isPending}
-                aria-invalid={shownProblem !== null}
-                aria-describedby={shownProblem || refused ? errorId : undefined}
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-              />
-              <label htmlFor={currencyId} className="sr-only">
-                Currency
-              </label>
-              <FieldInput
-                id={currencyId}
-                name="currency"
-                autoComplete="off"
-                maxLength={3}
-                className="w-20 uppercase"
-                disabled={start.isPending}
-                value={currency}
-                onChange={(event) =>
-                  setCurrency(event.target.value.toUpperCase())
-                }
-              />
-            </div>
-            <p className="text-muted-foreground text-xs leading-5">
-              The most this replay may spend, counting its runs and the drafting
-              and judging of their changes. Once it is spent, nothing more
-              starts.{' '}
-              {baselineNoteShown(
-                candidate !== LIVE,
-                baseline?.repeats ?? null,
-                typeof repeats === 'number' ? repeats : null,
-              )}
-            </p>
-          </div>
+          <CeilingField
+            amount={amount}
+            currency={currency}
+            onAmount={setAmount}
+            onCurrency={setCurrency}
+            placeholder="5.00"
+            disabled={start.isPending}
+            problem={shownProblem}
+            note={
+              <>
+                The most this replay may spend, counting its runs and the
+                drafting and judging of their changes. Once it is spent, nothing
+                more starts.{' '}
+                {baselineNoteShown(
+                  candidate !== LIVE,
+                  baseline?.repeats ?? null,
+                  typeof repeats === 'number' ? repeats : null,
+                )}
+              </>
+            }
+          />
 
-          {(shownProblem || refused) && (
-            <p id={errorId} role="alert" className="text-destructive text-xs">
-              {shownProblem ?? refused}
+          {refused && (
+            <p role="alert" className="text-destructive text-xs">
+              {refused}
             </p>
           )}
 

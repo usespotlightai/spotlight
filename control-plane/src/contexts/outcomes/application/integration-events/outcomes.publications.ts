@@ -16,6 +16,7 @@ export const OUTCOMES_PUBLICATIONS = [
     (event): ChangeJudgedIntegrationEvent => ({
       kind: CHANGE_JUDGED,
       runId: event.runId.value,
+      round: event.round,
       workspaceId: event.workspaceId.value,
       scale: event.scale.kind,
       value: event.value,
@@ -40,6 +41,7 @@ export const OUTCOMES_PUBLICATIONS = [
     (event): ChangeJudgingFailedIntegrationEvent => ({
       kind: CHANGE_JUDGING_FAILED,
       runId: event.runId.value,
+      round: event.round,
       workspaceId: event.workspaceId.value,
       failure: event.failure.code,
       spentCosts: event.spent.costs.map((each) => ({ ...each })),

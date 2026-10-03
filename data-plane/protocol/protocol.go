@@ -273,6 +273,7 @@ type Handed struct {
 
 type StackCheck struct {
 	StackID    string      `json:"stackId"`
+	Recheck    bool        `json:"recheck"`
 	RunID      string      `json:"runId"`
 	Repository string      `json:"repository"`
 	Base       string      `json:"base"`

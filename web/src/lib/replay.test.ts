@@ -25,6 +25,9 @@ import {
   spendBreakdown,
   startRefusal,
   stationAddress,
+  strongerAsked,
+  strongerProblem,
+  strongerRefusal,
 } from '@/lib/replay';
 
 const totals = (successRate: number | null) =>
@@ -110,6 +113,66 @@ describe('replays', () => {
         flippedTasks: ['task_a', 'task_b'],
       } as never),
     ).toEqual(['Fix the queue', 'A deleted task']);
+  });
+
+  it('asks only for what differs from the live config, and nothing when nothing does', () => {
+    const live = { harness: 'claude-code', model: 'sonnet', effort: 'medium' };
+
+    expect(strongerAsked(live, 'opus', 'medium')).toEqual({ model: 'opus' });
+    expect(strongerAsked(live, 'sonnet', 'high')).toEqual({ effort: 'high' });
+    expect(strongerAsked(live, 'sonnet', 'medium')).toBeNull();
+    expect(strongerAsked(live, '', '')).toBeNull();
+  });
+
+  it('wants a model the harness offers, or an effort higher than the live one', () => {
+    const live = { harness: 'claude-code', model: 'sonnet', effort: 'medium' };
+    const offer = {
+      models: ['sonnet', 'opus'],
+      efforts: ['low', 'medium', 'high'],
+    };
+
+    expect(strongerProblem(live, 'opus', 'high', offer)).toBeNull();
+    expect(strongerProblem(live, 'sonnet', 'medium', offer)).toBe(
+      'Choose a model or an effort other than the live config’s.',
+    );
+    expect(strongerProblem(live, 'sonnet', 'low', offer)).toBe(
+      'That effort is not higher than the live config’s. Pick a higher one, or keep the live effort.',
+    );
+    expect(strongerProblem(live, 'haiku', 'medium', offer)).toBe(
+      'Its harness does not offer that model.',
+    );
+    expect(
+      strongerProblem({ ...live, effort: null }, 'sonnet', 'low', offer),
+    ).toBe(
+      'That effort is not higher than the live config’s. Pick a higher one, or keep the live effort.',
+    );
+    expect(
+      strongerProblem({ ...live, effort: null }, 'sonnet', 'medium', offer),
+    ).toBeNull();
+  });
+
+  it('cannot try a stronger model at a station without a harness', () => {
+    const set = {
+      stationGone: false,
+      entries: [{ taskId: 'task_a' }],
+    } as ReplaySet;
+
+    expect(
+      strongerRefusal(set, { harness: null, model: null, effort: null }),
+    ).toBe('The station names no harness, so there is no model to choose.');
+    expect(
+      strongerRefusal(set, {
+        harness: 'claude-code',
+        model: null,
+        effort: null,
+      }),
+    ).toBeNull();
+    expect(
+      strongerRefusal(
+        { ...set, entries: [] },
+        { harness: 'claude-code', model: null, effort: null },
+      ),
+    ).toBe('Add runs to the set first.');
   });
 
   it('takes the newest replay as the latest', () => {

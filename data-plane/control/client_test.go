@@ -320,7 +320,7 @@ func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", protocol.StackChecked{
+	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", false, protocol.StackChecked{
 		Steps: []protocol.CheckedStep{{Step: "whole", Passed: true, Output: "ok", TookMs: 12}},
 	})
 	if err != nil {
@@ -342,7 +342,7 @@ func TestRenewCheckLeaseReadsBackWhetherToStop(t *testing.T) {
 		_, _ = w.Write([]byte(`{"stop":true}`))
 	})
 
-	stop, err := client.RenewCheckLease(context.Background(), "run_1", "stack/1")
+	stop, err := client.RenewCheckLease(context.Background(), "run_1", "stack/1", false)
 	if err != nil {
 		t.Fatalf("renew: %v", err)
 	}
@@ -354,12 +354,39 @@ func TestRenewCheckLeaseReadsBackWhetherToStop(t *testing.T) {
 	}
 }
 
+func TestRecheckCallsNameTheRecheck(t *testing.T) {
+	var asked []string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = append(asked, r.URL.Path+"?"+r.URL.RawQuery)
+		if strings.HasSuffix(r.URL.Path, "/lease") {
+			_, _ = w.Write([]byte(`{"stop":false}`))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	if _, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", true); err != nil {
+		t.Fatalf("renew: %v", err)
+	}
+	if err := client.RecordChangeStackCheck(context.Background(), "run_1", "stack_1", true, protocol.StackChecked{}); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+
+	want := []string{
+		"/api/runs/run_1/change-stack-checks/stack_1/lease?recheck=true",
+		"/api/runs/run_1/change-stack-checks/stack_1?recheck=true",
+	}
+	if strings.Join(asked, " ") != strings.Join(want, " ") {
+		t.Errorf("asked %q", asked)
+	}
+}
+
 func TestRenewCheckLeaseCarriesOnWhileTheCheckIsHeld(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"stop":false}`))
 	})
 
-	stop, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1")
+	stop, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", false)
 	if err != nil {
 		t.Fatalf("renew: %v", err)
 	}
@@ -375,7 +402,7 @@ func TestRenewCheckLeaseRejectedWhenTheRunnerNoLongerHoldsIt(t *testing.T) {
 		_, _ = w.Write([]byte(`{"reason":"conflict","message":"Change stack stack_1 is not being checked by that runner"}`))
 	})
 
-	_, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1")
+	_, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", false)
 
 	var rejection *control.Rejection
 	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {

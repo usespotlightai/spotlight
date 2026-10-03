@@ -30,11 +30,12 @@ CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-bre
 CREATE TYPE "public"."task_delivery_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."config_pull_request_refusal" AS ENUM('no-source', 'repository-unreachable', 'file-missing', 'file-unparsable', 'block-not-found', 'blocks-ambiguous', 'computed-attribute', 'drifted', 'edit-failed', 'branch-taken', 'file-unwritable', 'github-refused');--> statement-breakpoint
 CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'refused');--> statement-breakpoint
-CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed', 'searched', 'planned');--> statement-breakpoint
+CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed', 'searched', 'planned', 'sanity');--> statement-breakpoint
 CREATE TYPE "public"."replay_check_baseline" AS ENUM('awaiting', 'found', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_outcome" AS ENUM('completed', 'failed', 'abandoned', 'withdrawn');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_ending" AS ENUM('iterations-spent', 'ceiling-reached', 'stalled', 'stopped', 'station-gone', 'set-gone', 'seed-failed');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_iteration_state" AS ENUM('wanted', 'running', 'ended', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_objective" AS ENUM('success', 'cost');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_state" AS ENUM('seeding', 'searching', 'holding-out', 'finished', 'stopped');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'over-budget');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'forgone', 'refused');--> statement-breakpoint
@@ -207,7 +208,8 @@ CREATE TABLE "review_sync" (
 );
 --> statement-breakpoint
 CREATE TABLE "stack_check" (
-	"stack_id" text PRIMARY KEY NOT NULL,
+	"stack_id" text NOT NULL,
+	"recheck" boolean DEFAULT false NOT NULL,
 	"run_id" text NOT NULL,
 	"task_id" text,
 	"replay" boolean DEFAULT false NOT NULL,
@@ -230,7 +232,8 @@ CREATE TABLE "stack_check" (
 	"reserved_until" timestamp,
 	"provision_failures" integer DEFAULT 0 NOT NULL,
 	"next_provision_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "stack_check_stack_id_recheck_pk" PRIMARY KEY("stack_id","recheck")
 );
 --> statement-breakpoint
 CREATE TABLE "harness_profile" (
@@ -570,7 +573,8 @@ CREATE TABLE "memory_use" (
 );
 --> statement-breakpoint
 CREATE TABLE "change_judging" (
-	"run_id" text PRIMARY KEY NOT NULL,
+	"run_id" text NOT NULL,
+	"round" integer NOT NULL,
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
 	"rubric" text NOT NULL,
@@ -583,7 +587,8 @@ CREATE TABLE "change_judging" (
 	"judged_at" timestamp,
 	"failure" "judging_failure",
 	"failed_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "change_judging_run_id_round_pk" PRIMARY KEY("run_id","round")
 );
 --> statement-breakpoint
 CREATE TABLE "chat_record" (
@@ -858,6 +863,8 @@ CREATE TABLE "replay" (
 	"unpriced_rate" double precision,
 	"among" jsonb,
 	"repeats" integer NOT NULL,
+	"probe" boolean DEFAULT false NOT NULL,
+	"compared_with" text,
 	"search_id" text,
 	"state" "replay_state" NOT NULL,
 	"started_at" timestamp NOT NULL,
@@ -960,6 +967,9 @@ CREATE TABLE "replay_entry" (
 	"judging" jsonb,
 	"succeeded" boolean,
 	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"second_judging" jsonb,
+	"rejudging_spent" jsonb,
+	"recheck" jsonb,
 	CONSTRAINT "replay_entry_replay_id_position_pk" PRIMARY KEY("replay_id","position")
 );
 --> statement-breakpoint
@@ -979,6 +989,7 @@ CREATE TABLE "replay_search" (
 	"ceiling_currency" text NOT NULL,
 	"concurrency" integer NOT NULL,
 	"repeats" integer NOT NULL,
+	"objective" "replay_search_objective" NOT NULL,
 	"split" jsonb NOT NULL,
 	"seed_candidate_id" text NOT NULL,
 	"seed_fingerprint" text NOT NULL,

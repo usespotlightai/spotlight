@@ -15,6 +15,7 @@ import { SearchIterationClosedError } from '@replays/domain/exceptions/search-it
 import { SearchProposalsSpentError } from '@replays/domain/exceptions/search-proposals-spent.error';
 import { frontierOf } from '@replays/domain/services/frontier';
 import type { ReplayCharge } from '@replays/domain/services/replay-charge';
+import { rankedOf } from '@replays/domain/services/search-ranking';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
@@ -35,6 +36,7 @@ import type {
 } from '@replays/domain/value-objects/search-ending';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import { SearchStartDetail } from '@replays/domain/value-objects/search-start-detail.vo';
@@ -53,6 +55,9 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const STALLED_AFTER = 2;
+
+const cheaperThan = (cost: number | null, seed: number | null): boolean =>
+  cost !== null && seed !== null && cost < seed;
 
 export interface SearchSeed {
   readonly candidateId: CandidateId;
@@ -89,6 +94,7 @@ interface State {
   readonly setId: ReplaySetId;
   readonly agent: SearchAgent;
   readonly budget: SearchBudget;
+  readonly objective: SearchObjective;
   readonly split: HeldOutSplit;
   readonly seed: SearchSeed;
   readonly iterations: readonly SearchIteration[];
@@ -116,6 +122,7 @@ export class Search extends EventRecorder {
     set: ReplaySet;
     agent: SearchAgent;
     budget: SearchBudget;
+    objective: SearchObjective;
     split: HeldOutSplit;
     seed: { candidate: SeedCandidate; replayId: ReplayId };
     at: Date;
@@ -145,6 +152,7 @@ export class Search extends EventRecorder {
       setId: set.id,
       agent: input.agent,
       budget: input.budget,
+      objective: input.objective,
       split: input.split,
       seed: {
         candidateId: seed.candidate.id,
@@ -172,6 +180,7 @@ export class Search extends EventRecorder {
             stationId: set.station.stationId,
             agent: input.agent,
             budget: input.budget,
+            objective: input.objective,
             heldOutTasks: input.split.heldOutTasks,
           }),
         ),
@@ -249,6 +258,10 @@ export class Search extends EventRecorder {
 
   get budget(): SearchBudget {
     return this.state.budget;
+  }
+
+  get objective(): SearchObjective {
+    return this.state.objective;
   }
 
   get concurrency(): number {
@@ -505,6 +518,7 @@ export class Search extends EventRecorder {
 
   heldOutFrom(
     replays: readonly Replay[],
+    minGain: number,
     replayIds: () => ReplayId,
     at: Date,
   ): Search {
@@ -514,25 +528,22 @@ export class Search extends EventRecorder {
       );
     }
 
-    const scores = scoresOf(this, replays);
-    const chosen = frontierOf([scores.seed, ...scores.candidates])
-      .filter(
+    const scores = scoresOf(this, replays, minGain);
+    const { objective } = this.state;
+    const chosen = rankedOf(
+      frontierOf([scores.seed, ...scores.candidates], objective).filter(
         (each) =>
           !each.seed &&
+          (objective === 'success' ||
+            cheaperThan(each.costPerRun, scores.seed.costPerRun)) &&
           this.proposals.some(
             (proposal) =>
               proposal.candidateId.equals(each.candidateId) &&
               proposal.replay.hasFinished,
           ),
-      )
-      .sort(
-        (one, other) =>
-          (other.searchScore ?? 0) - (one.searchScore ?? 0) ||
-          (one.costPerRun ?? Number.POSITIVE_INFINITY) -
-            (other.costPerRun ?? Number.POSITIVE_INFINITY) ||
-          (one.candidateId.value < other.candidateId.value ? -1 : 1),
-      )
-      .slice(0, this.state.budget.perIteration);
+      ),
+      objective,
+    ).slice(0, this.state.budget.perIteration);
 
     return this.with({
       heldOut: chosen.map((each) => ({

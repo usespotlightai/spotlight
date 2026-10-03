@@ -304,6 +304,10 @@ export type ClaimedCheckStepResponseDto = {
 
 export type ClaimedCheckResponseDto = {
   stackId: string;
+  /**
+   * It checks a replay’s change a second time; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found
+   */
+  recheck: boolean;
   runId: string;
   /**
    * Which checkout to check
@@ -5715,7 +5719,7 @@ export type ReplayCandidateResourceResponseDto = {
   /**
    * proposed by a person or a token; or live, a snapshot of the station’s config Spotlight takes to replay as a baseline, which only goes with its replays
    */
-  kind: 'live' | 'proposed' | 'searched' | 'planned';
+  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'sanity';
   /**
    * The station block it replays the station under, in the shape the line resource holds a station in
    */
@@ -5762,6 +5766,187 @@ export type SetNoiseResponseDto = {
   measuredAt: string;
 };
 
+export type RateIntervalResponseDto = {
+  /**
+   * The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks
+   */
+  rate: number;
+  /**
+   * The low end of the 95% interval, bootstrapped over the tasks
+   */
+  low: number;
+  /**
+   * The high end of the 95% interval, bootstrapped over the tasks
+   */
+  high: number;
+};
+
+export type SetSaturationResponseDto = {
+  /**
+   * The newest finished replay of the live config over the whole set it was read from
+   */
+  replayId: string;
+  /**
+   * The live config’s success rate
+   */
+  rate: number;
+  interval: RateIntervalResponseDto | null;
+  /**
+   * Its success rate is above 0.95: a search has little room to succeed more, and looks for the same success at less cost unless told otherwise
+   */
+  saturated: boolean;
+  measuredAt: string;
+};
+
+export type JudgeConsistencyResponseDto = {
+  /**
+   * The probe: the newest finished replay of the live config that checked the set
+   */
+  replayId: string;
+  /**
+   * Changes the judge judged twice, both times with a verdict
+   */
+  compared: number;
+  /**
+   * Of those, the ones it passed or failed alike both times
+   */
+  agreed: number;
+  /**
+   * Second judgings still to come
+   */
+  pending: number;
+  /**
+   * agreed out of compared; null before any is compared
+   */
+  agreement: number | null;
+  /**
+   * It agreed with itself less than 0.8 of the time, so its verdicts are partly chance
+   */
+  unstable: boolean;
+};
+
+export type FlakyCheckResponseDto = {
+  taskId: string;
+  /**
+   * The original run the replay run replayed
+   */
+  originalRunId: string;
+  /**
+   * The probe’s replay run whose change flipped
+   */
+  runId: string;
+  first: 'passed' | 'failed';
+  recheck: 'passed' | 'failed';
+};
+
+export type CheckConsistencyResponseDto = {
+  /**
+   * The probe whose changes were checked again
+   */
+  replayId: string;
+  /**
+   * Changes checked twice, both times passing or failing
+   */
+  rechecked: number;
+  /**
+   * Second checks still to come
+   */
+  pending: number;
+  /**
+   * The changes whose check passed once and failed once
+   */
+  flaky: Array<FlakyCheckResponseDto>;
+};
+
+export type GainReadingResponseDto = {
+  /**
+   * The success rate gained over what it is compared with, on the tasks both scored
+   */
+  gain: number;
+  /**
+   * The low end of the 95% interval of the gain, a paired bootstrap over the tasks
+   */
+  low: number;
+  /**
+   * The high end of the 95% interval of the gain
+   */
+  high: number;
+  /**
+   * better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise
+   */
+  verdict: 'better' | 'worse' | 'within-noise';
+  /**
+   * The smallest gain the line counts as real
+   */
+  minGain: number;
+  /**
+   * The tasks both sides scored, paired
+   */
+  tasks: number;
+};
+
+export type WorseTaskResponseDto = {
+  taskId: string;
+  originalRunId: string;
+  /**
+   * The live config’s success on the task
+   */
+  live: number;
+  /**
+   * The stronger config’s success on the task
+   */
+  stronger: number;
+};
+
+export type SanityReadingResponseDto = {
+  /**
+   * The newest replay of the live config with a stronger model
+   */
+  replayId: string;
+  candidateId: string;
+  model: string | null;
+  effort: string | null;
+  repeats: number;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  /**
+   * The replay of the live config, run at least as often, it is compared with, chosen when it started
+   */
+  againstReplayId: string | null;
+  /**
+   * How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be, so start another
+   */
+  againstState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | 'gone' | null;
+  gain: GainReadingResponseDto | null;
+  /**
+   * The stronger config did clearly better; false means the set does not reward a stronger model, so its tasks may be unclear or its scoring off; null until compared
+   */
+  rewardsStrongerModel: boolean | null;
+  worse: Array<WorseTaskResponseDto>;
+};
+
+export type SetHealthResponseDto = {
+  /**
+   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   */
+  noise: SetNoiseResponseDto | null;
+  /**
+   * How much of the set the live config passes already; null until it replayed the whole set
+   */
+  saturation: SetSaturationResponseDto | null;
+  /**
+   * How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged
+   */
+  judge: JudgeConsistencyResponseDto | null;
+  /**
+   * Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked
+   */
+  checks: CheckConsistencyResponseDto | null;
+  /**
+   * Whether a stronger model or higher effort does better on the set; null until one was replayed
+   */
+  sanity: SanityReadingResponseDto | null;
+};
+
 export type ReplaySetEntryResponseDto = {
   runId: string;
   taskId: string;
@@ -5800,9 +5985,9 @@ export type ReplaySetResponseDto = {
    */
   guardsChanges: boolean;
   /**
-   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and whether it rewards a stronger model
    */
-  noise: SetNoiseResponseDto | null;
+  health: SetHealthResponseDto;
   /**
    * The smallest gain in success its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
    */
@@ -5845,7 +6030,7 @@ export type AddReplaySetEntryRequestDto = {
 export type CandidateResponseDto = {
   id: string;
   name: string;
-  kind: 'live' | 'proposed' | 'searched' | 'planned';
+  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'sanity';
   /**
    * The StationConfig fingerprint, as runs record it
    */
@@ -5857,21 +6042,6 @@ export type CandidateResponseDto = {
     [key: string]: unknown;
   };
   createdAt: string;
-};
-
-export type RateIntervalResponseDto = {
-  /**
-   * The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks
-   */
-  rate: number;
-  /**
-   * The low end of the 95% interval, bootstrapped over the tasks
-   */
-  low: number;
-  /**
-   * The high end of the 95% interval, bootstrapped over the tasks
-   */
-  high: number;
 };
 
 export type ReplayTotalsResponseDto = {
@@ -5928,33 +6098,6 @@ export type ReplayTotalsResponseDto = {
   medianSteps: number | null;
   ms: number;
   medianMs: number | null;
-};
-
-export type GainReadingResponseDto = {
-  /**
-   * The success rate gained over what it is compared with, on the tasks both scored
-   */
-  gain: number;
-  /**
-   * The low end of the 95% interval of the gain, a paired bootstrap over the tasks
-   */
-  low: number;
-  /**
-   * The high end of the 95% interval of the gain
-   */
-  high: number;
-  /**
-   * better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise
-   */
-  verdict: 'better' | 'worse' | 'within-noise';
-  /**
-   * The smallest gain the line counts as real
-   */
-  minGain: number;
-  /**
-   * The tasks both sides scored, paired
-   */
-  tasks: number;
 };
 
 export type EntryChecksResponseDto = {
@@ -6069,6 +6212,18 @@ export type ReplayEntryResponseDto = {
    */
   judgingSpent: ModelSpentResponseDto | null;
   /**
+   * A probe’s second judging of the same change, to see whether the judge agrees with itself; it never changes the run’s result
+   */
+  secondJudge: EntryJudgeResponseDto | null;
+  /**
+   * What the second judging cost; what is in the ceiling’s currency is spent against it
+   */
+  rejudgingSpent: ModelSpentResponseDto | null;
+  /**
+   * A probe’s second check of the same change, to see whether the check is flaky; it never changes the run’s result
+   */
+  recheck: EntryChecksResponseDto | null;
+  /**
    * pending while its run, checks or judge are still to come; unscored when nothing could say whether it succeeded
    */
   result: 'pending' | 'succeeded' | 'failed' | 'unscored';
@@ -6105,6 +6260,10 @@ export type ReplayResponseDto = {
    * How many times it replays each run of its set
    */
   repeats: number;
+  /**
+   * It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice
+   */
+  probe: boolean;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
@@ -6154,6 +6313,44 @@ export type ReplayStartedResponseDto = {
    * The set’s baseline replay of the live config, when the set had none covering its runs: this replay itself, or one starting beside it under this id. It spends against a ceiling of its own, equal to the one asked for, so the two together may spend up to twice it
    */
   baseline: StartedBaselineResponseDto | null;
+};
+
+export type ProbeReplaySetRequestDto = {
+  ceiling: StartReplayCeilingRequestDto;
+};
+
+export type StartSanityReplayRequestDto = {
+  /**
+   * The stronger model to replay the set under, one its harness offers; the live config’s when left out
+   */
+  model?: string;
+  /**
+   * The higher effort to replay the set at; the live config’s when left out. Name a model, an effort, or both
+   */
+  effort?: string;
+  ceiling: StartReplayCeilingRequestDto;
+  /**
+   * How many times to replay each run, 1 when left out
+   */
+  repeats?: number;
+};
+
+export type SanityComparisonResponseDto = {
+  id: string;
+  ceiling: SpendResponseDto;
+};
+
+export type SanityReplayStartedResponseDto = {
+  id: string;
+  /**
+   * The stronger config it replays: the live one, but stronger
+   */
+  candidateId: string;
+  ceiling: SpendResponseDto;
+  /**
+   * A replay of the live config, run as often, started beside it to compare with when the set had none, under a ceiling of its own equal to the one asked for
+   */
+  comparison: SanityComparisonResponseDto | null;
 };
 
 export type ReplaySearchResponseDto = {
@@ -6236,6 +6433,10 @@ export type ReplayDetailResponseDto = {
    * How many times it replays each run of its set
    */
   repeats: number;
+  /**
+   * It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice
+   */
+  probe: boolean;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
@@ -6350,6 +6551,10 @@ export type SearchResponseDto = {
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
   /**
+   * What it looks for, which orders its frontier and its best: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   */
+  objective: 'success' | 'cost';
+  /**
    * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
    */
   spent: SpendResponseDto;
@@ -6362,7 +6567,7 @@ export type SearchResponseDto = {
    */
   proposed: number;
   /**
-   * The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it
+   * The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it
    */
   best: SearchBestResponseDto | null;
   startedAt: string;
@@ -6398,6 +6603,10 @@ export type EstimateSearchRequestDto = {
    */
   setId: string;
   budget: SearchBudgetRequestDto;
+  /**
+   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success
+   */
+  objective?: 'success' | 'cost';
 };
 
 export type NoiseUnmeasuredWarningResponseDto = {
@@ -6425,6 +6634,64 @@ export type NoisyWarningResponseDto = {
    * The repeats to ask for: the needed ones, at most 5
    */
   suggestedRepeats: number;
+};
+
+export type SaturatedWarningResponseDto = {
+  /**
+   * The live config passes more than 95% of the set already, so a search for more success has little room; a search for the same success at less cost does
+   */
+  kind: 'saturated';
+  /**
+   * The live config’s success on the set
+   */
+  rate: number;
+};
+
+export type JudgeUnstableWarningResponseDto = {
+  /**
+   * The judge, asked twice of the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance
+   */
+  kind: 'judge-unstable';
+  /**
+   * The share of changes it passed or failed alike both times
+   */
+  agreement: number;
+  /**
+   * How many changes it judged twice
+   */
+  compared: number;
+};
+
+export type FlakyChecksWarningResponseDto = {
+  /**
+   * The station’s check, run twice on the same change, passed one time and failed the other on some tasks
+   */
+  kind: 'flaky-checks';
+  /**
+   * How many changes it flipped on
+   */
+  flaky: number;
+  /**
+   * How many changes it checked twice
+   */
+  rechecked: number;
+};
+
+export type SanityFailedWarningResponseDto = {
+  /**
+   * A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off
+   */
+  kind: 'sanity-failed';
+  /**
+   * The stronger config’s gain in success over the live one
+   */
+  gain: number;
+  low: number;
+  high: number;
+  /**
+   * How many tasks the stronger config did worse on
+   */
+  worseTasks: number;
 };
 
 export type SearchRunsEstimateResponseDto = {
@@ -6493,9 +6760,13 @@ export type SearchEstimateResponseDto = {
    */
   minGain: number;
   /**
+   * What it would look for, as asked or as the set’s health suggests: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   */
+  objective: 'success' | 'cost';
+  /**
    * What would make its results hard to trust; a search may start all the same
    */
-  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto>;
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | SanityFailedWarningResponseDto>;
 };
 
 export type SearchAgentRequestDto = {
@@ -6513,6 +6784,10 @@ export type StartSearchRequestDto = {
    */
   setId: string;
   budget: SearchBudgetRequestDto;
+  /**
+   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success
+   */
+  objective?: 'success' | 'cost';
   agent: SearchAgentRequestDto;
 };
 
@@ -6523,9 +6798,13 @@ export type SearchStartedResponseDto = {
    */
   seedReplayId: string;
   /**
+   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   */
+  objective: 'success' | 'cost';
+  /**
    * What makes its results hard to trust; the search starts all the same
    */
-  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto>;
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | SanityFailedWarningResponseDto>;
 };
 
 export type SearchSplitEntryResponseDto = {
@@ -6699,6 +6978,10 @@ export type SearchDetailResponseDto = {
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
   /**
+   * What it looks for, which orders its frontier and its best: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   */
+  objective: 'success' | 'cost';
+  /**
    * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
    */
   spent: SpendResponseDto;
@@ -6711,7 +6994,7 @@ export type SearchDetailResponseDto = {
    */
   proposed: number;
   /**
-   * The frontier point that succeeds most, by its held-out score where it has one, else its search score; the live config when nothing beat it
+   * The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it
    */
   best: SearchBestResponseDto | null;
   startedAt: string;
@@ -6999,6 +7282,26 @@ export type ReplayedPeriodResponseDto = {
 
 export type ReplaySetHealthResponseDto = {
   /**
+   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   */
+  noise: SetNoiseResponseDto | null;
+  /**
+   * How much of the set the live config passes already; null until it replayed the whole set
+   */
+  saturation: SetSaturationResponseDto | null;
+  /**
+   * How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged
+   */
+  judge: JudgeConsistencyResponseDto | null;
+  /**
+   * Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked
+   */
+  checks: CheckConsistencyResponseDto | null;
+  /**
+   * Whether a stronger model or higher effort does better on the set; null until one was replayed
+   */
+  sanity: SanityReadingResponseDto | null;
+  /**
    * How many distinct tasks its runs worked; fewer than its runs when a task was worked more than once
    */
   tasks: number;
@@ -7018,10 +7321,6 @@ export type ReplaySetHealthResponseDto = {
    * When a task was last added to it; null while it holds none
    */
   lastAddedAt: string | null;
-  /**
-   * How much its success moves between copies of the same runs under the live config; null until a finished live replay ran it more than once
-   */
-  noise: SetNoiseResponseDto | null;
   /**
    * The smallest gain in success its line counts as real
    */
@@ -7117,6 +7416,10 @@ export type ReplayedSeedResponseDto = {
 export type ReplayedSearchResponseDto = {
   searchId: string;
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
+  /**
+   * What the search looks for, which decides whether this candidate is on its frontier
+   */
+  objective: 'success' | 'cost';
   startedAt: string;
   /**
    * The live config the search started from, scored on the same searched runs as its candidates, in the candidate’s currency
@@ -7944,7 +8247,12 @@ export type RenewCheckLeaseData = {
     runId: string;
     stackId: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * true when the check is the recheck of a replay’s change, as its claim said
+     */
+    recheck?: boolean;
+  };
   url: '/runs/{runId}/change-stack-checks/{stackId}/lease';
 };
 
@@ -13934,7 +14242,12 @@ export type RecordChangeStackCheckData = {
     runId: string;
     stackId: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * true when the check is the recheck of a replay’s change, as its claim said
+     */
+    recheck?: boolean;
+  };
   url: '/runs/{runId}/change-stack-checks/{stackId}';
 };
 
@@ -16981,6 +17294,108 @@ export type StartReplayResponses = {
 };
 
 export type StartReplayResponse = StartReplayResponses[keyof StartReplayResponses];
+
+export type ProbeReplaySetData = {
+  body: ProbeReplaySetRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/probes';
+};
+
+export type ProbeReplaySetErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * A ceiling of nothing or more than it takes, or a set with no runs
+   */
+  422: ProblemResponseDto;
+};
+
+export type ProbeReplaySetError = ProbeReplaySetErrors[keyof ProbeReplaySetErrors];
+
+export type ProbeReplaySetResponses = {
+  201: ReplayStartedResponseDto;
+};
+
+export type ProbeReplaySetResponse = ProbeReplaySetResponses[keyof ProbeReplaySetResponses];
+
+export type StartSanityReplayData = {
+  body: StartSanityReplayRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/sanity-replays';
+};
+
+export type StartSanityReplayErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * A caller who may read the team but not plan
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such team, set, candidate or replay for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * Neither a model nor an effort other than the live config’s, one its harness does not offer, a ceiling of nothing, or a set with no runs
+   */
+  422: ProblemResponseDto;
+};
+
+export type StartSanityReplayError = StartSanityReplayErrors[keyof StartSanityReplayErrors];
+
+export type StartSanityReplayResponses = {
+  201: SanityReplayStartedResponseDto;
+};
+
+export type StartSanityReplayResponse = StartSanityReplayResponses[keyof StartSanityReplayResponses];
 
 export type ReadReplayData = {
   body?: never;

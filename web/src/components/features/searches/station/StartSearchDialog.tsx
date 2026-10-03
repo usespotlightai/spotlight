@@ -1,12 +1,13 @@
-import { type FormEvent, useId, useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CountField } from '@/components/features/searches/station/CountField';
+import { ObjectiveChoices } from '@/components/features/searches/station/ObjectiveChoices';
 import { SearchEstimateSummary } from '@/components/features/searches/station/SearchEstimateSummary';
 import { SearchWarnings } from '@/components/features/searches/station/SearchWarnings';
 import { SetChoice } from '@/components/features/searches/station/SetChoice';
 import { HarnessSelect } from '@/components/features/stations/HarnessSelect';
 import { ModelEffortSelect } from '@/components/features/stations/ModelEffortSelect';
-import { FieldInput } from '@/components/shared/form/FieldInput';
+import { CeilingField } from '@/components/shared/form/CeilingField';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,7 +27,7 @@ import {
   type ReplaySet,
   USUAL_CURRENCY,
 } from '@/lib/replay';
-import { REPEATS_HINT } from '@/lib/replay-words';
+import { REPEATS_HINT, REPEATS_LABEL } from '@/lib/replay-words';
 import {
   agentOf,
   type BudgetInputs,
@@ -39,6 +40,11 @@ import {
   setRefusal,
   typedIn,
 } from '@/lib/search';
+import {
+  objectiveSuggestedShown,
+  SEARCH_CEILING_NOTE,
+  type SearchObjective,
+} from '@/lib/search-words';
 import { useForwardTrail } from '@/lib/trail';
 
 const LABEL = 'font-medium text-foreground text-xs';
@@ -74,14 +80,14 @@ export function StartSearchDialog({
   const navigate = useNavigate();
   const trail = useForwardTrail();
   const { data: harnesses } = useHarnesses();
-  const amountId = useId();
-  const currencyId = useId();
-  const ceilingProblemId = useId();
   const [chosenSet, setSetId] = useState('');
   const [inputs, setInputs] = useState(FIRST_BUDGET);
   const [chosenHarness, setHarness] = useState('');
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
+  const [chosenObjective, setObjective] = useState<SearchObjective | null>(
+    null,
+  );
   const [tried, setTried] = useState(false);
 
   const setId = chosenSet || firstStartable(sets);
@@ -125,6 +131,7 @@ export function StartSearchDialog({
     setHarness('');
     setModel('');
     setEffort('');
+    setObjective(null);
     setTried(false);
     start.reset();
   };
@@ -138,7 +145,13 @@ export function StartSearchDialog({
     }
 
     start.mutate(
-      { at, setId, budget, agent: agentOf(harness, model, effort) },
+      {
+        at,
+        setId,
+        budget,
+        agent: agentOf(harness, model, effort),
+        objective: askedObjective,
+      },
       {
         onSuccess: (started) => {
           onOpenChange(false);
@@ -151,6 +164,21 @@ export function StartSearchDialog({
   };
 
   const ceilingProblem = shown('ceiling');
+  const suggested = estimate.data && !estimate.isError ? estimate.data : null;
+  const askedObjective = chosenObjective ?? suggested?.objective ?? null;
+  const chosenSetSaturation =
+    sets.find((each) => each.id === setId)?.health.saturation ?? null;
+  const objective =
+    askedObjective ?? (chosenSetSaturation?.saturated ? 'cost' : 'success');
+  const saturatedWarning = suggested?.warnings.find(
+    (warning) => warning.kind === 'saturated',
+  );
+  const saturatedRate =
+    saturatedWarning?.kind === 'saturated'
+      ? saturatedWarning.rate
+      : chosenSetSaturation?.saturated
+        ? chosenSetSaturation.rate
+        : null;
   const agentProblem = shown('agent');
   const setProblem =
     shown('set') ?? (tried && !setId ? 'Choose a replay set.' : null);
@@ -222,7 +250,7 @@ export function StartSearchDialog({
               onChange={change('concurrency')}
             />
             <CountField
-              label="Repeats"
+              label={REPEATS_LABEL}
               hint={REPEATS_HINT}
               value={inputs.repeats}
               problem={shown('repeats')}
@@ -231,54 +259,30 @@ export function StartSearchDialog({
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className={LABEL}>Ceiling</span>
-            <div className="flex gap-2">
-              <label htmlFor={amountId} className="sr-only">
-                Most it may spend
-              </label>
-              <FieldInput
-                id={amountId}
-                name="amount"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="20.00"
-                disabled={start.isPending}
-                aria-invalid={ceilingProblem !== null}
-                aria-describedby={ceilingProblem ? ceilingProblemId : undefined}
-                value={inputs.amount}
-                onChange={(event) => change('amount')(event.target.value)}
-              />
-              <label htmlFor={currencyId} className="sr-only">
-                Currency
-              </label>
-              <FieldInput
-                id={currencyId}
-                name="currency"
-                autoComplete="off"
-                maxLength={3}
-                className="w-20 uppercase"
-                disabled={start.isPending}
-                value={inputs.currency}
-                onChange={(event) =>
-                  change('currency')(event.target.value.toUpperCase())
-                }
-              />
-            </div>
-            <p className="text-muted-foreground text-xs leading-5">
-              The most the whole search may spend: its replays and its agent’s
-              runs.
-            </p>
-            {ceilingProblem && (
-              <p
-                id={ceilingProblemId}
-                role="alert"
-                className="text-destructive text-xs"
-              >
-                {ceilingProblem}
-              </p>
-            )}
-          </div>
+          <CeilingField
+            amount={inputs.amount}
+            currency={inputs.currency}
+            onAmount={change('amount')}
+            onCurrency={change('currency')}
+            placeholder="20.00"
+            disabled={start.isPending}
+            problem={ceilingProblem}
+            note={SEARCH_CEILING_NOTE}
+          />
+
+          <ObjectiveChoices
+            value={objective}
+            onChange={(next) => {
+              setObjective(next);
+              start.reset();
+            }}
+            disabled={start.isPending}
+            suggestion={
+              chosenObjective === null && saturatedRate !== null
+                ? objectiveSuggestedShown(saturatedRate)
+                : null
+            }
+          />
 
           <div className="flex flex-col gap-1.5">
             <span className={LABEL}>Its agent</span>

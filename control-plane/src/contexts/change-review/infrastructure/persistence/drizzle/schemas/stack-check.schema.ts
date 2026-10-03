@@ -10,6 +10,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
@@ -19,7 +20,8 @@ export const checkPhase = pgEnum('check_phase', CHECK_PHASES);
 export const stackCheck = pgTable(
   'stack_check',
   {
-    stackId: text('stack_id').primaryKey(),
+    stackId: text('stack_id').notNull(),
+    recheck: boolean('recheck').notNull().default(false),
     runId: text('run_id').notNull(),
     taskId: text('task_id'),
     replay: boolean('replay').notNull().default(false),
@@ -48,6 +50,7 @@ export const stackCheck = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    primaryKey({ columns: [table.stackId, table.recheck] }),
     index('stack_check_run_idx').on(table.runId),
     index('stack_check_task_idx').on(table.taskId),
     index('stack_check_waiting_idx').on(table.workspaceId, table.phase),

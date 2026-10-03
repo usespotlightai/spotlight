@@ -13,6 +13,7 @@ export class ReplayStartDetail implements ChangeDetail {
     readonly baseline: boolean,
     readonly ceiling: string,
     readonly repeats: number,
+    readonly probe: boolean,
   ) {}
 
   static of(input: {
@@ -21,6 +22,7 @@ export class ReplayStartDetail implements ChangeDetail {
     baseline: boolean;
     ceiling: Spend;
     repeats: number;
+    probe: boolean;
   }): ReplayStartDetail {
     return new ReplayStartDetail(
       input.setId.value,
@@ -28,6 +30,7 @@ export class ReplayStartDetail implements ChangeDetail {
       input.baseline,
       `${input.ceiling.amount} ${input.ceiling.currency}`,
       input.repeats,
+      input.probe,
     );
   }
 
@@ -38,6 +41,7 @@ export class ReplayStartDetail implements ChangeDetail {
       baseline: this.baseline,
       ceiling: this.ceiling,
       repeats: this.repeats,
+      probe: this.probe,
     };
   }
 }

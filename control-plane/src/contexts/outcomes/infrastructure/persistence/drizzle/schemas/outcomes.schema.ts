@@ -395,7 +395,8 @@ export interface StoredModelSpend {
 export const changeJudging = pgTable(
   'change_judging',
   {
-    runId: text('run_id').primaryKey(),
+    runId: text('run_id').notNull(),
+    round: integer('round').notNull(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
     rubric: text('rubric').notNull(),
@@ -411,6 +412,7 @@ export const changeJudging = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    primaryKey({ columns: [table.runId, table.round] }),
     index('change_judging_owed_idx')
       .on(table.askedAt)
       .where(sql`${table.owed}`),

@@ -1,4 +1,5 @@
 import type { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
+import type { JudgingRound } from '@outcomes/domain/value-objects/judging-round';
 import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
@@ -10,6 +11,7 @@ export class ChangeJudged implements DomainEvent {
 
   constructor(
     readonly runId: RunId,
+    readonly round: JudgingRound,
     readonly workspaceId: WorkspaceId,
     readonly scale: ScoreScale,
     readonly value: number,

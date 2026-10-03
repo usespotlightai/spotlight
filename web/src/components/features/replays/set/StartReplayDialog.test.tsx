@@ -180,21 +180,4 @@ describe('StartReplayDialog', () => {
       expect.anything(),
     );
   });
-
-  it('starts with the repeats it is opened with', () => {
-    render(
-      <MemoryRouter>
-        <StartReplayDialog
-          at={AT}
-          set={SET}
-          baseline={{ repeats: 1 }}
-          firstRepeats={3}
-          open
-          onOpenChange={vi.fn()}
-        />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByRole('textbox', { name: 'Repeats' })).toHaveValue('3');
-  });
 });
