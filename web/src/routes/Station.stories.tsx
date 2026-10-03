@@ -24,7 +24,6 @@ import {
   refuseStationJudge,
   refuseStationOutcomes,
   STATION_ID,
-  seedStation,
   seedStationAwaitingOutcomes,
   seedStationJudgeAwaiting,
   seedStationJudgeEmpty,
@@ -66,7 +65,7 @@ export const Failed: Story = {
 
 export const WithData: Story = {
   render: () => (
-    <StoryPage at={at} seed={seedStation}>
+    <StoryPage at={at} seed={seedStationSearches}>
       {routes}
     </StoryPage>
   ),

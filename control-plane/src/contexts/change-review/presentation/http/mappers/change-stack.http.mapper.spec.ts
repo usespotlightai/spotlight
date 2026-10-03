@@ -68,4 +68,37 @@ describe('ChangeStackHttpMapper', () => {
       notes: [{ path: 'src/invite.ts', note: 'Adds the invite function.' }],
     });
   });
+
+  it('maps what the check ran and what each step printed', () => {
+    const step = { step: 'whole', passed: true, output: 'ok', tookMs: 1200 };
+    const response = ChangeStackHttpMapper.toResponse({
+      stacks: [
+        {
+          id: 'stack_1',
+          repository: null,
+          state: 'ready',
+          failure: null,
+          draftedAt: '2026-10-03T10:00:00.000Z',
+          settledAt: null,
+          files: [],
+          cohorts: [],
+          check: {
+            command: 'npm test',
+            state: 'checked',
+            reason: null,
+            whole: step,
+            layers: [step],
+          },
+        },
+      ],
+    });
+
+    expect(JSON.parse(JSON.stringify(response.stacks[0]?.check))).toEqual({
+      command: 'npm test',
+      state: 'checked',
+      reason: null,
+      whole: step,
+      layers: [step],
+    });
+  });
 });

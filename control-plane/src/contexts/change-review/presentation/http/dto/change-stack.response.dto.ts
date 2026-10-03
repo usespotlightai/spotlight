@@ -137,6 +137,65 @@ export class StackLayerResponseDto {
   }
 }
 
+export class CheckedStepResponseDto {
+  @ApiProperty({
+    example: 'whole',
+    description: 'The step it ran: whole, or the layer it checked',
+  })
+  readonly step: string;
+
+  @ApiProperty()
+  readonly passed: boolean;
+
+  @ApiProperty({ description: 'The end of what the check printed' })
+  readonly output: string;
+
+  @ApiProperty({ example: 41_000 })
+  readonly tookMs: number;
+
+  constructor(step: string, passed: boolean, output: string, tookMs: number) {
+    this.step = step;
+    this.passed = passed;
+    this.output = output;
+    this.tookMs = tookMs;
+  }
+}
+
+export class StackCheckResponseDto {
+  @ApiProperty({ example: 'npm test' })
+  readonly command: string;
+
+  @ApiProperty({ enum: STACK_CHECK_STATE_NAMES })
+  readonly state: (typeof STACK_CHECK_STATE_NAMES)[number];
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Why it was skipped, where it was',
+  })
+  readonly reason: string | null;
+
+  @ApiProperty({ type: CheckedStepResponseDto, nullable: true })
+  readonly whole: CheckedStepResponseDto | null;
+
+  @ApiProperty({ type: CheckedStepResponseDto, isArray: true })
+  readonly layers: readonly CheckedStepResponseDto[];
+
+  constructor(
+    command: string,
+    state: (typeof STACK_CHECK_STATE_NAMES)[number],
+    reason: string | null,
+    whole: CheckedStepResponseDto | null,
+    layers: readonly CheckedStepResponseDto[],
+  ) {
+    this.command = command;
+    this.state = state;
+    this.reason = reason;
+    this.whole = whole;
+    this.layers = layers;
+  }
+}
+
 export class StackCohortResponseDto {
   @ApiProperty({ example: 'c1' })
   readonly id: string;
@@ -187,8 +246,12 @@ export class ChangeStackResponseDto {
   @ApiProperty({ type: StackCohortResponseDto, isArray: true })
   readonly cohorts: readonly StackCohortResponseDto[];
 
-  @ApiProperty({ enum: [...STACK_CHECK_STATE_NAMES, null], nullable: true })
-  readonly checkState: 'waiting' | 'checked' | 'skipped' | null;
+  @ApiProperty({
+    type: StackCheckResponseDto,
+    nullable: true,
+    description: 'What the check ran and what each step printed',
+  })
+  readonly check: StackCheckResponseDto | null;
 
   constructor(
     id: string,
@@ -197,7 +260,7 @@ export class ChangeStackResponseDto {
     failure: string | null,
     files: readonly DiffFileResponseDto[],
     cohorts: readonly StackCohortResponseDto[],
-    checkState: 'waiting' | 'checked' | 'skipped' | null,
+    check: StackCheckResponseDto | null,
   ) {
     this.id = id;
     this.repository = repository;
@@ -205,7 +268,7 @@ export class ChangeStackResponseDto {
     this.failure = failure;
     this.files = files;
     this.cohorts = cohorts;
-    this.checkState = checkState;
+    this.check = check;
   }
 }
 
@@ -233,7 +296,7 @@ export class LatestChangeStackResponseDto {
   readonly state: 'drafting' | 'ready' | 'failed';
 
   @ApiProperty({ enum: [...STACK_CHECK_STATE_NAMES, null], nullable: true })
-  readonly checkState: 'waiting' | 'checked' | 'skipped' | null;
+  readonly checkState: (typeof STACK_CHECK_STATE_NAMES)[number] | null;
 
   @ApiProperty({ example: 335, description: 'Lines added across the stack' })
   readonly added: number;
@@ -245,7 +308,7 @@ export class LatestChangeStackResponseDto {
     runId: string,
     repository: string | null,
     state: 'drafting' | 'ready' | 'failed',
-    checkState: 'waiting' | 'checked' | 'skipped' | null,
+    checkState: (typeof STACK_CHECK_STATE_NAMES)[number] | null,
     added: number,
     removed: number,
   ) {

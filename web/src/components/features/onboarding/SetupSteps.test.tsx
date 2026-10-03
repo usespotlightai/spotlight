@@ -35,7 +35,7 @@ const STEPS = [
   },
   {
     key: 'harness',
-    title: 'Run a harness',
+    title: 'Connect a host',
     description: 'A runner with an agent harness installed.',
   },
 ];
@@ -109,7 +109,7 @@ describe('SetupSteps', () => {
     );
     expect(screen.getByRole('link', { name: 'Take me there' })).toHaveAttribute(
       'href',
-      '/w/acme/runners',
+      '/w/acme/settings/runners',
     );
   });
 
@@ -173,7 +173,7 @@ describe('SetupSteps', () => {
     showing();
 
     expect(
-      screen.getByRole('button', { name: /Run a harness/ }),
+      screen.getByRole('button', { name: /Connect a host/ }),
     ).toHaveAttribute('aria-expanded', 'false');
     expect(
       screen.getByRole('link', { name: 'Install on GitHub' }),

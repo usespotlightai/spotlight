@@ -15,6 +15,7 @@ import type {
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
 import { seedStationReplays } from '@/stories/fixtures/replays';
+import { seedNoRunMemories } from '@/stories/fixtures/run-memories';
 import {
   LINE_ID,
   STATION_ID,
@@ -414,6 +415,21 @@ export const failSearch = (client: QueryClient) => {
 
 const SEARCH_RUN: SearchRunResponseDto = {
   id: SEARCH_RUN_ID,
+  briefing: [
+    '# Searching for a better station',
+    '',
+    'You are improving the Implementation station of the default line. Propose up to 2 candidate configs this iteration; each is replayed on the searched tasks.',
+    '',
+    '## What you may change',
+    '',
+    '- agent_prompt, model, effort, skills',
+    '',
+    '## How to go about it',
+    '',
+    '1. Read how earlier candidates did: `spotlight history --station implementation --line default`',
+    '2. Propose: `spotlight candidate --name … --hypothesis …`',
+    '3. End the run once you have proposed.',
+  ].join('\n'),
   state: 'completed',
   attempt: 1,
   exitCode: 0,
@@ -494,6 +510,7 @@ const seedSearchRunAround = (client: QueryClient) => {
   client.setQueryData(teamRunKeys.forTeam(TEAM_ID), []);
   client.setQueryData(searchKeys.forStation(STATION_ID), [SUMMARY, EARLIER]);
   failQuery(client, replayRunKeys.forRun(SEARCH_RUN_ID), NOT_ON_TEAM);
+  seedNoRunMemories(client, TEAM_ID, SEARCH_RUN_ID);
 };
 
 export const seedSearchRunAwaiting = seedSearchRunAround;

@@ -1,14 +1,14 @@
-import { Brain } from 'lucide-react';
-import { MemoryFilters } from '@/components/features/memory/MemoryFilters';
+import { Spool } from 'lucide-react';
 import { TeamMemoryRow } from '@/components/features/memory/TeamMemoryRow';
 import { TeamMemorySkeleton } from '@/components/features/memory/TeamMemorySkeleton';
 import { WriteMemoryButton } from '@/components/features/memory/WriteMemoryButton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Notice } from '@/components/shared/Notice';
+import { ViewPills } from '@/components/shared/ViewPills';
 import { useTeamMemories } from '@/hooks/api/useTeamMemories';
 import type { LineResponseDto } from '@/lib/api';
-import { type MemoryFilter, narrowed } from '@/lib/memory';
+import { type MemoryFilter, narrowed, STANDING_VIEWS } from '@/lib/memory';
 import { failed, loading } from '@/lib/query';
 
 type TeamMemoryListProps = {
@@ -34,7 +34,11 @@ export function TeamMemoryList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <MemoryFilters filter={filter} lines={lines} onChange={onFilter} />
+      <ViewPills
+        views={STANDING_VIEWS}
+        current={filter.standing}
+        onChange={(standing) => onFilter({ ...filter, standing })}
+      />
 
       {failed(memories) ? (
         <Notice>
@@ -49,7 +53,7 @@ export function TeamMemoryList({
       ) : nothingYet ? (
         <Notice>
           <EmptyState
-            icon={Brain}
+            icon={Spool}
             title="Nothing remembered yet"
             action={<WriteMemoryButton teamId={teamId} />}
           >

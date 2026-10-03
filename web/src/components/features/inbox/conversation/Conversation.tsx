@@ -1,9 +1,16 @@
-import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
+import {
+  Fragment,
+  type MouseEvent,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import { InboxMessage } from '@/components/features/inbox/conversation/InboxMessage';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { togglesDisclosure } from '@/lib/disclosure';
 import {
   type Conversing,
   HELD_AT_TOP,
@@ -80,6 +87,7 @@ type ConversationProps = {
   openAt?: number | null;
   opening?: ReactNode;
   live?: ReactNode;
+  closing?: ReactNode;
   footer: ReactNode;
   deciding?: Deciding;
 };
@@ -90,6 +98,7 @@ export function Conversation({
   openAt,
   opening,
   live,
+  closing,
   footer,
   deciding,
 }: ConversationProps) {
@@ -177,11 +186,19 @@ export function Conversation({
       box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
   };
 
+  const toggled = (event: MouseEvent<HTMLDivElement>) => {
+    if (togglesDisclosure(event.target)) {
+      held.current = null;
+      following.current = false;
+    }
+  };
+
   return (
     <>
       <div
         ref={scroller}
         onScroll={watched}
+        onClickCapture={toggled}
         className="min-h-0 flex-1 overflow-y-auto"
       >
         <div
@@ -266,6 +283,8 @@ export function Conversation({
               </section>
             );
           })}
+
+          {closing && <div className="mt-3">{closing}</div>}
         </div>
       </div>
 

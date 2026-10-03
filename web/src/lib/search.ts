@@ -129,6 +129,11 @@ export const searchNumber = (
 export const searchLabel = (number: number | null): string =>
   number === null ? 'Search' : `Search ${number}`;
 
+export const iterationTitle = (
+  iteration: number,
+  number: number | null,
+): string => `Iteration ${iteration} of ${searchLabel(number)}`;
+
 export const tasksIn = (set: ReplaySet): number =>
   new Set(set.entries.map((each) => each.taskId)).size;
 

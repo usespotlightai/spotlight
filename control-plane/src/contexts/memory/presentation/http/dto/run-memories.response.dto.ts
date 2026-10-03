@@ -62,6 +62,15 @@ export class RunMemoriesResponseDto {
   })
   readonly proposed: readonly RunProposalResponseDto[];
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'aside_8f2c',
+    description:
+      'The inbox item where people keep or reject what the run proposed; null where it proposed nothing',
+  })
+  readonly reviewItemId: string | null;
+
   constructor(memories: RunMemoriesDto) {
     this.briefed = memories.briefed.map(
       (each) => new TeamMemoryResponseDto(each),
@@ -73,5 +82,6 @@ export class RunMemoriesResponseDto {
     this.proposed = memories.proposed.map(
       (each) => new RunProposalResponseDto(each),
     );
+    this.reviewItemId = memories.reviewItemId;
   }
 }

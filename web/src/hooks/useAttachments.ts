@@ -47,7 +47,7 @@ export function useAttachments(slug: string) {
       all.map((each) => (each.key === key ? { ...each, ...outcome } : each)),
     );
 
-  const add = (files: readonly File[]) => {
+  const add = (files: readonly File[]): PendingAttachment[] => {
     const added = files.map((file) => {
       counted.current += 1;
 
@@ -82,6 +82,8 @@ export function useAttachments(slug: string) {
           settle(pending.key, { state: 'failed', problem: 'Upload failed' }),
       );
     }
+
+    return added.map(({ pending }) => pending);
   };
 
   const remove = (key: string) => {
@@ -94,14 +96,28 @@ export function useAttachments(slug: string) {
     setAttachments([]);
   };
 
-  const took = (event: ClipboardEvent | DragEvent, files: File[]) => {
-    if (files.length === 0) {
-      return;
-    }
+  const handlersFor = (take: (files: readonly File[]) => void) => {
+    const took = (event: ClipboardEvent | DragEvent, files: File[]) => {
+      if (files.length === 0) {
+        return;
+      }
 
-    event.preventDefault();
-    event.stopPropagation();
-    add(files);
+      event.preventDefault();
+      event.stopPropagation();
+      take(files);
+    };
+
+    return {
+      onDragOver: (event: DragEvent) => {
+        if (event.dataTransfer.types.includes('Files')) {
+          event.preventDefault();
+        }
+      },
+      onDropCapture: (event: DragEvent) =>
+        took(event, filesIn(event.dataTransfer)),
+      onPasteCapture: (event: ClipboardEvent) =>
+        took(event, filesIn(event.clipboardData)),
+    };
   };
 
   return {
@@ -113,16 +129,7 @@ export function useAttachments(slug: string) {
     add,
     remove,
     clear,
-    handlers: {
-      onDragOver: (event: DragEvent) => {
-        if (event.dataTransfer.types.includes('Files')) {
-          event.preventDefault();
-        }
-      },
-      onDropCapture: (event: DragEvent) =>
-        took(event, filesIn(event.dataTransfer)),
-      onPasteCapture: (event: ClipboardEvent) =>
-        took(event, filesIn(event.clipboardData)),
-    },
+    handlers: handlersFor(add),
+    handlersFor,
   };
 }

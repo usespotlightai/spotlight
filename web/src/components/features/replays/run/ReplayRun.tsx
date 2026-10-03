@@ -1,8 +1,6 @@
 import { ReplayRunBanner } from '@/components/features/replays/run/ReplayRunBanner';
-import { ReplayRunFooter } from '@/components/features/replays/run/ReplayRunFooter';
 import { ReplayRunSkeleton } from '@/components/features/replays/run/ReplayRunSkeleton';
-import { RunConfig } from '@/components/features/runs/RunConfig';
-import { RunSpend } from '@/components/features/runs/RunSpend';
+import { AutonomousComposer } from '@/components/features/runs/AutonomousComposer';
 import { UntaskedRun } from '@/components/features/runs/UntaskedRun';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -70,22 +68,22 @@ export function ReplayRun({ slug, teamId, runId }: ReplayRunProps) {
 
   return (
     <UntaskedRun
+      slug={slug}
+      teamId={teamId}
       trail={trail}
       forward={forward}
       run={run}
       banner={<ReplayRunBanner slug={slug} teamId={teamId} run={run} />}
-      details={
-        <>
-          <RunConfig slug={slug} teamId={teamId} runId={run.id} />
-          <RunSpend spend={run.spend} />
-        </>
+      opening={run.original.title}
+      title={titleShown(run.original.title)}
+      briefing={run.briefing}
+      footer={
+        <AutonomousComposer
+          slug={slug}
+          agent={run.agent}
+          repositories={run.repositories}
+        />
       }
-      idleNote={
-        run.state === 'failed'
-          ? 'This replay failed before any work was done.'
-          : 'This replay ended before any work was done.'
-      }
-      footer={<ReplayRunFooter />}
     />
   );
 }

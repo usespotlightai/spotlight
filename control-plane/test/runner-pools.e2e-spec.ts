@@ -147,11 +147,17 @@ describe('runner pools (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ host, image });
 
-  const report = (token: string, host = HOST, running: string[] = []) =>
+  const report = (
+    token: string,
+    host = HOST,
+    running: string[] = [],
+    session = 'session_1',
+  ) =>
     http()
       .put(`/api/hosts/${host}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        session,
         name: 'build-box',
         release: '0.1.0',
         executor: 'docker',
@@ -667,6 +673,7 @@ describe('runner pools (e2e)', () => {
         workspaceId: pool.body.workspaceId,
         poolId: pool.body.id,
         trustId: null,
+        session: 'session_1',
         name: 'build-box',
         release: '0.1.0',
         executor: 'docker',
@@ -680,8 +687,27 @@ describe('runner pools (e2e)', () => {
 
       expect(updated?.running).toEqual(['run-1']);
       expect(updated?.firstSeenAt).toEqual(created?.firstSeenAt);
+      expect(updated?.upSince).toEqual(created?.firstSeenAt);
       expect(updated?.lastSeenAt.getTime()).toBeGreaterThan(
         created?.lastSeenAt.getTime() ?? Number.POSITIVE_INFINITY,
+      );
+    });
+
+    it('is up again from the first report after it restarts', async () => {
+      const token = tokenOf('U');
+      await define({ key: 'ephemeral', token }).expect(201);
+      await report(token).expect(200);
+      const before = await hostRow();
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await report(token, HOST, [], 'session_2').expect(200);
+      const restarted = await hostRow();
+
+      expect(restarted?.session).toBe('session_2');
+      expect(restarted?.firstSeenAt).toEqual(before?.firstSeenAt);
+      expect(restarted?.upSince).toEqual(restarted?.lastSeenAt);
+      expect(restarted?.upSince.getTime()).toBeGreaterThan(
+        before?.upSince.getTime() ?? Number.POSITIVE_INFINITY,
       );
     });
 
@@ -729,7 +755,11 @@ describe('runner pools (e2e)', () => {
       const silentSince = new Date(Date.now() - 91_000);
       await db
         .update(schema.runnerHost)
-        .set({ firstSeenAt: silentSince, lastSeenAt: silentSince })
+        .set({
+          firstSeenAt: silentSince,
+          upSince: silentSince,
+          lastSeenAt: silentSince,
+        })
         .where(eq(schema.runnerHost.id, HOST));
 
       await report(other).expect(200);
@@ -778,19 +808,33 @@ describe('runner pools (e2e)', () => {
 
       for (const body of [
         {
+          session: 'session_1',
           name: 'build-box',
           release: '0.1.0',
           executor: 'docker',
           capacity: 0,
         },
         {
+          session: 'session_1',
           name: 'build-box',
           release: '0.1.0',
           executor: 'docker',
           capacity: 1,
           running: ['run-1', 'run-2'],
         },
-        { name: '', release: '0.1.0', executor: 'docker', capacity: 1 },
+        {
+          session: 'session_1',
+          name: '',
+          release: '0.1.0',
+          executor: 'docker',
+          capacity: 1,
+        },
+        {
+          name: 'build-box',
+          release: '0.1.0',
+          executor: 'docker',
+          capacity: 1,
+        },
       ]) {
         await http()
           .put(`/api/hosts/${HOST}`)
@@ -856,6 +900,7 @@ describe('runner pools (e2e)', () => {
               },
             ],
             firstSeenAt: expect.any(String),
+            upSince: expect.any(String),
             lastSeenAt: expect.any(String),
             answering: true,
           },

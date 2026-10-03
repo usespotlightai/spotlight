@@ -61,6 +61,7 @@ export class ReadSearchRunHandler
         },
         spend: digest ? RunSpendMapper.toDto(digest) : null,
         journals: journals.map(RunJournalMapper.toDto),
+        briefing: found.briefing,
       };
     } catch (error) {
       rethrowAsFault(error);

@@ -28,7 +28,7 @@ export function TaskActivity({ slug, teamId, taskId }: TaskActivityProps) {
             <ReviewMarker
               key={`${run.id}-review`}
               slug={slug}
-              conversationId={run.review.conversationId}
+              review={run.review}
               runId={run.id}
               at={run.updatedAt}
             />

@@ -1,18 +1,12 @@
-import type { ReactNode } from 'react';
-import { ReplayRunFooter } from '@/components/features/replays/run/ReplayRunFooter';
-import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
+import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
+import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 
-type ReplayRunSkeletonProps = {
-  footer?: ReactNode;
-};
-
-export function ReplayRunSkeleton({
-  footer = <ReplayRunFooter />,
-}: ReplayRunSkeletonProps) {
+export function ReplayRunSkeleton() {
   return (
     <div
       role="status"
@@ -32,7 +26,7 @@ export function ReplayRunSkeleton({
         }
       />
 
-      <ChangesPanel>
+      <RunSidePanel>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
             <SkeletonLine className="w-28 self-center text-xs" />
@@ -44,8 +38,10 @@ export function ReplayRunSkeleton({
           </div>
         </div>
 
-        {footer}
-      </ChangesPanel>
+        <ComposerFooter>
+          <ChatInputSkeleton placeholder="This agent runs autonomously and can’t receive messages." />
+        </ComposerFooter>
+      </RunSidePanel>
     </div>
   );
 }

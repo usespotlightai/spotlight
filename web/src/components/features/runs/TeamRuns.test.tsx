@@ -81,12 +81,12 @@ describe('TeamRuns', () => {
     expect(screen.getByText('Upgrade the harness')).toBeInTheDocument();
   });
 
-  it('narrows to runs still owed a review under Awaiting Review', async () => {
+  it('narrows to runs still owed a review under Waiting for you', async () => {
     showing();
 
-    await userEvent.click(filter('Awaiting Review'));
+    await userEvent.click(filter('Waiting for you'));
 
-    expect(filter('Awaiting Review')).toHaveAttribute('aria-current', 'page');
+    expect(filter('Waiting for you')).toHaveAttribute('aria-current', 'page');
     expect(filter('All')).not.toHaveAttribute('aria-current');
     expect(screen.getByText('Fix the login bug')).toBeInTheDocument();
     expect(
@@ -95,37 +95,35 @@ describe('TeamRuns', () => {
     expect(screen.queryByText('Upgrade the harness')).not.toBeInTheDocument();
   });
 
-  it('says so when nothing is awaiting review', async () => {
+  it('says so when nothing is waiting for you', async () => {
     runs.mockReturnValue([settled, unreviewed]);
     showing();
 
-    await userEvent.click(filter('Awaiting Review'));
+    await userEvent.click(filter('Waiting for you'));
 
-    expect(screen.getByText('Nothing is awaiting review.')).toBeInTheDocument();
+    expect(screen.getByText('Nothing is waiting for you.')).toBeInTheDocument();
     expect(filter('All')).toBeInTheDocument();
   });
 
   it('comes back on the filter it was left on', async () => {
     const { unmount } = showing();
 
-    await userEvent.click(filter('Awaiting Review'));
+    await userEvent.click(filter('Waiting for you'));
     unmount();
     showing();
 
-    expect(filter('Awaiting Review')).toHaveAttribute('aria-current', 'page');
+    expect(filter('Waiting for you')).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByText('Upgrade the harness')).not.toBeInTheDocument();
   });
 
-  it('holds the shape of a run while they load, leaving the filters until there is something to filter', () => {
+  it('holds the shape of a run while they load, with the filters already there', () => {
     runs.mockReturnValue(undefined);
     showing();
 
     expect(
       screen.getByRole('status', { name: 'Loading the runs' }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'All' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
     expect(screen.queryByText('No runs yet')).not.toBeInTheDocument();
   });
 

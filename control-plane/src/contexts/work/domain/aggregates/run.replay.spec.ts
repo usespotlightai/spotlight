@@ -23,9 +23,27 @@ import {
 } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
+
+const REPLAYED_AS = StationConfig.rehydrate(
+  {
+    prompt: null,
+    harness: 'dev',
+    model: null,
+    effort: null,
+    profile: null,
+    image: null,
+    repositories: [],
+    skills: [],
+    tools: [],
+    decisions: false,
+    memories: false,
+  },
+  'f'.repeat(64),
+);
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
@@ -80,6 +98,7 @@ const queued = (
     subject,
     spec: RunSpec.of(spec),
     briefedWith: MEMORIES,
+    configuredAs: subject?.isReplay ? REPLAYED_AS : null,
   });
 
 const claimed = () => queued().claim(RUNNER, NOW);
@@ -106,6 +125,19 @@ describe('a replay', () => {
     expect(() => queued(OF_TASK, REPLAY_SPEC)).toThrow(
       InvalidRunTransitionError,
     );
+  });
+
+  it('is replayed only as the station it replays at is configured', () => {
+    expect(() =>
+      Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        priority: RunPriority.of(-1),
+        subject: REPLAY,
+        spec: RunSpec.of(REPLAY_SPEC),
+      }),
+    ).toThrow(InvalidRunTransitionError);
   });
 
   it('says nothing of the memories it was briefed with, which are the ones its original was', () => {
@@ -253,11 +285,19 @@ describe('a replay', () => {
         askedAPerson: true,
       }),
     ).toThrow(InconsistentStateError);
+    expect(() =>
+      Run.rehydrate({
+        ...stored,
+        subject: REPLAY,
+        spec: RunSpec.of(REPLAY_SPEC),
+      }),
+    ).toThrow(InconsistentStateError);
     expect(
       Run.rehydrate({
         ...stored,
         subject: REPLAY,
         spec: RunSpec.of(REPLAY_SPEC),
+        configuredAs: REPLAYED_AS,
         askedAPerson: true,
       }).askedAPerson,
     ).toBe(true);

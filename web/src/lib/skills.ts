@@ -1,11 +1,11 @@
-import { settingsPath } from '@/lib/team';
+import { teamSettingsPath } from '@/lib/settings';
 
 const ANCHOR = 'skill-';
 
 export const skillAnchor = (key: string): string => `${ANCHOR}${key}`;
 
 export const skillPath = (slug: string, teamId: string, key: string): string =>
-  `${settingsPath(slug, teamId, 'skills')}#${skillAnchor(key)}`;
+  `${teamSettingsPath(slug, teamId, 'skills')}#${skillAnchor(key)}`;
 
 export const pointedSkill = (hash: string): string | null => {
   const anchor = decodeURIComponent(hash.replace(/^#/, ''));

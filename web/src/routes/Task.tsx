@@ -7,6 +7,7 @@ import { TaskActions } from '@/components/features/board/task/TaskActions';
 import { TaskSkeleton } from '@/components/features/board/task/TaskSkeleton';
 import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
+import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
@@ -171,6 +172,10 @@ export function Task() {
 
               {slug && teamId && (
                 <TaskChangesLink slug={slug} teamId={teamId} taskId={task.id} />
+              )}
+
+              {slug && teamId && (
+                <TaskTraceLink slug={slug} teamId={teamId} taskId={task.id} />
               )}
 
               {task.pullRequest && (

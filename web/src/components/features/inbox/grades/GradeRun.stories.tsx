@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { QueryClient } from '@tanstack/react-query';
 import { Route } from 'react-router';
 import { GradeRun } from '@/components/features/inbox/grades/GradeRun';
-import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
+import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { failMutations } from '@/stories/failMutations';
 import {
   DESCRIPTION,
@@ -27,7 +27,7 @@ function Showing({ seed }: { seed?: (client: QueryClient) => void }) {
       <Route
         path="/w/:slug/inbox/:itemId"
         element={
-          <ChangesPanel>
+          <RunSidePanel>
             <div className="mx-auto max-w-3xl p-6">
               <GradeRun
                 slug={SLUG}
@@ -38,7 +38,7 @@ function Showing({ seed }: { seed?: (client: QueryClient) => void }) {
                 description={DESCRIPTION}
               />
             </div>
-          </ChangesPanel>
+          </RunSidePanel>
         }
       />
     </StoryShell>

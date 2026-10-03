@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { ConversationSkeleton } from '@/components/features/inbox/conversation/ConversationSkeleton';
-import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
+import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
@@ -26,9 +26,9 @@ export function InboxItemSkeleton() {
         }
       />
 
-      <ChangesPanel>
+      <RunSidePanel>
         <ConversationSkeleton />
-      </ChangesPanel>
+      </RunSidePanel>
     </div>
   );
 }

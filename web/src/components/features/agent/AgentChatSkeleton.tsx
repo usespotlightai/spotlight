@@ -1,6 +1,6 @@
-import { ComposerSkeleton } from '@/components/features/inbox/conversation/ComposerSkeleton';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -45,7 +45,7 @@ export function AgentChatSkeleton() {
 
           <div className="sticky bottom-0 z-20">
             <ComposerFooter>
-              <ComposerSkeleton placeholder="Reply…" />
+              <ChatInputSkeleton placeholder="Reply…" />
             </ComposerFooter>
           </div>
         </div>

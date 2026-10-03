@@ -91,7 +91,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     });
     const landingFor = vi.fn(
       async () =>
-        'https://app.example/w/acme/team/team_1/settings/integrations?connected=slack',
+        'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
     );
 
     const returned = vi.fn(async () =>
@@ -137,7 +137,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       'integrations.host-connected',
     );
     expect(to).toBe(
-      'https://app.example/w/acme/team/team_1/settings/integrations?connected=slack',
+      'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
     );
   });
 

@@ -1,93 +1,147 @@
+import { Server } from 'lucide-react';
 import { useParams } from 'react-router';
-import { HostCard } from '@/components/features/runners/HostCard';
-import { HostCardSkeleton } from '@/components/features/runners/HostCardSkeleton';
-import { HostInstall } from '@/components/features/runners/HostInstall';
-import { ProvisionedRunnerCard } from '@/components/features/runners/ProvisionedRunnerCard';
-import { SettingsPage } from '@/components/features/settings/SettingsPage';
+import { AddHostLink } from '@/components/features/runners/AddHostLink';
+import { HostHead } from '@/components/features/runners/HostHead';
+import { HostRow } from '@/components/features/runners/HostRow';
+import { HostRowSkeleton } from '@/components/features/runners/HostRowSkeleton';
+import { ProvisionedHead } from '@/components/features/runners/ProvisionedHead';
+import { ProvisionedRunnerRow } from '@/components/features/runners/ProvisionedRunnerRow';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { Notice } from '@/components/shared/Notice';
+import { ViewPills } from '@/components/shared/ViewPills';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { useRemembered } from '@/hooks/useRemembered';
 import { failed, loading } from '@/lib/query';
-import { harnessesOf } from '@/lib/runner';
+import { managesRunners } from '@/lib/role';
+import {
+  asRunnerFilter,
+  FALLBACK_RUNNER_FILTER,
+  harnessesOf,
+  hostInFilter,
+  NONE_IN_FILTER,
+  provisionedInFilter,
+  RUNNER_FILTERS,
+} from '@/lib/runner';
+import { TrailContext, useTrail } from '@/lib/trail';
 
-const FLEET = 'grid gap-2 sm:grid-cols-2';
-
-const HEADING =
-  'flex h-6 items-center font-medium text-muted-foreground text-xs';
+const FILTER_KEY = 'spotlight.runner-filter';
 
 export function Runners() {
   const { slug } = useParams();
   const fleet = useRunners(slug);
   const { data: harnesses } = useHarnesses();
-  const workspaceQuery = useWorkspace(slug);
-  const workspace = workspaceQuery.data;
+  const { data: workspace } = useWorkspace(slug);
+  const [held, remember] = useRemembered(FILTER_KEY, FALLBACK_RUNNER_FILTER);
+  const filter = asRunnerFilter(held);
+  const { trail, forward } = useTrail([{ label: 'Runners' }]);
 
   if (!slug) {
     return null;
   }
 
-  const hosts = fleet.data?.hosts ?? [];
+  const adds = workspace ? managesRunners(workspace.role) : false;
+  const hosts = fleet.data?.hosts;
   const provisioned = fleet.data?.provisioned ?? [];
+  const shownHosts = (hosts ?? []).filter((host) => hostInFilter(filter, host));
+  const shownProvisioned = provisioned.filter((runner) =>
+    provisionedInFilter(filter, runner),
+  );
 
   return (
-    <>
-      <PageHeader title={<Breadcrumbs segments={[{ label: 'Runners' }]} />} />
+    <TrailContext value={forward}>
+      <PageHeader
+        title={<Breadcrumbs segments={trail} />}
+        actions={adds && <AddHostLink slug={slug} />}
+      />
 
-      <SettingsPage
-        title="Runners"
-        description="Every run gets a fresh runner. Hosts start them, one sandbox per run, from the runner images a line names or their default; a run only goes where its image and harness are."
-      >
-        <section className="flex flex-col gap-2">
-          <h2 className={HEADING}>Hosts</h2>
+      {failed(fleet) ? (
+        <Notice>
+          <CouldNotLoad
+            what="Runners"
+            retrying={fleet.isFetching}
+            onRetry={() => void fleet.refetch()}
+          />
+        </Notice>
+      ) : hosts?.length === 0 && provisioned.length === 0 ? (
+        <Notice>
+          <EmptyState
+            icon={Server}
+            title="No hosts yet"
+            action={
+              adds && <AddHostLink slug={slug} label="Add the first host" />
+            }
+          >
+            {adds
+              ? 'A host starts a fresh runner for each run.'
+              : 'A workspace owner or admin can add one.'}
+          </EmptyState>
+        </Notice>
+      ) : (
+        <>
+          <ViewPills
+            views={RUNNER_FILTERS}
+            current={filter}
+            onChange={remember}
+          />
 
-          {(loading(fleet) ||
-            (hosts.length === 0 && loading(workspaceQuery))) && (
-            <ul role="status" aria-label="Loading the hosts" className={FLEET}>
-              <HostCardSkeleton />
-            </ul>
+          {loading(fleet) ? (
+            <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
+              <HostHead />
+
+              <ul role="status" aria-label="Loading the hosts">
+                <HostRowSkeleton />
+              </ul>
+            </div>
+          ) : filter !== 'all' &&
+            shownHosts.length === 0 &&
+            shownProvisioned.length === 0 ? (
+            <Notice>
+              <p className="text-muted-foreground text-sm">
+                {NONE_IN_FILTER[filter]}
+              </p>
+            </Notice>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1.5 pb-1.5">
+              {shownHosts.length > 0 && (
+                <section aria-label="Hosts">
+                  <HostHead />
+
+                  <ul className="flex flex-col">
+                    {shownHosts.map((host) => (
+                      <HostRow
+                        key={host.id}
+                        host={host}
+                        harnesses={harnesses}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {shownProvisioned.length > 0 && (
+                <section aria-label="Provisioned by a pool">
+                  <ProvisionedHead />
+
+                  <ul className="flex flex-col">
+                    {shownProvisioned.map((runner) => (
+                      <ProvisionedRunnerRow
+                        key={runner.id}
+                        runner={runner}
+                        harnesses={harnessesOf(runner.harnesses, harnesses)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
           )}
-
-          {failed(fleet) && (
-            <CouldNotLoad
-              what="Runners"
-              retrying={fleet.isFetching}
-              onRetry={() => void fleet.refetch()}
-              className="items-start"
-            />
-          )}
-
-          {fleet.data && workspace && hosts.length === 0 && (
-            <HostInstall workspace={workspace} />
-          )}
-
-          {hosts.length > 0 && (
-            <ul className={FLEET}>
-              {hosts.map((host) => (
-                <HostCard key={host.id} host={host} harnesses={harnesses} />
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {provisioned.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h2 className={HEADING}>Provisioned by a pool</h2>
-
-            <ul className={FLEET}>
-              {provisioned.map((runner) => (
-                <ProvisionedRunnerCard
-                  key={runner.id}
-                  runner={runner}
-                  harnesses={harnessesOf(runner.harnesses, harnesses)}
-                />
-              ))}
-            </ul>
-          </section>
-        )}
-      </SettingsPage>
-    </>
+        </>
+      )}
+    </TrailContext>
   );
 }

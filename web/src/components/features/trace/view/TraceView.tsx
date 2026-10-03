@@ -24,9 +24,10 @@ export const NAMES_PANE = {
 
 type TraceViewProps = {
   trace: Trace;
+  teamId: string;
 };
 
-export function TraceView({ trace }: TraceViewProps) {
+export function TraceView({ trace, teamId }: TraceViewProps) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
   const names = usePaneWidth<HTMLDivElement>(NAMES_PANE);
@@ -100,6 +101,7 @@ export function TraceView({ trace }: TraceViewProps) {
                       <TraceRow
                         key={row.node.id}
                         node={row.node}
+                        teamId={teamId}
                         depth={row.depth}
                         holding={row.children}
                         trace={trace}
@@ -131,6 +133,7 @@ export function TraceView({ trace }: TraceViewProps) {
         {held && (
           <SpanDetail
             node={held}
+            teamId={teamId}
             open={chosen !== null}
             duration={LEAVING}
             ref={panel}

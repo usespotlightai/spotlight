@@ -1,6 +1,8 @@
 import { ListChecks } from 'lucide-react';
+import { useState } from 'react';
 import { useParams } from 'react-router';
 import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
+import { EntryDetailOf } from '@/components/features/replays/replay/EntryDetailOf';
 import { ReplayComparison } from '@/components/features/replays/replay/ReplayComparison';
 import { ReplayHeader } from '@/components/features/replays/replay/ReplayHeader';
 import { ReplaySkeleton } from '@/components/features/replays/replay/ReplaySkeleton';
@@ -39,6 +41,7 @@ export function Replay() {
   const replay = useReplay(teamId, replayId);
   const sets = useTeamReplaySets(teamId);
   const siblings = useReplays(teamId, replay.data?.setId);
+  const [picked, setPicked] = useState<string | null>(null);
 
   const found = replay.data;
   const set = sets.data?.find(
@@ -99,51 +102,67 @@ export function Replay() {
   const baseline =
     baselineIn(siblings.data ?? []) ??
     (found.baselineReplayId === found.id ? found : null);
+  const chosen =
+    found.comparison.find((each) => each.originalRunId === picked) ?? null;
 
   return (
     <TrailContext value={forward}>
       <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-      <StationLayout>
-        <ReplayHeader
-          at={at}
-          replay={found}
-          setName={set?.name ?? null}
-          success={successAgainst(found, baseline)}
+      <div className="flex min-h-0 flex-1">
+        <StationLayout>
+          <ReplayHeader
+            at={at}
+            replay={found}
+            setName={set?.name ?? null}
+            success={successAgainst(found, baseline)}
+          />
+
+          <section
+            aria-labelledby="task-by-task"
+            className="flex flex-col gap-2"
+          >
+            <ReplaysHeading title="Task by task" id="task-by-task" level="h2" />
+
+            {found.comparison.length === 0 ? (
+              <StateBox>
+                <EmptyState
+                  icon={ListChecks}
+                  title="No tasks in this replay"
+                  action={
+                    <TrailLink
+                      to={replaySetPath(at, found.setId)}
+                      className={cn(
+                        buttonVariants({ size: 'sm' }),
+                        'rounded-full',
+                      )}
+                    >
+                      Open the set
+                    </TrailLink>
+                  }
+                >
+                  The set had no runs when this replay started.
+                </EmptyState>
+              </StateBox>
+            ) : (
+              <ReplayComparison
+                slug={at.slug}
+                teamId={at.teamId}
+                replay={found}
+                picked={chosen?.originalRunId ?? null}
+                onPick={(id) => setPicked((was) => (was === id ? null : id))}
+              />
+            )}
+          </section>
+        </StationLayout>
+
+        <EntryDetailOf
+          slug={at.slug}
+          teamId={at.teamId}
+          chosen={chosen}
+          onClose={() => setPicked(null)}
         />
-
-        <section aria-labelledby="task-by-task" className="flex flex-col gap-2">
-          <ReplaysHeading title="Task by task" id="task-by-task" level="h2" />
-
-          {found.comparison.length === 0 ? (
-            <StateBox>
-              <EmptyState
-                icon={ListChecks}
-                title="No tasks in this replay"
-                action={
-                  <TrailLink
-                    to={replaySetPath(at, found.setId)}
-                    className={cn(
-                      buttonVariants({ size: 'sm' }),
-                      'rounded-full',
-                    )}
-                  >
-                    Open the set
-                  </TrailLink>
-                }
-              >
-                The set had no runs when this replay started.
-              </EmptyState>
-            </StateBox>
-          ) : (
-            <ReplayComparison
-              slug={at.slug}
-              teamId={at.teamId}
-              replay={found}
-            />
-          )}
-        </section>
-      </StationLayout>
+      </div>
     </TrailContext>
   );
 }

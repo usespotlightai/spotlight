@@ -5,11 +5,10 @@ import { RunnerPoolNameTakenError } from '@/hooks/api/useCreateRunnerPool';
 import { messageOf } from '@/lib/error';
 import { sanitizeSlug, slugify } from '@/lib/slug';
 
-const SUGGESTED_NAME = 'my-computer';
-
 const LONGEST_NAME = 64;
 
 type CreatePoolFormProps = {
+  suggested: string;
   creating: boolean;
   error: unknown;
   onCreate: (name: string) => void;
@@ -22,15 +21,15 @@ const refusal = (error: unknown): string =>
     : messageOf(error);
 
 export function CreatePoolForm({
+  suggested,
   creating,
   error,
   onCreate,
   onEdit,
 }: CreatePoolFormProps) {
   const nameId = useId();
-  const hintId = useId();
   const errorId = useId();
-  const [name, setName] = useState(SUGGESTED_NAME);
+  const [name, setName] = useState(suggested);
   const named = slugify(name);
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -55,7 +54,7 @@ export function CreatePoolForm({
           autoComplete="off"
           maxLength={LONGEST_NAME}
           disabled={creating}
-          aria-describedby={error ? errorId : hintId}
+          aria-describedby={error ? errorId : undefined}
           aria-invalid={Boolean(error)}
           value={name}
           onChange={(event) => {
@@ -69,13 +68,9 @@ export function CreatePoolForm({
         </Button>
       </div>
 
-      {error ? (
+      {Boolean(error) && (
         <p id={errorId} role="alert" className="text-destructive text-xs">
           {refusal(error)}
-        </p>
-      ) : (
-        <p id={hintId} className="text-muted-foreground text-xs">
-          Lowercase words joined by dashes. It can’t be changed later.
         </p>
       )}
     </form>

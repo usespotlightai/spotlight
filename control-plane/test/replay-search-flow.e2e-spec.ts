@@ -748,6 +748,7 @@ beforeAll(async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
+      session: 'session_1',
       name: 'search-box',
       release: '0.1.0',
       executor: 'docker',
@@ -1087,8 +1088,16 @@ describe('a search for a better station config', () => {
         unpricedCalls: number;
       };
       journals: unknown[];
+      briefing: string;
     };
+    const [dispatched] = await db
+      .select({ spec: schema.run.spec })
+      .from(schema.run)
+      .where(eq(schema.run.id, agent.runId));
 
+    expect(searchRun.briefing).toBe(
+      (dispatched?.spec as { briefing: string } | undefined)?.briefing,
+    );
     expect(searchRun).toMatchObject({
       searchId: id,
       iteration: 1,

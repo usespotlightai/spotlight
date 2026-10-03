@@ -10,6 +10,7 @@ import type { RunnerHostRepository } from '@runners/domain/repositories/runner-h
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import {
   type HeldImage,
   runnerHost,
@@ -43,6 +44,7 @@ const toHost = (row: Row): RunnerHost =>
     id: HostId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     admission: admissionOf(row),
+    session: HostSession.of(row.session),
     report: HostReport.of({
       name: row.name,
       release: row.release,
@@ -52,6 +54,7 @@ const toHost = (row: Row): RunnerHost =>
       images: row.images,
     }),
     firstSeenAt: row.firstSeenAt,
+    upSince: row.upSince,
     lastSeenAt: row.lastSeenAt,
     version: row.version,
   });
@@ -60,6 +63,7 @@ const heldOf = (host: RunnerHost) => ({
   workspaceId: host.workspaceId.value,
   poolId: host.admission.poolId?.value ?? null,
   trustId: host.admission.trustId?.value ?? null,
+  session: host.session.value,
   name: host.report.name,
   release: host.report.release,
   executor: host.report.executor,
@@ -80,6 +84,7 @@ const heldOf = (host: RunnerHost) => ({
     }),
   ),
   firstSeenAt: host.firstSeenAt,
+  upSince: host.upSince,
   lastSeenAt: host.lastSeenAt,
 });
 

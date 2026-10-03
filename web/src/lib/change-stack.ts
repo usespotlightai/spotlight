@@ -57,7 +57,7 @@ export const drafting = (stacks: readonly ChangeStack[]): boolean =>
 
 export const settling = (stacks: readonly ChangeStack[]): boolean =>
   currentStacks(stacks).some(
-    (stack) => stack.state === 'drafting' || stack.checkState === 'waiting',
+    (stack) => stack.state === 'drafting' || stack.check?.state === 'waiting',
   );
 
 export const layersOf = (stack: ChangeStack): LocatedLayer[] =>

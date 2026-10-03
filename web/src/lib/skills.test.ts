@@ -4,7 +4,7 @@ import { pointedSkill, skillPath } from '@/lib/skills';
 describe('pointing at a skill', () => {
   it('points a skill at its own row on the team’s Skills page', () => {
     expect(skillPath('acme', 'team_1', 'our-migrations')).toBe(
-      '/w/acme/team/team_1/settings/skills#skill-our-migrations',
+      '/w/acme/settings/team/team_1/skills#skill-our-migrations',
     );
   });
 

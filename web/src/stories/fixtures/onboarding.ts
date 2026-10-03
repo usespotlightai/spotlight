@@ -8,7 +8,7 @@ export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
 export const SETUP_ITEM_ID = 'task_setup:0';
 
-export const BODY = '1. Install the GitHub App.\n2. Run a harness.';
+export const BODY = '1. Install the GitHub App.\n2. Connect a host.';
 
 type StepKey = SetupStepResponseDto['key'];
 
@@ -21,7 +21,7 @@ const STEPS: Omit<SetupStepResponseDto, 'done'>[] = [
   },
   {
     key: 'harness',
-    title: 'Run a harness',
+    title: 'Connect a host',
     description:
       'A runner with an agent harness installed, such as Claude Code.',
   },

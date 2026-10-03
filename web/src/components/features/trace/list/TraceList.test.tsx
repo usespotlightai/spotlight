@@ -55,10 +55,10 @@ function Handed() {
 
 const showing = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/team/team_1/observability']}>
+    <MemoryRouter initialEntries={['/w/acme/team/team_1/insights']}>
       <Routes>
         <Route
-          path="/w/acme/team/team_1/observability"
+          path="/w/acme/team/team_1/insights"
           element={<TraceList slug="acme" teamId="team_1" range="7d" />}
         />
         <Route path="/w/acme/team/team_1/agent" element={<Handed />} />
@@ -78,7 +78,7 @@ describe('TraceList', () => {
 
     expect(
       screen.getByRole('link', { name: 'Drain the stuck retry queues' }),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/observability/tasks/task_1');
+    ).toHaveAttribute('href', '/w/acme/team/team_1/tasks/task_1/trace');
   });
 
   it('takes the selected traces to a new chat with the agent', async () => {

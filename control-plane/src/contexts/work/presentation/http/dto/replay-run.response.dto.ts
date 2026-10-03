@@ -3,6 +3,7 @@ import type {
   ReplayedRunDto,
   ReplayRunDto,
 } from '@work/application/dto/replay-run.dto';
+import { RunAgentResponseDto } from '@work/presentation/http/dto/run-agent.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import {
   RunSpendResponseDto,
@@ -51,6 +52,24 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
   })
   readonly journals: RunJournalResponseDto[];
 
+  @ApiProperty({
+    description: 'What the replay told its agent when it was dispatched',
+  })
+  readonly briefing: string;
+
+  @ApiProperty({
+    type: RunAgentResponseDto,
+    description: 'The harness, model and effort the replay ran its agent on',
+  })
+  readonly agent: RunAgentResponseDto;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    description: 'The repositories the replay was given',
+  })
+  readonly repositories: readonly string[];
+
   constructor(replay: ReplayRunDto) {
     super(
       replay.id,
@@ -84,5 +103,8 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
         )
       : null;
     this.journals = replay.journals.map(RunJournalHttpMapper.toResponse);
+    this.briefing = replay.briefing;
+    this.agent = new RunAgentResponseDto(replay.agent);
+    this.repositories = replay.repositories;
   }
 }

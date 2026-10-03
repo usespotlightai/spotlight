@@ -15,6 +15,7 @@ const reported = (host: ReturnType<typeof aHost>) =>
   host.reportedThrough({
     admission: host.admission,
     workspaceId: host.workspaceId,
+    session: host.session,
     report: aHostReport(['runner_1']),
     at: LATER,
   });
@@ -38,6 +39,15 @@ describe('reviseHost', () => {
     expect(hosts.save).toHaveBeenCalledTimes(1);
     expect(held.get(HOST_ID.value)?.version).toBe(1);
     expect(held.get(HOST_ID.value)?.lastSeenAt).toEqual(LATER);
+  });
+
+  it('writes nothing when a report leaves the host as it was', async () => {
+    const { held, hosts } = heldHosts(aHost());
+
+    await reviseHost(hosts, HOST_ID, (known) => known ?? aHost());
+
+    expect(hosts.save).not.toHaveBeenCalled();
+    expect(held.get(HOST_ID.value)?.version).toBe(0);
   });
 
   it('reads the host again and retries when another report moved it on first', async () => {

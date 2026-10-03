@@ -59,7 +59,7 @@ export class RunSubject {
   static replay(
     original: RunId,
     taskId: TaskId,
-    stationId: StationId | null,
+    stationId: StationId,
     teamId: TeamId,
   ): RunSubject {
     return new RunSubject(
@@ -146,10 +146,13 @@ export class RunSubject {
         );
       }
 
-      return RunSubject.replay(
+      return new RunSubject(
+        null,
+        input.stationId,
+        null,
+        null,
         replayOf,
         replayedTaskId,
-        input.stationId,
         ranFor,
       );
     }

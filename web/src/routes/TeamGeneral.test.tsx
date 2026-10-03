@@ -66,10 +66,10 @@ vi.mock('@/hooks/api/useChangeMemberRole', () => ({
 
 const showing = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/team/team_1/settings/general']}>
+    <MemoryRouter initialEntries={['/w/acme/settings/team/team_1/general']}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/settings/general"
+          path="/w/:slug/settings/team/:teamId/general"
           element={<TeamGeneral />}
         />
       </Routes>

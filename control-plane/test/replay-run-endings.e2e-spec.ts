@@ -27,6 +27,7 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp } from './support/app';
@@ -60,6 +61,22 @@ const replayRun = (id = 'run_1') =>
       },
     }),
     briefedWith: BriefedMemories.of({ briefed: [], cut: [] }),
+    configuredAs: StationConfig.rehydrate(
+      {
+        prompt: null,
+        harness: 'dev',
+        model: null,
+        effort: null,
+        profile: null,
+        image: null,
+        repositories: [],
+        skills: [],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      'f'.repeat(64),
+    ),
   });
 
 const heardBy = async (

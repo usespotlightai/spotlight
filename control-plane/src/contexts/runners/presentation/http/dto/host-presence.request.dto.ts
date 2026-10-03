@@ -45,6 +45,12 @@ export class HostImageRequestDto {
 
 export class HostPresenceRequestDto {
   @ApiProperty({
+    example: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
+    description: 'New each time the host starts, so a restart shows as one',
+  })
+  readonly session!: string;
+
+  @ApiProperty({
     example: 'build-box-1',
     description: 'What the host calls itself, usually its hostname',
   })

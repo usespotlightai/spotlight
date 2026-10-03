@@ -88,6 +88,7 @@ const claimed = async (
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
+      session: 'session_1',
       name: 'build-box',
       release: '0.1.0',
       executor: 'docker',
@@ -193,6 +194,19 @@ const aCandidateRun = async (original: string, at: string): Promise<string> => {
     stationId: BUILD,
     harness: 'claude-code',
     stationFingerprint: 'c'.repeat(64),
+    stationConfig: {
+      prompt: null,
+      harness: 'claude-code',
+      model: null,
+      effort: null,
+      profile: null,
+      image: null,
+      repositories: [],
+      skills: [],
+      tools: [],
+      decisions: false,
+      memories: false,
+    },
     spec: {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',

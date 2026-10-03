@@ -1,7 +1,8 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
 import type { RunMemories, RunProposal, TeamMemory } from '@/lib/memory';
 
@@ -23,6 +24,9 @@ const retire = {
 vi.mock('@/hooks/api/useRunMemories', () => ({
   useRunMemories: () => rememberedState,
 }));
+vi.mock('@/hooks/api/useSession', () => ({
+  useSession: () => ({ data: { user: { name: 'Ada Lovelace', image: null } } }),
+}));
 vi.mock('@/hooks/api/useRetireMemory', () => ({
   useRetireMemory: () => retire,
 }));
@@ -39,7 +43,7 @@ const memory = (over: Partial<TeamMemory>): TeamMemory => ({
   stationId: null,
   repository: null,
   paths: [],
-  approvedBy: { id: 'user_2', name: 'Maya Chen' },
+  approvedBy: { id: 'user_2', name: 'Maya Chen', image: null },
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
@@ -78,7 +82,7 @@ const REMEMBERED: RunMemories = {
       standing: 'retired',
       retirement: {
         at: '2026-09-27T11:00:00.000Z',
-        by: { id: 'user_2', name: 'Maya Chen' },
+        by: { id: 'user_2', name: 'Maya Chen', image: null },
         reason: 'No longer true.',
         supersededBy: null,
       },
@@ -94,18 +98,21 @@ const REMEMBERED: RunMemories = {
       standing: 'stands',
     }),
   ],
+  reviewItemId: 'aside_1',
 };
 
 const showing = () =>
   render(
     <MemoryRouter>
-      <RunRemembered slug="acme" teamId="team_1" runId="run_1" />
+      <RunSidePanel>
+        <RunRemembered slug="acme" teamId="team_1" runId="run_1" />
+      </RunSidePanel>
     </MemoryRouter>,
   );
 
 const opened = async () => {
   showing();
-  await userEvent.click(screen.getByRole('button', { name: /Remembered/ }));
+  await userEvent.click(screen.getByRole('button', { name: 'Remembered' }));
 };
 
 beforeEach(() => {
@@ -116,38 +123,97 @@ beforeEach(() => {
 });
 
 describe('RunRemembered', () => {
-  it('sums up what the run remembered before it is opened', () => {
+  it('sums up what the run remembered when pointed at', async () => {
     rememberedState.data = REMEMBERED;
 
     showing();
+    await userEvent.hover(screen.getByRole('button', { name: 'Remembered' }));
 
-    expect(
-      screen.getByText(
-        '1 briefed · 1 cut by the cap · 1 recalled · 2 proposed',
-      ),
-    ).toBeVisible();
+    const shown = (await screen.findAllByRole('term')).map((term) => [
+      term.textContent,
+      term.nextElementSibling?.textContent,
+    ]);
+    expect(shown).toEqual([
+      ['Given', '2'],
+      ['Proposed', '2'],
+    ]);
   });
 
-  it('lists what was briefed, cut, recalled and proposed, marking the cut as cut and not briefed', async () => {
+  it('opens what the run remembered in a side panel, not in place', async () => {
+    rememberedState.data = REMEMBERED;
+
+    showing();
+    const summary = screen.getByRole('button', { name: 'Remembered' });
+    expect(summary).not.toHaveAttribute('aria-expanded');
+    expect(screen.queryByRole('complementary')).toBeNull();
+
+    await userEvent.click(summary);
+
+    expect(summary).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(screen.getByRole('complementary')).getByRole('region', {
+        name: 'Given to the agent',
+      }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Close what the run remembered' }),
+    );
+
+    expect(summary).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('lists what the agent was given, without saying how it came by it, and what the run proposed, leaving out what the cap cut', async () => {
     rememberedState.data = REMEMBERED;
 
     await opened();
 
-    const briefed = screen.getByRole('region', { name: 'Briefed' });
-    const cut = screen.getByRole('region', { name: 'Cut by the cap' });
-    expect(within(briefed).getByText('Briefed one.')).toBeInTheDocument();
-    expect(within(briefed).queryByText('Cut one.')).toBeNull();
-    expect(within(cut).getByText('Cut one.')).toBeInTheDocument();
+    const given = screen.getByRole('region', { name: 'Given to the agent' });
+    expect(within(given).queryByText('Recalled')).toBeNull();
+    expect(within(given).getByText('Briefed one.')).toBeInTheDocument();
+    expect(within(given).getByText('Recalled one.')).toBeInTheDocument();
+    expect(screen.queryByText('Cut one.')).toBeNull();
     expect(
-      within(screen.getByRole('region', { name: 'Recalled' })).getByText(
-        'Recalled one.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Waiting for a person')).toBeInTheDocument();
+      within(
+        screen.getByRole('region', { name: 'Proposed by this run' }),
+      ).getByRole('link', { name: 'Waiting for you' }),
+    ).toHaveAttribute('href', '/w/acme/inbox/aside_1');
     expect(screen.getByRole('link', { name: 'M-2' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/memory?memory=memory_b',
     );
+  });
+
+  it('shows who retired a memory and why, as something they said', async () => {
+    rememberedState.data = REMEMBERED;
+
+    await opened();
+
+    const why = screen.getByRole('figure', { name: 'Why it was retired' });
+    expect(within(why).getByText('Maya Chen')).toBeInTheDocument();
+    expect(within(why).getByText('retired this')).toBeInTheDocument();
+    expect(within(why).getByText('No longer true.')).toBeInTheDocument();
+  });
+
+  it('puts the button back when the person thinks better of it', async () => {
+    rememberedState.data = REMEMBERED;
+
+    await opened();
+    await userEvent.click(
+      screen.getAllByRole('button', {
+        name: 'This was wrong',
+      })[0] as HTMLElement,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('form', { name: 'Retire this memory' }),
+      ).toBeNull(),
+    );
+    expect(
+      screen.getAllByRole('button', { name: 'This was wrong' }),
+    ).toHaveLength(2);
   });
 
   it('offers to retire a memory that stands as wrong, never one already retired or still proposed', async () => {
@@ -157,44 +223,73 @@ describe('RunRemembered', () => {
 
     expect(
       screen.getAllByRole('button', { name: 'This was wrong' }),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
 
+    const card = within(
+      screen.getByRole('region', { name: 'Given to the agent' }),
+    ).getAllByRole('listitem')[0] as HTMLElement;
     await userEvent.click(
-      within(screen.getByRole('region', { name: 'Briefed' })).getByRole(
-        'button',
-        { name: 'This was wrong' },
-      ),
+      within(card).getByRole('button', { name: 'This was wrong' }),
     );
+
+    const replying = within(card).getByRole('form', {
+      name: 'Retire this memory',
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(replying).getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(within(replying).getByText('retiring this')).toBeInTheDocument();
+    expect(
+      within(card).queryByRole('button', { name: 'This was wrong' }),
+    ).toBeNull();
+
     await userEvent.type(
       screen.getByRole('textbox', { name: 'Why it no longer holds' }),
       'Branches follow the ticket now.',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Retire' }));
 
-    expect(retire.mutate).toHaveBeenCalledWith(
-      {
-        teamId: 'team_1',
-        memoryId: 'memory_b',
-        reason: 'Branches follow the ticket now.',
-      },
-      expect.anything(),
-    );
+    expect(retire.mutate).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      memoryId: 'memory_b',
+      reason: 'Branches follow the ticket now.',
+    });
   });
 
-  it('says so when the team remembered nothing for the run', () => {
+  it('can be opened while what the run remembered is still loading', async () => {
+    rememberedState.isPending = true;
+
+    await opened();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading what the run remembered' }),
+    ).toBeInTheDocument();
+  });
+
+  it('stays out of the way when all the run had was cut by the cap', () => {
+    rememberedState.data = {
+      briefed: [],
+      cut: [memory({ id: 'memory_c' })],
+      recalled: [],
+      proposed: [],
+    };
+
+    showing();
+
+    expect(screen.queryByRole('button', { name: 'Remembered' })).toBeNull();
+  });
+
+  it('stays out of the way when the team remembered nothing for the run', () => {
     rememberedState.data = { briefed: [], cut: [], recalled: [], proposed: [] };
 
     showing();
 
-    expect(
-      screen.getByText('The team remembered nothing for this run.'),
-    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Remembered' })).toBeNull();
   });
 
-  it('offers to try again when what the run remembered cannot be read', () => {
+  it('offers to try again when what the run remembered cannot be read', async () => {
     rememberedState.errorUpdateCount = 1;
 
-    showing();
+    await opened();
 
     expect(screen.getByRole('button', { name: /try again/i })).toBeVisible();
   });

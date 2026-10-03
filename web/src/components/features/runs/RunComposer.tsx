@@ -1,5 +1,6 @@
-import { Composer } from '@/components/features/inbox/conversation/Composer';
-import { FixedSettings } from '@/components/features/stations/FixedSettings';
+import { FixedAgent } from '@/components/features/stations/FixedAgent';
+import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
+import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useSayToRun } from '@/hooks/api/useSayToRun';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
@@ -32,7 +33,7 @@ export function RunComposer({
   const restarts = !answering && startsAgainWhenTold(task, standing, stationId);
 
   return (
-    <Composer
+    <ChatInput
       slug={slug}
       label={
         answering
@@ -50,17 +51,15 @@ export function RunComposer({
       }
       pending={say.isPending}
       running={running}
-      context={
-        <FixedSettings
+      settings={<FixedAgent agent={standing} />}
+      below={
+        <FixedRepositories
           slug={slug}
-          harness={standing?.harness}
-          model={standing?.model}
-          effort={standing?.effort}
           repositories={line?.repositories ?? []}
         />
       }
       onStop={() => stop.mutate({ teamId, runId })}
-      onSend={(body, attachments, sent) =>
+      onSend={({ body, attachments }, sent) =>
         say.mutate({ teamId, runId, body, attachments }, { onSuccess: sent })
       }
     />

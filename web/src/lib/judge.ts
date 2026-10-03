@@ -10,7 +10,6 @@ import type {
   StationJudgeAgreementResponseDto,
   TrendPointResponseDto,
 } from '@/lib/api';
-import { type FileChange, repoRelative } from '@/lib/changes';
 import type { RunJournal } from '@/lib/inbox';
 
 export type StationJudgeAgreement = StationJudgeAgreementResponseDto;
@@ -112,14 +111,6 @@ export const dayShown = (day: string): string =>
     day: 'numeric',
     timeZone: 'UTC',
   });
-
-export const fileOfHunk = (
-  hunk: CitedHunk,
-  files: readonly FileChange[],
-): FileChange | null =>
-  files.find((each) => repoRelative(each.path) === hunk.path) ??
-  files.find((each) => hunk.path !== null && each.path.endsWith(hunk.path)) ??
-  null;
 
 export const hunkShown = (hunk: CitedHunk): string =>
   hunk.path

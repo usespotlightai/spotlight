@@ -103,7 +103,7 @@ const showing = (search = '?tab=tools') =>
     <MemoryRouter initialEntries={[`/w/acme/team/team_1/insights${search}`]}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/:section"
+          path="/w/:slug/team/:teamId/insights"
           element={<TeamInsights slug="acme" teamId="team_1" />}
         />
       </Routes>
@@ -161,7 +161,7 @@ describe('the Tools tab', () => {
 
     expect(
       screen.getByRole('link', { name: 'See the team’s skills' }),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/settings/skills');
+    ).toHaveAttribute('href', '/w/acme/settings/team/team_1/skills');
   });
 
   it('shows each skill’s use as its own small chart, marking spreading and saying the rule', () => {
@@ -192,7 +192,7 @@ describe('the Tools tab', () => {
       within(multiples).getByRole('link', { name: 'our-migrations' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/settings/skills#skill-our-migrations',
+      '/w/acme/settings/team/team_1/skills#skill-our-migrations',
     );
     expect(
       within(multiples).queryByRole('link', { name: 'borrowed' }),
@@ -232,7 +232,7 @@ describe('the Tools tab', () => {
       ),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/settings/skills#skill-incident-runbook',
+      '/w/acme/settings/team/team_1/skills#skill-incident-runbook',
     );
   });
 

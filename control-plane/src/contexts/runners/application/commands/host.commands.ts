@@ -14,6 +14,7 @@ export class ReportHostPresenceCommand {
   constructor(
     readonly credential: HostCredential,
     readonly hostId: string,
+    readonly session: string,
     readonly report: ReportedHost,
   ) {}
 }

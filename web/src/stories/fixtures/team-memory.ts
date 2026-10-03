@@ -9,6 +9,7 @@ import type {
 } from '@/lib/api';
 import { filterOf } from '@/lib/memory';
 import { failQuery } from '@/stories/failQuery';
+import { MAYA_IMAGE } from '@/stories/fixtures/avatars';
 import { seedTeam, TEAM_ID } from '@/stories/fixtures/team-section';
 
 export { SLUG, TEAM_ID } from '@/stories/fixtures/team-section';
@@ -67,7 +68,7 @@ const LINES: LineResponseDto[] = [
   },
 ];
 
-const MAYA = { id: 'user_2', name: 'Maya Chen' };
+const MAYA = { id: 'user_2', name: 'Maya Chen', image: MAYA_IMAGE };
 
 const memory = (
   over: Partial<TeamMemoryResponseDto> & { id: string; body: string },

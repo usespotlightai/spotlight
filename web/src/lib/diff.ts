@@ -20,6 +20,8 @@ const ANNOTATIONS =
 
 const LINE_NUMBERS = ' [data-line-number-content] { min-width: 4ch; }';
 
+const NO_GUTTER = ' code { scrollbar-gutter: auto; }';
+
 const GUTTER_UTILITY =
   ' [data-gutter-utility-slot] { left: 0 !important; right: 0 !important; justify-content: flex-end !important; z-index: 3; pointer-events: none; }';
 
@@ -39,5 +41,5 @@ export const diffOptions = (flush: boolean, gutter = false) =>
     theme: DIFF_THEME,
     unsafeCSS: `:host { color-scheme: inherit; font-size: 11px; line-height: 1.5; --diffs-selection-base: var(--primary);${
       flush ? ' --diffs-gap-block: 0; --diffs-bg: transparent;' : ''
-    } }${LINE_NUMBERS}${ANNOTATIONS}${gutter ? GUTTER_UTILITY : ''}`,
+    } }${LINE_NUMBERS}${NO_GUTTER}${ANNOTATIONS}${gutter ? GUTTER_UTILITY : ''}`,
   }) as const;

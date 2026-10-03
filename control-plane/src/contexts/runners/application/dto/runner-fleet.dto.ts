@@ -29,6 +29,7 @@ export interface HostDto {
   readonly running: readonly string[];
   readonly images: readonly HostImageDto[];
   readonly firstSeenAt: string;
+  readonly upSince: string;
   readonly lastSeenAt: string;
   readonly answering: boolean;
 }

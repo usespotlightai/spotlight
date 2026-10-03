@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { PendingImprovement } from '@/components/features/agent/PendingImprovement';
-import { PendingTraces } from '@/components/features/agent/PendingTraces';
-import { Composer } from '@/components/features/inbox/conversation/Composer';
-import { HarnessSelect } from '@/components/features/stations/HarnessSelect';
-import { ModelEffortSelect } from '@/components/features/stations/ModelEffortSelect';
+import { AgentPicker } from '@/components/features/stations/AgentPicker';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
+import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartChat } from '@/hooks/api/useStartChat';
 import { useRemembered } from '@/hooks/useRemembered';
@@ -32,15 +30,12 @@ export function NewChatComposer({
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);
-  const [traces, setTraces] = useState(handed);
   const [improving, setImproving] = useState(handedStation);
   const start = useStartChat();
 
   const harness = harnesses?.some((each) => each.id === held)
     ? held
     : (harnesses?.[0]?.id ?? '');
-
-  const alongsideCount = traces.length + (improving ? 1 : 0);
 
   const choose = (next: string) => {
     remember(next);
@@ -49,33 +44,43 @@ export function NewChatComposer({
   };
 
   return (
-    <Composer
+    <ChatInput
       slug={slug}
       label="Plan with the agent"
       placeholder={
         improving ? 'What should it do better?' : 'What are we planning?'
       }
       pending={start.isPending || !harness}
-      alongside={{
-        count: alongsideCount,
-        shown: alongsideCount > 0 && (
-          <div className="flex flex-wrap gap-2 px-1 pt-1 pb-2">
-            {improving && (
-              <PendingImprovement
-                station={improving}
-                onRemove={() => setImproving(null)}
-              />
-            )}
-            <PendingTraces
-              traces={traces}
-              onRemove={(taskId) =>
-                setTraces((was) => was.filter((each) => each.taskId !== taskId))
-              }
+      initialTraces={handed}
+      above={
+        improving && (
+          <div className="flex pb-2">
+            <PendingImprovement
+              station={improving}
+              onRemove={() => setImproving(null)}
             />
           </div>
-        ),
-      }}
-      onSend={(body, attachments, sent) =>
+        )
+      }
+      settings={
+        <AgentPicker
+          harness={harness}
+          model={model}
+          effort={effort}
+          onHarness={choose}
+          onModel={setModel}
+          onEffort={setEffort}
+        />
+      }
+      below={
+        <RepositoriesSelect
+          slug={slug}
+          value={repositories}
+          onChange={setRepositories}
+          className="h-6 w-auto"
+        />
+      }
+      onSend={({ body, attachments, traces }, sent) =>
         start.mutate(
           {
             teamId,
@@ -85,43 +90,17 @@ export function NewChatComposer({
             repositories,
             body,
             attachments,
-            traces: traces.map((each) => each.taskId),
+            traces,
             ...(improving ? { improving: improving.stationId } : {}),
           },
           {
             onSuccess: (chat) => {
               sent();
-              setTraces([]);
               setImproving(null);
               onStarted(chat.id);
             },
           },
         )
-      }
-      context={
-        <>
-          <HarnessSelect
-            value={harness}
-            onChange={choose}
-            allowNone={false}
-            className="w-auto"
-          />
-          <ModelEffortSelect
-            harness={harness}
-            model={model}
-            onModel={setModel}
-            effort={effort}
-            onEffort={setEffort}
-            iconless
-            className="-ml-1.5 w-auto"
-          />
-          <RepositoriesSelect
-            slug={slug}
-            value={repositories}
-            onChange={setRepositories}
-            className="w-auto"
-          />
-        </>
       }
     />
   );

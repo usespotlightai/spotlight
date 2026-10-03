@@ -3551,6 +3551,9 @@
               }
             }
           },
+          "400": {
+            "description": "A model or effort that is not text"
+          },
           "401": {
             "description": "No valid session"
           },
@@ -3698,11 +3701,17 @@
           "204": {
             "description": "The agent hears it"
           },
+          "400": {
+            "description": "A model or effort that is not text"
+          },
           "401": {
             "description": "No valid session"
           },
           "404": {
             "description": "No such chat for this caller"
+          },
+          "422": {
+            "description": "An unknown model or effort"
           }
         },
         "summary": "Say something to the agent in a chat",
@@ -26206,6 +26215,28 @@
           "title"
         ]
       },
+      "RunAgentResponseDto": {
+        "type": "object",
+        "properties": {
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "harness",
+          "model",
+          "effort"
+        ]
+      },
       "ReplayRunResponseDto": {
         "type": "object",
         "properties": {
@@ -26296,6 +26327,25 @@
             "items": {
               "$ref": "#/components/schemas/RunJournalResponseDto"
             }
+          },
+          "briefing": {
+            "type": "string",
+            "description": "What the replay told its agent when it was dispatched"
+          },
+          "agent": {
+            "description": "The harness, model and effort the replay ran its agent on",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunAgentResponseDto"
+              }
+            ]
+          },
+          "repositories": {
+            "description": "The repositories the replay was given",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -26311,29 +26361,10 @@
           "review",
           "original",
           "spend",
-          "journals"
-        ]
-      },
-      "SearchRunAgentResponseDto": {
-        "type": "object",
-        "properties": {
-          "harness": {
-            "type": "string",
-            "example": "claude-code"
-          },
-          "model": {
-            "type": "string",
-            "nullable": true
-          },
-          "effort": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "harness",
-          "model",
-          "effort"
+          "journals",
+          "briefing",
+          "agent",
+          "repositories"
         ]
       },
       "SearchRunCostResponseDto": {
@@ -26454,7 +26485,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/SearchRunAgentResponseDto"
+                "$ref": "#/components/schemas/RunAgentResponseDto"
               }
             ]
           },
@@ -26485,6 +26516,10 @@
             "items": {
               "$ref": "#/components/schemas/RunJournalResponseDto"
             }
+          },
+          "briefing": {
+            "type": "string",
+            "description": "What the search told its agent when it dispatched this iteration"
           }
         },
         "required": [
@@ -26505,7 +26540,8 @@
           "endedAt",
           "spent",
           "spend",
-          "journals"
+          "journals",
+          "briefing"
         ]
       },
       "ChatImprovingResponseDto": {
@@ -26929,6 +26965,18 @@
             "items": {
               "type": "string"
             }
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "opus",
+            "description": "The model the agent answers this and later messages with; null for the harness default, left out to keep the chat’s"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high",
+            "description": "The effort the agent answers this and later messages with; null for the harness default, left out to keep the chat’s"
           }
         },
         "required": [
@@ -28132,6 +28180,11 @@
       "HostPresenceRequestDto": {
         "type": "object",
         "properties": {
+          "session": {
+            "type": "string",
+            "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P",
+            "description": "New each time the host starts, so a restart shows as one"
+          },
           "name": {
             "type": "string",
             "example": "build-box-1",
@@ -28174,6 +28227,7 @@
           }
         },
         "required": [
+          "session",
           "name",
           "release",
           "executor",
@@ -28326,6 +28380,11 @@
             "type": "string",
             "example": "2026-09-25T11:00:00.000Z"
           },
+          "upSince": {
+            "type": "string",
+            "example": "2026-09-25T11:30:00.000Z",
+            "description": "When it last came up: started, or answered again after going quiet"
+          },
           "lastSeenAt": {
             "type": "string",
             "example": "2026-09-25T12:00:00.000Z"
@@ -28346,6 +28405,7 @@
           "running",
           "images",
           "firstSeenAt",
+          "upSince",
           "lastSeenAt",
           "answering"
         ]
@@ -29353,6 +29413,77 @@
           "layers"
         ]
       },
+      "CheckedStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "step": {
+            "type": "string",
+            "example": "whole",
+            "description": "The step it ran: whole, or the layer it checked"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "output": {
+            "type": "string",
+            "description": "The end of what the check printed"
+          },
+          "tookMs": {
+            "type": "number",
+            "example": 41000
+          }
+        },
+        "required": [
+          "step",
+          "passed",
+          "output",
+          "tookMs"
+        ]
+      },
+      "StackCheckResponseDto": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "example": "npm test"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "checked",
+              "skipped"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why it was skipped, where it was"
+          },
+          "whole": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CheckedStepResponseDto"
+              }
+            ]
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckedStepResponseDto"
+            }
+          }
+        },
+        "required": [
+          "command",
+          "state",
+          "reason",
+          "whole",
+          "layers"
+        ]
+      },
       "ChangeStackResponseDto": {
         "type": "object",
         "properties": {
@@ -29387,15 +29518,15 @@
               "$ref": "#/components/schemas/StackCohortResponseDto"
             }
           },
-          "checkState": {
-            "type": "string",
-            "enum": [
-              "waiting",
-              "checked",
-              "skipped",
-              null
-            ],
-            "nullable": true
+          "check": {
+            "nullable": true,
+            "description": "What the check ran and what each step printed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StackCheckResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -29405,7 +29536,7 @@
           "failure",
           "files",
           "cohorts",
-          "checkState"
+          "check"
         ]
       },
       "RunChangeStacksResponseDto": {
@@ -31150,11 +31281,17 @@
             "type": "string",
             "nullable": true,
             "example": "Maya Chen"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://avatars.githubusercontent.com/u/1"
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "image"
         ]
       },
       "MemoryRetirementResponseDto": {
@@ -31758,13 +31895,20 @@
             "items": {
               "$ref": "#/components/schemas/RunProposalResponseDto"
             }
+          },
+          "reviewItemId": {
+            "type": "string",
+            "nullable": true,
+            "example": "aside_8f2c",
+            "description": "The inbox item where people keep or reject what the run proposed; null where it proposed nothing"
           }
         },
         "required": [
           "briefed",
           "cut",
           "recalled",
-          "proposed"
+          "proposed",
+          "reviewItemId"
         ]
       },
       "RecallMemoriesRequestDto": {

@@ -6,6 +6,7 @@ import {
   fieldOf,
   frontierPoints,
   heldOutShown,
+  iterationTitle,
   pickRefusal,
   refusalsOf,
   type Search,
@@ -225,5 +226,12 @@ describe('search', () => {
       [1, 1],
       [2, 0],
     ]);
+  });
+});
+
+describe('iterationTitle', () => {
+  it('names an iteration by its search, or by search alone where its number is unknown', () => {
+    expect(iterationTitle(3, 2)).toBe('Iteration 3 of Search 2');
+    expect(iterationTitle(1, null)).toBe('Iteration 1 of Search');
   });
 });

@@ -10,9 +10,9 @@ import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { GradeRun } from '@/components/features/inbox/grades/GradeRun';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
 import { MemoryReview } from '@/components/features/inbox/memories/MemoryReview';
-import { ChangesPanel } from '@/components/features/runs/ChangesPanel';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
+import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import {
@@ -152,7 +152,7 @@ export function InboxItem() {
       <div className="flex min-h-0 flex-1 flex-col">
         <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-        <ChangesPanel>
+        <RunSidePanel>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
               <GradeRun
@@ -165,7 +165,7 @@ export function InboxItem() {
               />
             </div>
           </div>
-        </ChangesPanel>
+        </RunSidePanel>
       </div>
     );
   }
@@ -179,7 +179,7 @@ export function InboxItem() {
         trailing={<FailureCount failure={item.failure} />}
       />
 
-      <ChangesPanel>
+      <RunSidePanel>
         <Conversation
           item={{
             id: item.id,
@@ -242,7 +242,7 @@ export function InboxItem() {
           }
           footer={
             carriesItsOwn ? null : item.resolved ? (
-              <p className="text-center text-muted-foreground text-xs">
+              <p className="pb-5 text-center text-muted-foreground text-xs">
                 {item.standsAt.name === item.station
                   ? 'This is settled. There is nothing left to answer.'
                   : `This moved on to ${item.standsAt.name}. There is nothing left to answer.`}
@@ -260,7 +260,7 @@ export function InboxItem() {
             )
           }
         />
-      </ChangesPanel>
+      </RunSidePanel>
     </div>
   );
 }

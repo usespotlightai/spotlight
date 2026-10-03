@@ -282,6 +282,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     MEMORY_USES,
     MemoryReviews,
     TeamMemoryViews,
+    REVIEWS,
   ]),
   ...bindQueryHandler(ReadTeamMemoryQuery, ReadTeamMemoryHandler, [
     MemoryAccess,

@@ -3,6 +3,7 @@ import {
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
 import { EntryResult } from '@/components/features/replays/replay/EntryResult';
+import { PillButton } from '@/components/shared/PillButton';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { lastedOrNone, spendShown } from '@/lib/insights';
 import {
@@ -22,12 +23,16 @@ type ReplayComparisonProps = {
   slug: string;
   teamId: string;
   replay: ReplayDetail;
+  picked: string | null;
+  onPick: (originalRunId: string) => void;
 };
 
 export function ReplayComparison({
   slug,
   teamId,
   replay,
+  picked,
+  onPick,
 }: ReplayComparisonProps) {
   const rows = comparisonInOrder(replay.comparison);
   const compared = rows.some((each) => each.baseline !== null);
@@ -121,9 +126,23 @@ export function ReplayComparison({
       compared ? msDeltaShown(row.msDelta) : lastedOrNone(row.candidate.ms),
   };
 
+  const details: InsightsColumn<EntryComparison> = {
+    id: 'details',
+    header: '',
+    cell: (row) => (
+      <PillButton
+        aria-label={`Details of ${titleShown(row.title)}`}
+        aria-pressed={picked === row.originalRunId}
+        onClick={() => onPick(row.originalRunId)}
+      >
+        Details
+      </PillButton>
+    ),
+  };
+
   const columns = compared
-    ? [task, candidate, baseline, judge, cost, time]
-    : [task, candidate, judge, cost, time];
+    ? [task, candidate, baseline, judge, cost, time, details]
+    : [task, candidate, judge, cost, time, details];
 
   return (
     <InsightsTable
@@ -131,6 +150,7 @@ export function ReplayComparison({
       columns={columns}
       rows={rows}
       rowKey={(row) => row.originalRunId}
+      picked={picked}
     />
   );
 }

@@ -327,6 +327,24 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
+  it('refuses a station’s harness, model or name at its field', async () => {
+    for (const [setting, path] of [
+      [{ harness: 'h'.repeat(61) }, 'stations[1].harness'],
+      [{ model: 'm'.repeat(61) }, 'stations[1].model'],
+      [{ name: '   ' }, 'stations[1].name'],
+    ] as const) {
+      const refused = await create({
+        ...DELIVERY,
+        stations: DELIVERY.stations.map((each, place) =>
+          place === 1 ? { ...each, ...setting } : each,
+        ),
+      });
+
+      expect(refused.status).toBe(422);
+      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+    }
+  });
+
   it('keeps where the line’s Terraform lives, shows it on the team’s lines, and forgets it once set to null', async () => {
     const source = {
       repository: 'acme/platform',

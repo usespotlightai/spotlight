@@ -40,3 +40,10 @@ export const laidOut = (
     width: (Math.max(node.ms, 0) / whole) * 100,
   };
 };
+
+const RUN = 'run:';
+
+export const runIdOf = (node: TraceNode): string | null =>
+  node.kind === 'run' && node.id.startsWith(RUN)
+    ? node.id.slice(RUN.length)
+    : null;

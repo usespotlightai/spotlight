@@ -21,6 +21,8 @@ export class SayInChatCommand {
     readonly body: string,
     readonly attachments: readonly string[] = [],
     readonly traces: readonly string[] = [],
+    readonly model?: string | null,
+    readonly effort?: string | null,
   ) {}
 }
 

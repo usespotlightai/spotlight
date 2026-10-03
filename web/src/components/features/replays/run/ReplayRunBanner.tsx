@@ -1,5 +1,4 @@
 import { Repeat } from 'lucide-react';
-import { EntryResult } from '@/components/features/replays/replay/EntryResult';
 import { SearchOrigin } from '@/components/features/searches/SearchOrigin';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -76,7 +75,6 @@ export function ReplayRunBanner({ slug, teamId, run }: ReplayRunBannerProps) {
               {of.setName ? `a replay of ${of.setName}` : 'its replay'}
             </TrailLink>
           </p>
-          {of.entry && <EntryResult entry={of.entry} runTo={null} />}
         </div>
       ) : (
         <p className="text-muted-foreground text-xs">

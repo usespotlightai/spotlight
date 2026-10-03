@@ -24,9 +24,17 @@ export class MemoryPersonResponseDto {
   @ApiProperty({ nullable: true, type: String, example: 'Maya Chen' })
   readonly name: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'https://avatars.githubusercontent.com/u/1',
+  })
+  readonly image: string | null;
+
   constructor(person: PersonDto) {
     this.id = person.id;
     this.name = person.name;
+    this.image = person.image;
   }
 }
 

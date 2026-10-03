@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceSlugTakenError } from '@/hooks/api/useCreateWorkspace';
+import { pollEvery } from '@/hooks/api/useInbox';
 import { CreateWorkspace } from '@/routes/CreateWorkspace';
 
 vi.mock('@/hooks/api/useSession', () => ({
@@ -225,5 +226,6 @@ describe('CreateWorkspace', () => {
     expect(navigate).toHaveBeenCalledWith('/w/acme-inc/inbox', {
       replace: true,
     });
+    expect(pollEvery('acme-inc', [])).toBe(1_000);
   });
 });

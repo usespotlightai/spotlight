@@ -67,7 +67,7 @@ describe('GitHubInstalled', () => {
     renderAt('?installation_id=42&state=acme%3Ateam_1');
 
     expect(navigate).toHaveBeenCalledWith(
-      '/w/acme/team/team_1/settings/integrations',
+      '/w/acme/settings/team/team_1/integrations',
       {
         replace: true,
       },

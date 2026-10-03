@@ -119,6 +119,13 @@ export class HostResponseDto {
   @ApiProperty({ example: '2026-09-25T11:00:00.000Z' })
   readonly firstSeenAt: string;
 
+  @ApiProperty({
+    example: '2026-09-25T11:30:00.000Z',
+    description:
+      'When it last came up: started, or answered again after going quiet',
+  })
+  readonly upSince: string;
+
   @ApiProperty({ example: '2026-09-25T12:00:00.000Z' })
   readonly lastSeenAt: string;
 
@@ -138,6 +145,7 @@ export class HostResponseDto {
     this.running = fields.running;
     this.images = fields.images.map((each) => new HostImageResponseDto(each));
     this.firstSeenAt = fields.firstSeenAt;
+    this.upSince = fields.upSince;
     this.lastSeenAt = fields.lastSeenAt;
     this.answering = fields.answering;
   }

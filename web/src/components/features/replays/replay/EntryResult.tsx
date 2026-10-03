@@ -13,10 +13,15 @@ const INK: Record<ReplayEntry['result'], string> = {
 type EntryResultProps = {
   entry: ReplayEntry;
   runTo: string | null;
+  reasons?: boolean;
 };
 
-export function EntryResult({ entry, runTo }: EntryResultProps) {
-  const reasons = entry.reasons.map(reasonShown);
+export function EntryResult({
+  entry,
+  runTo,
+  reasons: shown = true,
+}: EntryResultProps) {
+  const reasons = shown ? entry.reasons.map(reasonShown) : [];
 
   return (
     <span data-slot="entry-result" className="flex min-w-0 flex-col">

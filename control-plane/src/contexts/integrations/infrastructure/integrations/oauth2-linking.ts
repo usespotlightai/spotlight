@@ -131,7 +131,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       : null;
 
     const where = slug
-      ? `${this.base}/w/${slug}/team/${teamId}/settings/integrations`
+      ? `${this.base}/w/${slug}/settings/team/${teamId}/integrations`
       : `${this.base}`;
 
     return `${where}?connected=${encodeURIComponent(source)}`;

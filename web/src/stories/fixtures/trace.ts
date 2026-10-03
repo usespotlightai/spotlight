@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { taskTraceKeys } from '@/hooks/api/useTaskTrace';
 import type {
@@ -13,6 +14,12 @@ import {
   TASKS,
   TEAM_ID,
 } from '@/stories/fixtures/board';
+import {
+  failRunScores,
+  seedHiddenRunScores,
+  seedNoRunScores,
+  seedRunScores,
+} from '@/stories/fixtures/run-scores';
 
 const SECOND = 1_000;
 const MINUTE = 60 * SECOND;
@@ -181,9 +188,24 @@ const seedTask = (client: QueryClient) => {
 
 export const loadingTrace = seedTask;
 
+const JUDGED_RUN = 'run_retries_2';
+
 export const seedTrace = (client: QueryClient) => {
   seedTask(client);
   client.setQueryData(taskTraceKeys.forTask(TASK_ID), TRACE);
+  seedNoRunScores(client, 'run_retries_1', TASK_ID);
+  seedRunScores(client, JUDGED_RUN, TASK_ID);
+};
+
+export const seedJudgeHiddenTrace = (client: QueryClient) => {
+  seedTrace(client);
+  seedHiddenRunScores(client, JUDGED_RUN, TASK_ID);
+};
+
+export const failJudgeTrace = (client: QueryClient) => {
+  seedTrace(client);
+  client.removeQueries({ queryKey: runScoreKeys.forRun(JUDGED_RUN) });
+  failRunScores(client, JUDGED_RUN);
 };
 
 export const emptyTrace = (client: QueryClient) => {

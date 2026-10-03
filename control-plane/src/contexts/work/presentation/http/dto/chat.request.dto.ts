@@ -80,4 +80,22 @@ export class SayInChatRequestDto {
     description: 'Tasks whose traces to share with the agent, by task id',
   })
   readonly traces?: string[];
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'opus',
+    description:
+      'The model the agent answers this and later messages with; null for the harness default, left out to keep the chat’s',
+  })
+  readonly model?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'high',
+    description:
+      'The effort the agent answers this and later messages with; null for the harness default, left out to keep the chat’s',
+  })
+  readonly effort?: string | null;
 }

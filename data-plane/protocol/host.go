@@ -29,6 +29,7 @@ type HostImage struct {
 }
 
 type HostPresence struct {
+	Session  string      `json:"session"`
 	Name     string      `json:"name"`
 	Release  string      `json:"release"`
 	Executor string      `json:"executor"`

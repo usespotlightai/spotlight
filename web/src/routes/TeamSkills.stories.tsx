@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Route } from 'react-router';
-import { settingsPath } from '@/lib/team';
+import { teamSettingsPath } from '@/lib/settings';
 import { TeamSkills } from '@/routes/TeamSkills';
 import {
   emptyTeamSkills,
@@ -10,17 +10,17 @@ import {
 import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
 import { StoryPage } from '@/stories/StoryPage';
 
-const at = settingsPath(SLUG, TEAM_ID, 'skills');
+const at = teamSettingsPath(SLUG, TEAM_ID, 'skills');
 
 const routes = (
   <Route
-    path="/w/:slug/team/:teamId/settings/skills"
+    path="/w/:slug/settings/team/:teamId/skills"
     element={<TeamSkills />}
   />
 );
 
 const meta = {
-  title: 'Team/Settings/Skills',
+  title: 'Settings/Team/Skills',
 } satisfies Meta;
 
 export default meta;

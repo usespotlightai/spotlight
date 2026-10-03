@@ -27,11 +27,11 @@ const GRAFANA = {
 const showing = (hash = '') =>
   render(
     <MemoryRouter
-      initialEntries={[`/w/acme/team/team_1/settings/skills${hash}`]}
+      initialEntries={[`/w/acme/settings/team/team_1/skills${hash}`]}
     >
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/settings/skills"
+          path="/w/:slug/settings/team/:teamId/skills"
           element={<TeamSkills />}
         />
       </Routes>
@@ -64,10 +64,10 @@ describe('TeamSkills', () => {
   it('marks the skill a link points at after moving there within the app', async () => {
     Element.prototype.scrollIntoView = vi.fn();
     render(
-      <MemoryRouter initialEntries={['/w/acme/team/team_1/settings/skills']}>
+      <MemoryRouter initialEntries={['/w/acme/settings/team/team_1/skills']}>
         <Routes>
           <Route
-            path="/w/:slug/team/:teamId/settings/skills"
+            path="/w/:slug/settings/team/:teamId/skills"
             element={
               <>
                 <TeamSkills />

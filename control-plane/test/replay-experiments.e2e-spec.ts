@@ -451,6 +451,7 @@ beforeAll(async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
+      session: 'session_1',
       name: 'build-box',
       release: '0.1.0',
       executor: 'docker',
@@ -855,6 +856,9 @@ describe('a replay', () => {
       original: { runId: string; taskId: string; title: string };
       spend: { cost: number; currency: string } | null;
       journals: { runId: string }[];
+      briefing: string;
+      agent: { harness: string; model: string | null; effort: string | null };
+      repositories: string[];
     };
 
     expect(replayRun.id).toBe(runId);
@@ -867,6 +871,17 @@ describe('a replay', () => {
     });
     expect(replayRun.spend).toMatchObject({ cost: 0.3, currency: 'USD' });
     expect(replayRun.journals.map((each) => each.runId)).toEqual([runId]);
+
+    const [stored] = await db
+      .select({ spec: schema.run.spec })
+      .from(schema.run)
+      .where(eq(schema.run.id, runId));
+
+    expect(replayRun.briefing).toBe(
+      (stored?.spec as { briefing: string } | undefined)?.briefing,
+    );
+    expect(replayRun.agent.harness).toBe('claude-code');
+    expect(replayRun.repositories).toEqual(['acme/api']);
 
     const ofRun = (
       await owner().get(`${teamPath()}/replay-runs/${runId}/replay`).expect(200)

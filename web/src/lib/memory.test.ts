@@ -4,6 +4,7 @@ import {
   askedByAgent,
   decidedBy,
   filterOf,
+  givenMemories,
   memoryPath,
   narrowed,
   type ProposedMemory,
@@ -12,8 +13,9 @@ import {
   proposalStateOf,
   type RunProposal,
   reachOf,
-  rememberedSummary,
+  rememberedCounts,
   stepLabel,
+  type TeamMemory,
   usedBy,
 } from '@/lib/memory';
 
@@ -135,19 +137,36 @@ describe('what a run remembered', () => {
     expect(usedBy(4)).toBe('Used by 4 runs');
   });
 
-  it('sums up only what there was', () => {
+  it('gives what was briefed, then what was recalled on top of it, once each', () => {
+    const briefed = { id: 'memory_b' } as TeamMemory;
+    const both = { id: 'memory_both' } as TeamMemory;
+    const recalled = { id: 'memory_r' } as TeamMemory;
+
     expect(
-      rememberedSummary({
+      givenMemories({
+        briefed: [briefed, both],
+        cut: [{ id: 'memory_c' } as TeamMemory],
+        recalled: [both, recalled],
+        proposed: [],
+        reviewItemId: null,
+      }),
+    ).toEqual([briefed, both, recalled]);
+  });
+
+  it('counts only what there was', () => {
+    expect(
+      rememberedCounts({
         briefed: [],
         cut: [],
         recalled: [],
         proposed: [proposal({})],
+        reviewItemId: null,
       }),
-    ).toBe('1 proposed');
+    ).toEqual([{ what: 'Proposed', count: 1 }]);
   });
 
   it('says where a proposal stands', () => {
-    expect(proposalStateOf(proposal({}))).toBe('Waiting for a person');
+    expect(proposalStateOf(proposal({}))).toBe('Waiting for you');
     expect(proposalStateOf(proposal({ state: 'rejected' }))).toBe('Rejected');
     expect(
       proposalStateOf(proposal({ state: 'approved', standing: 'stands' })),

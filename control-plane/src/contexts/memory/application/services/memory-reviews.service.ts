@@ -37,7 +37,7 @@ export class MemoryReviews {
           supersedes: proposal.supersedes?.value ?? null,
           decision: proposal.decision && {
             by: proposal.decision.by.value,
-            name: await this.people.nameOf(proposal.decision.by),
+            name: (await this.people.find(proposal.decision.by))?.name ?? null,
             at: proposal.decision.at.toISOString(),
           },
           steps: (steps ?? []).filter((each) =>

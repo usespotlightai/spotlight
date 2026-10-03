@@ -141,7 +141,12 @@ export function AgentChat() {
           onOpen={toggle}
           footer={
             <ComposerFooter>
-              <ChatComposer slug={slug} teamId={teamId} chat={chat} />
+              <ChatComposer
+                key={chat.id}
+                slug={slug}
+                teamId={teamId}
+                chat={chat}
+              />
             </ComposerFooter>
           }
           aside={

@@ -2,6 +2,7 @@ package serve
 
 import (
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -115,6 +116,7 @@ type Host struct {
 	refreshes sync.WaitGroup
 	workspace string
 	engineIs  string
+	session   string
 
 	mu         sync.Mutex
 	served     map[string]*served
@@ -134,6 +136,7 @@ func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors
 		mirrors:  mirrors,
 		log:      log,
 		slots:    make(chan struct{}, max(opts.Capacity, 1)),
+		session:  crand.Text(),
 		served:   map[string]*served{},
 		running:  map[string]string{},
 		held:     map[string]time.Time{},
@@ -312,6 +315,7 @@ func (h *Host) presence() protocol.HostPresence {
 	slices.Sort(running)
 
 	return protocol.HostPresence{
+		Session:  h.session,
 		Name:     h.opts.Name,
 		Release:  h.opts.Version,
 		Executor: h.engineIs,

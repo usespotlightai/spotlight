@@ -5,10 +5,22 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TraceView } from '@/components/features/trace/view/TraceView';
 import type { JournalStepResponseDto, TraceNodeResponseDto } from '@/lib/api';
 import type { Trace } from '@/lib/trace';
+import { runScoresOf } from '@/stories/fixtures/run-scores';
+
+const scores = vi.fn();
+
+vi.mock('@/hooks/api/useRunScores', () => ({
+  useRunScores: (_teamId: string, runId: string) => ({
+    data: scores(runId),
+    isPending: false,
+    isFetching: false,
+    errorUpdateCount: 0,
+  }),
+}));
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);
 const iso = (ms: number) => new Date(AT + ms).toISOString();
@@ -147,7 +159,10 @@ const trace = (): Trace => ({
   ],
 });
 
-const view = () => render(<TraceView trace={trace()} />);
+const view = () => {
+  scores.mockImplementation((runId: string) => runScoresOf(runId, 'task_1'));
+  return render(<TraceView trace={trace()} teamId="team_1" />);
+};
 
 const rows = () => within(screen.getByRole('list')).getAllByRole('listitem');
 
@@ -238,6 +253,27 @@ describe('TraceView', () => {
     await waitForElementToBeRemoved(() =>
       screen.queryByText('sh: vitest: command not found'),
     );
+  });
+
+  it('marks the judge’s verdict on the row of the run it judged', () => {
+    view();
+
+    expect(rows()[0]).toHaveTextContent('Judged');
+    expect(rows()[0]).toHaveTextContent('No');
+  });
+
+  it('says why the judge decided so when the run is picked', async () => {
+    view();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Implementation' }),
+    );
+
+    expect(
+      within(screen.getByRole('list', { name: 'Why' })).getByText(
+        'The change retries a 410 Gone like any other failure.',
+      ),
+    ).toBeVisible();
   });
 
   it('folds a row away', async () => {

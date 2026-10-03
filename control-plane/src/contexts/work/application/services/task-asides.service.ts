@@ -85,6 +85,16 @@ export class TaskAsides implements TaskAsidesPort {
     });
   }
 
+  async idOf(asked: AsideOf): Promise<string | null> {
+    const held = await this.asides.about(
+      asked.taskId,
+      asideForm(asked.form),
+      AsideAbout.of(asked.about),
+    );
+
+    return held?.id.value ?? null;
+  }
+
   settle(asked: AsideOf): Promise<void> {
     const aside = { ...asked, about: AsideAbout.of(asked.about) };
 

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TokenCreated } from '@/components/features/tokens/TokenCreated';
 
 const meta = {
-  title: 'Workspace/Tokens/Token created',
+  title: 'Settings/Workspace/Tokens/Token created',
   component: TokenCreated,
   parameters: { layout: 'padded' },
   args: {

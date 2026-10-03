@@ -9,6 +9,7 @@ import {
   useCreateWorkspace,
   WorkspaceSlugTakenError,
 } from '@/hooks/api/useCreateWorkspace';
+import { openedJustNow } from '@/hooks/api/useInbox';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { inboxPath } from '@/lib/inbox';
@@ -59,6 +60,7 @@ export function CreateWorkspace() {
       { name: name.trim(), slug: slugify(slug), teamName: teamName.trim() },
       {
         onSuccess: (workspace) => {
+          openedJustNow(workspace.slug);
           void navigate(inboxPath(workspace.slug), { replace: true });
         },
       },

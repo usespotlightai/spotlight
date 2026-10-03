@@ -15,4 +15,8 @@ export class Reviews implements ReviewsPort {
   settle(taskId: TaskId, runId: RunId): Promise<void> {
     return this.asides.settle({ taskId, form: FORM, about: runId.value });
   }
+
+  reviewItemOf(taskId: TaskId, runId: RunId): Promise<string | null> {
+    return this.asides.idOf({ taskId, form: FORM, about: runId.value });
+  }
 }

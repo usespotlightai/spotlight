@@ -2,7 +2,7 @@ import { Wrench } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button';
-import { settingsPath } from '@/lib/team';
+import { teamSettingsPath } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
 type NoToolsUsedProps = {
@@ -18,7 +18,7 @@ export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps) {
         title="No skills or MCP servers used in this period"
         action={
           <TrailLink
-            to={settingsPath(slug, teamId, 'skills')}
+            to={teamSettingsPath(slug, teamId, 'skills')}
             className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
           >
             See the team’s skills

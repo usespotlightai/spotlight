@@ -1,4 +1,5 @@
 import type { WorkspaceTokenResourceResponseDto } from '@/lib/api';
+import { settingsPath } from '@/lib/settings';
 
 export type WorkspaceToken = WorkspaceTokenResourceResponseDto;
 
@@ -105,4 +106,4 @@ export const expiryTold = (
   })}`;
 };
 
-export const tokensPath = (slug: string) => `/w/${slug}/tokens`;
+export const tokensPath = (slug: string) => `${settingsPath(slug)}/tokens`;

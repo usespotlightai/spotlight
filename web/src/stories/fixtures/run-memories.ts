@@ -2,8 +2,10 @@ import type { QueryClient } from '@tanstack/react-query';
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import type { RunMemoriesResponseDto, TeamMemoryResponseDto } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
+import { MAYA_IMAGE } from '@/stories/fixtures/avatars';
+import { MEMORIES_ITEM_ID } from '@/stories/fixtures/memories';
 
-const MAYA = { id: 'user_2', name: 'Maya Chen' };
+const MAYA = { id: 'user_2', name: 'Maya Chen', image: MAYA_IMAGE };
 
 const memory = (
   over: Partial<TeamMemoryResponseDto> & {
@@ -94,6 +96,7 @@ const REMEMBERED: RunMemoriesResponseDto = {
       standing: null,
     },
   ],
+  reviewItemId: MEMORIES_ITEM_ID,
 };
 
 export const seedRunMemories = (
@@ -112,6 +115,7 @@ export const seedNoRunMemories = (
     cut: [],
     recalled: [],
     proposed: [],
+    reviewItemId: null,
   });
 
 export const failRunMemories = (

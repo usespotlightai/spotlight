@@ -52,11 +52,11 @@ const read = (integrations: unknown[] = []) => ({ integrations });
 const showing = () =>
   render(
     <MemoryRouter
-      initialEntries={['/w/acme/team/team_1/settings/integrations']}
+      initialEntries={['/w/acme/settings/team/team_1/integrations']}
     >
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/settings/integrations"
+          path="/w/:slug/settings/team/:teamId/integrations"
           element={<TeamIntegrations />}
         />
       </Routes>
@@ -68,7 +68,7 @@ const INSTALL = installUrlFor(
   {
     slug: 'acme',
     teamId: 'team_1',
-    from: '/w/acme/team/team_1/settings/integrations',
+    from: '/w/acme/settings/team/team_1/integrations',
   },
 );
 

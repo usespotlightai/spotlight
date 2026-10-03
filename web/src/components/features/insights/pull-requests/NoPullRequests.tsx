@@ -2,7 +2,7 @@ import { GitPullRequest } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button';
-import { settingsPath } from '@/lib/team';
+import { teamSettingsPath } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
 type NoPullRequestsProps = {
@@ -18,7 +18,7 @@ export function NoPullRequests({ slug, teamId }: NoPullRequestsProps) {
         title="No pull requests in this period"
         action={
           <TrailLink
-            to={settingsPath(slug, teamId, 'integrations')}
+            to={teamSettingsPath(slug, teamId, 'integrations')}
             className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
           >
             Connect a repository

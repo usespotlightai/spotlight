@@ -59,6 +59,60 @@ const spanOf = (steps: readonly JournalStep[]): number => {
     : 0;
 };
 
+export interface ThreadInput {
+  readonly opening: string | null;
+  readonly notes: readonly InboxMessage[];
+  readonly ran: readonly RunJournal[];
+  readonly agent: string;
+}
+
+const speakerOf = (note: InboxMessage): string => {
+  if (note.voice === 'person') {
+    return note.author?.name ?? 'Someone';
+  }
+  if (note.voice === 'world') {
+    return 'Spotlight';
+  }
+  return note.station;
+};
+
+const told = (speaker: string, text: string): string =>
+  `${speaker}:\n${text.trim()}`;
+
+export const threadText = ({
+  opening,
+  notes,
+  ran,
+  agent,
+}: ThreadInput): string => {
+  const spoken = notes
+    .filter((note) => note.body.trim())
+    .map((note) => told(speakerOf(note), note.body));
+  const said =
+    spoken.length > 0
+      ? []
+      : ran
+          .flatMap((journal) => journal.steps)
+          .filter((step) => step.kind === 'said' && step.text.trim())
+          .map((step) => told(agent, step.text));
+
+  return [
+    ...(opening?.trim() ? [told('Briefing', opening)] : []),
+    ...spoken,
+    ...said,
+  ].join('\n\n');
+};
+
+export const lastSpokenAt = (
+  notes: readonly InboxMessage[],
+  ran: readonly RunJournal[],
+): string | null =>
+  notes.findLast((note) => note.body.trim())?.at ??
+  ran
+    .flatMap((journal) => journal.steps)
+    .findLast((step) => step.kind === 'said' && step.text.trim())?.startedAt ??
+  null;
+
 export const workedOn = (
   worked: readonly RunJournal[],
   notes: readonly InboxMessage[],

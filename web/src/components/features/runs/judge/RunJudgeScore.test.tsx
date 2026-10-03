@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
-import { ChangesPanelContext } from '@/lib/changes-panel';
 import { StepAnchorsContext } from '@/lib/step-anchors';
 import { runScoresOf } from '@/stories/fixtures/run-scores';
 
@@ -22,28 +21,12 @@ vi.mock('@/hooks/api/useRunScores', () => ({
   }),
 }));
 
-const FILE = {
-  path: '/workspace/worker/services/retry.ts',
-  before: 'a\n',
-  after: 'b\n',
-};
-
-const open = vi.fn();
-
-const showing = () =>
-  render(
-    <ChangesPanelContext
-      value={{ selected: null, lines: null, open, close: () => {} }}
-    >
-      <RunJudgeScore teamId="team_1" runId="run_1" files={[FILE]} />
-    </ChangesPanelContext>,
-  );
+const showing = () => render(<RunJudgeScore teamId="team_1" runId="run_1" />);
 
 beforeEach(() => {
   scores.mockReturnValue(runScoresOf('run_1', 'task_1'));
   scoresFailing.mockReturnValue(false);
   scoresError.mockReturnValue(null);
-  open.mockClear();
   refetch.mockClear();
 });
 
@@ -69,14 +52,16 @@ describe('RunJudgeScore', () => {
     ).toHaveTextContent('queue-drain webhook-retries');
   });
 
-  it('opens the changed file a reason’s hunk sits in, at the hunk’s lines', async () => {
+  it('shows the hunk a reason cites', async () => {
     showing();
 
     await userEvent.click(
       screen.getByRole('button', { name: 'retry.ts @@ -1,3 +1,4 @@' }),
     );
 
-    expect(open).toHaveBeenCalledWith(FILE, { start: 1, end: 4 });
+    expect(
+      document.querySelector('[data-slot="cited-hunk"]'),
+    ).toBeInTheDocument();
   });
 
   it('scrolls to the journal step a reason cites where the run page shows it', async () => {
@@ -91,7 +76,7 @@ describe('RunJudgeScore', () => {
           focus,
         }}
       >
-        <RunJudgeScore teamId="team_1" runId="run_1" files={[FILE]} />
+        <RunJudgeScore teamId="team_1" runId="run_1" />
       </StepAnchorsContext>,
     );
     await userEvent.click(screen.getByRole('button', { name: 'Step 1' }));
@@ -183,13 +168,7 @@ describe('RunJudgeScore', () => {
     ).toBeInTheDocument();
 
     scoresFailing.mockReturnValue(true);
-    rerender(
-      <ChangesPanelContext
-        value={{ selected: null, lines: null, open, close: () => {} }}
-      >
-        <RunJudgeScore teamId="team_1" runId="run_1" files={[FILE]} />
-      </ChangesPanelContext>,
-    );
+    rerender(<RunJudgeScore teamId="team_1" runId="run_1" />);
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(refetch).toHaveBeenCalled();

@@ -1,28 +1,27 @@
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
-import { type TeamSection, teamSectionPath } from '@/lib/team';
+import { TEAM_SECTIONS, type TeamSectionId, teamSectionPath } from '@/lib/team';
 
 type TeamSectionLinkProps = {
   slug: string;
   teamId: string;
-  section: TeamSection;
-  active?: boolean;
+  section: TeamSectionId;
 };
 
 export function TeamSectionLink({
   slug,
   teamId,
   section,
-  active,
 }: TeamSectionLinkProps) {
+  const { label, icon } = TEAM_SECTIONS[section];
+
   return (
     <li>
       <SidebarLink
-        to={teamSectionPath(slug, teamId, section.id)}
-        icon={section.icon}
+        to={teamSectionPath(slug, teamId, section)}
+        icon={icon}
         className="pl-8"
-        active={active}
       >
-        {section.label}
+        {label}
       </SidebarLink>
     </li>
   );

@@ -1,5 +1,6 @@
-import { Composer } from '@/components/features/inbox/conversation/Composer';
-import { FixedSettings } from '@/components/features/stations/FixedSettings';
+import { FixedAgent } from '@/components/features/stations/FixedAgent';
+import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
+import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
@@ -28,23 +29,21 @@ export function InboxComposer({
   const { line, station: standing } = useTaskStation(teamId, taskId);
 
   return (
-    <Composer
+    <ChatInput
       slug={slug}
       label={`Answer ${station}`}
       placeholder="Reply…"
       pending={answer.isPending}
-      running={running && runId !== null}
-      context={
-        <FixedSettings
+      running={running}
+      settings={<FixedAgent agent={standing} />}
+      below={
+        <FixedRepositories
           slug={slug}
-          harness={standing?.harness}
-          model={standing?.model}
-          effort={standing?.effort}
           repositories={line?.repositories ?? []}
         />
       }
       onStop={runId ? () => stop.mutate({ teamId, runId }) : undefined}
-      onSend={(body, attachments, sent) =>
+      onSend={({ body, attachments }, sent) =>
         answer.mutate({ slug, itemId, body, attachments }, { onSuccess: sent })
       }
     />

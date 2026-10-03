@@ -63,6 +63,9 @@ vi.mock('@/hooks/api/useInsightsCandidates', () => ({
   useInsightsCandidates: (teamId: string, period: InsightsPeriod) =>
     answering('candidates')(teamId, period),
 }));
+vi.mock('@/components/features/trace/list/TraceList', () => ({
+  TraceList: ({ range }: { range: string }) => <p>Traces over {range}</p>,
+}));
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({ data: [] }),
 }));
@@ -180,7 +183,7 @@ const showing = (search = '') =>
     <MemoryRouter initialEntries={[`/w/acme/team/team_1/insights${search}`]}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/:section"
+          path="/w/:slug/team/:teamId/insights"
           element={
             <>
               <TeamInsights slug="acme" teamId="team_1" />
@@ -224,6 +227,16 @@ describe('TeamInsights', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the candidates' }),
     ).toBeInTheDocument();
+  });
+
+  it('lists the team’s traces over the period, as a tab of their own', () => {
+    showing('?tab=traces&period=7d');
+
+    expect(screen.getByRole('link', { name: 'Traces' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByText('Traces over 7d')).toBeInTheDocument();
   });
 
   it('keeps the period when moving between tabs', async () => {

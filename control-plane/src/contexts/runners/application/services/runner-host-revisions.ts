@@ -14,6 +14,10 @@ export const reviseHost = async (
     const known = await hosts.find(id);
     const changed = change(known);
 
+    if (changed === known) {
+      return changed;
+    }
+
     try {
       await (known ? hosts.save(changed) : hosts.add(changed));
       return changed;

@@ -12,6 +12,7 @@ import { PullRequestsTab } from '@/components/features/insights/pull-requests/Pu
 import { RunsTab } from '@/components/features/insights/RunsTab';
 import { StationsTab } from '@/components/features/insights/StationsTab';
 import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
+import { TraceList } from '@/components/features/trace/list/TraceList';
 import { useLines } from '@/hooks/api/useLines';
 import {
   type InsightsView,
@@ -38,48 +39,52 @@ export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
     <div className="flex min-h-0 flex-1 flex-col">
       <InsightsTabs slug={slug} teamId={teamId} view={view} />
 
-      <BeforeAfterHost
-        slug={slug}
-        teamId={teamId}
-        period={view.period}
-        names={names}
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pt-2 pb-8 md:px-6">
-            {view.tab === 'overview' && <OverviewTab {...shared} />}
-            {view.tab === 'flow' && <FlowTab {...shared} />}
-            {view.tab === 'pull-requests' && (
-              <PullRequestsTab
-                slug={slug}
-                teamId={teamId}
-                view={view}
-                onView={onView}
-              />
-            )}
-            {view.tab === 'stations' && <StationsTab {...shared} />}
-            {view.tab === 'changes' && <ChangesTab {...shared} />}
-            {view.tab === 'candidates' && <CandidatesTab {...shared} />}
-            {view.tab === 'people' && (
-              <PeopleTab slug={slug} teamId={teamId} period={view.period} />
-            )}
-            {view.tab === 'cost' && <CostTab {...shared} />}
-            {view.tab === 'tools' && <ToolsTab {...shared} />}
-            {view.tab === 'memory' && (
-              <MemoryTab slug={slug} teamId={teamId} period={view.period} />
-            )}
-            {view.tab === 'runs' && (
-              <RunsTab
-                slug={slug}
-                teamId={teamId}
-                view={view}
-                names={names}
-                lines={lines}
-                onView={onView}
-              />
-            )}
-          </main>
-        </div>
-      </BeforeAfterHost>
+      {view.tab === 'traces' ? (
+        <TraceList slug={slug} teamId={teamId} range={view.period} />
+      ) : (
+        <BeforeAfterHost
+          slug={slug}
+          teamId={teamId}
+          period={view.period}
+          names={names}
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pt-2 pb-8 md:px-6">
+              {view.tab === 'overview' && <OverviewTab {...shared} />}
+              {view.tab === 'flow' && <FlowTab {...shared} />}
+              {view.tab === 'pull-requests' && (
+                <PullRequestsTab
+                  slug={slug}
+                  teamId={teamId}
+                  view={view}
+                  onView={onView}
+                />
+              )}
+              {view.tab === 'stations' && <StationsTab {...shared} />}
+              {view.tab === 'changes' && <ChangesTab {...shared} />}
+              {view.tab === 'candidates' && <CandidatesTab {...shared} />}
+              {view.tab === 'people' && (
+                <PeopleTab slug={slug} teamId={teamId} period={view.period} />
+              )}
+              {view.tab === 'cost' && <CostTab {...shared} />}
+              {view.tab === 'tools' && <ToolsTab {...shared} />}
+              {view.tab === 'memory' && (
+                <MemoryTab slug={slug} teamId={teamId} period={view.period} />
+              )}
+              {view.tab === 'runs' && (
+                <RunsTab
+                  slug={slug}
+                  teamId={teamId}
+                  view={view}
+                  names={names}
+                  lines={lines}
+                  onView={onView}
+                />
+              )}
+            </main>
+          </div>
+        </BeforeAfterHost>
+      )}
     </div>
   );
 }

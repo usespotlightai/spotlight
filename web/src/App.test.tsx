@@ -73,40 +73,58 @@ beforeEach(() => {
 });
 
 describe('routing', () => {
-  it('sends an unknown path on to the default workspace when signed in', async () => {
+  it('sends an unknown path on to the default workspace’s inbox when signed in', async () => {
     signedIn();
 
     renderAt('/definitely-not-a-page');
 
-    expect(
-      await screen.findByRole('heading', { name: /Acme\s*Default/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No messages')).toBeInTheDocument();
   });
 
-  it('resolves "/" to the workspace rather than a page of its own', async () => {
+  it('opens "/" on the workspace’s inbox', async () => {
     signedIn();
 
     renderAt('/');
 
-    expect(
-      await screen.findByRole('heading', { name: /Acme\s*Default/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No messages')).toBeInTheDocument();
+  });
+
+  it('opens the settings at the workspace’s general page', async () => {
+    signedIn();
+
+    renderAt('/w/acme/settings');
+
+    expect(await screen.findByText('Workspace name')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'General' })[0]).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
   it('opens a team’s settings at its general page', async () => {
     signedIn();
 
-    renderAt('/w/acme/team/team_1/settings');
+    renderAt('/w/acme/settings/team/team_1');
+
+    const [, ofTeam] = await screen.findAllByRole('link', { name: 'General' });
+
+    expect(ofTeam).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens a team’s memory at an address of its own', async () => {
+    signedIn();
+
+    renderAt('/w/acme/team/team_1/memory');
 
     expect(
-      await screen.findByRole('link', { name: 'General' }),
-    ).toHaveAttribute('aria-current', 'page');
+      await screen.findByRole('link', { name: 'Memory', current: 'page' }),
+    ).toHaveAttribute('href', '/w/acme/team/team_1/memory');
   });
 
   it('opens a team’s skills among its settings', async () => {
     signedIn();
 
-    renderAt('/w/acme/team/team_1/settings/skills');
+    renderAt('/w/acme/settings/team/team_1/skills');
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Skills' }),

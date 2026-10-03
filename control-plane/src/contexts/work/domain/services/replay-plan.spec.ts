@@ -23,6 +23,7 @@ import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -31,6 +32,23 @@ import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const REPLAYED_AS = StationConfig.rehydrate(
+  {
+    prompt: null,
+    harness: 'dev',
+    model: null,
+    effort: null,
+    profile: null,
+    image: null,
+    repositories: [],
+    skills: [],
+    tools: [],
+    decisions: false,
+    memories: false,
+  },
+  'f'.repeat(64),
+);
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
 const BUILD = StationId.of('station_build');
@@ -106,6 +124,7 @@ const original = (
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
     priority: RunPriority.normal,
+    configuredAs: over.subject?.isReplay ? REPLAYED_AS : null,
     subject:
       over.subject ??
       RunSubject.task(TaskId.of('task_1'), BUILD, TaskRevision.of(1)),

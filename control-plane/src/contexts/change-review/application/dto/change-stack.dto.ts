@@ -61,7 +61,7 @@ export interface StackCohortDto {
   readonly layers: readonly StackLayerDto[];
 }
 
-interface CheckedLayerDto {
+export interface CheckedStepDto {
   readonly step: string;
   readonly passed: boolean;
   readonly output: string;
@@ -72,8 +72,8 @@ export interface StackCheckDto {
   readonly command: string;
   readonly state: (typeof STACK_CHECK_STATE_NAMES)[number];
   readonly reason: string | null;
-  readonly whole: CheckedLayerDto | null;
-  readonly layers: readonly CheckedLayerDto[];
+  readonly whole: CheckedStepDto | null;
+  readonly layers: readonly CheckedStepDto[];
 }
 
 export interface ChangeStackDto {

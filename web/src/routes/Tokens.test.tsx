@@ -74,10 +74,10 @@ const token = (over: Record<string, unknown> = {}) => ({
 
 const renderPage = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/tokens']}>
+    <MemoryRouter initialEntries={['/w/acme/settings/tokens']}>
       <Routes>
         <Route path="/w/:slug" element={<p>the workspace</p>} />
-        <Route path="/w/:slug/tokens" element={<Tokens />} />
+        <Route path="/w/:slug/settings/tokens" element={<Tokens />} />
       </Routes>
     </MemoryRouter>,
   );

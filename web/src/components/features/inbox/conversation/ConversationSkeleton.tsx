@@ -1,8 +1,8 @@
 import { ChevronRight } from 'lucide-react';
-import { ComposerSkeleton } from '@/components/features/inbox/conversation/ComposerSkeleton';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { HELD_AT_TOP } from '@/lib/inbox';
 
@@ -45,7 +45,7 @@ export function ConversationSkeleton() {
       </div>
 
       <ComposerFooter>
-        <ComposerSkeleton placeholder="Reply…" />
+        <ChatInputSkeleton placeholder="Reply…" />
       </ComposerFooter>
     </>
   );

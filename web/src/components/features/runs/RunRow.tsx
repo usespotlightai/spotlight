@@ -1,9 +1,9 @@
-import { CirclePause, Inbox } from 'lucide-react';
+import { Inbox } from 'lucide-react';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { InProgress } from '@/components/shared/InProgress';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type Run, reviewInk, standing, waitsOnPerson } from '@/lib/run';
+import { owesYou, type Run, standing, waitsOnPerson } from '@/lib/run';
 import { since } from '@/lib/runner';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
@@ -29,18 +29,12 @@ export function RunRow({
   const stands = standing(run);
   const leadsToReview = Boolean(run.review) && !inTrail;
 
-  const marker = waits ? (
-    <Pill lead={<CirclePause className="size-3.5 shrink-0" aria-hidden />}>
-      {stands}
-    </Pill>
-  ) : run.review && leadsToReview ? (
-    <Pill
-      lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}
-      className={reviewInk(run.review)}
-    >
-      Awaiting review
-    </Pill>
-  ) : null;
+  const marker =
+    owesYou(run) && !(inTrail && run.review) ? (
+      <Pill lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}>
+        Waiting for you
+      </Pill>
+    ) : null;
 
   return (
     <li

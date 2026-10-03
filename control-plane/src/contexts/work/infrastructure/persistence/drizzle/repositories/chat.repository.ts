@@ -204,6 +204,8 @@ export class DrizzleChatRepository implements ChatRepository {
       .update(chat)
       .set({
         version: saved.version + 1,
+        model: saved.model?.value ?? null,
+        effort: saved.effort?.value ?? null,
         currentRunId: saved.currentRunId?.value ?? null,
         sessionId: saved.sessionId?.value ?? null,
         runnerId: saved.runnerId?.value ?? null,

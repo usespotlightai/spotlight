@@ -289,6 +289,21 @@ const startOf = (held: Run) => ({
   startedFromAt: held.startedFrom?.at ?? null,
 });
 
+const configuredFrom = (row: Row): StationConfig | null => {
+  if (row.stationConfig === null && row.stationFingerprint === null) {
+    return null;
+  }
+
+  if (row.stationConfig === null || row.stationFingerprint === null) {
+    throw new InconsistentStateError(
+      'run',
+      `keeps only half of its station config (${row.id})`,
+    );
+  }
+
+  return StationConfig.rehydrate(row.stationConfig, row.stationFingerprint);
+};
+
 const startFrom = (row: Row): StartingPoint | null => {
   const { startedFromAttempt, startedFromAt, startedFromCheckouts } = row;
 
@@ -393,10 +408,7 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
       ? BriefedMemories.of(row.briefedMemories)
       : BriefedMemories.none(),
     parkedAttempts: row.parkedAttempts,
-    configuredAs:
-      row.stationConfig && row.stationFingerprint
-        ? StationConfig.rehydrate(row.stationConfig, row.stationFingerprint)
-        : null,
+    configuredAs: configuredFrom(row),
     startedAt: row.startedAt,
     startedFrom: startFrom(row),
     askedAPerson: row.askedAPerson,

@@ -8,6 +8,7 @@ import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-re
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   TaskLookup,
@@ -49,6 +50,10 @@ export class Work implements WorkPort {
         isSearch: run.isSearch,
       }
     );
+  }
+
+  async teamOfRun(runId: RunId): Promise<TeamId | null> {
+    return (await this.work.siteOfRun(runId))?.teamId ?? null;
   }
 
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {

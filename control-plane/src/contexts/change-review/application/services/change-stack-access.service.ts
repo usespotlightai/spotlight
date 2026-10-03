@@ -20,11 +20,33 @@ export class ChangeStackAccess {
     viewerId: string,
   ): Promise<ReviewedRun | null> {
     const run = await this.work.run(RunId.of(runId));
-    const task = run?.taskId
-      ? await this.ofTask(teamId, run.taskId.value, viewerId)
-      : null;
 
-    return task ? run : null;
+    if (!run) {
+      return null;
+    }
+
+    if (run.taskId) {
+      return (await this.ofTask(teamId, run.taskId.value, viewerId))
+        ? run
+        : null;
+    }
+
+    if (!run.isReplay && !run.isSearch) {
+      return null;
+    }
+
+    const [member, ranFor] = await Promise.all([
+      this.people.memberOf(teamId, viewerId),
+      this.work.teamOfRun(run.id),
+    ]);
+
+    return member &&
+      ReviewClearance.of(member).reaches({
+        workspaceId: run.workspaceId,
+        teamId: ranFor,
+      })
+      ? run
+      : null;
   }
 
   async ofTask(

@@ -3,7 +3,6 @@ import { JudgeReasonItem } from '@/components/features/runs/judge/JudgeReasonIte
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useRunScores } from '@/hooks/api/useRunScores';
-import type { FileChange } from '@/lib/changes';
 import { notFound } from '@/lib/error';
 import { scoreShown, standingShown } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
@@ -11,13 +10,12 @@ import { failed, loading } from '@/lib/query';
 type RunJudgeScoreProps = {
   teamId: string;
   runId: string;
-  files: readonly FileChange[];
 };
 
 const LINE = 'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs';
 const ICON = <Scale aria-hidden className="size-3.5 text-muted-foreground" />;
 
-export function RunJudgeScore({ teamId, runId, files }: RunJudgeScoreProps) {
+export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
   const query = useRunScores(teamId, runId);
 
   if (loading(query)) {
@@ -88,7 +86,6 @@ export function RunJudgeScore({ teamId, runId, files }: RunJudgeScoreProps) {
               // biome-ignore lint/suspicious/noArrayIndexKey: a verdict's reasons never change once recorded, so where one sits is what names it
               key={at}
               reason={reason}
-              files={files}
             />
           ))}
         </ol>

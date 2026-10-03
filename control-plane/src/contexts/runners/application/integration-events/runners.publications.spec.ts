@@ -8,6 +8,7 @@ import {
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,6 +40,7 @@ describe('RUNNERS_PUBLICATIONS', () => {
       id: HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE'),
       workspaceId: WorkspaceId.of('ws_1'),
       admission: Admission.of('pool', 'pool_1'),
+      session: HostSession.of('session_1'),
       report: HostReport.of({
         name: 'build-box',
         release: '0.9.0',

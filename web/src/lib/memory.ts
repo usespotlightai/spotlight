@@ -30,11 +30,17 @@ export const usedBy = (runs: number): string =>
     ? 'No run has used it yet'
     : `Used by ${runs} ${runs === 1 ? 'run' : 'runs'}`;
 
+export const givenMemories = (memories: RunMemories): TeamMemory[] => {
+  const briefed = new Set(memories.briefed.map((memory) => memory.id));
+
+  return [
+    ...memories.briefed,
+    ...memories.recalled.filter((memory) => !briefed.has(memory.id)),
+  ];
+};
+
 export const rememberedNothing = (memories: RunMemories): boolean =>
-  memories.briefed.length === 0 &&
-  memories.cut.length === 0 &&
-  memories.recalled.length === 0 &&
-  memories.proposed.length === 0;
+  givenMemories(memories).length === 0 && memories.proposed.length === 0;
 
 export type MemoryGround = Pick<ProposedMemoryResponseDto, 'steps' | 'notes'>;
 
@@ -160,8 +166,20 @@ export const paramsOf = (filter: MemoryFilter): Record<string, string> =>
     }),
   ]);
 
+export const narrowedBy = (filter: MemoryFilter): number =>
+  FILTERED.filter((key) => Boolean(filter[key])).length;
+
 export const narrowed = (filter: MemoryFilter): boolean =>
-  FILTERED.some((key) => Boolean(filter[key]));
+  narrowedBy(filter) > 0;
+
+export const unnarrowed = (filter: MemoryFilter): MemoryFilter => ({
+  standing: filter.standing,
+  kind: null,
+  lineId: null,
+  stationId: null,
+  repository: null,
+  path: null,
+});
 
 export const SOURCE_LABELS: Record<TeamMemory['source'], string> = {
   person: 'From a person',
@@ -192,25 +210,16 @@ export const placeOf = (
     : `${where} · ${memory.repository}`;
 };
 
-export const retiredAs = (
-  retirement: NonNullable<TeamMemory['retirement']>,
-): string =>
-  retirement.supersededBy
-    ? 'Replaced by a newer memory.'
-    : `Retired by ${retirement.by?.name ?? 'someone'}: ${retirement.reason ?? 'no reason given'}`;
+export interface RememberedCount {
+  readonly what: string;
+  readonly count: number;
+}
 
-const counted = (count: number, what: string): string | null =>
-  count > 0 ? `${count} ${what}` : null;
-
-export const rememberedSummary = (memories: RunMemories): string =>
+export const rememberedCounts = (memories: RunMemories): RememberedCount[] =>
   [
-    counted(memories.briefed.length, 'briefed'),
-    counted(memories.cut.length, 'cut by the cap'),
-    counted(memories.recalled.length, 'recalled'),
-    counted(memories.proposed.length, 'proposed'),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+    { what: 'Given', count: givenMemories(memories).length },
+    { what: 'Proposed', count: memories.proposed.length },
+  ].filter((each) => each.count > 0);
 
 export const proposalStateOf = (proposal: RunProposal): string => {
   if (proposal.state === 'rejected') {
@@ -221,5 +230,5 @@ export const proposalStateOf = (proposal: RunProposal): string => {
     return proposal.standing === 'retired' ? 'Kept, since retired' : 'Kept';
   }
 
-  return 'Waiting for a person';
+  return 'Waiting for you';
 };

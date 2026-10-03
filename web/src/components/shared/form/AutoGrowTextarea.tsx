@@ -1,7 +1,22 @@
-import { type ComponentProps, useLayoutEffect, useRef } from 'react';
+import { type ComponentProps, useEffect, useLayoutEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 type AutoGrowTextareaProps = ComponentProps<'textarea'> & { value: string };
+
+const fitToContent = (textarea: HTMLTextAreaElement) => {
+  textarea.style.height = 'auto';
+
+  const full = textarea.scrollHeight;
+
+  if (full === 0) {
+    textarea.style.height = '';
+    return;
+  }
+
+  textarea.style.height = `${full}px`;
+  textarea.style.overflowY =
+    full - textarea.clientHeight > 1 ? 'auto' : 'hidden';
+};
 
 export function AutoGrowTextarea({
   value,
@@ -12,16 +27,32 @@ export function AutoGrowTextarea({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the text is what the measurement follows, though the effect reads only the node
   useLayoutEffect(() => {
+    if (ref.current) {
+      fitToContent(ref.current);
+    }
+  }, [value]);
+
+  useEffect(() => {
     const textarea = ref.current;
     if (!textarea) {
       return;
     }
 
-    textarea.style.height = 'auto';
-    textarea.style.height = `${textarea.scrollHeight}px`;
-    textarea.style.overflowY =
-      textarea.scrollHeight - textarea.clientHeight > 1 ? 'auto' : 'hidden';
-  }, [value]);
+    let width = textarea.clientWidth;
+
+    const resized = new ResizeObserver(() => {
+      if (
+        textarea.clientWidth !== width ||
+        textarea.scrollHeight > textarea.clientHeight
+      ) {
+        width = textarea.clientWidth;
+        fitToContent(textarea);
+      }
+    });
+    resized.observe(textarea);
+
+    return () => resized.disconnect();
+  }, []);
 
   return (
     <textarea

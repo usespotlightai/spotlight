@@ -19,6 +19,7 @@ export const RunnerFleetMapper = {
       running: summary.running,
       images: summary.images,
       firstSeenAt: summary.firstSeenAt.toISOString(),
+      upSince: summary.upSince.toISOString(),
       lastSeenAt: summary.lastSeenAt.toISOString(),
       answering,
     };

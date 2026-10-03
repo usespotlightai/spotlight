@@ -124,6 +124,7 @@ const announcing = (
         };
       },
       wasWorkedBy: async () => true,
+      teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => {
         if (over.failing === 'task') {

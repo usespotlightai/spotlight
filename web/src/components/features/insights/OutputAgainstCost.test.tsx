@@ -54,7 +54,7 @@ const showing = (
     <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?period=7d']}>
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/:section"
+          path="/w/:slug/team/:teamId/insights"
           element={
             <OutputAgainstCost
               slug="acme"
@@ -92,7 +92,7 @@ describe('OutputAgainstCost', () => {
         <MemoryRouter initialEntries={['/w/acme/team/team_1/insights']}>
           <Routes>
             <Route
-              path="/w/:slug/team/:teamId/:section"
+              path="/w/:slug/team/:teamId/insights"
               element={
                 <OutputAgainstCost
                   slug="acme"

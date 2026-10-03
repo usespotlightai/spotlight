@@ -218,6 +218,8 @@ export class Chat extends EventRecorder {
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
     traces?: readonly TraceReference[];
+    model?: HarnessModel | null;
+    effort?: Effort | null;
     at: Date;
   }): Chat {
     this.refuseStranger(input.by);
@@ -228,6 +230,8 @@ export class Chat extends EventRecorder {
         ...this.messages,
         ChatMessage.said({ ...input, position: this.nextPosition }),
       ],
+      model: input.model,
+      effort: input.effort,
     });
   }
 
@@ -452,6 +456,8 @@ export class Chat extends EventRecorder {
   }
 
   private with(part: {
+    model?: HarnessModel | null;
+    effort?: Effort | null;
     messages?: readonly ChatMessage[];
     currentRunId?: RunId | null;
     sessionId?: HarnessSession | null;
@@ -464,8 +470,8 @@ export class Chat extends EventRecorder {
       this.startedBy,
       this.title,
       this.harness,
-      this.model,
-      this.effort,
+      part.model !== undefined ? part.model : this.model,
+      part.effort !== undefined ? part.effort : this.effort,
       this.repositories,
       this.improving,
       part.messages ?? this.messages,

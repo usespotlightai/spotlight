@@ -58,6 +58,8 @@ func (r *Rejection) Unwrap() error { return r.Err }
 
 func (r *Rejection) Gone() bool { return r.Status == http.StatusNotFound }
 
+func (r *Rejection) Lost() bool { return r.Gone() || errors.Is(r.Err, ErrRefused) }
+
 func CheckLeaseLost(err error) bool {
 	var rejection *Rejection
 	return errors.As(err, &rejection) && rejection.Refusal() && rejection.Status != http.StatusConflict

@@ -8,8 +8,13 @@ export interface Membership {
   readonly by: UserId;
 }
 
+export interface Person {
+  readonly name: string | null;
+  readonly image: string | null;
+}
+
 export interface PeoplePort {
   memberOf(teamId: string, userId: string): Promise<Membership | null>;
 
-  nameOf(userId: UserId): Promise<string | null>;
+  find(userId: UserId): Promise<Person | null>;
 }

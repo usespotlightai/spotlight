@@ -80,9 +80,13 @@ const reporting = (
     admitThrough: (way: RunnerPool | RunnerTrust) => {
       admitted = way;
     },
-    report: (report: Partial<ReportedHost> = {}, credential = CREDENTIAL) =>
+    report: (
+      report: Partial<ReportedHost> = {},
+      credential = CREDENTIAL,
+      session = 'session_1',
+    ) =>
       handler.execute(
-        new ReportHostPresenceCommand(credential, HOST, {
+        new ReportHostPresenceCommand(credential, HOST, session, {
           ...REPORT,
           ...report,
         }),
@@ -143,6 +147,22 @@ describe('ReportHostPresenceHandler', () => {
     ]);
   });
 
+  it('holds a host up since the first report of the session it restarted in', async () => {
+    const { report, held, at } = reporting();
+
+    await report();
+    at(30_000);
+    await report();
+
+    expect(held.get(HOST)?.upSince).toEqual(STARTED_AT);
+
+    at(45_000);
+    await report({}, CREDENTIAL, 'session_2');
+
+    expect(held.get(HOST)?.session.value).toBe('session_2');
+    expect(held.get(HOST)?.upSince).toEqual(later(45_000));
+  });
+
   it('refuses a host that reports through another pool or trust while it still answers through the first', async () => {
     const { report, held, admitThrough, at } = reporting();
 
@@ -176,11 +196,14 @@ describe('ReportHostPresenceHandler', () => {
     expect(host?.lastSeenAt).toEqual(later(90_000));
   });
 
-  it('refuses a report it cannot read, as invalid', async () => {
+  it('refuses a report it cannot read, or one with no session, as invalid', async () => {
     const { report, hosts } = reporting();
 
     await expect(report({ capacity: 0 })).rejects.toThrow(UseCaseFault);
     await expect(report({ capacity: 0 })).rejects.toMatchObject({
+      kind: 'invalid-input',
+    });
+    await expect(report({}, CREDENTIAL, '  ')).rejects.toMatchObject({
       kind: 'invalid-input',
     });
     expect(hosts.add).not.toHaveBeenCalled();

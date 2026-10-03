@@ -73,6 +73,23 @@ export const WithData: Story = {
   ),
 };
 
+export const TaskDetails: Story = {
+  name: 'Task details',
+  render: () => (
+    <StoryPage at={at} seed={seedReplay}>
+      {routes}
+    </StoryPage>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    const [first] = await canvas.findAllByRole('button', {
+      name: /^Details of /,
+    });
+    if (first) {
+      await userEvent.click(first);
+    }
+  },
+};
+
 export const Baseline: Story = {
   render: () => (
     <StoryPage at={replayPath(place, BASELINE_ID)} seed={seedBaselineReplay}>
