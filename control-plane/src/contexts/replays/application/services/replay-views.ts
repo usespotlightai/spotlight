@@ -13,6 +13,7 @@ import type {
   ReplayEntryDto,
   ReplaySearchDto,
   ReplaySetDto,
+  SetCompositionDto,
   SetHealthDto,
   SetNoiseDto,
   SpendDto,
@@ -22,6 +23,12 @@ import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
+import {
+  compositionOf,
+  type OriginalOutcome,
+  type SetComposition,
+  turnedOutOf,
+} from '@replays/domain/services/composition';
 import type { Scoring } from '@replays/domain/services/entry-result';
 import {
   type GainReading,
@@ -372,25 +379,48 @@ export const replayView = (
   };
 };
 
+const compositionView = (composition: SetComposition): SetCompositionDto => ({
+  outcomes: [...composition.outcomes],
+  origins: [...composition.origins],
+  oldest: composition.oldest?.toISOString() ?? null,
+  median: composition.median?.toISOString() ?? null,
+  newest: composition.newest?.toISOString() ?? null,
+  balanceWarning: composition.balanceWarning,
+});
+
 export const setView = (
   set: ReplaySet,
-  replayable: readonly StandingRun[],
+  standing: readonly StandingRun[],
+  turnouts: ReadonlyMap<string, OriginalOutcome>,
   health: SetHealth,
   minGain: number,
-): ReplaySetDto => ({
-  id: set.id.value,
-  lineId: set.station.lineId,
-  stationId: set.station.stationId,
-  name: set.name.value,
-  createdAt: set.createdAt.toISOString(),
-  stationGone: set.isAtGoneStation,
-  guardsChanges: set.guardsChanges,
-  health: healthView(health),
-  minGain,
-  entries: set.entries.map((entry) => {
-    const now = replayable.find((each) => each.runId.equals(entry.runId));
+): ReplaySetDto => {
+  const entries = set.entries.map((entry) => ({
+    entry,
+    now: standing.find((each) => each.runId.equals(entry.runId)),
+    outcome: turnedOutOf(turnouts, entry.runId.value),
+  }));
 
-    return {
+  return {
+    id: set.id.value,
+    lineId: set.station.lineId,
+    stationId: set.station.stationId,
+    name: set.name.value,
+    createdAt: set.createdAt.toISOString(),
+    stationGone: set.isAtGoneStation,
+    guardsChanges: set.guardsChanges,
+    health: healthView(health),
+    minGain,
+    composition: compositionView(
+      compositionOf(
+        entries.map(({ now, outcome }) => ({
+          outcome,
+          origin: now?.origin ?? null,
+          endedAt: now?.endedAt ?? null,
+        })),
+      ),
+    ),
+    entries: entries.map(({ entry, now, outcome }) => ({
       runId: entry.runId.value,
       taskId: entry.taskId.value,
       title: now?.title ?? null,
@@ -399,6 +429,8 @@ export const setView = (
       addedAt: entry.addedAt.toISOString(),
       refusal: now?.refusal ?? null,
       reason: now?.reason ?? null,
-    };
-  }),
-});
+      outcome,
+      origin: now?.origin ?? null,
+    })),
+  };
+};

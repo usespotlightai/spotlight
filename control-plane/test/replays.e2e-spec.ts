@@ -99,6 +99,7 @@ const anOriginal = async (): Promise<Original> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title: 'Drain the queue',

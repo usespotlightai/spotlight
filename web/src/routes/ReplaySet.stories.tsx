@@ -12,6 +12,7 @@ import {
   STATION_ID,
   seedEmptyReplaySet,
   seedGoneReplaySet,
+  seedLopsidedReplaySet,
   seedReplaySet,
   seedReplaySetAwaiting,
   seedReplaySetChecksAwaiting,
@@ -139,6 +140,14 @@ export const ChecksFailed: Story = {
   name: 'Checks error',
   render: () => (
     <StoryPage at={at} seed={failReplaySetChecks}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Lopsided: Story = {
+  render: () => (
+    <StoryPage at={at} seed={seedLopsidedReplaySet}>
       {routes}
     </StoryPage>
   ),

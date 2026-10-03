@@ -11,4 +11,5 @@ export type RunEndedIntegrationEvent = {
   readonly outcome: RunEnding;
   readonly failure: string | null;
   readonly stopped: boolean;
+  readonly asked: boolean;
 };

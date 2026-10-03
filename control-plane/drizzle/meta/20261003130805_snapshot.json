@@ -1,5 +1,5 @@
 {
-  "id": "87c8ce45-54bf-4f8a-ba34-5774600984ae",
+  "id": "d75869a3-14ce-4453-9a10-d076912061b1",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -5884,6 +5884,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "asked": {
+          "name": "asked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "superseded_at": {
           "name": "superseded_at",
           "type": "timestamp",
@@ -5915,6 +5922,13 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        },
+        "next_for_approval": {
+          "name": "next_for_approval",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "handed_on_to": {
           "name": "handed_on_to",
@@ -12616,6 +12630,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "opened_from": {
+          "name": "opened_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
         "assignee_id": {
           "name": "assignee_id",

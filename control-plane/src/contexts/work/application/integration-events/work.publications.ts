@@ -137,6 +137,7 @@ const ended = (
     outcome,
     failure: ending.failure,
     stopped: ending.stopped,
+    asked: ending.asked,
   });
 
   if (!event.subject) {
@@ -297,6 +298,7 @@ export const WORK_PUBLICATIONS = [
       at: event.at.toISOString(),
       tool: event.tool?.tool ?? null,
       server: event.tool?.server ?? null,
+      forApproval: event.forApproval,
     }),
   ),
   publishing<RunDigested>(

@@ -1,6 +1,9 @@
 import type { ChangeJudgingPort } from '@outcomes/application/ports/change-judging.port';
 import type { PairJudgingPort } from '@outcomes/application/ports/pair-judging.port';
-import type { RunAcceptancePort } from '@outcomes/application/ports/run-acceptance.port';
+import type {
+  RunAcceptancePort,
+  RunTurnout,
+} from '@outcomes/application/ports/run-acceptance.port';
 import type {
   JudgingAgainOrdered,
   JudgingOrder,
@@ -8,7 +11,23 @@ import type {
   OutcomesPort,
   PairJudgingOrder,
 } from '@replays/application/ports/outcomes.port';
+import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+
+const outcomeOf = (turnout: RunTurnout): OriginalOutcome => {
+  switch (turnout) {
+    case 'accepted':
+      return 'accepted';
+    case 'sent-back':
+      return 'sent-back';
+    case 'asked':
+      return 'asked';
+    case 'failed':
+      return 'failed';
+    case 'other':
+      return 'other';
+  }
+};
 
 export class Outcomes implements OutcomesPort {
   constructor(
@@ -19,6 +38,18 @@ export class Outcomes implements OutcomesPort {
 
   acceptedAfter(run: RunId): Promise<boolean> {
     return this.acceptance.acceptedAfter(run.value);
+  }
+
+  async turnedOut(
+    runs: readonly RunId[],
+  ): Promise<ReadonlyMap<string, OriginalOutcome>> {
+    const turnouts = await this.acceptance.turnouts(
+      runs.map((each) => each.value),
+    );
+
+    return new Map(
+      [...turnouts].map(([run, turnout]) => [run, outcomeOf(turnout)]),
+    );
   }
 
   judge(order: JudgingOrder): Promise<JudgingOrdered> {

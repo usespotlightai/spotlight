@@ -27,6 +27,7 @@ import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewab
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
+import { Happening } from '@work/domain/value-objects/happening.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -68,6 +69,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     createdAt: task.createdAt,
     raisedAt: task.raisedAt,
     raisedBy: task.raisedBy,
+    openedFrom: task.openedFrom,
     pullRequestLink: task.pullRequestLink,
     finishedAt: task.finishedAt,
   });
@@ -159,6 +161,25 @@ describe('Task', () => {
         newId: () => 'task_1',
       }),
     ).toThrow(UnknownStationError);
+  });
+
+  it('remembers it was opened by a person, or heard from an integration', () => {
+    expect(added().openedFrom.value).toBe('person');
+
+    const heard = Task.add({
+      line: LINE,
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Fix the queue'),
+      rank: TaskRank.of('i'),
+      heardFrom: Happening.of('slack.app_mention'),
+      now: NOW,
+      newId: () => 'task_1',
+    });
+
+    expect(heard.openedFrom.value).toBe('slack');
+    expect(heard.pullEvents()).toContainEqual(
+      expect.objectContaining({ kind: 'task.opened', heard: true }),
+    );
   });
 
   it('is added without a description', () => {

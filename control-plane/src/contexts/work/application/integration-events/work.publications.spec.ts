@@ -624,6 +624,7 @@ describe('WORK_PUBLICATIONS', () => {
         outcome: 'withdrawn',
         failure: null,
         stopped: false,
+        asked: false,
       },
     ]);
   });
@@ -688,11 +689,12 @@ describe('WORK_PUBLICATIONS', () => {
         at: '2026-09-26T09:00:00.000Z',
         tool: null,
         server: null,
+        forApproval: false,
       },
     ]);
   });
 
-  it('publishes the tool a person refused, and its server', () => {
+  it('publishes the tool a person refused, and its server, as an approval decision', () => {
     expect(
       published(
         new TaskActedOn(
@@ -704,6 +706,7 @@ describe('WORK_PUBLICATIONS', () => {
           RUN,
           new Date('2026-09-26T09:00:00Z'),
           CalledTool.of({ server: 'linear', tool: 'create_issue' }),
+          true,
         ),
       ),
     ).toEqual([
@@ -711,6 +714,7 @@ describe('WORK_PUBLICATIONS', () => {
         act: 'refused',
         tool: 'create_issue',
         server: 'linear',
+        forApproval: true,
       }),
     ]);
   });

@@ -19454,6 +19454,106 @@
         ]
       }
     },
+    "/teams/{teamId}/replay-sets/{setId}/suggestions": {
+      "get": {
+        "operationId": "listReplaySetSuggestions",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "setId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SuggestedRunResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team, station, set or run for this caller",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Up to 5 recent runs of the set’s station that would even out how its runs turned out, accepted ones first, then sent back; none are added until asked",
+        "tags": [
+          "replays"
+        ]
+      }
+    },
     "/teams/{teamId}/replay-sets/{setId}": {
       "patch": {
         "operationId": "renameReplaySet",
@@ -37509,6 +37609,126 @@
           "sanity"
         ]
       },
+      "OutcomeCountResponseDto": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "asked",
+              "failed",
+              "other"
+            ]
+          },
+          "count": {
+            "type": "number",
+            "example": 4
+          }
+        },
+        "required": [
+          "outcome",
+          "count"
+        ]
+      },
+      "OriginCountResponseDto": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "example": "person"
+          },
+          "count": {
+            "type": "number",
+            "example": 4
+          }
+        },
+        "required": [
+          "origin",
+          "count"
+        ]
+      },
+      "BalanceWarningResponseDto": {
+        "type": "object",
+        "properties": {
+          "dominant": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "asked",
+              "failed",
+              "other"
+            ]
+          },
+          "count": {
+            "type": "number",
+            "example": 7
+          },
+          "entries": {
+            "type": "number",
+            "example": 8
+          }
+        },
+        "required": [
+          "dominant",
+          "count",
+          "entries"
+        ]
+      },
+      "SetCompositionResponseDto": {
+        "type": "object",
+        "properties": {
+          "outcomes": {
+            "description": "How many of its runs turned out each way, every outcome listed in one order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OutcomeCountResponseDto"
+            }
+          },
+          "origins": {
+            "description": "How many of its tasks came from each origin, the most common first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OriginCountResponseDto"
+            }
+          },
+          "oldest": {
+            "type": "string",
+            "nullable": true,
+            "description": "When its oldest run ended; null while none has"
+          },
+          "median": {
+            "type": "string",
+            "nullable": true,
+            "description": "The median of when its runs ended; null while none has"
+          },
+          "newest": {
+            "type": "string",
+            "nullable": true,
+            "description": "When its newest run ended; null while none has"
+          },
+          "balanceWarning": {
+            "nullable": true,
+            "description": "Set when one outcome is more than two thirds of a set of at least 6 runs",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BalanceWarningResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "outcomes",
+          "origins",
+          "oldest",
+          "median",
+          "newest",
+          "balanceWarning"
+        ]
+      },
       "ReplaySetEntryResponseDto": {
         "type": "object",
         "properties": {
@@ -37568,6 +37788,23 @@
           "reason": {
             "type": "string",
             "nullable": true
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "asked",
+              "failed",
+              "other"
+            ],
+            "description": "How the original run turned out: asked when what a person did next was decide an approval it asked for; else accepted or sent back by what a person did next; else failed; else asked when it ended waiting on a person or a person answered it; else other"
+          },
+          "origin": {
+            "type": "string",
+            "nullable": true,
+            "example": "slack",
+            "description": "Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station handed it on; null once the task is deleted"
           }
         },
         "required": [
@@ -37578,7 +37815,9 @@
           "endedAt",
           "addedAt",
           "refusal",
-          "reason"
+          "reason",
+          "outcome",
+          "origin"
         ]
       },
       "ReplaySetResponseDto": {
@@ -37623,6 +37862,14 @@
             "example": 0.05,
             "description": "The smallest gain in success its line counts as real: replay_check.min_gain, or 0.05 when the line sets none"
           },
+          "composition": {
+            "description": "What the set is made of: how its runs turned out, where their tasks came from, and when they ended",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetCompositionResponseDto"
+              }
+            ]
+          },
           "entries": {
             "type": "array",
             "items": {
@@ -37640,6 +37887,7 @@
           "guardsChanges",
           "health",
           "minGain",
+          "composition",
           "entries"
         ]
       },
@@ -37701,6 +37949,78 @@
           "endedAt",
           "refusal",
           "reason"
+        ]
+      },
+      "SuggestedRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "example": "Drain the queue"
+          },
+          "state": {
+            "type": "string",
+            "example": "completed"
+          },
+          "endedAt": {
+            "type": "string",
+            "example": "2026-10-01T09:00:00.000Z"
+          },
+          "refusal": {
+            "type": "string",
+            "enum": [
+              "unknown-run",
+              "not-a-task-run",
+              "task-gone",
+              "still-running",
+              "no-starting-point",
+              "no-briefing",
+              "archive-gone",
+              "attachments-gone",
+              "repository-gone",
+              "not-at-the-station",
+              "candidate-unfit",
+              "cannot-start",
+              "unchecked",
+              "forgone",
+              "dispatch-failed",
+              null
+            ],
+            "nullable": true,
+            "description": "Why it cannot be replayed; null when it can"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "asked",
+              "failed",
+              "other"
+            ],
+            "description": "How the run turned out"
+          }
+        },
+        "required": [
+          "runId",
+          "taskId",
+          "title",
+          "state",
+          "endedAt",
+          "refusal",
+          "reason",
+          "outcome"
         ]
       },
       "OpenReplaySetRequestDto": {

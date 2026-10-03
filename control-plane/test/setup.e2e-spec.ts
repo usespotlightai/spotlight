@@ -138,6 +138,7 @@ describe('the setup lists a team still has standing', () => {
 
     await db.insert(schema.task).values({
       id: randomUUID(),
+      openedFrom: 'person',
       workspaceId: workspaceId.value,
       stationId: stationId.value,
       title: 'Something else',

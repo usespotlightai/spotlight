@@ -111,6 +111,7 @@ import { EstimateSearchQuery } from '@replays/application/queries/estimate-searc
 import { EstimateSearchHandler } from '@replays/application/queries/handlers/estimate-search.handler';
 import { ImportCandidateHandler } from '@replays/application/queries/handlers/import-candidate.handler';
 import { ListCandidatesHandler } from '@replays/application/queries/handlers/list-candidates.handler';
+import { ListReplaySetSuggestionsHandler } from '@replays/application/queries/handlers/list-replay-set-suggestions.handler';
 import { ListReplaySetsHandler } from '@replays/application/queries/handlers/list-replay-sets.handler';
 import { ListReplayableRunsHandler } from '@replays/application/queries/handlers/list-replayable-runs.handler';
 import { ListReplaysHandler } from '@replays/application/queries/handlers/list-replays.handler';
@@ -127,6 +128,7 @@ import { ReadReplayedCandidatesHandler } from '@replays/application/queries/hand
 import { ReadSearchHandler } from '@replays/application/queries/handlers/read-search.handler';
 import { ImportCandidateQuery } from '@replays/application/queries/import-candidate.query';
 import { ListCandidatesQuery } from '@replays/application/queries/list-candidates.query';
+import { ListReplaySetSuggestionsQuery } from '@replays/application/queries/list-replay-set-suggestions.query';
 import { ListReplaySetsQuery } from '@replays/application/queries/list-replay-sets.query';
 import { ListReplayableRunsQuery } from '@replays/application/queries/list-replayable-runs.query';
 import { ListReplaysQuery } from '@replays/application/queries/list-replays.query';
@@ -694,18 +696,25 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ReplaysAccess,
     DrizzleReplaySetRepository,
     WORK,
+    OUTCOMES,
     SetHealths,
   ]),
   ...bindQueryHandler(ListTeamReplaySetsQuery, ListTeamReplaySetsHandler, [
     ReplaysAccess,
     DrizzleReplaySetRepository,
     WORK,
+    OUTCOMES,
     SetHealths,
   ]),
   ...bindQueryHandler(ListReplayableRunsQuery, ListReplayableRunsHandler, [
     ReplaysAccess,
     WORK,
   ]),
+  ...bindQueryHandler(
+    ListReplaySetSuggestionsQuery,
+    ListReplaySetSuggestionsHandler,
+    [ReplaysAccess, WORK, OUTCOMES],
+  ),
   ...bindQueryHandler(ListReplaysQuery, ListReplaysHandler, [
     ReplaysAccess,
     DrizzleReplayRepository,

@@ -39,7 +39,9 @@ import type {
 import type {
   ReplayableRunDto,
   ReplaySetDto,
+  SuggestedRunDto,
 } from '@replays/application/dto/replays.dto';
+import { ListReplaySetSuggestionsQuery } from '@replays/application/queries/list-replay-set-suggestions.query';
 import { ListReplaySetsQuery } from '@replays/application/queries/list-replay-sets.query';
 import { ListReplayableRunsQuery } from '@replays/application/queries/list-replayable-runs.query';
 import { ListTeamReplaySetsQuery } from '@replays/application/queries/list-team-replay-sets.query';
@@ -55,6 +57,7 @@ import {
   ReplayableRunResponseDto,
   ReplaySetOpenedResponseDto,
   ReplaySetResponseDto,
+  SuggestedRunResponseDto,
 } from '@replays/presentation/http/dto/replay-sets.response.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -159,6 +162,27 @@ export class ReplaySetsController {
     >(new ListReplayableRunsQuery(teamId, lineId, stationId, principal));
 
     return runs.map((each) => new ReplayableRunResponseDto(each));
+  }
+
+  @Get('replay-sets/:setId/suggestions')
+  @ApiOperation({
+    operationId: 'listReplaySetSuggestions',
+    summary:
+      'Up to 5 recent runs of the set’s station that would even out how its runs turned out, accepted ones first, then sent back; none are added until asked',
+  })
+  @ApiParam({ name: 'setId', type: String })
+  @ApiOkResponse({ type: SuggestedRunResponseDto, isArray: true })
+  async suggestions(
+    @Param('teamId') teamId: string,
+    @Param('setId') setId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<SuggestedRunResponseDto[]> {
+    const runs = await this.queryBus.execute<
+      ListReplaySetSuggestionsQuery,
+      readonly SuggestedRunDto[]
+    >(new ListReplaySetSuggestionsQuery(teamId, setId, principal));
+
+    return runs.map((each) => new SuggestedRunResponseDto(each));
   }
 
   @Post(`${STATION}/replay-sets`)

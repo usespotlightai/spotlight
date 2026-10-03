@@ -9,6 +9,7 @@ import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import type { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
 import type { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import type { RunTurnout } from '@outcomes/domain/value-objects/run-turnout';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -140,6 +141,26 @@ export class RunRecord extends EventRecorder {
     }
 
     return this.superseded ? 'superseded' : this.end.ending;
+  }
+
+  get turnout(): RunTurnout {
+    if (this.next?.forApproval) {
+      return 'asked';
+    }
+    if (this.next?.accepts) {
+      return 'accepted';
+    }
+    if (this.next?.sendsBack) {
+      return 'sent-back';
+    }
+    if (this.ending === 'failed') {
+      return 'failed';
+    }
+    if (this.next?.act === 'answered' || this.end?.asked) {
+      return 'asked';
+    }
+
+    return 'other';
   }
 
   ended(end: RunEnd): RunRecord {

@@ -4,6 +4,7 @@ import { replayableRunKeys } from '@/hooks/api/useReplayableRuns';
 import { replayCandidateKeys } from '@/hooks/api/useReplayCandidates';
 import { replayRunKeys } from '@/hooks/api/useReplayRun';
 import { replayCheckKeys } from '@/hooks/api/useReplaySetChecks';
+import { replaySetSuggestionKeys } from '@/hooks/api/useReplaySetSuggestions';
 import { replaySetKeys } from '@/hooks/api/useReplaySets';
 import { replayKeys } from '@/hooks/api/useReplays';
 import { runConfigKeys } from '@/hooks/api/useRunConfig';
@@ -24,6 +25,8 @@ import type {
   ReplayRunResponseDto,
   ReplaySetResponseDto,
   ReplayTotalsResponseDto,
+  SetCompositionResponseDto,
+  SuggestedRunResponseDto,
   TeamResourceResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
@@ -133,6 +136,21 @@ const ORIGINALS = [
   },
 ] as const;
 
+const composedOf = (
+  counts: Readonly<Record<string, number>>,
+  origins: SetCompositionResponseDto['origins'],
+  ended: { oldest: string; median: string; newest: string } | null,
+): SetCompositionResponseDto => ({
+  outcomes: (
+    ['accepted', 'sent-back', 'asked', 'failed', 'other'] as const
+  ).map((outcome) => ({ outcome, count: counts[outcome] ?? 0 })),
+  origins,
+  oldest: ended?.oldest ?? null,
+  median: ended?.median ?? null,
+  newest: ended?.newest ?? null,
+  balanceWarning: null,
+});
+
 const SET: ReplaySetResponseDto = {
   id: SET_ID,
   lineId: LINE_ID,
@@ -149,6 +167,14 @@ const SET: ReplaySetResponseDto = {
     sanity: null,
   },
   minGain: 0.05,
+  composition: composedOf(
+    { accepted: 1, 'sent-back': 1, failed: 1 },
+    [
+      { origin: 'person', count: 2 },
+      { origin: 'slack', count: 1 },
+    ],
+    { oldest: hoursAgo(74), median: hoursAgo(50), newest: hoursAgo(28) },
+  ),
   entries: [
     {
       ...ORIGINALS[0],
@@ -157,6 +183,8 @@ const SET: ReplaySetResponseDto = {
       addedAt: hoursAgo(29),
       refusal: null,
       reason: null,
+      outcome: 'accepted',
+      origin: 'person',
     },
     {
       ...ORIGINALS[1],
@@ -165,6 +193,8 @@ const SET: ReplaySetResponseDto = {
       addedAt: hoursAgo(29),
       refusal: null,
       reason: null,
+      outcome: 'sent-back',
+      origin: 'slack',
     },
     {
       ...ORIGINALS[2],
@@ -173,8 +203,25 @@ const SET: ReplaySetResponseDto = {
       addedAt: hoursAgo(29),
       refusal: 'task-gone',
       reason: 'the task it worked was deleted',
+      outcome: 'failed',
+      origin: 'person',
     },
   ],
+};
+
+const LOPSIDED_SET: ReplaySetResponseDto = {
+  ...SET,
+  composition: {
+    ...composedOf(
+      { accepted: 1, failed: 7 },
+      [
+        { origin: 'person', count: 5 },
+        { origin: 'github', count: 3 },
+      ],
+      { oldest: hoursAgo(400), median: hoursAgo(120), newest: hoursAgo(28) },
+    ),
+    balanceWarning: { dominant: 'failed', count: 7, entries: 8 },
+  },
 };
 
 const EMPTY_SET: ReplaySetResponseDto = {
@@ -193,6 +240,7 @@ const EMPTY_SET: ReplaySetResponseDto = {
     sanity: null,
   },
   minGain: 0.05,
+  composition: composedOf({}, [], null),
   entries: [],
 };
 
@@ -558,6 +606,29 @@ const REPLAYABLE: ReplayableRunResponseDto[] = [
   },
 ];
 
+const SUGGESTED: SuggestedRunResponseDto[] = [
+  {
+    runId: 'run_cache_1',
+    taskId: 'task_cache',
+    title: 'Warm the pricing cache on deploy',
+    state: 'completed',
+    endedAt: hoursAgo(12),
+    refusal: null,
+    reason: null,
+    outcome: 'accepted',
+  },
+  {
+    runId: 'run_refunds_2',
+    taskId: 'task_refunds',
+    title: 'Retry refunds on timeout',
+    state: 'completed',
+    endedAt: hoursAgo(20),
+    refusal: null,
+    reason: null,
+    outcome: 'sent-back',
+  },
+];
+
 const seedStationReplaysAround = (client: QueryClient) => {
   seedStation(client);
   client.setQueryData(teamResourceKeys.detail(TEAM_ID), TEAM);
@@ -596,6 +667,8 @@ const seedSetAround = (client: QueryClient) => {
   client.setQueryData(teamResourceKeys.detail(TEAM_ID), TEAM);
   client.setQueryData(replayCandidateKeys.forStation(ADDRESS), CANDIDATES);
   client.setQueryData(replayableRunKeys.forStation(STATION_ID), REPLAYABLE);
+  client.setQueryData(replaySetSuggestionKeys.forSet(SET_ID), SUGGESTED);
+  client.setQueryData(replaySetSuggestionKeys.forSet(EMPTY_SET_ID), []);
 };
 
 export const seedReplaySetAwaiting = seedSetAround;
@@ -768,6 +841,14 @@ export const seedUnhealthyReplaySet = (client: QueryClient) => {
   seedReplaySet(client);
   client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
     { ...SET, guardsChanges: true, health: UNHEALTHY },
+    EMPTY_SET,
+  ]);
+};
+
+export const seedLopsidedReplaySet = (client: QueryClient) => {
+  seedReplaySet(client);
+  client.setQueryData(replaySetKeys.forTeam(TEAM_ID), [
+    { ...LOPSIDED_SET, guardsChanges: true },
     EMPTY_SET,
   ]);
 };

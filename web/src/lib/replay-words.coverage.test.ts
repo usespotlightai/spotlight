@@ -9,6 +9,7 @@ import {
   refusalShown,
   resultShown,
   stateShown,
+  turnedOutShown,
   uncomparedShown,
   unpairedShown,
 } from '@/lib/replay-words';
@@ -97,6 +98,12 @@ describe('replay words cover every code the API can answer', () => {
       'scoreUncompared',
     )) {
       worded(uncomparedShown(why as never), why);
+    }
+  });
+
+  it('words every way a set’s run can have turned out', () => {
+    for (const outcome of codesOf('ReplaySetEntryResponseDto', 'outcome')) {
+      worded(turnedOutShown(outcome as never), outcome);
     }
   });
 

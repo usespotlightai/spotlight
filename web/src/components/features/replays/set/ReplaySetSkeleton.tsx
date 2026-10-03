@@ -76,6 +76,11 @@ export function ReplaySetSkeleton({ known }: ReplaySetSkeletonProps) {
 
         <section className="flex flex-col gap-2">
           <ReplaysHeading title="Runs" level="h2" />
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-2.5">
+            <SkeletonLine className="w-48 text-xs" />
+            <Skeleton className="h-2 w-full rounded-full" />
+            <SkeletonLine className="w-64 text-xs" />
+          </div>
           <RowsSkeleton label="Loading the runs" />
         </section>
       </StationLayout>

@@ -76,7 +76,10 @@ const LIVE: StationLive = {
   effort: 'medium',
 };
 
-const entry = (taskId: string, title: string | null) => ({
+const entry = (
+  taskId: string,
+  title: string | null,
+): ReplaySet['entries'][number] => ({
   runId: `run_${taskId}`,
   taskId,
   title,
@@ -85,6 +88,8 @@ const entry = (taskId: string, title: string | null) => ({
   addedAt: '2026-10-01T09:00:00.000Z',
   refusal: null,
   reason: null,
+  outcome: 'other',
+  origin: 'person',
 });
 
 const SET: ReplaySet = {
@@ -97,6 +102,20 @@ const SET: ReplaySet = {
   guardsChanges: false,
   health: NEVER_READ,
   minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 2 },
+    ],
+    origins: [{ origin: 'person', count: 2 }],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: [entry('task_a', 'Fix the queue'), entry('task_b', 'Retry jobs')],
 };
 

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ReplayableRunRow } from '@/components/features/replays/set/ReplayableRunRow';
+import { SuggestedRuns } from '@/components/features/replays/set/SuggestedRuns';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAddReplaySetEntry } from '@/hooks/api/useAddReplaySetEntry';
 import { useReplayableRuns } from '@/hooks/api/useReplayableRuns';
+import { useReplaySetSuggestions } from '@/hooks/api/useReplaySetSuggestions';
 import { messageOf } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
@@ -34,7 +36,13 @@ export function AddRunsDialog({
   const runs = useReplayableRuns(at.teamId, at.lineId, at.stationId, open);
   const add = useAddReplaySetEntry();
   const held = new Set(set.entries.map((each) => each.runId));
-  const listed = runs.data ?? [];
+  const suggestions = useReplaySetSuggestions(at.teamId, set.id, open);
+  const suggested = new Set((suggestions.data ?? []).map((each) => each.runId));
+  const listed = (runs.data ?? []).filter((each) => !suggested.has(each.runId));
+  const adding = (runId: string) =>
+    add.isPending && add.variables?.runId === runId;
+  const addRun = (runId: string) =>
+    add.mutate({ teamId: at.teamId, setId: set.id, runId });
 
   let body: ReactNode;
 
@@ -58,13 +66,13 @@ export function AddRunsDialog({
         className="py-6"
       />
     );
-  } else if (listed.length === 0) {
+  } else if ((runs.data ?? []).length === 0) {
     body = (
       <p className="px-2 py-6 text-center text-muted-foreground text-sm">
         This station has no ended runs to replay yet.
       </p>
     );
-  } else {
+  } else if (listed.length > 0) {
     body = (
       <ul aria-label="The station’s recent runs" className="flex flex-col">
         {listed.map((run) => (
@@ -72,10 +80,8 @@ export function AddRunsDialog({
             key={run.runId}
             run={run}
             inSet={held.has(run.runId)}
-            adding={add.isPending && add.variables?.runId === run.runId}
-            onAdd={() =>
-              add.mutate({ teamId: at.teamId, setId: set.id, runId: run.runId })
-            }
+            adding={adding(run.runId)}
+            onAdd={() => addRun(run.runId)}
           />
         ))}
       </ul>
@@ -97,7 +103,13 @@ export function AddRunsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="-mx-2 max-h-[min(60vh,28rem)] overflow-y-auto">
+        <div className="-mx-2 flex max-h-[min(60vh,28rem)] flex-col gap-2 overflow-y-auto">
+          <SuggestedRuns
+            suggestions={suggestions}
+            held={held}
+            adding={adding}
+            onAdd={addRun}
+          />
           {body}
         </div>
 

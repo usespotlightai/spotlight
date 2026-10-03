@@ -64,6 +64,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
         title: placed?.title ?? null,
         state: placed?.state ?? null,
         endedAt: placed?.endedAt ?? null,
+        origin: placed?.origin ?? null,
       };
     });
   }

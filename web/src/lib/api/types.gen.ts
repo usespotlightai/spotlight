@@ -6039,6 +6039,49 @@ export type SetHealthResponseDto = {
   sanity: SanityReadingResponseDto | null;
 };
 
+export type OutcomeCountResponseDto = {
+  outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
+  count: number;
+};
+
+export type OriginCountResponseDto = {
+  origin: string;
+  count: number;
+};
+
+export type BalanceWarningResponseDto = {
+  dominant: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
+  count: number;
+  entries: number;
+};
+
+export type SetCompositionResponseDto = {
+  /**
+   * How many of its runs turned out each way, every outcome listed in one order
+   */
+  outcomes: Array<OutcomeCountResponseDto>;
+  /**
+   * How many of its tasks came from each origin, the most common first
+   */
+  origins: Array<OriginCountResponseDto>;
+  /**
+   * When its oldest run ended; null while none has
+   */
+  oldest: string | null;
+  /**
+   * The median of when its runs ended; null while none has
+   */
+  median: string | null;
+  /**
+   * When its newest run ended; null while none has
+   */
+  newest: string | null;
+  /**
+   * Set when one outcome is more than two thirds of a set of at least 6 runs
+   */
+  balanceWarning: BalanceWarningResponseDto | null;
+};
+
 export type ReplaySetEntryResponseDto = {
   runId: string;
   taskId: string;
@@ -6060,6 +6103,14 @@ export type ReplaySetEntryResponseDto = {
    */
   refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
+  /**
+   * How the original run turned out: asked when what a person did next was decide an approval it asked for; else accepted or sent back by what a person did next; else failed; else asked when it ended waiting on a person or a person answered it; else other
+   */
+  outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
+  /**
+   * Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station handed it on; null once the task is deleted
+   */
+  origin: string | null;
 };
 
 export type ReplaySetResponseDto = {
@@ -6084,6 +6135,10 @@ export type ReplaySetResponseDto = {
    * The smallest gain in success its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
    */
   minGain: number;
+  /**
+   * What the set is made of: how its runs turned out, where their tasks came from, and when they ended
+   */
+  composition: SetCompositionResponseDto;
   entries: Array<ReplaySetEntryResponseDto>;
 };
 
@@ -6098,6 +6153,23 @@ export type ReplayableRunResponseDto = {
    */
   refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
+};
+
+export type SuggestedRunResponseDto = {
+  runId: string;
+  taskId: string | null;
+  title: string;
+  state: string;
+  endedAt: string;
+  /**
+   * Why it cannot be replayed; null when it can
+   */
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  reason: string | null;
+  /**
+   * How the run turned out
+   */
+  outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
 };
 
 export type OpenReplaySetRequestDto = {
@@ -17275,6 +17347,49 @@ export type ListReplayableRunsResponses = {
 };
 
 export type ListReplayableRunsResponse = ListReplayableRunsResponses[keyof ListReplayableRunsResponses];
+
+export type ListReplaySetSuggestionsData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    setId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/replay-sets/{setId}/suggestions';
+};
+
+export type ListReplaySetSuggestionsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team, station, set or run for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListReplaySetSuggestionsError = ListReplaySetSuggestionsErrors[keyof ListReplaySetSuggestionsErrors];
+
+export type ListReplaySetSuggestionsResponses = {
+  200: Array<SuggestedRunResponseDto>;
+};
+
+export type ListReplaySetSuggestionsResponse = ListReplaySetSuggestionsResponses[keyof ListReplaySetSuggestionsResponses];
 
 export type DeleteReplaySetData = {
   body?: never;

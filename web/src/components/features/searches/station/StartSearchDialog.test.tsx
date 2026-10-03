@@ -68,6 +68,20 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
     sanity: null,
   },
   minGain: 0.05,
+  composition: {
+    outcomes: [
+      { outcome: 'accepted', count: 0 },
+      { outcome: 'sent-back', count: 0 },
+      { outcome: 'asked', count: 0 },
+      { outcome: 'failed', count: 0 },
+      { outcome: 'other', count: 0 },
+    ],
+    origins: [],
+    oldest: null,
+    median: null,
+    newest: null,
+    balanceWarning: null,
+  },
   entries: Array.from({ length: tasks }, (_, place) => ({
     runId: `run_${id}_${place}`,
     taskId: `task_${place}`,
@@ -77,6 +91,8 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
     addedAt: '2026-10-01T09:00:00.000Z',
     refusal: null,
     reason: null,
+    outcome: 'other',
+    origin: 'person',
   })),
 });
 

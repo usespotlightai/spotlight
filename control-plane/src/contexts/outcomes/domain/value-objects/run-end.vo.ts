@@ -19,6 +19,7 @@ export class RunEnd {
     readonly ending: RunEnding,
     readonly failure: string | null,
     readonly round: number,
+    readonly asked: boolean,
   ) {}
 
   static of(input: {
@@ -31,6 +32,7 @@ export class RunEnd {
     ending: RunEnding;
     failure: string | null;
     round: number;
+    asked: boolean;
   }): RunEnd {
     if (input.fingerprint !== null && !FINGERPRINT.test(input.fingerprint)) {
       throw new InvalidOutcomeError(
@@ -57,6 +59,7 @@ export class RunEnd {
       input.ending,
       input.failure,
       input.round,
+      input.asked,
     );
   }
 

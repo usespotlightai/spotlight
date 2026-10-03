@@ -145,6 +145,7 @@ export class Work implements WorkPort {
       title: each.title,
       state: each.state,
       endedAt: each.endedAt,
+      origin: each.origin,
     }));
   }
 
@@ -159,6 +160,7 @@ export class Work implements WorkPort {
         title: each.title,
         state: each.state,
         endedAt: each.endedAt,
+        origin: each.origin,
       }),
     );
   }

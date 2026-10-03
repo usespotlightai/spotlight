@@ -5,10 +5,12 @@ import type {
   KnownRun,
   ReplayFactsPort,
 } from '@work/application/ports/replay-facts.port';
+import { originOfRun } from '@work/domain/services/task-origin';
 import {
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workspaceArchive } from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
@@ -39,6 +41,8 @@ export class DrizzleReplayFacts implements ReplayFactsPort {
         briefed: isNotNull(run.briefedTask).mapWith(Boolean),
         heldTask: task.id,
         title: task.title,
+        openedFrom: task.openedFrom,
+        raisedAt: task.raisedAtStationId,
         keptArchive: workspaceArchive.id,
       })
       .from(run)
@@ -71,6 +75,14 @@ export class DrizzleReplayFacts implements ReplayFactsPort {
           title: row.title,
           state: row.state,
           endedAt: row.endedAt,
+          origin:
+            row.openedFrom && row.stationId
+              ? originOfRun({
+                  openedFrom: TaskOrigin.of(row.openedFrom),
+                  raisedAt: row.raisedAt,
+                  ranAt: row.stationId,
+                })
+              : null,
         },
       ]),
     );

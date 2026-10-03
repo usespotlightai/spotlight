@@ -11,4 +11,5 @@ export type TaskActedOnIntegrationEvent = {
   readonly at: string;
   readonly tool: string | null;
   readonly server: string | null;
+  readonly forApproval: boolean;
 };

@@ -48,6 +48,7 @@ import type { ReplayRepository } from '@replays/domain/repositories/replay.repos
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
+import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStanding } from '@replays/domain/value-objects/change-checks.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -343,6 +344,7 @@ export class FakeWork implements WorkPort {
       title: null as string | null,
       state: null,
       endedAt: null,
+      origin: null,
     }));
 
   recentAt = async () => [];
@@ -542,6 +544,10 @@ export class FakeOutcomes implements OutcomesPort {
 
   async acceptedAfter(run: RunId): Promise<boolean> {
     return this.accepted.has(run.value);
+  }
+
+  async turnedOut(): Promise<ReadonlyMap<string, OriginalOutcome>> {
+    return new Map([...this.accepted].map((run) => [run, 'accepted'] as const));
   }
 
   async judge(order: JudgingOrder): Promise<JudgingOrdered> {

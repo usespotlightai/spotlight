@@ -45,12 +45,14 @@ export interface StandingRun extends RunReplayability {
   readonly title: string | null;
   readonly state: string | null;
   readonly endedAt: Date | null;
+  readonly origin: string | null;
 }
 
 export interface PickableRun extends RunReplayability {
   readonly title: string;
   readonly state: string;
   readonly endedAt: Date;
+  readonly origin: string | null;
 }
 
 export type ExaminedCandidate =

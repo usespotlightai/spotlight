@@ -120,6 +120,7 @@ const endedRecord = (runId: string) =>
       ending: 'completed',
       failure: null,
       round: 1,
+      asked: false,
     }),
   );
 
