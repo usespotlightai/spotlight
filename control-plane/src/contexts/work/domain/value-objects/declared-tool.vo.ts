@@ -1,10 +1,8 @@
+import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import { WORDS } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { InvalidToolError } from '@work/domain/exceptions/invalid-tool.error';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
-import {
-  ApprovalIntent,
-  INTENT_INPUT,
-} from '@work/domain/value-objects/approval-intent.vo';
+import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 import {
@@ -102,10 +100,10 @@ export class DeclaredTool {
       throw new InvalidToolError(input.tool.value, 'takes one input twice');
     }
 
-    if (input.approval && names.includes(INTENT_INPUT)) {
+    if (input.approval && names.includes(APPROVAL_INTENT_INPUT)) {
       throw new InvalidToolError(
         input.tool.value,
-        `needs approval and takes ${INTENT_INPUT}, which Spotlight keeps for the agent to say what it wants to do`,
+        `needs approval and takes ${APPROVAL_INTENT_INPUT}, which Spotlight keeps for the agent to say what it wants to do`,
       );
     }
 
@@ -142,12 +140,15 @@ export class DeclaredTool {
       given === null ||
       typeof given !== 'object' ||
       Array.isArray(given) ||
-      !(INTENT_INPUT in given)
+      !(APPROVAL_INTENT_INPUT in given)
     ) {
       return { intent: null, rest: given };
     }
 
-    const { [INTENT_INPUT]: said, ...rest } = given as Record<string, unknown>;
+    const { [APPROVAL_INTENT_INPUT]: said, ...rest } = given as Record<
+      string,
+      unknown
+    >;
 
     return { intent: ApprovalIntent.said(said), rest };
   }

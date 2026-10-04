@@ -36,7 +36,7 @@ export class Approval {
     subject: ApprovalSubject,
     at: StationId,
     because: string,
-    intent: ApprovalIntent | null = null,
+    intent: ApprovalIntent | null,
   ): Approval {
     return new Approval(
       subject,
@@ -104,7 +104,7 @@ export class Approval {
   ): Approval {
     if (!this.open) {
       throw new InvalidApprovalAnswerError(
-        `was already ${this.standing === 'granted' ? 'approved' : 'rejected'}, so it cannot be decided again`,
+        `was already ${this.standing === 'granted' ? 'approved' : 'dismissed'}, so it cannot be decided again`,
       );
     }
 
@@ -126,7 +126,7 @@ export class Approval {
   ): ToolCall | null {
     if (decision !== 'granted') {
       throw new InvalidApprovalAnswerError(
-        'is being rejected, so there is nothing to run with changes',
+        'is being dismissed, so there is nothing to run with changes',
       );
     }
 

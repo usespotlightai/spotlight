@@ -19,12 +19,14 @@ type Mode = 'viewing' | 'editing' | 'refusing';
 type ApprovalCardProps = {
   approval: Approval;
   pending: boolean;
+  failure?: string | null;
   onDecide?: (answer: ApprovalAnswer) => void;
 };
 
 export function ApprovalCard({
   approval,
   pending,
+  failure = null,
   onDecide,
 }: ApprovalCardProps) {
   const [mode, setMode] = useState<Mode>('viewing');
@@ -73,6 +75,12 @@ export function ApprovalCard({
           <ApprovalAction approval={approval} />
         )}
 
+        {deciding && failure && (
+          <p role="alert" className="text-destructive text-xs">
+            {failure}
+          </p>
+        )}
+
         {!deciding ? (
           <ApprovalSettled approval={approval} />
         ) : mode === 'editing' ? (
@@ -93,7 +101,10 @@ export function ApprovalCard({
             reason={reason}
             onReason={setReason}
             onRefuse={() => deciding({ approve: false, said: reason })}
-            onCancel={() => setMode('viewing')}
+            onCancel={() => {
+              setReason('');
+              setMode('viewing');
+            }}
           />
         ) : (
           <ApprovalDecision

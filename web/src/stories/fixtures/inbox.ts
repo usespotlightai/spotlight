@@ -511,7 +511,7 @@ export const seedApproved = (client: QueryClient) => {
   ]);
 };
 
-export const seedRejected = (client: QueryClient) => {
+export const seedDismissed = (client: QueryClient) => {
   seedInbox(client);
   client.setQueryData(inboxKeys.forWorkspace(SLUG), [
     NOTICE,

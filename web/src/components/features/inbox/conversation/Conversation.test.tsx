@@ -109,6 +109,7 @@ describe('Conversation', () => {
   it('puts a tool call up as the action itself, ready to run', () => {
     showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }], {
       pending: false,
+      failure: null,
       onDecide: vi.fn(),
     });
 
@@ -122,6 +123,7 @@ describe('Conversation', () => {
     const onDecide = vi.fn();
     showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }], {
       pending: false,
+      failure: null,
       onDecide,
     });
 

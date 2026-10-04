@@ -59,10 +59,22 @@ export const blanked = (
       (edits[each.name] ?? each.value).trim() === '',
   );
 
-export const askedFor = (approval: Approval): string =>
-  approval.intent
-    ? `Spotlight would like to ${approval.intent}.`
+const ENDED = /[.!?…]$/;
+
+const sentence = (words: string): string =>
+  ENDED.test(words) ? words : `${words}.`;
+
+export const askedFor = (approval: Approval): string => {
+  const wanted = approval.intent ?? `use ${approval.name}`;
+
+  if (approval.edited) {
+    return `Spotlight asked to ${wanted}, and you changed what it runs with.`;
+  }
+
+  return approval.intent
+    ? sentence(`Spotlight would like to ${approval.intent}`)
     : `Spotlight would like to use ${approval.name}. ${approval.because}`;
+};
 
 export const copyText = (approval: Approval): string => {
   const inputs = shownInputs(approval);

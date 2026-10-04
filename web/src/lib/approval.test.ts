@@ -99,6 +99,19 @@ describe('approval', () => {
     expect(askedFor({ ...COMMENT, intent: 'post the fix on ENG-12' })).toBe(
       'Spotlight would like to post the fix on ENG-12.',
     );
+    expect(askedFor({ ...COMMENT, intent: 'post it…' })).toBe(
+      'Spotlight would like to post it…',
+    );
+    expect(
+      askedFor({
+        ...COMMENT,
+        intent: 'post the fix on ENG-12',
+        standing: 'granted',
+        edited: [{ name: 'body', value: 'Done.' }],
+      }),
+    ).toBe(
+      'Spotlight asked to post the fix on ENG-12, and you changed what it runs with.',
+    );
     expect(askedFor(COMMENT)).toBe(
       'Spotlight would like to use linear.comment. It posts publicly, under the team’s name.',
     );

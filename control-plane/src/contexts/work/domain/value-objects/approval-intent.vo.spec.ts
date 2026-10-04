@@ -10,6 +10,18 @@ describe('ApprovalIntent', () => {
     ).toBe('post the drain summary on ENG-412, publicly under the team’s name');
   });
 
+  it('keeps what the agent exclaimed, dropping only a closing full stop', () => {
+    expect(ApprovalIntent.said('ship it now!')?.value).toBe('ship it now!');
+  });
+
+  it('never cuts a character in half', () => {
+    const said = ApprovalIntent.said(`${'a'.repeat(198)}🚀🚀🚀`)?.value ?? '';
+
+    expect(Array.from(said)).toHaveLength(200);
+    expect(said.endsWith('🚀…')).toBe(true);
+    expect(() => encodeURIComponent(said)).not.toThrow();
+  });
+
   it('keeps nothing where the agent said nothing', () => {
     expect(ApprovalIntent.said('  . ')).toBeNull();
     expect(ApprovalIntent.said(undefined)).toBeNull();

@@ -2,13 +2,11 @@ import type { Approval } from '@/lib/approval';
 
 const settledWords = (approval: Approval): string => {
   if (approval.standing === 'granted') {
-    return approval.edited
-      ? 'You approved this, with your changes.'
-      : 'You approved this.';
+    return approval.edited ? 'Approved, with changes.' : 'Approved.';
   }
 
   return approval.standing === 'refused'
-    ? 'You dismissed this.'
+    ? 'Dismissed.'
     : 'Waiting on a decision in the inbox.';
 };
 

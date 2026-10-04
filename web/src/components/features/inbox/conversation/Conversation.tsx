@@ -72,6 +72,7 @@ const put = (
 export type Deciding = {
   readonly pending: boolean;
   readonly onDecide: (answer: ApprovalAnswer) => void;
+  readonly failure: string | null;
 };
 
 type ConversationProps = {

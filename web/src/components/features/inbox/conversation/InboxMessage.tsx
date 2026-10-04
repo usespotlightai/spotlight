@@ -115,6 +115,7 @@ export function InboxMessage({
           approval={approval}
           pending={deciding?.pending ?? false}
           onDecide={deciding?.onDecide}
+          failure={deciding?.failure ?? null}
         />
       ) : shows ? (
         <SetupSteps

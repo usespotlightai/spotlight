@@ -131,6 +131,7 @@ export class TaskRunWork implements RunWork {
         voice: Voice.station(this.run.id),
       },
       this.run.id,
+      null,
     );
 
     if (clearance.kind !== 'refused') {

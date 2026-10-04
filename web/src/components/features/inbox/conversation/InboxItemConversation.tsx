@@ -11,6 +11,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
+import { messageOf } from '@/lib/error';
 import {
   type InboxItem,
   type RunJournal,
@@ -60,6 +61,7 @@ export function InboxItemConversation({
           worked={worked}
           deciding={{
             pending: answer.isPending,
+            failure: answer.isError ? messageOf(answer.error) : null,
             onDecide: ({ approve, said, inputs }) =>
               answer.mutate({
                 slug,

@@ -1755,6 +1755,7 @@ describe('Task and the happenings heard while a run holds it', () => {
         ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
         { ...saying, voice: Voice.station(RUN) },
         RUN,
+        null,
       ).task;
 
     expect(asked.heldBackTo).toEqual(SPEC);
@@ -1787,6 +1788,7 @@ describe('Task and the happenings heard while a run holds it', () => {
         ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
         { ...saying, voice: Voice.station(RUN) },
         RUN,
+        null,
       ).task;
     asking.pullEvents();
 

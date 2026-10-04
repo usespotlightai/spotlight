@@ -7,6 +7,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
+import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
@@ -100,7 +101,7 @@ const working = () =>
   );
 
 const clear = (task: Task, call: ApprovalSubject = CALL) =>
-  task.clearFor(call, NEEDED, asking(), RUN);
+  task.clearFor(call, NEEDED, asking(), RUN, null);
 
 const askedOnce = () => {
   const asked = clear(working()).task;
@@ -115,7 +116,7 @@ const askedOnce = () => {
 
 const decided = (
   decision: 'granted' | 'refused',
-  words = decision === 'granted' ? 'Approved.' : 'Rejected.',
+  words = decision === 'granted' ? 'Approved.' : 'Dismissed.',
 ) => {
   const { asked, at } = askedOnce();
 
@@ -147,6 +148,28 @@ describe('clearing a tool call that needs approval', () => {
 
     expect(kindOf(again.clearance)).toBe('asked');
     expect(again.task.notes).toHaveLength(asked.notes.length);
+  });
+
+  it('keeps what the agent first said it wants to do while a person still owes an answer', () => {
+    const asked = working().clearFor(
+      CALL,
+      NEEDED,
+      asking(),
+      RUN,
+      ApprovalIntent.said('post the fix on ENG-12'),
+    ).task;
+
+    const again = asked.clearFor(
+      CALL,
+      NEEDED,
+      asking(),
+      RUN,
+      ApprovalIntent.said('post something else'),
+    ).task;
+
+    expect(again.approvalFor(CALL)?.approval.intent?.value).toBe(
+      'post the fix on ENG-12',
+    );
   });
 
   it('claims a grant as it gives it, so a second call finds nothing to use', () => {
@@ -272,7 +295,7 @@ describe('deciding an approval', () => {
     const { task, at } = decided('granted');
 
     expect(() =>
-      task.answered(at, person('Rejected.', 'user_2'), 'refused'),
+      task.answered(at, person('Dismissed.', 'user_2'), 'refused'),
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
   });
 
@@ -303,7 +326,7 @@ describe('deciding an approval', () => {
       }
 
       return asked
-        .answered(at, person('Rejected.'), 'refused')
+        .answered(at, person('Dismissed.'), 'refused')
         .pullEvents()
         .find((each): each is TaskActedOn => each instanceof TaskActedOn)?.tool;
     };
@@ -488,7 +511,7 @@ describe('approving a tool call with changes', () => {
     const edits = { issue: 'ENG-12', body: 'Hi.' };
 
     expect(() =>
-      asked.answered(at, person('Rejected.'), 'refused', edits),
+      asked.answered(at, person('Dismissed.'), 'refused', edits),
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
     expect(() => asked.answered(at, person('Hmm.'), null, edits)).toThrowError(
       expect.objectContaining({ violation: 'conflict' }),

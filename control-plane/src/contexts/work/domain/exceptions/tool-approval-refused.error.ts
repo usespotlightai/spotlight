@@ -3,7 +3,7 @@ export class ToolApprovalRefusedError extends Error {
 
   constructor(tool: string, said: string) {
     super(
-      [`${tool} was not approved, so nothing was sent.`, said.trim()]
+      [`${tool} was dismissed, so nothing was sent.`, said.trim()]
         .filter(Boolean)
         .join(' '),
     );

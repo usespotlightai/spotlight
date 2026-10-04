@@ -6,7 +6,7 @@ const decided = (decision: ApprovalDecision | null): string =>
   decision === 'granted'
     ? 'Approved.'
     : decision === 'refused'
-      ? 'Rejected.'
+      ? 'Dismissed.'
       : '';
 
 export const ApprovalAnswered = {

@@ -1,3 +1,5 @@
+import { ApprovalRow } from '@/components/features/inbox/conversation/approval/ApprovalRow';
+import { ApprovalTable } from '@/components/features/inbox/conversation/approval/ApprovalTable';
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import {
   type Approval,
@@ -12,15 +14,12 @@ export function ApprovalAction({ approval }: { approval: Approval }) {
   const changed = changedNames(approval);
 
   return (
-    <dl className="[&>*+*]:border-t-[0.5px] [&>*+*]:border-border">
+    <ApprovalTable as="dl">
       {shownInputs(approval).map((input) => {
         const label = labelOf(approval, input);
 
         return (
-          <div
-            key={input.name}
-            className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-4 py-2 first:pt-0 last:pb-0"
-          >
+          <ApprovalRow key={input.name}>
             {label && (
               <dt className="flex flex-col text-muted-foreground text-sm leading-6">
                 <span className="truncate first-letter:uppercase">{label}</span>
@@ -41,9 +40,9 @@ export function ApprovalAction({ approval }: { approval: Approval }) {
                 </p>
               )}
             </dd>
-          </div>
+          </ApprovalRow>
         );
       })}
-    </dl>
+    </ApprovalTable>
   );
 }

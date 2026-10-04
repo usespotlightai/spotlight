@@ -216,6 +216,7 @@ describe('ReactionFor.happened', () => {
         ),
         StationId.of('station_2'),
         'It posts publicly.',
+        null,
       ),
     });
 

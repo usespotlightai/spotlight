@@ -93,6 +93,7 @@ describe('an approval a run asked for', () => {
           voice: Voice.station(runId),
         },
         runId,
+        null,
       ).task,
     );
 
@@ -210,6 +211,7 @@ describe('an approval a run asked for', () => {
         voice: Voice.station(runId),
       },
       runId,
+      null,
     );
     expect(clearance.kind).toBe('given');
     await tasks.save(claimed);
@@ -256,6 +258,7 @@ describe('an approval a run asked for', () => {
           voice: Voice.station(runId),
         },
         runId,
+        null,
       );
 
     const [one, other] = await Promise.all([claiming(), claiming()]);

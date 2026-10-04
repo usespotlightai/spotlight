@@ -725,6 +725,7 @@ describe('UseToolHandler', () => {
         voice: Voice.station(RunId.of('run_1')),
       },
       RunId.of('run_1'),
+      null,
     ).task;
 
     const { reach, called, standing } = using(claimed(['linear.comment']), {
@@ -769,6 +770,7 @@ describe('UseToolHandler', () => {
         voice: Voice.station(RunId.of('run_1')),
       },
       RunId.of('run_1'),
+      null,
     ).task;
 
     const { reach, called } = using(claimed(['linear.comment']), {
@@ -812,6 +814,7 @@ describe('UseToolHandler', () => {
         voice: Voice.station(RunId.of('run_1')),
       },
       RunId.of('run_1'),
+      null,
     ).task;
     const granted = asked.answered(
       NotePosition.of(asked.notes.length - 1),
@@ -859,6 +862,7 @@ describe('UseToolHandler', () => {
         voice: Voice.station(RunId.of('run_1')),
       },
       RunId.of('run_1'),
+      null,
     ).task;
     const granted = asked.answered(
       NotePosition.of(asked.notes.length - 1),
@@ -902,6 +906,7 @@ describe('UseToolHandler', () => {
         voice: Voice.station(RunId.of('run_1')),
       },
       RunId.of('run_1'),
+      null,
     ).task;
     const rejected = asked.answered(
       NotePosition.of(asked.notes.length - 1),
@@ -943,6 +948,7 @@ describe('UseToolHandler', () => {
         voice: Voice.station(RunId.of('run_1')),
       },
       RunId.of('run_1'),
+      null,
     ).task;
     const talkedBack = asked.answered(NotePosition.of(asked.notes.length - 1), {
       station: StationName.of('Backlog'),
@@ -982,6 +988,7 @@ describe('UseToolHandler', () => {
         voice: Voice.station(RunId.of('run_1')),
       },
       RunId.of('run_1'),
+      null,
     ).task;
     const granted = asked.answered(
       NotePosition.of(asked.notes.length - 1),
@@ -1082,6 +1089,7 @@ describe('UseToolHandler', () => {
           voice: Voice.station(RunId.of('run_1')),
         },
         RunId.of('run_1'),
+        null,
       ).task;
       const granted = asked.answered(
         NotePosition.of(asked.notes.length - 1),
@@ -1129,6 +1137,7 @@ describe('UseToolHandler', () => {
           voice: Voice.station(RunId.of('run_1')),
         },
         RunId.of('run_1'),
+        null,
       ).task;
       const granted = asked.answered(
         NotePosition.of(asked.notes.length - 1),
@@ -1188,6 +1197,7 @@ describe('UseToolHandler', () => {
           voice: Voice.station(RunId.of('run_1')),
         },
         RunId.of('run_1'),
+        null,
       ).task;
       const granted = asked.answered(
         NotePosition.of(asked.notes.length - 1),

@@ -1,5 +1,3 @@
-export const INTENT_INPUT = 'intent';
-
 const LONGEST = 200;
 
 export class ApprovalIntent {
@@ -10,17 +8,20 @@ export class ApprovalIntent {
       return null;
     }
 
-    const line = said
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/[.!]+$/, '');
+    const line = said.replace(/\s+/g, ' ').trim().replace(/\.+$/, '');
+    const characters = Array.from(line);
 
-    if (!line) {
+    if (characters.length === 0) {
       return null;
     }
 
     return new ApprovalIntent(
-      line.length > LONGEST ? `${line.slice(0, LONGEST - 1)}…` : line,
+      characters.length > LONGEST
+        ? `${characters
+            .slice(0, LONGEST - 1)
+            .join('')
+            .trimEnd()}…`
+        : line,
     );
   }
 

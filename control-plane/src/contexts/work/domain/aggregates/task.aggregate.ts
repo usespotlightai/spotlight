@@ -1090,7 +1090,7 @@ export class Task extends EventRecorder {
     needed: ApprovalNeeded,
     asking: Saying,
     by: RunId,
-    intent: ApprovalIntent | null = null,
+    intent: ApprovalIntent | null,
   ): Cleared {
     this.refuseAnotherRun(by, 'use a tool on it');
 

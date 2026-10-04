@@ -12,7 +12,7 @@ export const PermissionAsked = {
             `It would do it with:\n\`\`\`\n${shortened(permission.input)}\n\`\`\``,
           ]
         : []),
-      'Nothing has run yet. Approve it and I will carry on from here; reject it and I will work around it.',
+      'Nothing has run yet. Approve it and I will carry on from here; dismiss it and I will work around it.',
     ].join('\n\n');
   },
 

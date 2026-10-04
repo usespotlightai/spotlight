@@ -1,4 +1,6 @@
 import { useId } from 'react';
+import { ApprovalRow } from '@/components/features/inbox/conversation/approval/ApprovalRow';
+import { ApprovalTable } from '@/components/features/inbox/conversation/approval/ApprovalTable';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { type Approval, readsAsCode } from '@/lib/approval';
 import { cn } from '@/lib/utils';
@@ -19,12 +21,9 @@ export function ApprovalFields({
   const id = useId();
 
   return (
-    <div className="[&>*+*]:border-t-[0.5px] [&>*+*]:border-border">
+    <ApprovalTable as="div">
       {approval.inputs.map((input, at) => (
-        <div
-          key={input.name}
-          className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-4 py-2 first:pt-0 last:pb-0"
-        >
+        <ApprovalRow key={input.name}>
           <label
             htmlFor={`${id}-${input.name}`}
             className="truncate text-muted-foreground text-sm leading-6 first-letter:uppercase"
@@ -43,8 +42,8 @@ export function ApprovalFields({
                 'font-mono text-[11px] leading-[1.6]',
             )}
           />
-        </div>
+        </ApprovalRow>
       ))}
-    </div>
+    </ApprovalTable>
   );
 }

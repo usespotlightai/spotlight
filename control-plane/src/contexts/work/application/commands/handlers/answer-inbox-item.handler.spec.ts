@@ -128,6 +128,7 @@ const asking = () =>
         at: NOW,
       },
       RunId.of('run_1'),
+      null,
     ).task;
 
 let saved: Task | undefined;
@@ -311,7 +312,7 @@ describe('AnswerInboxItem', () => {
           body: 'Fixed in #41.',
         }),
       ),
-    ).rejects.toThrow(/is being rejected/);
+    ).rejects.toThrow(/is being dismissed/);
     expect(saved).toBeUndefined();
   });
 
@@ -325,6 +326,15 @@ describe('AnswerInboxItem', () => {
     );
 
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Approved.');
+  });
+
+  it('tells the agent it was dismissed where the person gave no reason', async () => {
+    await answer(
+      asking(),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'refused'),
+    );
+
+    expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Dismissed.');
   });
 
   it('records a refusal in the person’s own words', async () => {

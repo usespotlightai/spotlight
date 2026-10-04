@@ -27,7 +27,7 @@ export const ApprovalAsked = {
       needed.because,
       declared.description,
       ...handed(call),
-      'Nothing has been sent yet. Approve it and I will carry on; reject it and I will work around it.',
+      'Nothing has been sent yet. Approve it and I will carry on; dismiss it and I will work around it.',
     ].join('\n\n');
   },
 };
