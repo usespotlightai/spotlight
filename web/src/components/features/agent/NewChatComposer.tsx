@@ -21,7 +21,7 @@ type NewChatComposerProps = {
 export function NewChatComposer({
   slug,
   teamId,
-  traces,
+  traces: handed,
   defaultImproving,
   onStarted,
 }: NewChatComposerProps) {
@@ -31,6 +31,10 @@ export function NewChatComposer({
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);
   const start = useStartChat();
+  const [references] = useState(() => [
+    ...(defaultImproving ? [stationReference(defaultImproving)] : []),
+    ...handed.map(traceReference),
+  ]);
 
   const harness = harnesses?.some((each) => each.id === held)
     ? held
@@ -48,10 +52,7 @@ export function NewChatComposer({
       label="Plan with the agent"
       placeholder="What are we planning?"
       pending={start.isPending || !harness}
-      initialReferences={[
-        ...(defaultImproving ? [stationReference(defaultImproving)] : []),
-        ...traces.map(traceReference),
-      ]}
+      initialReferences={references}
       settings={
         <AgentPicker
           harness={harness}

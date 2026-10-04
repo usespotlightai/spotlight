@@ -8,7 +8,12 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import { $spacedReferences } from '@/components/shared/chat-input/ReferenceNode';
 import { useAttachments } from '@/hooks/useAttachments';
-import type { Outgoing, Reference, Written } from '@/lib/chat-input';
+import {
+  type Outgoing,
+  type Reference,
+  stationImprovedBy,
+  type Written,
+} from '@/lib/chat-input';
 
 export function useChatMessage(
   slug: string,
@@ -37,8 +42,7 @@ export function useChatMessage(
       each.state === 'ready' ? [each.id] : [],
     ),
     traces: traced.map((each) => each.key),
-    improving:
-      written.references.find((each) => each.kind === 'station')?.key ?? null,
+    improving: stationImprovedBy(written.references),
   };
 
   const states = useMemo(

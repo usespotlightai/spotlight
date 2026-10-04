@@ -51,8 +51,13 @@ export const traceReference = (trace: SharedTrace): Reference => ({
 export const stationReference = (station: ImprovedStation): Reference => ({
   kind: 'station',
   key: station.stationId,
-  name: station.stationName,
+  name: `${station.stationName} on ${station.lineName}`,
 });
+
+export const stationImprovedBy = (
+  references: readonly Reference[],
+): string | null =>
+  references.find((each) => each.kind === 'station')?.key ?? null;
 
 export const isCode = (name: string): boolean =>
   CODE.has(name.slice(name.lastIndexOf('.') + 1).toLowerCase());

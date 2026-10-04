@@ -8,30 +8,28 @@ import {
 import { isCode, type Reference } from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
 
-const SHARED: Record<Exclude<Reference['kind'], 'file'>, LucideIcon> = {
+const ICON: Record<Reference['kind'], LucideIcon> = {
+  file: FileText,
   trace: Binoculars,
   station: MousePointer2,
 };
 
+const TINT: Record<Reference['kind'], string> = {
+  file: 'text-muted-foreground',
+  trace: 'text-primary',
+  station: 'text-primary',
+};
+
 export function ReferenceIcon({ reference }: { reference: Reference }) {
   const code = reference.kind === 'file' && isCode(reference.name);
-  const Icon =
-    reference.kind === 'file'
-      ? code
-        ? Braces
-        : FileText
-      : SHARED[reference.kind];
+  const Icon = code ? Braces : ICON[reference.kind];
 
   return (
     <Icon
       aria-hidden
       className={cn(
         'size-3.5 shrink-0 self-center',
-        reference.kind !== 'file'
-          ? 'text-primary'
-          : code
-            ? 'text-amber-500'
-            : 'text-muted-foreground',
+        code ? 'text-amber-500' : TINT[reference.kind],
       )}
     />
   );

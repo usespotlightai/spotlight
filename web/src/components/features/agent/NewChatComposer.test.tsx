@@ -132,7 +132,7 @@ describe('NewChatComposer', () => {
   it('puts the station it was handed inline, and may start with nothing typed', async () => {
     showing(vi.fn(), [], SPEC);
 
-    expect(within(box()).getByText('Spec')).toBeInTheDocument();
+    expect(within(box()).getByText('Spec on Delivery')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -149,7 +149,9 @@ describe('NewChatComposer', () => {
     await write(box(), 'Plan the retries');
     await pressEnter(box());
 
-    expect(within(box()).queryByText('Spec')).not.toBeInTheDocument();
+    expect(
+      within(box()).queryByText('Spec on Delivery'),
+    ).not.toBeInTheDocument();
     expect(started.mock.calls[0]?.[0]).not.toHaveProperty('improving');
   });
 

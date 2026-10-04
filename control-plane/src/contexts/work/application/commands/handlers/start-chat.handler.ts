@@ -80,7 +80,12 @@ export class StartChatHandler
           model: command.model === null ? null : HarnessModel.of(command.model),
           effort: command.effort === null ? null : Effort.of(command.effort),
           repositories: command.repositories.map((each) => Repository.of(each)),
-          body: ChatMessageBody.given(command.body, attachments, traces),
+          body: ChatMessageBody.given(
+            command.body,
+            attachments,
+            traces,
+            improving,
+          ),
           attachments,
           traces,
           improving,
