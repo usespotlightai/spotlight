@@ -1199,7 +1199,7 @@ export class Task extends EventRecorder {
 
     if (decision && !by) {
       throw new InvalidApprovalAnswerError(
-        'can only be approved or rejected by a person',
+        'can only be approved or dismissed by a person',
       );
     }
 
