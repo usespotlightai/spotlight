@@ -106,7 +106,12 @@ describe('ChatInput', () => {
     await userEvent.click(send());
 
     expect(onSend).toHaveBeenCalledWith(
-      { body: 'the log, attached', attachments: ['att_1'], traces: [] },
+      {
+        body: 'the log, attached',
+        attachments: ['att_1'],
+        traces: [],
+        improving: null,
+      },
       expect.any(Function),
     );
   });
@@ -130,7 +135,7 @@ describe('ChatInput', () => {
     await userEvent.click(send());
 
     expect(onSend).toHaveBeenCalledWith(
-      { body: 'see', attachments: ['att_1'], traces: [] },
+      { body: 'see', attachments: ['att_1'], traces: [], improving: null },
       expect.any(Function),
     );
   });

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { PendingImprovement } from '@/components/features/agent/PendingImprovement';
 import { AgentPicker } from '@/components/features/stations/AgentPicker';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
@@ -7,6 +6,7 @@ import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartChat } from '@/hooks/api/useStartChat';
 import { useRemembered } from '@/hooks/useRemembered';
 import type { ImprovedStation, SharedTrace } from '@/lib/chat';
+import { stationReference, traceReference } from '@/lib/chat-input';
 
 const HARNESS_KEY = 'spotlight.chat-harness';
 
@@ -30,8 +30,11 @@ export function NewChatComposer({
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);
-  const [improving, setImproving] = useState(defaultImproving);
   const start = useStartChat();
+  const [references] = useState(() => [
+    ...(defaultImproving ? [stationReference(defaultImproving)] : []),
+    ...handed.map(traceReference),
+  ]);
 
   const harness = harnesses?.some((each) => each.id === held)
     ? held
@@ -47,21 +50,9 @@ export function NewChatComposer({
     <ChatInput
       slug={slug}
       label="Plan with the agent"
-      placeholder={
-        improving ? 'What should it do better?' : 'What are we planning?'
-      }
+      placeholder="What are we planning?"
       pending={start.isPending || !harness}
-      initialTraces={handed}
-      above={
-        improving && (
-          <div className="flex pb-2">
-            <PendingImprovement
-              station={improving}
-              onRemove={() => setImproving(null)}
-            />
-          </div>
-        )
-      }
+      initialReferences={references}
       settings={
         <AgentPicker
           harness={harness}
@@ -80,7 +71,7 @@ export function NewChatComposer({
           className="h-6 w-auto"
         />
       }
-      onSend={({ body, attachments, traces }, sent) =>
+      onSend={({ body, attachments, traces, improving }, sent) =>
         start.mutate(
           {
             teamId,
@@ -91,12 +82,11 @@ export function NewChatComposer({
             body,
             attachments,
             traces,
-            ...(improving ? { improving: improving.stationId } : {}),
+            ...(improving ? { improving } : {}),
           },
           {
             onSuccess: (chat) => {
               sent();
-              setImproving(null);
               onStarted(chat.id);
             },
           },

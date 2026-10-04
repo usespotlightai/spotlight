@@ -1,8 +1,8 @@
 import { createContext, useContext } from 'react';
 import type { PendingAttachment } from '@/lib/attachment';
-import type { SharedTrace } from '@/lib/chat';
+import type { ImprovedStation, SharedTrace } from '@/lib/chat';
 
-type ReferenceKind = 'file' | 'trace';
+type ReferenceKind = 'file' | 'trace' | 'station';
 
 export interface Reference {
   readonly kind: ReferenceKind;
@@ -19,6 +19,7 @@ export interface Outgoing {
   readonly body: string;
   readonly attachments: string[];
   readonly traces: string[];
+  readonly improving: string | null;
 }
 
 const CODE = new Set([
@@ -46,6 +47,17 @@ export const traceReference = (trace: SharedTrace): Reference => ({
   key: trace.taskId,
   name: trace.title,
 });
+
+export const stationReference = (station: ImprovedStation): Reference => ({
+  kind: 'station',
+  key: station.stationId,
+  name: `${station.stationName} on ${station.lineName}`,
+});
+
+export const stationImprovedBy = (
+  references: readonly Reference[],
+): string | null =>
+  references.find((each) => each.kind === 'station')?.key ?? null;
 
 export const isCode = (name: string): boolean =>
   CODE.has(name.slice(name.lastIndexOf('.') + 1).toLowerCase());

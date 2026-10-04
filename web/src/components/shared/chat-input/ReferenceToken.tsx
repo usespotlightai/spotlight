@@ -1,14 +1,11 @@
-import { Binoculars, Braces, FileText } from 'lucide-react';
-import { isCode, type Reference, useReferenceState } from '@/lib/chat-input';
+import { ReferenceIcon } from '@/components/shared/chat-input/ReferenceIcon';
+import { type Reference, useReferenceState } from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
 
 export function ReferenceToken({ reference }: { reference: Reference }) {
   const state = useReferenceState(reference.key);
   const uploading = reference.kind === 'file' && state?.state === 'uploading';
   const failed = reference.kind === 'file' && state?.state === 'failed';
-  const code = reference.kind === 'file' && isCode(reference.name);
-  const Icon =
-    reference.kind === 'trace' ? Binoculars : code ? Braces : FileText;
 
   return (
     <span
@@ -20,17 +17,7 @@ export function ReferenceToken({ reference }: { reference: Reference }) {
         uploading && 'animate-pulse opacity-60',
       )}
     >
-      <Icon
-        aria-hidden
-        className={cn(
-          'size-3.5 shrink-0 self-center',
-          code
-            ? 'text-amber-500'
-            : reference.kind === 'trace'
-              ? 'text-primary'
-              : 'text-muted-foreground',
-        )}
-      />
+      <ReferenceIcon reference={reference} />
       <span
         className={cn(
           failed ? 'text-destructive line-through' : 'text-primary',

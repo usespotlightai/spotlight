@@ -8,8 +8,11 @@ import { SendOrStop } from '@/components/shared/chat-input/SendOrStop';
 import { useChatMessage } from '@/hooks/useChatMessage';
 import { useChatSend } from '@/hooks/useChatSend';
 import { useOneLineFit } from '@/hooks/useOneLineFit';
-import type { SharedTrace } from '@/lib/chat';
-import { type Outgoing, ReferenceStates } from '@/lib/chat-input';
+import {
+  type Outgoing,
+  type Reference,
+  ReferenceStates,
+} from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
 
 type Sending =
@@ -26,13 +29,12 @@ type ChatInputProps = Sending & {
   placeholder: string;
   running?: boolean;
   onStop?: () => void;
-  initialTraces?: readonly SharedTrace[];
-  above?: ReactNode;
+  initialReferences?: readonly Reference[];
   settings: ReactNode;
   below?: ReactNode;
 };
 
-const NO_TRACES: readonly SharedTrace[] = [];
+const NO_REFERENCES: readonly Reference[] = [];
 
 const COMPACT: CSSProperties = {
   gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
@@ -52,20 +54,19 @@ export function ChatInput({
   pending = false,
   running = false,
   onStop,
-  initialTraces = NO_TRACES,
-  above,
+  initialReferences = NO_REFERENCES,
   settings,
   below,
   onSend,
   disabled = false,
 }: ChatInputProps) {
-  const message = useChatMessage(slug, initialTraces);
-  const lifted = message.images.length > 0 || Boolean(above);
+  const message = useChatMessage(slug, initialReferences);
+  const lifted = message.images.length > 0;
   const fit = useOneLineFit(message.written, lifted);
 
   const { send, unsendable, stopping } = useChatSend({
     outgoing: message.outgoing,
-    empty: message.blank && !above,
+    empty: message.blank,
     uploading: message.uploading,
     disabled,
     pending,
@@ -94,7 +95,6 @@ export function ChatInput({
         >
           {fit.expanded && lifted && (
             <div style={{ gridArea: 'top' }} className="px-1.5 pt-1">
-              {above}
               <ImageThumbs images={message.images} onRemove={message.remove} />
             </div>
           )}
@@ -108,7 +108,7 @@ export function ChatInput({
               <ChatEditor
                 label={label}
                 placeholder={placeholder}
-                initialTraces={initialTraces}
+                initialReferences={initialReferences}
                 handle={message.editor}
                 editable={!pending && !disabled}
                 disabled={disabled}

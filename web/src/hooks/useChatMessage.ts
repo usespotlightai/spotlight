@@ -8,18 +8,22 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import { $spacedReferences } from '@/components/shared/chat-input/ReferenceNode';
 import { useAttachments } from '@/hooks/useAttachments';
-import type { SharedTrace } from '@/lib/chat';
-import { type Outgoing, traceReference, type Written } from '@/lib/chat-input';
+import {
+  type Outgoing,
+  type Reference,
+  stationImprovedBy,
+  type Written,
+} from '@/lib/chat-input';
 
 export function useChatMessage(
   slug: string,
-  initialTraces: readonly SharedTrace[],
+  initialReferences: readonly Reference[],
 ) {
   const draft = useAttachments(slug);
   const editor = useRef<LexicalEditor | null>(null);
   const [written, setWritten] = useState<Written>(() => ({
     text: '',
-    references: initialTraces.map(traceReference),
+    references: initialReferences,
   }));
 
   const placed = new Set(
@@ -38,6 +42,7 @@ export function useChatMessage(
       each.state === 'ready' ? [each.id] : [],
     ),
     traces: traced.map((each) => each.key),
+    improving: stationImprovedBy(written.references),
   };
 
   const states = useMemo(
@@ -81,7 +86,8 @@ export function useChatMessage(
     blank:
       !outgoing.body &&
       outgoing.attachments.length === 0 &&
-      outgoing.traces.length === 0,
+      outgoing.traces.length === 0 &&
+      outgoing.improving === null,
     uploading: included.some((each) => each.state === 'uploading'),
     images: draft.attachments.filter((each) => each.image !== null),
     states,
