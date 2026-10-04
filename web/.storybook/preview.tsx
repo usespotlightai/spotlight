@@ -23,6 +23,7 @@ const preview: Preview = {
           'Inbox',
           [
             'Items',
+            'Approvals',
             'Setup steps',
             'Proposed memories',
             'Grade a run',

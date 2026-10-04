@@ -47,7 +47,7 @@ export class ChatRunWork implements RunWork {
           kind: 'refused',
           reason: `${declared.tool.value} has to be approved by a person on a task, and a chat has nobody to put it to.`,
         }
-      : { kind: 'given', returned: async () => {} };
+      : { kind: 'given', edited: null, returned: async () => {} };
   }
 
   async clearPermission(): Promise<PermissionCleared> {

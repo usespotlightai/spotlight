@@ -1,4 +1,7 @@
-import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
+import type {
+  ApprovalDecision,
+  ApprovalEdits,
+} from '@work/domain/value-objects/approval.vo';
 
 export class AnswerInboxItemCommand {
   constructor(
@@ -7,5 +10,6 @@ export class AnswerInboxItemCommand {
     readonly body: string,
     readonly attachments: readonly string[] = [],
     readonly decision: ApprovalDecision | null = null,
+    readonly edits: ApprovalEdits | null = null,
   ) {}
 }

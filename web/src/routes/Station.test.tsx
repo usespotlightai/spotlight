@@ -397,10 +397,10 @@ describe('Station', () => {
     expect(screen.getByLabelText('Harness')).toHaveTextContent('Claude Code');
   });
 
-  it('says nobody works the station where no harness is set', () => {
+  it('says no agent works the station where no harness is set', () => {
     renderAt('station_1');
 
-    expect(screen.getByLabelText('Harness')).toHaveTextContent('Nobody');
+    expect(screen.getByLabelText('Harness')).toHaveTextContent('No agent');
   });
 
   it('shows the repositories the line works in', () => {

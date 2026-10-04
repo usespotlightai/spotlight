@@ -43,7 +43,9 @@ import { anyUnread } from '@work/domain/services/unread';
 import {
   Approval,
   type ApprovalDecision,
+  type ApprovalEdits,
 } from '@work/domain/value-objects/approval.vo';
+import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -74,6 +76,7 @@ import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import type { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -1087,6 +1090,7 @@ export class Task extends EventRecorder {
     needed: ApprovalNeeded,
     asking: Saying,
     by: RunId,
+    intent: ApprovalIntent | null,
   ): Cleared {
     this.refuseAnotherRun(by, 'use a tool on it');
 
@@ -1107,7 +1111,11 @@ export class Task extends EventRecorder {
         task: this.withApprovalAt(standing.at, (note) =>
           note.approvalClaimed(),
         ),
-        clearance: { kind: 'given', claimed: standing.at },
+        clearance: {
+          kind: 'given',
+          claimed: standing.at,
+          edited: standing.approval.goesAheadWith,
+        },
       };
     }
 
@@ -1119,7 +1127,12 @@ export class Task extends EventRecorder {
       task: this.putToAPersonBy(by, {
         ...asking,
         form: 'approval',
-        approval: Approval.asked(subject, this.stationId, needed.because),
+        approval: Approval.asked(
+          subject,
+          this.stationId,
+          needed.because,
+          intent,
+        ),
       }),
       clearance: { kind: 'asked' },
     };
@@ -1142,10 +1155,27 @@ export class Task extends EventRecorder {
     return null;
   }
 
+  changesAt(
+    from: NotePosition,
+    decision: ApprovalDecision | null,
+    edits: ApprovalEdits | null,
+  ): ToolCall | null {
+    if (
+      this.openConversation?.from !== from.value ||
+      decision !== 'granted' ||
+      !edits
+    ) {
+      return null;
+    }
+
+    return this.notes[from.value]?.approval?.changedBy(edits) ?? null;
+  }
+
   answered(
     from: NotePosition,
     saying: Saying,
     decision: ApprovalDecision | null = null,
+    edits: ApprovalEdits | null = null,
   ): Task {
     if (this.openConversation?.from !== from.value) {
       throw new InvalidTaskTransitionError(
@@ -1161,9 +1191,15 @@ export class Task extends EventRecorder {
       );
     }
 
+    if (edits && !decision) {
+      throw new InvalidApprovalAnswerError(
+        'only takes changes to what it runs alongside a decision to run it',
+      );
+    }
+
     if (decision && !by) {
       throw new InvalidApprovalAnswerError(
-        'can only be approved or rejected by a person',
+        'can only be approved or dismissed by a person',
       );
     }
 
@@ -1204,11 +1240,15 @@ export class Task extends EventRecorder {
 
     return decision && by
       ? answered.withApprovalAt(from, (note) =>
-          note.decided(decision, {
-            by,
-            at: saying.at,
-            reason: saying.body.value,
-          }),
+          note.decided(
+            decision,
+            {
+              by,
+              at: saying.at,
+              reason: saying.body.value,
+            },
+            edits,
+          ),
         )
       : answered;
   }

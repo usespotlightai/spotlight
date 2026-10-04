@@ -27,6 +27,8 @@ export interface InboxApproval {
   readonly because: string;
   readonly inputs: readonly InboxApprovalInput[];
   readonly standing: ApprovalStanding;
+  readonly edited: readonly InboxApprovalInput[] | null;
+  readonly intent: string | null;
 }
 
 export interface InboxFailure {

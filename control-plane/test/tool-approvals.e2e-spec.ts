@@ -5,6 +5,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
@@ -92,6 +93,7 @@ describe('an approval a run asked for', () => {
           voice: Voice.station(runId),
         },
         runId,
+        null,
       ).task,
     );
 
@@ -209,6 +211,7 @@ describe('an approval a run asked for', () => {
         voice: Voice.station(runId),
       },
       runId,
+      null,
     );
     expect(clearance.kind).toBe('given');
     await tasks.save(claimed);
@@ -255,6 +258,7 @@ describe('an approval a run asked for', () => {
           voice: Voice.station(runId),
         },
         runId,
+        null,
       );
 
     const [one, other] = await Promise.all([claiming(), claiming()]);
@@ -267,6 +271,71 @@ describe('an approval a run asked for', () => {
       TaskMovedOnError,
     );
     expect((await readBack(task)).approvalFor(CALL)?.approval.spent).toBe(true);
+  });
+
+  it('is read back granted with the person’s changes, typed as asked', async () => {
+    const { task, owner } = await asking(
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('queue.drain'),
+          ToolInputs.of({ queue: 'retries', limit: 500 }),
+        ),
+      ),
+    );
+    const at =
+      task.notes[task.notes.length - 1]?.position ?? NotePosition.of(0);
+
+    await tasks.save(
+      task.answered(
+        at,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approved.'),
+          at: NOW,
+          voice: Voice.person(owner),
+        },
+        'granted',
+        { queue: 'retries', limit: '100' },
+      ),
+    );
+
+    const edited = (await readBack(task)).notes[at.value]?.approval?.edited;
+    expect(edited?.tool.value).toBe('queue.drain');
+    expect(edited?.inputs.values).toEqual({ queue: 'retries', limit: 100 });
+  });
+
+  it('is read back with what the agent said it wants to do', async () => {
+    const { list } = await openTeam(db, tasks, `approvals-${randomUUID()}`);
+    const runId = RunId.of(randomUUID());
+
+    await tasks.save(
+      list.settled({
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Set up.'),
+        at: NOW,
+        voice: Voice.station(),
+      }),
+    );
+    const settled = await readBack(list);
+
+    await tasks.save(
+      Task.rehydrate({ ...settled, currentRunId: runId }).clearFor(
+        CALL,
+        NEEDED,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approve linear.comment?'),
+          at: NOW,
+          voice: Voice.station(runId),
+        },
+        runId,
+        ApprovalIntent.said('post the fix on ENG-12'),
+      ).task,
+    );
+
+    expect(
+      (await readBack(settled)).approvalFor(CALL)?.approval.intent?.value,
+    ).toBe('post the fix on ENG-12');
   });
 
   it('is read back refused, and stays refused', async () => {

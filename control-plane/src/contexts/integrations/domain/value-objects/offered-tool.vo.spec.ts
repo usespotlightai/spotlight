@@ -1,4 +1,5 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
+import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import {
   OfferedTool,
   type OfferedToolInput,
@@ -52,6 +53,25 @@ describe('OfferedTool', () => {
     expect(() => offered([input({ name: 'Body' })])).toThrow(
       InvalidIntegrationError,
     );
+  });
+
+  it('refuses a tool needing approval that takes intent, which the agent says what it wants to do in', () => {
+    const offering = (approval: ApprovalNeeded | null) =>
+      OfferedTool.of({
+        source: SourceKey.of('linear'),
+        name: 'comment',
+        description: 'Comment on the issue.',
+        inputs: [input({ name: 'intent' })],
+        does: 'comment',
+        approval,
+      });
+
+    expect(() =>
+      offering(
+        ApprovalNeeded.of({ because: 'It posts publicly.' }, 'linear.comment'),
+      ),
+    ).toThrow(/keeps for the agent/);
+    expect(offering(null).inputs.map((each) => each.name)).toEqual(['intent']);
   });
 
   it('refuses more than one piped input, or one that is not text', () => {

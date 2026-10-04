@@ -197,6 +197,7 @@ describe('a task put to a person by the run that holds it', () => {
       ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
       said('Approve linear.comment?', Voice.station(RUN)),
       RUN,
+      null,
     ).task;
 
     const spoken = approving.spokenTo(

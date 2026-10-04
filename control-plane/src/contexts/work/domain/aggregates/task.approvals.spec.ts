@@ -7,6 +7,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
+import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
@@ -100,7 +101,7 @@ const working = () =>
   );
 
 const clear = (task: Task, call: ApprovalSubject = CALL) =>
-  task.clearFor(call, NEEDED, asking(), RUN);
+  task.clearFor(call, NEEDED, asking(), RUN, null);
 
 const askedOnce = () => {
   const asked = clear(working()).task;
@@ -115,7 +116,7 @@ const askedOnce = () => {
 
 const decided = (
   decision: 'granted' | 'refused',
-  words = decision === 'granted' ? 'Approved.' : 'Rejected.',
+  words = decision === 'granted' ? 'Approved.' : 'Dismissed.',
 ) => {
   const { asked, at } = askedOnce();
 
@@ -147,6 +148,28 @@ describe('clearing a tool call that needs approval', () => {
 
     expect(kindOf(again.clearance)).toBe('asked');
     expect(again.task.notes).toHaveLength(asked.notes.length);
+  });
+
+  it('keeps what the agent first said it wants to do while a person still owes an answer', () => {
+    const asked = working().clearFor(
+      CALL,
+      NEEDED,
+      asking(),
+      RUN,
+      ApprovalIntent.said('post the fix on ENG-12'),
+    ).task;
+
+    const again = asked.clearFor(
+      CALL,
+      NEEDED,
+      asking(),
+      RUN,
+      ApprovalIntent.said('post something else'),
+    ).task;
+
+    expect(again.approvalFor(CALL)?.approval.intent?.value).toBe(
+      'post the fix on ENG-12',
+    );
   });
 
   it('claims a grant as it gives it, so a second call finds nothing to use', () => {
@@ -272,7 +295,7 @@ describe('deciding an approval', () => {
     const { task, at } = decided('granted');
 
     expect(() =>
-      task.answered(at, person('Rejected.', 'user_2'), 'refused'),
+      task.answered(at, person('Dismissed.', 'user_2'), 'refused'),
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
   });
 
@@ -303,7 +326,7 @@ describe('deciding an approval', () => {
       }
 
       return asked
-        .answered(at, person('Rejected.'), 'refused')
+        .answered(at, person('Dismissed.'), 'refused')
         .pullEvents()
         .find((each): each is TaskActedOn => each instanceof TaskActedOn)?.tool;
     };
@@ -367,5 +390,155 @@ describe('deciding an approval', () => {
     const answered = asked.answered(at, person('Mention the ticket.'));
 
     expect(answered.approvalFor(CALL)?.approval.open).toBe(true);
+  });
+});
+
+describe('approving a tool call with changes', () => {
+  const edited = (edits: Readonly<Record<string, string>>) => {
+    const { asked, at } = askedOnce();
+
+    return heldAt(asked.answered(at, person('Approved.'), 'granted', edits));
+  };
+  const EDITED = ApprovalSubject.toolCall(
+    ToolCall.of(
+      Tool.of('linear.comment'),
+      ToolInputs.of({ issue: 'ENG-12', body: 'Fixed in #41.' }),
+    ),
+  );
+
+  it('gives the call as asked, to run with the person’s inputs instead', () => {
+    const { clearance } = clear(
+      edited({ issue: 'ENG-12', body: 'Fixed in #41.' }),
+    );
+
+    expect(clearance.kind === 'given' && clearance.edited?.values).toEqual({
+      issue: 'ENG-12',
+      body: 'Fixed in #41.',
+    });
+  });
+
+  it('gives it too where the agent calls with the inputs the person chose', () => {
+    const { clearance } = clear(
+      edited({ issue: 'ENG-12', body: 'Fixed in #41.' }),
+      EDITED,
+    );
+
+    expect(kindOf(clearance)).toBe('given');
+  });
+
+  it('records nothing changed where the person left every input as it was', () => {
+    const task = edited({ issue: 'ENG-12', body: 'Fixed.' });
+    const { clearance } = clear(task);
+
+    expect(task.approvalFor(CALL)?.approval.edited).toBeNull();
+    expect(clearance.kind === 'given' && clearance.edited).toBeNull();
+  });
+
+  it('types each change as the input it replaces', () => {
+    const asked = ApprovalSubject.toolCall(
+      ToolCall.of(
+        Tool.of('queue.drain'),
+        ToolInputs.of({ queue: 'retries', limit: 500, dry: true }),
+      ),
+    );
+    const task = clear(working(), asked).task;
+    const at = task.approvalFor(asked)?.at;
+
+    if (!at) {
+      throw new Error('nothing was asked');
+    }
+
+    const granted = heldAt(
+      task.answered(at, person('Approved.'), 'granted', {
+        queue: 'retries',
+        limit: '100',
+        dry: 'false',
+      }),
+    );
+    const { clearance } = clear(granted, asked);
+
+    expect(clearance.kind === 'given' && clearance.edited?.values).toEqual({
+      queue: 'retries',
+      limit: 100,
+      dry: false,
+    });
+  });
+
+  it('refuses changes that name other inputs than it asked with', () => {
+    const { asked, at } = askedOnce();
+
+    expect(() =>
+      asked.answered(at, person('Approved.'), 'granted', { body: 'Hi.' }),
+    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    expect(() =>
+      asked.answered(at, person('Approved.'), 'granted', {
+        issue: 'ENG-12',
+        body: 'Hi.',
+        title: 'Extra',
+      }),
+    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+  });
+
+  it('refuses an input left blank, which would run with something else', () => {
+    const { asked, at } = askedOnce();
+
+    expect(() =>
+      asked.answered(at, person('Approved.'), 'granted', {
+        issue: 'ENG-12',
+        body: '  ',
+      }),
+    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+  });
+
+  it('refuses a change that is not a value of the kind asked', () => {
+    const asked = ApprovalSubject.toolCall(
+      ToolCall.of(Tool.of('queue.drain'), ToolInputs.of({ limit: 500 })),
+    );
+    const task = clear(working(), asked).task;
+    const at = task.approvalFor(asked)?.at;
+
+    if (!at) {
+      throw new Error('nothing was asked');
+    }
+
+    expect(() =>
+      task.answered(at, person('Approved.'), 'granted', { limit: 'lots' }),
+    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+  });
+
+  it('refuses changes to a rejection, or to words that decide nothing', () => {
+    const { asked, at } = askedOnce();
+    const edits = { issue: 'ENG-12', body: 'Hi.' };
+
+    expect(() =>
+      asked.answered(at, person('Dismissed.'), 'refused', edits),
+    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    expect(() => asked.answered(at, person('Hmm.'), null, edits)).toThrowError(
+      expect.objectContaining({ violation: 'conflict' }),
+    );
+  });
+
+  it('refuses changes to what a harness asked, which only takes a yes or a no', () => {
+    const permission = ApprovalSubject.harnessPermission(
+      HarnessPermission.asked({
+        harness: HarnessId.of('claude-code'),
+        kind: 'execute',
+        title: 'kubectl logs api',
+        input: undefined,
+        tool: null,
+      }),
+    );
+    const task = clear(working(), permission).task;
+    const at = task.approvalFor(permission)?.at;
+
+    if (!at) {
+      throw new Error('nothing was asked');
+    }
+
+    expect(() =>
+      task.answered(at, person('Approved.'), 'granted', {
+        title: 'kubectl logs web',
+      }),
+    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
   });
 });

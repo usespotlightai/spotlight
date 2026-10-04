@@ -17,7 +17,7 @@ export const agentName = (
   const efforts = offered?.efforts ?? [];
   const shownEffort = efforts.length > 0 && effort ? capitalized(effort) : '';
 
-  return [offered?.name ?? 'Nobody', modelName, shownEffort]
+  return [offered?.name ?? 'No agent', modelName, shownEffort]
     .filter(Boolean)
     .join(' ');
 };

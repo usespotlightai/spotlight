@@ -1,6 +1,7 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import { WORDS } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export const TOOL_INPUT_TYPES = ['string', 'number', 'boolean'] as const;
@@ -69,6 +70,12 @@ export class OfferedTool {
 
     if (new Set(names).size !== names.length) {
       throw refuse('takes one input twice');
+    }
+
+    if (input.approval && names.includes(APPROVAL_INTENT_INPUT)) {
+      throw refuse(
+        `needs approval and takes ${APPROVAL_INTENT_INPUT}, which Spotlight keeps for the agent to say what it wants to do`,
+      );
     }
 
     const piped = inputs.filter((each) => each.piped);

@@ -2,7 +2,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { Conversation } from '@/components/features/inbox/conversation/Conversation';
+import {
+  Conversation,
+  type Deciding,
+} from '@/components/features/inbox/conversation/Conversation';
 import { type InboxMessage, openedAt } from '@/lib/inbox';
 
 vi.mock('@/hooks/api/useSession', () => ({
@@ -52,12 +55,11 @@ const APPROVAL = {
     { name: 'body', value: 'Fixed in #41.' },
   ],
   standing: 'asked' as const,
+  edited: null,
+  intent: null,
 };
 
-const showing = (
-  notes: ReturnType<typeof note>[],
-  deciding?: { pending: boolean; onDecide: (approve: boolean) => void },
-) =>
+const showing = (notes: ReturnType<typeof note>[], deciding?: Deciding) =>
   render(
     <MemoryRouter>
       <Conversation
@@ -104,38 +106,32 @@ describe('Conversation', () => {
     expect(screen.getAllByText(openedAt(LATER))).toHaveLength(1);
   });
 
-  it('puts a tool call up for a decision, with what it would be called with', () => {
+  it('puts a tool call up as the action itself, ready to run', () => {
     showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }], {
       pending: false,
+      failure: null,
       onDecide: vi.fn(),
     });
 
-    expect(
-      screen.getByText('linear.comment needs your approval'),
-    ).toBeInTheDocument();
-    expect(screen.getByText(APPROVAL.because)).toBeInTheDocument();
     expect(screen.getByText('Fixed in #41.')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     ).toBeInTheDocument();
   });
 
-  it('says what the person decided instead of asking again', () => {
-    showing(
-      [
-        {
-          ...note(0, AT),
-          form: 'approval',
-          approval: { ...APPROVAL, standing: 'granted' },
-        },
-      ],
-      { pending: false, onDecide: vi.fn() },
+  it('hands what the person decided back to whoever answers it', async () => {
+    const onDecide = vi.fn();
+    showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }], {
+      pending: false,
+      failure: null,
+      onDecide,
+    });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(screen.getByText('You approved this.')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Approve linear.comment' }),
-    ).not.toBeInTheDocument();
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, said: '' });
   });
 
   it('shows the tool call without a decision to make where nobody can make one', () => {
@@ -147,25 +143,5 @@ describe('Conversation', () => {
     expect(
       screen.queryByRole('button', { name: 'Approve linear.comment' }),
     ).not.toBeInTheDocument();
-  });
-
-  it('hands the decision back with the reasoning given for it', async () => {
-    const onDecide = vi.fn();
-    showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }], {
-      pending: false,
-      onDecide,
-    });
-
-    await userEvent.type(
-      screen.getByRole('textbox', {
-        name: 'What to say about linear.comment',
-      }),
-      'Not before the release.',
-    );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Reject linear.comment' }),
-    );
-
-    expect(onDecide).toHaveBeenCalledWith(false, 'Not before the release.');
   });
 });

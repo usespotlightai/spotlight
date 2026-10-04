@@ -138,6 +138,7 @@ describe('TaskBindings', () => {
         voice: Voice.station(RunId.of('run_1')),
       },
       RunId.of('run_1'),
+      null,
     ).task;
 
     const bound = await binding().of(asked);

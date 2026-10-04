@@ -51,6 +51,8 @@ export interface ApprovalRow {
   readonly decidedAt: string | null;
   readonly reason: string | null;
   readonly spent: boolean;
+  readonly edited?: Readonly<Record<string, string | number | boolean>> | null;
+  readonly intent?: string | null;
 }
 
 export type HeldBackRow =

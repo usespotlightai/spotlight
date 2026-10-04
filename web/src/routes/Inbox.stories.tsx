@@ -15,8 +15,8 @@ import {
   OPENED_ITEM_ID,
   SLUG,
   seedApproved,
+  seedDismissed,
   seedInbox,
-  seedRejected,
   seedSettledNotice,
 } from '@/stories/fixtures/inbox';
 import { StoryPage } from '@/stories/StoryPage';
@@ -84,9 +84,9 @@ export const Approved: Story = {
   ),
 };
 
-export const Rejected: Story = {
+export const Dismissed: Story = {
   render: () => (
-    <StoryPage at={inboxItemPath(SLUG, APPROVAL_ITEM_ID)} seed={seedRejected}>
+    <StoryPage at={inboxItemPath(SLUG, APPROVAL_ITEM_ID)} seed={seedDismissed}>
       {routes}
     </StoryPage>
   ),

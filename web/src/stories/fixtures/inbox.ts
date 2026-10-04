@@ -208,6 +208,9 @@ const INBOX: InboxItemResponseDto[] = [
             },
           ],
           standing: 'asked',
+          edited: null,
+          intent:
+            'post the drain summary on the issue, publicly under the team’s name',
         },
       }),
     ],
@@ -508,7 +511,7 @@ export const seedApproved = (client: QueryClient) => {
   ]);
 };
 
-export const seedRejected = (client: QueryClient) => {
+export const seedDismissed = (client: QueryClient) => {
   seedInbox(client);
   client.setQueryData(inboxKeys.forWorkspace(SLUG), [
     NOTICE,

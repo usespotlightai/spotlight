@@ -2,7 +2,10 @@ import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo'
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
-import type { ApprovalSubjectRow } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import type {
+  ApprovalRow,
+  ApprovalSubjectRow,
+} from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 
 export const toApprovalSubject = (row: ApprovalSubjectRow): ApprovalSubject =>
   row.kind === 'tool-call'
@@ -35,3 +38,8 @@ export const toApprovalSubjectRow = (
         : null,
     }),
   });
+
+export const toEditedCall = (row: ApprovalRow): ToolCall | null =>
+  row.edited && row.subject.kind === 'tool-call'
+    ? ToolCall.rehydrate({ tool: row.subject.tool, inputs: row.edited })
+    : null;

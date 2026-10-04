@@ -2431,7 +2431,7 @@
             "description": "No such conversation for this caller"
           },
           "409": {
-            "description": "Only a conversation waiting on a tool call can be approved or rejected"
+            "description": "Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it asked with"
           }
         },
         "summary": "Answer what a conversation is waiting on, and let it carry on",
@@ -25437,6 +25437,20 @@
               "granted",
               "refused"
             ]
+          },
+          "edited": {
+            "nullable": true,
+            "description": "What it was approved to run with instead, where the person changed it",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxApprovalInputResponseDto"
+            }
+          },
+          "intent": {
+            "type": "string",
+            "nullable": true,
+            "example": "post the drain summary on ENG-412, publicly under the team’s name",
+            "description": "What the agent said it wants to do, completing “Spotlight would like to …”; absent where it said nothing, as a harness asking permission never does"
           }
         },
         "required": [
@@ -25444,7 +25458,9 @@
           "name",
           "because",
           "inputs",
-          "standing"
+          "standing",
+          "edited",
+          "intent"
         ]
       },
       "InboxMessageResponseDto": {
@@ -25804,6 +25820,23 @@
           "resolved"
         ]
       },
+      "AnswerInboxItemInputRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "body"
+          },
+          "value": {
+            "type": "string",
+            "example": "Fixed in #41."
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
       "AnswerInboxItemRequestDto": {
         "type": "object",
         "properties": {
@@ -25822,6 +25855,13 @@
           "approve": {
             "type": "boolean",
             "description": "Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else."
+          },
+          "inputs": {
+            "description": "With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it asked with; a harness asking permission takes no changes.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnswerInboxItemInputRequestDto"
+            }
           }
         },
         "required": [

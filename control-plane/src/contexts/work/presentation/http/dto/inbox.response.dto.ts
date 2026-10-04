@@ -80,6 +80,25 @@ export class InboxApprovalResponseDto {
   @ApiProperty({ example: 'asked', enum: [...APPROVAL_STANDING] })
   readonly standing: string;
 
+  @ApiProperty({
+    type: InboxApprovalInputResponseDto,
+    isArray: true,
+    nullable: true,
+    description:
+      'What it was approved to run with instead, where the person changed it',
+  })
+  readonly edited: readonly InboxApprovalInputResponseDto[] | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example:
+      'post the drain summary on ENG-412, publicly under the team’s name',
+    description:
+      'What the agent said it wants to do, completing “Spotlight would like to …”; absent where it said nothing, as a harness asking permission never does',
+  })
+  readonly intent: string | null;
+
   constructor(approval: InboxApprovalDto) {
     this.kind = approval.kind;
     this.name = approval.name;
@@ -88,6 +107,11 @@ export class InboxApprovalResponseDto {
       (input) => new InboxApprovalInputResponseDto(input.name, input.value),
     );
     this.standing = approval.standing;
+    this.edited =
+      approval.edited?.map(
+        (input) => new InboxApprovalInputResponseDto(input.name, input.value),
+      ) ?? null;
+    this.intent = approval.intent;
   }
 }
 
@@ -519,6 +543,14 @@ export const INBOX_ENTRY_SCHEMA = {
   },
 };
 
+export class AnswerInboxItemInputRequestDto {
+  @ApiProperty({ example: 'body' })
+  readonly name!: string;
+
+  @ApiProperty({ example: 'Fixed in #41.' })
+  readonly value!: string;
+}
+
 export class AnswerInboxItemRequestDto {
   @ApiProperty({
     example: 'Drain the queue before retrying, and cap it at 500.',
@@ -540,4 +572,12 @@ export class AnswerInboxItemRequestDto {
       'Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.',
   })
   readonly approve?: boolean;
+
+  @ApiPropertyOptional({
+    type: AnswerInboxItemInputRequestDto,
+    isArray: true,
+    description:
+      'With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it asked with; a harness asking permission takes no changes.',
+  })
+  readonly inputs?: AnswerInboxItemInputRequestDto[];
 }

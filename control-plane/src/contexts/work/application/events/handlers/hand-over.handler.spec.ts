@@ -529,6 +529,7 @@ describe('HandOver', () => {
           voice: Voice.station(RunId.of('run_1')),
         },
         RunId.of('run_1'),
+        null,
       ).task;
 
       return asked.answered(
