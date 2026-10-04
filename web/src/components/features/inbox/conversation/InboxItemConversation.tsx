@@ -60,13 +60,14 @@ export function InboxItemConversation({
           worked={worked}
           deciding={{
             pending: answer.isPending,
-            onDecide: (approve, said) =>
+            onDecide: ({ approve, said, inputs }) =>
               answer.mutate({
                 slug,
                 itemId: item.id,
                 body: said,
                 attachments: [],
                 approve,
+                inputs,
               }),
           }}
           openAt={shownAt(item.notes, params.get('run'))}

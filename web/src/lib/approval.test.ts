@@ -1,0 +1,114 @@
+import { describe, expect, it } from 'vitest';
+import {
+  type Approval,
+  askedFor,
+  blanked,
+  changedNames,
+  copyText,
+  differs,
+  editable,
+  labelOf,
+  readsAsCode,
+  shownInputs,
+} from '@/lib/approval';
+
+const COMMENT: Approval = {
+  kind: 'tool-call',
+  name: 'linear.comment',
+  because: 'It posts publicly, under the team’s name.',
+  inputs: [
+    { name: 'body', value: 'Fixed.' },
+    { name: 'issue', value: 'ENG-12' },
+  ],
+  standing: 'asked',
+  edited: null,
+  intent: null,
+};
+
+const EXECUTE: Approval = {
+  kind: 'harness-permission',
+  name: 'claude-code execute',
+  because: 'The harness asked before doing it.',
+  inputs: [
+    { name: 'title', value: 'kubectl logs deploy/api --since=1h' },
+    {
+      name: 'input',
+      value: '{"command":"kubectl logs deploy/api --since=1h"}',
+    },
+  ],
+  standing: 'asked',
+  edited: null,
+  intent: null,
+};
+
+describe('approval', () => {
+  it('lets a tool call be changed, never what a harness asked', () => {
+    expect(editable(COMMENT)).toBe(true);
+    expect(editable(EXECUTE)).toBe(false);
+    expect(editable({ ...COMMENT, inputs: [] })).toBe(false);
+  });
+
+  it('reads a command as code, and words as words', () => {
+    expect(readsAsCode(EXECUTE, { name: 'title', value: 'ls' })).toBe(true);
+    expect(
+      readsAsCode(
+        { ...EXECUTE, name: 'claude-code edit' },
+        { name: 'title', value: 'Edit src/queue.ts' },
+      ),
+    ).toBe(false);
+    expect(readsAsCode(COMMENT, { name: 'body', value: 'Fixed.' })).toBe(false);
+    expect(readsAsCode(COMMENT, { name: 'command', value: 'ls' })).toBe(true);
+  });
+
+  it('names no label over what a harness says it would do', () => {
+    expect(labelOf(EXECUTE, { name: 'title', value: 'ls' })).toBeNull();
+    expect(labelOf(COMMENT, { name: 'body', value: 'Fixed.' })).toBe('body');
+  });
+
+  it('shows what it was approved to run with, and which inputs the person changed', () => {
+    const edited = {
+      ...COMMENT,
+      standing: 'granted' as const,
+      edited: [
+        { name: 'body', value: 'Fixed in #41.' },
+        { name: 'issue', value: 'ENG-12' },
+      ],
+    };
+
+    expect(shownInputs(edited)).toBe(edited.edited);
+    expect([...changedNames(edited)]).toEqual(['body']);
+    expect(changedNames(COMMENT).size).toBe(0);
+  });
+
+  it('tells a change from leaving every input as it was', () => {
+    expect(differs(COMMENT.inputs, { body: 'Fixed.', issue: 'ENG-12' })).toBe(
+      false,
+    );
+    expect(differs(COMMENT.inputs, { body: 'Done.', issue: 'ENG-12' })).toBe(
+      true,
+    );
+  });
+
+  it('tells an input left blank, where it was asked with a value', () => {
+    expect(blanked(COMMENT.inputs, { body: ' ' })).toBe(true);
+    expect(blanked(COMMENT.inputs, { body: 'Done.' })).toBe(false);
+    expect(blanked([{ name: 'note', value: '' }], { note: '' })).toBe(false);
+  });
+
+  it('says what Spotlight would like to do, in the agent’s words where it gave them', () => {
+    expect(askedFor({ ...COMMENT, intent: 'post the fix on ENG-12' })).toBe(
+      'Spotlight would like to post the fix on ENG-12.',
+    );
+    expect(askedFor(COMMENT)).toBe(
+      'Spotlight would like to use linear.comment. It posts publicly, under the team’s name.',
+    );
+  });
+
+  it('copies the command alone, one input as itself, and several by name', () => {
+    expect(copyText(EXECUTE)).toBe('kubectl logs deploy/api --since=1h');
+    expect(
+      copyText({ ...COMMENT, inputs: [{ name: 'body', value: 'Fixed.' }] }),
+    ).toBe('Fixed.');
+    expect(copyText(COMMENT)).toBe('body: Fixed.\nissue: ENG-12');
+  });
+});

@@ -23,6 +23,7 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { openSetupList } from '@work/domain/services/setup-list';
 import { Approval } from '@work/domain/value-objects/approval.vo';
+import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -45,6 +46,7 @@ import { claimAttachments } from '@work/infrastructure/persistence/drizzle/attac
 import {
   toApprovalSubject,
   toApprovalSubjectRow,
+  toEditedCall,
 } from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
 import {
   line,
@@ -88,6 +90,8 @@ const toApproval = (row: ApprovalRow): Approval =>
           }
         : null,
     spent: row.spent,
+    edited: toEditedCall(row),
+    intent: row.intent ? ApprovalIntent.rehydrate(row.intent) : null,
   });
 
 const toApprovalRow = (approval: Approval): ApprovalRow => ({
@@ -99,6 +103,8 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
   decidedAt: approval.decided?.at.toISOString() ?? null,
   reason: approval.decided?.reason ?? null,
   spent: approval.spent,
+  edited: approval.edited?.inputs.values ?? null,
+  intent: approval.intent?.value ?? null,
 });
 
 const toHeldBack = (row: HeldBackRow): HeldBack =>

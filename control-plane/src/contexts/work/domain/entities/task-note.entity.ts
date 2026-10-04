@@ -2,6 +2,7 @@ import { unread } from '@work/domain/services/unread';
 import type {
   Approval,
   ApprovalDecision,
+  ApprovalEdits,
   Decided,
 } from '@work/domain/value-objects/approval.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -111,9 +112,13 @@ export class TaskNote {
     return this.open ? this.with({ answeredAt: at }) : this;
   }
 
-  decided(decision: ApprovalDecision, decided: Decided): TaskNote {
+  decided(
+    decision: ApprovalDecision,
+    decided: Decided,
+    edits: ApprovalEdits | null,
+  ): TaskNote {
     return this.approval
-      ? this.with({ approval: this.approval.decide(decision, decided) })
+      ? this.with({ approval: this.approval.decide(decision, decided, edits) })
       : this;
   }
 

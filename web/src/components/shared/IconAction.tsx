@@ -10,6 +10,7 @@ type IconActionProps = {
   label: string;
   tip?: ReactNode;
   pressed?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   children: ReactNode;
 };
@@ -18,6 +19,7 @@ export function IconAction({
   label,
   tip,
   pressed,
+  disabled,
   onClick,
   children,
 }: IconActionProps) {
@@ -29,9 +31,10 @@ export function IconAction({
             type="button"
             aria-label={label}
             aria-pressed={pressed}
+            disabled={disabled}
             onClick={onClick}
             className={cn(
-              'flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3.5',
+              'flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-3.5',
               pressed && 'bg-accent text-foreground',
             )}
           >

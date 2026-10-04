@@ -68,12 +68,14 @@ export class UseToolHandler
         throw new UnknownToolError(tool.value);
       }
 
-      const inputs = reachable.declared.accept(command.input, (input) =>
+      const { intent, rest } = reachable.declared.intentIn(command.input);
+      const asked = reachable.declared.accept(rest, (input) =>
         reachable.defaultFor(input),
       );
       const cleared = await work.clearFor(
         reachable.declared,
-        ToolCall.of(tool, inputs),
+        ToolCall.of(tool, asked),
+        intent,
       );
 
       if (cleared.kind === 'asked') {
@@ -84,7 +86,15 @@ export class UseToolHandler
         throw new ToolApprovalRefusedError(tool.value, cleared.reason);
       }
 
+      let inputs = asked;
+
       try {
+        if (cleared.edited) {
+          inputs = reachable.declared.accept(cleared.edited.values, (input) =>
+            reachable.defaultFor(input),
+          );
+        }
+
         const hooked = await this.hookedTaskOf(run);
         const verdict: HookVerdict = hooked
           ? await this.hooks.before(hooked, {

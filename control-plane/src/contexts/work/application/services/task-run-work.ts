@@ -16,6 +16,7 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoryWorkedOnNamed } from '@work/domain/services/task-checkouts';
+import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -64,11 +65,15 @@ export class TaskRunWork implements RunWork {
     return line ? repositoryWorkedOnNamed(name, this.task, line) : null;
   }
 
-  async clearFor(declared: DeclaredTool, call: ToolCall): Promise<Cleared> {
+  async clearFor(
+    declared: DeclaredTool,
+    call: ToolCall,
+    intent: ApprovalIntent | null,
+  ): Promise<Cleared> {
     const needed = declared.approval;
 
     if (!needed) {
-      return { kind: 'given', returned: async () => {} };
+      return { kind: 'given', edited: null, returned: async () => {} };
     }
 
     const line = await this.lines.holding(this.task.stationId);
@@ -83,6 +88,7 @@ export class TaskRunWork implements RunWork {
         voice: Voice.station(this.run.id),
       },
       this.run.id,
+      intent,
     );
 
     if (clearance.kind === 'refused') {
@@ -95,6 +101,7 @@ export class TaskRunWork implements RunWork {
       ? clearance
       : {
           kind: 'given',
+          edited: clearance.edited,
           returned: () => this.returned(task, clearance.claimed),
         };
   }

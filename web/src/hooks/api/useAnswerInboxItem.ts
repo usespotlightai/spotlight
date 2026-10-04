@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { answerInboxItem } from '@/lib/api';
+import type { ApprovalInput } from '@/lib/approval';
 
 type AnswerInboxItemInput = {
   slug: string;
@@ -8,6 +9,7 @@ type AnswerInboxItemInput = {
   body: string;
   attachments: string[];
   approve?: boolean;
+  inputs?: readonly ApprovalInput[];
 };
 
 export function useAnswerInboxItem() {
@@ -20,6 +22,7 @@ export function useAnswerInboxItem() {
       body,
       attachments,
       approve,
+      inputs,
     }: AnswerInboxItemInput) => {
       await answerInboxItem({
         path: { slug, itemId },
@@ -27,6 +30,7 @@ export function useAnswerInboxItem() {
           body,
           attachments,
           ...(approve === undefined ? {} : { approve }),
+          ...(inputs ? { inputs: [...inputs] } : {}),
         },
         throwOnError: true,
       });

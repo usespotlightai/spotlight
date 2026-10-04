@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { ApprovalDecision } from '@/components/features/inbox/conversation/ApprovalDecision';
+import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
 import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
@@ -111,14 +111,10 @@ export function InboxMessage({
       {worked.length > 0 && <InboxWork journals={worked} />}
 
       {approval ? (
-        <ApprovalDecision
+        <ApprovalCard
           approval={approval}
           pending={deciding?.pending ?? false}
-          onDecide={
-            deciding
-              ? (approve, said) => deciding.onDecide(approve, said)
-              : undefined
-          }
+          onDecide={deciding?.onDecide}
         />
       ) : shows ? (
         <SetupSteps

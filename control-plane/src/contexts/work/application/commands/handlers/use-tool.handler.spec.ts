@@ -675,6 +675,28 @@ describe('UseToolHandler', () => {
     expect(standing().working).toBe(false);
   });
 
+  it('keeps what the agent said it wants to do on the ask, apart from what the tool takes', async () => {
+    const { reach, standing } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+    });
+
+    await expect(
+      reach('linear.comment', {
+        body: 'Fixed.',
+        intent: 'post the fix on ENG-12, publicly under the team’s name',
+      }),
+    ).rejects.toMatchObject({ kind: 'conflict' });
+
+    const asked = standing().notes[standing().notes.length - 1]?.approval;
+    expect(asked?.intent?.value).toBe(
+      'post the fix on ENG-12, publicly under the team’s name',
+    );
+    expect(asked?.subject.given.map((each) => each.name)).toEqual([
+      'body',
+      'issue',
+    ]);
+  });
+
   it('asks once while a person still owes an answer', async () => {
     const { reach, standing } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
@@ -729,6 +751,49 @@ describe('UseToolHandler', () => {
     expect(
       standing().notes.find((note) => note.approval)?.approval?.spent,
     ).toBe(true);
+  });
+
+  it('calls the tool with what the person changed it to, where they approved it with changes', async () => {
+    const approved = task().clearFor(
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
+      ),
+      NEEDS_APPROVAL,
+      {
+        station: StationName.of('Backlog'),
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+    ).task;
+
+    const { reach, called } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+      task: Task.rehydrate({
+        ...approved.answered(
+          NotePosition.of(approved.notes.length - 1),
+          {
+            station: StationName.of('Backlog'),
+            body: TaskNoteBody.of('Approved.'),
+            at: NOW,
+            voice: Voice.person(UserId.of('user_1')),
+          },
+          'granted',
+          { issue: 'ENG-12', body: 'Fixed in #41.' },
+        ),
+        currentRunId: RunId.of('run_1'),
+      }),
+    });
+
+    await reach('linear.comment', { body: 'Fixed.' });
+
+    expect(called.map((each) => each.inputs.values)).toEqual([
+      { issue: 'ENG-12', body: 'Fixed in #41.' },
+    ]);
   });
 
   it('keeps the approval spent, and reports no failure, where the call succeeded but could not be recorded', async () => {

@@ -1,13 +1,18 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
-import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 export const APPROVAL_STANDINGS = ['asked', 'granted', 'refused'] as const;
 
 export type ApprovalStanding = (typeof APPROVAL_STANDINGS)[number];
 
 export type ApprovalDecision = Exclude<ApprovalStanding, 'asked'>;
+
+export type ApprovalEdits = Readonly<Record<string, string>>;
 
 export interface Decided {
   readonly by: UserId;
@@ -23,14 +28,26 @@ export class Approval {
     readonly standing: ApprovalStanding,
     readonly decided: Decided | null,
     readonly spent: boolean,
+    readonly edited: ToolCall | null,
+    readonly intent: ApprovalIntent | null,
   ) {}
 
   static asked(
     subject: ApprovalSubject,
     at: StationId,
     because: string,
+    intent: ApprovalIntent | null = null,
   ): Approval {
-    return new Approval(subject, at, because, 'asked', null, false);
+    return new Approval(
+      subject,
+      at,
+      because,
+      'asked',
+      null,
+      false,
+      null,
+      intent,
+    );
   }
 
   static rehydrate(input: {
@@ -40,6 +57,8 @@ export class Approval {
     standing: ApprovalStanding;
     decided: Decided | null;
     spent: boolean;
+    edited: ToolCall | null;
+    intent: ApprovalIntent | null;
   }): Approval {
     return new Approval(
       input.subject,
@@ -48,6 +67,8 @@ export class Approval {
       input.standing,
       input.decided,
       input.spent,
+      input.edited,
+      input.intent,
     );
   }
 
@@ -63,11 +84,24 @@ export class Approval {
     return this.standing === 'refused';
   }
 
-  standsFor(subject: ApprovalSubject, at: StationId): boolean {
-    return this.subject.equals(subject) && this.at.equals(at);
+  get goesAheadWith(): ToolInputs | null {
+    return this.edited?.inputs ?? null;
   }
 
-  decide(decision: ApprovalDecision, decided: Decided): Approval {
+  standsFor(subject: ApprovalSubject, at: StationId): boolean {
+    return (
+      this.at.equals(at) &&
+      (this.subject.equals(subject) ||
+        (this.edited !== null &&
+          ApprovalSubject.toolCall(this.edited).equals(subject)))
+    );
+  }
+
+  decide(
+    decision: ApprovalDecision,
+    decided: Decided,
+    edits: ApprovalEdits | null = null,
+  ): Approval {
     if (!this.open) {
       throw new InvalidApprovalAnswerError(
         `was already ${this.standing === 'granted' ? 'approved' : 'rejected'}, so it cannot be decided again`,
@@ -81,7 +115,42 @@ export class Approval {
       decision,
       decided,
       false,
+      edits ? this.grantedWith(decision, edits) : null,
+      this.intent,
     );
+  }
+
+  private grantedWith(
+    decision: ApprovalDecision,
+    edits: ApprovalEdits,
+  ): ToolCall | null {
+    if (decision !== 'granted') {
+      throw new InvalidApprovalAnswerError(
+        'is being rejected, so there is nothing to run with changes',
+      );
+    }
+
+    return this.changedBy(edits);
+  }
+
+  changedBy(edits: ApprovalEdits): ToolCall | null {
+    const asked = this.subject.when({
+      toolCall: (call) => call,
+      harnessPermission: () => {
+        throw new InvalidApprovalAnswerError(
+          'waits on a harness, which only takes a yes or a no, so what it does cannot be changed',
+        );
+      },
+    });
+    const edited = asked.editedTo(edits);
+
+    if (!edited) {
+      throw new InvalidApprovalAnswerError(
+        `asks about ${asked.given.map((each) => each.name).join(', ') || 'no inputs'}, so changes must name exactly those, each a value of the kind asked and none left blank`,
+      );
+    }
+
+    return edited.equals(asked) ? null : edited;
   }
 
   claimed(): Approval {
@@ -108,6 +177,8 @@ export class Approval {
       this.standing,
       this.decided,
       spent,
+      this.edited,
+      this.intent,
     );
   }
 }

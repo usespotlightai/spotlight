@@ -7,7 +7,7 @@ const LONG = 400;
 export const shortened = (value: string): string =>
   value.length > LONG ? `${value.slice(0, LONG)}…` : value;
 
-const written = (name: string, value: string): string =>
+export const written = (name: string, value: string): string =>
   value.includes('\n')
     ? `${name}:\n\`\`\`\n${value}\n\`\`\``
     : `${name}: \`${value}\``;

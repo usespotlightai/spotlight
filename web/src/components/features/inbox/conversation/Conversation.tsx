@@ -4,6 +4,7 @@ import { InboxWorking } from '@/components/features/inbox/conversation/InboxWork
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
 import {
   type Conversing,
@@ -70,7 +71,7 @@ const put = (
 
 export type Deciding = {
   readonly pending: boolean;
-  readonly onDecide: (approve: boolean, said: string) => void;
+  readonly onDecide: (answer: ApprovalAnswer) => void;
 };
 
 type ConversationProps = {

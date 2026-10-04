@@ -1152,6 +1152,14 @@ export type InboxApprovalResponseDto = {
    */
   inputs: Array<InboxApprovalInputResponseDto>;
   standing: 'asked' | 'granted' | 'refused';
+  /**
+   * What it was approved to run with instead, where the person changed it
+   */
+  edited: Array<InboxApprovalInputResponseDto> | null;
+  /**
+   * What the agent said it wants to do, completing “Spotlight would like to …”; absent where it said nothing, as a harness asking permission never does
+   */
+  intent: string | null;
 };
 
 export type InboxMessageResponseDto = {
@@ -1298,6 +1306,11 @@ export type InboxNoticeResponseDto = {
   resolved: boolean;
 };
 
+export type AnswerInboxItemInputRequestDto = {
+  name: string;
+  value: string;
+};
+
 export type AnswerInboxItemRequestDto = {
   /**
    * What the person says back. It joins the task’s trail. May be empty where files are attached.
@@ -1311,6 +1324,10 @@ export type AnswerInboxItemRequestDto = {
    * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.
    */
   approve?: boolean;
+  /**
+   * With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it asked with; a harness asking permission takes no changes.
+   */
+  inputs?: Array<AnswerInboxItemInputRequestDto>;
 };
 
 export type RunMarksResponseDto = {
@@ -9370,7 +9387,7 @@ export type AnswerInboxItemErrors = {
    */
   404: unknown;
   /**
-   * Only a conversation waiting on a tool call can be approved or rejected
+   * Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it asked with
    */
   409: unknown;
 };

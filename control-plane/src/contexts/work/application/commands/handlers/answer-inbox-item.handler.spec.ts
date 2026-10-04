@@ -260,6 +260,73 @@ describe('AnswerInboxItem', () => {
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
   });
 
+  it('grants it with the person’s changes, telling the agent what it runs with instead', async () => {
+    await answer(
+      asking(),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted', {
+        issue: 'ENG-12',
+        body: 'Fixed in #41.',
+      }),
+    );
+
+    const decided = saved?.notes.find((note) => note.approval)?.approval;
+    expect(decided?.edited?.inputs.values).toEqual({
+      issue: 'ENG-12',
+      body: 'Fixed in #41.',
+    });
+    expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
+      [
+        'Approved.',
+        'I changed what it runs with. Call it again as you asked and it runs with these instead:',
+        'body: `Fixed in #41.`',
+        'issue: `ENG-12`',
+      ].join('\n\n'),
+    );
+  });
+
+  it('tells the agent what changed after the person’s own words', async () => {
+    await answer(
+      asking(),
+      new AnswerInboxItemCommand(
+        'task_1:0',
+        'user_1',
+        'Mention the PR.',
+        [],
+        'granted',
+        { issue: 'ENG-12', body: 'Fixed in #41.' },
+      ),
+    );
+
+    expect(saved?.notes[saved.notes.length - 1]?.body.value).toMatch(
+      /^Mention the PR\.\n\nI changed what it runs with\./,
+    );
+  });
+
+  it('refuses changes to a rejection as a rejection, saving nothing', async () => {
+    await expect(
+      answer(
+        asking(),
+        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'refused', {
+          issue: 'ENG-12',
+          body: 'Fixed in #41.',
+        }),
+      ),
+    ).rejects.toThrow(/is being rejected/);
+    expect(saved).toBeUndefined();
+  });
+
+  it('says plainly it was approved where the changes left it as it was', async () => {
+    await answer(
+      asking(),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted', {
+        issue: 'ENG-12',
+        body: 'Fixed.',
+      }),
+    );
+
+    expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Approved.');
+  });
+
   it('records a refusal in the person’s own words', async () => {
     await answer(
       asking(),

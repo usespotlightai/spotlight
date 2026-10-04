@@ -4,23 +4,16 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
+import { ApprovalAnswered } from '@work/application/rendering/approval-answered';
 import type { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const ATTEMPTS = 3;
-
-const wordsFor = (decision: ApprovalDecision | null): string =>
-  decision === 'granted'
-    ? 'Approved.'
-    : decision === 'refused'
-      ? 'Rejected.'
-      : '';
 
 export class AnswerInboxItemHandler
   implements CommandHandlerPort<AnswerInboxItemCommand, void>
@@ -63,12 +56,13 @@ export class AnswerInboxItemHandler
       command.attachments,
     );
 
+    const changed = task.changesAt(item.from, command.decision, command.edits);
     const answered = task.answered(
       item.from,
       {
         station,
         body: TaskNoteBody.given(
-          command.body || wordsFor(command.decision),
+          ApprovalAnswered.words(command.body, command.decision, changed),
           attachments,
         ),
         at: this.clock.now(),
@@ -76,6 +70,7 @@ export class AnswerInboxItemHandler
         attachments,
       },
       command.decision,
+      command.edits,
     );
 
     const runId =

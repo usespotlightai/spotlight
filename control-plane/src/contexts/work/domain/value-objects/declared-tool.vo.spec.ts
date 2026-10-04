@@ -1,5 +1,6 @@
 import { InvalidToolError } from '@work/domain/exceptions/invalid-tool.error';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import {
   DeclaredTool,
   type ToolInput,
@@ -49,6 +50,42 @@ describe('DeclaredTool', () => {
     expect(() => declared([input({ type: 'number', piped: true })])).toThrow(
       /text/,
     );
+  });
+
+  describe('what the agent says it wants to do', () => {
+    const approving = (inputs: readonly ToolInput[] = [input()]) =>
+      DeclaredTool.of({
+        tool: Tool.of('linear.comment'),
+        description: 'Comment on the issue.',
+        inputs,
+        approval: ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+      });
+
+    it('takes it apart from what the tool takes, where a person approves the call', () => {
+      const { intent, rest } = approving().intentIn({
+        body: 'Fixed.',
+        intent: 'post the fix on ENG-12',
+      });
+
+      expect(intent?.value).toBe('post the fix on ENG-12');
+      expect(rest).toEqual({ body: 'Fixed.' });
+    });
+
+    it('leaves it to be refused like any input, where nobody approves the call', () => {
+      const { intent, rest } = declared([input()]).intentIn({
+        body: 'Fixed.',
+        intent: 'post it',
+      });
+
+      expect(intent).toBeNull();
+      expect(rest).toEqual({ body: 'Fixed.', intent: 'post it' });
+    });
+
+    it('refuses a tool needing approval that takes an input of that name', () => {
+      expect(() => approving([input({ name: 'intent' })])).toThrow(
+        /keeps for the agent/,
+      );
+    });
   });
 
   describe('what it accepts from an agent', () => {

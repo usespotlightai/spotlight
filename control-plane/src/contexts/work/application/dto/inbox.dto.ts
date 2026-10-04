@@ -31,6 +31,8 @@ export interface InboxApprovalDto {
   readonly because: string;
   readonly inputs: readonly InboxApprovalInputDto[];
   readonly standing: string;
+  readonly edited: readonly InboxApprovalInputDto[] | null;
+  readonly intent: string | null;
 }
 
 export interface InboxFailureDto {

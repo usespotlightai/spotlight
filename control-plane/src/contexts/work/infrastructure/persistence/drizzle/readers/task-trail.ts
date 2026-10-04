@@ -14,7 +14,10 @@ import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import { owedIn, reviewsIn } from '@work/domain/services/conversations';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { toApprovalSubject } from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
+import {
+  toApprovalSubject,
+  toEditedCall,
+} from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
@@ -99,6 +102,8 @@ const asked = (parts: ApprovalRow | null): InboxApproval | null => {
     because: parts.because,
     inputs: subject.given,
     standing: parts.standing,
+    edited: toEditedCall(parts)?.given ?? null,
+    intent: parts.intent ?? null,
   };
 };
 

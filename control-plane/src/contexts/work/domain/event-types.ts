@@ -42,6 +42,7 @@ import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
+import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
@@ -152,6 +153,7 @@ import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive
 export const WORK_EVENT_TYPES = [
   AgentPrompt,
   Approval,
+  ApprovalIntent,
   ApprovalNeeded,
   ApprovalSubject,
   ArchiveDigest,

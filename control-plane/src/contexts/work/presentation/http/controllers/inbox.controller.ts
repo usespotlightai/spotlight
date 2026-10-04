@@ -48,6 +48,7 @@ import {
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
+import { givenEdits } from '@work/presentation/http/mappers/given-edits';
 import { givenIds } from '@work/presentation/http/mappers/given-ids';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
@@ -160,7 +161,7 @@ export class InboxController {
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   @ApiConflictResponse({
     description:
-      'Only a conversation waiting on a tool call can be approved or rejected',
+      'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it asked with',
   })
   async answer(
     @Param('itemId') itemId: string,
@@ -178,6 +179,7 @@ export class InboxController {
           : body.approve
             ? 'granted'
             : 'refused',
+        givenEdits(body.inputs),
       ),
     );
   }
