@@ -26,7 +26,7 @@ export function AgentHarnessMenu({
       <DropdownMenuSubTrigger>
         <span className="flex-1">Harness</span>
         <span className="truncate text-muted-foreground">
-          {offered?.name ?? 'Nobody'}
+          {offered?.name ?? 'No agent'}
         </span>
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent sideOffset={8} className="min-w-52">

@@ -48,7 +48,7 @@ export function HarnessSelect({
             chosen ? 'text-foreground' : 'text-muted-foreground',
           )}
         >
-          {chosen?.name ?? 'Nobody'}
+          {chosen?.name ?? 'No agent'}
         </span>
         {!readOnly && (
           <ChevronsUpDown
@@ -67,7 +67,7 @@ export function HarnessSelect({
         >
           {allowNone && (
             <DropdownMenuRadioItem value={NONE}>
-              <span className="truncate text-muted-foreground">Nobody</span>
+              <span className="truncate text-muted-foreground">No agent</span>
             </DropdownMenuRadioItem>
           )}
 
