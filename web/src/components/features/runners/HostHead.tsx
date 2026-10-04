@@ -9,13 +9,13 @@ export function HostHead() {
         HOST_COLUMNS,
       )}
     >
-      <span className="truncate">Host</span>
+      <span className="truncate">Name</span>
       <span className="truncate">Serves</span>
       <span className="truncate">Status</span>
       <span className="truncate">Images</span>
       <span className="truncate">Harnesses</span>
       <span className="truncate">Release</span>
-      <span className="truncate text-right">Seen</span>
+      <span className="truncate text-right">Last activity</span>
     </div>
   );
 }

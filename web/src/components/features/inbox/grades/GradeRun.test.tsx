@@ -2,15 +2,18 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GradeRun } from '@/components/features/inbox/grades/GradeRun';
-import { claimsScoresOf, runScoresOf } from '@/stories/fixtures/run-scores';
+import {
+  claimsScoresOf,
+  RUBRIC,
+  runScoresOf,
+} from '@/stories/fixtures/run-scores';
 
 const scores = vi.fn();
 const scoresFailing = vi.fn();
 const scoresError = vi.fn();
-const journal = vi.fn();
-const journalFailing = vi.fn();
 const mutate = vi.fn();
 const gradeFailing = vi.fn();
+const gradePending = vi.fn();
 
 vi.mock('@/hooks/api/useRunScores', () => ({
   useRunScores: () => ({
@@ -23,114 +26,60 @@ vi.mock('@/hooks/api/useRunScores', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useTaskJournal', () => ({
-  useTaskJournal: () => ({
-    data: journal(),
-    isPending: journal() === undefined,
-    errorUpdateCount: journalFailing() ? 1 : 0,
-    isFetching: false,
-    refetch: vi.fn(),
-  }),
-}));
-
 vi.mock('@/hooks/api/useGradeRun', () => ({
   useGradeRun: () => ({
     mutate,
-    isPending: false,
+    isPending: gradePending(),
     isError: gradeFailing(),
   }),
 }));
 
-const stepOf = (over: Record<string, unknown>) => ({
-  kind: 'tool',
-  status: 'completed',
-  tool: null,
-  detail: null,
-  ms: 0,
-  startedAt: '2026-09-30T10:00:00.000Z',
-  locations: [],
-  given: null,
-  returned: null,
-  change: null,
-  text: '',
-  ...over,
-});
-
-const JOURNAL = [
-  {
-    runId: 'run_1',
-    attempt: 1,
-    ms: null,
-    spans: [],
-    marks: {
-      startedAt: null,
-      readyAt: null,
-      spokeFrom: null,
-      spokeTo: null,
-      endedAt: null,
-    },
-    spent: null,
-    steps: [
-      stepOf({
-        tool: 'edit',
-        text: 'retry.ts',
-        change: {
-          path: '/workspace/worker/retry.ts',
-          before: 'a\n',
-          after: 'b\n',
-        },
-      }),
-      stepOf({ kind: 'said', text: 'Retries stop on a 410 now.' }),
-    ],
-  },
-  {
-    runId: 'run_0',
-    attempt: 1,
-    ms: null,
-    spans: [],
-    marks: {
-      startedAt: null,
-      readyAt: null,
-      spokeFrom: null,
-      spokeTo: null,
-      endedAt: null,
-    },
-    spent: null,
-    steps: [stepOf({ kind: 'said', text: 'An earlier run.' })],
-  },
-];
-
 const showing = () =>
-  render(
-    <GradeRun
-      slug="acme"
-      teamId="team_1"
-      taskId="task_1"
-      runId="run_1"
-      title="Drain the stuck retry queues"
-      description={null}
-    />,
-  );
+  render(<GradeRun slug="acme" teamId="team_1" runId="run_1" />);
 
 beforeEach(() => {
   scores.mockReturnValue(runScoresOf('run_1', 'task_1'));
   scoresFailing.mockReturnValue(false);
   scoresError.mockReturnValue(null);
-  journal.mockReturnValue(JOURNAL);
   gradeFailing.mockReturnValue(false);
-  journalFailing.mockReturnValue(false);
+  gradePending.mockReturnValue(false);
   mutate.mockClear();
 });
 
 describe('GradeRun', () => {
-  it('shows the run’s summary and its changes, and never the judge’s score', () => {
+  it('asks for a grade beside the run’s changes, and never shows the judge’s score', () => {
     showing();
 
     expect(
-      document.querySelector('[data-slot="run-summary"]'),
-    ).toHaveTextContent('Retries stop on a 410 now.');
-    expect(screen.getByText('1 file changed')).toBeInTheDocument();
+      screen.getByRole('region', { name: 'Grade this run' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Judged/)).not.toBeInTheDocument();
+  });
+
+  it('shows the rubric the judge scored by, under a title asking whether the run meets it', () => {
+    showing();
+
+    expect(
+      within(screen.getByRole('region', { name: 'Rubric' })).getByText(RUBRIC),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Does this run meet the rubric?' }),
+    ).toBeInTheDocument();
+  });
+
+  it('asks whether it is a good run where there is no rubric to grade by', () => {
+    scores.mockReturnValue(
+      runScoresOf('run_1', 'task_1', { rubricBody: null }),
+    );
+
+    showing();
+
+    expect(
+      screen.queryByRole('region', { name: 'Rubric' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Is this a good run?' }),
+    ).toBeInTheDocument();
   });
 
   it('grades the run yes or no in one click', async () => {
@@ -156,12 +105,10 @@ describe('GradeRun', () => {
     expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ value: 4 }));
   });
 
-  it('grades a claims judge’s run claim by claim, saving once every claim is answered', async () => {
+  it('grades a claims judge’s run claim by claim, saving as soon as every claim is answered', async () => {
     scores.mockReturnValue(claimsScoresOf('run_1', 'task_1'));
 
     showing();
-    const save = screen.getByRole('button', { name: 'Save grade' });
-    expect(save).toBeDisabled();
 
     const answer = async (claim: string, said: 'Yes' | 'No') =>
       userEvent.click(
@@ -171,8 +118,8 @@ describe('GradeRun', () => {
       );
     await answer('Retries stop on a 410 Gone', 'Yes');
     await answer('Every other failure is retried later', 'No');
-    await answer('Claim 3', 'Yes');
-    await userEvent.click(save);
+    expect(mutate).not.toHaveBeenCalled();
+    await answer('The queue is drained', 'Yes');
 
     expect(mutate).toHaveBeenCalledWith({
       slug: 'acme',
@@ -181,11 +128,55 @@ describe('GradeRun', () => {
       stationId: 'station_implementation',
       claims: [true, false, true],
     });
+  });
+
+  it('asks about each claim once, as the title, over the rubric', () => {
+    scores.mockReturnValue(claimsScoresOf('run_1', 'task_1'));
+
+    showing();
+
+    expect(screen.getAllByText('Does the run meet each claim?')).toHaveLength(
+      1,
+    );
     expect(
-      screen.getByText(
-        'Its words changed since the judge marked it, so it reads by its place.',
-      ),
+      screen.getByRole('heading', {
+        name: 'Does the run meet each claim?',
+      }),
     ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: 'Rubric' })).getByText(RUBRIC),
+    ).toBeInTheDocument();
+  });
+
+  it('saves again as soon as you change an answer', async () => {
+    scores.mockReturnValue({
+      ...claimsScoresOf('run_1', 'task_1'),
+      grades: [
+        {
+          by: 'user_1',
+          mine: true,
+          kind: 'claims',
+          value: 2 / 3,
+          marks: [true, true, false],
+          label: '67% of claims met',
+          at: '2026-09-30T12:00:00.000Z',
+        },
+      ],
+    });
+
+    showing();
+    await userEvent.click(
+      within(
+        screen.getByRole('group', { name: 'The queue is drained' }),
+      ).getByRole('button', { name: 'Yes' }),
+    );
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ claims: [true, true, true] }),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Save grade' }),
+    ).not.toBeInTheDocument();
   });
 
   it('starts from the claims you marked before', () => {
@@ -207,15 +198,11 @@ describe('GradeRun', () => {
     showing();
 
     expect(
-      within(screen.getByRole('group', { name: 'Claim 3' })).getByRole(
-        'button',
-        { name: 'No' },
-      ),
+      within(
+        screen.getByRole('group', { name: 'The queue is drained' }),
+      ).getByRole('button', { name: 'No' }),
     ).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Save grade' })).toBeEnabled();
-    expect(
-      screen.getByText(/You graded it 2 of 3 claims met/),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/You graded it/)).not.toBeInTheDocument();
   });
 
   it('marks the grade you gave, and lets you change it', () => {
@@ -241,16 +228,34 @@ describe('GradeRun', () => {
       'aria-pressed',
       'true',
     );
-    expect(screen.getByText(/You graded it yes/)).toBeInTheDocument();
+    expect(screen.queryByText(/You graded it/)).not.toBeInTheDocument();
   });
 
-  it('says when a grade could not be saved', () => {
+  it('says it is saving beside the card’s title while a grade saves', () => {
+    gradePending.mockReturnValue(true);
+
+    showing();
+
+    const saving = screen.getByRole('status');
+    expect(saving).toHaveTextContent('Saving…');
+    expect(saving.parentElement).toContainElement(
+      screen.getByRole('heading', {
+        name: 'Does this run meet the rubric?',
+      }),
+    );
+  });
+
+  it('says beside the card’s title when a grade could not be saved', () => {
     gradeFailing.mockReturnValue(true);
 
     showing();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Your grade could not be saved.',
+    const failed = screen.getByRole('alert');
+    expect(failed).toHaveTextContent('Your grade could not be saved.');
+    expect(failed.parentElement).toContainElement(
+      screen.getByRole('heading', {
+        name: 'Does this run meet the rubric?',
+      }),
     );
   });
 
@@ -283,29 +288,12 @@ describe('GradeRun', () => {
     showing();
 
     expect(
-      screen.getByText('Only the team’s members can grade this run'),
+      screen.getByText(
+        'You’re no longer on this team, so you can’t grade this run',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Yes' }),
     ).not.toBeInTheDocument();
-  });
-
-  it('offers to try again when what the run did could not load', () => {
-    journal.mockReturnValue(undefined);
-    journalFailing.mockReturnValue(true);
-
-    showing();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'What the run did could not be loaded.',
-    );
-  });
-
-  it('says so when the run changed no files', () => {
-    journal.mockReturnValue([]);
-
-    showing();
-
-    expect(screen.getByText('It changed no files.')).toBeInTheDocument();
   });
 });

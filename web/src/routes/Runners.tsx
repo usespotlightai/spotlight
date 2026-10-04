@@ -31,7 +31,7 @@ export function Runners() {
 
   const adds = workspace ? managesRunners(workspace.role) : false;
   const hosts = fleet.data?.hosts;
-  const provisioned = fleet.data?.provisioned ?? [];
+  const pools = fleet.data?.pools ?? [];
 
   return (
     <TrailContext value={forward}>
@@ -48,15 +48,16 @@ export function Runners() {
             onRetry={() => void fleet.refetch()}
           />
         </Notice>
-      ) : hosts?.length === 0 && provisioned.length === 0 ? (
+      ) : hosts?.length === 0 && pools.length === 0 ? (
         <NoHostsYet slug={slug} adds={adds} />
       ) : (
         <FilteredRunners
+          slug={slug}
           filter={asRunnerFilter(held)}
           onFilter={remember}
           loading={loading(fleet)}
           hosts={hosts ?? []}
-          provisioned={provisioned}
+          pools={pools}
           harnesses={harnesses}
         />
       )}

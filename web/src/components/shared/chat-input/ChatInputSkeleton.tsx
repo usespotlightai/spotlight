@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 export function ChatInputSkeleton({ placeholder }: { placeholder: string }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1.5 shadow-xs">
+      <div className="flex items-center gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-xs">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground">
           <Plus className="size-4" aria-hidden />
         </span>

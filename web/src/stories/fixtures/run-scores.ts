@@ -3,6 +3,9 @@ import { runScoreKeys } from '@/hooks/api/useRunScores';
 import type { JudgeStandingResponseDto, RunScoresResponseDto } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
 
+export const RUBRIC =
+  'Pass a run that fixes the reported bug without widening the change. Fail it where tests were skipped or the diff touches unrelated files.';
+
 const TRUSTED: JudgeStandingResponseDto = {
   trusted: true,
   measure: 'kappa',
@@ -21,6 +24,7 @@ export const runScoresOf = (
   taskId,
   stationId: 'station_implementation',
   kind: 'yes-no',
+  rubricBody: RUBRIC,
   claims: [],
   judged: true,
   standing: TRUSTED,
@@ -104,7 +108,7 @@ export const claimsScoresOf = (
   return {
     ...scores,
     kind: 'claims',
-    claims: [CLAIMS[0] ?? null, CLAIMS[1] ?? null, null],
+    claims: CLAIMS,
     judge: scores.judge && {
       ...scores.judge,
       kind: 'claims',

@@ -97,6 +97,7 @@ const reading = (input: {
     }),
     reasoning: async () => [],
     spokenOn: async () => [],
+    harnessOf: async () => 'claude-code',
     siteOfRun: async () =>
       input.teamOfRun && {
         teamId: input.teamOfRun,
@@ -161,7 +162,7 @@ describe('ReadRunMemoriesHandler', () => {
     expect(read.reviewItemId).toBeNull();
   });
 
-  it('leads to the review of what the run proposed', async () => {
+  it('leads to the review of what the run proposed, naming the harness it ran on', async () => {
     const read = await reading({
       teamOfRun: TEAM,
       held: [],
@@ -172,6 +173,7 @@ describe('ReadRunMemoriesHandler', () => {
     });
 
     expect(read.proposed.map((each) => each.id)).toEqual(['memory_proposed']);
+    expect(read.proposed[0]?.harness).toBe('claude-code');
     expect(read.reviewItemId).toBe('aside_1');
   });
 

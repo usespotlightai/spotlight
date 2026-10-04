@@ -14,9 +14,6 @@ export const TASK_ID = 'task_retries';
 export const RUN_ID = 'run_retries_2';
 export const GRADE_ITEM_ID = 'aside_retries_grade';
 export const TITLE = 'Drain the stuck retry queues';
-export const DESCRIPTION =
-  'Webhook deliveries have been failing since the queue worker was redeployed on Friday.';
-
 const at = new Date(Date.now() - 30 * 60_000).toISOString();
 
 const step = (
@@ -95,17 +92,16 @@ export const seedGradedRun = (client: QueryClient) => {
 
 export const seedGradeRunOnFive = (client: QueryClient) => {
   client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
-  seedRunScores(client, RUN_ID, TASK_ID, { kind: 'number' });
+  seedRunScores(client, RUN_ID, TASK_ID, {
+    kind: 'number',
+    rubricBody:
+      'Score 5 where the bug is fixed with a small, tested change, and 1 where it is not fixed at all.',
+  });
 };
 
 export const seedGradeRunOnClaims = (client: QueryClient) => {
   client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
   seedClaimsRunScores(client, RUN_ID, TASK_ID);
-};
-
-export const seedGradeRunWithoutChanges = (client: QueryClient) => {
-  client.setQueryData(journalKeys.forTask(TASK_ID), []);
-  seedRunScores(client, RUN_ID, TASK_ID);
 };
 
 export const failGradeRun = (client: QueryClient) => {

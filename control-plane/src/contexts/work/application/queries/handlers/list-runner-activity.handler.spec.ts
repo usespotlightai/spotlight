@@ -10,7 +10,30 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 
 const listing = (member: boolean) => {
   const heldIn = vi.fn(async () => [
-    { runnerId: 'runner_1', runId: 'run_7', state: 'claimed' },
+    {
+      runnerId: 'runner_1',
+      runId: 'run_7',
+      state: 'claimed',
+      kind: 'task' as const,
+      teamId: 'team_read',
+      title: 'Drain the stuck retry queues',
+    },
+    {
+      runnerId: 'runner_2',
+      runId: 'run_8',
+      state: 'running',
+      kind: 'chat' as const,
+      teamId: 'team_other',
+      title: 'Plan the billing migration',
+    },
+    {
+      runnerId: 'runner_3',
+      runId: 'run_9',
+      state: 'running',
+      kind: 'search' as const,
+      teamId: null,
+      title: null,
+    },
   ]);
 
   const handler = new ListRunnerActivityHandler(
@@ -25,6 +48,9 @@ const listing = (member: boolean) => {
             }
           : null,
       ),
+      clearanceAsTeamReader: vi.fn(async (teamId: string) =>
+        teamId === 'team_read' ? { workspaceId: WORKSPACE, teamId } : null,
+      ),
     } as unknown as WorkspaceAccessPort,
     { heldIn } as RunnerActivityReaderPort,
   );
@@ -33,13 +59,45 @@ const listing = (member: boolean) => {
 };
 
 describe('ListRunnerActivityHandler', () => {
-  it('says which run each busy runner of the workspace is working on', async () => {
+  it('says which run each busy runner of the workspace is working on, naming it only for the teams the viewer reads', async () => {
     const { handler, heldIn } = listing(true);
 
     await expect(
       handler.execute(new ListRunnerActivityQuery('acme', 'user_1')),
     ).resolves.toEqual([
-      { runnerId: 'runner_1', currentRun: { id: 'run_7', state: 'claimed' } },
+      {
+        runnerId: 'runner_1',
+        currentRun: {
+          id: 'run_7',
+          state: 'claimed',
+          kind: 'task',
+          teamId: 'team_read',
+          readable: true,
+          title: 'Drain the stuck retry queues',
+        },
+      },
+      {
+        runnerId: 'runner_2',
+        currentRun: {
+          id: 'run_8',
+          state: 'running',
+          kind: 'chat',
+          teamId: 'team_other',
+          readable: false,
+          title: null,
+        },
+      },
+      {
+        runnerId: 'runner_3',
+        currentRun: {
+          id: 'run_9',
+          state: 'running',
+          kind: 'search',
+          teamId: null,
+          readable: false,
+          title: null,
+        },
+      },
     ]);
     expect(heldIn).toHaveBeenCalledWith(WORKSPACE);
   });

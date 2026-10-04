@@ -1,17 +1,15 @@
-import { TriangleAlert } from 'lucide-react';
 import { useId, useState } from 'react';
-import { MemoryGrounds } from '@/components/features/memory/MemoryGrounds';
-import { Composer } from '@/components/shared/form/Composer';
-import { Pill } from '@/components/shared/Pill';
-import { Button } from '@/components/ui/button';
+import { ProposedMemoryControls } from '@/components/features/inbox/memories/ProposedMemoryControls';
+import { ProposedMemoryFacts } from '@/components/features/inbox/memories/ProposedMemoryFacts';
+import { DecisionActions } from '@/components/shared/DecisionActions';
+import { DecisionCard } from '@/components/shared/DecisionCard';
+import { DecisionHeader } from '@/components/shared/DecisionHeader';
+import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import {
-  askedByAgent,
-  decidedBy,
-  fromOutside,
-  KIND_LABELS,
   MOST_MEMORY_BODY,
   type ProposedMemory,
-  reachOf,
+  proposalStandingOf,
+  proposalTitleOf,
   undecided,
 } from '@/lib/memory';
 
@@ -32,104 +30,70 @@ export function ProposedMemoryCard({
   onApprove,
   onReject,
 }: ProposedMemoryCardProps) {
-  const [editing, setEditing] = useState(false);
-  const outside = fromOutside(memory);
-  const settled = decidedBy(memory);
+  const [editingOpen, setEditing] = useState(false);
+  const [body, setBody] = useState(memory.body);
+  const open = undecided(memory);
+  const editing = editingOpen && open;
   const bodyId = useId();
+  const written = body.trim();
+  const ready =
+    !editing || (written.length > 0 && written.length <= MOST_MEMORY_BODY);
 
   return (
-    <li
-      data-slot="proposed-memory"
-      className="flex flex-col gap-3 rounded-xl border border-border bg-card px-3 py-3"
-    >
-      <div className="flex items-center gap-2">
-        <Pill className="px-1.5 py-0">{KIND_LABELS[memory.kind]}</Pill>
-        <p className="min-w-0 truncate text-muted-foreground text-xs">
-          {reachOf(memory)}
-          {askedByAgent(memory) && ' · the agent asked to keep this'}
-        </p>
-      </div>
+    <DecisionCard as="li" data-slot="proposed-memory">
+      <DecisionHeader
+        title={
+          <DecisionTitle standing={proposalStandingOf(memory)}>
+            {proposalTitleOf(memory)}
+          </DecisionTitle>
+        }
+        trailing={
+          !editing && (
+            <DecisionActions
+              copy={{ text: memory.body, label: `Copy memory ${position}` }}
+              editLabel={`Edit memory ${position}`}
+              pending={pending}
+              onEdit={open ? () => setEditing(true) : undefined}
+            />
+          )
+        }
+      />
 
-      {outside && (
-        <p
-          role="note"
-          data-slot="outside-warning"
-          className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-amber-700 text-xs leading-5 dark:text-amber-300"
-        >
-          <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-          It rests on work from outside the team. Read what it rests on before
-          you approve it; it is approved on its own.
-        </p>
-      )}
+      <ProposedMemoryFacts
+        memory={memory}
+        editing={editing}
+        pending={pending}
+        body={body}
+        bodyId={bodyId}
+        onBody={setBody}
+      />
 
-      {editing && undecided(memory) ? (
-        <Composer
-          label="The memory as it should stand"
-          submitLabel="Approve as edited"
-          placeholder="What the team should remember"
-          most={MOST_MEMORY_BODY}
-          initial={memory.body}
-          pending={pending}
-          failed={failed}
-          onSubmit={(body) => onApprove(body)}
-          onCancel={() => setEditing(false)}
-        />
-      ) : (
-        <p
-          id={bodyId}
-          className="whitespace-pre-wrap break-words text-foreground text-sm leading-6"
-        >
-          {memory.body}
+      {open && failed && (
+        <p role="alert" className="text-destructive text-xs">
+          It could not be saved. Try again.
         </p>
       )}
 
-      <MemoryGrounds grounds={memory} defaultOpen={outside} />
-
-      {settled ? (
-        <p className="text-muted-foreground text-sm leading-6">{settled}</p>
-      ) : (
-        !editing &&
-        undecided(memory) && (
-          <div className="flex flex-col gap-2">
-            {failed && (
-              <p role="alert" className="text-destructive text-xs">
-                It could not be saved. Try again.
-              </p>
-            )}
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                disabled={pending}
-                onClick={() => onApprove()}
-                aria-label={`Approve memory ${position}`}
-                aria-describedby={bodyId}
-              >
-                Approve
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending}
-                onClick={() => setEditing(true)}
-                aria-label={`Edit memory ${position}`}
-                aria-describedby={bodyId}
-              >
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={onReject}
-                aria-label={`Reject memory ${position}`}
-                aria-describedby={bodyId}
-              >
-                Reject
-              </Button>
-            </div>
-          </div>
-        )
-      )}
-    </li>
+      <ProposedMemoryControls
+        position={position}
+        pending={pending}
+        editing={editing}
+        ready={ready}
+        bodyId={bodyId}
+        onApprove={
+          open
+            ? () =>
+                onApprove(
+                  editing && written !== memory.body ? written : undefined,
+                )
+            : undefined
+        }
+        onReject={open ? onReject : undefined}
+        onCancel={() => {
+          setBody(memory.body);
+          setEditing(false);
+        }}
+      />
+    </DecisionCard>
   );
 }

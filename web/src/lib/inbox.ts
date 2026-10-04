@@ -268,12 +268,6 @@ export const noticeOf = (
 
 export const NOTICE_POINTS_LABEL = 'Details';
 
-export const NOTICE_DISMISS = 'Dismiss';
-
-export const NOTICE_DISMISSED = 'Dismissed. There is nothing left to do here.';
-
-export const NOTICE_DISMISS_FAILED = 'It could not be dismissed. Try again.';
-
 export const GONE_FROM_INBOX = 'Nothing here is waiting on you any more.';
 
 export const noticePreviewOf = (notice: InboxNotice): string =>

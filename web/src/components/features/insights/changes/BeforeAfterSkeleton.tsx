@@ -1,3 +1,4 @@
+import { PillSkeleton } from '@/components/shared/skeleton/PillSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
 const ROWS = 6;
@@ -23,8 +24,8 @@ export function BeforeAfterSkeleton() {
         ))}
       </div>
       <div className="flex gap-2">
-        <SkeletonLine className="w-28 text-sm" />
-        <SkeletonLine className="w-36 text-sm" />
+        <PillSkeleton className="w-28" />
+        <PillSkeleton className="w-36" />
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { ApprovalPill } from '@/components/features/inbox/conversation/approval/ApprovalPill';
+import { DecisionPill } from '@/components/shared/DecisionPill';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import type { Approval } from '@/lib/approval';
 
@@ -36,17 +36,17 @@ export function ApprovalRefusal({
         aria-label={`Why dismiss ${approval.name}`}
         className="h-6 w-auto min-w-0 flex-1 border-0 bg-transparent px-0"
       />
-      <ApprovalPill type="button" disabled={pending} onClick={onCancel}>
+      <DecisionPill type="button" disabled={pending} onClick={onCancel}>
         Cancel
-      </ApprovalPill>
-      <ApprovalPill
+      </DecisionPill>
+      <DecisionPill
         type="submit"
         variant="default"
         disabled={pending}
         aria-label={`Dismiss ${approval.name}`}
       >
         Dismiss
-      </ApprovalPill>
+      </DecisionPill>
     </form>
   );
 }

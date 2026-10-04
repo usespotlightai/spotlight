@@ -1,4 +1,5 @@
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -131,6 +132,7 @@ describe('WorkLookup, looking up a run', () => {
       {
         findById: async () => ({
           id: RunId.of('run_1'),
+          harness: HarnessId.of('claude-code'),
           workspaceId: WORKSPACE,
           taskId: null,
           stationId: station?.id ?? null,
@@ -208,6 +210,10 @@ describe('WorkLookup, looking up a run', () => {
 
   it('says the run is remembered from only where its station asks for it', async () => {
     expect((await runAt('implementation'))?.memories).toBe(false);
+  });
+
+  it('says the harness the run ran on', async () => {
+    expect((await runAt('implementation'))?.harness).toBe('claude-code');
   });
 
   it('says whether the run completed, not only whether it ended', async () => {
@@ -428,7 +434,7 @@ describe('WorkLookup, reading what people said on a task', () => {
       kind: 'answered',
     });
 
-  it('reads what people and the world said, and nothing the stations did', async () => {
+  it('reads what people and the world said, and who of the team said it, and nothing the stations did', async () => {
     const spoken = await new WorkLookup(
       {} as RunRepository,
       {
@@ -446,8 +452,13 @@ describe('WorkLookup, reading what people said on a task', () => {
     ).spokenOn(TaskId.of('task_1'));
 
     expect(spoken).toEqual([
-      { position: 1, by: 'person', text: 'The archive one.' },
-      { position: 2, by: 'world', text: 'Never retry on a 403.' },
+      {
+        position: 1,
+        by: 'person',
+        author: 'user_1',
+        text: 'The archive one.',
+      },
+      { position: 2, by: 'world', author: null, text: 'Never retry on a 403.' },
     ]);
   });
 });

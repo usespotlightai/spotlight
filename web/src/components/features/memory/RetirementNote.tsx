@@ -1,5 +1,6 @@
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
-import { NOTE_BOX, PersonNote } from '@/components/features/memory/PersonNote';
+import { PersonNote } from '@/components/features/memory/PersonNote';
+import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
+import { ChatBubble } from '@/components/shared/ChatBubble';
 import type { TeamMemory } from '@/lib/memory';
 import { since } from '@/lib/runner';
 
@@ -12,13 +13,16 @@ export function RetirementNote({ retirement }: RetirementNoteProps) {
     return <p>Replaced by a newer memory.</p>;
   }
 
+  const by = {
+    name: retirement.by?.name ?? 'Someone',
+    image: retirement.by?.image ?? null,
+  };
+
   return (
     <figure aria-label="Why it was retired">
       <PersonNote
-        person={{
-          name: retirement.by?.name ?? 'Someone',
-          image: retirement.by?.image ?? null,
-        }}
+        avatar={<PersonAvatar person={by} />}
+        name={by.name}
         about={
           <>
             <span className="text-muted-foreground">retired this</span>
@@ -26,11 +30,7 @@ export function RetirementNote({ retirement }: RetirementNoteProps) {
           </>
         }
       >
-        <SaidCard className={NOTE_BOX}>
-          <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-5">
-            {retirement.reason ?? 'No reason given.'}
-          </p>
-        </SaidCard>
+        <ChatBubble>{retirement.reason ?? 'No reason given.'}</ChatBubble>
       </PersonNote>
     </figure>
   );

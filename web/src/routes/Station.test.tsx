@@ -464,9 +464,9 @@ describe('Station', () => {
         .getAllByRole('listitem')
         .map((each) => each.textContent),
     ).toEqual([
-      'Sent-back rate up 20 points in the last 20 runs, against the 20 before',
-      'Cost per run above 2.00 across the last 10 runs',
-      'Accepted rate down 10 points in the last 20 runs, against the 20 before',
+      'Alerts when the sent-back rate rises 20 points or more over 20 runs',
+      'Alerts when the cost per run goes above 2.00 over 10 runs',
+      'Alerts when the accepted rate falls 10 points or more over 20 runs',
     ]);
   });
 

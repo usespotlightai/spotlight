@@ -64,6 +64,7 @@ const proposal = (over: Partial<RunProposal>): RunProposal => ({
   paths: [],
   supersedes: null,
   decision: null,
+  harness: null,
   steps: [],
   notes: [],
   handle: null,

@@ -1,63 +1,58 @@
-import { HOST_COLUMNS } from '@/components/features/runners/columns';
+import {
+  HOST_COLUMNS,
+  HOST_ROW,
+  HOST_ROW_HOVER,
+} from '@/components/features/runners/columns';
 import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { HostImageCell } from '@/components/features/runners/HostImageCell';
 import { HostStanding } from '@/components/features/runners/HostStanding';
+import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import {
   type Host,
   type NamedHarness,
-  namedHarnesses,
   seenAt,
+  servedBy,
   through,
 } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
 type HostRowProps = {
+  slug: string;
   host: Host;
   harnesses: readonly NamedHarness[] | undefined;
 };
 
-const servedBy = (
-  host: Host,
-  harnesses: readonly NamedHarness[] | undefined,
-): NamedHarness[] =>
-  namedHarnesses(
-    host.images
-      .filter((image) => !image.refused)
-      .flatMap((image) => image.harnesses)
-      .filter(
-        (each, at, all) =>
-          all.findIndex((other) => other.id === each.id) === at,
-      ),
-    harnesses,
-  );
-
-export function HostRow({ host, harnesses }: HostRowProps) {
+export function HostRow({ slug, host, harnesses }: HostRowProps) {
   return (
-    <li
-      className={cn(
-        'grid h-9 items-center gap-3 rounded-md px-3 text-sm transition-colors hover:bg-accent',
-        HOST_COLUMNS,
-      )}
-    >
-      <span className="min-w-0 truncate text-foreground">{host.name}</span>
+    <li data-slot="host-row">
+      <div className={cn(HOST_ROW, HOST_ROW_HOVER, HOST_COLUMNS)}>
+        <span className="min-w-0 truncate text-foreground">{host.name}</span>
 
-      <span className="min-w-0 truncate text-muted-foreground text-xs">
-        {through(host.through)}
-      </span>
+        <span className="min-w-0 truncate text-muted-foreground text-xs">
+          {through(host.through)}
+        </span>
 
-      <HostStanding host={host} />
+        <HostStanding host={host} />
 
-      <HostImageCell images={host.images} />
+        <HostImageCell images={host.images} />
 
-      <HarnessLogos harnesses={servedBy(host, harnesses)} />
+        <HarnessLogos harnesses={servedBy(host, harnesses)} />
 
-      <span className="truncate text-muted-foreground text-xs tabular-nums">
-        {host.release}
-      </span>
+        <span className="truncate text-muted-foreground text-xs tabular-nums">
+          {host.release}
+        </span>
 
-      <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
-        {seenAt(host)}
-      </span>
+        <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
+          {seenAt(host)}
+        </span>
+      </div>
+
+      <RunnerChildren
+        slug={slug}
+        of={host.name}
+        runners={host.runners}
+        harnesses={harnesses}
+      />
     </li>
   );
 }

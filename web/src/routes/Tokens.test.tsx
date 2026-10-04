@@ -133,23 +133,25 @@ describe('Tokens', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it('says there are no tokens, and offers to create the first', async () => {
+  it('says there are no tokens, leaving creating one to the section’s own button', async () => {
     const person = userEvent.setup();
 
     renderPage();
 
     expect(screen.getByText(/No tokens yet/)).toBeInTheDocument();
 
-    await person.click(
-      screen.getByRole('button', { name: 'Create the first token' }),
-    );
+    expect(
+      screen.queryByRole('button', { name: 'Create the first token' }),
+    ).not.toBeInTheDocument();
+
+    await person.click(screen.getByRole('button', { name: 'Create a token' }));
 
     expect(await screen.findByRole('dialog')).toHaveTextContent(
       'Create a token',
     );
   });
 
-  it('says what each token is for, what it may do and when it expires', () => {
+  it('counts the tokens beside the section’s name, and says of each when it was made, when it expires and what it may do', () => {
     held.mockReturnValue([
       token(),
       token({
@@ -163,14 +165,19 @@ describe('Tokens', () => {
 
     renderPage();
 
+    expect(
+      screen.getByRole('heading', { name: /^Workspace tokens\s*2$/ }),
+    ).toBeInTheDocument();
     expect(screen.getByText('terraform')).toBeInTheDocument();
     expect(
-      screen.getByText('Applies the platform repository from CI'),
+      screen.queryByText('Applies the platform repository from CI'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/^Created .* · No expiry · Configure, Secrets$/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Configure, Secrets · Never expires · Created/),
+      screen.getByText(/^Created .* · Expires .*2099 · Plan$/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Plan · Expires .*2099/)).toBeInTheDocument();
   });
 
   it('sends a member back to the workspace, asking for no tokens', () => {
@@ -286,7 +293,10 @@ describe('Tokens', () => {
     renderPage();
 
     await person.click(
-      screen.getByRole('button', { name: 'Revoke terraform' }),
+      screen.getByRole('button', { name: 'Actions for terraform' }),
+    );
+    await person.click(
+      await screen.findByRole('menuitem', { name: 'Revoke token' }),
     );
 
     const dialog = await screen.findByRole('dialog');
@@ -310,7 +320,10 @@ describe('Tokens', () => {
     renderPage();
 
     await person.click(
-      screen.getByRole('button', { name: 'Revoke terraform' }),
+      screen.getByRole('button', { name: 'Actions for terraform' }),
+    );
+    await person.click(
+      await screen.findByRole('menuitem', { name: 'Revoke token' }),
     );
     await person.click(
       within(await screen.findByRole('dialog')).getByRole('button', {
@@ -332,7 +345,10 @@ describe('Tokens', () => {
     renderPage();
 
     await person.click(
-      screen.getByRole('button', { name: 'Revoke terraform' }),
+      screen.getByRole('button', { name: 'Actions for terraform' }),
+    );
+    await person.click(
+      await screen.findByRole('menuitem', { name: 'Revoke token' }),
     );
 
     expect(

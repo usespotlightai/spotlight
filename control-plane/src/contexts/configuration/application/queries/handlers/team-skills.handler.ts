@@ -34,7 +34,6 @@ export class TeamSkillsHandler
         skills: skills.map(({ skill }) => ({
           key: skill.key.value,
           description: skill.description,
-          path: this.reader.definedAt(skill.key),
         })),
       };
     } catch (error) {

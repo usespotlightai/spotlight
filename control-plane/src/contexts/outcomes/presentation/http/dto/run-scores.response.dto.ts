@@ -212,10 +212,18 @@ export class RunScoresResponseDto {
   readonly kind: string;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The body of the rubric the run is graded by: the rubric without the line or front matter naming its scale, so a person grades it by what the judge did; the judge’s own where it scored the run, else the station’s; null where there is none',
+  })
+  readonly rubricBody: string | null;
+
+  @ApiProperty({
     type: 'array',
     items: { type: 'string', nullable: true },
     description:
-      'The claims the run is graded on, in order, on a claims scale, empty on any other; a claim reads null where its words changed since the judge marked it',
+      'The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer held',
   })
   readonly claims: readonly (string | null)[];
 
@@ -245,6 +253,7 @@ export class RunScoresResponseDto {
     this.taskId = scores.taskId;
     this.stationId = scores.stationId;
     this.kind = scores.kind;
+    this.rubricBody = scores.rubricBody;
     this.claims = [...scores.claims];
     this.judged = scores.judged;
     this.judge = scores.judge ? new JudgeScoreResponseDto(scores.judge) : null;

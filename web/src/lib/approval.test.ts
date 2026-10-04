@@ -10,6 +10,7 @@ import {
   labelOf,
   readsAsCode,
   shownInputs,
+  titleOf,
 } from '@/lib/approval';
 
 const COMMENT: Approval = {
@@ -114,6 +115,23 @@ describe('approval', () => {
     );
     expect(askedFor(COMMENT)).toBe(
       'Spotlight would like to use linear.comment. It posts publicly, under the team’s name.',
+    );
+  });
+
+  it('titles an approval by where it stands', () => {
+    expect(titleOf(COMMENT)).toBe('Waiting for your approval');
+    expect(titleOf({ ...COMMENT, standing: 'granted' })).toBe(
+      'Request approved',
+    );
+    expect(
+      titleOf({
+        ...COMMENT,
+        standing: 'granted',
+        edited: [{ name: 'body', value: 'Done.' }],
+      }),
+    ).toBe('Request approved with changes');
+    expect(titleOf({ ...COMMENT, standing: 'refused' })).toBe(
+      'Request dismissed',
     );
   });
 

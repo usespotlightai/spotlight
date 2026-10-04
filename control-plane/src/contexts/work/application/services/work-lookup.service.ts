@@ -52,7 +52,16 @@ const spoken = (note: TaskNote): SpokenNote[] => {
       : null;
   const text = note.body.value.trim();
 
-  return by && text ? [{ position: note.position.value, by, text }] : [];
+  return by && text
+    ? [
+        {
+          position: note.position.value,
+          by,
+          author: note.voice.author?.value ?? null,
+          text,
+        },
+      ]
+    : [];
 };
 
 const changesIn = (journal: RunJournal, run: Run): RunChanges => ({
@@ -89,6 +98,7 @@ export class WorkLookup implements WorkLookupPort {
 
     return {
       id: run.id,
+      harness: run.harness.value,
       workspaceId: run.workspaceId,
       taskId: run.taskId,
       check: run.spec.check,

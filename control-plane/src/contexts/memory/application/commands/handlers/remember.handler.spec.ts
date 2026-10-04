@@ -56,6 +56,7 @@ const remembering = (held: HeldRun | null = HELD) => {
       { index: 4, kind: 'remember', text: 'spotlight remember' },
     ],
     spokenOn: async () => [],
+    harnessOf: async () => 'claude-code',
   } as unknown as WorkPort;
 
   const handler = new RememberHandler(

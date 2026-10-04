@@ -6,8 +6,11 @@ import { RunScoresViews } from '@outcomes/application/services/run-scores-views.
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
 import type { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
 import {
+  askedJudging,
+  JudgingsInMemory,
   judgeScore,
   RUBRIC_VERSION,
+  rubricOf,
   ScoresInMemory,
 } from '@outcomes/domain/judging.fake-spec';
 import {
@@ -52,6 +55,7 @@ const grading = async (
 ) => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
+  const judgings = new JudgingsInMemory();
   await records.add(endedRecord('run_1'));
   if (judged) {
     await scores.add(
@@ -79,7 +83,7 @@ const grading = async (
           ? null
           : { workspaceId: WORKSPACE, by: principal.userId },
     }),
-    new RunScoresViews(records, scores, reports),
+    new RunScoresViews(records, scores, reports, judgings),
     scores,
     inTransaction,
     {
@@ -93,6 +97,7 @@ const grading = async (
 
   return {
     scores,
+    judgings,
     reports,
     grade: (value: boolean | number | null, by = 'user_ada', runId = 'run_1') =>
       handler.execute(new GradeRunCommand('team_1', runId, value, null, by)),
@@ -149,7 +154,7 @@ describe('GradeRunHandler', () => {
     await expect(run.gradeClaims([true])).rejects.toBeInstanceOf(UseCaseFault);
   });
 
-  it('grades the claims the judge marked, even once the station’s claims changed', async () => {
+  it('names the claims the judge marked, even once the station’s claims changed', async () => {
     const run = await grading(null, {
       ...CLAIMS_JUDGE,
       rubricVersion: 'd'.repeat(64),
@@ -160,10 +165,18 @@ describe('GradeRunHandler', () => {
         marks: [true, true, false],
       }),
     );
+    const marked = [
+      'It retries the upload.',
+      'It adds a test.',
+      'It leaves the handler alone.',
+    ];
+    await run.judgings.add(
+      askedJudging('run_1', rubricOf(null, RUBRIC_VERSION, marked)),
+    );
 
     const scores = await run.gradeClaims([true, true, true]);
 
-    expect(scores.claims).toEqual([null, null, null]);
+    expect(scores.claims).toEqual(marked);
     expect(scores.grades[0]?.marks).toEqual([true, true, true]);
   });
 

@@ -1,11 +1,11 @@
-import { ApprovalPill } from '@/components/features/inbox/conversation/approval/ApprovalPill';
+import { DecisionPill } from '@/components/shared/DecisionPill';
 import type { Approval } from '@/lib/approval';
 
 type ApprovalApproveButtonProps = {
   approval: Approval;
   disabled: boolean;
   title?: string;
-  onApprove: () => void;
+  onApprove?: () => void;
 };
 
 export function ApprovalApproveButton({
@@ -15,7 +15,7 @@ export function ApprovalApproveButton({
   onApprove,
 }: ApprovalApproveButtonProps) {
   return (
-    <ApprovalPill
+    <DecisionPill
       variant="default"
       disabled={disabled}
       title={title}
@@ -23,6 +23,6 @@ export function ApprovalApproveButton({
       aria-label={`Approve ${approval.name}`}
     >
       Approve
-    </ApprovalPill>
+    </DecisionPill>
   );
 }

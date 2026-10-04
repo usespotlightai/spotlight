@@ -16,9 +16,16 @@ export interface MemoryGroundStepDto {
   readonly text: string;
 }
 
+export interface PersonDto {
+  readonly id: string;
+  readonly name: string | null;
+  readonly image: string | null;
+}
+
 export interface MemoryGroundNoteDto {
   readonly position: number;
   readonly by: string;
+  readonly author: PersonDto | null;
   readonly text: string;
 }
 
@@ -40,6 +47,7 @@ export interface ProposedMemoryDto {
   readonly paths: readonly string[];
   readonly supersedes: string | null;
   readonly decision: MemoryDecisionDto | null;
+  readonly harness: string | null;
   readonly steps: readonly MemoryGroundStepDto[];
   readonly notes: readonly MemoryGroundNoteDto[];
 }

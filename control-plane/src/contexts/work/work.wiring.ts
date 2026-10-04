@@ -133,7 +133,6 @@ import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.h
 import { ParkRunHandler } from '@work/application/commands/handlers/park-run.handler';
 import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-inbox-aside.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
-import { ReadNoticeHandler } from '@work/application/commands/handlers/read-notice.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
@@ -155,7 +154,6 @@ import {
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
-import { ReadNoticeCommand } from '@work/application/commands/read-notice.command';
 import {
   AppendRunJournalCommand,
   ClaimHostWorkCommand,
@@ -1964,11 +1962,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ReadInboxAsideCommand, ReadInboxAsideHandler, [
     AsideAtHand,
     DrizzleTaskAsideRepository,
-    CLOCK,
-  ]),
-  ...bindCommandHandler(ReadNoticeCommand, ReadNoticeHandler, [
-    NoticeAtHand,
-    DrizzleNoticeRepository,
     CLOCK,
   ]),
   ...bindCommandHandler(SettleNoticeCommand, SettleNoticeHandler, [

@@ -1,17 +1,12 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { MemoryDetails } from '@/components/features/memory/MemoryDetails';
+import { MemoryKindLabel } from '@/components/features/memory/MemoryKindLabel';
 import { RetirementNote } from '@/components/features/memory/RetirementNote';
 import { Pill } from '@/components/shared/Pill';
 import { Unfold } from '@/components/shared/Unfold';
 import type { LineResponseDto } from '@/lib/api';
-import {
-  KIND_LABELS,
-  placeOf,
-  SOURCE_LABELS,
-  type TeamMemory,
-  usedBy,
-} from '@/lib/memory';
+import { placeOf, SOURCE_LABELS, type TeamMemory, usedBy } from '@/lib/memory';
 import { cn } from '@/lib/utils';
 
 type TeamMemoryRowProps = {
@@ -52,7 +47,9 @@ export function TeamMemoryRow({
           </span>
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
             <span className="font-mono">{memory.handle}</span>
-            <Pill className="px-1.5 py-0">{KIND_LABELS[memory.kind]}</Pill>
+            <Pill className="px-1.5 py-0">
+              <MemoryKindLabel kind={memory.kind} />
+            </Pill>
             <span className="truncate">{placeOf(memory, lines)}</span>
             <span aria-hidden>·</span>
             <span>

@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Route } from 'react-router';
+import { within } from 'storybook/test';
 import { tokensPath } from '@/lib/token';
 import { Tokens } from '@/routes/Tokens';
 import { failMutations } from '@/stories/failMutations';
 import {
+  createSucceeds,
   emptyTokens,
   failTokens,
   SLUG,
@@ -20,6 +22,24 @@ const meta = {
 export default meta;
 
 type Story = StoryObj<typeof meta>;
+
+const createTerraformToken: NonNullable<Story['play']> = async ({
+  canvas,
+  canvasElement,
+  userEvent,
+}) => {
+  await userEvent.click(
+    await canvas.findByRole('button', { name: 'Create a token' }),
+  );
+
+  await userEvent.type(
+    await within(canvasElement.ownerDocument.body).findByRole('textbox', {
+      name: 'Name',
+    }),
+    'terraform',
+  );
+  await userEvent.keyboard('{Enter}');
+};
 
 export const Loading: Story = {
   render: () => <StoryPage at={tokensPath(SLUG)}>{routes}</StoryPage>,
@@ -77,18 +97,21 @@ export const CouldNotCreate: Story = {
       {routes}
     </StoryPage>
   ),
-  play: async ({ canvas, canvasElement, userEvent }) => {
-    await userEvent.click(
-      await canvas.findByRole('button', { name: 'Create a token' }),
-    );
+  play: createTerraformToken,
+};
 
-    const page = canvasElement.ownerDocument.body;
-    const name = page.querySelector<HTMLInputElement>('input[name="name"]');
+export const TokenCreated: Story = {
+  name: 'Token created',
+  beforeEach: createSucceeds,
+  render: () => (
+    <StoryPage at={tokensPath(SLUG)} seed={seedTokens}>
+      {routes}
+    </StoryPage>
+  ),
+  play: async (context) => {
+    await createTerraformToken(context);
 
-    if (name) {
-      await userEvent.type(name, 'terraform');
-      await userEvent.keyboard('{Enter}');
-    }
+    await context.canvas.findByText('Copy the terraform token now');
   },
 };
 
@@ -99,9 +122,16 @@ export const Revoking: Story = {
       {routes}
     </StoryPage>
   ),
-  play: async ({ canvas, userEvent }) => {
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    (
+      await canvas.findByRole('button', { name: 'Actions for terraform' })
+    ).focus();
+    await userEvent.keyboard('{Enter}');
+
     await userEvent.click(
-      await canvas.findByRole('button', { name: 'Revoke terraform' }),
+      await within(canvasElement.ownerDocument.body).findByRole('menuitem', {
+        name: 'Revoke token',
+      }),
     );
   },
 };

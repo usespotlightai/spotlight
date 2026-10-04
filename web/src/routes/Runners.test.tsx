@@ -62,9 +62,23 @@ const host = (over: Record<string, unknown> = {}) => ({
   upSince: '2026-08-29T09:00:00.000Z',
   lastSeenAt: '2026-08-29T12:00:00.000Z',
   answering: true,
-  runs: [],
+  runners: [],
   ...over,
 });
+
+const pushPool = (over: Record<string, unknown> = {}) => ({
+  through: { kind: 'pool', key: 'ephemeral' },
+  runners: [provisioned(over)],
+});
+
+const HELD = {
+  id: 'run_1',
+  state: 'running',
+  kind: 'task',
+  teamId: 'team_1',
+  readable: true,
+  title: 'Drain the stuck retry queues',
+};
 
 const provisioned = (over: Record<string, unknown> = {}) => ({
   id: 'runner_cloud_1',
@@ -74,12 +88,12 @@ const provisioned = (over: Record<string, unknown> = {}) => ({
   harnesses: ['claude-code'],
   startedAt: '2026-08-29T12:00:00.000Z',
   lastSeenAt: '2026-08-29T12:00:00.000Z',
-  currentRun: { id: 'run_1', state: 'running' },
+  currentRun: HELD,
   ...over,
 });
 
-const holding = (hosts: unknown[], runners: unknown[] = []) =>
-  fleet.mockReturnValue({ hosts, provisioned: runners });
+const holding = (hosts: unknown[], pools: unknown[] = []) =>
+  fleet.mockReturnValue({ hosts, pools });
 
 const renderPage = () =>
   render(
@@ -106,7 +120,7 @@ describe('Runners', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the hosts' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Host')).toBeInTheDocument();
+    expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.queryByText(/No hosts yet/)).not.toBeInTheDocument();
   });
 
@@ -151,7 +165,7 @@ describe('Runners', () => {
     renderPage();
 
     const named = screen.getByText('spotlight-runner:20260925-01');
-    expect(named).toHaveAttribute(
+    expect(named.parentElement).toHaveAttribute(
       'title',
       expect.stringContaining('ghcr.io/acme/api-runner:main'),
     );
@@ -232,7 +246,9 @@ describe('Runners', () => {
 
     renderPage();
 
-    const hosts = within(screen.getByRole('region', { name: 'Hosts' }));
+    const hosts = within(
+      screen.getByRole('region', { name: 'Hosts and push pools' }),
+    );
     expect(hosts.getByText('Running 2 of 4')).toBeInTheDocument();
     expect(hosts.getByText('Idle')).toBeInTheDocument();
     expect(hosts.getByText('Not answering')).toBeInTheDocument();
@@ -287,26 +303,75 @@ describe('Runners', () => {
     );
   });
 
-  it('lists runners a push pool provisioned, apart from hosts', () => {
-    holding([host()], [provisioned()]);
+  it('nests each runner under its host, linking to the run it works on', () => {
+    holding([
+      host({
+        running: ['runner_1'],
+        runners: [
+          provisioned({
+            id: 'runner_1',
+            hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
+            image: 'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
+          }),
+        ],
+      }),
+    ]);
 
     renderPage();
 
-    const runners = within(
-      screen.getByRole('region', { name: 'Provisioned by a pool' }),
+    const nested = within(
+      screen.getByRole('list', { name: 'Runners on build-box-1' }),
     );
-    expect(runners.getByText('Pool ephemeral')).toBeInTheDocument();
-    expect(runners.getByText('Running')).toBeInTheDocument();
+    expect(
+      nested.getByRole('link', { name: 'Drain the stuck retry queues' }),
+    ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
   });
 
-  it('leaves the provisioned section out when there are none', () => {
-    holding([host()]);
+  it('hides the run of a team the viewer cannot read behind a blurred stand-in, saying why', () => {
+    holding([
+      host({
+        running: ['runner_1'],
+        runners: [
+          provisioned({
+            id: 'runner_1',
+            hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
+            currentRun: { ...HELD, readable: false, title: null },
+          }),
+        ],
+      }),
+    ]);
 
     renderPage();
 
+    const nested = within(
+      screen.getByRole('list', { name: 'Runners on build-box-1' }),
+    );
     expect(
-      screen.queryByRole('region', { name: 'Provisioned by a pool' }),
-    ).not.toBeInTheDocument();
+      nested.getByText(
+        'A run for a team you’re not on, so its title is hidden.',
+      ),
+    ).toBeInTheDocument();
+    expect(nested.queryByRole('link')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="hidden-run"] [aria-hidden]'),
+    ).toHaveClass('blur-[3px]');
+  });
+
+  it('nests the runners a push pool started under that pool, naming runs it cannot open', () => {
+    holding(
+      [host()],
+      [pushPool({ currentRun: { ...HELD, kind: 'search', title: null } })],
+    );
+
+    renderPage();
+
+    expect(screen.getByText('ephemeral')).toBeInTheDocument();
+    expect(screen.getByText('Push pool')).toBeInTheDocument();
+    const nested = within(
+      screen.getByRole('list', { name: 'Runners on ephemeral' }),
+    );
+    expect(nested.getByText('A search run')).toBeInTheDocument();
+    expect(nested.queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('shows only the hosts in the chosen filter, and remembers it', async () => {
@@ -317,7 +382,7 @@ describe('Runners', () => {
         host({ id: 'second-host-id', name: 'idle-box' }),
         host({ id: 'third-host-id', name: 'gone-box', answering: false }),
       ],
-      [provisioned()],
+      [pushPool()],
     );
 
     renderPage();
@@ -327,13 +392,13 @@ describe('Runners', () => {
     expect(screen.getByText('idle-box')).toBeInTheDocument();
     expect(screen.queryByText('build-box-1')).not.toBeInTheDocument();
     expect(screen.queryByText('gone-box')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pool ephemeral')).not.toBeInTheDocument();
+    expect(screen.queryByText('ephemeral')).not.toBeInTheDocument();
     expect(localStorage.getItem('spotlight.runner-filter')).toBe('idle');
 
     await person.click(screen.getByRole('button', { name: 'Running' }));
 
     expect(screen.getByText('build-box-1')).toBeInTheDocument();
-    expect(screen.getByText('Pool ephemeral')).toBeInTheDocument();
+    expect(screen.getByText('ephemeral')).toBeInTheDocument();
     expect(screen.queryByText('idle-box')).not.toBeInTheDocument();
   });
 

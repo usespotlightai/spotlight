@@ -14,6 +14,32 @@ describe('Rubric', () => {
     ).toBe('yes-no');
   });
 
+  it('reads as its body once the scale it names is taken off', () => {
+    expect(
+      Rubric.of({
+        text: '---\nauthor: ada\nscores: 1-5\n---\nHow well?',
+        version: RUBRIC_VERSION,
+      }).body,
+    ).toBe('How well?');
+  });
+
+  it('keeps the whole of a rubric judged by claims, since claims set its scale', () => {
+    expect(
+      Rubric.of({
+        text: 'scores: yes-no',
+        version: RUBRIC_VERSION,
+        claims: ['It retries.'],
+      }).body,
+    ).toBe('scores: yes-no');
+    expect(
+      Rubric.of({
+        text: null,
+        claims: ['It retries.'],
+        version: RUBRIC_VERSION,
+      }).body,
+    ).toBeNull();
+  });
+
   it('is named by the 64-character digest of its text', () => {
     expect(() => Rubric.of({ text: 'Did it retry?', version: 'v1' })).toThrow(
       InvalidScoreError,

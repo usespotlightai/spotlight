@@ -37,6 +37,7 @@ export interface StationPlace {
 
 export type CurrentStationJudge = StationJudge & {
   readonly scale: ScoreScale | null;
+  readonly rubricBody: string | null;
 };
 
 export interface CurrentStanding {
@@ -104,7 +105,11 @@ export class StationJudgeReports implements JudgeStandingPort {
       version: judge.rubricVersion,
     });
 
-    return { ...judge, scale: rubric?.scale ?? null };
+    return {
+      ...judge,
+      scale: rubric?.scale ?? null,
+      rubricBody: rubric?.body ?? null,
+    };
   }
 
   async of(station: StationOnTeam): Promise<JudgeStandingShape> {

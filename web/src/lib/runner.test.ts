@@ -3,6 +3,10 @@ import type { HostResponseDto, LiveRunnerResponseDto } from '@/lib/api';
 import {
   answeringCount,
   type Host,
+  heldRunPath,
+  hiddenFromViewer,
+  runnerStanding,
+  runShown,
   seenAt,
   since,
   standing,
@@ -30,7 +34,7 @@ const host = (over: Partial<HostResponseDto> = {}): HostResponseDto => ({
 
 const hosted = (over: Partial<HostResponseDto> = {}): Host => ({
   ...host(over),
-  runs: [],
+  runners: [],
 });
 
 const runner = (
@@ -98,33 +102,112 @@ describe('standing', () => {
   });
 });
 
+const HELD = {
+  id: 'run_7',
+  state: 'claimed',
+  kind: 'task' as const,
+  teamId: 'team_1',
+  readable: true,
+  title: 'Drain the stuck retry queues',
+};
+
 describe('withActivity', () => {
-  it('gives each host the runs its runners hold', () => {
-    const { hosts } = withActivity(
-      { hosts: [host({ running: ['runner_1', 'runner_2'] })], runners: [] },
-      [{ runnerId: 'runner_1', currentRun: { id: 'run_7', state: 'claimed' } }],
+  it('nests each runner under the host whose sandbox it runs in, with its run', () => {
+    const { hosts, pools } = withActivity(
+      {
+        hosts: [host()],
+        runners: [
+          runner({ id: 'runner_1', hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' }),
+        ],
+      },
+      [{ runnerId: 'runner_1', currentRun: HELD }],
     );
 
-    expect(hosts[0].runs).toEqual([{ id: 'run_7', state: 'claimed' }]);
+    expect(hosts[0]?.runners.map((each) => each.currentRun)).toEqual([HELD]);
+    expect(pools).toEqual([]);
   });
 
-  it('keeps apart only the runners no host started', () => {
-    const { provisioned } = withActivity(
+  it('gathers the runners no host started under the push pool that started them', () => {
+    const { pools } = withActivity(
       {
         hosts: [],
         runners: [
           runner({ id: 'runner_1' }),
-          runner({ id: 'runner_2', hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' }),
+          runner({ id: 'runner_2', through: { kind: 'pool', key: 'burst' } }),
+          runner({ id: 'runner_3' }),
         ],
       },
-      [{ runnerId: 'runner_1', currentRun: { id: 'run_7', state: 'running' } }],
+      [],
     );
 
-    expect(provisioned.map((each) => each.id)).toEqual(['runner_1']);
-    expect(provisioned[0].currentRun).toEqual({
-      id: 'run_7',
-      state: 'running',
-    });
+    expect(
+      pools.map((pool) => [
+        pool.through.key,
+        pool.runners.map((each) => each.id),
+      ]),
+    ).toEqual([
+      ['ephemeral', ['runner_1', 'runner_3']],
+      ['burst', ['runner_2']],
+    ]);
+  });
+});
+
+describe('runShown', () => {
+  it('names the run, or says what kind it is where it cannot', () => {
+    expect(runShown(HELD)).toBe('Drain the stuck retry queues');
+    expect(runShown({ ...HELD, kind: 'search', title: null })).toBe(
+      'A search run',
+    );
+    expect(runShown({ ...HELD, kind: 'spec', teamId: null, title: null })).toBe(
+      'A run queued by hand',
+    );
+    expect(runShown(null)).toBe('No run yet');
+  });
+});
+
+describe('runnerStanding', () => {
+  it('says a runner is starting, running, or waiting on a person', () => {
+    const active = runner();
+
+    expect(runnerStanding({ ...active, currentRun: null })).toBe('Starting');
+    expect(runnerStanding({ ...active, currentRun: HELD })).toBe('Running');
+    expect(
+      runnerStanding({ ...active, currentRun: { ...HELD, state: 'waiting' } }),
+    ).toBe('Waiting on a person');
+  });
+});
+
+describe('hiddenFromViewer', () => {
+  it('hides a task run or chat of a team the viewer cannot read, never a replay, a search or a run for no team', () => {
+    expect(hiddenFromViewer({ ...HELD, readable: false, title: null })).toBe(
+      true,
+    );
+    expect(
+      hiddenFromViewer({ ...HELD, kind: 'chat', readable: false, title: null }),
+    ).toBe(true);
+    expect(hiddenFromViewer(HELD)).toBe(false);
+    expect(
+      hiddenFromViewer({
+        ...HELD,
+        kind: 'search',
+        readable: false,
+        title: null,
+      }),
+    ).toBe(false);
+    expect(
+      hiddenFromViewer({ ...HELD, readable: false, teamId: null, title: null }),
+    ).toBe(false);
+    expect(hiddenFromViewer(null)).toBe(false);
+  });
+});
+
+describe('heldRunPath', () => {
+  it('links only a task run on a team the viewer reads', () => {
+    expect(heldRunPath('acme', HELD)).toBe('/w/acme/team/team_1/runs/run_7');
+    expect(
+      heldRunPath('acme', { ...HELD, readable: false, title: null }),
+    ).toBeNull();
+    expect(heldRunPath('acme', { ...HELD, kind: 'chat' })).toBeNull();
   });
 });
 
@@ -133,7 +216,7 @@ describe('answeringCount', () => {
     expect(
       answeringCount({
         hosts: [hosted(), hosted({ answering: false })],
-        provisioned: [],
+        pools: [],
       }),
     ).toBe(1);
   });

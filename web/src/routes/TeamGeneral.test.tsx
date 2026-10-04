@@ -357,13 +357,16 @@ describe('TeamGeneral', () => {
     expect(refetchMembers).toHaveBeenCalled();
   });
 
-  it('offers to invite the first member where the team has none', async () => {
+  it('says the team has no one yet, leaving inviting to the section’s own button', async () => {
     members.mockReturnValue([]);
     showing();
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Invite the first member' }),
-    );
+    expect(screen.getByText('No one is on this team yet.')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Invite the first member' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add a member' }));
 
     expect(screen.getByLabelText('Email address')).toBeInTheDocument();
   });

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { ApprovalAction } from '@/components/features/inbox/conversation/approval/ApprovalAction';
+import { ApprovalAwaitsInbox } from '@/components/features/inbox/conversation/approval/ApprovalAwaitsInbox';
 import { ApprovalDecision } from '@/components/features/inbox/conversation/approval/ApprovalDecision';
 import { ApprovalEditControls } from '@/components/features/inbox/conversation/approval/ApprovalEditControls';
 import { ApprovalFields } from '@/components/features/inbox/conversation/approval/ApprovalFields';
 import { ApprovalHeader } from '@/components/features/inbox/conversation/approval/ApprovalHeader';
 import { ApprovalRefusal } from '@/components/features/inbox/conversation/approval/ApprovalRefusal';
-import { ApprovalSettled } from '@/components/features/inbox/conversation/approval/ApprovalSettled';
+import { DecisionCard } from '@/components/shared/DecisionCard';
 import {
   type Approval,
   type ApprovalAnswer,
@@ -51,10 +52,7 @@ export function ApprovalCard({
     <div className="flex flex-col gap-2">
       <p className="text-foreground text-sm leading-6">{askedFor(approval)}</p>
 
-      <section
-        aria-label={approval.name}
-        className="flex flex-col gap-3 rounded-xl border-[0.5px] border-border bg-card px-3 py-3 shadow-pane"
-      >
+      <DecisionCard aria-label={approval.name}>
         <ApprovalHeader
           approval={approval}
           pending={pending}
@@ -82,7 +80,11 @@ export function ApprovalCard({
         )}
 
         {!deciding ? (
-          <ApprovalSettled approval={approval} />
+          approval.standing === 'asked' ? (
+            <ApprovalAwaitsInbox />
+          ) : (
+            <ApprovalDecision approval={approval} pending={false} />
+          )
         ) : mode === 'editing' ? (
           <ApprovalEditControls
             approval={approval}
@@ -114,7 +116,7 @@ export function ApprovalCard({
             onDismiss={() => setMode('refusing')}
           />
         )}
-      </section>
+      </DecisionCard>
     </div>
   );
 }

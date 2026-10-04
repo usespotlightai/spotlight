@@ -54,6 +54,7 @@ export interface RunScoresDto {
   readonly taskId: string;
   readonly stationId: string;
   readonly kind: ScoreKind;
+  readonly rubricBody: string | null;
   readonly claims: readonly (string | null)[];
   readonly judged: boolean;
   readonly judge: JudgeScoreDto | null;

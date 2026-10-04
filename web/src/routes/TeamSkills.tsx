@@ -3,8 +3,8 @@ import { SettingsEmpty } from '@/components/features/settings/SettingsEmpty';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { TeamSkillRow } from '@/components/features/skills/TeamSkillRow';
-import { TeamSkillRowSkeleton } from '@/components/features/skills/TeamSkillRowSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
 import { useTeamSkills } from '@/hooks/api/useTeamSkills';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { failed, loading } from '@/lib/query';
@@ -32,7 +32,7 @@ export function TeamSkills() {
       {loading(skills) && (
         <SettingsSection>
           <div role="status" aria-label="Loading the skills">
-            <TeamSkillRowSkeleton />
+            <IconRowSkeleton nameWidth="w-28" aboutWidth="w-48" />
           </div>
         </SettingsSection>
       )}

@@ -81,7 +81,7 @@ export function ChatInput({
         onSubmit={send}
         {...(!disabled && message.handlers)}
         style={fit.height === null ? undefined : { height: fit.height }}
-        className="box-content overflow-hidden rounded-2xl border border-border bg-surface shadow-xs transition-[height] duration-200 ease-out-quad motion-reduce:transition-none"
+        className="box-content overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-[height] duration-200 ease-out-quad motion-reduce:transition-none"
       >
         <div
           ref={fit.inner}

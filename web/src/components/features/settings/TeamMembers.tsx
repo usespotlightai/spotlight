@@ -55,20 +55,9 @@ export function TeamMembers({ slug, teamId }: TeamMembersProps) {
         )}
 
         {members.data?.length === 0 && (
-          <div className="flex flex-col items-start gap-3 px-4 py-4">
-            <p className="text-muted-foreground text-sm">
-              No one is on this team yet.
-            </p>
-
-            <Button
-              size="sm"
-              className="rounded-full"
-              onClick={() => setInviting(true)}
-              disabled={!teamId}
-            >
-              Invite the first member
-            </Button>
-          </div>
+          <p className="px-4 py-4 text-muted-foreground text-sm">
+            No one is on this team yet.
+          </p>
         )}
 
         {on.map((member) => (

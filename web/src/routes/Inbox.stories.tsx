@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Route } from 'react-router';
-import { inboxItemPath, inboxPath, noticePath } from '@/lib/inbox';
+import { inboxItemPath, inboxPath } from '@/lib/inbox';
 import { Inbox } from '@/routes/Inbox';
 import { InboxIndex } from '@/routes/InboxIndex';
 import { InboxItem } from '@/routes/InboxItem';
@@ -11,13 +11,11 @@ import {
   FAILING_ITEM_ID,
   failInbox,
   MEMORIES_ITEM_ID,
-  NOTICE_ID,
   OPENED_ITEM_ID,
   SLUG,
   seedApproved,
   seedDismissed,
   seedInbox,
-  seedSettledNotice,
 } from '@/stories/fixtures/inbox';
 import { StoryPage } from '@/stories/StoryPage';
 
@@ -103,49 +101,6 @@ export const ProposedMemories: Story = {
 export const RepeatedFailure: Story = {
   render: () => (
     <StoryPage at={inboxItemPath(SLUG, FAILING_ITEM_ID)} seed={seedInbox}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const SearchStalled: Story = {
-  name: 'Search stalled notice',
-  render: () => (
-    <StoryPage at={noticePath(SLUG, NOTICE_ID)} seed={seedInbox}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const NoticeDismissed: Story = {
-  name: 'Dismissed notice',
-  render: () => (
-    <StoryPage at={noticePath(SLUG, NOTICE_ID)} seed={seedSettledNotice}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const NoticeLoading: Story = {
-  name: 'Notice loading',
-  render: () => (
-    <StoryPage at={noticePath(SLUG, NOTICE_ID)}>{routes}</StoryPage>
-  ),
-};
-
-export const NoticeFailed: Story = {
-  name: 'Notice error',
-  render: () => (
-    <StoryPage at={noticePath(SLUG, NOTICE_ID)} seed={failInbox}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const NoticeGone: Story = {
-  name: 'Notice gone',
-  render: () => (
-    <StoryPage at={noticePath(SLUG, NOTICE_ID)} seed={emptyInbox}>
       {routes}
     </StoryPage>
   ),

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { expiryAfter, expiryTold, scopesOf, scopesTold } from '@/lib/token';
+import {
+  createdTold,
+  expiryAfter,
+  expiryTold,
+  scopesOf,
+  scopesTold,
+} from '@/lib/token';
 
 const NOW = new Date('2026-09-30T12:00:00.000Z').getTime();
 
@@ -37,7 +43,7 @@ describe('expiryAfter', () => {
 
 describe('expiryTold', () => {
   it('says a token without an expiry never expires', () => {
-    expect(expiryTold(null, NOW)).toBe('Never expires');
+    expect(expiryTold(null, NOW)).toBe('No expiry');
   });
 
   it('says a token past its expiry has expired', () => {
@@ -48,5 +54,14 @@ describe('expiryTold', () => {
     expect(expiryTold('2027-01-15T12:00:00.000Z', NOW)).toMatch(
       /^Expires .*15.*2027/,
     );
+  });
+});
+
+describe('createdTold', () => {
+  it('names the day a token was made, with its year only when that is not this year', () => {
+    expect(createdTold('2026-10-04T12:00:00.000Z', NOW)).toMatch(
+      /^Created \D*4\D*$/,
+    );
+    expect(createdTold('2025-10-04T12:00:00.000Z', NOW)).toMatch(/2025/);
   });
 });

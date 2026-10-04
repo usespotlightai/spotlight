@@ -5,7 +5,7 @@ type SettingsRowProps = {
   description?: ReactNode;
   htmlFor?: string;
   leading?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
 };
 
 export function SettingsRow({
@@ -37,7 +37,7 @@ export function SettingsRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center">{children}</div>
+      {children && <div className="flex shrink-0 items-center">{children}</div>}
     </div>
   );
 }

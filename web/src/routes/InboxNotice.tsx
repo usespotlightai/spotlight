@@ -8,7 +8,6 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useInbox } from '@/hooks/api/useInbox';
-import { useReadInboxNotice } from '@/hooks/api/useReadInboxNotice';
 import { useSettleInboxNotice } from '@/hooks/api/useSettleInboxNotice';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { notFound } from '@/lib/error';
@@ -22,18 +21,17 @@ export function InboxNotice() {
   const inbox = useInbox(slug);
   const notice = noticeOf(inbox.data, noticeId);
   const { data: workspace } = useWorkspace(slug);
-  const read = useReadInboxNotice();
   const settle = useSettleInboxNotice();
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!slug || !notice?.unread || seen.current === notice.id) {
+    if (!slug || !notice || notice.resolved || seen.current === notice.id) {
       return;
     }
 
     seen.current = notice.id;
-    read.mutate({ slug, noticeId: notice.id });
-  }, [slug, notice, read.mutate]);
+    settle.mutate({ slug, noticeId: notice.id });
+  }, [slug, notice, settle.mutate]);
 
   const team = workspace?.teams.find(
     (candidate) => candidate.id === notice?.teamId,
@@ -63,20 +61,14 @@ export function InboxNotice() {
     );
   }
 
-  if (!notice || !slug || notFound(read.error) || notFound(settle.error)) {
+  if (!notice || !slug || notFound(settle.error)) {
     return <InboxGone />;
   }
 
   return (
     <TrailContext value={forward}>
       <AsideLayout trail={trail}>
-        <NoticeCard
-          slug={slug}
-          notice={notice}
-          dismissing={settle.isPending}
-          dismissFailed={settle.isError}
-          onDismiss={() => settle.mutate({ slug, noticeId: notice.id })}
-        />
+        <NoticeCard slug={slug} notice={notice} />
       </AsideLayout>
     </TrailContext>
   );

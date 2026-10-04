@@ -2,9 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { ReadNoticeHandler } from '@work/application/commands/handlers/read-notice.handler';
 import { SettleNoticeHandler } from '@work/application/commands/handlers/settle-notice.handler';
-import { ReadNoticeCommand } from '@work/application/commands/read-notice.command';
 import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
 import type { NoticeOf } from '@work/application/ports/notices.port';
 import { NoticeAtHand } from '@work/application/services/notice-at-hand.service';
@@ -136,14 +134,10 @@ describe('Notices', () => {
     expect(memory.held.size).toBe(0);
   });
 
-  it('lets only its person, still on its team, in its workspace, read or settle it', async () => {
+  it('lets only its person, still on its team, in its workspace, settle it', async () => {
     const memory = new InMemoryNotices();
     const clock = { now: () => NOW, sleep: async () => {} };
     const atHand = new NoticeAtHand(memory, access);
-    const read = (id: string, slug: string, person: string) =>
-      new ReadNoticeHandler(atHand, memory, clock).execute(
-        new ReadNoticeCommand(id, slug, person),
-      );
     const settle = (id: string, slug: string, person: string) =>
       new SettleNoticeHandler(atHand, memory, clock).execute(
         new SettleNoticeCommand(id, slug, person),
@@ -154,14 +148,12 @@ describe('Notices', () => {
     const [id] = [...memory.held.keys()] as [string];
 
     members.add('team_1:user_2');
-    await expect(read(id, 'acme', 'user_2')).rejects.toMatchObject({
+    await expect(settle(id, 'acme', 'user_2')).rejects.toMatchObject({
       kind: 'not-found',
     });
-    await expect(read(id, 'elsewhere', 'user_1')).rejects.toMatchObject({
+    await expect(settle(id, 'elsewhere', 'user_1')).rejects.toMatchObject({
       kind: 'not-found',
     });
-    await read(id, 'acme', 'user_1');
-    expect(memory.held.get(id)?.readAt).toEqual(NOW);
     await settle(id, 'acme', 'user_1');
     expect(memory.held.get(id)?.settledAt).toEqual(NOW);
     await expect(
@@ -169,7 +161,7 @@ describe('Notices', () => {
     ).rejects.toMatchObject({ kind: 'not-found' });
 
     members.delete('team_1:user_1');
-    await expect(read(id, 'acme', 'user_1')).rejects.toMatchObject({
+    await expect(settle(id, 'acme', 'user_1')).rejects.toMatchObject({
       kind: 'not-found',
     });
     members.add('team_1:user_1');

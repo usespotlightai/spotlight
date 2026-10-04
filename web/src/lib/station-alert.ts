@@ -28,22 +28,95 @@ export const measureValueShown = (
     : shareShown(value);
 };
 
-const runsShown = (over: number): string =>
+const lastRuns = (over: number): string =>
   over === 1 ? 'the last run' : `the last ${over} runs`;
 
-const beforeShown = (over: number): string =>
+const runsBefore = (over: number): string =>
   over === 1 ? 'the one before' : `the ${over} before`;
+
+const DID: Record<Exclude<Measure, 'cost_per_run'>, [string, string]> = {
+  sent_back_rate: ['were sent back', 'was sent back'],
+  accepted_rate: ['were accepted', 'was accepted'],
+  merged_rate: ['were merged', 'was merged'],
+  failed_rate: ['failed', 'failed'],
+  checks_failed_rate: ['failed their checks', 'failed its checks'],
+};
+
+const movedFrom = (now: number | null, before: number): string => {
+  if (now === null || now === before) {
+    return 'the same as';
+  }
+
+  return now > before ? 'up from' : 'down from';
+};
 
 export const thresholdShown = (alert: StationAlertCrossing): string =>
   alertPhrase(alert.threshold, alert.currency);
 
 export const crossingShown = (alert: StationAlertCrossing): string => {
   const { measure, over } = alert.threshold;
-  const now = measureValueShown(measure, alert.value, alert.currency);
+  const shown = (value: number | null) =>
+    measureValueShown(measure, value, alert.currency);
+  const before =
+    alert.baseline === null
+      ? ''
+      : `, ${movedFrom(alert.value, alert.baseline)} ${shown(alert.baseline)} in ${runsBefore(over)}`;
 
-  return alert.baseline === null
-    ? `It was ${now} across ${runsShown(over)}.`
-    : `It was ${now} in ${runsShown(over)}, against ${measureValueShown(measure, alert.baseline, alert.currency)} in ${beforeShown(over)}.`;
+  if (measure === 'cost_per_run') {
+    const each = over === 1 ? '' : ' each on average';
+    const runs = lastRuns(over);
+
+    return `${runs.charAt(0).toUpperCase()}${runs.slice(1)} cost ${shown(alert.value)}${each}${before}.`;
+  }
+
+  return `${shown(alert.value)} of ${lastRuns(over)} ${DID[measure][over === 1 ? 1 : 0]}${before}.`;
+};
+
+const changeShown = (
+  measure: Measure,
+  change: number,
+  currency: string | null,
+  direction: 'rise' | 'fall',
+): string => {
+  if (measure === 'cost_per_run') {
+    return `a ${direction} of ${measureValueShown(measure, change, currency)}`;
+  }
+
+  return `a ${Math.round(change * 1000) / 10}-point ${direction}`;
+};
+
+export const limitShown = (alert: StationAlertCrossing): string => {
+  const { measure, risesBy, fallsBy, above, below } = alert.threshold;
+  const shown = (value: number) =>
+    measureValueShown(measure, value, alert.currency);
+
+  if (risesBy !== null) {
+    return `The alert is set at ${changeShown(measure, risesBy, alert.currency, 'rise')}.`;
+  }
+  if (fallsBy !== null) {
+    return `The alert is set at ${changeShown(measure, fallsBy, alert.currency, 'fall')}.`;
+  }
+  if (below !== null) {
+    return `The alert is set at below ${shown(below)}.`;
+  }
+
+  return `The alert is set at above ${shown(above ?? 0)}.`;
+};
+
+export const ALERT_LEVEL = 'Alert level';
+
+export const BEFORE_LEVEL = 'Before';
+
+export const CROSSING_RUN = 'The run it went off at';
+
+export const recoveredShown = (
+  alert: StationAlertCrossing,
+  day: string,
+): string => {
+  const { fallsBy, below } = alert.threshold;
+  const side = fallsBy !== null || below !== null ? 'over' : 'under';
+
+  return `Back ${side} the threshold since ${day}.`;
 };
 
 export const thresholdLine = (alert: StationAlertCrossing): number | null =>

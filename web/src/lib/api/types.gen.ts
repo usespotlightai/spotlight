@@ -1052,6 +1052,22 @@ export type EgressRedemptionResponseDto = {
 export type HeldRunResponseDto = {
   id: string;
   state: string;
+  /**
+   * What the run is for: a task at a station, an agent chat, a replay, a search, or only the spec it was queued with
+   */
+  kind: 'task' | 'chat' | 'replay' | 'search' | 'spec';
+  /**
+   * The team the run is for; null where it is for none
+   */
+  teamId: string | null;
+  /**
+   * Whether the caller reads the run’s team, and so may see its title and open it; false where the run is for no team
+   */
+  readable: boolean;
+  /**
+   * The task’s or chat’s title; null for a replay, a search or a run queued with only a spec, or where the caller cannot read the run’s team
+   */
+  title: string | null;
 };
 
 export type RunnerActivityResponseDto = {
@@ -2797,10 +2813,6 @@ export type ConfigurationResponseDto = {
 export type TeamSkillResponseDto = {
   key: string;
   description: string;
-  /**
-   * Where the skill is defined
-   */
-  path: string;
 };
 
 export type TeamSkillsResponseDto = {
@@ -3713,6 +3725,12 @@ export type MemoryGroundStepResponseDto = {
   text: string;
 };
 
+export type MemoryPersonResponseDto = {
+  id: string;
+  name: string | null;
+  image: string | null;
+};
+
 export type MemoryGroundNoteResponseDto = {
   /**
    * Where the note stands on its task
@@ -3722,6 +3740,10 @@ export type MemoryGroundNoteResponseDto = {
    * person: a teammate signed in to Spotlight; world: someone writing through another tool
    */
   by: string;
+  /**
+   * The teammate who said it; absent for words from another tool, which carry no author
+   */
+  author: MemoryPersonResponseDto | null;
   text: string;
 };
 
@@ -3753,6 +3775,10 @@ export type ProposedMemoryResponseDto = {
    */
   decision: MemoryDecisionResponseDto | null;
   /**
+   * The harness the run whose steps it rests on ran on
+   */
+  harness: string | null;
+  /**
    * The steps of its run it rests on
    */
   steps: Array<MemoryGroundStepResponseDto>;
@@ -3781,12 +3807,6 @@ export type ApproveMemoriesRequestDto = {
    * The memories to approve; one from outside the team is approved on its own
    */
   memories: Array<ApprovedMemoryRequestDto>;
-};
-
-export type MemoryPersonResponseDto = {
-  id: string;
-  name: string | null;
-  image: string | null;
 };
 
 export type MemoryRetirementResponseDto = {
@@ -3896,6 +3916,10 @@ export type TeamMemoryDetailResponseDto = {
    * How many runs were briefed with it or recalled it
    */
   runs: number;
+  /**
+   * The harness the run whose steps it rests on ran on
+   */
+  harness: string | null;
   steps: Array<MemoryGroundStepResponseDto>;
   notes: Array<MemoryGroundNoteResponseDto>;
   superseded: MemoryLinkResponseDto | null;
@@ -3936,6 +3960,10 @@ export type RunProposalResponseDto = {
    * Who approved or rejected it, and when
    */
   decision: MemoryDecisionResponseDto | null;
+  /**
+   * The harness the run whose steps it rests on ran on
+   */
+  harness: string | null;
   /**
    * The steps of its run it rests on
    */
@@ -4347,7 +4375,11 @@ export type RunScoresResponseDto = {
    */
   kind: 'yes-no' | 'number' | 'claims';
   /**
-   * The claims the run is graded on, in order, on a claims scale, empty on any other; a claim reads null where its words changed since the judge marked it
+   * The body of the rubric the run is graded by: the rubric without the line or front matter naming its scale, so a person grades it by what the judge did; the judge’s own where it scored the run, else the station’s; null where there is none
+   */
+  rubricBody: string | null;
+  /**
+   * The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer held
    */
   claims: Array<string | null>;
   /**
@@ -9460,36 +9492,6 @@ export type ReadInboxAsideResponses = {
 };
 
 export type ReadInboxAsideResponse = ReadInboxAsideResponses[keyof ReadInboxAsideResponses];
-
-export type ReadInboxNoticeData = {
-  body?: never;
-  path: {
-    slug: string;
-    noticeId: string;
-  };
-  query?: never;
-  url: '/workspaces/{slug}/inbox/notices/{noticeId}/read';
-};
-
-export type ReadInboxNoticeErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such notice for this caller
-   */
-  404: unknown;
-};
-
-export type ReadInboxNoticeResponses = {
-  /**
-   * It is no longer unread
-   */
-  204: void;
-};
-
-export type ReadInboxNoticeResponse = ReadInboxNoticeResponses[keyof ReadInboxNoticeResponses];
 
 export type SettleInboxNoticeData = {
   body?: never;

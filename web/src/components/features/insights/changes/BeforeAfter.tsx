@@ -5,8 +5,7 @@ import { ConfigChanges } from '@/components/features/stations/ConfigChanges';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { Fingerprint } from '@/components/shared/Fingerprint';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { buttonVariants } from '@/components/ui/button-variants';
+import { PillLink } from '@/components/shared/PillLink';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
 import {
   type InsightsPeriod,
@@ -17,7 +16,6 @@ import { type ChangeAt, markerOf } from '@/lib/insights-changes';
 import { dayShown } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 import { stationPath } from '@/lib/station';
-import { cn } from '@/lib/utils';
 
 type BeforeAfterProps = {
   slug: string;
@@ -26,11 +24,6 @@ type BeforeAfterProps = {
   change: ChangeAt;
   names: StationNames;
 };
-
-const STATION_LINK = cn(
-  buttonVariants({ variant: 'outline', size: 'sm' }),
-  'rounded-full bg-card shadow-none',
-);
 
 export function BeforeAfter({
   slug,
@@ -66,12 +59,11 @@ export function BeforeAfter({
           This change is not in the period any more.
         </p>
         {named && (
-          <TrailLink
+          <PillLink
             to={stationPath(slug, teamId, named.lineId, named.stationId)}
-            className={STATION_LINK}
           >
             Open the station
-          </TrailLink>
+          </PillLink>
         )}
       </div>
     );
@@ -119,12 +111,11 @@ export function BeforeAfter({
       />
 
       <div className="flex flex-wrap gap-2">
-        <TrailLink
+        <PillLink
           to={stationPath(slug, teamId, marker.lineId, marker.stationId)}
-          className={STATION_LINK}
         >
           Open the station
-        </TrailLink>
+        </PillLink>
         {named && (
           <ImproveStationLink
             slug={slug}

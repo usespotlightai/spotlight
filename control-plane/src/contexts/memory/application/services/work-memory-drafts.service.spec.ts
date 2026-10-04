@@ -63,8 +63,8 @@ const CHANGED: readonly ChangedFile[] = [
 ];
 
 const SPOKEN: readonly SpokenNote[] = [
-  { position: 0, by: 'person', text: 'Keep it simple.' },
-  { position: 1, by: 'person', text: 'Never retry on a 403.' },
+  { position: 0, by: 'person', author: null, text: 'Keep it simple.' },
+  { position: 1, by: 'person', author: null, text: 'Never retry on a 403.' },
 ];
 
 const kept = (id: string, scope: MemoryScope, at = NOW) =>
@@ -174,6 +174,7 @@ const working = (input: {
       reasoning: async () => (input.steps === undefined ? STEPS : input.steps),
       changedBy: async () => CHANGED,
       spokenOn: async () => input.spoken ?? SPOKEN,
+      harnessOf: async () => null,
     } satisfies WorkPort,
     new MemoriesInReach(
       {
@@ -262,7 +263,10 @@ describe('drafting what a run should leave the team remembering', () => {
 
     const later = working({
       held: first.stored().asked(RunId.of('run_2'), NOW),
-      spoken: [...SPOKEN, { position: 2, by: 'person', text: 'Use gzip.' }],
+      spoken: [
+        ...SPOKEN,
+        { position: 2, by: 'person', author: null, text: 'Use gzip.' },
+      ],
       answer: async () => [],
     });
     await later.turn();

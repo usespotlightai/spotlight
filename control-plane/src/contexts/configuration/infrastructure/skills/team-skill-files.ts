@@ -7,7 +7,6 @@ import type {
 } from '@configuration/application/ports/skill-reader.port';
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import type { ConfigurationFile } from '@configuration/domain/value-objects/configuration-file.vo';
-import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { SKILLS_UNDER } from '@configuration/infrastructure/configuration-files';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
@@ -59,10 +58,6 @@ const readFolder = (
 };
 
 export class TeamSkillFiles implements SkillReaderPort {
-  definedAt(key: SkillKey): string {
-    return `${SKILLS_UNDER}/${key.value}`;
-  }
-
   folder(
     name: string,
     files: readonly SkillFile[],

@@ -1,12 +1,11 @@
-import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
-import { StepsFold } from '@/components/features/inbox/conversation/StepsFold';
+import { DisclosureToggle } from '@/components/shared/DisclosureToggle';
 import { FadingScroll } from '@/components/shared/FadingScroll';
+import { Unfold } from '@/components/shared/Unfold';
 import { useOpenWhenFocused } from '@/hooks/useOpenWhenFocused';
 import type { JournalStep } from '@/lib/inbox';
 import { useStepAnchors } from '@/lib/step-anchors';
-import { cn } from '@/lib/utils';
 
 type StepsDisclosureProps = {
   label: ReactNode;
@@ -31,24 +30,13 @@ export function StepsDisclosure({
 
   return (
     <div className="py-1.5">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className="flex items-center gap-1 rounded py-0.5 text-muted-foreground text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ChevronRight
-          className={cn(
-            'size-3 transition-transform duration-200',
-            open && 'rotate-90',
-          )}
-        />
+      <DisclosureToggle open={open} onToggle={toggle}>
         {label}
-      </button>
+      </DisclosureToggle>
 
       {children}
 
-      <StepsFold open={open}>
+      <Unfold open={open} appear={false}>
         <FadingScroll className="max-h-[min(18rem,50dvh)]">
           <ol className="flex flex-col gap-px pt-1">
             {steps.map((step, at) => (
@@ -57,7 +45,7 @@ export function StepsDisclosure({
             ))}
           </ol>
         </FadingScroll>
-      </StepsFold>
+      </Unfold>
     </div>
   );
 }

@@ -395,7 +395,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         link: row.link,
         linkLabel: row.linkLabel,
         askedAt: row.raisedAt,
-        unread: row.readAt === null && row.settledAt === null,
+        unread: row.settledAt === null,
         resolved: row.settledAt !== null,
       }));
   }

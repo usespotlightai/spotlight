@@ -7,36 +7,15 @@ import {
   MEMORY_STANDING_NAMES,
   type MemoryLinkDto,
   type MemoryRetirementDto,
-  type PersonDto,
   type TeamMemoryDetailDto,
   type TeamMemoryDto,
 } from '@memory/application/dto/team-memory.dto';
 import {
   MemoryGroundNoteResponseDto,
   MemoryGroundStepResponseDto,
+  MemoryPersonResponseDto,
 } from '@memory/presentation/http/dto/memory-review.response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export class MemoryPersonResponseDto {
-  @ApiProperty({ example: 'user_1' })
-  readonly id: string;
-
-  @ApiProperty({ nullable: true, type: String, example: 'Maya Chen' })
-  readonly name: string | null;
-
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    example: 'https://avatars.githubusercontent.com/u/1',
-  })
-  readonly image: string | null;
-
-  constructor(person: PersonDto) {
-    this.id = person.id;
-    this.name = person.name;
-    this.image = person.image;
-  }
-}
 
 export class MemoryRetirementResponseDto {
   @ApiProperty({ example: '2026-09-27T10:00:00.000Z' })
@@ -192,6 +171,14 @@ export class TeamMemoryResponseDto {
 }
 
 export class TeamMemoryDetailResponseDto extends TeamMemoryResponseDto {
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'claude-code',
+    description: 'The harness the run whose steps it rests on ran on',
+  })
+  readonly harness: string | null;
+
   @ApiProperty({ type: MemoryGroundStepResponseDto, isArray: true })
   readonly steps: readonly MemoryGroundStepResponseDto[];
 
@@ -206,6 +193,7 @@ export class TeamMemoryDetailResponseDto extends TeamMemoryResponseDto {
 
   constructor(memory: TeamMemoryDetailDto) {
     super(memory);
+    this.harness = memory.harness;
     this.steps = memory.steps.map(
       (each) => new MemoryGroundStepResponseDto(each),
     );

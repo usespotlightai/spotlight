@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   alertOnInsightsPath,
   crossingShown,
+  limitShown,
   measureValueShown,
+  recoveredShown,
   type StationAlertCrossing,
   thresholdLine,
 } from '@/lib/station-alert';
@@ -24,11 +26,11 @@ const alert = (over: Partial<StationAlertCrossing>): StationAlertCrossing =>
   }) as StationAlertCrossing;
 
 describe('crossingShown', () => {
-  it('says the level it reached across the runs it watches', () => {
-    expect(crossingShown(alert({}))).toBe('It was $2.50 across the last run.');
+  it('says what the runs it watches came to', () => {
+    expect(crossingShown(alert({}))).toBe('The last run cost $2.50.');
   });
 
-  it('says the rise against the runs before', () => {
+  it('says how many runs did it, and the rise from the runs before', () => {
     expect(
       crossingShown(
         alert({
@@ -44,7 +46,63 @@ describe('crossingShown', () => {
           baseline: 0.2,
         }),
       ),
-    ).toBe('It was 40% in the last 5 runs, against 20% in the 5 before.');
+    ).toBe('40% of the last 5 runs failed, up from 20% in the 5 before.');
+  });
+});
+
+describe('recoveredShown', () => {
+  it('says the runs came back under a level or rise, and back over a floor or fall', () => {
+    expect(recoveredShown(alert({}), '4 Oct')).toBe(
+      'Back under the threshold since 4 Oct.',
+    );
+    expect(
+      recoveredShown(
+        alert({
+          threshold: {
+            measure: 'merged_rate',
+            risesBy: null,
+            fallsBy: null,
+            above: null,
+            below: 0.4,
+            over: 5,
+          },
+        }),
+        '4 Oct',
+      ),
+    ).toBe('Back over the threshold since 4 Oct.');
+  });
+});
+
+describe('limitShown', () => {
+  it('says a level the alert is set at', () => {
+    expect(limitShown(alert({}))).toBe('The alert is set at above $2.00.');
+  });
+
+  it('says a rise in points, or a fall in the runs’ currency', () => {
+    const threshold = {
+      measure: 'failed_rate',
+      risesBy: 0.15,
+      fallsBy: null,
+      above: null,
+      below: null,
+      over: 5,
+    } as const;
+
+    expect(limitShown(alert({ threshold }))).toBe(
+      'The alert is set at a 15-point rise.',
+    );
+    expect(
+      limitShown(
+        alert({
+          threshold: {
+            ...threshold,
+            measure: 'cost_per_run',
+            risesBy: null,
+            fallsBy: 0.5,
+          },
+        }),
+      ),
+    ).toBe('The alert is set at a fall of $0.50.');
   });
 });
 

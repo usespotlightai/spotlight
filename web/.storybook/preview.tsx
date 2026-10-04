@@ -4,6 +4,7 @@ import { sb } from 'storybook/test';
 import '../src/index.css';
 
 sb.mock(import('../src/hooks/api/useSession.ts'));
+sb.mock(import('../src/hooks/api/useCreateWorkspaceToken.ts'), { spy: true });
 
 const preview: Preview = {
   parameters: {
@@ -28,6 +29,7 @@ const preview: Preview = {
             'Proposed memories',
             'Grade a run',
             'Alerts',
+            'Notices',
           ],
           'Team',
           [

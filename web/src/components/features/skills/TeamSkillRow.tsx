@@ -23,11 +23,7 @@ export function TeamSkillRow({
         label={skill.key}
         description={skill.description}
         leading={<RowIcon icon={SquareMousePointer} />}
-      >
-        <span className="truncate font-mono text-muted-foreground text-xs">
-          {skill.path}
-        </span>
-      </SettingsRow>
+      />
     </div>
   );
 }

@@ -11,11 +11,32 @@ const NAMED: ReadonlyMap<string, RubricScaleKind> = new Map([
   ['1-5', 'number'],
 ]);
 
-const namedIn = (lines: readonly string[]): string | null => {
-  const [first, ...rest] = lines;
+interface ParsedRubric {
+  readonly named: string | null;
+  readonly body: string;
+}
+
+const scaleNamedOn = (line: string | undefined): string | null => {
+  const named = line === undefined ? undefined : SCALE_LINE.exec(line)?.[1];
+
+  return named === undefined ? null : named.trim().toLowerCase();
+};
+
+const bodyAfter = (lines: readonly string[], at: number): string =>
+  lines
+    .slice(at + 1)
+    .join('\n')
+    .trim();
+
+const parsed = (rubric: string): ParsedRubric => {
+  const lines = rubric.split('\n');
+  const start = lines.findIndex((each) => each.trim());
+  const first = lines[start]?.trim();
 
   if (first === FENCE) {
-    const closing = rest.indexOf(FENCE);
+    const closing = lines.findIndex(
+      (each, at) => at > start && each.trim() === FENCE,
+    );
 
     if (closing < 0) {
       throw new InvalidRubricScaleError(
@@ -23,28 +44,26 @@ const namedIn = (lines: readonly string[]): string | null => {
       );
     }
 
-    for (const line of rest.slice(0, closing)) {
-      const named = SCALE_LINE.exec(line)?.[1];
+    const named = lines
+      .slice(start + 1, closing)
+      .map((each) => scaleNamedOn(each.trim()))
+      .find((each) => each !== null);
 
-      if (named !== undefined) {
-        return named.trim().toLowerCase();
-      }
-    }
-
-    return null;
+    return { named: named ?? null, body: bodyAfter(lines, closing) };
   }
 
-  const named = first === undefined ? undefined : SCALE_LINE.exec(first)?.[1];
+  const named = scaleNamedOn(first);
 
-  return named === undefined ? null : named.trim().toLowerCase();
+  return named === null
+    ? { named, body: rubric.trim() }
+    : { named, body: bodyAfter(lines, start) };
 };
 
 export class RubricScale {
   private constructor(readonly kind: RubricScaleKind) {}
 
   static of(rubric: string): RubricScale {
-    const lines = rubric.split('\n').map((each) => each.trim());
-    const named = namedIn(lines.slice(Math.max(0, lines.findIndex(Boolean))));
+    const { named } = parsed(rubric);
 
     if (named === null) {
       return new RubricScale('yes-no');
@@ -59,6 +78,10 @@ export class RubricScale {
     }
 
     return new RubricScale(kind);
+  }
+
+  static bodyOf(rubric: string): string {
+    return parsed(rubric).body;
   }
 
   static readable(rubric: string): RubricScale | null {

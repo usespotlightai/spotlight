@@ -1,4 +1,5 @@
 import { InboxHeaderSkeleton } from '@/components/features/inbox/InboxHeaderSkeleton';
+import { PillSkeleton } from '@/components/shared/skeleton/PillSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
 export function NoticeSkeleton() {
@@ -22,10 +23,7 @@ export function NoticeSkeleton() {
           <SkeletonLine className="w-5/6 text-sm" />
           <SkeletonLine className="w-2/3 text-sm" />
         </div>
-        <div className="flex gap-2">
-          <SkeletonLine className="w-28 text-sm" />
-          <SkeletonLine className="w-20 text-sm" />
-        </div>
+        <PillSkeleton className="w-28" />
       </div>
     </div>
   );

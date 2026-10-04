@@ -9,18 +9,15 @@ const SKILLS: TeamSkillsResponseDto = {
     {
       key: 'grafana-dashboards',
       description: 'Reading this team’s dashboards before touching an alert.',
-      path: '.spotlight/skills/grafana-dashboards',
     },
     {
       key: 'our-migrations',
       description:
         'Generating database migrations, never writing them by hand.',
-      path: '.spotlight/skills/our-migrations',
     },
     {
       key: 'release-notes',
       description: 'Writing release notes in the voice the team uses.',
-      path: '.spotlight/skills/release-notes',
     },
   ],
 };

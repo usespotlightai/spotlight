@@ -1,68 +1,28 @@
-import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { MemoryGroundList } from '@/components/features/memory/MemoryGroundList';
+import { DisclosureToggle } from '@/components/shared/DisclosureToggle';
 import { Unfold } from '@/components/shared/Unfold';
-import { type MemoryGround, stepLabel } from '@/lib/memory';
-import { cn } from '@/lib/utils';
+import { citesAnything, type MemoryGround } from '@/lib/memory';
 
 type MemoryGroundsProps = {
   grounds: MemoryGround;
-  defaultOpen: boolean;
 };
 
-const SPOKEN_BY: Record<string, string> = {
-  person: 'A teammate said',
-  world: 'Someone outside Spotlight said',
-};
+export function MemoryGrounds({ grounds }: MemoryGroundsProps) {
+  const [open, setOpen] = useState(false);
 
-export function MemoryGrounds({ grounds, defaultOpen }: MemoryGroundsProps) {
-  const [open, setOpen] = useState(defaultOpen);
-  const cited = grounds.steps.length + grounds.notes.length;
-
-  if (cited === 0) {
+  if (!citesAnything(grounds)) {
     return null;
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((was) => !was)}
-        className="flex items-center gap-1 self-start text-muted-foreground text-xs outline-none hover:text-foreground"
-      >
-        What it rests on
-        <ChevronDown
-          aria-hidden
-          className={cn(
-            'size-3.5 transition-transform duration-200',
-            open && 'rotate-180',
-          )}
-        />
-      </button>
+      <DisclosureToggle open={open} onToggle={() => setOpen((was) => !was)}>
+        Source
+      </DisclosureToggle>
 
       <Unfold open={open} appear={false}>
-        <ol className="flex flex-col gap-2 rounded-lg border border-border bg-muted/60 px-3 py-2">
-          {grounds.notes.map((note) => (
-            <li key={`note-${note.position}`} className="flex flex-col gap-0.5">
-              <span className="text-muted-foreground text-xs">
-                {SPOKEN_BY[note.by] ?? 'Someone said'}
-              </span>
-              <p className="whitespace-pre-wrap break-words text-foreground text-xs leading-5">
-                {note.text}
-              </p>
-            </li>
-          ))}
-          {grounds.steps.map((step) => (
-            <li key={`step-${step.index}`} className="flex flex-col gap-0.5">
-              <span className="text-muted-foreground text-xs">
-                {stepLabel(step.kind)}
-              </span>
-              <p className="whitespace-pre-wrap break-words text-foreground text-xs leading-5">
-                {step.text}
-              </p>
-            </li>
-          ))}
-        </ol>
+        <MemoryGroundList grounds={grounds} />
       </Unfold>
     </div>
   );

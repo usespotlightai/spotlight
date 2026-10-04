@@ -24,7 +24,6 @@ interface NoticeState {
   readonly link: NoticeLink;
   readonly wording: NoticeWording;
   readonly raisedAt: Date;
-  readonly readAt: Date | null;
   readonly settledAt: Date | null;
   readonly version: number;
 }
@@ -55,7 +54,6 @@ export class Notice {
       ...input,
       subject,
       raisedAt: input.at,
-      readAt: null,
       settledAt: null,
       version: 0,
     });
@@ -66,13 +64,10 @@ export class Notice {
   }
 
   static rehydrate(state: NoticeState): Notice {
-    if (
-      (state.readAt && state.readAt < state.raisedAt) ||
-      (state.settledAt && state.settledAt < state.raisedAt)
-    ) {
+    if (state.settledAt && state.settledAt < state.raisedAt) {
       throw new InconsistentStateError(
         'notice',
-        'was read or settled before it was raised',
+        'was settled before it was raised',
       );
     }
 
@@ -115,10 +110,6 @@ export class Notice {
     return this.state.raisedAt;
   }
 
-  get readAt(): Date | null {
-    return this.state.readAt;
-  }
-
   get settledAt(): Date | null {
     return this.state.settledAt;
   }
@@ -131,19 +122,9 @@ export class Notice {
     return this.state.addressee.equals(person);
   }
 
-  read(at: Date): Notice {
-    return this.state.readAt || this.state.settledAt
-      ? this
-      : new Notice({ ...this.state, readAt: at });
-  }
-
   settled(at: Date): Notice {
     return this.state.settledAt
       ? this
-      : new Notice({
-          ...this.state,
-          readAt: this.state.readAt ?? at,
-          settledAt: at,
-        });
+      : new Notice({ ...this.state, settledAt: at });
   }
 }

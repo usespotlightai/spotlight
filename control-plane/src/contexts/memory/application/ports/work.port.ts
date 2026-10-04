@@ -7,6 +7,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const WORK = Symbol('WORK');
@@ -55,6 +56,7 @@ export interface ChangedFile {
 export interface SpokenNote {
   readonly position: number;
   readonly by: 'person' | 'world';
+  readonly author: UserId | null;
   readonly text: string;
 }
 
@@ -89,4 +91,6 @@ export interface WorkPort {
   changedBy(runId: RunId): Promise<readonly ChangedFile[] | null>;
 
   spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null>;
+
+  harnessOf(runId: RunId): Promise<string | null>;
 }

@@ -20,6 +20,7 @@ export interface RunPlace {
 
 export interface RunLookup {
   readonly id: RunId;
+  readonly harness: string;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
   readonly check: string | null;
@@ -81,6 +82,7 @@ export interface ChangedFile {
 export interface SpokenNote {
   readonly position: number;
   readonly by: 'person' | 'world';
+  readonly author: string | null;
   readonly text: string;
 }
 
