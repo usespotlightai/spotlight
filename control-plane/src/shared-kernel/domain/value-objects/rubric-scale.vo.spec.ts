@@ -20,11 +20,27 @@ describe('RubricScale', () => {
     ).toBe('number');
   });
 
+  it('leaves the rubric body once the scale is taken off', () => {
+    expect(
+      RubricScale.bodyOf('\n  scores: 1-5\n\nHow well did it retry?'),
+    ).toBe('How well did it retry?');
+    expect(
+      RubricScale.bodyOf('---\nauthor: ada\nscores: 1-5\n---\nHow well?'),
+    ).toBe('How well?');
+    expect(RubricScale.bodyOf('Did it retry?\nscores: 1-5')).toBe(
+      'Did it retry?\nscores: 1-5',
+    );
+    expect(RubricScale.bodyOf('scores: 1-5')).toBe('');
+  });
+
   it('refuses front matter that is never closed', () => {
     expect(() =>
       RubricScale.of('---\nscores: 1-5\nHow well did it retry?'),
     ).toThrow(InvalidRubricScaleError);
     expect(RubricScale.readable('---\nscores: 1-5\nHow well?')).toBeNull();
+    expect(() => RubricScale.bodyOf('---\nscores: 1-5\nHow well?')).toThrow(
+      InvalidRubricScaleError,
+    );
   });
 
   it('looks for the scale nowhere past the first line', () => {

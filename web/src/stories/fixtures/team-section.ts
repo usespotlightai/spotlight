@@ -8,7 +8,6 @@ import { teamTraceKeys } from '@/hooks/api/useTeamTraces';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type {
   ChatSummaryResponseDto,
-  HarnessResponseDto,
   LineResponseDto,
   RunStationResponseDto,
   TeamRunResponseDto,
@@ -17,6 +16,7 @@ import type {
 } from '@/lib/api';
 import { RANGES, windowOf } from '@/lib/range';
 import { failQuery } from '@/stories/failQuery';
+import { HARNESSES } from '@/stories/fixtures/harnesses';
 
 export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
@@ -78,16 +78,6 @@ const LINES: LineResponseDto[] = [
     repositories: ['acme/api', 'acme/worker'],
     source: null,
     replayCheck: null,
-  },
-];
-
-const HARNESSES: HarnessResponseDto[] = [
-  {
-    id: 'claude-code',
-    name: 'Claude Code',
-    models: [{ id: 'claude-opus-5', name: 'Opus 5' }],
-    defaultModel: 'claude-opus-5',
-    efforts: ['low', 'medium', 'high'],
   },
 ];
 

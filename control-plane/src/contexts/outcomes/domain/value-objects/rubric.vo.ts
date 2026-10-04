@@ -1,6 +1,7 @@
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
+import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
 
 const VERSION = /^[0-9a-f]{64}$/;
 
@@ -51,6 +52,18 @@ export class Rubric {
 
   get text(): string | null {
     return this.criteria.rubric;
+  }
+
+  get body(): string | null {
+    const text = this.criteria.rubric;
+
+    if (text === null) {
+      return null;
+    }
+
+    return (
+      (this.scale.byClaims ? text.trim() : RubricScale.bodyOf(text)) || null
+    );
   }
 
   get scale(): ScoreScale {

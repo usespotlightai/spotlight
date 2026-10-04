@@ -6,10 +6,13 @@ import { RunScoresViews } from '@outcomes/application/services/run-scores-views.
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import {
+  askedJudging,
+  JudgingsInMemory,
   judgeScore,
   NEXT_RUBRIC_VERSION,
   placeOf,
   RUBRIC_VERSION,
+  rubricOf,
   ScoresInMemory,
 } from '@outcomes/domain/judging.fake-spec';
 import {
@@ -44,7 +47,11 @@ const AT = new Date('2026-09-30T11:00:00.000Z');
 const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
+  const judgings = new JudgingsInMemory();
   await records.add(endedRecord('run_1'));
+  await judgings.add(
+    askedJudging('run_1', rubricOf('scores: yes-no\nDid it retry?', scoredBy)),
+  );
   await scores.add(
     Score.judged({
       id: ScoreId.of('score_1'),
@@ -119,6 +126,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
         records,
         new TaskDeliveriesInMemory(),
       ),
+      judgings,
     ),
   );
 };
@@ -133,6 +141,12 @@ const scoresOf = async (
   );
 
 describe('ReadRunScoresHandler', () => {
+  it('grades by the rubric the judge was given, whatever the station’s rubric says now', async () => {
+    const scores = await scoresOf(true, 'team_1', NEXT_RUBRIC_VERSION);
+
+    expect(scores.rubricBody).toBe('Did it retry?');
+  });
+
   it('lays out a trusted judge’s score with each cited step and hunk as the judge read it', async () => {
     const scores = await scoresOf(true);
 

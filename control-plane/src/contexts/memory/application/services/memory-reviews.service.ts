@@ -4,6 +4,8 @@ import type {
 } from '@memory/application/dto/memory-review.dto';
 import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
+import { groundNotes } from '@memory/application/services/ground-notes';
+import { lookUpOnce } from '@memory/application/services/people-lookup';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -17,10 +19,12 @@ export class MemoryReviews {
     const proposals = draft.proposals.filter((each) =>
       each.grounds.runId.equals(runId),
     );
-    const [steps, notes] = await Promise.all([
+    const [steps, notes, harness] = await Promise.all([
       this.work.reasoning(runId),
       this.work.spokenOn(draft.taskId),
+      this.work.harnessOf(runId),
     ]);
+    const person = lookUpOnce(this.people);
 
     const memories = await Promise.all(
       proposals.map(
@@ -37,15 +41,14 @@ export class MemoryReviews {
           supersedes: proposal.supersedes?.value ?? null,
           decision: proposal.decision && {
             by: proposal.decision.by.value,
-            name: (await this.people.find(proposal.decision.by))?.name ?? null,
+            name: (await person(proposal.decision.by)).name,
             at: proposal.decision.at.toISOString(),
           },
+          harness,
           steps: (steps ?? []).filter((each) =>
             proposal.grounds.steps.includes(each.index),
           ),
-          notes: (notes ?? []).filter((each) =>
-            proposal.grounds.notes.includes(each.position),
-          ),
+          notes: await groundNotes(notes ?? [], proposal.grounds.notes, person),
         }),
       ),
     );

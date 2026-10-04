@@ -1,6 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunnerActivityDto } from '@work/application/dto/runner-activity.dto';
 import type { RunnerActivityReaderPort } from '@work/application/ports/runner-activity-reader.port';
@@ -19,10 +20,8 @@ export class ListRunnerActivityHandler
     query: ListRunnerActivityQuery,
   ): Promise<RunnerActivityDto[] | null> {
     try {
-      const membership = await this.access.inWorkspace(
-        query.slug,
-        UserId.of(query.viewerId),
-      );
+      const viewer = UserId.of(query.viewerId);
+      const membership = await this.access.inWorkspace(query.slug, viewer);
 
       if (!membership) {
         return null;
@@ -30,10 +29,39 @@ export class ListRunnerActivityHandler
 
       const held = await this.activity.heldIn(membership.workspaceId);
 
-      return held.map((each) => ({
-        runnerId: each.runnerId,
-        currentRun: { id: each.runId, state: each.state },
-      }));
+      const teams = [
+        ...new Set(held.flatMap((each) => (each.teamId ? [each.teamId] : []))),
+      ];
+      const reads = new Set(
+        (
+          await Promise.all(
+            teams.map(async (teamId) =>
+              (await this.access.clearanceAsTeamReader(
+                teamId,
+                PersonPrincipal.of(viewer),
+              ))
+                ? [teamId]
+                : [],
+            ),
+          )
+        ).flat(),
+      );
+
+      return held.map((each) => {
+        const readable = each.teamId !== null && reads.has(each.teamId);
+
+        return {
+          runnerId: each.runnerId,
+          currentRun: {
+            id: each.runId,
+            state: each.state,
+            kind: each.kind,
+            teamId: each.teamId,
+            readable,
+            title: readable ? each.title : null,
+          },
+        };
+      });
     } catch (error) {
       rethrowAsFault(error);
     }

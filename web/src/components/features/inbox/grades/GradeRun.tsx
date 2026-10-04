@@ -1,45 +1,39 @@
+import { GraduationCap } from 'lucide-react';
 import { ClaimsGrade } from '@/components/features/inbox/grades/ClaimsGrade';
-import { GradeRunAbout } from '@/components/features/inbox/grades/GradeRunAbout';
+import { GradeNotSaved } from '@/components/features/inbox/grades/GradeNotSaved';
+import { GradeRubric } from '@/components/features/inbox/grades/GradeRubric';
 import { GradeRunSkeleton } from '@/components/features/inbox/grades/GradeRunSkeleton';
+import { GradeSaving } from '@/components/features/inbox/grades/GradeSaving';
 import { QuickGrade } from '@/components/features/inbox/grades/QuickGrade';
-import { RunChanges } from '@/components/features/runs/RunChanges';
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { DecisionCard } from '@/components/shared/DecisionCard';
+import { DecisionHeader } from '@/components/shared/DecisionHeader';
+import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import { useGradeRun } from '@/hooks/api/useGradeRun';
 import { useRunScores } from '@/hooks/api/useRunScores';
-import { useTaskJournal } from '@/hooks/api/useTaskJournal';
-import { changesOf } from '@/lib/changes';
 import { notFound } from '@/lib/error';
-import { type GradeAnswer, summaryOf } from '@/lib/judge';
+import { type GradeAnswer, gradeHeading } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 
 type GradeRunProps = {
   slug: string;
   teamId: string;
-  taskId: string;
   runId: string;
-  title: string;
-  description: string | null;
 };
 
-export function GradeRun({
-  slug,
-  teamId,
-  taskId,
-  runId,
-  title,
-  description,
-}: GradeRunProps) {
+export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
   const scores = useRunScores(teamId, runId);
-  const journal = useTaskJournal(slug, taskId);
   const grade = useGradeRun();
 
-  if (loading(scores) || loading(journal)) {
+  if (loading(scores)) {
     return <GradeRunSkeleton />;
   }
 
   if (failed(scores) && notFound(scores.error)) {
-    return <MembersOnly title="Only the team’s members can grade this run" />;
+    return (
+      <MembersOnly title="You’re no longer on this team, so you can’t grade this run" />
+    );
   }
 
   if (failed(scores) || !scores.data) {
@@ -53,64 +47,35 @@ export function GradeRun({
     );
   }
 
-  if (failed(journal)) {
-    return (
-      <CouldNotLoad
-        what="What the run did"
-        retrying={journal.isFetching}
-        onRetry={() => void journal.refetch()}
-        className="items-start"
-      />
-    );
-  }
-
-  const ran = (journal.data ?? []).filter((each) => each.runId === runId);
-  const summary = summaryOf(ran);
   const mine = scores.data.grades.find((each) => each.mine) ?? null;
-  const { stationId } = scores.data;
+  const { stationId, rubricBody, kind } = scores.data;
   const gradeWith = (answer: GradeAnswer) =>
     grade.mutate({ slug, teamId, runId, stationId, ...answer });
 
   return (
-    <div data-slot="grade-run" className="flex flex-col gap-5">
-      <GradeRunAbout />
+    <DecisionCard data-slot="grade-run" aria-label="Grade this run">
+      <DecisionHeader
+        title={
+          <DecisionTitle icon={GraduationCap}>
+            {gradeHeading(kind, rubricBody !== null)}
+          </DecisionTitle>
+        }
+        trailing={
+          grade.isError && !grade.isPending ? (
+            <GradeNotSaved />
+          ) : (
+            <GradeSaving pending={grade.isPending} />
+          )
+        }
+      />
 
-      <section className="flex flex-col gap-1">
-        <h3 className="font-medium text-foreground text-sm">{title}</h3>
-        {description && (
-          <p className="text-muted-foreground text-sm leading-6">
-            {description}
-          </p>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-1">
-        <h3 className="font-medium text-foreground text-sm">
-          What the run said last
-        </h3>
-        <p
-          data-slot="run-summary"
-          className="whitespace-pre-wrap break-words text-foreground text-sm leading-6"
-        >
-          {summary ?? 'The run said nothing to sum up.'}
-        </p>
-      </section>
-
-      <section className="flex flex-col gap-1">
-        <h3 className="font-medium text-foreground text-sm">Its changes</h3>
-        {changesOf(ran).length > 0 ? (
-          <RunChanges journals={ran} />
-        ) : (
-          <p className="text-muted-foreground text-sm">It changed no files.</p>
-        )}
-      </section>
+      {rubricBody !== null && <GradeRubric rubric={rubricBody} />}
 
       {scores.data.kind === 'claims' ? (
         <ClaimsGrade
           claims={scores.data.claims}
           mine={mine}
           pending={grade.isPending}
-          failed={grade.isError}
           onGrade={(claims) => gradeWith({ claims })}
         />
       ) : (
@@ -118,10 +83,9 @@ export function GradeRun({
           kind={scores.data.kind}
           mine={mine}
           pending={grade.isPending}
-          failed={grade.isError}
           onGrade={(value) => gradeWith({ value })}
         />
       )}
-    </div>
+    </DecisionCard>
   );
 }

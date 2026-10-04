@@ -1,5 +1,6 @@
 import { Box } from 'lucide-react';
-import { siClaude, siCursor } from 'simple-icons';
+import { siClaude, siCursor, siGooglegemini } from 'simple-icons';
+import { OPENAI_PATH } from '@/components/features/stations/openai-mark';
 import { cn } from '@/lib/utils';
 
 interface Mark {
@@ -10,6 +11,8 @@ interface Mark {
 const marks: Record<string, Mark> = {
   'claude-code': { path: siClaude.path, fill: `#${siClaude.hex}` },
   cursor: { path: siCursor.path, fill: 'currentColor' },
+  codex: { path: OPENAI_PATH, fill: 'currentColor' },
+  gemini: { path: siGooglegemini.path, fill: `#${siGooglegemini.hex}` },
 };
 
 type HarnessLogoProps = {

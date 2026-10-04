@@ -90,6 +90,7 @@ const REMEMBERED: RunMemoriesResponseDto = {
       paths: [],
       supersedes: null,
       decision: null,
+      harness: 'claude-code',
       steps: [],
       notes: [],
       handle: null,

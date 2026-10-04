@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -59,11 +60,16 @@ const APPROVAL = {
   intent: null,
 };
 
-const showing = (notes: ReturnType<typeof note>[], deciding?: Deciding) =>
+const showing = (
+  notes: ReturnType<typeof note>[],
+  deciding?: Deciding,
+  afterRun?: (runId: string) => ReactNode,
+) =>
   render(
     <MemoryRouter>
       <Conversation
         deciding={deciding}
+        afterRun={afterRun}
         item={{
           id: 'item_1',
           teamId: 'team_1',
@@ -143,5 +149,27 @@ describe('Conversation', () => {
     expect(
       screen.queryByRole('button', { name: 'Approve linear.comment' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('closes a run once, after its last note, when a person answers in between', () => {
+    const ran = { ...note(0, AT), runId: 'run_1' };
+    showing(
+      [
+        ran,
+        { ...note(1, LATER), voice: 'person', body: 'Go ahead' },
+        { ...ran, position: 2, body: 'Done', at: LATER },
+      ],
+      undefined,
+      () => <p>How the run went</p>,
+    );
+
+    const closing = screen.getAllByText('How the run went');
+    expect(closing).toHaveLength(1);
+    expect(
+      screen
+        .getByText('Done')
+        .compareDocumentPosition(closing[0] as HTMLElement) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

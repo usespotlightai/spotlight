@@ -9,6 +9,15 @@ import type { SearchIteration } from '@work/domain/value-objects/search-iteratio
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 
+export type RunSubjectKind = keyof RunSubjectCases<unknown>;
+
+export const RUN_SUBJECT_KINDS = [
+  'task',
+  'chat',
+  'replay',
+  'search',
+] as const satisfies readonly RunSubjectKind[];
+
 export interface RunSubjectCases<T> {
   task(taskId: TaskId, stationId: StationId | null, revision: TaskRevision): T;
   chat(chatId: ChatId): T;

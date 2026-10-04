@@ -8,6 +8,7 @@ import type { StationJudgeReports } from '@outcomes/application/services/station
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import { UnknownRunError } from '@outcomes/domain/exceptions/unknown-run.error';
+import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
 import {
@@ -89,6 +90,7 @@ export class RunScoresViews {
     private readonly records: RunRecordRepository,
     private readonly scores: ScoreRepository,
     private readonly reports: StationJudgeReports,
+    private readonly judgings: JudgingRepository,
   ) {}
 
   async onTeam(
@@ -121,6 +123,7 @@ export class RunScoresViews {
         lineId: run.end.place.lineId,
         stationId: run.end.place.stationId,
       }),
+      (await this.judgings.of(run.record.runId))?.rubric ?? null,
     );
   }
 
@@ -143,6 +146,7 @@ export class RunScoresViews {
       taskId: run.end.place.taskId.value,
       stationId: run.end.place.stationId,
       kind: terms.scale.kind,
+      rubricBody: terms.rubricBody,
       claims: [...terms.claims],
       judged: latestJudgeOf(scores) !== null,
       judge: judge ? judgeOf(judge) : null,

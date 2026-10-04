@@ -14,6 +14,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkLookupPort } from '@work/application/ports/work-lookup.port';
 
 export class Work implements WorkPort {
@@ -144,8 +145,13 @@ export class Work implements WorkPort {
       spoken?.map((each) => ({
         position: each.position,
         by: each.by,
+        author: each.author ? UserId.of(each.author) : null,
         text: each.text,
       })) ?? null
     );
+  }
+
+  async harnessOf(runId: RunId): Promise<string | null> {
+    return (await this.work.run(runId))?.harness ?? null;
   }
 }

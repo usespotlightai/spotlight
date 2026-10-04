@@ -3,13 +3,10 @@ import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { runnerPoolKeys } from '@/hooks/api/useRunnerPools';
 import { runnerKeys } from '@/hooks/api/useRunners';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
-import type {
-  HarnessResponseDto,
-  HostImageResponseDto,
-  WorkspaceResponseDto,
-} from '@/lib/api';
-import type { Fleet } from '@/lib/runner';
+import type { HostImageResponseDto, WorkspaceResponseDto } from '@/lib/api';
+import type { ActiveRunner, Fleet } from '@/lib/runner';
 import { failQuery } from '@/stories/failQuery';
+import { HARNESSES } from '@/stories/fixtures/harnesses';
 
 export const SLUG = 'acme';
 
@@ -17,21 +14,6 @@ const MINUTE = 60_000;
 
 const minutesAgo = (minutes: number) =>
   new Date(Date.now() - minutes * MINUTE).toISOString();
-
-const harness = (id: string, name: string): HarnessResponseDto => ({
-  id,
-  name,
-  models: [],
-  defaultModel: '',
-  efforts: [],
-});
-
-const HARNESSES: HarnessResponseDto[] = [
-  harness('claude-code', 'Claude Code'),
-  harness('cursor', 'Cursor'),
-  harness('codex', 'Codex'),
-  harness('gemini', 'Gemini CLI'),
-];
 
 const DIGEST =
   'a3f9c2e17b4d58f6e0c1a2b3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b';
@@ -47,6 +29,20 @@ const image = (
   release: '20260925-01',
   harnesses: harnesses.map(([id, version]) => ({ id, version })),
   refused: null,
+  ...over,
+});
+
+const USUAL_IMAGE = 'ghcr.io/usespotlightai/spotlight-runner:20260925-01';
+
+const active = (over: Partial<ActiveRunner>): ActiveRunner => ({
+  id: 'runner_1',
+  through: { kind: 'pool', key: 'build-farm' },
+  hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
+  image: USUAL_IMAGE,
+  harnesses: ['claude-code'],
+  startedAt: minutesAgo(3),
+  lastSeenAt: minutesAgo(0),
+  currentRun: null,
   ...over,
 });
 
@@ -75,9 +71,32 @@ const FLEET: Fleet = {
       upSince: minutesAgo(2 * 60),
       lastSeenAt: minutesAgo(0),
       answering: true,
-      runs: [
-        { id: 'run_retries_2', state: 'running' },
-        { id: 'run_docs_1', state: 'claimed' },
+      runners: [
+        active({
+          id: 'runner_1',
+          startedAt: minutesAgo(3),
+          currentRun: {
+            id: 'run_retries_2',
+            state: 'running',
+            kind: 'task',
+            teamId: 'team_platform',
+            readable: true,
+            title: 'Drain the stuck retry queues',
+          },
+        }),
+        active({
+          id: 'runner_2',
+          image: 'ghcr.io/acme/api-runner:main',
+          startedAt: minutesAgo(9),
+          currentRun: {
+            id: 'run_docs_1',
+            state: 'claimed',
+            kind: 'task',
+            teamId: 'team_billing',
+            readable: false,
+            title: null,
+          },
+        }),
       ],
     },
     {
@@ -109,7 +128,7 @@ const FLEET: Fleet = {
       upSince: minutesAgo(40),
       lastSeenAt: minutesAgo(0),
       answering: true,
-      runs: [],
+      runners: [],
     },
     {
       id: 'C9D4E7F2G5H8J1K3L6M9N2P5Q8',
@@ -130,19 +149,29 @@ const FLEET: Fleet = {
       upSince: minutesAgo(9 * 60),
       lastSeenAt: minutesAgo(3 * 60),
       answering: false,
-      runs: [],
+      runners: [],
     },
   ],
-  provisioned: [
+  pools: [
     {
-      id: 'runner_cloud_1',
       through: { kind: 'pool', key: 'ephemeral' },
-      hostId: null,
-      image: null,
-      harnesses: ['claude-code'],
-      startedAt: minutesAgo(4),
-      lastSeenAt: minutesAgo(0),
-      currentRun: { id: 'run_triage_9', state: 'running' },
+      runners: [
+        active({
+          id: 'runner_cloud_1',
+          through: { kind: 'pool', key: 'ephemeral' },
+          hostId: null,
+          image: null,
+          startedAt: minutesAgo(4),
+          currentRun: {
+            id: 'run_triage_9',
+            state: 'running',
+            kind: 'chat',
+            teamId: 'team_platform',
+            readable: true,
+            title: 'Plan the webhook retry policy',
+          },
+        }),
+      ],
     },
   ],
 };
@@ -164,10 +193,103 @@ const holding =
     } satisfies WorkspaceResponseDto);
   };
 
+const pushed = (pool: string, over: Partial<ActiveRunner>): ActiveRunner =>
+  active({
+    through: { kind: 'pool', key: pool },
+    hostId: null,
+    image: null,
+    ...over,
+  });
+
+const PUSH_FLEET: Fleet = {
+  hosts: [],
+  pools: [
+    {
+      through: { kind: 'pool', key: 'ephemeral' },
+      runners: [
+        pushed('ephemeral', {
+          id: 'runner_push_1',
+          startedAt: minutesAgo(4),
+          currentRun: {
+            id: 'run_retries_3',
+            state: 'claimed',
+            kind: 'task',
+            teamId: 'team_platform',
+            readable: true,
+            title: 'Drain the stuck retry queues',
+          },
+        }),
+        pushed('ephemeral', {
+          id: 'runner_push_2',
+          harnesses: ['claude-code', 'codex'],
+          startedAt: minutesAgo(11),
+          currentRun: {
+            id: 'run_billing_4',
+            state: 'claimed',
+            kind: 'task',
+            teamId: 'team_billing',
+            readable: false,
+            title: null,
+          },
+        }),
+        pushed('ephemeral', {
+          id: 'runner_push_3',
+          startedAt: minutesAgo(26),
+          currentRun: {
+            id: 'run_docs_5',
+            state: 'waiting',
+            kind: 'task',
+            teamId: 'team_platform',
+            readable: true,
+            title: 'Document the webhook retry policy',
+          },
+        }),
+      ],
+    },
+    {
+      through: { kind: 'pool', key: 'burst' },
+      runners: [
+        pushed('burst', {
+          id: 'runner_push_4',
+          harnesses: ['cursor'],
+          startedAt: minutesAgo(2),
+          currentRun: {
+            id: 'run_search_6',
+            state: 'claimed',
+            kind: 'search',
+            teamId: 'team_platform',
+            readable: true,
+            title: null,
+          },
+        }),
+        pushed('burst', {
+          id: 'runner_push_5',
+          startedAt: minutesAgo(1),
+          currentRun: {
+            id: 'run_replay_7',
+            state: 'claimed',
+            kind: 'replay',
+            teamId: 'team_platform',
+            readable: true,
+            title: null,
+          },
+        }),
+        pushed('burst', {
+          id: 'runner_push_6',
+          startedAt: minutesAgo(0),
+          currentRun: null,
+        }),
+      ],
+    },
+  ],
+};
+
 export const seedRunners = holding(FLEET, 'owner');
 
+export const seedPushRunners = holding(PUSH_FLEET, 'owner');
+
 const emptyAs = (role: WorkspaceResponseDto['role']) =>
-  holding({ hosts: [], provisioned: [] }, role);
+  holding({ hosts: [], pools: [] }, role);
 
 export const emptyRunners = emptyAs('owner');
 

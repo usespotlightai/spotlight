@@ -1,4 +1,4 @@
-import { Scale } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
 import { JudgeCoverageFigures } from '@/components/features/stations/judge/JudgeCoverageFigures';
 import { JudgeStandingNote } from '@/components/features/stations/judge/JudgeStandingNote';
@@ -58,7 +58,7 @@ export function JudgeAgreement({
     return (
       <div className={BOX}>
         <EmptyState
-          icon={Scale}
+          icon={GraduationCap}
           title="No judged runs yet"
           action={<CreateTaskLink slug={slug} teamId={teamId} />}
         >

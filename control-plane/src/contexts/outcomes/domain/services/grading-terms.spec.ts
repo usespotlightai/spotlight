@@ -2,6 +2,7 @@ import {
   judgeScore,
   NEXT_RUBRIC_VERSION,
   RUBRIC_VERSION,
+  rubricOf,
 } from '@outcomes/domain/judging.fake-spec';
 import {
   gradingTermsOf,
@@ -13,31 +14,68 @@ import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('gradingTermsOf', () => {
-  it('grades on the scale and rubric the judge scored the run by', () => {
+  it('grades on the scale, rubric and claims the judge scored the run by, whatever the station says now', () => {
     const terms = gradingTermsOf(
-      [judgeScore('run_1', ScoreScale.oneToFive(), 4)],
-      { scale: ScoreScale.yesNo(), rubricVersion: NEXT_RUBRIC_VERSION },
+      [
+        judgeScore('run_1', ScoreScale.claims(), 0.5, {
+          marks: [true, false],
+        }),
+      ],
+      {
+        scale: ScoreScale.yesNo(),
+        rubricVersion: NEXT_RUBRIC_VERSION,
+        rubricBody: 'Is the change small?',
+      },
+      rubricOf('Did it retry?', RUBRIC_VERSION, [
+        'It retries the upload.',
+        'It adds a test.',
+      ]),
     );
 
-    expect(terms.scale.kind).toBe('number');
+    expect(terms.scale.kind).toBe('claims');
     expect(terms.rubricVersion).toBe(RUBRIC_VERSION);
+    expect(terms.rubricBody).toBe('Did it retry?');
+    expect(terms.claims).toEqual(['It retries the upload.', 'It adds a test.']);
+  });
+
+  it('names no claims where the rubric the judge was given is not at hand', () => {
+    const terms = gradingTermsOf(
+      [judgeScore('run_1', ScoreScale.claims(), 0.5, { marks: [true, false] })],
+      null,
+      null,
+    );
+
+    expect(terms.rubricBody).toBeNull();
+    expect(terms.claims).toEqual([null, null]);
   });
 
   it('grades a run the judge has yet to score on the station’s current rubric', () => {
-    const terms = gradingTermsOf([], {
-      scale: ScoreScale.oneToFive(),
-      rubricVersion: NEXT_RUBRIC_VERSION,
-    });
+    const terms = gradingTermsOf(
+      [],
+      {
+        scale: ScoreScale.oneToFive(),
+        rubricVersion: NEXT_RUBRIC_VERSION,
+        rubricBody: 'Is the change small?',
+      },
+      null,
+    );
 
     expect(terms.scale.kind).toBe('number');
     expect(terms.rubricVersion).toBe(NEXT_RUBRIC_VERSION);
+    expect(terms.rubricBody).toBe('Is the change small?');
   });
 
   it('grades yes or no where the station has no judge it can read', () => {
-    expect(gradingTermsOf([], null)).toMatchObject({ rubricVersion: null });
+    expect(gradingTermsOf([], null, null)).toMatchObject({
+      rubricVersion: null,
+      rubricBody: null,
+    });
     expect(
-      gradingTermsOf([], { scale: null, rubricVersion: RUBRIC_VERSION }).scale
-        .kind,
+      gradingTermsOf(
+        [],
+        { scale: null, rubricVersion: RUBRIC_VERSION, rubricBody: null },
+        null,
+      ).scale.kind,
     ).toBe('yes-no');
   });
 });

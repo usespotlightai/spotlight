@@ -23,6 +23,15 @@ export const conversingOf = (
   notes: said.notes,
 });
 
+export const lastNoteOf = (
+  notes: readonly {
+    readonly position: number;
+    readonly runId: string | null;
+  }[],
+  runId: string,
+): number | null =>
+  notes.findLast((each) => each.runId === runId)?.position ?? null;
+
 export const runThreadText = (
   said: RunConversation | undefined,
   run: TeamRun,

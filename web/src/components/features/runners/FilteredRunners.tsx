@@ -7,37 +7,35 @@ import {
   hostInFilter,
   type NamedHarness,
   NONE_IN_FILTER,
-  type ProvisionedRunner,
-  provisionedInFilter,
+  type PushPool,
+  poolInFilter,
   RUNNER_FILTERS,
   type RunnerFilter,
 } from '@/lib/runner';
 
 type FilteredRunnersProps = {
+  slug: string;
   filter: RunnerFilter;
   onFilter: (filter: RunnerFilter) => void;
   loading: boolean;
   hosts: readonly Host[];
-  provisioned: readonly ProvisionedRunner[];
+  pools: readonly PushPool[];
   harnesses: readonly NamedHarness[] | undefined;
 };
 
 export function FilteredRunners({
+  slug,
   filter,
   onFilter,
   loading,
   hosts,
-  provisioned,
+  pools,
   harnesses,
 }: FilteredRunnersProps) {
   const shownHosts = hosts.filter((host) => hostInFilter(filter, host));
-  const shownProvisioned = provisioned.filter((runner) =>
-    provisionedInFilter(filter, runner),
-  );
+  const shownPools = pools.filter((pool) => poolInFilter(filter, pool));
   const noneShown =
-    filter !== 'all' &&
-    shownHosts.length === 0 &&
-    shownProvisioned.length === 0;
+    filter !== 'all' && shownHosts.length === 0 && shownPools.length === 0;
 
   return (
     <>
@@ -53,8 +51,9 @@ export function FilteredRunners({
         </Notice>
       ) : (
         <RunnerList
+          slug={slug}
           hosts={shownHosts}
-          provisioned={shownProvisioned}
+          pools={shownPools}
           harnesses={harnesses}
         />
       )}

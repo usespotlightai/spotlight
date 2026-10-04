@@ -52,33 +52,31 @@ const changeOf = (
   return `${points} ${points === 1 ? 'point' : 'points'}`;
 };
 
-const lastRuns = (over: number): string =>
-  over === 1 ? 'the last run' : `the last ${over} runs`;
+const overRuns = (over: number): string =>
+  over === 1 ? 'in a single run' : `over ${over} runs`;
 
-const runsBefore = (over: number): string =>
-  over === 1 ? 'the one before' : `the ${over} before`;
+const changeOverRuns = (over: number): string =>
+  over === 1 ? 'from one run to the next' : `over ${over} runs`;
 
 const thresholdOf = (
   alert: AlertThreshold,
   currency: string | null,
 ): string => {
-  const compared = `in ${lastRuns(alert.over)}, against ${runsBefore(alert.over)}`;
-  const across = `across ${lastRuns(alert.over)}`;
-
   if (alert.risesBy !== null) {
-    return `up ${changeOf(alert, alert.risesBy, currency)} ${compared}`;
+    return `rises ${changeOf(alert, alert.risesBy, currency)} or more ${changeOverRuns(alert.over)}`;
   }
   if (alert.fallsBy !== null) {
-    return `down ${changeOf(alert, alert.fallsBy, currency)} ${compared}`;
+    return `falls ${changeOf(alert, alert.fallsBy, currency)} or more ${changeOverRuns(alert.over)}`;
   }
   if (alert.below !== null) {
-    return `below ${amountOf(alert, alert.below, currency)} ${across}`;
+    return `drops below ${amountOf(alert, alert.below, currency)} ${overRuns(alert.over)}`;
   }
 
-  return `above ${amountOf(alert, alert.above ?? 0, currency)} ${across}`;
+  return `goes above ${amountOf(alert, alert.above ?? 0, currency)} ${overRuns(alert.over)}`;
 };
 
 export const alertPhrase = (
   alert: AlertThreshold,
   currency: string | null = null,
-): string => `${MEASURES[alert.measure]} ${thresholdOf(alert, currency)}`;
+): string =>
+  `Alerts when the ${MEASURES[alert.measure].toLowerCase()} ${thresholdOf(alert, currency)}`;

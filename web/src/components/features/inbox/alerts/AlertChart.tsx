@@ -7,15 +7,39 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { AlertChartLegend } from '@/components/features/inbox/alerts/AlertChartLegend';
 import { dayShown } from '@/lib/judge';
 import {
   type AlertPoint,
+  crossingShown,
   measureValueShown,
   type StationAlertCrossing,
   thresholdLine,
+  thresholdShown,
 } from '@/lib/station-alert';
 
-const HEIGHT = 160;
+export const ALERT_CHART_HEIGHT = 160;
+
+const TICK_CHARACTER_WIDTH = 6;
+
+const TICKS_GAP = 8;
+
+const ticksWidth = (alert: StationAlertCrossing): number => {
+  const values = [
+    ...alert.series.map((point) => point.value ?? 0),
+    thresholdLine(alert) ?? 0,
+    alert.baseline ?? 0,
+  ];
+  const widest = Math.max(
+    ...values.map(
+      (value) =>
+        measureValueShown(alert.threshold.measure, value, alert.currency)
+          .length,
+    ),
+  );
+
+  return widest * TICK_CHARACTER_WIDTH + TICKS_GAP;
+};
 
 const Said = ({
   active,
@@ -51,25 +75,32 @@ const Said = ({
 
 export function AlertChart({ alert }: { alert: StationAlertCrossing }) {
   const level = thresholdLine(alert);
+  const width = ticksWidth(alert);
 
   return (
-    <figure data-slot="alert-chart" className="flex flex-col gap-1">
-      <figcaption className="text-muted-foreground text-xs">
-        Run by run, over the last {alert.threshold.over}{' '}
-        {alert.threshold.over === 1 ? 'run' : 'runs'} each time
-      </figcaption>
+    <figure data-slot="alert-chart" className="flex flex-col gap-2">
       <div className="[&_*:focus:not(:focus-visible)]:outline-none">
-        <ResponsiveContainer width="100%" height={HEIGHT}>
+        <ResponsiveContainer width="100%" height={ALERT_CHART_HEIGHT}>
           <LineChart
             data={[...alert.series]}
-            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+            title={thresholdShown(alert)}
+            desc={crossingShown(alert)}
+            margin={{ top: 8, right: 0, bottom: 8, left: 0 }}
           >
             <XAxis dataKey="runId" hide />
             <YAxis
-              width={44}
+              width={width}
+              tickMargin={0}
+              tickSize={0}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: 'var(--faint)', fontSize: 10 }}
+              tick={{
+                fill: 'var(--faint)',
+                fontSize: 10,
+                textAnchor: 'start',
+                dx: -width,
+                style: { fontVariantNumeric: 'tabular-nums' },
+              }}
               tickFormatter={(value: number) =>
                 measureValueShown(
                   alert.threshold.measure,
@@ -113,6 +144,7 @@ export function AlertChart({ alert }: { alert: StationAlertCrossing }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      <AlertChartLegend alert={alert} />
     </figure>
   );
 }

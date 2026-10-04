@@ -11,16 +11,9 @@ class TeamSkillResponseDto {
   @ApiProperty({ example: 'Reading this team’s dashboards.' })
   readonly description: string;
 
-  @ApiProperty({
-    example: '.spotlight/skills/grafana-dashboards',
-    description: 'Where the skill is defined',
-  })
-  readonly path: string;
-
   constructor(dto: TeamSkillDto) {
     this.key = dto.key;
     this.description = dto.description;
-    this.path = dto.path;
   }
 }
 

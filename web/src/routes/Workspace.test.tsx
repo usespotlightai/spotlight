@@ -36,7 +36,7 @@ vi.mock('@/hooks/api/useRunners', () => ({
   useRunners: () => ({
     isPending: false,
     errorUpdateCount: 0,
-    data: { hosts: hosts(), provisioned: [] },
+    data: { hosts: hosts(), pools: [] },
   }),
 }));
 vi.mock('@/hooks/api/useSession', () => ({

@@ -47,7 +47,7 @@ describe('RunJudgeScore', () => {
         (each) => each.querySelector('[data-slot="claim-mark"]')?.textContent,
       ),
     ).toEqual(['Not met', 'Met', 'Not met']);
-    expect(claims[2]).toHaveTextContent('Claim 3');
+    expect(claims[2]).toHaveTextContent('The queue is drained');
     expect(
       screen
         .getByRole('list', { name: 'Why, on Retries stop on a 410 Gone' })

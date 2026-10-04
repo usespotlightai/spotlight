@@ -107,7 +107,7 @@ const LINES: LineResponseDto[] = [
   },
 ];
 
-const HARNESSES: HarnessResponseDto[] = [
+const INSIGHTS_HARNESSES: HarnessResponseDto[] = [
   {
     id: 'claude-code',
     name: 'Claude Code',
@@ -859,7 +859,7 @@ const EMPTY_RUNS: InsightsRuns = {
 const seedTeam = (client: QueryClient) => {
   client.setQueryData(workspaceKeys.detail(SLUG), WORKSPACE);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
-  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), INSIGHTS_HARNESSES);
 };
 
 const OVERVIEW_KEY = insightsOverviewKeys.forTeam(TEAM_ID, DEFAULT_PERIOD);

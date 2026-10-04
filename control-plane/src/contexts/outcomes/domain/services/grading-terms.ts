@@ -3,17 +3,20 @@ import {
   type JudgeStanding,
   showsJudgeOf,
 } from '@outcomes/domain/services/judge-standing';
+import type { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 
 export interface GradingTerms {
   readonly scale: ScoreScale;
   readonly rubricVersion: string | null;
+  readonly rubricBody: string | null;
   readonly claims: readonly (string | null)[];
 }
 
 interface StationTerms {
   readonly scale: ScoreScale | null;
   readonly rubricVersion: string;
+  readonly rubricBody: string | null;
   readonly claims?: readonly string[];
 }
 
@@ -43,28 +46,35 @@ export const visibleJudgeOf = (
 export const gradingTermsOf = (
   scores: readonly Score[],
   station: StationTerms | null,
+  judgedBy: Rubric | null,
 ): GradingTerms => {
   const judge = latestJudgeOf(scores);
 
   if (judge) {
-    const told =
-      station?.rubricVersion === judge.rubricVersion
-        ? (station.claims ?? [])
-        : [];
+    const told = judgedBy?.version === judge.rubricVersion ? judgedBy : null;
 
     return {
       scale: judge.scale,
       rubricVersion: judge.rubricVersion,
-      claims: (judge.marks ?? []).map((_, at) => told[at] ?? null),
+      rubricBody: told?.body ?? null,
+      claims: (judge.marks ?? []).map(
+        (_, at) => told?.criteria.claims[at] ?? null,
+      ),
     };
   }
   if (station?.scale) {
     return {
       scale: station.scale,
       rubricVersion: station.rubricVersion,
+      rubricBody: station.rubricBody,
       claims: station.scale.byClaims ? [...(station.claims ?? [])] : [],
     };
   }
 
-  return { scale: ScoreScale.yesNo(), rubricVersion: null, claims: [] };
+  return {
+    scale: ScoreScale.yesNo(),
+    rubricVersion: null,
+    rubricBody: null,
+    claims: [],
+  };
 };

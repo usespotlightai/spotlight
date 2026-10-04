@@ -1,4 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { mocked } from 'storybook/test';
+import { useCreateWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
 import type { WorkspaceResponseDto } from '@/lib/api';
@@ -74,4 +76,23 @@ export const emptyTokens = seedAs('owner', []);
 export const failTokens = (client: QueryClient) => {
   seedAs('owner')(client);
   failQuery(client, tokenKeys.forWorkspace(WORKSPACE_ID));
+};
+
+const CREATED_TOKEN = 'q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw';
+
+export const createSucceeds = () => {
+  mocked(useCreateWorkspaceToken).mockReturnValue({
+    mutate: (
+      terms: { name: string },
+      handlers?: {
+        onSuccess?: (created: { name: string; token: string }) => void;
+      },
+    ) => handlers?.onSuccess?.({ name: terms.name, token: CREATED_TOKEN }),
+    reset: () => undefined,
+    isPending: false,
+    isError: false,
+    error: null,
+  } as never);
+
+  return () => mocked(useCreateWorkspaceToken).mockReset();
 };

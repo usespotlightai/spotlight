@@ -1,12 +1,13 @@
 import { ApprovalApproveButton } from '@/components/features/inbox/conversation/approval/ApprovalApproveButton';
-import { ApprovalPill } from '@/components/features/inbox/conversation/approval/ApprovalPill';
+import { DecisionControls } from '@/components/shared/DecisionControls';
+import { DecisionPill } from '@/components/shared/DecisionPill';
 import type { Approval } from '@/lib/approval';
 
 type ApprovalDecisionProps = {
   approval: Approval;
   pending: boolean;
-  onApprove: () => void;
-  onDismiss: () => void;
+  onApprove?: () => void;
+  onDismiss?: () => void;
 };
 
 export function ApprovalDecision({
@@ -16,19 +17,19 @@ export function ApprovalDecision({
   onDismiss,
 }: ApprovalDecisionProps) {
   return (
-    <div className="flex items-center justify-end gap-1">
-      <ApprovalPill
-        disabled={pending}
+    <DecisionControls>
+      <DecisionPill
+        disabled={pending || !onDismiss}
         onClick={onDismiss}
         aria-label={`Dismiss ${approval.name}`}
       >
         Dismiss
-      </ApprovalPill>
+      </DecisionPill>
       <ApprovalApproveButton
         approval={approval}
-        disabled={pending}
+        disabled={pending || !onApprove}
         onApprove={onApprove}
       />
-    </div>
+    </DecisionControls>
   );
 }

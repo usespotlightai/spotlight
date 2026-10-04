@@ -49,7 +49,7 @@ export class RunnerActivityController {
       (each) =>
         new RunnerActivityResponseDto(
           each.runnerId,
-          new HeldRunResponseDto(each.currentRun.id, each.currentRun.state),
+          new HeldRunResponseDto(each.currentRun),
         ),
     );
   }

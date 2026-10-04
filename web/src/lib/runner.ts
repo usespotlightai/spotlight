@@ -7,41 +7,64 @@ import type {
   RunnerActivityResponseDto,
   RunnerFleetResponseDto,
 } from '@/lib/api';
+import { runPath } from '@/lib/run';
 import { settingsPath } from '@/lib/settings';
 
-export type Host = HostResponseDto & {
-  readonly runs: readonly HeldRunResponseDto[];
+export type HeldRun = HeldRunResponseDto;
+
+export type ActiveRunner = LiveRunnerResponseDto & {
+  readonly currentRun: HeldRun | null;
 };
 
-export type ProvisionedRunner = LiveRunnerResponseDto & {
-  readonly currentRun: HeldRunResponseDto | null;
+export type Host = HostResponseDto & {
+  readonly runners: readonly ActiveRunner[];
+};
+
+export type PushPool = {
+  readonly through: AdmittedThroughResponseDto;
+  readonly runners: readonly ActiveRunner[];
 };
 
 export type Fleet = {
   readonly hosts: readonly Host[];
-  readonly provisioned: readonly ProvisionedRunner[];
+  readonly pools: readonly PushPool[];
 };
+
+export const poolKeyOf = (way: AdmittedThroughResponseDto): string =>
+  `${way.kind}:${way.key ?? ''}`;
 
 export const withActivity = (
   fleet: RunnerFleetResponseDto,
   activity: readonly RunnerActivityResponseDto[],
 ): Fleet => {
-  const runOf = (runnerId: string) =>
-    activity.find((each) => each.runnerId === runnerId)?.currentRun ?? null;
+  const runners: ActiveRunner[] = fleet.runners.map((runner) => ({
+    ...runner,
+    currentRun:
+      activity.find((each) => each.runnerId === runner.id)?.currentRun ?? null,
+  }));
+  const unhosted = runners.filter((runner) => runner.hostId === null);
+  const pools = [
+    ...new Set(unhosted.map((runner) => poolKeyOf(runner.through))),
+  ];
 
   return {
     hosts: fleet.hosts.map((host) => ({
       ...host,
-      runs: host.running.flatMap((runner) => {
-        const run = runOf(runner);
-        return run ? [run] : [];
-      }),
+      runners: runners.filter((runner) => runner.hostId === host.id),
     })),
-    provisioned: fleet.runners
-      .filter((runner) => runner.hostId === null)
-      .map((runner) => ({ ...runner, currentRun: runOf(runner.id) })),
+    pools: pools.flatMap((key) => {
+      const held = unhosted.filter(
+        (runner) => poolKeyOf(runner.through) === key,
+      );
+      const first = held[0];
+
+      return first ? [{ through: first.through, runners: held }] : [];
+    }),
   };
 };
+
+export const imageShortName = (image: string): string =>
+  image.slice(image.lastIndexOf('/') + 1);
 
 export const runnersPath = (slug: string) => `${settingsPath(slug)}/runners`;
 
@@ -115,7 +138,7 @@ export const harnessesOf = (
   harnesses: readonly NamedHarness[] | undefined,
 ): NamedHarness[] => ids.map((id) => ({ id, name: nameOf(id, harnesses) }));
 
-export const namedHarnesses = (
+const namedHarnesses = (
   reported: readonly HostHarnessResponseDto[],
   harnesses: readonly NamedHarness[] | undefined,
 ): NamedHarness[] =>
@@ -124,6 +147,30 @@ export const namedHarnesses = (
     name: nameOf(each.id, harnesses),
     version: each.version,
   }));
+
+export const servedBy = (
+  host: Host,
+  harnesses: readonly NamedHarness[] | undefined,
+): NamedHarness[] =>
+  namedHarnesses(
+    host.images
+      .filter((image) => !image.refused)
+      .flatMap((image) => image.harnesses)
+      .filter(
+        (each, at, all) =>
+          all.findIndex((other) => other.id === each.id) === at,
+      ),
+    harnesses,
+  );
+
+export const heldBy = (
+  pool: PushPool,
+  harnesses: readonly NamedHarness[] | undefined,
+): NamedHarness[] =>
+  harnessesOf(
+    [...new Set(pool.runners.flatMap((runner) => runner.harnesses))],
+    harnesses,
+  );
 
 export const refusal = (reason: string): string =>
   `Refused: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`;
@@ -157,11 +204,74 @@ export const hostInFilter = (filter: RunnerFilter, host: Host): boolean => {
   }
 };
 
-export const provisionedInFilter = (
-  filter: RunnerFilter,
-  runner: ProvisionedRunner,
-): boolean =>
-  filter === 'all' || (filter === 'running' && runner.currentRun !== null);
+export const poolInFilter = (filter: RunnerFilter, pool: PushPool): boolean =>
+  filter === 'all' ||
+  (filter === 'running' &&
+    pool.runners.some((runner) => runner.currentRun !== null));
+
+export const poolName = (way: AdmittedThroughResponseDto): string =>
+  way.key ?? 'No longer defined';
+
+export const PUSH_POOL = 'Push pool';
+
+export const poolStanding = (pool: PushPool): string => {
+  const running = pool.runners.filter(
+    (runner) => runner.currentRun !== null,
+  ).length;
+
+  return running > 0 ? `Running ${running}` : 'Starting';
+};
+
+export const runnerStanding = (runner: ActiveRunner): string => {
+  if (!runner.currentRun) {
+    return 'Starting';
+  }
+
+  return runner.currentRun.state === 'waiting'
+    ? 'Waiting on a person'
+    : 'Running';
+};
+
+type UnnamedKind = Exclude<HeldRun['kind'], 'task' | 'chat'>;
+
+const UNNAMED_RUNS: Record<UnnamedKind, string> = {
+  replay: 'A replay run',
+  search: 'A search run',
+  spec: 'A run queued by hand',
+};
+
+const isUnnamed = (kind: HeldRun['kind']): kind is UnnamedKind =>
+  kind in UNNAMED_RUNS;
+
+export const hiddenRunTip = (run: HeldRun): string =>
+  run.kind === 'chat'
+    ? 'An agent chat for a team you’re not on, so its title is hidden.'
+    : 'A run for a team you’re not on, so its title is hidden.';
+
+export const runShown = (run: HeldRun | null): string => {
+  if (run === null) {
+    return 'No run yet';
+  }
+
+  return (
+    run.title ??
+    (isUnnamed(run.kind) ? UNNAMED_RUNS[run.kind] : hiddenRunTip(run))
+  );
+};
+
+export const hiddenFromViewer = (run: HeldRun | null): boolean =>
+  run !== null &&
+  !run.readable &&
+  run.teamId !== null &&
+  (run.kind === 'task' || run.kind === 'chat');
+
+export const heldRunPath = (
+  slug: string,
+  run: HeldRun | null,
+): string | null =>
+  run?.kind === 'task' && run.readable && run.teamId !== null
+    ? runPath(slug, run.teamId, run.id)
+    : null;
 
 export const NONE_IN_FILTER: Record<Exclude<RunnerFilter, 'all'>, string> = {
   running: 'No runner is running a run.',

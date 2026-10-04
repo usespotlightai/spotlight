@@ -6,6 +6,10 @@ import type {
   TeamMemoryResponseDto,
   WriteMemoryRequestDto,
 } from '@/lib/api';
+import {
+  type DecisionStanding,
+  WAITING_FOR_APPROVAL,
+} from '@/lib/decision-standing';
 import { teamSectionPath } from '@/lib/team';
 
 export type ProposedMemory = ProposedMemoryResponseDto;
@@ -42,7 +46,12 @@ export const givenMemories = (memories: RunMemories): TeamMemory[] => {
 export const rememberedNothing = (memories: RunMemories): boolean =>
   givenMemories(memories).length === 0 && memories.proposed.length === 0;
 
-export type MemoryGround = Pick<ProposedMemoryResponseDto, 'steps' | 'notes'>;
+export type MemoryGround = Pick<
+  ProposedMemoryResponseDto,
+  'steps' | 'notes' | 'harness'
+>;
+
+export type MemoryGroundNote = MemoryGround['notes'][number];
 
 export const MOST_MEMORY_BODY = 1_000;
 
@@ -57,6 +66,20 @@ export const KIND_LABELS: Record<MemoryKind, string> = {
   correction: 'Correction',
 };
 
+export const KIND_DESCRIPTIONS: Record<MemoryKind, string> = {
+  rationale:
+    "Why something was done the way it was, where the reason isn't written down.",
+  'rejected-approach':
+    'An approach that was tried or weighed and set aside, and why, so nobody tries it again.',
+  failure:
+    'Something that failed and what it failed on, such as a flaky test or a broken command.',
+  environment:
+    'A quirk of where the work runs, such as a service that must be started first.',
+  preference: 'How someone on the team wants things done.',
+  correction:
+    'Someone telling the agent it was wrong, and what is right instead.',
+};
+
 const REACH_LABELS: Record<ProposedMemory['reach'], string> = {
   team: 'the whole team',
   line: 'this line',
@@ -66,48 +89,69 @@ const REACH_LABELS: Record<ProposedMemory['reach'], string> = {
 export const undecided = (memory: ProposedMemory): boolean =>
   memory.state === 'proposed';
 
-export const fromOutside = (memory: ProposedMemory): boolean =>
-  memory.source === 'outside';
-
-export const askedByAgent = (memory: ProposedMemory): boolean =>
-  memory.origin === 'remembered';
-
-const STEP_LABELS: Record<string, string> = {
-  handover: 'The agent handed over',
-  remember: 'The agent asked the team to remember',
-};
-
-export const stepLabel = (kind: string): string =>
-  STEP_LABELS[kind] ?? `The agent ${kind}`;
-
-export const approvableTogether = (
-  memories: readonly ProposedMemory[],
-): ProposedMemory[] =>
-  memories.filter((each) => undecided(each) && !fromOutside(each));
-
-export const reachOf = (memory: ProposedMemory): string => {
-  const where = REACH_LABELS[memory.reach];
-
-  if (!memory.repository) {
-    return `Applies to ${where}`;
+export const speakerOf = (note: MemoryGroundNote): string => {
+  if (note.by === 'world') {
+    return 'From another tool';
   }
 
-  return memory.paths.length > 0
-    ? `Applies to ${where}, in ${memory.paths.join(', ')} of ${memory.repository}`
-    : `Applies to ${where}, in ${memory.repository}`;
+  return note.author?.name ?? 'A teammate';
 };
 
-export const decidedBy = (memory: ProposedMemory): string | null => {
-  if (!memory.decision) {
+export const citesAnything = (grounds: MemoryGround): boolean =>
+  grounds.steps.length + grounds.notes.length > 0;
+
+type Scoped = Pick<ProposedMemory, 'reach' | 'repository' | 'paths'>;
+
+export const appliesTo = (memory: Scoped): string => {
+  const where = REACH_LABELS[memory.reach];
+
+  return `${where.charAt(0).toUpperCase()}${where.slice(1)}`;
+};
+
+export const memoryFilesOf = (memory: Scoped): string | null => {
+  if (!memory.repository) {
     return null;
   }
 
-  const who = memory.decision.name ?? 'Someone';
-
-  return memory.state === 'approved'
-    ? `${who} approved this.`
-    : `${who} rejected this.`;
+  return memory.paths.length > 0
+    ? `${memory.paths.join(', ')} in ${memory.repository}`
+    : memory.repository;
 };
+
+export const proposedSummary = (
+  memories: readonly ProposedMemory[],
+  agent = 'The agent',
+): string => {
+  const open = memories.filter(undecided).length;
+  const proposed = `${agent} proposed ${memories.length} ${
+    memories.length === 1 ? 'memory' : 'memories'
+  }`;
+
+  return open > 0
+    ? `${proposed} · ${open} to review`
+    : `${proposed} · all decided`;
+};
+
+export const proposalTitleOf = (memory: ProposedMemory): string => {
+  if (undecided(memory)) {
+    return WAITING_FOR_APPROVAL;
+  }
+
+  const outcome =
+    memory.state === 'approved' ? 'Memory approved' : 'Memory rejected';
+  const who = memory.decision?.name;
+
+  return who ? `${outcome} by ${who}` : outcome;
+};
+
+const PROPOSAL_STANDINGS: Record<ProposedMemory['state'], DecisionStanding> = {
+  proposed: 'waiting',
+  approved: 'approved',
+  rejected: 'declined',
+};
+
+export const proposalStandingOf = (memory: ProposedMemory): DecisionStanding =>
+  PROPOSAL_STANDINGS[memory.state];
 
 export type MemoryKind = WriteMemoryRequestDto['kind'];
 

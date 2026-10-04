@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -126,24 +126,37 @@ describe('StationAlertCard', () => {
     showing();
 
     expect(
-      screen.getByText('Only the team’s members can see this alert'),
+      screen.getByText(
+        'You’re no longer on this team, so you can’t see this alert',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /try again/i }),
     ).not.toBeInTheDocument();
   });
 
-  it('says which threshold was crossed and by how much, in the Station page’s words', () => {
+  it('says what each line on the chart means', () => {
+    showing();
+
+    expect(
+      within(screen.getByRole('list', { name: 'Legend' })).getByText(
+        'The run it went off at',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says what the runs did, and where the alert is set, in one sentence', () => {
     showing();
 
     expect(
       screen.getByRole('heading', {
-        name: 'Sent-back rate up 15 points in the last 10 runs, against the 10 before',
+        level: 2,
+        name: 'An alert went off at Implementation',
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'It was 40% in the last 10 runs, against 20% in the 10 before.',
+        '40% of the last 10 runs were sent back, up from 20% in the 10 before. The alert is set at a 15-point rise.',
       ),
     ).toBeInTheDocument();
     expect(
@@ -174,7 +187,7 @@ describe('StationAlertCard', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/agent');
   });
 
-  it('says when the station came back within it, and when there is nothing left to chart', () => {
+  it('says when the station came back within it, and when its runs are gone', () => {
     answer.alert = held({
       ...ALERT,
       recoveredAt: '2026-10-01T10:00:00.000Z',
@@ -183,7 +196,13 @@ describe('StationAlertCard', () => {
 
     showing();
 
-    expect(screen.getByText(/Back within it since/)).toBeInTheDocument();
-    expect(screen.getByText(/nothing to chart/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Back under the threshold since/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The runs behind this alert have been deleted, so there’s no chart to show.',
+      ),
+    ).toBeInTheDocument();
   });
 });

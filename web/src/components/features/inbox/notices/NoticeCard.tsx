@@ -1,33 +1,18 @@
 import { Lightbulb } from 'lucide-react';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { Button } from '@/components/ui/button';
-import { buttonVariants } from '@/components/ui/button-variants';
+import { PillLink } from '@/components/shared/PillLink';
 import {
   type InboxNotice,
-  NOTICE_DISMISS,
-  NOTICE_DISMISS_FAILED,
-  NOTICE_DISMISSED,
   NOTICE_POINTS_LABEL,
   noticeLinkPath,
   openedAt,
 } from '@/lib/inbox';
-import { cn } from '@/lib/utils';
 
 type NoticeCardProps = {
   slug: string;
   notice: InboxNotice;
-  dismissing: boolean;
-  dismissFailed: boolean;
-  onDismiss: () => void;
 };
 
-export function NoticeCard({
-  slug,
-  notice,
-  dismissing,
-  dismissFailed,
-  onDismiss,
-}: NoticeCardProps) {
+export function NoticeCard({ slug, notice }: NoticeCardProps) {
   return (
     <article
       data-slot="notice"
@@ -67,33 +52,10 @@ export function NoticeCard({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <TrailLink
-          to={noticeLinkPath(slug, notice)}
-          className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
-        >
+        <PillLink variant="default" to={noticeLinkPath(slug, notice)}>
           {notice.linkLabel}
-        </TrailLink>
-
-        {notice.resolved ? (
-          <p className="text-muted-foreground text-xs">{NOTICE_DISMISSED}</p>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full bg-card shadow-none"
-            disabled={dismissing}
-            onClick={onDismiss}
-          >
-            {NOTICE_DISMISS}
-          </Button>
-        )}
+        </PillLink>
       </div>
-
-      {dismissFailed && (
-        <p role="alert" className="text-destructive text-xs">
-          {NOTICE_DISMISS_FAILED}
-        </p>
-      )}
     </article>
   );
 }

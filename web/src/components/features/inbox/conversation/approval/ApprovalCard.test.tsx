@@ -228,15 +228,20 @@ describe('ApprovalCard', () => {
       ],
     });
 
-    expect(screen.getByText('Approved, with changes.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Request approved with changes' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Fixed in #41.')).toBeInTheDocument();
     expect(screen.getByText('changed by you')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Approve linear.comment' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Approve linear.comment' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Dismiss linear.comment' }),
+    ).toBeDisabled();
   });
 
-  it('says it was approved, or dismissed', () => {
+  it('titles it as approved or dismissed', () => {
     const { rerender } = render(
       <ApprovalCard
         approval={{ ...COMMENT, standing: 'granted' }}
@@ -244,7 +249,9 @@ describe('ApprovalCard', () => {
       />,
     );
 
-    expect(screen.getByText('Approved.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Request approved' }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Waiting for your approval' }),
     ).not.toBeInTheDocument();
@@ -256,6 +263,8 @@ describe('ApprovalCard', () => {
       />,
     );
 
-    expect(screen.getByText('Dismissed.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Request dismissed' }),
+    ).toBeInTheDocument();
   });
 });

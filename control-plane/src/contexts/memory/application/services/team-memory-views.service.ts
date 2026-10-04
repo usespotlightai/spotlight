@@ -1,16 +1,19 @@
 import type {
   MemoryLinkDto,
-  PersonDto,
   TeamMemoryDetailDto,
   TeamMemoryDto,
 } from '@memory/application/dto/team-memory.dto';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
-import type { PeoplePort, Person } from '@memory/application/ports/people.port';
+import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
+import { groundNotes } from '@memory/application/services/ground-notes';
+import {
+  lookUpOnce,
+  type PersonLookup,
+} from '@memory/application/services/people-lookup';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class TeamMemoryViews {
   constructor(
@@ -21,32 +24,34 @@ export class TeamMemoryViews {
   ) {}
 
   async summaries(held: readonly Memory[]): Promise<TeamMemoryDto[]> {
-    const people = new Map<string, Person | null>();
+    const person = lookUpOnce(this.people);
     const used = await this.uses.runsUsing(held.map((each) => each.id));
 
-    return Promise.all(held.map((each) => this.summaryOf(each, people, used)));
+    return Promise.all(held.map((each) => this.summaryOf(each, person, used)));
   }
 
   async detail(memory: Memory): Promise<TeamMemoryDetailDto> {
     const { grounds } = memory;
-    const [summary, steps, notes, superseded, successor] = await Promise.all([
-      this.uses
-        .runsUsing([memory.id])
-        .then((used) => this.summaryOf(memory, new Map(), used)),
-      grounds ? this.work.reasoning(grounds.runId) : null,
-      grounds ? this.work.spokenOn(grounds.taskId) : null,
-      this.linkTo(memory.supersedes),
-      this.linkTo(memory.retirement?.supersededBy ?? null),
-    ]);
+    const person = lookUpOnce(this.people);
+    const [summary, steps, notes, harness, superseded, successor] =
+      await Promise.all([
+        this.uses
+          .runsUsing([memory.id])
+          .then((used) => this.summaryOf(memory, person, used)),
+        grounds ? this.work.reasoning(grounds.runId) : null,
+        grounds ? this.work.spokenOn(grounds.taskId) : null,
+        grounds ? this.work.harnessOf(grounds.runId) : null,
+        this.linkTo(memory.supersedes),
+        this.linkTo(memory.retirement?.supersededBy ?? null),
+      ]);
 
     return {
       ...summary,
+      harness,
       steps: (steps ?? []).filter((each) =>
         grounds?.steps.includes(each.index),
       ),
-      notes: (notes ?? []).filter((each) =>
-        grounds?.notes.includes(each.position),
-      ),
+      notes: await groundNotes(notes ?? [], grounds?.notes ?? [], person),
       superseded,
       successor,
     };
@@ -54,20 +59,9 @@ export class TeamMemoryViews {
 
   private async summaryOf(
     memory: Memory,
-    people: Map<string, Person | null>,
+    person: PersonLookup,
     used: ReadonlyMap<string, number>,
   ): Promise<TeamMemoryDto> {
-    const person = async (id: UserId): Promise<PersonDto> => {
-      if (!people.has(id.value)) {
-        people.set(id.value, await this.people.find(id));
-      }
-      const found = people.get(id.value);
-      return {
-        id: id.value,
-        name: found?.name ?? null,
-        image: found?.image ?? null,
-      };
-    };
     const { retirement, grounds, scope } = memory;
 
     return {

@@ -67,7 +67,6 @@ const keeping = (
   } satisfies HeldSecretsPort;
   const reader: SkillReaderPort = {
     read: () => ({ skills: folders, problems: [] }),
-    definedAt: vi.fn(),
     folder: vi.fn(),
   };
 

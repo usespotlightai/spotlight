@@ -1,7 +1,13 @@
+import { KeyRound } from 'lucide-react';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
-import { Button } from '@/components/ui/button';
-import { since } from '@/lib/runner';
-import { expiryTold, scopesTold, type WorkspaceToken } from '@/lib/token';
+import { TokenActions } from '@/components/features/tokens/TokenActions';
+import { RowIcon } from '@/components/shared/RowIcon';
+import {
+  createdTold,
+  expiryTold,
+  scopesTold,
+  type WorkspaceToken,
+} from '@/lib/token';
 
 type TokenRowProps = {
   token: WorkspaceToken;
@@ -10,28 +16,18 @@ type TokenRowProps = {
 
 export function TokenRow({ token, onRevoke }: TokenRowProps) {
   return (
-    <SettingsRow
-      label={token.name}
-      description={
-        <>
-          {token.description && (
-            <span className="block">{token.description}</span>
-          )}
-          <span className="block">
-            {scopesTold(token.scopes)} · {expiryTold(token.expiresAt)} · Created{' '}
-            {since(token.issuedAt)}
-          </span>
-        </>
-      }
-    >
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-label={`Revoke ${token.name}`}
-        onClick={onRevoke}
+    <div data-slot="token-row" className="group/token">
+      <SettingsRow
+        label={token.name}
+        leading={<RowIcon icon={KeyRound} />}
+        description={[
+          createdTold(token.issuedAt),
+          expiryTold(token.expiresAt),
+          scopesTold(token.scopes),
+        ].join(' · ')}
       >
-        Revoke
-      </Button>
-    </SettingsRow>
+        <TokenActions name={token.name} onRevoke={onRevoke} />
+      </SettingsRow>
+    </div>
   );
 }

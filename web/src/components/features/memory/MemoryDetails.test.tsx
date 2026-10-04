@@ -12,6 +12,9 @@ const memoryState = {
   refetch: vi.fn(),
 };
 
+vi.mock('@/hooks/api/useHarnesses', () => ({
+  useHarnesses: () => ({ data: [{ id: 'claude-code', name: 'Claude Code' }] }),
+}));
 vi.mock('@/hooks/api/useTeamMemory', () => ({
   useTeamMemory: () => memoryState,
 }));

@@ -7,6 +7,7 @@ import {
   emptyRunnersForMember,
   failRunners,
   SLUG,
+  seedPushRunners,
   seedRunners,
 } from '@/stories/fixtures/runners';
 import { StoryPage } from '@/stories/StoryPage';
@@ -54,6 +55,15 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={runnersPath(SLUG)} seed={seedRunners}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const PushPools: Story = {
+  name: 'Push pools',
+  render: () => (
+    <StoryPage at={runnersPath(SLUG)} seed={seedPushRunners}>
       {routes}
     </StoryPage>
   ),

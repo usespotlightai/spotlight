@@ -19,48 +19,48 @@ const alert = (
 });
 
 describe('alertPhrase', () => {
-  it('says a rate rising in percentage points against the runs before', () => {
+  it('says the alert fires on a rate rising by percentage points or more', () => {
     expect(alertPhrase(alert('sent_back_rate', { risesBy: 0.2 }))).toBe(
-      'Sent-back rate up 20 points in the last 20 runs, against the 20 before',
+      'Alerts when the sent-back rate rises 20 points or more over 20 runs',
     );
   });
 
-  it('says a rate falling in percentage points against the runs before', () => {
+  it('says the alert fires on a rate falling by percentage points or more', () => {
     expect(alertPhrase(alert('accepted_rate', { fallsBy: 0.1 }))).toBe(
-      'Accepted rate down 10 points in the last 20 runs, against the 20 before',
+      'Alerts when the accepted rate falls 10 points or more over 20 runs',
     );
   });
 
   it('says a cost rising or falling as a bare amount, since a threshold names no currency', () => {
     expect(alertPhrase(alert('cost_per_run', { risesBy: 0.5, over: 10 }))).toBe(
-      'Cost per run up 0.50 in the last 10 runs, against the 10 before',
+      'Alerts when the cost per run rises 0.50 or more over 10 runs',
     );
     expect(alertPhrase(alert('cost_per_run', { fallsBy: 0.5, over: 10 }))).toBe(
-      'Cost per run down 0.50 in the last 10 runs, against the 10 before',
+      'Alerts when the cost per run falls 0.50 or more over 10 runs',
     );
   });
 
-  it('says a cost going above an amount across the last runs, in the runs’ currency where known', () => {
+  it('says a cost going above an amount over the runs, in the runs’ currency where known', () => {
     expect(alertPhrase(alert('cost_per_run', { above: 2, over: 10 }))).toBe(
-      'Cost per run above 2.00 across the last 10 runs',
+      'Alerts when the cost per run goes above 2.00 over 10 runs',
     );
     expect(
       alertPhrase(alert('cost_per_run', { above: 2, over: 10 }), 'USD'),
-    ).toBe('Cost per run above $2.00 across the last 10 runs');
+    ).toBe('Alerts when the cost per run goes above $2.00 over 10 runs');
   });
 
-  it('says a rate going below a percentage across the last runs', () => {
+  it('says a rate dropping below a percentage over the runs', () => {
     expect(alertPhrase(alert('merged_rate', { below: 0.4 }))).toBe(
-      'Merged rate below 40% across the last 20 runs',
+      'Alerts when the merged rate drops below 40% over 20 runs',
     );
   });
 
-  it('says one run as the last run', () => {
+  it('says one run as a single run, and a change from one run to the next', () => {
     expect(alertPhrase(alert('failed_rate', { above: 0.125, over: 1 }))).toBe(
-      'Failed rate above 12.5% across the last run',
+      'Alerts when the failed rate goes above 12.5% in a single run',
     );
     expect(alertPhrase(alert('failed_rate', { risesBy: 0.01, over: 1 }))).toBe(
-      'Failed rate up 1 point in the last run, against the one before',
+      'Alerts when the failed rate rises 1 point or more from one run to the next',
     );
   });
 });

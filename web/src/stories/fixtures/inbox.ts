@@ -3,23 +3,27 @@ import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { lineKeys } from '@/hooks/api/useLines';
 import { repositoryKeys } from '@/hooks/api/useRepositories';
+import { runConversationKeys } from '@/hooks/api/useRunConversation';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
 import { taskKeys } from '@/hooks/api/useTasks';
+import { teamRunKeys } from '@/hooks/api/useTeamRuns';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type {
-  HarnessResponseDto,
   InboxItemResponseDto,
   InboxMessageResponseDto,
   InboxNoticeResponseDto,
   InboxStationResponseDto,
   JournalStepResponseDto,
   LineResponseDto,
+  RunConversationResponseDto,
   RunJournalResponseDto,
   StationResponseDto,
   TaskResponseDto,
+  TeamRunResponseDto,
   WorkspaceResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
+import { HARNESSES } from '@/stories/fixtures/harnesses';
 import {
   MEMORIES_ITEM_ID,
   RUN_ID as MEMORIES_RUN_ID,
@@ -435,16 +439,6 @@ const TASKS: TaskResponseDto[] = [
   },
 ];
 
-const HARNESSES: HarnessResponseDto[] = [
-  {
-    id: 'claude-code',
-    name: 'Claude Code',
-    models: [{ id: 'claude-opus-5', name: 'Opus 5' }],
-    defaultModel: 'claude-opus-5',
-    efforts: ['low', 'medium', 'high'],
-  },
-];
-
 const WORKSPACE: WorkspaceResponseDto = {
   id: 'workspace_acme',
   name: 'Acme',
@@ -453,7 +447,56 @@ const WORKSPACE: WorkspaceResponseDto = {
   teams: [{ id: TEAM_ID, name: 'Platform' }],
 };
 
+const retries = INBOX.find((each) => each.id === OPENED_ITEM_ID);
+
+const RETRIES_RUN: RunConversationResponseDto = {
+  runId: MEMORIES_RUN_ID,
+  taskId: 'task_retries',
+  title: retries?.title ?? '',
+  description: retries?.description ?? null,
+  attachments: [],
+  station: {
+    id: 'station_implementation',
+    ...STATIONS.implementation,
+    count: 4,
+  },
+  createdAt: retries?.createdAt ?? '',
+  briefing: [retries?.title, retries?.description].filter(Boolean).join('\n\n'),
+  working: false,
+  notes: retries?.notes ?? [],
+  spend: null,
+};
+
+const RETRIES_TEAM_RUN: TeamRunResponseDto = {
+  id: MEMORIES_RUN_ID,
+  state: 'waiting',
+  attempt: 1,
+  exitCode: null,
+  startedAt: '2026-09-15T10:13:00.000Z',
+  updatedAt: '2026-09-15T10:31:00.000Z',
+  harness: 'claude-code',
+  image: null,
+  station: RETRIES_RUN.station,
+  review: { state: 'owed', conversationId: OPENED_ITEM_ID },
+  taskId: 'task_retries',
+  taskTitle: RETRIES_RUN.title,
+  taskDescription: RETRIES_RUN.description,
+};
+
+const seedRetriesRun = (client: QueryClient) => {
+  client.setQueryData(runConversationKeys.forRun(MEMORIES_RUN_ID), RETRIES_RUN);
+  client.setQueryData(teamRunKeys.forTeam(TEAM_ID), [RETRIES_TEAM_RUN]);
+  client.setQueryData(journalKeys.forTask('task_retries'), JOURNAL);
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
+};
+
+export const failRetriesRun = (client: QueryClient) => {
+  client.setQueryData(journalKeys.forTask('task_retries'), JOURNAL);
+  failQuery(client, runConversationKeys.forRun(MEMORIES_RUN_ID));
+};
+
 export const seedInbox = (client: QueryClient) => {
+  seedRetriesRun(client);
   client.setQueryData(inboxKeys.forWorkspace(SLUG), [NOTICE, ...INBOX]);
   client.setQueryData(journalKeys.forTask('task_retries'), JOURNAL);
   client.setQueryData(

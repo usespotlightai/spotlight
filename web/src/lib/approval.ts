@@ -2,6 +2,10 @@ import type {
   InboxApprovalInputResponseDto,
   InboxApprovalResponseDto,
 } from '@/lib/api';
+import {
+  type DecisionStanding,
+  WAITING_FOR_APPROVAL,
+} from '@/lib/decision-standing';
 
 export type Approval = InboxApprovalResponseDto;
 
@@ -63,6 +67,27 @@ const ENDED = /[.!?…]$/;
 
 const sentence = (words: string): string =>
   ENDED.test(words) ? words : `${words}.`;
+
+export const titleOf = (approval: Approval): string => {
+  if (approval.standing === 'granted') {
+    return approval.edited
+      ? 'Request approved with changes'
+      : 'Request approved';
+  }
+
+  return approval.standing === 'refused'
+    ? 'Request dismissed'
+    : WAITING_FOR_APPROVAL;
+};
+
+const STANDINGS: Record<Approval['standing'], DecisionStanding> = {
+  asked: 'waiting',
+  granted: 'approved',
+  refused: 'declined',
+};
+
+export const standingOf = (approval: Approval): DecisionStanding =>
+  STANDINGS[approval.standing];
 
 export const askedFor = (approval: Approval): string => {
   const wanted = approval.intent ?? `use ${approval.name}`;

@@ -25,7 +25,7 @@ export function TokenCreated({ name, token, onDone }: TokenCreatedProps) {
 
       <CopyBlock text={token} label="Copy token" focused />
 
-      <Button variant="ghost" size="sm" className="self-end" onClick={onDone}>
+      <Button size="sm" className="self-end" onClick={onDone}>
         I’ve copied it
       </Button>
     </section>

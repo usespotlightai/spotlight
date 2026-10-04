@@ -152,6 +152,7 @@ const RETIRED: TeamMemoryResponseDto[] = [
 
 const DETAIL: TeamMemoryDetailResponseDto = {
   ...(STANDING[1] as TeamMemoryResponseDto),
+  harness: 'claude-code',
   steps: [
     {
       index: 7,

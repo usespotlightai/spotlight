@@ -29,7 +29,7 @@ const host = (over: Record<string, unknown> = {}) => ({
 });
 
 const holding = (...hosts: unknown[]) =>
-  fleet.mockReturnValue({ hosts, provisioned: [] });
+  fleet.mockReturnValue({ hosts, pools: [] });
 
 const poolCreated = () =>
   creating.mockReturnValue({

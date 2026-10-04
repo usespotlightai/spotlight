@@ -11,7 +11,6 @@ import type {
   StationJudgeAgreementResponseDto,
   TrendPointResponseDto,
 } from '@/lib/api';
-import type { RunJournal } from '@/lib/inbox';
 
 export type StationJudgeAgreement = StationJudgeAgreementResponseDto;
 
@@ -100,9 +99,6 @@ export const claimShown = (
   index: number,
 ): string => claims[index] ?? `Claim ${index + 1}`;
 
-export const REWORDED_CLAIM =
-  'Its words changed since the judge marked it, so it reads by its place.';
-
 export const markShown = (met: boolean): string => (met ? 'Met' : 'Not met');
 
 export const passShareShown = (passShare: number): string =>
@@ -112,11 +108,26 @@ export const passShareShown = (passShare: number): string =>
 
 export const CLAIMS_LABEL = 'Claims';
 
-export const CLAIMS_QUESTION = 'Does the run meet each claim?';
+const CLAIMS_QUESTION = 'Does the run meet each claim?';
 
-export const SAVE_GRADE = 'Save grade';
+export const RUBRIC_LABEL = 'Rubric';
 
-export const ANSWER_EVERY_CLAIM = 'Answer every claim to save your grade.';
+const gradeQuestion = (kind: RatedKind, byRubric: boolean): string => {
+  if (kind === 'yes-no') {
+    return byRubric ? 'Does this run meet the rubric?' : 'Is this a good run?';
+  }
+
+  return byRubric
+    ? 'How well does this run meet the rubric, from 1 to 5?'
+    : 'How good is this run, from 1 to 5?';
+};
+
+export const gradeHeading = (kind: ScoreKind, byRubric: boolean): string =>
+  kind === 'claims' ? CLAIMS_QUESTION : gradeQuestion(kind, byRubric);
+
+export const SAVING_GRADE = 'Saving…';
+
+export const RUBRIC_TEXT_LABEL = 'The judge’s rubric';
 
 export const CLAIM_AGREEMENT_LABEL = 'Agreement claim by claim';
 
@@ -131,9 +142,6 @@ export const AGREED_COLUMN = 'Agreed';
 export const RUNS_COLUMN = 'Runs';
 
 export const YOUR_GRADE = 'Your grade';
-
-export const claimsGradedShown = (grade: string): string =>
-  `You graded it ${grade.toLowerCase()}. Change any answer and save again to change your mind.`;
 
 const MEASURES: Record<NonNullable<JudgeStanding['measure']>, string> = {
   kappa: 'Cohen’s kappa',
@@ -196,9 +204,3 @@ export const coverageParts = (
   { label: 'People only', value: coverage.peopleOnly },
   { label: 'Neither', value: coverage.neither },
 ];
-
-export const summaryOf = (journals: readonly RunJournal[]): string | null =>
-  journals
-    .flatMap((each) => each.steps)
-    .findLast((step) => step.kind === 'said' && step.text.trim())
-    ?.text.trim() ?? null;

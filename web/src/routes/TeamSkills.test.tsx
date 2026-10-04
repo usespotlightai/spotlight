@@ -21,7 +21,6 @@ vi.mock('@/hooks/api/useTeamSkills', () => ({
 const GRAFANA = {
   key: 'grafana-dashboards',
   description: 'Reading this team’s dashboards.',
-  path: '.spotlight/skills/grafana-dashboards',
 };
 
 const showing = (hash = '') =>
@@ -99,12 +98,11 @@ describe('TeamSkills', () => {
     ).toBeInTheDocument();
   });
 
-  it('says where each skill is defined, and offers nothing to edit here', () => {
+  it('names each skill without its folder, and offers nothing to edit here', () => {
     showing();
 
-    expect(
-      screen.getByText('.spotlight/skills/grafana-dashboards'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('grafana-dashboards')).toBeInTheDocument();
+    expect(screen.queryByText(/\.spotlight\/skills\//)).not.toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });

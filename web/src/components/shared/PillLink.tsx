@@ -2,9 +2,8 @@ import type { LinkProps } from 'react-router';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type PillVariant, pillClass } from '@/lib/pill';
 
-type PillLinkProps = Omit<LinkProps, 'className'> & {
+type PillLinkProps = LinkProps & {
   variant?: PillVariant;
-  className?: string;
 };
 
 export function PillLink({

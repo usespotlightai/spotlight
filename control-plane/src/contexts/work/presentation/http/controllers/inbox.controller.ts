@@ -25,7 +25,6 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
-import { ReadNoticeCommand } from '@work/application/commands/read-notice.command';
 import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
 import type {
   InboxEntryDto,
@@ -216,26 +215,6 @@ export class InboxController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(new ReadInboxAsideCommand(asideId, user.id));
-  }
-
-  @Post('notices/:noticeId/read')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'readInboxNotice',
-    summary: 'Mark a notice put to a person as seen',
-  })
-  @ApiParam({ name: 'slug', type: String, example: 'acme' })
-  @ApiParam({ name: 'noticeId', type: String })
-  @ApiNoContentResponse({ description: 'It is no longer unread' })
-  @ApiNotFoundResponse({ description: 'No such notice for this caller' })
-  async readNotice(
-    @Param('slug') slug: string,
-    @Param('noticeId') noticeId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    await this.commandBus.execute(
-      new ReadNoticeCommand(noticeId, slug, user.id),
-    );
   }
 
   @Post('notices/:noticeId/settle')

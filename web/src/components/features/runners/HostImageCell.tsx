@@ -1,7 +1,8 @@
+import { COMPACT_PILL } from '@/components/features/runners/columns';
+import { ImagePill } from '@/components/features/runners/ImagePill';
+import { Pill } from '@/components/shared/Pill';
 import type { HostImageResponseDto } from '@/lib/api';
 import { refusal } from '@/lib/runner';
-
-const shortName = (image: string) => image.slice(image.lastIndexOf('/') + 1);
 
 export function HostImageCell({
   images,
@@ -17,27 +18,23 @@ export function HostImageCell({
   }
 
   return (
-    <span className="flex min-w-0 items-center gap-1.5 text-xs">
-      <span
-        className="truncate text-foreground"
+    <span className="flex min-w-0 items-center gap-1">
+      <ImagePill
+        image={usual.image}
         title={images.map((image) => image.image).join('\n')}
-      >
-        {shortName(usual.image)}
-      </span>
+      />
 
-      {others > 0 && (
-        <span className="shrink-0 text-muted-foreground">+{others}</span>
-      )}
+      {others > 0 && <Pill className={COMPACT_PILL}>+{others}</Pill>}
 
       {refused.length > 0 && (
-        <span
-          className="shrink-0 text-destructive"
+        <Pill
           title={refused
             .map((image) => `${image.image}: ${refusal(image.refused ?? '')}`)
             .join('\n')}
+          className={`${COMPACT_PILL} border-destructive/30 text-destructive`}
         >
           {refused.length} refused
-        </span>
+        </Pill>
       )}
     </span>
   );

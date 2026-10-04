@@ -36,28 +36,20 @@ const raised = (subject = 'replay-search search_1 iteration 3') =>
   });
 
 describe('Notice', () => {
-  it('is raised unread and open, for one person only', () => {
+  it('is raised open, for one person only', () => {
     const notice = raised();
 
-    expect(notice.readAt).toBeNull();
     expect(notice.settledAt).toBeNull();
     expect(notice.version).toBe(0);
     expect(notice.isFor(PERSON)).toBe(true);
     expect(notice.isFor(UserId.of('user_2'))).toBe(false);
   });
 
-  it('is read once, and settling reads it too', () => {
-    const read = raised().read(later(1));
-
-    expect(read.readAt).toEqual(later(1));
-    expect(read.read(later(2))).toBe(read);
-
+  it('settles once', () => {
     const settled = raised().settled(later(3));
 
-    expect(settled.readAt).toEqual(later(3));
     expect(settled.settledAt).toEqual(later(3));
     expect(settled.settled(later(4))).toBe(settled);
-    expect(settled.read(later(4))).toBe(settled);
   });
 
   it('refuses a subject it cannot name, a form it does not know, a link out of its team or unnamed, and wording out of bounds', () => {
@@ -93,7 +85,7 @@ describe('Notice', () => {
     );
   });
 
-  it('refuses a stored notice read or settled before it was raised', () => {
+  it('refuses a stored notice settled before it was raised', () => {
     const notice = raised();
     const state = {
       id: notice.id,
@@ -105,15 +97,11 @@ describe('Notice', () => {
       link: notice.link,
       wording: notice.wording,
       raisedAt: NOW,
-      readAt: null,
       settledAt: null,
       version: 1,
     };
 
     expect(Notice.rehydrate(state).version).toBe(1);
-    expect(() => Notice.rehydrate({ ...state, readAt: later(-1) })).toThrow(
-      InconsistentStateError,
-    );
     expect(() => Notice.rehydrate({ ...state, settledAt: later(-1) })).toThrow(
       InconsistentStateError,
     );

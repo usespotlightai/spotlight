@@ -1,14 +1,19 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { harnessKeys } from '@/hooks/api/useHarnesses';
 import { memoryReviewKeys } from '@/hooks/api/useMemoryReview';
 import type {
   MemoryReviewResponseDto,
   ProposedMemoryResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
+import { MAYA_IMAGE } from '@/stories/fixtures/avatars';
+import { HARNESSES } from '@/stories/fixtures/harnesses';
 
 export const SLUG = 'acme';
 export const TEAM_ID = 'team_platform';
 export const TASK_ID = 'task_retries';
+
+export const TASK_TITLE = 'Drain the stuck retry queues';
 export const RUN_ID = 'run_retries_2';
 export const MEMORIES_ITEM_ID = 'aside_retries_memories';
 
@@ -31,11 +36,13 @@ const MEMORIES: ProposedMemoryResponseDto[] = [
     paths: [],
     supersedes: null,
     decision: null,
+    harness: 'claude-code',
     steps: [],
     notes: [
       {
         position: 1,
         by: 'person',
+        author: { id: 'user_2', name: 'Maya Chen', image: MAYA_IMAGE },
         text: 'Start with webhook-retries. Billing is still being reconciled, so leave it alone for now.',
       },
     ],
@@ -52,11 +59,12 @@ const MEMORIES: ProposedMemoryResponseDto[] = [
     paths: ['src/retries/deliver.ts'],
     supersedes: null,
     decision: null,
+    harness: 'claude-code',
     steps: [
       {
         index: 7,
         kind: 'remember',
-        text: 'spotlight remember --kind rationale --body "A 410 Gone from a webhook endpoint is permanent…"',
+        text: 'spotlight remember --kind rationale --reach station --path src/retries/deliver.ts --body "A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried."',
       },
     ],
     notes: [],
@@ -73,11 +81,13 @@ const MEMORIES: ProposedMemoryResponseDto[] = [
     paths: [],
     supersedes: null,
     decision: null,
+    harness: 'claude-code',
     steps: [],
     notes: [
       {
         position: 3,
         by: 'world',
+        author: null,
         text: 'FYI the staging worker needs a restart after deploys or it keeps the old limits.',
       },
     ],
@@ -88,8 +98,10 @@ const review = (
   memories: ProposedMemoryResponseDto[],
 ): MemoryReviewResponseDto => ({ taskId: TASK_ID, runId: RUN_ID, memories });
 
-export const seedMemoryReview = (client: QueryClient) =>
+export const seedMemoryReview = (client: QueryClient) => {
+  client.setQueryData(harnessKeys.forWorkspace(SLUG), HARNESSES);
   client.setQueryData(memoryReviewKeys.forRun(RUN_ID), review(MEMORIES));
+};
 
 export const seedMemoriesDecided = (client: QueryClient) =>
   client.setQueryData(
@@ -99,12 +111,10 @@ export const seedMemoriesDecided = (client: QueryClient) =>
         ...memory,
         state: at === 2 ? 'rejected' : 'approved',
         decision: DECIDED,
+        harness: 'claude-code',
       })),
     ),
   );
-
-export const emptyMemoryReview = (client: QueryClient) =>
-  client.setQueryData(memoryReviewKeys.forRun(RUN_ID), review([]));
 
 export const failMemoryReview = (client: QueryClient) =>
   failQuery(client, memoryReviewKeys.forRun(RUN_ID));

@@ -280,12 +280,14 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       DrizzleRunRecordRepository,
       DrizzleScoreRepository,
       StationJudgeReports,
+      DrizzleJudgingRepository,
     ],
     useFactory: (
       records: DrizzleRunRecordRepository,
       scores: DrizzleScoreRepository,
       reports: StationJudgeReports,
-    ) => new RunScoresViews(records, scores, reports),
+      judgings: DrizzleJudgingRepository,
+    ) => new RunScoresViews(records, scores, reports, judgings),
   },
   {
     provide: OutcomesAccess,

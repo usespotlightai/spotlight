@@ -19,6 +19,20 @@ describe('HarnessLogo', () => {
     expect(drawn()).toHaveAttribute('fill', 'currentColor');
   });
 
+  it('draws Codex as OpenAI’s mark in the text colour', () => {
+    render(<HarnessLogo harness="codex" />);
+
+    expect(drawn()).toHaveAttribute('data-harness', 'codex');
+    expect(drawn()).toHaveAttribute('fill', 'currentColor');
+  });
+
+  it('draws Gemini in Gemini’s colour', () => {
+    render(<HarnessLogo harness="gemini" />);
+
+    expect(drawn()).toHaveAttribute('data-harness', 'gemini');
+    expect(drawn()).toHaveAttribute('fill', '#8E75B2');
+  });
+
   it('falls back to a plain mark for a harness it has no logo for', () => {
     render(<HarnessLogo harness="opencode" />);
 

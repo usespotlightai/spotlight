@@ -1,4 +1,4 @@
-import { Scale } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 import { ClaimVerdicts } from '@/components/features/runs/judge/ClaimVerdicts';
 import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -14,7 +14,9 @@ type RunJudgeScoreProps = {
 };
 
 const LINE = 'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs';
-const ICON = <Scale aria-hidden className="size-3.5 text-muted-foreground" />;
+const ICON = (
+  <GraduationCap aria-hidden className="size-3.5 text-muted-foreground" />
+);
 
 export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
   const query = useRunScores(teamId, runId);

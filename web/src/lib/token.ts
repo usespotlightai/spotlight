@@ -41,16 +41,16 @@ export const REACHES: readonly Told<TokenReach>[] = [
 ];
 
 export const GRANTS: readonly Told<TokenGrant>[] = [
-  { id: 'secrets', label: 'Secrets', told: 'Also manages secrets.' },
+  { id: 'secrets', label: 'Secrets', told: 'Manages secrets as well.' },
   {
     id: 'runners',
     label: 'Runners',
-    told: 'Also manages runner pools and runner trusts.',
+    told: 'Manages runner pools and runner trusts as well.',
   },
   {
     id: 'trusts',
     label: 'Token trusts',
-    told: 'Also manages workspace token trusts.',
+    told: 'Manages workspace token trusts as well.',
   },
 ];
 
@@ -88,25 +88,31 @@ export const expiryAfter = (
 ): string | null =>
   days === null ? null : new Date(now + Number(days) * DAY).toISOString();
 
+const dayOf = (at: Date, now: number): string =>
+  at.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(at.getFullYear() === new Date(now).getFullYear()
+      ? {}
+      : { year: 'numeric' as const }),
+  });
+
+export const createdTold = (issuedAt: string, now = Date.now()): string =>
+  `Created ${dayOf(new Date(issuedAt), now)}`;
+
 export const expiryTold = (
   expiresAt: string | null,
   now = Date.now(),
 ): string => {
   if (expiresAt === null) {
-    return 'Never expires';
+    return 'No expiry';
   }
 
   const expires = new Date(expiresAt);
 
-  if (expires.getTime() <= now) {
-    return 'Expired';
-  }
-
-  return `Expires ${expires.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })}`;
+  return expires.getTime() <= now
+    ? 'Expired'
+    : `Expires ${dayOf(expires, now)}`;
 };
 
 export const tokensPath = (slug: string) => `${settingsPath(slug)}/tokens`;

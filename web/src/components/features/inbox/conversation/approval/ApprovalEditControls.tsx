@@ -1,5 +1,6 @@
 import { ApprovalApproveButton } from '@/components/features/inbox/conversation/approval/ApprovalApproveButton';
-import { ApprovalPill } from '@/components/features/inbox/conversation/approval/ApprovalPill';
+import { DecisionControls } from '@/components/shared/DecisionControls';
+import { DecisionPill } from '@/components/shared/DecisionPill';
 import type { Approval } from '@/lib/approval';
 
 type ApprovalEditControlsProps = {
@@ -18,16 +19,16 @@ export function ApprovalEditControls({
   onCancel,
 }: ApprovalEditControlsProps) {
   return (
-    <div className="flex items-center justify-end gap-1">
-      <ApprovalPill disabled={pending} onClick={onCancel}>
+    <DecisionControls>
+      <DecisionPill disabled={pending} onClick={onCancel}>
         Cancel
-      </ApprovalPill>
+      </DecisionPill>
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || blank}
         title={blank ? 'Fill in every input to approve it' : undefined}
         onApprove={onApprove}
       />
-    </div>
+    </DecisionControls>
   );
 }

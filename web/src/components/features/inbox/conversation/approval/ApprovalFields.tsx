@@ -1,7 +1,6 @@
 import { useId } from 'react';
-import { ApprovalRow } from '@/components/features/inbox/conversation/approval/ApprovalRow';
-import { ApprovalTable } from '@/components/features/inbox/conversation/approval/ApprovalTable';
-import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
+import { FACT_LABEL, FactRow } from '@/components/shared/FactRow';
+import { InPlaceTextarea } from '@/components/shared/form/InPlaceTextarea';
 import { type Approval, readsAsCode } from '@/lib/approval';
 import { cn } from '@/lib/utils';
 
@@ -21,29 +20,28 @@ export function ApprovalFields({
   const id = useId();
 
   return (
-    <ApprovalTable as="div">
+    <div>
       {approval.inputs.map((input, at) => (
-        <ApprovalRow key={input.name}>
+        <FactRow key={input.name}>
           <label
             htmlFor={`${id}-${input.name}`}
-            className="truncate text-muted-foreground text-sm leading-6 first-letter:uppercase"
+            className={cn(FACT_LABEL, 'truncate first-letter:uppercase')}
           >
             {input.name}
           </label>
-          <AutoGrowTextarea
+          <InPlaceTextarea
             id={`${id}-${input.name}`}
             value={edits[input.name] ?? input.value}
             disabled={disabled}
             autoFocus={at === 0}
             onChange={(event) => onEdit(input.name, event.target.value)}
             className={cn(
-              '-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 text-foreground text-sm leading-6 transition-colors hover:bg-accent focus-visible:bg-accent',
               readsAsCode(approval, input) &&
                 'font-mono text-[11px] leading-[1.6]',
             )}
           />
-        </ApprovalRow>
+        </FactRow>
       ))}
-    </ApprovalTable>
+    </div>
   );
 }

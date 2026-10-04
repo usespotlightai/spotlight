@@ -1485,15 +1485,12 @@ describe('a search for a better station config', () => {
     expect(notice?.points.join('\n')).not.toContain(first?.taskId);
 
     await http()
-      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/read`)
+      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/settle`)
       .set(TEST_USER_HEADER, randomUUID())
       .expect(404);
     await owner()
-      .post(`/api/workspaces/elsewhere/inbox/notices/${notice?.id}/read`)
+      .post(`/api/workspaces/elsewhere/inbox/notices/${notice?.id}/settle`)
       .expect(404);
-    await owner()
-      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/read`)
-      .expect(204);
     await owner()
       .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/settle`)
       .expect(204);
@@ -1509,7 +1506,7 @@ describe('a search for a better station config', () => {
 
     await db
       .update(schema.notice)
-      .set({ raisedAt: longAgo, readAt: longAgo, settledAt: longAgo })
+      .set({ raisedAt: longAgo, settledAt: longAgo })
       .where(eq(schema.notice.id, notice?.id as string));
 
     expect(

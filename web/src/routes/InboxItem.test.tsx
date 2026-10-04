@@ -59,17 +59,15 @@ vi.mock('@/hooks/api/useReadInboxAside', () => ({
   useReadInboxAside: () => ({ mutate: readAside }),
 }));
 
-vi.mock('@/components/features/inbox/memories/MemoryReview', () => ({
-  MemoryReview: ({ runId }: { runId: string }) => (
-    <p>The memories run {runId} proposed</p>
+vi.mock('@/components/features/inbox/memories/MemoryThread', () => ({
+  MemoryThread: ({ runId }: { runId: string }) => (
+    <p>The thread of run {runId}, with the memories it proposed</p>
   ),
 }));
 
-vi.mock('@/components/features/inbox/grades/GradeRun', () => ({
-  GradeRun: ({ runId, title }: { runId: string; title: string }) => (
-    <p>
-      Grade run {runId} of {title}
-    </p>
+vi.mock('@/components/features/inbox/grades/GradeThread', () => ({
+  GradeThread: ({ runId }: { runId: string }) => (
+    <p>The thread of run {runId}, asking for a grade</p>
   ),
 }));
 
@@ -182,14 +180,16 @@ describe('InboxItem', () => {
       },
     ];
 
-    it('shows the memories the run proposed, without waiting on the work', () => {
+    it('opens the run’s thread with the memories it proposed, without waiting on the work', () => {
       waiting.mockReturnValue(aside(false));
       journal.mockReturnValue(undefined);
 
       renderItem('aside_1');
 
       expect(
-        screen.getByText('The memories run run_7 proposed'),
+        screen.getByText(
+          'The thread of run run_7, with the memories it proposed',
+        ),
       ).toBeInTheDocument();
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
@@ -222,7 +222,9 @@ describe('InboxItem', () => {
 
       renderItem('aside_2');
 
-      expect(screen.getByText(/Grade run run_9 of/)).toBeInTheDocument();
+      expect(
+        screen.getByText('The thread of run run_9, asking for a grade'),
+      ).toBeInTheDocument();
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
   });

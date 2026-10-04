@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { NOTE_BOX, PersonNote } from '@/components/features/memory/PersonNote';
+import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { PillButton } from '@/components/shared/PillButton';
 import { useRetireMemory } from '@/hooks/api/useRetireMemory';
@@ -26,6 +27,10 @@ export function RetireInPlace({
 }: RetireInPlaceProps) {
   const { data: session } = useSession();
   const retire = useRetireMemory();
+  const me = {
+    name: session?.user.name ?? 'You',
+    image: session?.user.image ?? null,
+  };
   const [reason, setReason] = useState('');
   const form = useRef<HTMLFormElement>(null);
 
@@ -54,10 +59,8 @@ export function RetireInPlace({
   return (
     <form ref={form} aria-label="Retire this memory" onSubmit={submit}>
       <PersonNote
-        person={{
-          name: session?.user.name ?? 'You',
-          image: session?.user.image ?? null,
-        }}
+        avatar={<PersonAvatar person={me} />}
+        name={me.name}
         about={<span className="text-muted-foreground">retiring this</span>}
       >
         <SaidCard className={NOTE_BOX}>

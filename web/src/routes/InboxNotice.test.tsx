@@ -1,21 +1,13 @@
 import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  GONE_FROM_INBOX,
-  NOTICE_DISMISS,
-  NOTICE_DISMISS_FAILED,
-  NOTICE_DISMISSED,
-} from '@/lib/inbox';
+import { GONE_FROM_INBOX } from '@/lib/inbox';
 import { InboxNotice } from '@/routes/InboxNotice';
 
 const waiting = vi.fn();
 const failing = vi.fn();
-const read = vi.fn();
 const settle = vi.fn();
 const settling = vi.fn();
-const readError = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -32,10 +24,6 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({
     data: { teams: [{ id: 'team_1', name: 'Platform' }] },
   }),
-}));
-
-vi.mock('@/hooks/api/useReadInboxNotice', () => ({
-  useReadInboxNotice: () => ({ mutate: read, error: readError() }),
 }));
 
 vi.mock('@/hooks/api/useSettleInboxNotice', () => ({
@@ -82,8 +70,6 @@ describe('InboxNotice', () => {
     waiting.mockReturnValue([notice()]);
     failing.mockReturnValue(false);
     settling.mockReturnValue(null);
-    readError.mockReturnValue(null);
-    read.mockClear();
     settle.mockClear();
   });
 
@@ -112,14 +98,7 @@ describe('InboxNotice', () => {
     expect(screen.getByText(GONE_FROM_INBOX)).toBeInTheDocument();
   });
 
-  it('says nothing is waiting where reading it finds it is no longer yours', () => {
-    readError.mockReturnValue({ status: 404 });
-    renderNotice();
-
-    expect(screen.getByText(GONE_FROM_INBOX)).toBeInTheDocument();
-  });
-
-  it('says nothing is waiting where dismissing it finds it is no longer yours', () => {
+  it('says nothing is waiting where opening it finds it is no longer yours', () => {
     settling.mockReturnValue('gone');
     renderNotice();
 
@@ -152,43 +131,17 @@ describe('InboxNotice', () => {
     );
   });
 
-  it('marks it read on opening it, once', () => {
+  it('moves it to resolved on opening it, once, as reading an email does', () => {
     renderNotice();
 
-    expect(read).toHaveBeenCalledTimes(1);
-    expect(read).toHaveBeenCalledWith({ slug: 'acme', noticeId: 'notice_1' });
-  });
-
-  it('leaves a notice already read alone', () => {
-    waiting.mockReturnValue([notice({ unread: false })]);
-    renderNotice();
-
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it('dismisses it when asked', async () => {
-    const person = userEvent.setup();
-    renderNotice();
-
-    await person.click(screen.getByRole('button', { name: NOTICE_DISMISS }));
-
+    expect(settle).toHaveBeenCalledTimes(1);
     expect(settle).toHaveBeenCalledWith({ slug: 'acme', noticeId: 'notice_1' });
   });
 
-  it('says so when it could not be dismissed', () => {
-    settling.mockReturnValue('failed');
-    renderNotice();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(NOTICE_DISMISS_FAILED);
-  });
-
-  it('offers no dismissal once dismissed', () => {
+  it('leaves a notice already resolved alone', () => {
     waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
     renderNotice();
 
-    expect(
-      screen.queryByRole('button', { name: NOTICE_DISMISS }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(NOTICE_DISMISSED)).toBeInTheDocument();
+    expect(settle).not.toHaveBeenCalled();
   });
 });

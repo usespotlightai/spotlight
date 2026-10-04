@@ -14,6 +14,7 @@ import {
   type RunJournal,
   workedOn,
 } from '@/lib/inbox';
+import { lastNoteOf } from '@/lib/run-conversation';
 
 interface Turn {
   readonly prompt: Message | null;
@@ -84,6 +85,7 @@ type ConversationProps = {
   closing?: ReactNode;
   footer: ReactNode;
   deciding?: Deciding;
+  afterRun?: (runId: string) => ReactNode;
 };
 
 export function Conversation({
@@ -95,6 +97,7 @@ export function Conversation({
   closing,
   footer,
   deciding,
+  afterRun,
 }: ConversationProps) {
   const marked = marksIn(item);
   const scroller = useRef<HTMLDivElement>(null);
@@ -207,6 +210,11 @@ export function Conversation({
                 <ol className="mt-6 flex flex-col gap-6">
                   {turn.messages.map((note, place) => {
                     const before = turn.messages[place - 1];
+                    const closesRun =
+                      note.runId &&
+                      lastNoteOf(item.notes, note.runId) === note.position
+                        ? afterRun?.(note.runId)
+                        : null;
 
                     return (
                       <Fragment key={`${item.id}-${note.position}`}>
@@ -231,6 +239,8 @@ export function Conversation({
                             note.at,
                           )}
                         />
+
+                        {closesRun && <li>{closesRun}</li>}
                       </Fragment>
                     );
                   })}

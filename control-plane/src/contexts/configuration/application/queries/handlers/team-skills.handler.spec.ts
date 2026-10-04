@@ -45,19 +45,17 @@ const listing = (teamId = 'team_1') =>
     } satisfies AppliedConfigurationPort,
     {
       read: () => ({ skills: [GRAFANA], problems: [] }),
-      definedAt: (key: SkillKey) => `.spotlight/skills/${key.value}`,
       folder: vi.fn(),
     } satisfies SkillReaderPort,
   ).execute(new TeamSkillsQuery(teamId, 'user_1'));
 
 describe('TeamSkillsHandler', () => {
-  it('lists the team’s own skills, each with where it is defined', async () => {
+  it('lists the team’s own skills, each with what it is for', async () => {
     await expect(listing()).resolves.toEqual({
       skills: [
         {
           key: 'grafana-dashboards',
           description: 'Reading this team’s dashboards.',
-          path: '.spotlight/skills/grafana-dashboards',
         },
       ],
     });

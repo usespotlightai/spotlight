@@ -8,6 +8,7 @@ import {
   type MemoryGroundNoteDto,
   type MemoryGroundStepDto,
   type MemoryReviewDto,
+  type PersonDto,
   type ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -32,6 +33,27 @@ export class MemoryGroundStepResponseDto {
   }
 }
 
+export class MemoryPersonResponseDto {
+  @ApiProperty({ example: 'user_1' })
+  readonly id: string;
+
+  @ApiProperty({ nullable: true, type: String, example: 'Maya Chen' })
+  readonly name: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'https://avatars.githubusercontent.com/u/1',
+  })
+  readonly image: string | null;
+
+  constructor(person: PersonDto) {
+    this.id = person.id;
+    this.name = person.name;
+    this.image = person.image;
+  }
+}
+
 export class MemoryGroundNoteResponseDto {
   @ApiProperty({ example: 4, description: 'Where the note stands on its task' })
   readonly position: number;
@@ -43,12 +65,21 @@ export class MemoryGroundNoteResponseDto {
   })
   readonly by: string;
 
+  @ApiProperty({
+    type: MemoryPersonResponseDto,
+    nullable: true,
+    description:
+      'The teammate who said it; absent for words from another tool, which carry no author',
+  })
+  readonly author: MemoryPersonResponseDto | null;
+
   @ApiProperty({ example: 'Never retry an upload refused with a 403.' })
   readonly text: string;
 
   constructor(note: MemoryGroundNoteDto) {
     this.position = note.position;
     this.by = note.by;
+    this.author = note.author ? new MemoryPersonResponseDto(note.author) : null;
     this.text = note.text;
   }
 }
@@ -129,6 +160,14 @@ export class ProposedMemoryResponseDto {
   readonly decision: MemoryDecisionResponseDto | null;
 
   @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'claude-code',
+    description: 'The harness the run whose steps it rests on ran on',
+  })
+  readonly harness: string | null;
+
+  @ApiProperty({
     type: MemoryGroundStepResponseDto,
     isArray: true,
     description: 'The steps of its run it rests on',
@@ -156,6 +195,7 @@ export class ProposedMemoryResponseDto {
     this.decision = memory.decision
       ? new MemoryDecisionResponseDto(memory.decision)
       : null;
+    this.harness = memory.harness;
     this.steps = memory.steps.map(
       (each) => new MemoryGroundStepResponseDto(each),
     );

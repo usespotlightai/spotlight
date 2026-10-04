@@ -6,8 +6,8 @@ import { CreateTokenDialog } from '@/components/features/tokens/CreateTokenDialo
 import { RevokeTokenDialog } from '@/components/features/tokens/RevokeTokenDialog';
 import { TokenCreated } from '@/components/features/tokens/TokenCreated';
 import { TokenRow } from '@/components/features/tokens/TokenRow';
-import { TokenRowSkeleton } from '@/components/features/tokens/TokenRowSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
 import { Button } from '@/components/ui/button';
 import type { CreatedWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
@@ -67,7 +67,7 @@ export function Tokens() {
         >
           {loading(tokens) && (
             <div role="status" aria-label="Loading the tokens">
-              <TokenRowSkeleton />
+              <IconRowSkeleton nameWidth="w-20" aboutWidth="w-64" />
             </div>
           )}
 
@@ -76,25 +76,14 @@ export function Tokens() {
               what="Tokens"
               retrying={tokens.isFetching}
               onRetry={() => void tokens.refetch()}
-              className="items-start px-4 py-3"
+              className="px-4 py-6 text-center"
             />
           )}
 
           {tokens.data?.length === 0 && (
-            <div className="flex flex-col items-start gap-3 px-4 py-4">
-              <p className="text-muted-foreground text-sm">
-                No tokens yet. Create one to let Terraform manage this
-                workspace.
-              </p>
-
-              <Button
-                size="sm"
-                className="rounded-full"
-                onClick={() => setCreating(true)}
-              >
-                Create the first token
-              </Button>
-            </div>
+            <p className="px-4 py-4 text-muted-foreground text-sm">
+              No tokens yet.
+            </p>
           )}
 
           {tokens.data?.map((token) => (

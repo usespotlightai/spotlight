@@ -1,17 +1,12 @@
 import type {
   MemoryGroundNoteDto,
   MemoryGroundStepDto,
+  PersonDto,
   ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
 import { MEMORY_STANDINGS } from '@memory/domain/value-objects/memory-standing';
 
 export const MEMORY_STANDING_NAMES = MEMORY_STANDINGS;
-
-export interface PersonDto {
-  readonly id: string;
-  readonly name: string | null;
-  readonly image: string | null;
-}
 
 export interface MemoryRetirementDto {
   readonly at: string;
@@ -52,6 +47,7 @@ export interface MemoryLinkDto {
 }
 
 export interface TeamMemoryDetailDto extends TeamMemoryDto {
+  readonly harness: string | null;
   readonly steps: readonly MemoryGroundStepDto[];
   readonly notes: readonly MemoryGroundNoteDto[];
   readonly superseded: MemoryLinkDto | null;
