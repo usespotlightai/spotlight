@@ -129,16 +129,10 @@ describe('NewChatComposer', () => {
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 
-  it('improves the station it was handed, and may start with nothing typed', async () => {
+  it('puts the station it was handed inline, and may start with nothing typed', async () => {
     showing(vi.fn(), [], SPEC);
 
-    expect(
-      screen.getByRole('list', { name: 'Station to improve' }),
-    ).toHaveTextContent('Spec');
-    expect(box()).toHaveAttribute(
-      'aria-placeholder',
-      'What should it do better?',
-    );
+    expect(within(box()).getByText('Spec')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -151,15 +145,11 @@ describe('NewChatComposer', () => {
   it('lets the handed station go before starting', async () => {
     showing(vi.fn(), [], SPEC);
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Stop improving Spec' }),
-    );
+    await erase(box());
     await write(box(), 'Plan the retries');
     await pressEnter(box());
 
-    expect(
-      screen.queryByRole('list', { name: 'Station to improve' }),
-    ).not.toBeInTheDocument();
+    expect(within(box()).queryByText('Spec')).not.toBeInTheDocument();
     expect(started.mock.calls[0]?.[0]).not.toHaveProperty('improving');
   });
 

@@ -12,14 +12,13 @@ import {
 } from '@/components/shared/chat-input/ReferenceNode';
 import { SendOnEnter } from '@/components/shared/chat-input/SendOnEnter';
 import { WatchMessage } from '@/components/shared/chat-input/WatchMessage';
-import type { SharedTrace } from '@/lib/chat';
-import { traceReference, type Written } from '@/lib/chat-input';
+import type { Reference, Written } from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
 
 type ChatEditorProps = {
   label: string;
   placeholder: string;
-  initialTraces: readonly SharedTrace[];
+  initialReferences: readonly Reference[];
   handle: RefObject<LexicalEditor | null>;
   editable: boolean;
   disabled: boolean;
@@ -30,7 +29,7 @@ type ChatEditorProps = {
 export function ChatEditor({
   label,
   placeholder,
-  initialTraces,
+  initialReferences,
   handle,
   editable,
   disabled,
@@ -44,12 +43,10 @@ export function ChatEditor({
       throw error;
     },
     editorState:
-      initialTraces.length > 0
+      initialReferences.length > 0
         ? () => {
             const paragraph = $createParagraphNode();
-            paragraph.append(
-              ...$spacedReferences(initialTraces.map(traceReference)),
-            );
+            paragraph.append(...$spacedReferences(initialReferences));
             $getRoot().append(paragraph);
           }
         : undefined,
