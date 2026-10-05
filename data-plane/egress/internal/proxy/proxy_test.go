@@ -311,7 +311,7 @@ func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
 
 	response, body := r.get(t, "https://mcp.example.com/", http.Header{
 		"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"},
-		"X-Org":         {"forged", "twice"},
+		"X-Org":         {"spotlight-egress:LINEAR_ORG"},
 	})
 	if response == nil || response.StatusCode != http.StatusOK {
 		t.Fatalf("answered %v: %s", response, body)
@@ -322,9 +322,19 @@ func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
 		t.Errorf("the host saw %v", got)
 	}
 
+	r.get(t, "https://mcp.example.com/", http.Header{"Authorization": {"Bearer mine"}, "X-Org": {"forged", "twice"}})
+	if got := r.upstream.last().Header; got.Get("Authorization") != "Bearer mine" || !slices.Equal(got.Values("X-Org"), []string{"forged", "twice"}) {
+		t.Errorf("wore a secret over what the sandbox sent without its stand-in: %v", got)
+	}
+
+	r.get(t, "https://mcp.example.com/", http.Header{"X-Api-Key": {"spotlight-egress:UNKNOWN"}})
+	if got := r.upstream.last().Header; got.Get("X-Api-Key") != "" || got.Get("Authorization") != "" {
+		t.Errorf("sent on a stand-in it does not hold, or wore a secret nobody asked for: %v", got)
+	}
+
 	held.Forget()
 	r.get(t, "https://mcp.example.com/", http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"}})
-	if got := r.upstream.last().Header.Get("Authorization"); got != "Bearer spotlight-egress:LINEAR_API_KEY" {
+	if got := r.upstream.last().Header.Get("Authorization"); got != "" && got != "Bearer spotlight-egress:LINEAR_API_KEY" {
 		t.Errorf("wore %q after forgetting", got)
 	}
 }

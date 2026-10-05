@@ -115,9 +115,10 @@ that ignores the proxy has no route out at all.
   (`secret.LINEAR_API_KEY`) reaches the server as the stand-in
   `spotlight-egress:LINEAR_API_KEY`. The run records which secrets it wears;
   egress redeems them with a credential the host was handed for egress alone,
-  and wears each one only on requests to the hosts it is bound to, in place of
-  whatever that header held. A request to any other host carries nothing
-  egress added. The host bounds this: egress wears nothing toward a host
+  and wears each one only on requests to the hosts it is bound to whose bound
+  header holds its stand-in, alone or after the binding's prefix. A header
+  holding a stand-in egress doesn't hold is taken off. A request to any other
+  host carries nothing egress added. The host bounds this: egress wears nothing toward a host
   `SPOTLIGHT_EGRESS_ALLOW` leaves out, reads only the Secrets Manager secrets
   `SPOTLIGHT_EGRESS_READS` lists, and never wears two secrets in one header.
 - **Values Spotlight keeps** come sealed to a key egress made for the run

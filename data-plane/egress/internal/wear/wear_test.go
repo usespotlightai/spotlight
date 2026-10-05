@@ -74,7 +74,11 @@ func TestWearsEachSecretOnlyTowardItsOwnHost(t *testing.T) {
 		t.Errorf("wears toward %v", got)
 	}
 
-	header := http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"}, "Accept": {"application/json"}}
+	header := http.Header{
+		"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"},
+		"X-Workspace":   {"spotlight-egress:LINEAR_WORKSPACE"},
+		"Accept":        {"application/json"},
+	}
 	wearing.Onto("mcp.linear.app", header)
 	if header.Get("Authorization") != "Bearer lin_api_1" || header.Get("X-Workspace") != "acme" || len(header.Values("Authorization")) != 1 {
 		t.Errorf("wore %v", header)
@@ -89,10 +93,48 @@ func TestWearsEachSecretOnlyTowardItsOwnHost(t *testing.T) {
 		t.Errorf("wore a secret toward a host it is not bound to: %v", unbound)
 	}
 
-	sentry := http.Header{}
+	sentry := http.Header{"X-Sentry-Token": {"spotlight-egress:SENTRY_TOKEN"}}
 	wearing.Onto("SENTRY.io", sentry)
 	if sentry.Get("X-Sentry-Token") != "read:sentry-token" {
 		t.Errorf("did not wear what it read in the network: %v", sentry)
+	}
+}
+
+func TestWearsARunSecretOnlyInPlaceOfItsStandIn(t *testing.T) {
+	wearing, logged := holding(t)
+
+	for _, sent := range []string{"Bearer spotlight-egress:LINEAR_API_KEY", "spotlight-egress:LINEAR_API_KEY"} {
+		header := http.Header{"Authorization": {sent}}
+		wearing.Onto("mcp.linear.app", header)
+		if header.Get("Authorization") != "Bearer lin_api_1" {
+			t.Errorf("did not wear in place of %q: %v", sent, header)
+		}
+	}
+
+	own := http.Header{"Authorization": {"Bearer mine"}, "X-Workspace": {"theirs"}}
+	wearing.Onto("mcp.linear.app", own)
+	if own.Get("Authorization") != "Bearer mine" || own.Get("X-Workspace") != "theirs" {
+		t.Errorf("wore over what the sandbox sent without a stand-in: %v", own)
+	}
+
+	bare := http.Header{}
+	wearing.Onto("mcp.linear.app", bare)
+	if len(bare) != 0 {
+		t.Errorf("added a secret to a request that named none: %v", bare)
+	}
+
+	unknown := http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEYS"}, "X-Other": {"spotlight-egress:NOWHERE"}}
+	wearing.Onto("mcp.linear.app", unknown)
+	if len(unknown) != 0 {
+		t.Errorf("sent on a stand-in it does not hold: %v", unknown)
+	}
+	if !strings.Contains(logged.String(), "X-Other") {
+		t.Errorf("did not say it took a stand-in off: %s", logged)
+	}
+	for _, value := range []string{"lin_api_1", "acme"} {
+		if strings.Contains(logged.String(), value) {
+			t.Errorf("logged the value %q", value)
+		}
 	}
 }
 
@@ -163,6 +205,9 @@ func TestWearsAKeyTheHostHoldsOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 	}
 	if got := sent("api.anthropic.com", http.Header{"Authorization": {"Bearer spotlight-egress:CLAUDE_CODE_OAUTH_TOKEN"}}); got.Get("Authorization") != "Bearer sk-ant-oat" || got.Get("X-Api-Key") != "" {
 		t.Errorf("an OAuth request went out as %v", got)
+	}
+	if got := sent("api.anthropic.com", http.Header{"Authorization": {"spotlight-egress:CLAUDE_CODE_OAUTH_TOKEN"}}); got.Get("Authorization") != "" {
+		t.Errorf("wore a host's key in place of its stand-in without the prefix: %v", got)
 	}
 	if got := sent("api.anthropic.com", http.Header{"Authorization": {"Bearer mine"}}); got.Get("Authorization") != "Bearer mine" || got.Get("X-Other") != "" {
 		t.Errorf("wore a host's key over a value the sandbox chose: %v", got)

@@ -36,22 +36,28 @@ func (l Limits) reads(secretID string) bool {
 }
 
 type worn struct {
-	secret  string
-	header  string
-	value   []byte
-	standIn string
+	secret   string
+	header   string
+	value    []byte
+	standIns []string
+	held     bool
+}
+
+func (w *worn) inPlaceOf(header http.Header) bool {
+	return slices.Contains(w.standIns, header.Get(w.header))
 }
 
 type Wearing struct {
 	mu     sync.RWMutex
 	toward map[string][]*worn
+	log    *slog.Logger
 }
 
 func From(
 	ctx context.Context, redeemed protocol.EgressRedemption, held []protocol.HeldByTheHost, limits Limits,
 	opener Opener, reader func() (Reader, error), log *slog.Logger,
 ) *Wearing {
-	wearing := &Wearing{toward: map[string][]*worn{}}
+	wearing := &Wearing{toward: map[string][]*worn{}, log: log}
 
 	for _, key := range held {
 		host, header := reach.Normal(key.Host), http.CanonicalHeaderKey(key.Header)
@@ -60,10 +66,11 @@ func From(
 			continue
 		}
 		wearing.toward[host] = append(wearing.toward[host], &worn{
-			secret:  key.Name,
-			header:  header,
-			value:   []byte(key.Prefix + key.Value),
-			standIn: key.Prefix + protocol.StandInPrefix + key.Name,
+			secret:   key.Name,
+			header:   header,
+			value:    []byte(key.Prefix + key.Value),
+			standIns: []string{key.Prefix + protocol.StandInPrefix + key.Name},
+			held:     true,
 		})
 		log.Info("holds a key of the host's for the run", "key", key.Name, "host", host, "header", key.Header)
 	}
@@ -89,10 +96,12 @@ func From(
 			continue
 		}
 
+		standIn := protocol.StandInPrefix + secret.Secret
 		wearing.toward[host] = append(wearing.toward[host], &worn{
-			secret: secret.Secret,
-			header: header,
-			value:  []byte(secret.Prefix + value),
+			secret:   secret.Secret,
+			header:   header,
+			value:    []byte(secret.Prefix + value),
+			standIns: slices.Compact([]string{standIn, secret.Prefix + standIn}),
 		})
 		log.Info("holds a secret for the run", "secret", secret.Secret, "host", host, "header", secret.Header)
 	}
@@ -113,7 +122,7 @@ func heldRefusal(host, header string, key protocol.HeldByTheHost, limits Limits)
 
 func (w *Wearing) refusal(host, header string, secret protocol.RedeemedSecret, limits Limits) string {
 	switch {
-	case slices.ContainsFunc(w.toward[host], func(each *worn) bool { return each.standIn != "" }):
+	case slices.ContainsFunc(w.toward[host], func(each *worn) bool { return each.held }):
 		return "the host holds a key of its own for " + host
 	case !limits.Hosts.Admits(host):
 		return "the host's allow-list does not admit " + host
@@ -169,13 +178,19 @@ func (w *Wearing) Onto(host string, header http.Header) {
 
 	var wearing []*worn
 	for _, each := range w.toward[reach.Normal(host)] {
-		if each.standIn == "" || header.Get(each.header) == each.standIn {
+		if each.inPlaceOf(header) {
 			wearing = append(wearing, each)
 		}
 	}
 
 	for _, each := range wearing {
 		header.Del(each.header)
+	}
+	for name, values := range header {
+		if slices.ContainsFunc(values, func(value string) bool { return strings.Contains(value, protocol.StandInPrefix) }) {
+			delete(header, name)
+			w.log.Warn("took a stand-in egress does not hold off a request", "host", host, "header", name)
+		}
 	}
 	for _, each := range wearing {
 		header.Add(each.header, string(each.value))
