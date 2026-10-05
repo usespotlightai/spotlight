@@ -22,6 +22,7 @@ const CONTEXT: TaskToolContext = {
   workspaceId: WorkspaceId.of('ws_1'),
   taskId: TaskId.of('task_1'),
   stationId: StationId.of('station_1'),
+  requester: null,
 };
 
 const using = () => {

@@ -45,6 +45,7 @@ const note = (
   attachments: [],
   approval: null,
   failure: null,
+  connection: null,
 });
 
 const APPROVAL = {

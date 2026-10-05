@@ -11,8 +11,27 @@ export interface RunAttemptDto {
   readonly attempt: number;
 }
 
+export interface ToolActingAsDto {
+  readonly holder: 'team' | 'person';
+  readonly personId: string | null;
+  readonly handle: string | null;
+}
+
+export interface ConnectionWantedDto {
+  readonly source: string;
+  readonly integration: string;
+  readonly personId: string | null;
+  readonly because:
+    | 'not-connected'
+    | 'renewal-refused'
+    | 'no-requester'
+    | 'not-a-member';
+}
+
 export interface IntegrationTool {
   readonly declared: ToolDeclaration;
+  readonly actingAs: ToolActingAsDto | null;
+  readonly wants: ConnectionWantedDto | null;
   defaultFor(input: string): unknown;
   call(inputs: ToolInputValues): Promise<unknown>;
 }
@@ -22,5 +41,6 @@ export interface IntegrationToolCallsPort {
     tool: string,
     task: BoundTaskDto,
     run: RunAttemptDto,
+    requester: string | null,
   ): Promise<IntegrationTool | null>;
 }

@@ -4,6 +4,7 @@ import {
   HOST_CONNECTIONS,
   type HostConnectionRepository,
 } from '@integrations/domain/repositories/host-connection.repository';
+import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { INestApplication } from '@nestjs/common';
@@ -105,7 +106,12 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   const comment = async (runId = 'run_1', attempt = 1) => {
     const reached = (await app
       .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
-      .reach('linear.comment', task(), { runId, attempt })) as IntegrationTool;
+      .reach(
+        'linear.comment',
+        task(),
+        { runId, attempt },
+        null,
+      )) as IntegrationTool;
 
     return reached.call({ body: 'Fixed in the queue worker.' });
   };
@@ -294,6 +300,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
         workspaceId: WorkspaceId.of(held),
         teamId: TeamId.of(held),
         source: SourceKey.of('slack'),
+        holder: ConnectionHolder.team(),
         grant: HostGrant.of({
           accessToken: 'xoxb-sealed-1',
           refreshToken: 'xoxe-sealed-1',
@@ -310,7 +317,11 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
           eq(schema.hostConnection.source, 'slack'),
         ),
       );
-    const read = await connections.of(TeamId.of(held), SourceKey.of('slack'));
+    const read = await connections.of(
+      TeamId.of(held),
+      SourceKey.of('slack'),
+      ConnectionHolder.team(),
+    );
 
     expect(row?.accessToken).not.toContain('xoxb-sealed-1');
     expect(row?.refreshToken).not.toContain('xoxe-sealed-1');

@@ -5,6 +5,7 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -52,6 +53,7 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { Clearance } from '@work/domain/value-objects/clearance';
+import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
@@ -101,11 +103,17 @@ export interface Saying {
   readonly attachments?: readonly Attachment[];
   readonly approval?: Approval | null;
   readonly failure?: TaskFailure | null;
+  readonly connectionAsk?: ConnectionAsk | null;
 }
 
 export interface StandingApproval {
   readonly at: NotePosition;
   readonly approval: Approval;
+}
+
+export interface AskedToConnect {
+  readonly task: Task;
+  readonly asked: boolean;
 }
 
 export interface Cleared {
@@ -1136,6 +1144,56 @@ export class Task extends EventRecorder {
       }),
       clearance: { kind: 'asked' },
     };
+  }
+
+  askToConnect(by: RunId, asking: Saying, ask: ConnectionAsk): AskedToConnect {
+    this.refuseAnotherRun(by, 'ask a person to connect');
+
+    if (this.awaitingReview) {
+      const open = this.openConversation;
+      const waiting = open ? this.notes[open.from]?.connectionAsk : null;
+
+      return {
+        task: this,
+        asked:
+          waiting?.answeredBy(ask.teamId, ask.source, ask.personId) ?? false,
+      };
+    }
+
+    return {
+      task: this.with({ assignee: ask.personId }).putToAPersonBy(by, {
+        ...asking,
+        form: 'connection',
+        connectionAsk: ask,
+      }),
+      asked: true,
+    };
+  }
+
+  connectionMade(
+    teamId: TeamId,
+    source: string,
+    personId: UserId,
+    saying: Saying,
+  ): Task | null {
+    const open = this.openConversation;
+    const asked = open ? this.notes[open.from] : undefined;
+
+    if (
+      !open ||
+      !asked?.connectionAsk?.answeredBy(teamId, source, personId) ||
+      !saying.voice.author?.equals(personId)
+    ) {
+      return null;
+    }
+
+    const answered = this.answered(NotePosition.of(open.from), saying);
+
+    return answered.with({
+      notes: answered.notes.map((note) =>
+        note.position.value === open.from ? note.connectionMet() : note,
+      ),
+    });
   }
 
   approvalReturned(at: NotePosition): Task {

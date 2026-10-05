@@ -1,30 +1,65 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type {
+  TeamMembership,
+  WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
+import type { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
 import { HostReach } from '@integrations/application/services/host-reach.service';
-import type { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
+import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
 
-const integration = (connects: boolean) =>
-  Integration.of({ source: SourceKey.of('slack'), connects });
+const integration = (
+  connects: boolean,
+  holding: ConnectionHolding = ConnectionHolding.team(),
+) => Integration.of({ source: SourceKey.of('slack'), connects, holding });
+
+const ALICE = UserId.of('user_alice');
 
 const BOUND = {
   SLACK_BOT_TOKEN: { host: 'slack.com', prefix: 'Bearer ', value: 'xoxb-1' },
 };
 
-const reaching = (token: string | null, inWorkspace = true) => {
-  const of = vi.fn(async () =>
-    token
-      ? ({ accessToken: AccessToken.of(token) } as unknown as HostConnection)
-      : null,
+const held = (token: string, holder: ConnectionHolder) =>
+  HostConnection.rehydrate({
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TEAM,
+    source: SourceKey.of('slack'),
+    holder,
+    accessToken: AccessToken.of(token),
+    refreshToken: AccessToken.of('xoxe-1'),
+    expiresAt: null,
+    scopes: [],
+    handle: '@alice',
+    renewalRefusedAt: null,
+    renewalClaim: null,
+    version: 1,
+  });
+
+const reaching = (
+  token: string | null,
+  inWorkspace = true,
+  over: { member?: boolean } = {},
+) => {
+  const of = vi.fn(
+    async (_teamId: TeamId, _source: SourceKey, holder: ConnectionHolder) =>
+      token ? held(token, holder) : null,
   );
+  const onTeam = vi.fn(async () =>
+    over.member === false ? null : ({} as TeamMembership),
+  );
+  const afterRefusal = vi.fn(async () => AccessToken.of('xoxp-renewed'));
   const find = vi.fn(async () =>
     inWorkspace
       ? {
@@ -42,10 +77,14 @@ const reaching = (token: string | null, inWorkspace = true) => {
     reach: new HostReach(
       { of } as unknown as HostConnectionRepository,
       { find, inWorkspace: vi.fn() } satisfies TeamDirectoryPort,
+      { onTeam } as unknown as WorkspaceAccessPort,
       secrets.injection,
+      { afterRefusal } as unknown as ConnectionRenewal,
     ),
     of,
     find,
+    onTeam,
+    afterRefusal,
     ...secrets,
   };
 };
@@ -72,8 +111,102 @@ describe('HostReach', () => {
 
     const reached = await reach.of(TEAM, integration(true));
 
-    expect(reached.connection?.value).toBe('xoxp-2');
-    expect(of).toHaveBeenCalledWith(TEAM, SourceKey.of('slack'));
+    expect(reached.connection?.token.value).toBe('xoxp-2');
+    expect(reached.connection?.holder).toEqual(ConnectionHolder.team());
+    expect(of).toHaveBeenCalledWith(
+      TEAM,
+      SourceKey.of('slack'),
+      ConnectionHolder.team(),
+    );
+  });
+
+  it('uses the team’s connection for polls, schedules and posts even where tools act as each person', async () => {
+    const { reach, of } = reaching('xoxp-2');
+
+    await reach.of(TEAM, integration(true, ConnectionHolding.requester()));
+
+    expect(of).toHaveBeenCalledWith(
+      TEAM,
+      SourceKey.of('slack'),
+      ConnectionHolder.team(),
+    );
+  });
+
+  it('renews through the single renewal when the host refuses the token', async () => {
+    const { reach, afterRefusal } = reaching('xoxp-2');
+
+    const reached = await reach.of(TEAM, integration(true));
+    const renewed = await reached.connection?.refused(AccessToken.of('xoxp-2'));
+
+    expect(renewed?.value).toBe('xoxp-renewed');
+    expect(afterRefusal).toHaveBeenCalledWith(
+      TEAM,
+      SourceKey.of('slack'),
+      ConnectionHolder.team(),
+      AccessToken.of('xoxp-2'),
+    );
+  });
+
+  describe('connectionFor', () => {
+    it('takes the requester’s own connection for a tool that acts as each person', async () => {
+      const { reach, of, onTeam } = reaching('xoxp-alice');
+
+      const found = await reach.connectionFor(
+        TEAM,
+        integration(true, ConnectionHolding.requester()),
+        ALICE,
+      );
+
+      expect(found.kind === 'held' && found.holder.personId).toEqual(ALICE);
+      expect(found.kind === 'held' && found.connection?.handle).toBe('@alice');
+      expect(onTeam).toHaveBeenCalledWith('team_1', ALICE);
+      expect(of).toHaveBeenCalledWith(
+        TEAM,
+        SourceKey.of('slack'),
+        ConnectionHolder.person(ALICE),
+      );
+    });
+
+    it('wants the requester to connect, rather than using the team’s', async () => {
+      const { reach, of } = reaching(null);
+
+      const found = await reach.connectionFor(
+        TEAM,
+        integration(true, ConnectionHolding.requester()),
+        ALICE,
+      );
+
+      expect(found.kind === 'wanted' && found.wanted.because).toBe(
+        'not-connected',
+      );
+      expect(of).toHaveBeenCalledTimes(1);
+    });
+
+    it('checks the requester is still on the team when the tool is used', async () => {
+      const { reach, of } = reaching('xoxp-alice', true, { member: false });
+
+      const found = await reach.connectionFor(
+        TEAM,
+        integration(true, ConnectionHolding.requester()),
+        ALICE,
+      );
+
+      expect(found.kind === 'wanted' && found.wanted.because).toBe(
+        'not-a-member',
+      );
+      expect(of).not.toHaveBeenCalled();
+    });
+
+    it('takes the team’s connection for a tool that acts as the team, without asking who is on it', async () => {
+      const { reach, onTeam } = reaching('xoxp-2');
+
+      const found = await reach.connectionFor(TEAM, integration(true), ALICE);
+
+      expect(found.kind === 'held' && found.holder).toEqual(
+        ConnectionHolder.team(),
+      );
+      expect(onTeam).not.toHaveBeenCalled();
+    });
   });
 
   it('lets Spotlight’s own calls wear the secrets of the team’s workspace', async () => {
@@ -126,7 +259,7 @@ describe('HostReach', () => {
         attempt: 2,
         wears: ['SLACK_BOT_TOKEN'],
       },
-      integration(false),
+      null,
     );
     await reached.credentials.wornToward('https://slack.com/api/x', [
       'SLACK_BOT_TOKEN',
@@ -158,7 +291,7 @@ describe('HostReach', () => {
         attempt: 1,
         wears: [],
       },
-      integration(false),
+      null,
     );
 
     expect(grant).not.toHaveBeenCalled();

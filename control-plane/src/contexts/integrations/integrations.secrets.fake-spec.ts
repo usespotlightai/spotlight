@@ -1,8 +1,10 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type {
   Credentials,
   SigningSecrets,
 } from '@integrations/application/ports/integration-runtime.port';
+import type { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
@@ -134,5 +136,7 @@ export const reachFor = (
       }),
       inWorkspace: async () => [],
     } satisfies TeamDirectoryPort,
+    { onTeam: async () => null } as unknown as WorkspaceAccessPort,
     injection,
+    { afterRefusal: async () => null } as unknown as ConnectionRenewal,
   );

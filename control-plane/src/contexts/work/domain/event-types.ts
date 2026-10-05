@@ -62,6 +62,7 @@ import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { ConfigSource } from '@work/domain/value-objects/config-source.vo';
+import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
@@ -139,6 +140,7 @@ import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
@@ -167,6 +169,7 @@ export const WORK_EVENT_TYPES = [
   ChatMessageBody,
   ChatTitle,
   Concerns,
+  ConnectionAsk,
   Continuity,
   ContinuityKey,
   ConversationId,
@@ -241,6 +244,7 @@ export const WORK_EVENT_TYPES = [
   TaskRevision,
   TaskTitle,
   ToolCall,
+  ToolActingAs,
   ToolInputs,
   ToolOutput,
   Tool,

@@ -483,15 +483,17 @@ CREATE TABLE "host_connection" (
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
 	"source" text NOT NULL,
+	"holder" text NOT NULL,
 	"access_token" text NOT NULL,
 	"refresh_token" text,
 	"expires_at" timestamp,
 	"scopes" text DEFAULT '' NOT NULL,
 	"handle" text,
 	"renewal_refused_at" timestamp,
+	"renewal_claimed_until" timestamp,
 	"version" integer DEFAULT 1 NOT NULL,
 	"connected_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "host_connection_team_id_source_pk" PRIMARY KEY("team_id","source")
+	CONSTRAINT "host_connection_team_id_source_holder_pk" PRIMARY KEY("team_id","source","holder")
 );
 --> statement-breakpoint
 CREATE TABLE "integration_cursor" (
@@ -516,6 +518,20 @@ CREATE TABLE "integration_definition" (
 	"version" integer DEFAULT 1 NOT NULL,
 	"defined_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "integration_definition_team_id_source_unique" UNIQUE("team_id","source")
+);
+--> statement-breakpoint
+CREATE TABLE "oauth2_client_registration" (
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"source" text NOT NULL,
+	"registration_endpoint" text NOT NULL,
+	"redirect_uri" text NOT NULL,
+	"client_id" text NOT NULL,
+	"client_secret" text,
+	"secret_expires_at" timestamp,
+	"version" integer DEFAULT 1 NOT NULL,
+	"registered_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "oauth2_client_registration_team_id_source_pk" PRIMARY KEY("team_id","source")
 );
 --> statement-breakpoint
 CREATE TABLE "oauth2_spent_nonce" (
@@ -1582,6 +1598,7 @@ CREATE TABLE "task_note" (
 	"approval" jsonb,
 	"failure" jsonb,
 	"held_back" jsonb,
+	"connection_ask" jsonb,
 	"answered_at" timestamp,
 	"read_at" timestamp,
 	"delivered_at" timestamp,
@@ -1691,6 +1708,7 @@ CREATE INDEX "hook_callback_expires_idx" ON "hook_callback" USING btree ("expire
 CREATE INDEX "hook_definition_on_idx" ON "hook_definition" USING btree ("team_id","on");--> statement-breakpoint
 CREATE INDEX "hook_firing_state_idx" ON "hook_firing" USING btree ("state","due_at");--> statement-breakpoint
 CREATE INDEX "hook_firing_repeats_idx" ON "hook_firing" USING btree ("hook_id","task_id","fired_at");--> statement-breakpoint
+CREATE INDEX "host_connection_holder_idx" ON "host_connection" USING btree ("team_id","holder");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_handle_idx" ON "memory" USING btree ("handle");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_supersedes_idx" ON "memory" USING btree ("supersedes");--> statement-breakpoint
 CREATE INDEX "memory_standing_idx" ON "memory" USING btree ("team_id","standing","approved_at");--> statement-breakpoint
@@ -1818,6 +1836,7 @@ CREATE INDEX "task_workspace_idx" ON "task" USING btree ("workspace_id");--> sta
 CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_id","note_position");--> statement-breakpoint
 CREATE INDEX "task_mark_task_idx" ON "task_mark" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "task_note_task_idx" ON "task_note" USING btree ("task_id","position");--> statement-breakpoint
+CREATE INDEX "task_note_connection_ask_idx" ON "task_note" USING btree (("connection_ask"->>'personId'),("connection_ask"->>'source')) WHERE "task_note"."connection_ask" is not null and ("task_note"."connection_ask"->>'met')::boolean = false;--> statement-breakpoint
 CREATE INDEX "workspace_archive_continuity_idx" ON "workspace_archive" USING btree ("workspace_id","continuity_key","sealed_at");--> statement-breakpoint
 CREATE INDEX "workspace_archive_task_idx" ON "workspace_archive" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "workspace_archive_chat_idx" ON "workspace_archive" USING btree ("chat_id");--> statement-breakpoint

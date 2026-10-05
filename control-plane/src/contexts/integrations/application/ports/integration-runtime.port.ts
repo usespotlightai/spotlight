@@ -1,11 +1,13 @@
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   Happened,
   MarkWorn,
@@ -42,8 +44,15 @@ export interface SigningSecrets {
   named(secret: string): Promise<VerifyingSecret>;
 }
 
+export interface HeldConnection {
+  readonly token: AccessToken;
+  readonly holder: ConnectionHolder;
+  readonly handle: string | null;
+  refused(token: AccessToken): Promise<AccessToken | null>;
+}
+
 export interface Reach {
-  readonly connection: AccessToken | null;
+  readonly connection: HeldConnection | null;
   readonly credentials: Credentials;
 }
 
@@ -139,6 +148,7 @@ export interface IntegrationRuntimePort {
 
   renew(
     definitions: readonly DefinedIntegration[],
+    teamId: TeamId,
     source: SourceKey,
     refreshToken: AccessToken,
   ): Promise<Renewed>;

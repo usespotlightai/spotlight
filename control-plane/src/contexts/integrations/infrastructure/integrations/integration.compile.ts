@@ -18,6 +18,7 @@ import {
 } from '@integrations/domain/services/generated-tools';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
+import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
@@ -188,11 +189,14 @@ interface PollIR {
 }
 
 export interface ConnectionIR {
+  readonly holding: ConnectionHolding;
   readonly oauth2: {
     readonly authorize: string;
     readonly token: string;
     readonly scopes: readonly string[];
     readonly identity: Expression | null;
+    readonly registration: string | null;
+    readonly resource: string | null;
   } | null;
   readonly manual: { readonly secrets: readonly string[] } | null;
 }
@@ -934,11 +938,14 @@ export const compileIntegration = (
 
   const connection: ConnectionIR | null = file.connection
     ? {
+        holding: ConnectionHolding.of(file.connection.holder),
         oauth2: file.connection.oauth2
           ? {
               authorize: file.connection.oauth2.authorize,
               token: file.connection.oauth2.token,
               scopes: file.connection.oauth2.scopes,
+              registration: file.connection.oauth2.registration ?? null,
+              resource: file.connection.oauth2.resource ?? null,
               identity: file.connection.oauth2.identity
                 ? compiler.expression(
                     file.connection.oauth2.identity,
@@ -1125,6 +1132,7 @@ export const compileIntegration = (
       actions: defined,
       bindings,
       connects: connection?.oauth2 !== null && connection?.oauth2 !== undefined,
+      holding: connection?.holding,
       credentials: [...compiler.secrets].map((name) => SecretName.of(name)),
       offers: [...offers.filter(isPresent), ...(generation?.tools ?? [])],
     });

@@ -19,6 +19,7 @@ import type {
   HookedTaskDto,
   HookedTasksPort,
 } from '@work/application/ports/hooked-tasks.port';
+import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
 import type {
   IntegrationToolsPort,
   ReachableTool,
@@ -74,6 +75,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -201,7 +203,11 @@ const claimed = (
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
-const LINE = { id: 'line_1', stationAt: () => null } as unknown as Line;
+const LINE = {
+  id: 'line_1',
+  teamId: TeamId.of('team_1'),
+  stationAt: () => null,
+} as unknown as Line;
 
 const HOOKED: HookedTaskDto = {
   taskId: 'task_1',
@@ -243,6 +249,8 @@ const using = (
     afterFails?: boolean;
     recordingFails?: boolean;
     movedOnTo?: Run;
+    wants?: ConnectionWantedDto;
+    actingAs?: ToolActingAs;
     withheld?: {
       readonly when: 'before' | 'during';
       readonly reason: CatalogRefusalReason;
@@ -337,6 +345,8 @@ const using = (
       tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
         ? {
             declared: linear,
+            actingAs: over.actingAs ?? null,
+            wants: over.wants ?? null,
             defaultFor: (input) =>
               input.name === 'issue' ? 'ENG-12' : undefined,
             call: async (inputs) => {
@@ -458,7 +468,7 @@ describe('UseToolHandler', () => {
 
       await expect(
         reach('catalog.web-search', { query: 'queues' }),
-      ).resolves.toEqual({ output: 'Three pages.' });
+      ).resolves.toEqual({ output: 'Three pages.', actingAs: null });
       expect(called[0]?.tool).toBe('catalog.web-search@1.1.0');
       expect(called[0]?.inputs.values).toEqual({ query: 'queues' });
     });
@@ -524,6 +534,7 @@ describe('UseToolHandler', () => {
 
     await expect(reach('pull-request')).resolves.toEqual({
       output: 'https://github.com/acme/widgets/pull/7',
+      actingAs: null,
     });
     expect(called).toHaveLength(1);
     expect(called[0]?.inputs.values).toEqual({ title: 'Fix the queue' });
@@ -545,7 +556,7 @@ describe('UseToolHandler', () => {
         station: 'backlog',
         title: 'Back off',
       }),
-    ).resolves.toEqual({ output: 'Proposed.' });
+    ).resolves.toEqual({ output: 'Proposed.', actingAs: null });
     expect(called[0]?.context.kind).toBe('chat');
   });
 
@@ -599,6 +610,7 @@ describe('UseToolHandler', () => {
 
     await expect(reach('pull-request')).resolves.toEqual({
       output: 'https://github.com/acme/widgets/pull/7',
+      actingAs: null,
     });
   });
 
@@ -624,6 +636,7 @@ describe('UseToolHandler', () => {
 
     await expect(reach('linear.comment', { body: 'Fixed.' })).resolves.toEqual({
       output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+      actingAs: null,
     });
     expect(called[0]?.tool).toBe('linear.comment');
     expect(called[0]?.inputs.values).toEqual({
@@ -748,6 +761,7 @@ describe('UseToolHandler', () => {
 
     await expect(reach('linear.comment', { body: 'Fixed.' })).resolves.toEqual({
       output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+      actingAs: null,
     });
     expect(called).toHaveLength(1);
     expect(
@@ -1281,6 +1295,7 @@ describe('UseToolHandler', () => {
         reach('linear.comment', { body: 'Fixed.' }),
       ).resolves.toEqual({
         output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+        actingAs: null,
       });
       expect(recorded).toEqual([expect.any(ToolUsed)]);
       await expect(delivered()).rejects.toThrow('the hooks are down');
@@ -1301,6 +1316,138 @@ describe('UseToolHandler', () => {
 
       expect(hooked.before).toEqual([]);
       expect(hooked.after).toEqual([]);
+    });
+  });
+
+  describe('a tool that acts as the person who started the task', () => {
+    const WANTED: ConnectionWantedDto = {
+      source: 'linear',
+      integration: 'Linear',
+      personId: 'user_1',
+      because: 'not-connected',
+    };
+
+    it('asks that person to connect, sends nothing, and never asks for approval', async () => {
+      const { reach, called, standing, recorded } = using(
+        claimed(['linear.comment']),
+        { wants: WANTED, approval: NEEDS_APPROVAL },
+      );
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({
+        kind: 'conflict',
+        message: expect.stringContaining("haven't connected Linear"),
+      });
+
+      const asked = standing().notes[standing().notes.length - 1];
+      expect(called).toEqual([]);
+      expect(recorded).toEqual([]);
+      expect(asked?.form).toBe('connection');
+      expect(asked?.approval).toBeNull();
+      expect(asked?.connectionAsk?.personId.value).toBe('user_1');
+      expect(asked?.connectionAsk?.source).toBe('linear');
+      expect(standing().assignee?.value).toBe('user_1');
+      expect(standing().awaitingReview).toBe(true);
+    });
+
+    it('asks only once while the person has not answered', async () => {
+      const { reach, standing } = using(claimed(['linear.comment']), {
+        wants: WANTED,
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toThrow();
+      const once = standing().notes.length;
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toThrow();
+
+      expect(standing().notes.length).toBe(once);
+    });
+
+    it('is refused, never falling back to the team, when nobody started the task', async () => {
+      const { reach, called, standing } = using(claimed(['linear.comment']), {
+        wants: { ...WANTED, personId: null, because: 'no-requester' },
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({
+        kind: 'not-allowed',
+        message: expect.stringContaining('nobody started this task'),
+      });
+      expect(called).toEqual([]);
+      expect(standing().awaitingReview).toBe(false);
+    });
+
+    it('is refused, asking nobody, while the task already waits on someone else', async () => {
+      const waitingOnApproval = task().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(
+            Tool.of('linear.comment'),
+            ToolInputs.of({ issue: 'ENG-12', body: 'Other.' }),
+          ),
+        ),
+        NEEDS_APPROVAL,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approve?'),
+          at: NOW,
+          voice: Voice.station(RunId.of('run_1')),
+        },
+        RunId.of('run_1'),
+        null,
+      ).task;
+      const { reach, called, standing } = using(claimed(['linear.comment']), {
+        wants: WANTED,
+        task: waitingOnApproval,
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({
+        kind: 'not-allowed',
+        message: expect.stringContaining('already waiting on someone'),
+      });
+      expect(called).toEqual([]);
+      expect(standing().notes.some((each) => each.connectionAsk !== null)).toBe(
+        false,
+      );
+    });
+
+    it('is refused when the person who started it left the team', async () => {
+      const { reach, called } = using(claimed(['linear.comment']), {
+        wants: { ...WANTED, because: 'not-a-member' },
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({
+        kind: 'not-allowed',
+        message: expect.stringContaining('no longer on the team'),
+      });
+      expect(called).toEqual([]);
+    });
+
+    it('records whose connection the call acted with, and answers with it', async () => {
+      const { reach, recorded } = using(claimed(['linear.comment']), {
+        actingAs: ToolActingAs.person(UserId.of('user_1'), '@alice'),
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).resolves.toEqual({
+        output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+        actingAs: { holder: 'person', personId: 'user_1', handle: '@alice' },
+      });
+
+      const used = recorded.find((each) => each instanceof ToolUsed) as
+        | ToolUsed
+        | undefined;
+      expect(used?.actingAs?.personId?.value).toBe('user_1');
+      expect(used?.actingAs?.handle).toBe('@alice');
     });
   });
 });

@@ -150,6 +150,8 @@ export class StationCatalog {
     return found
       ? {
           declared: CatalogGivenMapper.toDeclared(found),
+          actingAs: null,
+          wants: null,
           defaultFor: () => undefined,
           call: async (inputs) => {
             const answer = await this.catalog.call({

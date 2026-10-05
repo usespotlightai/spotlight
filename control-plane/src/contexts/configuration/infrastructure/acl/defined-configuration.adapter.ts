@@ -17,6 +17,7 @@ export class DefinedConfiguration implements ConfigurationReaderPort {
         name: each.name,
         path: each.path,
         connectable: each.connects,
+        holding: each.holding,
         linked: each.linked,
         handle: each.handle,
         described: each.described,

@@ -13,16 +13,19 @@ import type {
   TaskWord,
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
+import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
-import type { ReadableIntegration } from '@integrations/infrastructure/integrations/integration.compile';
+import type {
+  ReadableIntegration,
+  RequestIR,
+} from '@integrations/infrastructure/integrations/integration.compile';
 import type {
   IntegrationReader,
   Offering,
 } from '@integrations/infrastructure/integrations/integration.reader';
-import type { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import {
   asJson,
@@ -37,6 +40,7 @@ import { taskBinding } from '@integrations/infrastructure/outbound/task-binding'
 import { bound } from '@platform/expressions/bindings';
 import { reads, value } from '@platform/expressions/readings';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { MarkWorn } from '@work/application/contracts/happenings.contract';
 
 const SAID_AT_MOST = 500;
@@ -73,8 +77,17 @@ const graphqlErrorsOf = (response: unknown): unknown => {
 const dataOf = (response: unknown, field: string): unknown =>
   fieldOf(fieldOf(response, 'data'), field) ?? null;
 
-const reached = (reach: Reach) =>
-  reach.connection ? { connection: reach.connection.value } : {};
+const UNAUTHORIZED = 401;
+
+type Bindings = Record<string, unknown>;
+
+interface Sent {
+  readonly result: OutboundResult;
+  readonly bindings: Bindings;
+}
+
+const connected = (bindings: Bindings, token: AccessToken | null): Bindings =>
+  token ? { ...bindings, connection: token.value } : bindings;
 
 export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   readonly #read = new WeakMap<
@@ -85,7 +98,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   constructor(
     private readonly reader: IntegrationReader,
     private readonly outbound: HttpOutbound,
-    private readonly clients: OAuth2Clients,
+    private readonly clients: OAuth2ClientsPort,
     private readonly exchange: OAuth2Exchange,
   ) {}
 
@@ -108,10 +121,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'read', cursor, happenings: [] };
     }
 
-    const result = await this.outbound.run(
+    const { result } = await this.sent(
       poll.request,
-      { cursor: cursor ?? '', ...reached(reach) },
-      reach.credentials,
+      { cursor: cursor ?? '' },
+      reach,
     );
 
     if (!result.ok) {
@@ -150,11 +163,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'nothing-to-do' };
     }
 
-    const result = await this.outbound.run(
-      request,
-      reached(reach),
-      reach.credentials,
-    );
+    const { result } = await this.sent(request, {}, reach);
 
     return result.ok
       ? { kind: 'done' }
@@ -200,8 +209,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'unaddressed' };
     }
 
-    const bindings = { ...against, target, ...reached(reach) };
-    const result = await this.outbound.run(action, bindings, reach.credentials);
+    const { result, bindings } = await this.sent(
+      action,
+      { ...against, target },
+      reach,
+    );
 
     if (!result.ok) {
       return { kind: 'refused', refusal: refusalOf(result), target };
@@ -268,11 +280,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         return written ? textOf(written, bound) : undefined;
       },
       call: async (inputs, reach) => {
-        const bindings = { ...bound, inputs, ...reached(reach) };
-        const result = await this.outbound.run(
+        const { result, bindings } = await this.sent(
           action,
-          bindings,
-          reach.credentials,
+          { ...bound, inputs },
+          reach,
         );
 
         if (!result.ok) {
@@ -310,12 +321,21 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       declared: ToolDeclarationMapper.toDeclaration(offered),
       defaultFor: () => undefined,
       call: async (inputs, reach) => {
-        const answered = await this.outbound.answer(
-          operationRequest(operation, inputs),
-          auth,
-          reach.connection?.value ?? null,
-          reach.credentials,
-        );
+        const request = operationRequest(operation, inputs);
+        const held = reach.connection;
+        const answering = (token: AccessToken | null) =>
+          this.outbound.answer(
+            request,
+            auth,
+            token?.value ?? null,
+            reach.credentials,
+          );
+        const first = await answering(held?.token ?? null);
+        const renewed =
+          first.status === UNAUTHORIZED && auth?.kind === 'oauth2' && held
+            ? await held.refused(held.token)
+            : null;
+        const answered = renewed ? await answering(renewed) : first;
 
         if (!answered.ok) {
           throw refusedUsing(tool, answered.status, answered.response);
@@ -338,11 +358,12 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
   async renew(
     definitions: readonly DefinedIntegration[],
+    teamId: TeamId,
     source: SourceKey,
     refreshToken: AccessToken,
   ): Promise<Renewed> {
     const oauth2 = this.find(definitions, source)?.connection?.oauth2;
-    const client = this.clients.of(source.value);
+    const client = oauth2 ? await this.clients.heldFor(teamId, source) : null;
 
     if (!oauth2 || !client) {
       return { kind: 'unrenewable' };
@@ -355,6 +376,37 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     );
 
     return grant ? { kind: 'renewed', grant } : { kind: 'refused' };
+  }
+
+  private async sent(
+    request: RequestIR,
+    bindings: Bindings,
+    reach: Reach,
+  ): Promise<Sent> {
+    const held = reach.connection;
+    const first = connected(bindings, held?.token ?? null);
+    const result = await this.outbound.run(request, first, reach.credentials);
+
+    if (
+      result.status !== UNAUTHORIZED ||
+      request.auth?.kind !== 'oauth2' ||
+      !held
+    ) {
+      return { result, bindings: first };
+    }
+
+    const renewed = await held.refused(held.token);
+
+    if (!renewed) {
+      return { result, bindings: first };
+    }
+
+    const again = connected(bindings, renewed);
+
+    return {
+      result: await this.outbound.run(request, again, reach.credentials),
+      bindings: again,
+    };
   }
 
   private readable(

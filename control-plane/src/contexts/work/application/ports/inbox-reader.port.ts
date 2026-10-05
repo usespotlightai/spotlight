@@ -31,6 +31,14 @@ export interface InboxApproval {
   readonly intent: string | null;
 }
 
+export interface InboxConnection {
+  readonly source: string;
+  readonly integration: string;
+  readonly personId: string;
+  readonly personName: string;
+  readonly met: boolean;
+}
+
 export interface InboxFailure {
   readonly source: string;
   readonly code: string;
@@ -53,6 +61,7 @@ export interface InboxNote {
   readonly readAt: Date | null;
   readonly approval: InboxApproval | null;
   readonly failure: InboxFailure | null;
+  readonly connection: InboxConnection | null;
 }
 
 interface InboxAside {

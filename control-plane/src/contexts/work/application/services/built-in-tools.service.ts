@@ -34,6 +34,8 @@ export class BuiltInTools {
     return built && use && built.worksOn === context.kind
       ? {
           declared: built.declared,
+          actingAs: null,
+          wants: null,
           defaultFor: () => undefined,
           call: (inputs) => use.call(context, inputs),
         }

@@ -117,6 +117,7 @@ const tasks = () =>
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const access = (teamId = 'team_1') =>

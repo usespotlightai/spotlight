@@ -80,6 +80,7 @@ const using = () => {
     workspaceId: WorkspaceId.of('ws_1'),
     chatId: chat.id,
     teamId: TeamId.of('team_1'),
+    requester: null,
   };
 
   return { tool, context, save, dispatch };

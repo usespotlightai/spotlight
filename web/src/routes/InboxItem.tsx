@@ -9,6 +9,7 @@ import { useInbox } from '@/hooks/api/useInbox';
 import { useInboxItemRefresh } from '@/hooks/api/useInboxItemRefresh';
 import { useReadOnSight } from '@/hooks/api/useReadOnSight';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
+import { useClearedParam } from '@/hooks/useClearedParam';
 import { useInboxItemTrail } from '@/hooks/useInboxItemTrail';
 import { taskItemOf } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
@@ -16,6 +17,7 @@ import { useTrail } from '@/lib/trail';
 
 export function InboxItem() {
   const { slug, itemId } = useParams();
+  useClearedParam('connected');
   const inbox = useInbox(slug);
   const item = taskItemOf(inbox.data, itemId);
   const journal = useTaskJournal(slug, item?.aside ? undefined : item?.taskId);

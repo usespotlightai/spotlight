@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
 import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
+import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { useSession } from '@/hooks/api/useSession';
 import {
   type Conversing,
   HELD_AT_TOP,
@@ -37,6 +39,7 @@ export function InboxMessage({
   deciding,
 }: InboxMessageProps) {
   const navigate = useNavigate();
+  const { data: session } = useSession();
   const written = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,6 +98,7 @@ export function InboxMessage({
 
   const shows = message.form === 'setup' && teamId;
   const approval = message.approval;
+  const connection = message.connection;
 
   return (
     <li data-note={message.position} className="flex flex-col gap-1.5">
@@ -134,6 +138,14 @@ export function InboxMessage({
             className="border-none bg-transparent p-0"
           />
         </div>
+      )}
+
+      {connection && (
+        <ConnectionCard
+          connection={connection}
+          teamId={teamId}
+          viewer={session?.user.id ?? null}
+        />
       )}
 
       <AttachmentTiles attachments={message.attachments} />

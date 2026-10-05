@@ -11,12 +11,14 @@ export interface ConfiguredDescriptionDto {
   readonly readAt: string;
   readonly problem: string | null;
 }
+export const CONFIGURED_INTEGRATION_HOLDINGS = ['team', 'requester'] as const;
 
 export interface ConfiguredIntegrationDto {
   readonly source: string;
   readonly name: string;
   readonly path: string;
   readonly standing: IntegrationStanding;
+  readonly holding: (typeof CONFIGURED_INTEGRATION_HOLDINGS)[number];
   readonly handle: string | null;
   readonly described: ConfiguredDescriptionDto | null;
 }

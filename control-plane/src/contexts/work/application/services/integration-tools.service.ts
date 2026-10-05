@@ -1,3 +1,4 @@
+import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
 import type { IntegrationToolCallsPort } from '@work/application/ports/integration-tool-calls.port';
 import type {
@@ -37,15 +38,21 @@ export class IntegrationTools implements IntegrationToolsPort {
     ]);
     const bound = task && line ? await this.bindings.of(task, line) : null;
     const found = bound
-      ? await this.calls.reach(tool.value, bound, {
-          runId: attempt.runId.value,
-          attempt: attempt.number,
-        })
+      ? await this.calls.reach(
+          tool.value,
+          bound,
+          { runId: attempt.runId.value, attempt: attempt.number },
+          context.requester?.value ?? null,
+        )
       : null;
 
     return found
       ? {
           declared: ToolDeclarationMapper.toDeclared(found.declared),
+          actingAs: found.actingAs
+            ? ToolActingAsMapper.toActingAs(found.actingAs)
+            : null,
+          wants: found.wants,
           defaultFor: (input) => found.defaultFor(input.name),
           call: async (inputs) => {
             await this.works.stillOn(attempt, runnerId);

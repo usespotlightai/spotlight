@@ -1,5 +1,6 @@
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
+  DescriptionUnauthorized,
   READ_AT_MOST_BYTES,
   SourceFetch,
   type SourceWearing,
@@ -169,6 +170,14 @@ describe('SourceFetch', () => {
 
     await expect(fetching.text(GET, wearing())).rejects.toThrow(
       'could not be read: specs.example answered 404',
+    );
+  });
+
+  it('says a host refused the credentials apart from any other refusal', async () => {
+    const { fetching } = answering(new Response('nope', { status: 401 }));
+
+    await expect(fetching.text(GET, wearing())).rejects.toBeInstanceOf(
+      DescriptionUnauthorized,
     );
   });
 

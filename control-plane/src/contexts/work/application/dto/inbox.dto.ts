@@ -35,6 +35,14 @@ export interface InboxApprovalDto {
   readonly intent: string | null;
 }
 
+export interface InboxConnectionDto {
+  readonly source: string;
+  readonly integration: string;
+  readonly personId: string;
+  readonly personName: string;
+  readonly met: boolean;
+}
+
 export interface InboxFailureDto {
   readonly source: string;
   readonly code: string;
@@ -67,6 +75,7 @@ export interface InboxMessageDto {
   readonly author: InboxAuthorDto | null;
   readonly approval: InboxApprovalDto | null;
   readonly failure: InboxFailureDto | null;
+  readonly connection: InboxConnectionDto | null;
 }
 
 interface InboxStationDto {

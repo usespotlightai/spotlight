@@ -8,6 +8,7 @@ import type {
 } from '@integrations/application/ports/source-reader.port';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 import type { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
@@ -21,6 +22,7 @@ import {
 } from '@integrations/infrastructure/sources/operation-record';
 import { ReadSlots } from '@integrations/infrastructure/sources/read-slots';
 import {
+  DescriptionUnauthorized,
   READ_WITHIN_MS,
   type SourceFetch,
 } from '@integrations/infrastructure/sources/source-fetch';
@@ -104,16 +106,40 @@ export class ThreadedSourceReader implements SourceReaderPort {
     }
   }
 
-  private textOf(source: DescribedSource, reach: Reach): Promise<string> {
+  private async textOf(source: DescribedSource, reach: Reach): Promise<string> {
     if (source.document !== null) {
-      return Promise.resolve(source.document);
+      return source.document;
     }
 
+    const held = source.connected ? reach.connection : null;
+
+    try {
+      return await this.fetched(source, reach, held?.token ?? null);
+    } catch (error) {
+      if (!(error instanceof DescriptionUnauthorized) || !held) {
+        throw error;
+      }
+
+      const renewed = await held.refused(held.token);
+
+      if (!renewed) {
+        throw error;
+      }
+
+      return this.fetched(source, reach, renewed);
+    }
+  }
+
+  private fetched(
+    source: DescribedSource,
+    reach: Reach,
+    connection: AccessToken | null,
+  ): Promise<string> {
     const url = source.url ?? '';
     const wearing = {
       apiHost: hostOf(source.kind === 'graphql' ? url : source.baseUrl),
       secrets: source.wears.map((each) => each.value),
-      connection: reach.connection?.value ?? null,
+      connection: connection?.value ?? null,
       credentials: reach.credentials,
     };
 

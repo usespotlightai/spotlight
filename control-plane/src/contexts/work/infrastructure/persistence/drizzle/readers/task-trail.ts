@@ -6,6 +6,7 @@ import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   InboxApproval,
+  InboxConnection,
   InboxFailure,
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
@@ -22,6 +23,7 @@ import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.s
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   type ApprovalRow,
+  type ConnectionAskRow,
   type FailureRow,
   task,
   taskAttachment,
@@ -116,6 +118,20 @@ const failed = (parts: FailureRow | null): InboxFailure | null =>
       }
     : null;
 
+const connecting = (
+  parts: ConnectionAskRow | null,
+  named: ReadonlyMap<string, { readonly name: string }>,
+): InboxConnection | null =>
+  parts
+    ? {
+        source: parts.source,
+        integration: parts.integration,
+        personId: parts.personId,
+        personName: named.get(parts.personId)?.name ?? '',
+        met: parts.met,
+      }
+    : null;
+
 export const failureIn = (notes: readonly InboxNote[]): InboxFailure | null =>
   notes.reduce<InboxFailure | null>(
     (about, note) => note.failure ?? about,
@@ -154,6 +170,7 @@ export const trailsFor = async (
       authorId: taskNote.authorId,
       approval: taskNote.approval,
       failure: taskNote.failure,
+      connectionAsk: taskNote.connectionAsk,
     })
     .from(taskNote)
     .innerJoin(task, eq(task.id, taskNote.taskId))
@@ -166,7 +183,10 @@ export const trailsFor = async (
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
   const authors = await people.findMany(
-    rows.flatMap((row) => (row.authorId ? [UserId.of(row.authorId)] : [])),
+    rows.flatMap((row) => [
+      ...(row.authorId ? [UserId.of(row.authorId)] : []),
+      ...(row.connectionAsk ? [UserId.of(row.connectionAsk.personId)] : []),
+    ]),
   );
 
   for (const row of rows) {
@@ -196,6 +216,7 @@ export const trailsFor = async (
         : null,
       approval: asked(row.approval),
       failure: failed(row.failure),
+      connection: connecting(row.connectionAsk, authors),
     });
 
     trail.set(row.taskId, told);

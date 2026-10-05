@@ -10,6 +10,7 @@ import {
   INBOX_NOTICE_FORMS,
   type InboxApprovalDto,
   type InboxAsideDto,
+  type InboxConnectionDto,
   type InboxFailureDto,
   type InboxNoticeDto,
   NOTE_FORMS,
@@ -165,6 +166,35 @@ export class InboxFailureResponseDto {
   }
 }
 
+export class InboxConnectionResponseDto {
+  @ApiProperty({ example: 'linear' })
+  readonly source: string;
+
+  @ApiProperty({ example: 'Linear' })
+  readonly integration: string;
+
+  @ApiProperty({
+    example: 'user_1',
+    description:
+      'The person asked to connect, whose connection the tool acts with',
+  })
+  readonly personId: string;
+
+  @ApiProperty({ example: 'Alice Martin' })
+  readonly personName: string;
+
+  @ApiProperty({ description: 'Whether they have connected since' })
+  readonly met: boolean;
+
+  constructor(connection: InboxConnectionDto) {
+    this.source = connection.source;
+    this.integration = connection.integration;
+    this.personId = connection.personId;
+    this.personName = connection.personName;
+    this.met = connection.met;
+  }
+}
+
 export class InboxMessageResponseDto {
   @ApiProperty({ example: 0 })
   readonly position: number;
@@ -239,6 +269,14 @@ export class InboxMessageResponseDto {
   })
   readonly failure: InboxFailureResponseDto | null;
 
+  @ApiProperty({
+    type: InboxConnectionResponseDto,
+    nullable: true,
+    description:
+      'The connection this asks a person to make, where a tool acts as them and they have not connected',
+  })
+  readonly connection: InboxConnectionResponseDto | null;
+
   constructor(
     position: number,
     kind: string,
@@ -254,6 +292,7 @@ export class InboxMessageResponseDto {
     author: InboxAuthorResponseDto | null,
     approval: InboxApprovalResponseDto | null,
     failure: InboxFailureResponseDto | null,
+    connection: InboxConnectionResponseDto | null,
   ) {
     this.position = position;
     this.kind = kind;
@@ -269,6 +308,7 @@ export class InboxMessageResponseDto {
     this.author = author;
     this.approval = approval;
     this.failure = failure;
+    this.connection = connection;
   }
 }
 

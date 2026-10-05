@@ -363,6 +363,50 @@ webhook:
       ).not.toBeNull();
     });
 
+    it('takes the team’s connection unless it says each requester’s', () => {
+      const read = compileIntegration(parseYaml(WHOLE_OAUTH), expressions);
+      const requester = compileIntegration(
+        parseYaml(
+          WHOLE_OAUTH.replace(
+            'connection:\n',
+            'connection:\n  holder: requester\n',
+          ).replace(
+            '    scopes:\n',
+            '    registration: https://slack.com/oauth/register\n    resource: https://mcp.slack.com/\n    scopes:\n',
+          ),
+        ),
+        expressions,
+      );
+
+      expect(read.ok && read.readable.integration.holding.kind).toBe('team');
+      expect(requester.ok && requester.readable.integration.holding.kind).toBe(
+        'requester',
+      );
+      expect(
+        requester.ok && requester.readable.connection?.oauth2?.registration,
+      ).toBe('https://slack.com/oauth/register');
+      expect(
+        requester.ok && requester.readable.connection?.oauth2?.resource,
+      ).toBe('https://mcp.slack.com/');
+    });
+
+    it('refuses to take each requester’s connection without oauth2', () => {
+      const read = compileIntegration(
+        parseYaml(
+          WHOLE_OAUTH.replace(
+            /connection:\n(.|\n)*?webhook:/,
+            'connection:\n  holder: requester\nwebhook:',
+          ),
+        ),
+        expressions,
+      );
+
+      expect(read.ok).toBe(false);
+      expect(
+        !read.ok && read.problems.map((each) => each.reason).join(' '),
+      ).toMatch(/a person can only connect over oauth2/);
+    });
+
     it('collects a manually-set secret as a credential', () => {
       const manual = `integration: linear
 connection:

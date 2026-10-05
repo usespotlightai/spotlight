@@ -11,6 +11,7 @@ const CONFIGURED: ConfiguredIntegrationResponseDto[] = [
     name: 'Linear',
     path: 'integrations/linear',
     standing: 'listens',
+    holding: 'team',
     handle: null,
     described: null,
   },
@@ -19,6 +20,7 @@ const CONFIGURED: ConfiguredIntegrationResponseDto[] = [
     name: 'Slack',
     path: 'integrations/slack',
     standing: 'linked',
+    holding: 'team',
     handle: 'Acme',
     described: null,
   },
@@ -27,6 +29,7 @@ const CONFIGURED: ConfiguredIntegrationResponseDto[] = [
     name: 'Petstore',
     path: 'integrations/petstore',
     standing: 'listens',
+    holding: 'team',
     handle: null,
     described: {
       kind: 'openapi',
@@ -40,6 +43,7 @@ const CONFIGURED: ConfiguredIntegrationResponseDto[] = [
     name: 'Billing',
     path: 'integrations/billing',
     standing: 'listens',
+    holding: 'team',
     handle: null,
     described: {
       kind: 'openapi',

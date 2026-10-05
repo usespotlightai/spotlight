@@ -1,16 +1,17 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import {
   HttpOutbound,
   type OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import {
@@ -36,7 +37,7 @@ const ATTEMPT: RunAttemptDto = { runId: 'run_1', attempt: 2 };
 const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
-  clients: OAuth2Clients = OAuth2Clients.from('{}'),
+  clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsHolding()),
@@ -106,7 +107,7 @@ const using = (
   );
 
   const reaching = (tool: string, marked = true) =>
-    tools.reach(tool, task(marked), ATTEMPT);
+    tools.reach(tool, task(marked), ATTEMPT, null);
 
   const comment = async (inputs: ToolInputValues, marked = true) => {
     const reached = (await reaching(
@@ -210,6 +211,7 @@ describe('IntegrationToolCalls', () => {
           'linear.comment',
           task(),
           ATTEMPT,
+          null,
         )) as IntegrationTool;
 
         return reached.call({ issue: 'ENG-12', body: 'Fixed.' });
@@ -432,7 +434,7 @@ graphql:
             ),
           ),
           new HttpOutbound(['petstore3.swagger.io', 'api.linear.app'], fetch),
-          OAuth2Clients.from('{}'),
+          clientsFrom(),
           {} as OAuth2Exchange,
         ),
         reachFor(secrets.injection),
@@ -440,7 +442,7 @@ graphql:
 
       return {
         fetch,
-        reaching: (tool: string) => tools.reach(tool, task(), ATTEMPT),
+        reaching: (tool: string) => tools.reach(tool, task(), ATTEMPT, null),
       };
     };
 

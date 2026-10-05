@@ -718,6 +718,21 @@ export type AppendRunEventsRequestDto = {
   events: Array<RunEventRequestDto>;
 };
 
+export type ToolActingAsResponseDto = {
+  /**
+   * Whose connection the call used: the team’s, or the person’s who started the task
+   */
+  holder: 'team' | 'person';
+  /**
+   * The person whose connection it was, where it was a person’s
+   */
+  personId: string | null;
+  /**
+   * What the host calls whoever the call acted as, where it says
+   */
+  handle: string | null;
+};
+
 export type ToolAnswerResponseDto = {
   /**
    * What the tool answered, shaped as the tool shapes it
@@ -725,6 +740,10 @@ export type ToolAnswerResponseDto = {
   output: string | number | boolean | {
     [key: string]: unknown;
   } | Array<unknown> | null;
+  /**
+   * Whose connection the call acted with, where its integration connects
+   */
+  actingAs: ToolActingAsResponseDto | null;
 };
 
 export type AskPermissionRequestDto = {
@@ -1178,13 +1197,27 @@ export type InboxApprovalResponseDto = {
   intent: string | null;
 };
 
+export type InboxConnectionResponseDto = {
+  source: string;
+  integration: string;
+  /**
+   * The person asked to connect, whose connection the tool acts with
+   */
+  personId: string;
+  personName: string;
+  /**
+   * Whether they have connected since
+   */
+  met: boolean;
+};
+
 export type InboxMessageResponseDto = {
   position: number;
   kind: 'asked' | 'passed' | 'answered' | 'said';
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'settled' | 'approval' | 'failure';
+  form: 'words' | 'setup' | 'settled' | 'approval' | 'failure' | 'connection';
   /**
    * Who spoke: the station, a person, or the world outside it
    */
@@ -1217,6 +1250,10 @@ export type InboxMessageResponseDto = {
    * The failure it reports, where it reports one
    */
   failure: InboxFailureResponseDto | null;
+  /**
+   * The connection this asks a person to make, where a tool acts as them and they have not connected
+   */
+  connection: InboxConnectionResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
@@ -2820,6 +2857,10 @@ export type ConfiguredIntegrationResponseDto = {
    */
   standing: 'listens' | 'unlinked' | 'linked';
   /**
+   * Whose connection its tools act with: the team’s, or that of the person who started the task
+   */
+  holding: 'team' | 'requester';
+  /**
    * What the host calls the team once linked, where it says
    */
   handle: string | null;
@@ -3385,11 +3426,53 @@ export type SubmitReviewRequestDto = {
   body?: string;
 };
 
+export type ConnectIntegrationRequestDto = {
+  /**
+   * Whose connection to make: the team’s, which only an admin makes, or the caller’s own
+   */
+  for?: 'team' | 'me';
+  /**
+   * Where in the app to land once connected, as a path in a workspace’s inbox or settings; anything else lands on the team’s integrations
+   */
+  back?: string;
+};
+
 export type OAuth2StartResponseDto = {
   /**
    * Where to send the person to authorize the link
    */
   url: string;
+};
+
+export type OwnConnectionResponseDto = {
+  source: string;
+  /**
+   * What the host calls the person, where it says
+   */
+  handle: string | null;
+  connectedAt: string;
+};
+
+export type PersonConnectionResponseDto = {
+  source: string;
+  /**
+   * What the host calls the person, where it says
+   */
+  handle: string | null;
+  connectedAt: string;
+  personId: string;
+  name: string;
+};
+
+export type HostConnectionsResponseDto = {
+  /**
+   * The connections the caller made themselves
+   */
+  mine: Array<OwnConnectionResponseDto>;
+  /**
+   * Who in the team has connected what, shown to admins only; it never holds a token
+   */
+  people: Array<PersonConnectionResponseDto> | null;
 };
 
 export type DescribedSourceResponseDto = {
@@ -15011,7 +15094,7 @@ export type EditReviewCommentResponses = {
 export type EditReviewCommentResponse = EditReviewCommentResponses[keyof EditReviewCommentResponses];
 
 export type ConnectIntegrationData = {
-  body?: never;
+  body?: ConnectIntegrationRequestDto;
   path: {
     teamId: string;
     source: string;
@@ -15021,6 +15104,10 @@ export type ConnectIntegrationData = {
 };
 
 export type ConnectIntegrationErrors = {
+  /**
+   * It asks to connect for someone other than the team or me
+   */
+  400: unknown;
   /**
    * No valid session
    */
@@ -15036,6 +15123,62 @@ export type ConnectIntegrationResponses = {
 };
 
 export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
+
+export type ListConnectionsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/connections';
+};
+
+export type ListConnectionsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListConnectionsResponses = {
+  200: HostConnectionsResponseDto;
+};
+
+export type ListConnectionsResponse = ListConnectionsResponses[keyof ListConnectionsResponses];
+
+export type DisconnectMineData = {
+  body?: never;
+  path: {
+    teamId: string;
+    source: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/integrations/{source}/connections/mine';
+};
+
+export type DisconnectMineErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type DisconnectMineResponses = {
+  /**
+   * The caller’s connection is gone
+   */
+  204: void;
+};
+
+export type DisconnectMineResponse = DisconnectMineResponses[keyof DisconnectMineResponses];
 
 export type CreateIntegrationData = {
   body: {

@@ -1,8 +1,14 @@
 import type { Reach } from '@integrations/application/ports/integration-runtime.port';
+import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import { LINEAR_SDL } from '@integrations/infrastructure/sources/graphql/linear.fake-spec';
 import { PETSTORE } from '@integrations/infrastructure/sources/openapi/petstore.fake-spec';
-import type { SourceFetch } from '@integrations/infrastructure/sources/source-fetch';
+import {
+  DescriptionUnauthorized,
+  type SourceFetch,
+  type SourceWearing,
+} from '@integrations/infrastructure/sources/source-fetch';
 import { ThreadedSourceReader } from '@integrations/infrastructure/sources/threaded-source-reader';
 import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
@@ -89,4 +95,93 @@ describe('ThreadedSourceReader', () => {
         'is a Swagger 2 description, which Spotlight does not read; convert it to OpenAPI 3',
     });
   }, 30_000);
+
+  describe('with the team’s connection', () => {
+    const graphql = (connected: boolean) =>
+      DescribedSource.of({
+        kind: 'graphql',
+        url: 'https://api.linear.app/graphql',
+        fingerprint: 'linear',
+        connected,
+      });
+
+    const holding = (renewed: string | null) => {
+      const refused = vi.fn(async () =>
+        renewed ? AccessToken.of(renewed) : null,
+      );
+      const reach: Reach = {
+        connection: {
+          token: AccessToken.of('lin-old'),
+          holder: ConnectionHolder.team(),
+          handle: null,
+          refused,
+        },
+        credentials: credentialsFor(),
+      };
+
+      return { reach, refused };
+    };
+
+    const connectionsSent = (fetching: SourceFetch) =>
+      (fetching.text as ReturnType<typeof vi.fn>).mock.calls.map(
+        (call) => (call[1] as SourceWearing).connection,
+      );
+
+    it('sends it only where the description authenticates by oauth2', async () => {
+      const fetching = {
+        text: vi.fn(async () => LINEAR_SDL),
+      } as unknown as SourceFetch;
+      const { reach } = holding(null);
+      const reader = new ThreadedSourceReader(fetching);
+
+      await reader.read(graphql(false), reach);
+      await reader.read(graphql(true), reach);
+
+      expect(connectionsSent(fetching)).toEqual([null, 'lin-old']);
+    }, 30_000);
+
+    it('renews it once when the host refuses it, and reads with the new token', async () => {
+      const fetching = {
+        text: vi
+          .fn()
+          .mockRejectedValueOnce(
+            new DescriptionUnauthorized(
+              'could not be read: api.linear.app answered 401',
+            ),
+          )
+          .mockResolvedValueOnce(LINEAR_SDL),
+      } as unknown as SourceFetch;
+      const { reach, refused } = holding('lin-new');
+
+      const read = await new ThreadedSourceReader(fetching).read(
+        graphql(true),
+        reach,
+      );
+
+      expect(read.kind).toBe('read');
+      expect(refused).toHaveBeenCalledOnce();
+      expect(connectionsSent(fetching)).toEqual(['lin-old', 'lin-new']);
+    }, 30_000);
+
+    it('says it could not be read when renewing does not help', async () => {
+      const fetching = {
+        text: vi
+          .fn()
+          .mockRejectedValue(
+            new DescriptionUnauthorized(
+              'could not be read: api.linear.app answered 401',
+            ),
+          ),
+      } as unknown as SourceFetch;
+      const { reach } = holding(null);
+
+      expect(
+        await new ThreadedSourceReader(fetching).read(graphql(true), reach),
+      ).toEqual({
+        kind: 'unread',
+        problem: 'could not be read: api.linear.app answered 401',
+      });
+      expect(fetching.text).toHaveBeenCalledOnce();
+    }, 30_000);
+  });
 });

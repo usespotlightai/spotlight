@@ -1,15 +1,16 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import {
@@ -27,7 +28,7 @@ const expressions = new CelExpressionEngine();
 const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
-  clients: OAuth2Clients = OAuth2Clients.from('{}'),
+  clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsHolding()),

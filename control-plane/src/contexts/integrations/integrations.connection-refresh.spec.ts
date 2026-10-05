@@ -1,15 +1,18 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
+import { InMemoryHostConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
@@ -23,7 +26,7 @@ const expressions = new CelExpressionEngine();
 const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
-  clients: OAuth2Clients = OAuth2Clients.from('{}'),
+  clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsHolding()),
@@ -62,6 +65,7 @@ const nearing = (over: { refreshToken?: string | null } = {}) =>
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     source: SLACK,
+    holder: ConnectionHolder.team(),
     accessToken: AccessToken.of('xoxb-old'),
     refreshToken: AccessToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
@@ -70,6 +74,7 @@ const nearing = (over: { refreshToken?: string | null } = {}) =>
     scopes: ['chat:write'],
     handle: 'Acme',
     renewalRefusedAt: null,
+    renewalClaim: null,
     version: 1,
   });
 
@@ -83,59 +88,85 @@ const refreshing = (
     handle: 'Acme',
   }),
 ) => {
-  const save = vi.fn(async (_connection: HostConnection) => undefined);
+  const connections = new InMemoryHostConnections();
+  for (const each of due) {
+    connections.hold(each);
+  }
   const refresh = vi.fn(async () => grant);
+  const clock = { now: () => NOW } as ClockPort;
+  const warn = vi.fn();
 
   const it = new RefreshConnections(
-    {
-      expiringBefore: async () => due,
-      save,
-      of: vi.fn(),
-    } as unknown as HostConnectionRepository,
-    { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
-    runtimeWith(
-      {},
-      { refresh } as unknown as OAuth2Exchange,
-      OAuth2Clients.from('{"slack":{"id":"c-1","secret":"s-1"}}'),
+    connections,
+    new ConnectionRenewal(
+      connections,
+      { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
+      runtimeWith(
+        {},
+        { refresh } as unknown as OAuth2Exchange,
+        clientsFrom('{"slack":{"id":"c-1","secret":"s-1"}}'),
+      ),
+      clock,
     ),
-    { now: () => NOW } as ClockPort,
-    { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    clock,
+    { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
-  return { it, save, refresh };
+  return { it, connections, refresh, warn };
 };
 
+const heldNow = (connections: InMemoryHostConnections) =>
+  connections.of(TEAM, SLACK, ConnectionHolder.team());
+
 describe('RefreshConnections', () => {
-  it('renews a connection nearing expiry and keeps the fresh token', async () => {
-    const { it, save, refresh } = refreshing([nearing()]);
+  it('renews a connection nearing expiry and keeps the fresh tokens', async () => {
+    const { it, connections, refresh } = refreshing([nearing()]);
 
     await it.refresh();
 
+    const held = await heldNow(connections);
     expect(refresh).toHaveBeenCalledOnce();
-    const saved = save.mock.calls[0]?.[0];
-    expect(saved?.accessToken.value).toBe('xoxb-new');
+    expect(held?.accessToken.value).toBe('xoxb-new');
+    expect(held?.refreshToken?.value).toBe('xoxe-new');
+    expect(held?.renewalClaim).toBeNull();
   });
 
   it('leaves one with no refresh token alone', async () => {
-    const { it, save, refresh } = refreshing([nearing({ refreshToken: null })]);
+    const { it, connections, refresh } = refreshing([
+      nearing({ refreshToken: null }),
+    ]);
 
     await it.refresh();
 
     expect(refresh).not.toHaveBeenCalled();
-    expect(save).not.toHaveBeenCalled();
+    expect(connections.saved).toEqual([]);
   });
 
   it('keeps the old token, and remembers the refusal, when the host refuses to renew', async () => {
-    const { it, save } = refreshing([nearing()], null);
+    const { it, connections, warn } = refreshing([nearing()], null);
 
     await it.refresh();
 
-    const saved = save.mock.calls[0]?.[0];
-    expect(saved?.accessToken.value).toBe('xoxb-old');
-    expect(saved?.renewalRefusedAt).toEqual(NOW);
-    expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
+    const held = await heldNow(connections);
+    expect(held?.accessToken.value).toBe('xoxb-old');
+    expect(held?.renewalRefusedAt).toEqual(NOW);
+    expect(held?.renewalClaim).toBeNull();
+    expect(connections.events.map((each) => each.kind)).toEqual([
       'integrations.host-renewal-refused',
     ]);
+    expect(warn).toHaveBeenCalledWith(
+      { team: 'team_1', source: 'slack', holder: 'team' },
+      'A host refused to renew a connection',
+    );
+  });
+
+  it('leaves a connection someone else is renewing to them', async () => {
+    const claimed = nearing().claimRenewal(NOW, 30_000);
+    const { it, refresh } = refreshing([claimed]);
+
+    await it.refresh();
+
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it('does nothing when nothing is near expiry', async () => {

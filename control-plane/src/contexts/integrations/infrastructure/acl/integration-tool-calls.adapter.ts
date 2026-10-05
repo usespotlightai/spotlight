@@ -2,7 +2,9 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
 import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type {
   IntegrationTool,
@@ -21,6 +23,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     tool: string,
     task: BoundTaskDto,
     run: RunAttemptDto,
+    requester: string | null,
   ): Promise<IntegrationTool | null> {
     const teamId = TeamId.of(task.teamId);
     const definitions = await this.defined.ofTeam(teamId);
@@ -34,8 +37,42 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
       return null;
     }
 
+    const found = await this.hosts.connectionFor(
+      teamId,
+      reachable.integration,
+      requester ? UserId.of(requester) : null,
+    );
+
+    if (found.kind === 'wanted') {
+      return {
+        declared: reachable.declared,
+        actingAs: null,
+        wants: {
+          source: found.wanted.source.value,
+          integration: found.wanted.integrationName,
+          personId: found.wanted.personId?.value ?? null,
+          because: found.wanted.because,
+        },
+        defaultFor: (input) => reachable.defaultFor(input),
+        call: async () => {
+          throw new InconsistentStateError(
+            'integration tool',
+            `${tool} was called without the connection it acts with`,
+          );
+        },
+      };
+    }
+
     return {
       declared: reachable.declared,
+      actingAs: reachable.integration.connects
+        ? {
+            holder: found.holder.isPerson ? 'person' : 'team',
+            personId: found.holder.personId?.value ?? null,
+            handle: found.connection?.handle ?? null,
+          }
+        : null,
+      wants: null,
       defaultFor: (input) => reachable.defaultFor(input),
       call: async (inputs) =>
         reachable.call(
@@ -48,7 +85,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
               attempt: run.attempt,
               wears: reachable.wears,
             },
-            reachable.integration,
+            found.connection,
           ),
         ),
     };

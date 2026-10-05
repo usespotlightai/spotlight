@@ -96,6 +96,7 @@ const CONVERSATION: RunConversationResponseDto = {
       attachments: [],
       approval: null,
       failure: null,
+      connection: null,
       at: minutesAgo(22),
       author: null,
     },
@@ -289,6 +290,7 @@ const ANSWER = {
   attachments: [],
   approval: null,
   failure: null,
+  connection: null,
   at: minutesAgo(6),
   author: { id: 'user_maya', name: 'Maya Chen', image: null },
 } as const satisfies RunConversationResponseDto['notes'][number];

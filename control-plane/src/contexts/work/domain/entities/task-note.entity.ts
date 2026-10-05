@@ -6,6 +6,7 @@ import type {
   Decided,
 } from '@work/domain/value-objects/approval.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { Remark } from '@work/domain/value-objects/remark.vo';
@@ -25,6 +26,7 @@ export const TASK_NOTE_FORMS = [
   'settled',
   'approval',
   'failure',
+  'connection',
 ] as const;
 
 export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
@@ -46,6 +48,7 @@ export class TaskNote {
     readonly approval: Approval | null,
     readonly failure: TaskFailure | null,
     readonly heldBack: HeldBack | null,
+    readonly connectionAsk: ConnectionAsk | null,
   ) {}
 
   static of(input: {
@@ -64,6 +67,7 @@ export class TaskNote {
     approval?: Approval | null;
     failure?: TaskFailure | null;
     heldBack?: HeldBack | null;
+    connectionAsk?: ConnectionAsk | null;
   }): TaskNote {
     return new TaskNote(
       input.position,
@@ -81,6 +85,7 @@ export class TaskNote {
       input.approval ?? null,
       input.failure ?? null,
       input.heldBack ?? null,
+      input.connectionAsk ?? null,
     );
   }
 
@@ -134,6 +139,12 @@ export class TaskNote {
       : this;
   }
 
+  connectionMet(): TaskNote {
+    return this.connectionAsk
+      ? this.with({ connectionAsk: this.connectionAsk.fulfilled() })
+      : this;
+  }
+
   recurred(as: TaskFailure): TaskNote {
     return this.failure
       ? new TaskNote(
@@ -152,6 +163,7 @@ export class TaskNote {
           this.approval,
           as,
           this.heldBack,
+          this.connectionAsk,
         )
       : this;
   }
@@ -169,6 +181,7 @@ export class TaskNote {
     deliveredAt?: Date;
     answeredAt?: Date;
     approval?: Approval;
+    connectionAsk?: ConnectionAsk;
   }): TaskNote {
     return new TaskNote(
       this.position,
@@ -186,6 +199,7 @@ export class TaskNote {
       part.approval ?? this.approval,
       this.failure,
       this.heldBack,
+      part.connectionAsk ?? this.connectionAsk,
     );
   }
 }

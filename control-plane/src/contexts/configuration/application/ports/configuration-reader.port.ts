@@ -8,6 +8,7 @@ interface ReadIntegrationView {
   readonly name: string;
   readonly path: string;
   readonly connectable: boolean;
+  readonly holding: 'team' | 'requester';
   readonly linked: boolean;
   readonly handle: string | null;
   readonly described: DescribedSummary | null;

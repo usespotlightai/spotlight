@@ -1,4 +1,5 @@
 import {
+  CONFIGURED_INTEGRATION_HOLDINGS,
   CONFIGURED_INTEGRATION_STANDINGS,
   type ConfiguredDescriptionDto,
   type ConfiguredIntegrationDto,
@@ -66,6 +67,14 @@ export class ConfiguredIntegrationResponseDto {
   readonly standing: ConfiguredIntegrationDto['standing'];
 
   @ApiProperty({
+    description:
+      'Whose connection its tools act with: the team’s, or that of the person who started the task',
+    enum: CONFIGURED_INTEGRATION_HOLDINGS,
+    example: 'team',
+  })
+  readonly holding: ConfiguredIntegrationDto['holding'];
+
+  @ApiProperty({
     description: 'What the host calls the team once linked, where it says',
     example: 'Acme',
     nullable: true,
@@ -86,6 +95,7 @@ export class ConfiguredIntegrationResponseDto {
     this.name = integration.name;
     this.path = integration.path;
     this.standing = integration.standing;
+    this.holding = integration.holding;
     this.handle = integration.handle;
     this.described = integration.described
       ? new ConfiguredDescriptionResponseDto(integration.described)

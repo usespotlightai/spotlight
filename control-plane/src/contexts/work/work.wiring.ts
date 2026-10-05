@@ -467,6 +467,7 @@ import { CarryGitCall } from '@work/application/services/carry-git-call.service'
 import { ChatAtHand } from '@work/application/services/chat-at-hand.service';
 import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
+import { ConnectionsMade } from '@work/application/services/connections-made.service';
 import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
@@ -1617,6 +1618,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           runners: ending,
           toolUsedHooks,
           notices,
+          connections: new ConnectionsMade(tasks, clock),
         }),
       ]);
       return true;

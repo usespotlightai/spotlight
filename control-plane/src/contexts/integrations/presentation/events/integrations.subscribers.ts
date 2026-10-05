@@ -46,6 +46,11 @@ export const integrationsSubscribers = (
         WorkspaceId.of(event.workspaceId),
       ),
   ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'integrations.forget-connections-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) => abandoning.connectionsOf(TeamId.of(event.teamId)),
+  ),
   subscribing<HookAbandonmentDue>(
     'integrations.abandon-hook-of-disbanded-team',
     ['integrations.hook-abandonment-due'],
@@ -59,7 +64,8 @@ export const integrationsSubscribers = (
   subscribing<HostConnected>(
     'integrations.reread-source-when-a-host-connected',
     ['integrations.host-connected'],
-    (event) =>
+    async (event) =>
+      event.changesWhatDescriptionsAreReadWith &&
       rereading.execute(
         new RereadIntegrationSourceCommand(
           event.teamId.value,

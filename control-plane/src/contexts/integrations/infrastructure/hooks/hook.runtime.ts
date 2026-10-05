@@ -375,6 +375,14 @@ export class CompiledHookRuntime implements HookRuntimePort {
           `could not be written: ${reasoned(error)}`,
         );
       }
+
+      if (reachable.integration.holding.byRequester) {
+        throw new StepRefused(
+          'not-allowed',
+          `names ${step.tool}, which acts as the person who started a task, and a hook acts as nobody`,
+        );
+      }
+
       const reach = await this.reach.of(
         TeamId.of(moment.task.teamId),
         reachable.integration,

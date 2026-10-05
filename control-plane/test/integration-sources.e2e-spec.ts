@@ -173,7 +173,12 @@ describe('an integration offering tools from an API description (e2e)', () => {
   const reach = async (tool: string) =>
     (await app
       .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
-      .reach(tool, task(), { runId: 'run_1', attempt: 1 })) as IntegrationTool;
+      .reach(
+        tool,
+        task(),
+        { runId: 'run_1', attempt: 1 },
+        null,
+      )) as IntegrationTool;
 
   beforeAll(async () => {
     await new Promise<void>((resolve) =>

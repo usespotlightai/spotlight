@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   jsonb,
   pgTable,
@@ -25,14 +26,36 @@ export const hostConnection = pgTable(
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
     source: text('source').notNull(),
+    holder: text('holder').notNull(),
     accessToken: text('access_token').notNull(),
     refreshToken: text('refresh_token'),
     expiresAt: timestamp('expires_at'),
     scopes: text('scopes').notNull().default(''),
     handle: text('handle'),
     renewalRefusedAt: timestamp('renewal_refused_at'),
+    renewalClaimedUntil: timestamp('renewal_claimed_until'),
     version: integer('version').notNull().default(1),
     connectedAt: timestamp('connected_at').notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.teamId, table.source, table.holder] }),
+    index('host_connection_holder_idx').on(table.teamId, table.holder),
+  ],
+);
+
+export const oauth2ClientRegistration = pgTable(
+  'oauth2_client_registration',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    source: text('source').notNull(),
+    registrationEndpoint: text('registration_endpoint').notNull(),
+    redirectUri: text('redirect_uri').notNull(),
+    clientId: text('client_id').notNull(),
+    clientSecret: text('client_secret'),
+    secretExpiresAt: timestamp('secret_expires_at'),
+    version: integer('version').notNull().default(1),
+    registeredAt: timestamp('registered_at').notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.teamId, table.source] })],
 );

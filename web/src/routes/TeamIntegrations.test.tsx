@@ -178,7 +178,7 @@ describe('TeamIntegrations', () => {
       screen.getByRole('button', { name: 'Connect to Linear' }),
     );
 
-    expect(connect).toHaveBeenCalledWith('linear');
+    expect(connect).toHaveBeenCalledWith({ source: 'linear' });
   });
 
   it('says what the host calls the team once it is connected', () => {
@@ -261,5 +261,20 @@ describe('TeamIntegrations', () => {
         'Its GraphQL schema could not be read: api.linear.app answered 401.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('says an integration’s tools act as each person, and points them to their own connection', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([listening({ standing: 'unlinked', holding: 'requester' })]),
+    );
+    showing();
+
+    expect(
+      screen.getByText('Its tools act as each person who starts a task.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Your connection' }),
+    ).toHaveAttribute('href', '/w/acme/settings/team/team_1/connections');
   });
 });

@@ -57,6 +57,7 @@ export class IntegrationReader {
             path,
             name: integration.name,
             connects: integration.connects,
+            holding: integration.holding.kind,
             credentials: integration.credentials,
             described:
               described && defined?.reading

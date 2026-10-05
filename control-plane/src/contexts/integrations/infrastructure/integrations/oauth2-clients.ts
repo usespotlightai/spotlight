@@ -1,16 +1,13 @@
+import type { ConfiguredOAuth2ClientsPort } from '@integrations/application/ports/configured-oauth2-clients.port';
+import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
 import { z } from 'zod';
-
-export interface OAuth2Client {
-  readonly id: string;
-  readonly secret: string;
-}
 
 const clientsSchema = z.record(
   z.string(),
   z.object({ id: z.string().min(1), secret: z.string().min(1) }),
 );
 
-export class OAuth2Clients {
+export class OAuth2Clients implements ConfiguredOAuth2ClientsPort {
   private constructor(
     private readonly bySource: ReadonlyMap<string, OAuth2Client>,
   ) {}

@@ -28,6 +28,15 @@ export interface SourceWearing {
   readonly credentials: Credentials;
 }
 
+const UNAUTHORIZED = 401;
+
+export class DescriptionUnauthorized extends DescriptionUnreadable {
+  constructor(because: string) {
+    super(because);
+    this.name = 'DescriptionUnauthorized';
+  }
+}
+
 const hostOf = (url: string): string => new URL(url).host.toLowerCase();
 
 const codeOf = (error: unknown): string => {
@@ -61,9 +70,11 @@ export class SourceFetch {
 
       if (!reply.ok) {
         await reply.body?.cancel();
-        throw new DescriptionUnreadable(
-          `could not be read: ${hostOf(url)} answered ${reply.status}`,
-        );
+        const because = `could not be read: ${hostOf(url)} answered ${reply.status}`;
+
+        throw reply.status === UNAUTHORIZED
+          ? new DescriptionUnauthorized(because)
+          : new DescriptionUnreadable(because);
       }
 
       return await cappedText(

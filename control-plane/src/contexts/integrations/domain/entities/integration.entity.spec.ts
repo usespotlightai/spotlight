@@ -1,5 +1,8 @@
 import { Integration } from '@integrations/domain/entities/integration.entity';
+import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
+import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
+import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
@@ -8,6 +11,7 @@ import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo'
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const LINEAR = SourceKey.of('linear');
@@ -103,5 +107,67 @@ describe('Integration', () => {
 
   it('is the same integration as another to the same host', () => {
     expect(integration().equals(integration())).toBe(true);
+  });
+});
+
+describe('Integration holding', () => {
+  it('takes the team’s connection unless it says otherwise', () => {
+    expect(
+      Integration.of({ source: LINEAR, connects: true }).holding.kind,
+    ).toBe('team');
+  });
+
+  it('takes each requester’s connection when it connects over oauth2', () => {
+    expect(
+      Integration.of({
+        source: LINEAR,
+        connects: true,
+        holding: ConnectionHolding.requester(),
+      }).holding.byRequester,
+    ).toBe(true);
+  });
+
+  it('refuses to take each person’s connection when nobody can connect', () => {
+    expect(() =>
+      Integration.of({
+        source: LINEAR,
+        holding: ConnectionHolding.requester(),
+      }),
+    ).toThrow(InvalidIntegrationError);
+  });
+});
+
+describe('Integration connections', () => {
+  const PERSON = ConnectionHolder.person(UserId.of('user_1'));
+
+  it('takes a team connection whenever it connects', () => {
+    expect(
+      Integration.of({ source: LINEAR, connects: true }).takesConnectionFrom(
+        ConnectionHolder.team(),
+      ),
+    ).toBe(true);
+  });
+
+  it('takes a person’s connection only when it acts as the requester', () => {
+    expect(
+      Integration.of({ source: LINEAR, connects: true }).takesConnectionFrom(
+        PERSON,
+      ),
+    ).toBe(false);
+    expect(
+      Integration.of({
+        source: LINEAR,
+        connects: true,
+        holding: ConnectionHolding.requester(),
+      }).takesConnectionFrom(PERSON),
+    ).toBe(true);
+  });
+
+  it('takes no connection when it connects to nothing', () => {
+    expect(
+      Integration.of({ source: LINEAR }).takesConnectionFrom(
+        ConnectionHolder.team(),
+      ),
+    ).toBe(false);
   });
 });

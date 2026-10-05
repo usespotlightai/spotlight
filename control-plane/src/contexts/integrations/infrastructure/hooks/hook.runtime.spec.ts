@@ -8,8 +8,10 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
+import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
+import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
@@ -80,9 +82,14 @@ const MOMENT: HookMoment = {
 const tool = (
   call: ReachableTool['call'],
   approval: { because: string } | null = null,
+  holding: ConnectionHolding = ConnectionHolding.team(),
 ): ReachableTool =>
   ({
-    integration: {},
+    integration: Integration.of({
+      source: SourceKey.of('slack'),
+      connects: holding.byRequester,
+      holding,
+    }),
     offered: OfferedTool.of({
       source: SourceKey.of('slack'),
       name: 'post-message',
@@ -265,6 +272,20 @@ describe('CompiledHookRuntime', () => {
       status: 'failed',
       code: 'not-allowed',
       reason: expect.stringMatching(/approval/),
+    });
+  });
+
+  it('refuses to call a tool that acts as the person who started a task', async () => {
+    const call = vi.fn();
+    const { hooked } = setUp(tool(call, null, ConnectionHolding.requester()));
+
+    const taken = await hooked.step(await asking(hooked, 'notify'));
+
+    expect(call).not.toHaveBeenCalled();
+    expect(taken.outcome).toMatchObject({
+      status: 'failed',
+      code: 'not-allowed',
+      reason: expect.stringMatching(/a hook acts as nobody/),
     });
   });
 

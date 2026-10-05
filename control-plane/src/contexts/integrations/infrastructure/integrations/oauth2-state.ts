@@ -1,11 +1,15 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const LIVES_MS = 10 * 60 * 1000;
+
+type OAuth2Holder = 'team' | 'person';
 
 interface Payload {
   readonly teamId: string;
   readonly source: string;
   readonly by: string;
+  readonly holder: OAuth2Holder;
+  readonly back: string | null;
   readonly nonce: string;
   readonly exp: number;
 }
@@ -14,6 +18,8 @@ export interface OAuth2Intent {
   readonly teamId: string;
   readonly source: string;
   readonly by: string;
+  readonly holder: OAuth2Holder;
+  readonly back: string | null;
   readonly nonce: string;
 }
 
@@ -37,6 +43,8 @@ export class OAuth2State {
       teamId: intent.teamId,
       source: intent.source,
       by: intent.by,
+      holder: intent.holder,
+      back: intent.back,
       nonce: intent.nonce,
       exp: this.now() + LIVES_MS,
     };
@@ -68,7 +76,9 @@ export class OAuth2State {
       typeof payload.exp !== 'number' ||
       payload.exp < this.now() ||
       typeof payload.nonce !== 'string' ||
-      payload.nonce.length === 0
+      payload.nonce.length === 0 ||
+      (payload.holder !== 'team' && payload.holder !== 'person') ||
+      (payload.back !== null && typeof payload.back !== 'string')
     ) {
       return null;
     }
@@ -77,9 +87,21 @@ export class OAuth2State {
       teamId: payload.teamId,
       source: payload.source,
       by: payload.by,
+      holder: payload.holder,
+      back: payload.back,
       nonce: payload.nonce,
       expiresAt: new Date(payload.exp),
     };
+  }
+
+  verifierFor(nonce: string): string {
+    return createHmac('sha256', this.secret)
+      .update(`pkce:${nonce}`)
+      .digest('base64url');
+  }
+
+  static challengeOf(verifier: string): string {
+    return createHash('sha256').update(verifier).digest('base64url');
   }
 
   private mac(body: string): string {

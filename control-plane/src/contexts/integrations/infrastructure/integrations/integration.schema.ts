@@ -1,3 +1,4 @@
+import { CONNECTION_HOLDINGS } from '@integrations/domain/value-objects/connection-holding.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/offered-tool.vo';
 import {
   CATALOG_SOURCE,
@@ -297,12 +298,15 @@ const scheduleSchema = z.object({
 });
 
 const connectionSchema = z.object({
+  holder: z.enum(CONNECTION_HOLDINGS).default('team'),
   oauth2: z
     .object({
       authorize: z.string().url(),
       token: z.string().url(),
       scopes: z.array(z.string()).default([]),
       identity: expression.optional(),
+      registration: z.string().url().optional(),
+      resource: z.string().url().optional(),
     })
     .optional(),
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),

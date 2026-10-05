@@ -1,5 +1,5 @@
 {
-  "id": "7b588a08-7cb5-406f-ad36-264262633cd9",
+  "id": "0f7d1c2c-9334-45ce-9f9a-9e97a7eb83fd",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3940,6 +3940,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "holder": {
+          "name": "holder",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "access_token": {
           "name": "access_token",
           "type": "text",
@@ -3977,6 +3983,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "renewal_claimed_until": {
+          "name": "renewal_claimed_until",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -3992,14 +4004,37 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "host_connection_holder_idx": {
+          "name": "host_connection_holder_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "holder",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "host_connection_team_id_source_pk": {
-          "name": "host_connection_team_id_source_pk",
+        "host_connection_team_id_source_holder_pk": {
+          "name": "host_connection_team_id_source_holder_pk",
           "columns": [
             "team_id",
-            "source"
+            "source",
+            "holder"
           ]
         }
       },
@@ -4145,6 +4180,89 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.oauth2_client_registration": {
+      "name": "oauth2_client_registration",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "registration_endpoint": {
+          "name": "registration_endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "redirect_uri": {
+          "name": "redirect_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_secret": {
+          "name": "client_secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "secret_expires_at": {
+          "name": "secret_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "registered_at": {
+          "name": "registered_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "oauth2_client_registration_team_id_source_pk": {
+          "name": "oauth2_client_registration_team_id_source_pk",
+          "columns": [
+            "team_id",
+            "source"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -13194,6 +13312,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "connection_ask": {
+          "name": "connection_ask",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "answered_at": {
           "name": "answered_at",
           "type": "timestamp",
@@ -13231,6 +13355,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_note_connection_ask_idx": {
+          "name": "task_note_connection_ask_idx",
+          "columns": [
+            {
+              "expression": "(\"connection_ask\"->>'personId')",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "(\"connection_ask\"->>'source')",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"task_note\".\"connection_ask\" is not null and (\"task_note\".\"connection_ask\"->>'met')::boolean = false",
           "concurrently": false,
           "method": "btree",
           "with": {}
