@@ -8,6 +8,7 @@ import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended
 import { RunHoldOverError } from '@secrets/domain/exceptions/run-hold-over.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-granted.error';
+import { SecretSlotTakenError } from '@secrets/domain/exceptions/secret-slot-taken.error';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import {
@@ -48,7 +49,7 @@ const holding = async () => {
         name: 'SENTRY_TOKEN',
         source: SecretSource.awsSecretsManager({ secretId: 'sentry-token' }),
         value: null,
-        bindings: [{ host: 'sentry.io', header: 'x-sentry-token' }],
+        bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
       }),
       {
         id: SecretId.of('secret_sentry'),
@@ -72,10 +73,18 @@ const holding = async () => {
 };
 
 const headersOf = async (
-  worn: Promise<{ applyTo(headers: Record<string, string>): void }>,
+  worn: Promise<{
+    applyTo(request: {
+      url: globalThis.URL;
+      headers: Record<string, string>;
+    }): void;
+  }>,
 ) => {
   const headers: Record<string, string> = {};
-  (await worn).applyTo(headers);
+  (await worn).applyTo({
+    url: new globalThis.URL('https://example.test/'),
+    headers,
+  });
 
   return headers;
 };
@@ -94,6 +103,26 @@ describe('SecretInjection', () => {
           }),
         ),
       ).toEqual({ authorization: 'Bearer lin_api_1' });
+    });
+
+    it('refuses two secrets worn in one header toward one host', async () => {
+      const { injection, secrets } = await holding();
+      await secrets.save(
+        Secret.set(definition({ name: 'LINEAR_OTHER' }), {
+          id: SecretId.of('secret_other'),
+          workspaceId: WORKSPACE,
+          by: BY,
+          at: NOW,
+        }),
+      );
+
+      await expect(
+        injection.forSpotlight({
+          workspaceId: WORKSPACE.value,
+          secrets: ['LINEAR_API_KEY', 'LINEAR_OTHER'],
+          url: URL,
+        }),
+      ).rejects.toThrow(SecretSlotTakenError);
     });
 
     it('reads a secret AWS Secrets Manager holds when it is worn', async () => {

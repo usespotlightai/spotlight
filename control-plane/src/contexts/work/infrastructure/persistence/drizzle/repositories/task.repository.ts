@@ -12,7 +12,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -26,6 +26,7 @@ import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
@@ -54,6 +55,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import {
   type ApprovalRow,
+  type ConnectionAskRow,
   type HeldBackRow,
   task,
   taskAttachment,
@@ -92,6 +94,7 @@ const toApproval = (row: ApprovalRow): Approval =>
     spent: row.spent,
     edited: toEditedCall(row),
     intent: row.intent ? ApprovalIntent.rehydrate(row.intent) : null,
+    askedOf: row.askedOf ? UserId.of(row.askedOf) : null,
   });
 
 const toApprovalRow = (approval: Approval): ApprovalRow => ({
@@ -105,6 +108,7 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
   spent: approval.spent,
   edited: approval.edited?.inputs.values ?? null,
   intent: approval.intent?.value ?? null,
+  askedOf: approval.askedOf?.value ?? null,
 });
 
 const toHeldBack = (row: HeldBackRow): HeldBack =>
@@ -114,6 +118,23 @@ const toHeldBack = (row: HeldBackRow): HeldBack =>
 
 const toHeldBackRow = (held: HeldBack): HeldBackRow =>
   held.to ? { kind: 'moves', to: held.to.value } : { kind: 'cleared' };
+
+const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
+  ConnectionAsk.of({
+    teamId: TeamId.of(row.teamId),
+    source: row.source,
+    integration: row.integration,
+    personId: UserId.of(row.personId),
+    met: row.met,
+  });
+
+const toConnectionAskRow = (ask: ConnectionAsk): ConnectionAskRow => ({
+  teamId: ask.teamId.value,
+  source: ask.source,
+  integration: ask.integration,
+  personId: ask.personId.value,
+  met: ask.met,
+});
 
 const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
   TaskNote.of({
@@ -132,6 +153,9 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     approval: row.approval ? toApproval(row.approval) : null,
     failure: row.failure ? TaskFailure.rehydrate(row.failure) : null,
     heldBack: row.heldBack ? toHeldBack(row.heldBack) : null,
+    connectionAsk: row.connectionAsk
+      ? toConnectionAsk(row.connectionAsk)
+      : null,
   });
 
 const toTask = (
@@ -469,6 +493,35 @@ export class DrizzleTaskRepository implements TaskRepository {
     return this.standingSetups();
   }
 
+  async awaitingConnection(
+    teamId: TeamId,
+    personId: UserId,
+    source: string,
+  ): Promise<readonly Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        inArray(
+          task.id,
+          this.context.db
+            .select({ id: taskNote.taskId })
+            .from(taskNote)
+            .where(
+              and(
+                sql`${taskNote.connectionAsk} is not null`,
+                sql`(${taskNote.connectionAsk}->>'personId') = ${personId.value}`,
+                sql`(${taskNote.connectionAsk}->>'source') = ${source}`,
+                sql`(${taskNote.connectionAsk}->>'teamId') = ${teamId.value}`,
+                sql`(${taskNote.connectionAsk}->>'met')::boolean = false`,
+              ),
+            ),
+        ),
+      );
+
+    return this.whole(found);
+  }
+
   private async standingSetups(of?: ReturnType<typeof eq>): Promise<Task[]> {
     const closing = alias(taskNote, 'closing');
 
@@ -612,6 +665,9 @@ export class DrizzleTaskRepository implements TaskRepository {
               }
             : null,
           heldBack: note.heldBack ? toHeldBackRow(note.heldBack) : null,
+          connectionAsk: note.connectionAsk
+            ? toConnectionAskRow(note.connectionAsk)
+            : null,
         })),
       )
       .onConflictDoUpdate({
@@ -622,6 +678,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           answeredAt: sql`excluded.answered_at`,
           approval: sql`excluded.approval`,
           failure: sql`excluded.failure`,
+          connectionAsk: sql`excluded.connection_ask`,
         },
       });
   }

@@ -9,6 +9,7 @@ import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
 import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -44,7 +45,7 @@ const offered = (approval: ApprovalNeeded | null = null) =>
     source: SourceKey.of('linear'),
     name: 'comment',
     description: 'Comment on the issue.',
-    does: 'comment',
+    backing: ToolBacking.action('comment'),
     approval,
   });
 

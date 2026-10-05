@@ -15,7 +15,8 @@ export class SecretBindings {
   static of(
     inputs: readonly {
       host: string;
-      header?: string | null;
+      carrier?: string | null;
+      name?: string | null;
       prefix?: string | null;
     }[],
   ): SecretBindings {

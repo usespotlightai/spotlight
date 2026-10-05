@@ -141,6 +141,11 @@ const TeamIntegrations = lazyPage(
   (module) => module.TeamIntegrations,
 );
 
+const TeamConnections = lazyPage(
+  () => import('./routes/TeamConnections.tsx'),
+  (module) => module.TeamConnections,
+);
+
 const TeamSkills = lazyPage(
   () => import('./routes/TeamSkills.tsx'),
   (module) => module.TeamSkills,
@@ -222,6 +227,7 @@ export default function App() {
                 <Route index element={<Navigate to="general" replace />} />
                 <Route path="general" element={<TeamGeneral />} />
                 <Route path="integrations" element={<TeamIntegrations />} />
+                <Route path="connections" element={<TeamConnections />} />
                 <Route path="skills" element={<TeamSkills />} />
               </Route>
             </Route>

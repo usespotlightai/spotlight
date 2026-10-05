@@ -4,6 +4,7 @@ import type {
 } from '@catalog/application/contracts/catalog.contract';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -43,6 +44,7 @@ import type {
 import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
+  USING_TOOLS,
 } from '@work/domain/services/built-in-skills';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
@@ -244,6 +246,16 @@ const SHIPPED_SKILLS: ReadySkillFolder[] = [
       },
     ],
   },
+  {
+    skill: {
+      key: USING_TOOLS.value,
+      description: 'Finding and calling tools.',
+      tools: [],
+    },
+    files: [
+      { path: 'SKILL.md', text: `---\nname: ${USING_TOOLS.value}\n---\n` },
+    ],
+  },
 ];
 
 const SHIPPED: BuiltInSkillsPort = {
@@ -251,11 +263,11 @@ const SHIPPED: BuiltInSkillsPort = {
 };
 
 let offeredTools: DeclaredTool[] = [];
-let offeredAsked = 0;
+let offeredAsked: string[] = [];
 
 const integrations = {
-  offered: async () => {
-    offeredAsked += 1;
+  offered: async (_line: unknown, tools: readonly Tool[]) => {
+    offeredAsked = tools.map((each) => each.value);
     return offeredTools;
   },
 } as unknown as TeamIntegrations;
@@ -300,7 +312,7 @@ const WEB_SEARCH = {
   inputs: [
     {
       name: 'query',
-      type: 'string' as const,
+      schema: { type: 'string' },
       description: null,
       required: true,
       defaulted: false,
@@ -908,6 +920,36 @@ describe('DispatchTask, the skills a run is given', () => {
     ]);
   });
 
+  it('lays the skill of finding and calling tools, and briefs where they come from, where an integration’s tool is described', async () => {
+    offeredTools = [
+      DeclaredTool.of({
+        tool: Tool.of('linear.comment'),
+        description: 'Comment on the issue.',
+        offeredBy: 'Linear',
+      }),
+    ];
+
+    await dispatch(triage({ tools: ['linear.comment'] }));
+    offeredTools = [];
+
+    expect(laid()).toEqual([
+      '.claude/skills/spotlight-handover/SKILL.md',
+      '.claude/skills/spotlight-tools/SKILL.md',
+    ]);
+    expect(written(queued[0]).briefing).toContain(
+      'You were given tools from Linear (1).',
+    );
+  });
+
+  it('lays no skill of finding tools where nothing describes the integration’s tool', async () => {
+    offeredTools = [];
+
+    await dispatch(triage({ tools: ['linear.missing'] }));
+
+    expect(laid()).toEqual(['.claude/skills/spotlight-handover/SKILL.md']);
+    expect(written(queued[0]).briefing).not.toContain('## Tools');
+  });
+
   it('lists the skills in the briefing where the harness does not read them', async () => {
     skillsHome = { directory: '.spotlight/skills', readByHarness: false };
 
@@ -929,7 +971,7 @@ describe('DispatchTask, the team’s own skills', () => {
     kept = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
     offeredTools = [];
-    offeredAsked = 0;
+    offeredAsked = [];
     keptSkills = [
       {
         skill: {
@@ -983,6 +1025,7 @@ describe('DispatchTask, the team’s own skills', () => {
       '.claude/skills/spotlight-handover/SKILL.md',
       '.claude/skills/spotlight-pull-request/SKILL.md',
       '.claude/skills/our-migrations/SKILL.md',
+      '.claude/skills/spotlight-tools/SKILL.md',
     ]);
   });
 
@@ -1002,7 +1045,7 @@ describe('DispatchTask, the tools a run is told about', () => {
     queued = [];
     kept = [];
     offeredTools = [];
-    offeredAsked = 0;
+    offeredAsked = [];
   });
 
   it('describes Spotlight’s own tools, and what they take, without reading the team’s', async () => {
@@ -1014,7 +1057,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       'body',
       'repository',
     ]);
-    expect(offeredAsked).toBe(0);
+    expect(offeredAsked).toEqual(['pull-request']);
   });
 
   it('describes a tool a team’s integration offers, where the station names it', async () => {
@@ -1025,7 +1068,7 @@ describe('DispatchTask, the tools a run is told about', () => {
         inputs: [
           {
             name: 'body',
-            type: 'string',
+            schema: InputSchema.ofType('string'),
             description: null,
             required: true,
             defaulted: false,
@@ -1051,12 +1094,13 @@ describe('DispatchTask, the tools a run is told about', () => {
       inputs: [
         {
           name: 'body',
-          type: 'string',
+          schema: { type: 'string' },
           required: true,
           defaulted: false,
           piped: true,
         },
       ],
+      approval: null,
     });
   });
 

@@ -25,7 +25,10 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 const toolGiven = (tool: CatalogTool): CatalogToolGiven => ({
   id: tool.id.value,
   description: tool.listing.description,
-  inputs: tool.inputs,
+  inputs: tool.inputs.map((each) => ({
+    ...each,
+    schema: each.schema.written,
+  })),
 });
 
 const skillGiven = (skill: CatalogSkill): CatalogSkillGiven => ({

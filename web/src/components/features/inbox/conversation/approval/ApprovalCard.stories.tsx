@@ -18,6 +18,7 @@ const COMMENT: Approval = {
   standing: 'asked',
   edited: null,
   intent: 'post the drain summary on the issue, publicly under the team’s name',
+  askedOf: null,
 };
 
 const LOGS: Approval = {
@@ -33,6 +34,7 @@ const LOGS: Approval = {
   standing: 'asked',
   edited: null,
   intent: null,
+  askedOf: null,
 };
 
 const meta = {
@@ -90,4 +92,17 @@ export const Refused: Story = {
 export const Watching: Story = {
   name: 'Waiting, seen elsewhere',
   args: { onDecide: undefined },
+};
+
+export const AskedOfSomeoneElse: Story = {
+  name: 'Asked of someone else',
+  args: {
+    approval: {
+      ...COMMENT,
+      because:
+        'Alice Martin asks to approve each call made with their Linear connection.',
+      askedOf: { id: 'user_alice', name: 'Alice Martin' },
+    },
+    viewerId: 'user_1',
+  },
 };

@@ -2,7 +2,6 @@ import { SearchStatePill } from '@/components/features/searches/SearchStatePill'
 import { BestCandidate } from '@/components/features/searches/station/BestCandidate';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type ReplayedStation, spendOfCeiling } from '@/lib/replay';
-import { since } from '@/lib/runner';
 import {
   iterationsShown,
   type Search,
@@ -10,6 +9,7 @@ import {
   searchPath,
 } from '@/lib/search';
 import { endingShown } from '@/lib/search-words';
+import { since } from '@/lib/since';
 
 type SearchRowProps = {
   at: ReplayedStation;

@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +28,8 @@ type Allowed interface {
 
 type Wearing interface {
 	Wears(host string) bool
-	Onto(host string, header http.Header)
+	Onto(host string, r *http.Request)
+	Unwear(host string, response *http.Response)
 }
 
 type Certificates interface {
@@ -198,7 +200,12 @@ func (p *Proxy) wearingTo(host, target string) http.Handler {
 			out.Out.URL.Host = target
 			out.Out.Host = authority
 			out.Out.Header.Del("Proxy-Authorization")
-			p.wearing.Onto(host, out.Out.Header)
+			out.Out.Header.Del("Accept-Encoding")
+			p.wearing.Onto(host, out.Out)
+		},
+		ModifyResponse: func(response *http.Response) error {
+			p.wearing.Unwear(host, response)
+			return nil
 		},
 		Transport:     p.transport,
 		FlushInterval: -1,
@@ -232,8 +239,12 @@ func (p *Proxy) failed(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 
+	if failure := (*url.Error)(nil); errors.As(err, &failure) {
+		err = failure.Err
+	}
+
 	p.log.Warn("could not pass a request on", "host", r.URL.Hostname(), "error", err)
-	http.Error(w, fmt.Sprintf("egress could not reach %s: %v", r.URL.Host, err), http.StatusBadGateway)
+	http.Error(w, fmt.Sprintf("egress could not reach %s", r.URL.Host), http.StatusBadGateway)
 }
 
 func hijack(w http.ResponseWriter) (net.Conn, *bufio.Reader, error) {

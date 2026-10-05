@@ -3,6 +3,7 @@ import type { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo'
 import type { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo';
 import type { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
 export type CatalogKind = 'tool' | 'skill';
 
@@ -10,7 +11,7 @@ const SKILL_FILE = 'SKILL.md';
 
 export interface CatalogToolInput {
   readonly name: string;
-  readonly type: 'string' | 'number' | 'boolean';
+  readonly schema: InputSchema;
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;

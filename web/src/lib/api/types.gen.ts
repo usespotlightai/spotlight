@@ -718,6 +718,21 @@ export type AppendRunEventsRequestDto = {
   events: Array<RunEventRequestDto>;
 };
 
+export type ToolActingAsResponseDto = {
+  /**
+   * Whose connection the call used: the team’s, or the person’s who started the task
+   */
+  holder: 'team' | 'person';
+  /**
+   * The person whose connection it was, where it was a person’s
+   */
+  personId: string | null;
+  /**
+   * What the host calls whoever the call acted as, where it says
+   */
+  handle: string | null;
+};
+
 export type ToolAnswerResponseDto = {
   /**
    * What the tool answered, shaped as the tool shapes it
@@ -725,6 +740,10 @@ export type ToolAnswerResponseDto = {
   output: string | number | boolean | {
     [key: string]: unknown;
   } | Array<unknown> | null;
+  /**
+   * Whose connection the call acted with, where its integration connects
+   */
+  actingAs: ToolActingAsResponseDto | null;
 };
 
 export type AskPermissionRequestDto = {
@@ -1016,7 +1035,14 @@ export type RedeemedSecretResponseDto = {
    * The one host egress wears it toward
    */
   host: string;
-  header: string;
+  /**
+   * Whether egress wears it in a request header or a query parameter
+   */
+  carrier: 'header' | 'query';
+  /**
+   * The header or query parameter that holds its stand-in
+   */
+  name: string;
   prefix: string;
   /**
    * The value, sealed to the recipient for this run; null when egress reads it in its own network
@@ -1150,6 +1176,11 @@ export type InboxApprovalInputResponseDto = {
   value: string;
 };
 
+export type InboxApprovalAskedOfResponseDto = {
+  id: string;
+  name: string;
+};
+
 export type InboxApprovalResponseDto = {
   /**
    * Whether a tool call or a harness asking permission waits on a person
@@ -1176,6 +1207,24 @@ export type InboxApprovalResponseDto = {
    * What the agent said it wants to do, completing “Spotlight would like to …”; absent where it said nothing, as a harness asking permission never does
    */
   intent: string | null;
+  /**
+   * The one person who can approve it, where it asks first because of their own rule for their connection; anyone can still dismiss it
+   */
+  askedOf: InboxApprovalAskedOfResponseDto | null;
+};
+
+export type InboxConnectionResponseDto = {
+  source: string;
+  integration: string;
+  /**
+   * The person asked to connect, whose connection the tool acts with
+   */
+  personId: string;
+  personName: string;
+  /**
+   * Whether they have connected since
+   */
+  met: boolean;
 };
 
 export type InboxMessageResponseDto = {
@@ -1184,7 +1233,7 @@ export type InboxMessageResponseDto = {
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'settled' | 'approval' | 'failure';
+  form: 'words' | 'setup' | 'settled' | 'approval' | 'failure' | 'connection';
   /**
    * Who spoke: the station, a person, or the world outside it
    */
@@ -1217,6 +1266,10 @@ export type InboxMessageResponseDto = {
    * The failure it reports, where it reports one
    */
   failure: InboxFailureResponseDto | null;
+  /**
+   * The connection this asks a person to make, where a tool acts as them and they have not connected
+   */
+  connection: InboxConnectionResponseDto | null;
 };
 
 export type InboxItemResponseDto = {
@@ -2369,11 +2422,15 @@ export type SecretBindingResponseDto = {
    */
   host: string;
   /**
-   * The request header it is worn in
+   * Whether it is worn in a request header or a query parameter
    */
-  header: string;
+  carrier: 'header' | 'query';
   /**
-   * Written before the value in that header
+   * The header or query parameter it is worn in
+   */
+  name: string;
+  /**
+   * Written before the value it is worn with
    */
   prefix: string;
 };
@@ -2789,6 +2846,25 @@ export type WorkspaceRunnersResourceListResponseDto = {
   items: Array<WorkspaceRunnersResourceResponseDto>;
 };
 
+export type ConfiguredDescriptionResponseDto = {
+  /**
+   * The kind of API description, or the MCP server, its tools are generated from
+   */
+  kind: 'openapi' | 'graphql' | 'mcp';
+  /**
+   * How many tools were generated from it
+   */
+  tools: number;
+  /**
+   * When it was last read
+   */
+  readAt: string;
+  /**
+   * Why it could not be read when it was last asked for; the tools from the last good read stay offered
+   */
+  problem: string | null;
+};
+
 export type ConfiguredIntegrationResponseDto = {
   source: string;
   name: string;
@@ -2801,9 +2877,17 @@ export type ConfiguredIntegrationResponseDto = {
    */
   standing: 'listens' | 'unlinked' | 'linked';
   /**
+   * Whose connection its tools act with: the team’s, or that of the person who started the task
+   */
+  holding: 'team' | 'requester';
+  /**
    * What the host calls the team once linked, where it says
    */
   handle: string | null;
+  /**
+   * The API description its tools are generated from, as last read; null where it names none
+   */
+  described: ConfiguredDescriptionResponseDto | null;
 };
 
 export type ConfigurationResponseDto = {
@@ -3362,11 +3446,95 @@ export type SubmitReviewRequestDto = {
   body?: string;
 };
 
+export type ConnectIntegrationRequestDto = {
+  /**
+   * Whose connection to make: the team’s, which only an admin makes, or the caller’s own
+   */
+  for?: 'team' | 'me';
+  /**
+   * Where in the app to land once connected, as a path in a workspace’s inbox or settings; anything else lands on the team’s integrations
+   */
+  back?: string;
+};
+
 export type OAuth2StartResponseDto = {
   /**
    * Where to send the person to authorize the link
    */
   url: string;
+};
+
+export type ConnectionToolRuleResponseDto = {
+  tool: string;
+  /**
+   * What the caller asks of calls made with their connection: allowed follows the team, needs-approval asks them first, blocked never sends
+   */
+  rule: 'allowed' | 'needs-approval' | 'blocked';
+};
+
+export type MyConnectionResponseDto = {
+  source: string;
+  /**
+   * What the host calls the person, where it says
+   */
+  handle: string | null;
+  connectedAt: string;
+  /**
+   * Each tool the integration offers, with the caller’s rule for calls made with this connection
+   */
+  tools: Array<ConnectionToolRuleResponseDto>;
+};
+
+export type PersonConnectionResponseDto = {
+  source: string;
+  /**
+   * What the host calls the person, where it says
+   */
+  handle: string | null;
+  connectedAt: string;
+  personId: string;
+  name: string;
+};
+
+export type HostConnectionsResponseDto = {
+  /**
+   * The connections the caller made themselves
+   */
+  mine: Array<MyConnectionResponseDto>;
+  /**
+   * Who in the team has connected what, shown to admins only; it never holds a token
+   */
+  people: Array<PersonConnectionResponseDto> | null;
+};
+
+export type SetToolRuleRequestDto = {
+  /**
+   * What to ask of calls made with the caller’s connection; it can only make the team’s rule stricter
+   */
+  rule: 'allowed' | 'needs-approval' | 'blocked';
+};
+
+export type DescribedSourceResponseDto = {
+  /**
+   * The kind of API description, or the MCP server, its tools are generated from
+   */
+  kind: 'openapi' | 'graphql' | 'mcp';
+  /**
+   * The sha256 of what was last read, kept while a later read fails; null when it has never been read
+   */
+  hash: string | null;
+  /**
+   * When the description was last read
+   */
+  readAt: string;
+  /**
+   * Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected, and lists an MCP server’s tools again every MCP_RELIST_SECONDS
+   */
+  problem: string | null;
+  /**
+   * How many of its tools were generated from the description
+   */
+  tools: number;
 };
 
 export type IntegrationResourceResponseDto = {
@@ -3401,11 +3569,15 @@ export type IntegrationResourceResponseDto = {
     [key: string]: unknown;
   };
   /**
-   * Each tool the integration offers, by its name within the integration, to the name a station or hook gives it by; not settable
+   * Each tool the integration offers, hand-written or generated from its API description, by its name within the integration, to the name a station or hook gives it by; not settable
    */
   tools: {
     [key: string]: string;
   };
+  /**
+   * The API description its tools are generated from, as last read; null when it names none; not settable
+   */
+  described: DescribedSourceResponseDto | null;
 };
 
 export type IntegrationResourceListResponseDto = {
@@ -12078,7 +12250,11 @@ export type CreateSecretData = {
     };
     bindings?: Array<{
       host: string;
-      header?: string;
+      carrier?: 'header' | 'query';
+      /**
+       * The header or query parameter it is worn in; authorization when a header is not named
+       */
+      name?: string;
       prefix?: string;
     }>;
     /**
@@ -12265,7 +12441,11 @@ export type UpdateSecretData = {
     };
     bindings?: Array<{
       host: string;
-      header?: string;
+      carrier?: 'header' | 'query';
+      /**
+       * The header or query parameter it is worn in; authorization when a header is not named
+       */
+      name?: string;
       prefix?: string;
     }>;
     /**
@@ -14961,7 +15141,7 @@ export type EditReviewCommentResponses = {
 export type EditReviewCommentResponse = EditReviewCommentResponses[keyof EditReviewCommentResponses];
 
 export type ConnectIntegrationData = {
-  body?: never;
+  body?: ConnectIntegrationRequestDto;
   path: {
     teamId: string;
     source: string;
@@ -14971,6 +15151,10 @@ export type ConnectIntegrationData = {
 };
 
 export type ConnectIntegrationErrors = {
+  /**
+   * It asks to connect for someone other than the team or me
+   */
+  400: unknown;
   /**
    * No valid session
    */
@@ -14986,6 +15170,97 @@ export type ConnectIntegrationResponses = {
 };
 
 export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
+
+export type ListConnectionsData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/connections';
+};
+
+export type ListConnectionsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type ListConnectionsResponses = {
+  200: HostConnectionsResponseDto;
+};
+
+export type ListConnectionsResponse = ListConnectionsResponses[keyof ListConnectionsResponses];
+
+export type DisconnectMineData = {
+  body?: never;
+  path: {
+    teamId: string;
+    source: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/integrations/{source}/connections/mine';
+};
+
+export type DisconnectMineErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+};
+
+export type DisconnectMineResponses = {
+  /**
+   * The caller’s connection is gone
+   */
+  204: void;
+};
+
+export type DisconnectMineResponse = DisconnectMineResponses[keyof DisconnectMineResponses];
+
+export type SetMyToolRuleData = {
+  body: SetToolRuleRequestDto;
+  path: {
+    teamId: string;
+    source: string;
+    tool: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/integrations/{source}/connections/mine/tools/{tool}';
+};
+
+export type SetMyToolRuleErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller, or the integration offers no such tool
+   */
+  404: unknown;
+  /**
+   * No such rule
+   */
+  422: unknown;
+};
+
+export type SetMyToolRuleResponses = {
+  /**
+   * The rule is set
+   */
+  204: void;
+};
+
+export type SetMyToolRuleResponse = SetMyToolRuleResponses[keyof SetMyToolRuleResponses];
 
 export type CreateIntegrationData = {
   body: {

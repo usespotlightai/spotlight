@@ -10,7 +10,7 @@ import {
 } from '@/lib/replay';
 import { replayableShown, runStateShown } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
 type SetRunRowProps = {

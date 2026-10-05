@@ -208,9 +208,9 @@ var pullRequesting = protocol.ToolManifest{
 	Name:        "pull-request",
 	Description: "Open a pull request for the branch this task was worked on.",
 	Inputs: []protocol.ToolInputManifest{
-		{Name: "title", Type: "string", Description: "What it does", Required: true},
-		{Name: "body", Type: "string", Description: "The detail, as Markdown", Piped: true},
-		{Name: "repository", Type: "string", Description: "Which of the line’s repositories, where it works several"},
+		{Name: "title", Schema: json.RawMessage(`{"type":"string"}`), Description: "What it does", Required: true},
+		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "The detail, as Markdown", Piped: true},
+		{Name: "repository", Schema: json.RawMessage(`{"type":"string"}`), Description: "Which of the line’s repositories, where it works several"},
 	},
 }
 
@@ -226,7 +226,7 @@ func openingPullRequests(t *testing.T) *map[string]any {
 		if err := json.Unmarshal(input, &carried); err != nil {
 			t.Errorf("carried %s: %v", input, err)
 		}
-		return json.RawMessage(`{"output":"https://github.com/acme/widgets/pull/7"}`), nil
+		return json.RawMessage(`{"output":{"url":"https://github.com/acme/widgets/pull/7"}}`), nil
 	})
 	server.Manifest([]protocol.ToolManifest{pullRequesting})
 
@@ -246,7 +246,7 @@ func TestOpensAPullRequestThroughItsTool(t *testing.T) {
 	if (*carried)["title"] != "Fix the queue" || (*carried)["body"] != "What it does." || (*carried)["repository"] != "api" {
 		t.Fatalf("carried = %v", *carried)
 	}
-	if strings.TrimSpace(out.String()) != "https://github.com/acme/widgets/pull/7" {
+	if !strings.Contains(out.String(), `"url": "https://github.com/acme/widgets/pull/7"`) {
 		t.Errorf("said %q, want where it landed", out.String())
 	}
 }

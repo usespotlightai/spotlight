@@ -6,7 +6,7 @@ import {
   flippedShown,
   MEASURED_ON_CONFIG,
 } from '@/lib/replay-words';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type NoiseDetailsProps = {
   set: ReplaySet;

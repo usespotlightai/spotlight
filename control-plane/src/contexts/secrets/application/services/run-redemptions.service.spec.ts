@@ -76,7 +76,7 @@ const holding = async () => {
       field: 'token',
     }),
     value: null,
-    bindings: [{ host: 'sentry.io', header: 'x-sentry-token' }],
+    bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
   });
   await kept('secret_loose', { name: 'LOOSE', bindings: [] });
   await kept('secret_lines', {
@@ -108,7 +108,8 @@ describe('RunRedemptions', () => {
         {
           secret: 'LINEAR_API_KEY',
           host: 'mcp.linear.app',
-          header: 'authorization',
+          carrier: 'header',
+          name: 'authorization',
           prefix: 'Bearer ',
           sealed: 'sealed(lin_api_1|recipient-key|run_1|LINEAR_API_KEY)',
           readInNetwork: null,
@@ -130,7 +131,8 @@ describe('RunRedemptions', () => {
       {
         secret: 'SENTRY_TOKEN',
         host: 'sentry.io',
-        header: 'x-sentry-token',
+        carrier: 'header',
+        name: 'x-sentry-token',
         prefix: '',
         sealed: null,
         readInNetwork: {
@@ -184,7 +186,7 @@ describe('RunRedemptions', () => {
       {
         secret: 'MULTI_LINE',
         reason:
-          'The MULTI_LINE secret holds more than one line, so it cannot be worn in a request header',
+          'The MULTI_LINE secret holds more than one line, so it cannot be worn in a request',
       },
     ]);
   });

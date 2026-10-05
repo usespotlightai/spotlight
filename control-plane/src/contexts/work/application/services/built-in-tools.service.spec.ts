@@ -29,6 +29,7 @@ const ON_TASK: TaskToolContext = {
   workspaceId: WorkspaceId.of('ws_1'),
   taskId: TaskId.of('task_1'),
   stationId: StationId.of('station_1'),
+  requester: null,
 };
 
 const IN_CHAT: ChatToolContext = {
@@ -37,6 +38,7 @@ const IN_CHAT: ChatToolContext = {
   workspaceId: WorkspaceId.of('ws_1'),
   chatId: ChatId.of('chat_1'),
   teamId: TeamId.of('team_1'),
+  requester: null,
 };
 
 const answering: BuiltInToolUse<TaskToolContext> = {

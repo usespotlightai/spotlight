@@ -26,7 +26,8 @@ const REDEEMED = {
     {
       secret: 'LINEAR_API_KEY',
       host: 'mcp.linear.app',
-      header: 'authorization',
+      carrier: 'header',
+      name: 'authorization',
       prefix: 'Bearer ',
       sealed: 'v1.sealed',
       readInNetwork: null,

@@ -54,6 +54,7 @@ import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.re
 import {
   InboxApprovalResponseDto,
   InboxAuthorResponseDto,
+  InboxConnectionResponseDto,
   InboxFailureResponseDto,
   InboxMessageResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
@@ -253,6 +254,9 @@ export class TaskController {
               : null,
             note.approval ? new InboxApprovalResponseDto(note.approval) : null,
             note.failure ? new InboxFailureResponseDto(note.failure) : null,
+            note.connection
+              ? new InboxConnectionResponseDto(note.connection)
+              : null,
           ),
       ),
       found.spend

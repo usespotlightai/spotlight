@@ -6,6 +6,7 @@ export const workspaceGeneralPath = (slug: string): string =>
 export const TEAM_SETTINGS_PAGES = [
   { id: 'general', label: 'General' },
   { id: 'integrations', label: 'Integrations' },
+  { id: 'connections', label: 'Connections' },
   { id: 'skills', label: 'Skills' },
 ] as const;
 

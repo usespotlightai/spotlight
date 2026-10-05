@@ -7,6 +7,7 @@ import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo'
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo';
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
 const listing = (
   name: string,
@@ -22,12 +23,12 @@ const listing = (
 
 const QUERY = {
   name: 'query',
-  type: 'string',
+  schema: InputSchema.ofType('string'),
   description: 'What to search for',
   required: true,
   defaulted: false,
   piped: false,
-} as const;
+};
 
 const WEB_SEARCH =
   'Search the web, and answer with the pages that match best: each one’s title, address and a short extract.';
@@ -48,7 +49,7 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
     QUERY,
     {
       name: 'limit',
-      type: 'number',
+      schema: InputSchema.ofType('number'),
       description: 'How many pages to answer with, at most',
       required: false,
       defaulted: false,
@@ -65,7 +66,7 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
     [
       {
         name: 'url',
-        type: 'string',
+        schema: InputSchema.ofType('string'),
         description: 'The page’s address',
         required: true,
         defaulted: false,

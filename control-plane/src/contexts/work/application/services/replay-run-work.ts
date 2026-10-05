@@ -4,6 +4,7 @@ import type { GitService } from '@work/application/ports/git-gateway.port';
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
 import type {
   Cleared,
+  ConnectionAsked,
   PermissionCleared,
   RunWork,
 } from '@work/application/services/run-work';
@@ -56,6 +57,10 @@ export class ReplayRunWork implements RunWork {
   }
 
   async clearFor(): Promise<Cleared> {
+    return { kind: 'refused', reason: NO_TOOLS };
+  }
+
+  async askToConnect(): Promise<ConnectionAsked> {
     return { kind: 'refused', reason: NO_TOOLS };
   }
 

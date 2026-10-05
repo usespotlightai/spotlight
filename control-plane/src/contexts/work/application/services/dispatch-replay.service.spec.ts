@@ -269,6 +269,7 @@ let taskGone = false;
 let held: Run | null = null;
 let kept: WorkspaceArchive | null = null;
 let queued: Run[] = [];
+let askedSkills: string[] = [];
 let askedAgain: { place: BriefedPlace; briefed: readonly NamedMemory[] }[] = [];
 
 const dispatching = () =>
@@ -295,7 +296,12 @@ const dispatching = () =>
       forChat: (chatId, runId) => `trace:${chatId.value}:${runId.value}`,
       forSearch: (searchId, runId) => `trace:${searchId.value}:${runId.value}`,
     },
-    { named: () => null },
+    {
+      named: (key) => {
+        askedSkills.push(key);
+        return null;
+      },
+    },
     { readyAt: async () => [] } as unknown as StationSkills,
     new StationCatalog({
       givenTo: async () => ({
@@ -368,6 +374,7 @@ describe('DispatchReplay', () => {
     held = original(STARTED);
     kept = sealed();
     queued = [];
+    askedSkills = [];
     askedAgain = [];
     gone = [];
     taskGone = false;
@@ -425,6 +432,8 @@ describe('DispatchReplay', () => {
     const spec = written(queued[0]);
 
     expect(spec.manifest).toBeUndefined();
+    expect(spec.briefing).not.toContain('## Tools');
+    expect(askedSkills).not.toContain('spotlight-tools');
     expect(spec.catalog).toBeUndefined();
     expect(spec.wears).toBeUndefined();
     expect(spec.startingPoint).toBeUndefined();

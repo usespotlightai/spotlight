@@ -115,7 +115,8 @@ export class RunRedemptions implements RunRedemptionsPort {
     const worn = {
       secret: secret.name.value,
       host: binding.host,
-      header: binding.header,
+      carrier: binding.carrier.kind,
+      name: binding.carrier.name,
       prefix: binding.prefix,
     };
     const inNetwork = secret.source.readInNetwork;

@@ -15,7 +15,8 @@ export interface KeptSecret {
   };
   readonly bindings: readonly {
     readonly host: string;
-    readonly header: string;
+    readonly carrier: string;
+    readonly name: string;
     readonly prefix: string;
   }[];
   readonly valueVersion: number | null;

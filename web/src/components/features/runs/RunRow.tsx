@@ -3,7 +3,7 @@ import { RunOwedMarker } from '@/components/features/runs/RunOwedMarker';
 import { InProgress } from '@/components/shared/InProgress';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type Run, standing, waitsOnPerson } from '@/lib/run';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
 

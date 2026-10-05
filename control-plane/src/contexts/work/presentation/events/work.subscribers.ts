@@ -3,6 +3,10 @@ import type {
   RunHoldDto,
 } from '@secrets/application/ports/run-grants.port';
 import {
+  HOST_CONNECTED,
+  type HostConnectedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-connected.integration-event';
+import {
   RUNNER_HOST_STARTED_SERVING,
   type RunnerHostStartedServingIntegrationEvent,
 } from '@shared-kernel/application/integration-events/runner-host-started-serving.integration-event';
@@ -41,6 +45,7 @@ import type {
   ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
 import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
+import type { ConnectionsMade } from '@work/application/services/connections-made.service';
 import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
 import type { PausedRuns } from '@work/application/services/paused-runs.service';
@@ -115,6 +120,7 @@ export const workSubscribers = (reactions: {
   runners: RunnerHolds;
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
+  connections: ConnectionsMade;
 }): readonly DomainEventSubscriber[] => [
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.end-secret-grants-of-ended-run',
@@ -150,6 +156,17 @@ export const workSubscribers = (reactions: {
     'work.take-up-the-run-a-person-answered',
     ['task.answered'],
     (event) => reactions.pausedRuns.onTaskAnswered(event),
+  ),
+  subscribing<HostConnectedIntegrationEvent>(
+    'work.answer-asks-to-connect',
+    [HOST_CONNECTED],
+    async (event) =>
+      event.personId !== null &&
+      reactions.connections.answer({
+        teamId: TeamId.of(event.teamId),
+        source: event.source,
+        personId: UserId.of(event.personId),
+      }),
   ),
   subscribing<RunReservationDropped>(
     'work.let-go-of-reserved-runner',

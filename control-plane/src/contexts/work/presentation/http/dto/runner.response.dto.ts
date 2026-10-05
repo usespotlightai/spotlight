@@ -3,6 +3,39 @@ import {
   PERMISSION_ANSWERS,
   type PermissionAnswer,
 } from '@work/application/dto/permission-answer.dto';
+import type { ToolActingAsDto } from '@work/application/ports/integration-tool-calls.port';
+
+export class ToolActingAsResponseDto {
+  @ApiProperty({
+    description:
+      'Whose connection the call used: the team’s, or the person’s who started the task',
+    enum: ['team', 'person'],
+    example: 'person',
+  })
+  readonly holder: 'team' | 'person';
+
+  @ApiProperty({
+    description: 'The person whose connection it was, where it was a person’s',
+    example: 'user_1',
+    nullable: true,
+    type: String,
+  })
+  readonly personId: string | null;
+
+  @ApiProperty({
+    description: 'What the host calls whoever the call acted as, where it says',
+    example: '@alice',
+    nullable: true,
+    type: String,
+  })
+  readonly handle: string | null;
+
+  constructor(actingAs: ToolActingAsDto) {
+    this.holder = actingAs.holder;
+    this.personId = actingAs.personId;
+    this.handle = actingAs.handle;
+  }
+}
 
 export class ToolAnswerResponseDto {
   @ApiProperty({
@@ -19,8 +52,17 @@ export class ToolAnswerResponseDto {
   })
   readonly output: unknown;
 
-  constructor(output: unknown) {
+  @ApiProperty({
+    type: ToolActingAsResponseDto,
+    nullable: true,
+    description:
+      'Whose connection the call acted with, where its integration connects',
+  })
+  readonly actingAs: ToolActingAsResponseDto | null;
+
+  constructor(output: unknown, actingAs: ToolActingAsResponseDto | null) {
     this.output = output;
+    this.actingAs = actingAs;
   }
 }
 

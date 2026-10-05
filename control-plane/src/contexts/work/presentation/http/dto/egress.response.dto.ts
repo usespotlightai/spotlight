@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
 
 export class ReadInNetworkResponseDto {
   @ApiProperty({ enum: ['aws-secrets-manager'] })
@@ -34,8 +35,19 @@ export class RedeemedSecretResponseDto {
   })
   readonly host: string;
 
-  @ApiProperty({ example: 'authorization' })
-  readonly header: string;
+  @ApiProperty({
+    enum: SECRET_CARRIERS,
+    example: 'header',
+    description:
+      'Whether egress wears it in a request header or a query parameter',
+  })
+  readonly carrier: string;
+
+  @ApiProperty({
+    example: 'authorization',
+    description: 'The header or query parameter that holds its stand-in',
+  })
+  readonly name: string;
 
   @ApiProperty({ example: 'Bearer ' })
   readonly prefix: string;
@@ -59,14 +71,16 @@ export class RedeemedSecretResponseDto {
   constructor(
     secret: string,
     host: string,
-    header: string,
+    carrier: string,
+    name: string,
     prefix: string,
     sealed: string | null,
     readInNetwork: ReadInNetworkResponseDto | null,
   ) {
     this.secret = secret;
     this.host = host;
-    this.header = header;
+    this.carrier = carrier;
+    this.name = name;
     this.prefix = prefix;
     this.sealed = sealed;
     this.readInNetwork = readInNetwork;

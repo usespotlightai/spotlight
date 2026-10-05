@@ -1,10 +1,11 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import {
+  isJsonObject,
+  isJsonValue,
+  type JsonObject,
+} from '@shared-kernel/domain/services/json-value';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import type { Continuity } from '@work/domain/value-objects/continuity.vo';
-import {
-  TOOL_INPUT_TYPES,
-  type ToolInputType,
-} from '@work/domain/value-objects/declared-tool.vo';
 import {
   checkoutFoldersOf,
   type RunAttachment,
@@ -18,6 +19,7 @@ import {
   type RunSearch,
   RunSpec,
   type RunSpecParts,
+  type RunToolApproval,
   type RunToolInput,
   type RunToolManifest,
 } from '@work/domain/value-objects/run-spec.vo';
@@ -118,10 +120,10 @@ const commandOf = (raw: unknown): RunCommand => {
   };
 };
 
-const inputTypeOf = (raw: unknown): ToolInputType =>
-  (TOOL_INPUT_TYPES as readonly unknown[]).includes(raw)
-    ? (raw as ToolInputType)
-    : unreadable('what a tool takes');
+const inputSchemaOf = (raw: unknown): JsonObject =>
+  isJsonObject(raw) && isJsonValue(raw)
+    ? raw
+    : unreadable('the shape a tool input takes');
 
 const toolInputOf = (raw: unknown): RunToolInput => {
   const given = objectAt(raw, 'what a tool takes');
@@ -129,7 +131,7 @@ const toolInputOf = (raw: unknown): RunToolInput => {
 
   return {
     name: stringAt(given.name, 'what a tool takes'),
-    type: inputTypeOf(given.type),
+    schema: inputSchemaOf(given.schema),
     ...(description !== undefined ? { description } : {}),
     required: booleanAt(given.required, 'what a tool takes'),
     defaulted: booleanAt(given.defaulted, 'what a tool takes'),
@@ -137,13 +139,37 @@ const toolInputOf = (raw: unknown): RunToolInput => {
   };
 };
 
+const toolApprovalOf = (raw: unknown): RunToolApproval | null =>
+  raw === null
+    ? null
+    : {
+        because: stringAt(
+          objectAt(raw, 'why a tool waits for a person').because,
+          'why a tool waits for a person',
+        ),
+      };
+
+const toolOutputOf = (raw: unknown): JsonObject =>
+  isJsonObject(raw) && isJsonValue(raw)
+    ? raw
+    : unreadable('what a tool answered before');
+
 const toolOf = (raw: unknown): RunToolManifest => {
   const given = objectAt(raw, 'its tools');
+  const integration = optionalStringAt(
+    given.integration,
+    'the integration a tool comes from',
+  );
 
   return {
     name: stringAt(given.name, 'its tools'),
     description: stringAt(given.description, 'its tools'),
     inputs: listAt(given.inputs, 'what a tool takes', toolInputOf),
+    approval: toolApprovalOf(given.approval),
+    ...(integration !== undefined ? { integration } : {}),
+    ...(given.output !== undefined
+      ? { output: toolOutputOf(given.output) }
+      : {}),
   };
 };
 

@@ -15,6 +15,7 @@ const COMMENT: Approval = {
   standing: 'asked',
   edited: null,
   intent: 'post the drain summary on the issue, publicly under the team’s name',
+  askedOf: null,
 };
 
 const EXECUTE: Approval = {
@@ -25,6 +26,7 @@ const EXECUTE: Approval = {
   standing: 'asked',
   edited: null,
   intent: null,
+  askedOf: null,
 };
 
 const showing = (approval: Approval, onDecide = vi.fn()) => {
@@ -70,6 +72,48 @@ describe('ApprovalCard', () => {
     );
 
     expect(onDecide).toHaveBeenCalledWith({ approve: true, said: '' });
+  });
+
+  it('lets only the person it was asked of approve it, and anyone dismiss it', async () => {
+    const onDecide = vi.fn();
+    render(
+      <ApprovalCard
+        approval={{ ...COMMENT, askedOf: { id: 'user_alice', name: 'Alice' } }}
+        viewerId="user_bob"
+        pending={false}
+        onDecide={onDecide}
+      />,
+    );
+
+    expect(screen.getByText('Only Alice can approve this')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Approve linear.comment' }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Edit linear.comment' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Dismiss linear.comment' }),
+    ).toBeEnabled();
+  });
+
+  it('lets the person it was asked of approve it', async () => {
+    const onDecide = vi.fn();
+    render(
+      <ApprovalCard
+        approval={{ ...COMMENT, askedOf: { id: 'user_alice', name: 'Alice' } }}
+        viewerId="user_alice"
+        pending={false}
+        onDecide={onDecide}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Approve linear.comment' }),
+    );
+
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, said: '' });
+    expect(screen.queryByText(/Only .* can approve this/)).toBeNull();
   });
 
   it('approves it with what the person changed', async () => {

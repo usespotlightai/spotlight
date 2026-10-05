@@ -16,6 +16,11 @@ interface InboxAuthor {
   readonly image: string | null;
 }
 
+interface InboxPerson {
+  readonly id: string;
+  readonly name: string;
+}
+
 interface InboxApprovalInput {
   readonly name: string;
   readonly value: string;
@@ -29,6 +34,15 @@ export interface InboxApproval {
   readonly standing: ApprovalStanding;
   readonly edited: readonly InboxApprovalInput[] | null;
   readonly intent: string | null;
+  readonly askedOf: InboxPerson | null;
+}
+
+export interface InboxConnection {
+  readonly source: string;
+  readonly integration: string;
+  readonly personId: string;
+  readonly personName: string;
+  readonly met: boolean;
 }
 
 export interface InboxFailure {
@@ -53,6 +67,7 @@ export interface InboxNote {
   readonly readAt: Date | null;
   readonly approval: InboxApproval | null;
   readonly failure: InboxFailure | null;
+  readonly connection: InboxConnection | null;
 }
 
 interface InboxAside {

@@ -7,7 +7,11 @@ import type {
   IdempotentCreate,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
-import { and, eq, sql } from 'drizzle-orm';
+import type {
+  IdempotentRecall,
+  IdempotentRecallsPort,
+} from '@shared-kernel/application/ports/idempotent-recalls.port';
+import { and, eq, type SQL, sql } from 'drizzle-orm';
 
 const KEPT_FOR = '24 hours';
 
@@ -30,8 +34,31 @@ const matching = (create: IdempotentCreate) =>
   );
 
 @Injectable()
-export class DrizzleIdempotentCreates implements IdempotentCreatesPort {
+export class DrizzleIdempotentCreates
+  implements IdempotentCreatesPort, IdempotentRecallsPort
+{
   constructor(private readonly context: DrizzleContext) {}
+
+  async recall(create: IdempotentCreate): Promise<IdempotentRecall> {
+    const held = await this.held(
+      and(
+        matching(create),
+        sql`${idempotentCreate.createdAt} >= now() - ${KEPT_FOR}::interval`,
+      ),
+    );
+
+    if (!held) {
+      return { kind: 'unseen' };
+    }
+
+    if (held.fingerprint !== fingerprintOf(create)) {
+      return { kind: 'reused' };
+    }
+
+    return held.createdId
+      ? { kind: 'replay', createdId: held.createdId }
+      : { kind: 'unseen' };
+  }
 
   async claim(create: IdempotentCreate): Promise<IdempotentClaim> {
     const fingerprint = fingerprintOf(create);
@@ -49,13 +76,7 @@ export class DrizzleIdempotentCreates implements IdempotentCreatesPort {
       return { kind: 'fresh' };
     }
 
-    const [held] = await this.context.db
-      .select({
-        fingerprint: idempotentCreate.fingerprint,
-        createdId: idempotentCreate.createdId,
-      })
-      .from(idempotentCreate)
-      .where(matching(create));
+    const held = await this.held(matching(create));
 
     return held?.fingerprint === fingerprint && held.createdId
       ? { kind: 'replay', createdId: held.createdId }
@@ -67,5 +88,17 @@ export class DrizzleIdempotentCreates implements IdempotentCreatesPort {
       .update(idempotentCreate)
       .set({ createdId: id })
       .where(matching(create));
+  }
+
+  private async held(where: SQL | undefined) {
+    const [held] = await this.context.db
+      .select({
+        fingerprint: idempotentCreate.fingerprint,
+        createdId: idempotentCreate.createdId,
+      })
+      .from(idempotentCreate)
+      .where(where);
+
+    return held;
   }
 }

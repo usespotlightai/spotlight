@@ -4,7 +4,10 @@ import {
   compileIntegration,
   type RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import {
+  ANSWER_AT_MOST_BYTES,
+  HttpOutbound,
+} from '@integrations/infrastructure/outbound/http-outbound';
 import {
   credentialsFor,
   injecting,
@@ -202,13 +205,67 @@ actions:
     });
   });
 
-  it('follows no redirect while wearing a secret', async () => {
-    const fetch = replying({ ok: true });
+  it('follows a redirect itself, wearing nothing toward another host', async () => {
+    const fetch = vi.fn(async (url: string) =>
+      url.startsWith('https://slack.com')
+        ? new Response(null, {
+            status: 307,
+            headers: { location: 'https://files.slack-edge.com/post' },
+          })
+        : new Response(JSON.stringify({ ok: true, ts: '1' })),
+    );
 
-    await new HttpOutbound(['slack.com'], fetch).run(action(), against, SLACK);
+    await new HttpOutbound(
+      ['slack.com', 'slack-edge.com'],
+      fetch as unknown as typeof globalThis.fetch,
+    ).run(action(), against, SLACK);
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(init.redirect).toBe('manual');
+    const [first, second] = fetch.mock.calls as unknown as [
+      [string, RequestInit],
+      [string, RequestInit],
+    ];
+    expect(first[1].redirect).toBe('manual');
+    expect((first[1].headers as Record<string, string>).authorization).toBe(
+      'Bearer xoxb-1',
+    );
+    expect(second[0]).toBe('https://files.slack-edge.com/post');
+    expect(second[1].method).toBe('POST');
+    expect(
+      (second[1].headers as Record<string, string>).authorization,
+    ).toBeUndefined();
+  });
+
+  it('checks every host a redirect sends it to', async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: 'https://169.254.169.254/latest' },
+        }),
+    );
+
+    await expect(
+      new HttpOutbound(['slack.com'], fetch).run(action(), against, SLACK),
+    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses an answer larger than it reads from a tool', async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response('{}', {
+          headers: { 'content-length': String(ANSWER_AT_MOST_BYTES + 1) },
+        }),
+    );
+
+    await expect(
+      new HttpOutbound(['slack.com'], fetch).answer(
+        { method: 'GET', url: 'https://slack.com/api/x', headers: {} },
+        null,
+        null,
+        SLACK,
+      ),
+    ).rejects.toThrow(/larger than the 4 MB/);
   });
 
   it('refuses a host the deployment did not allow', async () => {
@@ -408,5 +465,93 @@ actions:
       ),
     ).rejects.toThrow(/actions\.post\.request\.body\.text/);
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('HttpOutbound, a secret worn in the query', () => {
+  const GOOGLE = credentialsFor({
+    MAPS_KEY: {
+      host: 'maps.googleapis.com',
+      carrier: 'query',
+      name: 'key',
+      value: 'AIza-1/2',
+    },
+  });
+
+  const geocode = {
+    method: 'GET',
+    url: 'https://maps.googleapis.com/maps/api/geocode/json?address=10%20Downing%20St&key=forged',
+    headers: { accept: 'application/json' },
+  };
+
+  const auth = { kind: 'secrets', secrets: ['MAPS_KEY'] } as const;
+
+  it('reaches the host with the key in its parameter, the rest of the query kept', async () => {
+    const fetch = replying({ results: [] });
+    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+
+    await out.answer(geocode, auth, null, GOOGLE);
+
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    const reached = new URL(url);
+    expect(reached.searchParams.getAll('key')).toEqual(['AIza-1/2']);
+    expect(reached.searchParams.get('address')).toBe('10 Downing St');
+    expect(init.headers).toEqual({ accept: 'application/json' });
+  });
+
+  it('answers with the key taken out of whatever the host echoed', async () => {
+    const fetch = replying(
+      {
+        error: {
+          message: 'API key not valid: AIza-1/2',
+          url: 'https://maps.googleapis.com/?key=AIza-1%2F2',
+        },
+      },
+      400,
+    );
+    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+
+    const answered = await out.answer(geocode, auth, null, GOOGLE);
+
+    expect(answered.status).toBe(400);
+    expect(JSON.stringify(answered.response)).not.toContain('AIza');
+    expect(JSON.stringify(answered.response)).toContain('[secret]');
+  });
+
+  it('says why a call never arrived without the key in what it says', async () => {
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      throw new TypeError(`fetch failed for ${String(url)}`);
+    });
+    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+
+    const refused = await out
+      .answer(geocode, auth, null, GOOGLE)
+      .catch((error: unknown) => error);
+
+    expect(refused).toBeInstanceOf(UpstreamRefusedError);
+    expect((refused as Error).message).not.toContain('AIza');
+  });
+
+  it('wears nothing toward another host a redirect sends it to, even where the redirect echoes the key', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: {
+            location: 'https://cdn.example.com/geocode?page=2&key=AIza-1%2F2',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    const out = new HttpOutbound(
+      ['maps.googleapis.com', 'cdn.example.com'],
+      fetch,
+    );
+
+    await out.answer(geocode, auth, null, GOOGLE);
+
+    const [second] = fetch.mock.calls[1] as unknown as [string];
+    expect(second).toBe('https://cdn.example.com/geocode?page=2&key=[secret]');
   });
 });

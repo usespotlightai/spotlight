@@ -177,7 +177,9 @@ describe('an integration, created through the resource API (e2e)', () => {
     ]);
     expect(
       (
-        await app.get<TeamIntegrationsPort>(TEAM_INTEGRATIONS).offered(teamId)
+        await app
+          .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
+          .offered(teamId, ['linear.comment'])
       ).map((each) => each.tool),
     ).toEqual(['linear.comment']);
   });

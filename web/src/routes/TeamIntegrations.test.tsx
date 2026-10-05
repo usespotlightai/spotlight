@@ -44,6 +44,7 @@ const listening = (over: Record<string, unknown> = {}) => ({
   path: 'integrations/linear',
   standing: 'listens',
   handle: null,
+  described: null,
   ...over,
 });
 
@@ -177,7 +178,7 @@ describe('TeamIntegrations', () => {
       screen.getByRole('button', { name: 'Connect to Linear' }),
     );
 
-    expect(connect).toHaveBeenCalledWith('linear');
+    expect(connect).toHaveBeenCalledWith({ source: 'linear' });
   });
 
   it('says what the host calls the team once it is connected', () => {
@@ -214,5 +215,89 @@ describe('TeamIntegrations', () => {
     expect(
       screen.getByRole('link', { name: 'Manage on GitHub' }),
     ).toHaveAttribute('href', INSTALL);
+  });
+
+  it('says how many tools a host’s API description gave, and when it was read', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([
+        listening({
+          source: 'petstore',
+          name: 'Petstore',
+          described: {
+            kind: 'openapi',
+            tools: 19,
+            readAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            problem: null,
+          },
+        }),
+      ]),
+    );
+    showing();
+
+    expect(
+      screen.getByText('19 tools from its OpenAPI description, read 2h ago.'),
+    ).toBeInTheDocument();
+  });
+
+  it('says how many tools a host’s MCP server lists', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([
+        listening({
+          source: 'tracker',
+          name: 'Tracker',
+          described: {
+            kind: 'mcp',
+            tools: 24,
+            readAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            problem: null,
+          },
+        }),
+      ]),
+    );
+    showing();
+
+    expect(
+      screen.getByText('24 tools from its MCP server, read 2h ago.'),
+    ).toBeInTheDocument();
+  });
+
+  it('says why a host’s API description could not be read', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([
+        listening({
+          described: {
+            kind: 'graphql',
+            tools: 0,
+            readAt: new Date().toISOString(),
+            problem: 'could not be read: api.linear.app answered 401',
+          },
+        }),
+      ]),
+    );
+    showing();
+
+    expect(
+      screen.getByText(
+        'Its GraphQL schema could not be read: api.linear.app answered 401.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says an integration’s tools act as each person, and points them to their own connection', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([listening({ standing: 'unlinked', holding: 'requester' })]),
+    );
+    showing();
+
+    expect(
+      screen.getByText('Its tools act as each person who starts a task.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Your connection' }),
+    ).toHaveAttribute('href', '/w/acme/settings/team/team_1/connections');
   });
 });

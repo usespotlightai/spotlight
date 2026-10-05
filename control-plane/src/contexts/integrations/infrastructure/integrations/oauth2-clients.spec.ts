@@ -5,7 +5,11 @@ describe('OAuth2Clients', () => {
   it('reads a source’s app from the deployment map', () => {
     const clients = OAuth2Clients.from('{"slack":{"id":"c-1","secret":"s-1"}}');
 
-    expect(clients.of('slack')).toEqual({ id: 'c-1', secret: 's-1' });
+    expect(clients.of('slack')).toEqual({
+      id: 'c-1',
+      secret: 's-1',
+      issuer: null,
+    });
   });
 
   it('has nothing for a host the deployment did not register', () => {

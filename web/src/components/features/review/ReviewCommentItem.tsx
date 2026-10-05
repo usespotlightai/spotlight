@@ -8,7 +8,7 @@ import { useDeleteReviewComment } from '@/hooks/api/useDeleteReviewComment';
 import { useEditReviewComment } from '@/hooks/api/useEditReviewComment';
 import { type ReviewComment, whoWrote } from '@/lib/review';
 import { useReviewing } from '@/lib/review-context';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 const ACTION =
   'rounded text-muted-foreground text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70';

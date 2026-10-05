@@ -12,7 +12,8 @@ import {
 
 export interface SecretBindingRow {
   readonly host: string;
-  readonly header: string;
+  readonly carrier: string;
+  readonly name: string;
   readonly prefix: string;
 }
 

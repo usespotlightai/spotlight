@@ -18,8 +18,8 @@ import {
   type NamedHarness,
   runnerStanding,
   runShown,
-  since,
 } from '@/lib/runner';
+import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
 type RunnerRowProps = {

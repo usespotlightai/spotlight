@@ -1,20 +1,22 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
-import { WORDS } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import {
+  INPUT_NAME,
+  WHOLE_CALL_INPUT,
+  WORDS,
+} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
-export const TOOL_INPUT_TYPES = ['string', 'number', 'boolean'] as const;
-
-export type ToolInputType = (typeof TOOL_INPUT_TYPES)[number];
-
-export const TOOL_INPUT_NAME = new RegExp(`^${WORDS}$`);
+export const TOOL_INPUT_NAME = new RegExp(`^${INPUT_NAME}$`);
 
 const TOOL_NAME = new RegExp(`^${WORDS}$`);
 
 export interface OfferedToolInput {
   readonly name: string;
-  readonly type: ToolInputType;
+  readonly schema: InputSchema;
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;
@@ -27,7 +29,7 @@ export class OfferedTool {
     readonly name: string,
     readonly description: string,
     readonly inputs: readonly OfferedToolInput[],
-    readonly does: string,
+    readonly backing: ToolBacking,
     readonly approval: ApprovalNeeded | null,
   ) {}
 
@@ -36,7 +38,7 @@ export class OfferedTool {
     name: string;
     description: string;
     inputs?: readonly OfferedToolInput[];
-    does: string;
+    backing: ToolBacking;
     approval?: ApprovalNeeded | null;
   }): OfferedTool {
     const name = input.name.trim();
@@ -61,7 +63,13 @@ export class OfferedTool {
     for (const each of inputs) {
       if (!TOOL_INPUT_NAME.test(each.name)) {
         throw refuse(
-          `takes ${JSON.stringify(each.name)}: name an input in lowercase words joined by dashes, as in issue`,
+          `takes ${JSON.stringify(each.name)}: name an input in letters, digits, dashes and underscores, as in issue or team_id`,
+        );
+      }
+
+      if (each.name === WHOLE_CALL_INPUT) {
+        throw refuse(
+          `takes ${WHOLE_CALL_INPUT}, which Spotlight keeps for handing a tool every input at once`,
         );
       }
     }
@@ -86,7 +94,7 @@ export class OfferedTool {
       );
     }
 
-    if (piped.some((each) => each.type !== 'string')) {
+    if (piped.some((each) => !each.schema.takesText)) {
       throw refuse(
         'has an input piped in that is not text, and text is what is piped',
       );
@@ -97,7 +105,7 @@ export class OfferedTool {
       name,
       description,
       inputs,
-      input.does,
+      input.backing,
       input.approval ?? null,
     );
   }

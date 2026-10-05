@@ -1,6 +1,9 @@
 import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { Station } from '@work/domain/entities/station.entity';
-import { HANDING_OVER } from '@work/domain/services/built-in-skills';
+import {
+  HANDING_OVER,
+  USING_TOOLS,
+} from '@work/domain/services/built-in-skills';
 import { builtInTool } from '@work/domain/services/built-in-tools';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
@@ -79,3 +82,10 @@ export const describedTools = (
 
     return found ? [found] : [];
   });
+
+export const skillsForTools = (
+  described: readonly DeclaredTool[],
+): SkillKey[] =>
+  described.some((each) => each.tool.origin !== 'built-in')
+    ? [USING_TOOLS]
+    : [];

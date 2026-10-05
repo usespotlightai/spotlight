@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -28,11 +29,13 @@ type wearing map[string]http.Header
 
 func (w wearing) Wears(host string) bool { return w[host] != nil }
 
-func (w wearing) Onto(host string, header http.Header) {
+func (w wearing) Unwear(string, *http.Response) {}
+
+func (w wearing) Onto(host string, r *http.Request) {
 	for name, values := range w[host] {
-		header.Del(name)
+		r.Header.Del(name)
 		for _, value := range values {
-			header.Add(name, value)
+			r.Header.Add(name, value)
 		}
 	}
 }
@@ -80,6 +83,16 @@ func riggedWith(t *testing.T, allowed []string, worn Wearing, wornToward []strin
 		upstream.mu.Lock()
 		upstream.requests = append(upstream.requests, r.Clone(context.Background()))
 		upstream.mu.Unlock()
+		switch r.URL.Path {
+		case "/moved":
+			w.Header().Set("Location", "https://"+r.Host+"/next?"+r.URL.RawQuery)
+			w.WriteHeader(http.StatusFound)
+			return
+		case "/echo":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"asked":"`+r.URL.RawQuery+`","key":"`+r.URL.Query().Get("key")+`"}`)
+			return
+		}
 		_, _ = io.WriteString(w, "answered "+r.Host)
 	})
 	secure := httptest.NewTLSServer(answer)
@@ -303,15 +316,16 @@ func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
 	held := wear.From(context.Background(), protocol.EgressRedemption{
 		RunID: "run_1",
 		Secrets: []protocol.RedeemedSecret{
-			{Secret: "LINEAR_API_KEY", Host: "mcp.example.com", Header: "authorization", Prefix: "Bearer ", Sealed: "sealed:lin_api_1"},
-			{Secret: "LINEAR_ORG", Host: "mcp.example.com", Header: "x-org", Sealed: "sealed:acme"},
+			{Secret: "LINEAR_API_KEY", Host: "mcp.example.com", Carrier: "header", Name: "authorization", Prefix: "Bearer ", Sealed: "sealed:lin_api_1"},
+			{Secret: "LINEAR_ORG", Host: "mcp.example.com", Carrier: "header", Name: "x-org", Sealed: "sealed:acme"},
+			{Secret: "MCP_KEY", Host: "mcp.example.com", Carrier: "query", Name: "key", Sealed: "sealed:k/1"},
 		},
 	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
 	r := riggedWith(t, nil, held, held.Hosts())
 
 	response, body := r.get(t, "https://mcp.example.com/", http.Header{
 		"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"},
-		"X-Org":         {"forged", "twice"},
+		"X-Org":         {"spotlight-egress:LINEAR_ORG"},
 	})
 	if response == nil || response.StatusCode != http.StatusOK {
 		t.Fatalf("answered %v: %s", response, body)
@@ -322,9 +336,24 @@ func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
 		t.Errorf("the host saw %v", got)
 	}
 
+	r.get(t, "https://mcp.example.com/tools?b=1&key=spotlight-egress:MCP_KEY&a=%7E", nil)
+	if got := r.upstream.last().URL.RawQuery; got != "b=1&key=k%2F1&a=%7E" {
+		t.Errorf("the host saw the query %q", got)
+	}
+
+	r.get(t, "https://mcp.example.com/", http.Header{"Authorization": {"Bearer mine"}, "X-Org": {"forged", "twice"}})
+	if got := r.upstream.last().Header; got.Get("Authorization") != "Bearer mine" || !slices.Equal(got.Values("X-Org"), []string{"forged", "twice"}) {
+		t.Errorf("wore a secret over what the sandbox sent without its stand-in: %v", got)
+	}
+
+	r.get(t, "https://mcp.example.com/", http.Header{"X-Api-Key": {"spotlight-egress:UNKNOWN"}})
+	if got := r.upstream.last().Header; got.Get("X-Api-Key") != "" || got.Get("Authorization") != "" {
+		t.Errorf("sent on a stand-in it does not hold, or wore a secret nobody asked for: %v", got)
+	}
+
 	held.Forget()
 	r.get(t, "https://mcp.example.com/", http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"}})
-	if got := r.upstream.last().Header.Get("Authorization"); got != "Bearer spotlight-egress:LINEAR_API_KEY" {
+	if got := r.upstream.last().Header.Get("Authorization"); got != "" && got != "Bearer spotlight-egress:LINEAR_API_KEY" {
 		t.Errorf("wore %q after forgetting", got)
 	}
 }
@@ -355,5 +384,72 @@ func TestTellsTheDialWhetherTheListNamesTheHostOnEveryPath(t *testing.T) {
 		if !seen[address] {
 			t.Errorf("the dial to %s did not know the list names it: %v", address, seen)
 		}
+	}
+}
+
+func TestSaysACallFailedWithoutEchoingTheAddressItWoreASecretIn(t *testing.T) {
+	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
+	list, _ := reach.Parse(nil)
+	held := wear.From(context.Background(), protocol.EgressRedemption{
+		RunID: "run_1",
+		Secrets: []protocol.RedeemedSecret{
+			{Secret: "MAPS_KEY", Host: "maps.example.com", Carrier: "query", Name: "key", Sealed: "sealed:AIza-secret"},
+		},
+	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
+	r := riggedWith(t, nil, held, held.Hosts())
+	var logged strings.Builder
+	r.proxy.log = slog.New(slog.NewTextHandler(&logged, nil))
+	r.proxy.transport.DialContext = func(context.Context, string, string) (net.Conn, error) {
+		return nil, &url.Error{Op: "Get", URL: "https://maps.example.com/geocode?key=AIza-secret", Err: errors.New("connection refused")}
+	}
+
+	response, body := r.get(t, "https://maps.example.com/geocode?key=spotlight-egress:MAPS_KEY", nil)
+	if response == nil || response.StatusCode != http.StatusBadGateway {
+		t.Fatalf("answered %v: %s", response, body)
+	}
+	if strings.Contains(body, "AIza") || strings.Contains(logged.String(), "AIza") {
+		t.Errorf("echoed the secret: answered %q, logged %q", body, logged.String())
+	}
+	if !strings.Contains(body, "maps.example.com") || !strings.Contains(logged.String(), "connection refused") {
+		t.Errorf("did not say what failed: answered %q, logged %q", body, logged.String())
+	}
+}
+
+func TestHandsTheSandboxBackTheStandInWhereTheHostEchoesTheSecret(t *testing.T) {
+	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
+	list, _ := reach.Parse(nil)
+	held := wear.From(context.Background(), protocol.EgressRedemption{
+		RunID: "run_1",
+		Secrets: []protocol.RedeemedSecret{
+			{Secret: "MAPS_KEY", Host: "maps.example.com", Carrier: "query", Name: "key", Sealed: "sealed:AIza/secret"},
+		},
+	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
+	r := riggedWith(t, nil, held, held.Hosts())
+	client := *r.client
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+
+	moved, err := client.Get("https://maps.example.com/moved?key=spotlight-egress:MAPS_KEY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = moved.Body.Close()
+	if location := moved.Header.Get("Location"); strings.Contains(location, "AIza") || !strings.Contains(location, "spotlight-egress%3AMAPS_KEY") {
+		t.Errorf("the sandbox was redirected to %q", location)
+	}
+	if got := r.upstream.last().URL.Query().Get("key"); got != "AIza/secret" {
+		t.Errorf("the host saw the key %q", got)
+	}
+
+	echoed, err := client.Get("https://maps.example.com/echo?key=spotlight-egress:MAPS_KEY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(echoed.Body)
+	_ = echoed.Body.Close()
+	if strings.Contains(string(body), "AIza") || !strings.Contains(string(body), `"key":"spotlight-egress:MAPS_KEY"`) {
+		t.Errorf("the sandbox read %s", body)
+	}
+	if echoed.ContentLength != -1 && echoed.ContentLength != int64(len(body)) {
+		t.Errorf("answered %d bytes saying %d", len(body), echoed.ContentLength)
 	}
 }

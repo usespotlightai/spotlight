@@ -22,18 +22,41 @@ describe('SecretBindings', () => {
 
     expect(binding).toMatchObject({
       host: 'api.linear.app',
-      header: 'authorization',
+      carrier: { kind: 'header', name: 'authorization' },
       prefix: '',
     });
   });
 
+  it('is worn in a query parameter it names, keeping the name’s case', () => {
+    const [binding] = SecretBindings.of([
+      { host: 'maps.googleapis.com', carrier: 'query', name: 'apiKey' },
+    ]).all;
+
+    expect(binding?.carrier).toMatchObject({ kind: 'query', name: 'apiKey' });
+  });
+
+  it('refuses a query carrier with no parameter, or one no URL can spell plainly', () => {
+    for (const name of [undefined, '', 'api key', 'key=1', 'k&x', 'ключ']) {
+      expect(
+        refusedAt([{ host: 'maps.googleapis.com', carrier: 'query', name }]),
+        String(name),
+      ).toEqual(['bindings', 0, 'name']);
+    }
+  });
+
+  it('refuses a carrier that is neither a header nor a query parameter', () => {
+    expect(
+      refusedAt([{ host: 'api.linear.app', carrier: 'cookie', name: 'k' }]),
+    ).toEqual(['bindings', 0, 'carrier']);
+  });
+
   it('finds the binding toward a URL by its exact host', () => {
     const bindings = SecretBindings.of([
-      { host: 'api.linear.app', header: 'X-Api-Key' },
+      { host: 'api.linear.app', name: 'X-Api-Key' },
     ]);
 
     expect(
-      bindings.toward(new URL('https://api.linear.app/graphql'))?.header,
+      bindings.toward(new URL('https://api.linear.app/graphql'))?.carrier.name,
     ).toBe('x-api-key');
     expect(bindings.toward(new URL('https://linear.app/'))).toBeNull();
   });
@@ -52,11 +75,11 @@ describe('SecretBindings', () => {
   });
 
   it('refuses a header that is not one, or that frames the request', () => {
-    for (const header of ['x api key', 'host', 'Content-Length', 'x-\nkey']) {
-      expect(refusedAt([{ host: 'api.linear.app', header }]), header).toEqual([
+    for (const name of ['x api key', 'host', 'Content-Length', 'x-\nkey']) {
+      expect(refusedAt([{ host: 'api.linear.app', name }]), name).toEqual([
         'bindings',
         0,
-        'header',
+        'name',
       ]);
     }
   });
@@ -80,5 +103,12 @@ describe('SecretBindings', () => {
       one.equals(SecretBindings.of([{ host: 'a.example', prefix: 'Bearer ' }])),
     ).toBe(true);
     expect(one.equals(SecretBindings.of([{ host: 'a.example' }]))).toBe(false);
+    expect(
+      one.equals(
+        SecretBindings.of([
+          { host: 'a.example', carrier: 'query', name: 'authorization' },
+        ]),
+      ),
+    ).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import { InboxItem } from '@/routes/InboxItem';
 import { InboxNotice } from '@/routes/InboxNotice';
 import {
   APPROVAL_ITEM_ID,
+  CONNECTION_ITEM_ID,
   emptyInbox,
   FAILING_ITEM_ID,
   failInbox,
@@ -14,6 +15,8 @@ import {
   OPENED_ITEM_ID,
   SLUG,
   seedApproved,
+  seedConnectionAsked,
+  seedConnectionMet,
   seedDismissed,
   seedInbox,
 } from '@/stories/fixtures/inbox';
@@ -85,6 +88,28 @@ export const Approved: Story = {
 export const Dismissed: Story = {
   render: () => (
     <StoryPage at={inboxItemPath(SLUG, APPROVAL_ITEM_ID)} seed={seedDismissed}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const AwaitingConnection: Story = {
+  render: () => (
+    <StoryPage
+      at={inboxItemPath(SLUG, CONNECTION_ITEM_ID)}
+      seed={seedConnectionAsked}
+    >
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Connected: Story = {
+  render: () => (
+    <StoryPage
+      at={inboxItemPath(SLUG, CONNECTION_ITEM_ID)}
+      seed={seedConnectionMet}
+    >
       {routes}
     </StoryPage>
   ),

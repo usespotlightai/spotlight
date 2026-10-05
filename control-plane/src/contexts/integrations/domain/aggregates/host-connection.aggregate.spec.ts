@@ -1,8 +1,13 @@
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import type { HostConnected } from '@integrations/domain/events/host-connected.event';
+import { RenewalClaimedError } from '@integrations/domain/exceptions/renewal-claimed.error';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
+import { RenewalClaim } from '@integrations/domain/value-objects/renewal-claim.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -31,6 +36,7 @@ const rehydrated = (
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     source: SLACK,
+    holder: ConnectionHolder.team(),
     accessToken: AccessToken.of('xoxb-old'),
     refreshToken: AccessToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
@@ -39,6 +45,7 @@ const rehydrated = (
     scopes: ['chat:write'],
     handle: 'Acme',
     renewalRefusedAt: over.renewalRefusedAt ?? null,
+    renewalClaim: null,
     version: 3,
   });
 
@@ -48,6 +55,7 @@ describe('HostConnection', () => {
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TEAM,
       source: SLACK,
+      holder: ConnectionHolder.team(),
       grant: grant(),
     });
 
@@ -146,13 +154,122 @@ describe('HostConnection', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TEAM,
         source: SLACK,
+        holder: ConnectionHolder.team(),
         accessToken: AccessToken.of('x'),
         refreshToken: null,
         expiresAt: null,
         scopes: [],
         handle: null,
         renewalRefusedAt: null,
+        renewalClaim: null,
         version: 0,
+      }),
+    ).toThrow();
+  });
+
+  it('announces whose connection it is, and in which workspace', () => {
+    const [connected] = HostConnection.linkedFrom({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TEAM,
+      source: SLACK,
+      holder: ConnectionHolder.person(UserId.of('user_1')),
+      grant: grant(),
+    }).pullEvents() as HostConnected[];
+
+    expect(connected?.holder.personId?.value).toBe('user_1');
+    expect(connected?.workspaceId.value).toBe('ws_1');
+  });
+
+  it('is a different connection for each holder of the same host', () => {
+    const team = rehydrated();
+    const alice = HostConnection.linkedFrom({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TEAM,
+      source: SLACK,
+      holder: ConnectionHolder.person(UserId.of('user_1')),
+      grant: grant(),
+    });
+
+    expect(team.equals(alice)).toBe(false);
+  });
+
+  it('is claimed for renewal by one caller until the lease runs out', () => {
+    const claimed = rehydrated().claimRenewal(NOW, 30_000);
+
+    expect(claimed.isClaimedAt(NOW)).toBe(true);
+    expect(() => claimed.claimRenewal(NOW, 30_000)).toThrow(
+      RenewalClaimedError,
+    );
+    expect(claimed.isClaimedAt(new Date(NOW.getTime() + 30_000))).toBe(false);
+    expect(
+      claimed
+        .claimRenewal(new Date(NOW.getTime() + 30_000), 30_000)
+        .isClaimedAt(new Date(NOW.getTime() + 30_001)),
+    ).toBe(true);
+  });
+
+  it('needs no renewal while someone else is renewing it', () => {
+    const near = rehydrated({
+      expiresAt: new Date('2026-09-07T10:04:00.000Z'),
+    });
+
+    expect(near.claimRenewal(NOW, 30_000).needsRenewal(NOW)).toBe(false);
+  });
+
+  it('cannot be claimed without a way to renew', () => {
+    expect(() =>
+      rehydrated({ refreshToken: null }).claimRenewal(NOW, 30_000),
+    ).toThrow();
+  });
+
+  it('lets go of the claim once renewed, refused or released', () => {
+    const claimed = rehydrated().claimRenewal(NOW, 30_000);
+
+    expect(claimed.renewedWith(grant()).isClaimedAt(NOW)).toBe(false);
+    expect(claimed.renewalRefused(NOW).isClaimedAt(NOW)).toBe(false);
+    expect(claimed.renewalReleased().isClaimedAt(NOW)).toBe(false);
+  });
+
+  it('knows whether the token a host refused is still the one it holds', () => {
+    const held = rehydrated();
+
+    expect(held.refusedToken(AccessToken.of('xoxb-old'))).toBe(true);
+    expect(
+      held
+        .renewedWith(grant({ accessToken: 'xoxb-2' }))
+        .refusedToken(AccessToken.of('xoxb-old')),
+    ).toBe(false);
+  });
+
+  it('is unusable once its renewal was refused', () => {
+    expect(rehydrated().usable).toBe(true);
+    expect(rehydrated().renewalRefused(NOW).usable).toBe(false);
+  });
+
+  it('announces it was disconnected', () => {
+    expect(
+      rehydrated()
+        .disconnected()
+        .pullEvents()
+        .map((each) => each.kind),
+    ).toEqual(['integrations.host-disconnected']);
+  });
+
+  it('refuses to be read back claimed without a way to renew', () => {
+    expect(() =>
+      HostConnection.rehydrate({
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TEAM,
+        source: SLACK,
+        holder: ConnectionHolder.team(),
+        accessToken: AccessToken.of('x'),
+        refreshToken: null,
+        expiresAt: null,
+        scopes: [],
+        handle: null,
+        renewalRefusedAt: null,
+        renewalClaim: RenewalClaim.until(NOW),
+        version: 1,
       }),
     ).toThrow();
   });

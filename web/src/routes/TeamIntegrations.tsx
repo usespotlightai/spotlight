@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { useParams } from 'react-router';
 import { GitHubIntegration } from '@/components/features/integrations/GitHubIntegration';
 import { IntegrationCard } from '@/components/features/integrations/IntegrationCard';
 import { IntegrationCardSkeleton } from '@/components/features/integrations/IntegrationCardSkeleton';
@@ -12,6 +11,7 @@ import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useConfiguration } from '@/hooks/api/useConfiguration';
 import { useGitHub } from '@/hooks/api/useGitHub';
+import { useClearedParam } from '@/hooks/useClearedParam';
 import { failed, loading } from '@/lib/query';
 
 const GRID = 'grid auto-rows-fr gap-3 sm:grid-cols-2';
@@ -21,22 +21,9 @@ export function TeamIntegrations() {
   const github = useGitHub(slug);
   const configuration = useConfiguration(teamId);
 
-  const [params, setParams] = useSearchParams();
-  const connected = params.get('connected');
-  useEffect(() => {
-    if (!connected) {
-      return;
-    }
-    setParams(
-      (held) => {
-        held.delete('connected');
-        return held;
-      },
-      { replace: true },
-    );
-  }, [connected, setParams]);
+  useClearedParam('connected');
 
-  if (!teamId) {
+  if (!slug || !teamId) {
     return null;
   }
 
@@ -120,6 +107,7 @@ export function TeamIntegrations() {
                   <IntegrationCard
                     key={each.source}
                     integration={each}
+                    slug={slug}
                     teamId={teamId}
                   />
                 ))}

@@ -6,6 +6,7 @@ import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   InboxApproval,
+  InboxConnection,
   InboxFailure,
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
@@ -22,6 +23,7 @@ import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.s
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   type ApprovalRow,
+  type ConnectionAskRow,
   type FailureRow,
   task,
   taskAttachment,
@@ -89,7 +91,10 @@ export const attachmentsFor = async (
   return held;
 };
 
-const asked = (parts: ApprovalRow | null): InboxApproval | null => {
+const asked = (
+  parts: ApprovalRow | null,
+  named: ReadonlyMap<string, { readonly name: string }>,
+): InboxApproval | null => {
   if (!parts) {
     return null;
   }
@@ -104,6 +109,9 @@ const asked = (parts: ApprovalRow | null): InboxApproval | null => {
     standing: parts.standing,
     edited: toEditedCall(parts)?.given ?? null,
     intent: parts.intent ?? null,
+    askedOf: parts.askedOf
+      ? { id: parts.askedOf, name: named.get(parts.askedOf)?.name ?? '' }
+      : null,
   };
 };
 
@@ -113,6 +121,20 @@ const failed = (parts: FailureRow | null): InboxFailure | null =>
         source: parts.source,
         code: parts.code,
         occurrences: parts.occurrences,
+      }
+    : null;
+
+const connecting = (
+  parts: ConnectionAskRow | null,
+  named: ReadonlyMap<string, { readonly name: string }>,
+): InboxConnection | null =>
+  parts
+    ? {
+        source: parts.source,
+        integration: parts.integration,
+        personId: parts.personId,
+        personName: named.get(parts.personId)?.name ?? '',
+        met: parts.met,
       }
     : null;
 
@@ -154,6 +176,7 @@ export const trailsFor = async (
       authorId: taskNote.authorId,
       approval: taskNote.approval,
       failure: taskNote.failure,
+      connectionAsk: taskNote.connectionAsk,
     })
     .from(taskNote)
     .innerJoin(task, eq(task.id, taskNote.taskId))
@@ -166,7 +189,11 @@ export const trailsFor = async (
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
   const authors = await people.findMany(
-    rows.flatMap((row) => (row.authorId ? [UserId.of(row.authorId)] : [])),
+    rows.flatMap((row) => [
+      ...(row.authorId ? [UserId.of(row.authorId)] : []),
+      ...(row.connectionAsk ? [UserId.of(row.connectionAsk.personId)] : []),
+      ...(row.approval?.askedOf ? [UserId.of(row.approval.askedOf)] : []),
+    ]),
   );
 
   for (const row of rows) {
@@ -194,8 +221,9 @@ export const trailsFor = async (
             image: author?.image ?? null,
           }
         : null,
-      approval: asked(row.approval),
+      approval: asked(row.approval, authors),
       failure: failed(row.failure),
+      connection: connecting(row.connectionAsk, authors),
     });
 
     trail.set(row.taskId, told);

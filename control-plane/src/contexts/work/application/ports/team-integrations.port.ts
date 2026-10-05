@@ -4,5 +4,8 @@ import type { ToolDeclaration } from '@work/application/contracts/tools.contract
 export const TEAM_INTEGRATIONS = Symbol('TEAM_INTEGRATIONS');
 
 export interface TeamIntegrationsPort {
-  offered(teamId: TeamId): Promise<readonly ToolDeclaration[]>;
+  offered(
+    teamId: TeamId,
+    tools: readonly string[],
+  ): Promise<readonly ToolDeclaration[]>;
 }

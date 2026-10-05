@@ -61,3 +61,7 @@ export const catalogReferenceParts = (
 
 export const unversioned = (named: string): string =>
   named.split('@', 1)[0] ?? named;
+
+export const INPUT_NAME = '[A-Za-z_][A-Za-z0-9_-]{0,63}';
+
+export const WHOLE_CALL_INPUT = 'json';

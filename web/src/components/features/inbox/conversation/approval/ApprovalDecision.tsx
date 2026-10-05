@@ -6,6 +6,7 @@ import type { Approval } from '@/lib/approval';
 type ApprovalDecisionProps = {
   approval: Approval;
   pending: boolean;
+  onlyFor?: string | null;
   onApprove?: () => void;
   onDismiss?: () => void;
 };
@@ -13,11 +14,17 @@ type ApprovalDecisionProps = {
 export function ApprovalDecision({
   approval,
   pending,
+  onlyFor = null,
   onApprove,
   onDismiss,
 }: ApprovalDecisionProps) {
   return (
     <DecisionControls>
+      {onlyFor && (
+        <p className="mr-auto text-muted-foreground text-xs">
+          Only {onlyFor} can approve this
+        </p>
+      )}
       <DecisionPill
         disabled={pending || !onDismiss}
         onClick={onDismiss}
@@ -28,6 +35,7 @@ export function ApprovalDecision({
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || !onApprove}
+        title={onlyFor ? `Only ${onlyFor} can approve this` : undefined}
         onApprove={onApprove}
       />
     </DecisionControls>

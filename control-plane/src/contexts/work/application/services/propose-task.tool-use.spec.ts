@@ -80,6 +80,7 @@ const using = () => {
     workspaceId: WorkspaceId.of('ws_1'),
     chatId: chat.id,
     teamId: TeamId.of('team_1'),
+    requester: null,
   };
 
   return { tool, context, save, dispatch };
@@ -107,7 +108,12 @@ describe('ProposeTaskToolUse', () => {
     expect(proposal?.placement.stationId.value).toBe('station_1');
     expect(proposal?.description?.value).toBe('Double the wait each time.');
     expect(dispatch.mock.calls[0]?.[0]).toEqual([expect.any(TaskProposed)]);
-    expect(answer).toContain('The person decides');
+    expect(answer).toEqual({
+      proposed: 'Back off exponentially',
+      line: 'delivery',
+      station: 'backlog',
+      next: expect.stringContaining('The person decides'),
+    });
   });
 
   it('proposes nothing where the line or station is not one of the team’s', async () => {

@@ -118,4 +118,38 @@ describe('OAuth2ConnectionController', () => {
     expect(execute).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(WENT_WRONG);
   });
+
+  it('connects the team unless asked to connect the caller', async () => {
+    const { controller, execute } = controlling();
+
+    await controller.connect('team_1', 'slack', ADMIN, answering().response);
+
+    const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
+    expect(begin.holder).toBe('team');
+    expect(begin.back).toBeNull();
+  });
+
+  it('connects the caller’s own account, carrying where to land', async () => {
+    const { controller, execute } = controlling();
+
+    await controller.connect('team_1', 'linear', ADMIN, answering().response, {
+      for: 'me',
+      back: '/w/acme/inbox/task_1',
+    });
+
+    const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
+    expect(begin.holder).toBe('person');
+    expect(begin.back).toBe('/w/acme/inbox/task_1');
+  });
+
+  it('refuses to connect for anyone but the team or the caller', async () => {
+    const { controller, execute } = controlling();
+
+    await expect(
+      controller.connect('team_1', 'linear', ADMIN, answering().response, {
+        for: 'someone-else' as 'me',
+      }),
+    ).rejects.toThrow(/Connect for team or me/);
+    expect(execute).not.toHaveBeenCalled();
+  });
 });

@@ -15,7 +15,7 @@ import {
   underway,
 } from '@/lib/replay';
 import { COPIES_LABEL, repeatsShown, stateNote } from '@/lib/replay-words';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type ReplayHeaderProps = {
   at: ReplayedStation;

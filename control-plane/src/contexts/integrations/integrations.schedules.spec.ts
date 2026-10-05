@@ -4,17 +4,23 @@ import type {
 } from '@integrations/application/ports/defined-integrations.port';
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import {
+  discoveringNothing,
+  reachingNoServer,
+} from '@integrations/integrations.mcp.fake-spec';
 import {
   injecting,
   reachFor,
@@ -30,13 +36,15 @@ const expressions = new CelExpressionEngine();
 const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
-  clients: OAuth2Clients = OAuth2Clients.from('{}'),
+  clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions),
+    new IntegrationReader(expressions, operationsHolding()),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
+    discoveringNothing(),
+    reachingNoServer(),
   );
 
 const NOW = new Date('2026-09-07T09:00:00.000Z');

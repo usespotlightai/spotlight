@@ -14,16 +14,50 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
 const DEFINED = {
+  id: integrationDefinition.id,
+  version: integrationDefinition.version,
   teamId: integrationDefinition.teamId,
   source: integrationDefinition.source,
   definition: integrationDefinition.definition,
+  offers: integrationDefinition.offers,
+  generatedFrom: integrationDefinition.sourceHash,
+  readAt: integrationDefinition.sourceReadAt,
+  problem: integrationDefinition.sourceProblem,
+  passedOver: integrationDefinition.sourcePassedOver,
 };
 
-const KEPT = {
-  ...DEFINED,
-  id: integrationDefinition.id,
-  version: integrationDefinition.version,
-};
+interface DefinedRow {
+  readonly id: string;
+  readonly version: number;
+  readonly source: string;
+  readonly definition: Record<string, unknown>;
+  readonly offers: string[];
+  readonly generatedFrom: string | null;
+  readonly readAt: Date | null;
+  readonly problem: string | null;
+  readonly passedOver: string[] | null;
+}
+
+const definedOf = (row: DefinedRow): DefinedIntegration => ({
+  id: row.id,
+  version: row.version,
+  source: row.source,
+  definition: row.definition,
+  offers: row.offers,
+  generatedFrom: row.generatedFrom,
+  reading: row.readAt
+    ? {
+        readAt: row.readAt,
+        problem: row.problem,
+        passedOver: row.passedOver ?? [],
+      }
+    : null,
+});
+
+const keptOf = (row: DefinedRow, teamId: TeamId): KeptIntegration => ({
+  ...definedOf(row),
+  teamId,
+});
 
 @Injectable()
 export class DrizzleDefinedIntegrations
@@ -33,12 +67,12 @@ export class DrizzleDefinedIntegrations
 
   async ofTeam(teamId: TeamId): Promise<readonly KeptIntegration[]> {
     const found = await this.context.db
-      .select(KEPT)
+      .select(DEFINED)
       .from(integrationDefinition)
       .where(eq(integrationDefinition.teamId, teamId.value))
       .orderBy(asc(integrationDefinition.source));
 
-    return found.map((each) => ({ ...each, teamId }));
+    return found.map((each) => keptOf(each, teamId));
   }
 
   async everywhere(): Promise<readonly TeamDefinedIntegrations[]> {
@@ -51,8 +85,8 @@ export class DrizzleDefinedIntegrations
       );
     const teams = new Map<string, DefinedIntegration[]>();
 
-    for (const { teamId, source, definition } of rows) {
-      teams.set(teamId, [...(teams.get(teamId) ?? []), { source, definition }]);
+    for (const { teamId, ...integration } of rows) {
+      teams.set(teamId, [...(teams.get(teamId) ?? []), definedOf(integration)]);
     }
 
     return [...teams].map(([teamId, integrations]) => ({
@@ -76,11 +110,11 @@ export class DrizzleDefinedIntegrations
 
   private async kept(where: SQL | undefined): Promise<KeptIntegration | null> {
     const [found] = await this.context.db
-      .select(KEPT)
+      .select(DEFINED)
       .from(integrationDefinition)
       .where(where)
       .limit(1);
 
-    return found ? { ...found, teamId: TeamId.of(found.teamId) } : null;
+    return found ? keptOf(found, TeamId.of(found.teamId)) : null;
   }
 }

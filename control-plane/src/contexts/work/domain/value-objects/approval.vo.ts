@@ -30,6 +30,7 @@ export class Approval {
     readonly spent: boolean,
     readonly edited: ToolCall | null,
     readonly intent: ApprovalIntent | null,
+    readonly askedOf: UserId | null,
   ) {}
 
   static asked(
@@ -37,6 +38,7 @@ export class Approval {
     at: StationId,
     because: string,
     intent: ApprovalIntent | null,
+    askedOf: UserId | null = null,
   ): Approval {
     return new Approval(
       subject,
@@ -47,6 +49,7 @@ export class Approval {
       false,
       null,
       intent,
+      askedOf,
     );
   }
 
@@ -59,6 +62,7 @@ export class Approval {
     spent: boolean;
     edited: ToolCall | null;
     intent: ApprovalIntent | null;
+    askedOf: UserId | null;
   }): Approval {
     return new Approval(
       input.subject,
@@ -69,6 +73,7 @@ export class Approval {
       input.spent,
       input.edited,
       input.intent,
+      input.askedOf,
     );
   }
 
@@ -78,6 +83,13 @@ export class Approval {
 
   get grants(): boolean {
     return this.standing === 'granted' && !this.spent;
+  }
+
+  grantedFor(askedOf: UserId | null): boolean {
+    return (
+      this.grants &&
+      (askedOf === null || (this.decided?.by.equals(askedOf) ?? false))
+    );
   }
 
   get refuses(): boolean {
@@ -108,6 +120,16 @@ export class Approval {
       );
     }
 
+    if (
+      decision === 'granted' &&
+      this.askedOf &&
+      !this.askedOf.equals(decided.by)
+    ) {
+      throw new InvalidApprovalAnswerError(
+        'is asked of the person whose connection the tool acts with, so only they can approve it',
+      );
+    }
+
     return new Approval(
       this.subject,
       this.at,
@@ -117,6 +139,7 @@ export class Approval {
       false,
       edits ? this.grantedWith(decision, edits) : null,
       this.intent,
+      this.askedOf,
     );
   }
 
@@ -144,13 +167,15 @@ export class Approval {
     });
     const edited = asked.editedTo(edits);
 
-    if (!edited) {
+    if (!('call' in edited)) {
       throw new InvalidApprovalAnswerError(
-        `asks about ${asked.given.map((each) => each.name).join(', ') || 'no inputs'}, so changes must name exactly those, each a value of the kind asked and none left blank`,
+        edited.refused
+          ? `asks about a tool that cannot run with that change: ${edited.refused}`
+          : `asks about ${asked.given.map((each) => each.name).join(', ') || 'no inputs'}, so changes must name exactly those, each a value of the kind asked and none left blank`,
       );
     }
 
-    return edited.equals(asked) ? null : edited;
+    return edited.call.equals(asked) ? null : edited.call;
   }
 
   claimed(): Approval {
@@ -179,6 +204,7 @@ export class Approval {
       spent,
       this.edited,
       this.intent,
+      this.askedOf,
     );
   }
 }
