@@ -6,11 +6,9 @@ import type {
   SourceRead,
   SourceReaderPort,
 } from '@integrations/application/ports/source-reader.port';
-import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 import type { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import type {
   DescriptionAnswered,
@@ -18,15 +16,16 @@ import type {
 } from '@integrations/infrastructure/sources/described-operations';
 import {
   DescriptionUnreadable,
-  type OperationRecord,
+  type ReadOperations,
 } from '@integrations/infrastructure/sources/operation-record';
+import { operationsRead } from '@integrations/infrastructure/sources/operations-read';
 import { ReadSlots } from '@integrations/infrastructure/sources/read-slots';
 import {
   DescriptionUnauthorized,
   READ_WITHIN_MS,
   type SourceFetch,
 } from '@integrations/infrastructure/sources/source-fetch';
-import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { getIntrospectionQuery } from 'graphql';
 
 const FROM_SOURCE = extname(__filename) === '.ts';
@@ -55,19 +54,19 @@ const reasonOf = (error: unknown): string =>
 const hostOf = (url: string | null): string | null =>
   url ? new URL(url).host.toLowerCase() : null;
 
-const operationOf = (record: OperationRecord): DescribedOperation =>
-  DescribedOperation.of({
-    ...record,
-    inputs: record.inputs.map((each) => ({
-      ...each,
-      schema: InputSchema.of(each.schema),
-    })),
-  });
-
 export class ThreadedSourceReader implements SourceReaderPort {
   constructor(private readonly fetching: SourceFetch) {}
 
   async read(source: DescribedSource, reach: Reach): Promise<SourceRead> {
+    const kind = source.kind;
+
+    if (kind === 'mcp') {
+      throw new InconsistentStateError(
+        'described source',
+        'lists its tools from an MCP server, which is not read as a description',
+      );
+    }
+
     try {
       const text = await this.textOf(source, reach);
       const answered = await SLOTS.within(
@@ -76,7 +75,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
         (left) =>
           this.inWorker(
             {
-              kind: source.kind,
+              kind,
               text,
               url: source.url,
               baseUrl: source.baseUrl,
@@ -166,28 +165,8 @@ export class ThreadedSourceReader implements SourceReaderPort {
   private described(
     source: DescribedSource,
     text: string,
-    read: {
-      operations: readonly OperationRecord[];
-      passedOver: readonly string[];
-    },
+    read: ReadOperations,
   ): SourceRead {
-    const operations: DescribedOperation[] = [];
-    const passedOver = [...read.passedOver];
-
-    for (const record of read.operations) {
-      try {
-        operations.push(operationOf(record));
-      } catch (error) {
-        passedOver.push(
-          `passes over ${record.upstream}, because ${
-            error instanceof InvalidIntegrationPartError
-              ? `it ${error.because}`
-              : reasonOf(error)
-          }`,
-        );
-      }
-    }
-
     return {
       kind: 'read',
       hash: ContentHash.of(
@@ -205,8 +184,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
           .update(text)
           .digest('hex'),
       ),
-      operations,
-      passedOver,
+      ...operationsRead(read),
     };
   }
 

@@ -352,9 +352,10 @@ webhook:
     it('keeps the endpoints and scopes it links through', () => {
       const read = compileIntegration(parseYaml(WHOLE_OAUTH), expressions);
 
-      expect(read.ok && read.readable.connection?.oauth2?.token).toBe(
-        'https://slack.com/api/oauth.v2.access',
-      );
+      expect(read.ok && read.readable.connection?.oauth2).toMatchObject({
+        discoverAt: null,
+        token: 'https://slack.com/api/oauth.v2.access',
+      });
       expect(read.ok && read.readable.connection?.oauth2?.scopes).toEqual([
         'chat:write',
       ]);
@@ -383,8 +384,8 @@ webhook:
         'requester',
       );
       expect(
-        requester.ok && requester.readable.connection?.oauth2?.registration,
-      ).toBe('https://slack.com/oauth/register');
+        requester.ok && requester.readable.connection?.oauth2,
+      ).toMatchObject({ registration: 'https://slack.com/oauth/register' });
       expect(
         requester.ok && requester.readable.connection?.oauth2?.resource,
       ).toBe('https://mcp.slack.com/');
@@ -1242,7 +1243,7 @@ tools:
     ).toEqual([expect.stringMatching(/but not both/)]);
     expect(
       refusals(`${PETSTORE}graphql:\n  url: https://api.linear.app/graphql\n`),
-    ).toEqual([expect.stringMatching(/one API description/)]);
+    ).toEqual([expect.stringMatching(/one source/)]);
   });
 
   it('refuses more tools than a station can choose between, at the filter', () => {
@@ -1283,5 +1284,105 @@ graphql:
         },
       },
     });
+  });
+});
+
+describe('the tools an MCP server offers', () => {
+  const TRACKER = `integration: tracker
+name: Tracker
+connection:
+  oauth2:
+    discover: true
+mcp:
+  url: https://mcp.tracker.example/mcp
+  auth:
+    oauth2:
+      connection: true
+  tools:
+    approval:
+      archive-issue: false
+`;
+
+  const tool = (name: string, writes: boolean) =>
+    DescribedOperation.of({
+      name,
+      upstream: name.replaceAll('-', '_'),
+      description: `Does ${name}.`,
+      inputs: [],
+      writes,
+      call: { kind: 'mcp', tool: name.replaceAll('-', '_') },
+    });
+
+  const LISTED = {
+    hash: ContentHash.of('e'.repeat(64)),
+    operations: [
+      tool('search-issues', false),
+      tool('delete-issue', true),
+      tool('archive-issue', true),
+    ],
+  };
+
+  it('names the server it lists tools from, connected through its own connection', () => {
+    const compiled = new IntegrationCompiler(expressions).compile(
+      parseYaml(TRACKER),
+    );
+
+    expect(compiled.ok && compiled.source).toMatchObject({
+      kind: 'mcp',
+      url: 'https://mcp.tracker.example/mcp',
+      document: null,
+      connected: true,
+    });
+    expect(compiled.ok && compiled.integration.connects).toBe(true);
+  });
+
+  it('asks approval for a tool that writes, unless the definition says not to', () => {
+    const compiled = compileIntegration(
+      parseYaml(TRACKER),
+      expressions,
+      LISTED,
+    );
+    const approval = (name: string) =>
+      compiled.ok
+        ? compiled.readable.integration.offered(`tracker.${name}`)?.approval
+            ?.because
+        : undefined;
+
+    expect(approval('search-issues')).toBeUndefined();
+    expect(approval('delete-issue')).toBe('It changes data in Tracker.');
+    expect(approval('archive-issue')).toBeUndefined();
+  });
+
+  it('discovers how to connect from the server it names', () => {
+    const compiled = compileIntegration(parseYaml(TRACKER), expressions);
+
+    expect(compiled.ok && compiled.readable.connection?.oauth2).toEqual({
+      discoverAt: 'https://mcp.tracker.example/mcp',
+      scopes: [],
+      identity: null,
+      resource: null,
+    });
+  });
+
+  it('refuses to discover how to connect without a server to ask, or with endpoints already named', () => {
+    expect(
+      problems(
+        TRACKER.replace(
+          /mcp:\n[\s\S]*$/,
+          'actions:\n  ping:\n    request:\n      url: https://tracker.example/ping\n',
+        ),
+      ).map((each) => [dottedOf(each.field), each.reason]),
+    ).toContainEqual([
+      'connection.oauth2',
+      expect.stringMatching(/which it does not name/),
+    ]);
+    expect(
+      problems(
+        TRACKER.replace(
+          '    discover: true\n',
+          '    discover: true\n    token: https://tracker.example/token\n',
+        ),
+      ).map((each) => each.reason),
+    ).toContainEqual(expect.stringMatching(/Unrecognized key: "token"/));
   });
 });

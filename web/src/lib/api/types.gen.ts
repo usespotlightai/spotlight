@@ -2828,9 +2828,9 @@ export type WorkspaceRunnersResourceListResponseDto = {
 
 export type ConfiguredDescriptionResponseDto = {
   /**
-   * The kind of API description its tools are generated from
+   * The kind of API description, or the MCP server, its tools are generated from
    */
-  kind: 'openapi' | 'graphql';
+  kind: 'openapi' | 'graphql' | 'mcp';
   /**
    * How many tools were generated from it
    */
@@ -3477,9 +3477,9 @@ export type HostConnectionsResponseDto = {
 
 export type DescribedSourceResponseDto = {
   /**
-   * The kind of API description its tools are generated from
+   * The kind of API description, or the MCP server, its tools are generated from
    */
-  kind: 'openapi' | 'graphql';
+  kind: 'openapi' | 'graphql' | 'mcp';
   /**
    * The sha256 of what was last read, kept while a later read fails; null when it has never been read
    */
@@ -3489,7 +3489,7 @@ export type DescribedSourceResponseDto = {
    */
   readAt: string;
   /**
-   * Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected
+   * Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected, and lists an MCP server’s tools again every MCP_RELIST_SECONDS
    */
   problem: string | null;
   /**

@@ -43,6 +43,18 @@ export const OneTool: Story = {
   },
 };
 
+export const FromAnMcpServer: Story = {
+  name: 'From an MCP server',
+  args: {
+    described: {
+      kind: 'mcp',
+      tools: 24,
+      readAt: HOURS_AGO(0.1),
+      problem: null,
+    },
+  },
+};
+
 export const CouldNotBeRead: Story = {
   name: 'Could not be read',
   args: {

@@ -240,6 +240,29 @@ describe('TeamIntegrations', () => {
     ).toBeInTheDocument();
   });
 
+  it('says how many tools a host’s MCP server lists', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([
+        listening({
+          source: 'tracker',
+          name: 'Tracker',
+          described: {
+            kind: 'mcp',
+            tools: 24,
+            readAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            problem: null,
+          },
+        }),
+      ]),
+    );
+    showing();
+
+    expect(
+      screen.getByText('24 tools from its MCP server, read 2h ago.'),
+    ).toBeInTheDocument();
+  });
+
   it('says why a host’s API description could not be read', () => {
     github.mockReturnValue(ready());
     configuration.mockReturnValue(

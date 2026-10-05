@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { ToolDeclarationMapper } from '@integrations/application/mappers/tool-declaration.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type {
@@ -15,6 +16,8 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
+import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
@@ -26,11 +29,23 @@ import type {
   IntegrationReader,
   Offering,
 } from '@integrations/infrastructure/integrations/integration.reader';
+import {
+  authorizationServerOf,
+  type OAuth2Discovery,
+} from '@integrations/infrastructure/integrations/oauth2-discovery';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import {
   asJson,
   textOf,
 } from '@integrations/infrastructure/integrations/templating';
+import {
+  McpAuthorizationRefused,
+  McpQuestionRefused,
+  mcpReasonOf,
+} from '@integrations/infrastructure/mcp/mcp-failures';
+import { mcpOutput } from '@integrations/infrastructure/mcp/mcp-output';
+import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
+import { renewingOnce } from '@integrations/infrastructure/mcp/renewing-once';
 import type {
   HttpOutbound,
   OutboundResult,
@@ -89,6 +104,30 @@ interface Sent {
 const connected = (bindings: Bindings, token: AccessToken | null): Bindings =>
   token ? { ...bindings, connection: token.value } : bindings;
 
+const versionOf = (token: AccessToken | null): string =>
+  token
+    ? createHash('sha256').update(token.value).digest('hex').slice(0, 16)
+    : 'none';
+
+const failedUsing = (tool: string, server: string, error: unknown): Error => {
+  if (error instanceof McpQuestionRefused) {
+    return new ToolAskedMidCallError(tool);
+  }
+
+  if (
+    error instanceof UpstreamRefusedError ||
+    error instanceof OutboundRefusedError
+  ) {
+    return error;
+  }
+
+  return new UpstreamRefusedError(
+    `using ${tool}`,
+    mcpReasonOf(error, server),
+    error instanceof McpAuthorizationRefused ? UNAUTHORIZED : null,
+  );
+};
+
 export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   readonly #read = new WeakMap<
     readonly DefinedIntegration[],
@@ -100,6 +139,8 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     private readonly outbound: HttpOutbound,
     private readonly clients: OAuth2ClientsPort,
     private readonly exchange: OAuth2Exchange,
+    private readonly discovery: OAuth2Discovery,
+    private readonly sessions: McpSessions,
   ) {}
 
   integrations(
@@ -247,9 +288,13 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return null;
     }
 
-    return offering.offered.backing.described
-      ? this.generated(offering, tool)
-      : this.written(offering, tool, task);
+    if (!offering.offered.backing.described) {
+      return this.written(offering, tool, task);
+    }
+
+    return offering.operation?.call.kind === 'mcp'
+      ? this.served(offering, tool, task)
+      : this.generated(offering, tool);
   }
 
   private written(
@@ -347,7 +392,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           throw refusedUsing(tool, answered.status, answered.response);
         }
 
-        if (operation.call.kind === 'http') {
+        const call = operation.call;
+
+        if (call.kind !== 'graphql') {
           return plainJson(answered.response);
         }
 
@@ -357,7 +404,62 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           throw refusedUsing(tool, answered.status, errors);
         }
 
-        return plainJson(dataOf(answered.response, operation.call.field));
+        return plainJson(dataOf(answered.response, call.field));
+      },
+    };
+  }
+
+  private served(
+    { readable, offered, operation }: Offering,
+    tool: string,
+    task: BoundTask,
+  ): ReachableTool | null {
+    const described = readable.described;
+    const call = operation?.call;
+
+    if (!described?.source.url || call?.kind !== 'mcp') {
+      return null;
+    }
+
+    const server = described.source.url;
+    const auth = described.auth;
+    const secrets = auth?.kind === 'secrets' ? auth.secrets : [];
+
+    return {
+      integration: readable.integration,
+      offered,
+      wears: secrets,
+      declared: ToolDeclarationMapper.toDeclaration(
+        offered,
+        readable.integration.name,
+      ),
+      defaultFor: () => undefined,
+      call: async (inputs, reach) => {
+        const held = auth?.kind === 'oauth2' ? reach.connection : null;
+        const calling = (token: AccessToken | null) =>
+          this.sessions.call(
+            [
+              task.teamId,
+              readable.integration.source.value,
+              auth?.kind ?? 'none',
+              held?.holder.key ?? 'team',
+              versionOf(token),
+            ].join(':'),
+            server,
+            call.tool,
+            inputs,
+            {
+              connection: token?.value ?? null,
+              secrets,
+              credentials: reach.credentials,
+            },
+          );
+
+        try {
+          return mcpOutput(await renewingOnce(calling, held), tool);
+        } catch (error) {
+          throw failedUsing(tool, server, error);
+        }
       },
     };
   }
@@ -368,8 +470,15 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     source: SourceKey,
     refreshToken: AccessToken,
   ): Promise<Renewed> {
-    const oauth2 = this.find(definitions, source)?.connection?.oauth2;
-    const client = oauth2 ? await this.clients.heldFor(teamId, source) : null;
+    const written = this.find(definitions, source)?.connection?.oauth2;
+    const oauth2 = written ? await this.discovery.endpoints(written) : null;
+    const client = oauth2
+      ? await this.clients.heldFor(
+          teamId,
+          source,
+          authorizationServerOf(oauth2),
+        )
+      : null;
 
     if (!oauth2 || !client) {
       return { kind: 'unrenewable' };

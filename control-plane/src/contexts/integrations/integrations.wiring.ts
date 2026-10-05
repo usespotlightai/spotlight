@@ -90,6 +90,10 @@ import {
   type LinkedHostsPort,
 } from '@integrations/application/ports/linked-hosts.port';
 import {
+  LISTED_SERVERS,
+  type ListedServersPort,
+} from '@integrations/application/ports/listed-servers.port';
+import {
   OAUTH2_CLIENT_REGISTRAR,
   type OAuth2ClientRegistrarPort,
 } from '@integrations/application/ports/oauth2-client-registrar.port';
@@ -131,6 +135,7 @@ import { IntegrationSources } from '@integrations/application/services/integrati
 import { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
+import { RelistServers } from '@integrations/application/services/relist-servers.service';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
 import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
 import { ToolsGiven } from '@integrations/application/services/tools-given.service';
@@ -169,11 +174,13 @@ import { IntegrationCompiler } from '@integrations/infrastructure/integrations/i
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { JwksCache } from '@integrations/infrastructure/integrations/jwks';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
+import { OAuth2Discovery } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
+import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
@@ -188,7 +195,9 @@ import { DrizzleIntegrationDefinitions } from '@integrations/infrastructure/pers
 import { DrizzleOAuth2ClientRegistrations } from '@integrations/infrastructure/persistence/drizzle/repositories/oauth2-client-registrations.repository';
 import { DrizzleOAuth2Nonces } from '@integrations/infrastructure/persistence/drizzle/repositories/oauth2-nonces.repository';
 import { GitHubSource } from '@integrations/infrastructure/sources/github.source';
+import { McpSourceReader } from '@integrations/infrastructure/sources/mcp/mcp-source-reader';
 import { SourceFetch } from '@integrations/infrastructure/sources/source-fetch';
+import { SourceReaders } from '@integrations/infrastructure/sources/source-readers';
 import { ThreadedSourceReader } from '@integrations/infrastructure/sources/threaded-source-reader';
 import { markedSources } from '@integrations/infrastructure/webhooks/registered-sources';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
@@ -202,6 +211,7 @@ import { OAuth2NonceCookie } from '@integrations/presentation/http/oauth2-nonce-
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { ConnectionRefreshWorker } from '@integrations/presentation/workers/connection-refresh.worker';
 import { DeliveryWorker } from '@integrations/presentation/workers/delivery-worker';
+import { McpRelistWorker } from '@integrations/presentation/workers/mcp-relist.worker';
 import { PollWorker } from '@integrations/presentation/workers/poll.worker';
 import { ScheduleWorker } from '@integrations/presentation/workers/schedule.worker';
 import type { Provider, Type } from '@nestjs/common';
@@ -349,13 +359,35 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: SOURCE_READER,
+    provide: McpSessions,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new ThreadedSourceReader(
-        new SourceFetch(
-          new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+      new McpSessions(
+        new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+      ),
+  },
+
+  {
+    provide: OAuth2Discovery,
+    inject: [ENV, CLOCK],
+    useFactory: (env: Env, clock: ClockPort) =>
+      new OAuth2Discovery(
+        new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+        clock,
+      ),
+  },
+
+  {
+    provide: SOURCE_READER,
+    inject: [ENV, McpSessions],
+    useFactory: (env: Env, sessions: McpSessions) =>
+      new SourceReaders(
+        new ThreadedSourceReader(
+          new SourceFetch(
+            new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+          ),
         ),
+        new McpSourceReader(sessions),
       ),
   },
 
@@ -382,6 +414,40 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     RereadIntegrationSourceHandler,
     [INTEGRATION_DEFINITIONS, IntegrationSources, TEAM_DIRECTORY, TRANSACTION],
   ),
+
+  { provide: LISTED_SERVERS, useExisting: INTEGRATION_DEFINITIONS },
+
+  {
+    provide: RelistServers,
+    inject: [
+      LISTED_SERVERS,
+      RereadIntegrationSourceHandler,
+      CLOCK,
+      LOGGER,
+      ENV,
+    ],
+    useFactory: (
+      servers: ListedServersPort,
+      rereading: RereadIntegrationSourceHandler,
+      clock: ClockPort,
+      logger: LoggerPort,
+      env: Env,
+    ) =>
+      new RelistServers(
+        servers,
+        rereading,
+        clock,
+        logger,
+        env.MCP_RELIST_SECONDS * 1000,
+      ),
+  },
+
+  {
+    provide: McpRelistWorker,
+    inject: [RelistServers, LOGGER],
+    useFactory: (servers: RelistServers, logger: LoggerPort) =>
+      new McpRelistWorker(servers, logger),
+  },
 
   {
     provide: INTEGRATION_COMPILER,
@@ -659,13 +725,30 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INTEGRATION_RUNTIME,
-    inject: [IntegrationReader, HttpOutbound, OAUTH2_CLIENTS, OAuth2Exchange],
+    inject: [
+      IntegrationReader,
+      HttpOutbound,
+      OAUTH2_CLIENTS,
+      OAuth2Exchange,
+      OAuth2Discovery,
+      McpSessions,
+    ],
     useFactory: (
       reader: IntegrationReader,
       outbound: HttpOutbound,
       clients: OAuth2ClientsPort,
       exchange: OAuth2Exchange,
-    ) => new CompiledIntegrationRuntime(reader, outbound, clients, exchange),
+      discovery: OAuth2Discovery,
+      sessions: McpSessions,
+    ) =>
+      new CompiledIntegrationRuntime(
+        reader,
+        outbound,
+        clients,
+        exchange,
+        discovery,
+        sessions,
+      ),
   },
 
   {
@@ -697,6 +780,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [
       DEFINED_INTEGRATIONS,
       IntegrationReader,
+      OAuth2Discovery,
       OAUTH2_CLIENTS,
       OAuth2Exchange,
       TEAM_DIRECTORY,
@@ -709,6 +793,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     useFactory: (
       defined: DefinedIntegrationsPort,
       reader: IntegrationReader,
+      discovery: OAuth2Discovery,
       clients: OAuth2ClientsPort,
       exchange: OAuth2Exchange,
       teams: TeamDirectoryPort,
@@ -721,6 +806,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       new OAuth2Linking(
         defined,
         reader,
+        discovery,
         clients,
         exchange,
         teams,

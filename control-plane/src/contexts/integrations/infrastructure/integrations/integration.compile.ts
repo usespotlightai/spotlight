@@ -48,6 +48,7 @@ import {
   type IntegrationFile,
   integrationSchema,
   isExpression,
+  type McpFile,
   ON_EVENTS,
   type OpenApiFile,
   type RaiseFile,
@@ -188,16 +189,28 @@ interface PollIR {
   readonly events: readonly EventIR[];
 }
 
-export interface ConnectionIR {
+export interface OAuth2Endpoints {
+  readonly issuer: string | null;
+  readonly authorize: string;
+  readonly token: string;
+  readonly scopes: readonly string[];
+  readonly identity: Expression | null;
+  readonly registration: string | null;
+  readonly resource: string | null;
+}
+
+export type OAuth2IR =
+  | ({ readonly discoverAt: null } & Omit<OAuth2Endpoints, 'issuer'>)
+  | {
+      readonly discoverAt: string;
+      readonly scopes: readonly string[];
+      readonly identity: Expression | null;
+      readonly resource: string | null;
+    };
+
+interface ConnectionIR {
   readonly holding: ConnectionHolding;
-  readonly oauth2: {
-    readonly authorize: string;
-    readonly token: string;
-    readonly scopes: readonly string[];
-    readonly identity: Expression | null;
-    readonly registration: string | null;
-    readonly resource: string | null;
-  } | null;
+  readonly oauth2: OAuth2IR | null;
   readonly manual: { readonly secrets: readonly string[] } | null;
 }
 
@@ -695,21 +708,27 @@ class Compiler {
 
 type SourceFile =
   | { readonly kind: 'openapi'; readonly file: OpenApiFile }
-  | { readonly kind: 'graphql'; readonly file: GraphQlFile };
+  | { readonly kind: 'graphql'; readonly file: GraphQlFile }
+  | { readonly kind: 'mcp'; readonly file: McpFile };
 
 const sourceFileOf = (file: IntegrationFile): SourceFile | null =>
   file.openapi
     ? { kind: 'openapi', file: file.openapi }
     : file.graphql
       ? { kind: 'graphql', file: file.graphql }
-      : null;
+      : file.mcp
+        ? { kind: 'mcp', file: file.mcp }
+        : null;
 
 const documentOf = (written: SourceFile): string | null =>
-  written.file.document === undefined
+  written.kind === 'mcp' || written.file.document === undefined
     ? null
     : typeof written.file.document === 'string'
       ? written.file.document
       : JSON.stringify(written.file.document);
+
+const revisionOf = (written: SourceFile): string | null =>
+  written.kind === 'mcp' ? null : (written.file.revision ?? null);
 
 const fingerprintOf = (written: SourceFile): string =>
   createHash('sha256')
@@ -720,7 +739,7 @@ const fingerprintOf = (written: SourceFile): string =>
         document: documentOf(written),
         baseUrl:
           written.kind === 'openapi' ? (written.file.baseUrl ?? null) : null,
-        revision: written.file.revision ?? null,
+        revision: revisionOf(written),
         depth: written.kind === 'graphql' ? (written.file.depth ?? null) : null,
         connected: written.file.auth?.oauth2 !== undefined,
       }),
@@ -747,6 +766,39 @@ const describedSourceOf = (
     fingerprint: fingerprintOf(written),
   });
 };
+
+const discoveredAt = (mcp: string | null): string => {
+  if (mcp === null) {
+    throw new InvalidIntegrationPartError(
+      'connection',
+      'discovers how to connect from the MCP server it names in mcp.url, which it does not name',
+    );
+  }
+
+  return mcp;
+};
+
+const oauth2Of = (
+  written: NonNullable<NonNullable<IntegrationFile['connection']>['oauth2']>,
+  mcp: string | null,
+  identity: Expression | null,
+): OAuth2IR =>
+  written.discover
+    ? {
+        discoverAt: discoveredAt(mcp),
+        scopes: written.scopes,
+        identity,
+        resource: written.resource ?? null,
+      }
+    : {
+        discoverAt: null,
+        authorize: written.authorize,
+        token: written.token,
+        scopes: written.scopes,
+        registration: written.registration ?? null,
+        resource: written.resource ?? null,
+        identity,
+      };
 
 const inputSchemaOf = (input: ToolInputFile): InputSchema =>
   input.schema
@@ -936,23 +988,23 @@ export const compileIntegration = (
     });
   }
 
+  const oauth2File = file.connection?.oauth2;
   const connection: ConnectionIR | null = file.connection
     ? {
         holding: ConnectionHolding.of(file.connection.holder),
-        oauth2: file.connection.oauth2
-          ? {
-              authorize: file.connection.oauth2.authorize,
-              token: file.connection.oauth2.token,
-              scopes: file.connection.oauth2.scopes,
-              registration: file.connection.oauth2.registration ?? null,
-              resource: file.connection.oauth2.resource ?? null,
-              identity: file.connection.oauth2.identity
-                ? compiler.expression(
-                    file.connection.oauth2.identity,
-                    root.to('connection.oauth2.identity'),
-                  )
-                : null,
-            }
+        oauth2: oauth2File
+          ? compiler.part(FieldPath.of(['connection', 'oauth2']), () =>
+              oauth2Of(
+                oauth2File,
+                file.mcp?.url ?? null,
+                oauth2File.identity
+                  ? compiler.expression(
+                      oauth2File.identity,
+                      root.to('connection.oauth2.identity'),
+                    )
+                  : null,
+              ),
+            )
           : null,
         manual: file.connection.manual
           ? {

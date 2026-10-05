@@ -8,9 +8,10 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ConfiguredDescriptionResponseDto {
   @ApiProperty({
-    enum: ['openapi', 'graphql'],
+    enum: ['openapi', 'graphql', 'mcp'],
     example: 'openapi',
-    description: 'The kind of API description its tools are generated from',
+    description:
+      'The kind of API description, or the MCP server, its tools are generated from',
   })
   readonly kind: string;
 

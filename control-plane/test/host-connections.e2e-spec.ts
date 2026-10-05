@@ -212,6 +212,7 @@ describe('OAuth client registrations', () => {
       source: LINEAR,
       registrationEndpoint: 'https://linear.app/oauth/register',
       redirectUri: 'https://app.example/api/integrations/oauth/callback',
+      server: null,
       clientId,
       clientSecret: AccessToken.of(`${clientId}-secret`),
       secretExpiresAt: null,

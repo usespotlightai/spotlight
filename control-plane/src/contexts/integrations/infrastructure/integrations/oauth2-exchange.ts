@@ -1,6 +1,6 @@
 import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import type { ConnectionIR } from '@integrations/infrastructure/integrations/integration.compile';
+import type { OAuth2Endpoints } from '@integrations/infrastructure/integrations/integration.compile';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { bound } from '@platform/expressions/bindings';
 import type { Expression } from '@platform/expressions/expression-engine.port';
@@ -26,7 +26,7 @@ export class OAuth2Exchange {
   ) {}
 
   async exchange(
-    oauth2: NonNullable<ConnectionIR['oauth2']>,
+    oauth2: OAuth2Endpoints,
     client: OAuth2Client,
     code: string,
     redirectUri: string,
@@ -41,7 +41,7 @@ export class OAuth2Exchange {
   }
 
   async refresh(
-    oauth2: NonNullable<ConnectionIR['oauth2']>,
+    oauth2: OAuth2Endpoints,
     client: OAuth2Client,
     refreshToken: string,
   ): Promise<HostGrant | null> {
@@ -52,7 +52,7 @@ export class OAuth2Exchange {
   }
 
   private async post(
-    oauth2: NonNullable<ConnectionIR['oauth2']>,
+    oauth2: OAuth2Endpoints,
     client: OAuth2Client,
     identity: Expression | null,
     grant: Record<string, string>,

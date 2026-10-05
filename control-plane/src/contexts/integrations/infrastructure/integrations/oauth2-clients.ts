@@ -1,15 +1,21 @@
-import type { ConfiguredOAuth2ClientsPort } from '@integrations/application/ports/configured-oauth2-clients.port';
-import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
+import type {
+  ConfiguredOAuth2Client,
+  ConfiguredOAuth2ClientsPort,
+} from '@integrations/application/ports/configured-oauth2-clients.port';
 import { z } from 'zod';
 
 const clientsSchema = z.record(
   z.string(),
-  z.object({ id: z.string().min(1), secret: z.string().min(1) }),
+  z.object({
+    id: z.string().min(1),
+    secret: z.string().min(1),
+    issuer: z.string().url().optional(),
+  }),
 );
 
 export class OAuth2Clients implements ConfiguredOAuth2ClientsPort {
   private constructor(
-    private readonly bySource: ReadonlyMap<string, OAuth2Client>,
+    private readonly bySource: ReadonlyMap<string, ConfiguredOAuth2Client>,
   ) {}
 
   static from(json: string): OAuth2Clients {
@@ -27,14 +33,21 @@ export class OAuth2Clients implements ConfiguredOAuth2ClientsPort {
 
     if (!read.success) {
       throw new Error(
-        'OAUTH_CLIENTS must map a source to { id, secret }, as in {"slack":{"id":"...","secret":"..."}}',
+        'OAUTH_CLIENTS must map a source to { id, secret }, with the issuer of its authorization server for an MCP server it discovers, as in {"slack":{"id":"...","secret":"..."}}',
       );
     }
 
-    return new OAuth2Clients(new Map(Object.entries(read.data)));
+    return new OAuth2Clients(
+      new Map(
+        Object.entries(read.data).map(([source, client]) => [
+          source,
+          { ...client, issuer: client.issuer ?? null },
+        ]),
+      ),
+    );
   }
 
-  of(source: string): OAuth2Client | null {
+  of(source: string): ConfiguredOAuth2Client | null {
     return this.bySource.get(source) ?? null;
   }
 }

@@ -2,6 +2,7 @@ import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2
 import { OAuth2ClientRegistrationMovedOnError } from '@integrations/domain/exceptions/oauth2-client-registration-moved-on.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { oauth2ClientRegistration } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -46,6 +47,9 @@ export class DrizzleOAuth2ClientRegistrations
     const written = {
       registrationEndpoint: registration.registrationEndpoint,
       redirectUri: registration.redirectUri,
+      issuer: registration.server?.issuer ?? null,
+      authorizeEndpoint: registration.server?.authorize ?? null,
+      tokenEndpoint: registration.server?.token ?? null,
       clientId: registration.clientId,
       clientSecret: registration.clientSecret
         ? await this.sealing.seal(
@@ -102,6 +106,14 @@ export class DrizzleOAuth2ClientRegistrations
       source: SourceKey.of(row.source),
       registrationEndpoint: row.registrationEndpoint,
       redirectUri: row.redirectUri,
+      server:
+        row.issuer && row.authorizeEndpoint && row.tokenEndpoint
+          ? AuthorizationServer.of({
+              issuer: row.issuer,
+              authorize: row.authorizeEndpoint,
+              token: row.tokenEndpoint,
+            })
+          : null,
       clientId: row.clientId,
       clientSecret: row.clientSecret
         ? AccessToken.of(

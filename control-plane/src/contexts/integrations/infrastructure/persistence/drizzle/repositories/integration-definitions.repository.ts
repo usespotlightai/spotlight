@@ -1,3 +1,7 @@
+import type {
+  ListedServer,
+  ListedServersPort,
+} from '@integrations/application/ports/listed-servers.port';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/integration-already-defined.error';
 import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
@@ -15,7 +19,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { and, eq, type SQL } from 'drizzle-orm';
+import { and, eq, lt, type SQL, sql } from 'drizzle-orm';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -66,7 +70,7 @@ const inPlace = (definition: IntegrationDefinition) =>
 
 @Injectable()
 export class DrizzleIntegrationDefinitions
-  implements IntegrationDefinitionRepository
+  implements IntegrationDefinitionRepository, ListedServersPort
 {
   constructor(
     private readonly context: DrizzleContext,
@@ -94,6 +98,33 @@ export class DrizzleIntegrationDefinitions
         .from(integrationDefinition)
         .where(eq(integrationDefinition.teamId, teamId.value))
     ).map(rehydrated);
+  }
+
+  async claimListedBefore(
+    before: Date,
+    at: Date,
+  ): Promise<readonly ListedServer[]> {
+    const claimed = await this.context.db
+      .update(integrationDefinition)
+      .set({
+        sourceReadAt: at,
+        definedAt: sql`${integrationDefinition.definedAt}`,
+      })
+      .where(
+        and(
+          sql`${integrationDefinition.definition} ? 'mcp'`,
+          lt(integrationDefinition.sourceReadAt, before),
+        ),
+      )
+      .returning({
+        teamId: integrationDefinition.teamId,
+        source: integrationDefinition.source,
+      });
+
+    return claimed.map((each) => ({
+      teamId: TeamId.of(each.teamId),
+      source: SourceKey.of(each.source),
+    }));
   }
 
   async save(definition: IntegrationDefinition): Promise<void> {

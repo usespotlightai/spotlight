@@ -7,9 +7,10 @@ import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 
 export class DescribedSourceResponseDto {
   @ApiProperty({
-    enum: ['openapi', 'graphql'],
+    enum: ['openapi', 'graphql', 'mcp'],
     example: 'openapi',
-    description: 'The kind of API description its tools are generated from',
+    description:
+      'The kind of API description, or the MCP server, its tools are generated from',
   })
   readonly kind: string;
 
@@ -34,7 +35,7 @@ export class DescribedSourceResponseDto {
     nullable: true,
     example: null,
     description:
-      'Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected',
+      'Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected, and lists an MCP server\u2019s tools again every MCP_RELIST_SECONDS',
   })
   readonly problem: string | null;
 

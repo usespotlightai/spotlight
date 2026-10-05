@@ -1,7 +1,7 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-const DESCRIBED_KINDS = ['openapi', 'graphql'] as const;
+const DESCRIBED_KINDS = ['openapi', 'graphql', 'mcp'] as const;
 
 export type DescribedKind = (typeof DESCRIBED_KINDS)[number];
 
@@ -10,6 +10,7 @@ const DEEPEST_SELECTION = 5;
 const DESCRIPTIONS: Readonly<Record<DescribedKind, string>> = {
   openapi: 'OpenAPI description',
   graphql: 'GraphQL schema',
+  mcp: 'MCP server',
 };
 
 const isWebAddress = (raw: string): boolean => {
@@ -63,8 +64,12 @@ export class DescribedSource {
       throw refuse('holds a document with nothing in it');
     }
 
-    if (input.kind === 'graphql' && url === null) {
+    if (input.kind !== 'openapi' && url === null) {
       throw refuse('is called at its url, which it does not name');
+    }
+
+    if (input.kind === 'mcp' && document !== null) {
+      throw refuse('lists its tools when asked, and is never written out');
     }
 
     if (baseUrl !== null && !isWebAddress(baseUrl)) {

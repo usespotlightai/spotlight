@@ -33,6 +33,10 @@ import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-p
 import { InMemoryHostConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import {
+  discoveringNothing,
+  reachingNoServer,
+} from '@integrations/integrations.mcp.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -280,6 +284,7 @@ const settingUp = ({ registered = true, generated = false } = {}) => {
       source: LINEAR,
       registrationEndpoint: 'https://linear.app/oauth/register',
       redirectUri: CALLBACK,
+      server: null,
       clientId: 'dcr-client',
       clientSecret: AccessToken.of('dcr-secret'),
       secretExpiresAt: null,
@@ -318,6 +323,8 @@ const settingUp = ({ registered = true, generated = false } = {}) => {
     new HttpOutbound(['linear.app', 'api.linear.app'], linear.fetch),
     clients,
     exchange,
+    discoveringNothing(),
+    reachingNoServer(),
   );
   const renewal = new ConnectionRenewal(
     connections,
@@ -342,6 +349,7 @@ const settingUp = ({ registered = true, generated = false } = {}) => {
   const linking = new OAuth2Linking(
     definitions as unknown as DefinedIntegrationsPort,
     new IntegrationReader(expressions, holding),
+    discoveringNothing(),
     clients,
     exchange,
     TEAMS,

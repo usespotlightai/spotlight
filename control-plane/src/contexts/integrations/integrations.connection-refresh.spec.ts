@@ -15,6 +15,10 @@ import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { InMemoryHostConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import {
+  discoveringNothing,
+  reachingNoServer,
+} from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -33,6 +37,8 @@ const runtimeWith = (
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
+    discoveringNothing(),
+    reachingNoServer(),
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');

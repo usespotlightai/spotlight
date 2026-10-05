@@ -226,6 +226,12 @@ const graphqlSchema = z.object({
   tools: describedToolsSchema,
 });
 
+const mcpSchema = z.object({
+  url: z.string().url(),
+  auth: requestAuthSchema.optional(),
+  tools: describedToolsSchema,
+});
+
 const markSchema = z.object({
   kind: z
     .string()
@@ -300,14 +306,25 @@ const scheduleSchema = z.object({
 const connectionSchema = z.object({
   holder: z.enum(CONNECTION_HOLDINGS).default('team'),
   oauth2: z
-    .object({
-      authorize: z.string().url(),
-      token: z.string().url(),
-      scopes: z.array(z.string()).default([]),
-      identity: expression.optional(),
-      registration: z.string().url().optional(),
-      resource: z.string().url().optional(),
-    })
+    .discriminatedUnion('discover', [
+      z
+        .object({
+          discover: z.literal(true),
+          scopes: z.array(z.string()).default([]),
+          identity: expression.optional(),
+          resource: z.string().url().optional(),
+        })
+        .strict(),
+      z.object({
+        discover: z.literal(false).default(false),
+        authorize: z.string().url(),
+        token: z.string().url(),
+        scopes: z.array(z.string()).default([]),
+        identity: expression.optional(),
+        registration: z.string().url().optional(),
+        resource: z.string().url().optional(),
+      }),
+    ])
     .optional(),
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),
 });
@@ -336,6 +353,7 @@ export const integrationSchema = z
     schedule: scheduleSchema.optional(),
     openapi: openapiSchema.optional(),
     graphql: graphqlSchema.optional(),
+    mcp: mcpSchema.optional(),
     actions: z.record(key('post-message'), actionSchema).default({}),
     tools: z.record(key('comment'), toolSchema).default({}),
     on: z
@@ -358,12 +376,13 @@ export const integrationSchema = z
       Object.keys(file.actions).length > 0 ||
       Object.keys(file.on).length > 0 ||
       file.openapi ||
-      file.graphql,
-    'must do something: a webhook, a poll, a schedule, an action to run, or an API description to offer tools from',
+      file.graphql ||
+      file.mcp,
+    'must do something: a webhook, a poll, a schedule, an action to run, or an API description or MCP server to offer tools from',
   )
   .refine(
-    (file) => !(file.openapi && file.graphql),
-    'offers tools from one API description: an openapi or a graphql, not both',
+    (file) => [file.openapi, file.graphql, file.mcp].filter(Boolean).length < 2,
+    'offers tools from one source: an openapi, a graphql or an mcp, not two',
   );
 
 export type IntegrationFile = z.infer<typeof integrationSchema>;
@@ -373,6 +392,7 @@ export type RequestFile = z.infer<typeof requestSchema>;
 export type RaiseFile = z.infer<typeof raiseSchema>;
 export type OpenApiFile = z.infer<typeof openapiSchema>;
 export type GraphQlFile = z.infer<typeof graphqlSchema>;
+export type McpFile = z.infer<typeof mcpSchema>;
 export type ToolInputFile = z.infer<typeof toolInputSchema>;
 
 export const written = (held: string): string => {

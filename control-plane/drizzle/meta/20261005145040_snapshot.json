@@ -1,5 +1,5 @@
 {
-  "id": "0f7d1c2c-9334-45ce-9f9a-9e97a7eb83fd",
+  "id": "9e3c9607-1238-445a-9bfe-3f5a1d03e7d1",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -4217,6 +4217,24 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authorize_endpoint": {
+          "name": "authorize_endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_endpoint": {
+          "name": "token_endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "client_id": {
           "name": "client_id",

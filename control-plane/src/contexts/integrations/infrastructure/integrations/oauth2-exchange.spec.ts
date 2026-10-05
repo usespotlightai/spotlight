@@ -1,7 +1,7 @@
 import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
 import {
-  type ConnectionIR,
   compileIntegration,
+  type OAuth2Endpoints,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
@@ -37,14 +37,15 @@ webhook:
             value: '\${{ body.event.ts }}'
 `;
 
-const oauth2 = (): NonNullable<ConnectionIR['oauth2']> => {
+const oauth2 = (): OAuth2Endpoints => {
   const read = compileIntegration(parseYaml(FIXTURE), expressions);
+  const written = read.ok ? read.readable.connection?.oauth2 : null;
 
-  if (!read.ok || !read.readable.connection?.oauth2) {
-    throw new Error('fixture did not compile with an oauth2 connection');
+  if (!written || written.discoverAt !== null) {
+    throw new Error('fixture did not compile with oauth2 endpoints');
   }
 
-  return read.readable.connection.oauth2;
+  return { ...written, issuer: null };
 };
 
 const replying = (body: unknown, status = 200) =>

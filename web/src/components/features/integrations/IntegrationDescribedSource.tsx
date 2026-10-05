@@ -6,6 +6,7 @@ const DESCRIPTIONS: Readonly<
 > = {
   openapi: 'OpenAPI description',
   graphql: 'GraphQL schema',
+  mcp: 'MCP server',
 };
 
 type IntegrationDescribedSourceProps = {

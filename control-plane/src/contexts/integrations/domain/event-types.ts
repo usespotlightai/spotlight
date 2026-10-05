@@ -11,6 +11,7 @@ import { IntegrationRedefined } from '@integrations/domain/events/integration-re
 import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
 import { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
+import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { CallbackNote } from '@integrations/domain/value-objects/callback-note.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
@@ -51,6 +52,7 @@ import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 export const INTEGRATIONS_EVENT_TYPES = [
   HookFailure,
   ApprovalNeeded,
+  AuthorizationServer,
   Binding,
   CallbackNote,
   ConnectionHolder,

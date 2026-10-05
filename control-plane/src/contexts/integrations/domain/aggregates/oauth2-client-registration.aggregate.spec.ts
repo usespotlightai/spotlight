@@ -1,14 +1,21 @@
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-05T10:00:00.000Z');
+const SERVER = AuthorizationServer.of({
+  issuer: 'https://mcp.example',
+  authorize: 'https://mcp.example/authorize',
+  token: 'https://mcp.example/token',
+});
 const WANTED = {
   registrationEndpoint: 'https://mcp.example/register',
   redirectUri: 'https://app.example/api/integrations/oauth/callback',
+  server: SERVER,
 };
 
 const registered = (secretExpiresAt: Date | null = null) =>
@@ -40,6 +47,19 @@ describe('OAuth2ClientRegistration', () => {
         NOW,
       ),
     ).toBe(false);
+  });
+
+  it('does not fit, nor serve, another authorization server than the one it was registered with', () => {
+    const moved = AuthorizationServer.of({
+      issuer: 'https://mcp.example',
+      authorize: 'https://mcp.example/authorize',
+      token: 'https://evil.example/token',
+    });
+
+    expect(registered().fits({ ...WANTED, server: moved }, NOW)).toBe(false);
+    expect(registered().servedBy(moved)).toBe(false);
+    expect(registered().servedBy(null)).toBe(false);
+    expect(registered().servedBy(SERVER)).toBe(true);
   });
 
   it('does not fit once its secret expired', () => {

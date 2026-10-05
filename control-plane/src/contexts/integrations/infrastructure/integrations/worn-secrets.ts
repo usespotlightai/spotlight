@@ -11,7 +11,7 @@ export interface WornSecretAt {
 
 type Held = Readonly<Record<string, unknown>>;
 
-const DESCRIBED_SOURCES = ['openapi', 'graphql'] as const;
+const DESCRIBED_SOURCES = ['openapi', 'graphql', 'mcp'] as const;
 
 const isHeld = (value: unknown): value is Held =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

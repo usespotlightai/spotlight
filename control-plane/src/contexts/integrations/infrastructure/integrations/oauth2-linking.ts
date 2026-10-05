@@ -15,6 +15,10 @@ import { landingBack } from '@integrations/application/services/landing-back';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { oauth2Of } from '@integrations/infrastructure/integrations/oauth2-config';
+import {
+  authorizationServerOf,
+  type OAuth2Discovery,
+} from '@integrations/infrastructure/integrations/oauth2-discovery';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -33,6 +37,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly reader: IntegrationReader,
+    private readonly discovery: OAuth2Discovery,
     private readonly clients: OAuth2ClientsPort,
     private readonly exchange: OAuth2Exchange,
     private readonly teams: TeamDirectoryPort,
@@ -49,6 +54,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
+      this.discovery,
       teamId,
       asked.source,
     );
@@ -57,6 +63,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
           teamId,
           SourceKey.of(asked.source),
           oauth2.registration,
+          authorizationServerOf(oauth2),
         )
       : null;
 
@@ -119,14 +126,15 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
+      this.discovery,
       teamId,
       intent.source,
     );
     const client = oauth2
-      ? await this.clients.clientFor(
+      ? await this.clients.heldFor(
           teamId,
           SourceKey.of(intent.source),
-          oauth2.registration,
+          authorizationServerOf(oauth2),
         )
       : null;
 

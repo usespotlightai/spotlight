@@ -15,6 +15,10 @@ import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import {
+  discoveringNothing,
+  reachingNoServer,
+} from '@integrations/integrations.mcp.fake-spec';
+import {
   injecting,
   reachFor,
 } from '@integrations/integrations.secrets.fake-spec';
@@ -44,6 +48,8 @@ const runtimeWith = (
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
+    discoveringNothing(),
+    reachingNoServer(),
   );
 
 const LINEAR = `integration: linear
@@ -436,6 +442,8 @@ graphql:
           new HttpOutbound(['petstore3.swagger.io', 'api.linear.app'], fetch),
           clientsFrom(),
           {} as OAuth2Exchange,
+          discoveringNothing(),
+          reachingNoServer(),
         ),
         reachFor(secrets.injection),
       );

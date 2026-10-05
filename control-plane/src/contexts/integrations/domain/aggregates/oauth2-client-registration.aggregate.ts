@@ -1,4 +1,5 @@
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import type { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -10,6 +11,7 @@ interface State {
   readonly source: SourceKey;
   readonly registrationEndpoint: string;
   readonly redirectUri: string;
+  readonly server: AuthorizationServer | null;
   readonly clientId: string;
   readonly clientSecret: AccessToken | null;
   readonly secretExpiresAt: Date | null;
@@ -63,6 +65,10 @@ export class OAuth2ClientRegistration {
     return this.state.redirectUri;
   }
 
+  get server(): AuthorizationServer | null {
+    return this.state.server;
+  }
+
   get clientId(): string {
     return this.state.clientId;
   }
@@ -92,14 +98,27 @@ export class OAuth2ClientRegistration {
   }
 
   fits(
-    wanted: { registrationEndpoint: string; redirectUri: string },
+    wanted: {
+      registrationEndpoint: string;
+      redirectUri: string;
+      server: AuthorizationServer | null;
+    },
     now: Date,
   ): boolean {
     return (
       this.state.registrationEndpoint === wanted.registrationEndpoint &&
       this.state.redirectUri === wanted.redirectUri &&
+      this.servedBy(wanted.server) &&
       this.liveAt(now)
     );
+  }
+
+  servedBy(server: AuthorizationServer | null): boolean {
+    const pinned = this.state.server;
+
+    return pinned === null || server === null
+      ? pinned === server
+      : pinned.equals(server);
   }
 
   replacedBy(next: OAuth2ClientRegistration): OAuth2ClientRegistration {

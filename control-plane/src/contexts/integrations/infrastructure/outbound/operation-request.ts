@@ -3,6 +3,7 @@ import type {
   OperationParameter,
 } from '@integrations/domain/value-objects/described-operation.vo';
 import type { PlainRequest } from '@integrations/infrastructure/outbound/http-outbound';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import {
   isJsonObject,
   type JsonValue,
@@ -111,6 +112,13 @@ export const operationRequest = (
 
   if (call.kind === 'http') {
     return httpRequest(call, inputs);
+  }
+
+  if (call.kind === 'mcp') {
+    throw new InconsistentStateError(
+      'described operation',
+      `${operation.name} calls an MCP tool, which is not sent as a plain request`,
+    );
   }
 
   return {

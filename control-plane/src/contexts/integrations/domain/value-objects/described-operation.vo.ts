@@ -48,6 +48,10 @@ export type OperationCall =
       readonly field: string;
       readonly document: string;
       readonly variables: readonly string[];
+    }
+  | {
+      readonly kind: 'mcp';
+      readonly tool: string;
     };
 
 export interface OperationInput {
@@ -119,8 +123,12 @@ export class DescribedOperation {
       if (passed.some((each) => !names.includes(each))) {
         throw refuse('sends an input it does not take');
       }
-    } else if (call.variables.some((each) => !names.includes(each))) {
-      throw refuse('sends a variable it does not take');
+    } else if (call.kind === 'graphql') {
+      if (call.variables.some((each) => !names.includes(each))) {
+        throw refuse('sends a variable it does not take');
+      }
+    } else if (call.tool.trim() === '') {
+      throw refuse('calls an MCP tool it does not name');
     }
 
     return new DescribedOperation(
