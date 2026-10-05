@@ -272,7 +272,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       integration: readable.integration,
       offered,
       wears: action.auth?.kind === 'secrets' ? action.auth.secrets : [],
-      declared: ToolDeclarationMapper.toDeclaration(offered),
+      declared: ToolDeclarationMapper.toDeclaration(
+        offered,
+        readable.integration.name,
+      ),
       defaultFor: (input) => {
         const written = compiled.inputs.find(
           (each) => each.name === input,
@@ -318,7 +321,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       integration: readable.integration,
       offered,
       wears: auth?.kind === 'secrets' ? auth.secrets : [],
-      declared: ToolDeclarationMapper.toDeclaration(offered),
+      declared: ToolDeclarationMapper.toDeclaration(
+        offered,
+        readable.integration.name,
+      ),
       defaultFor: () => undefined,
       call: async (inputs, reach) => {
         const request = operationRequest(operation, inputs);

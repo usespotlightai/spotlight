@@ -20,6 +20,7 @@ interface ApprovalDeclaration {
 
 export interface ToolDeclaration {
   readonly tool: string;
+  readonly integrationName: string;
   readonly description: string;
   readonly inputs: readonly ToolInputDeclaration[];
   readonly approval: ApprovalDeclaration | null;

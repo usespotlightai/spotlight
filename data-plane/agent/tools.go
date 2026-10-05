@@ -104,9 +104,14 @@ func signature(tool protocol.ToolManifest) string {
 	return strings.Join(parts, " ")
 }
 
+const toolsListedAtMost = 30
+
 func listing(tools []protocol.ToolManifest) string {
 	if len(tools) == 0 {
 		return "This run was given no tools."
+	}
+	if len(tools) > toolsListedAtMost {
+		return summary(tools)
 	}
 
 	var written strings.Builder
@@ -125,7 +130,42 @@ func listing(tools []protocol.ToolManifest) string {
 	return strings.TrimRight(written.String(), "\n")
 }
 
-func listTools(out io.Writer) error {
+func summary(tools []protocol.ToolManifest) string {
+	var order []string
+	counted := map[string]int{}
+	for _, tool := range tools {
+		from := tool.Integration
+		if from == "" {
+			from = "Spotlight"
+		}
+		if counted[from] == 0 {
+			order = append(order, from)
+		}
+		counted[from]++
+	}
+
+	var written strings.Builder
+	fmt.Fprintf(&written, "This run was given %d tools, too many to list:\n", len(tools))
+	for _, from := range order {
+		fmt.Fprintf(&written, "  %s  %d\n", from, counted[from])
+	}
+	written.WriteString("\nFind one with: spotlight tools search \"<words>\"\nRead one with: spotlight tools describe <tool>")
+
+	return written.String()
+}
+
+func toolsCmd(args []string, out io.Writer) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "search":
+			return searchTools(args[1:], out)
+		case "describe":
+			return describeTool(args[1:], out)
+		default:
+			return fmt.Errorf("no such command %q\n%s", "tools "+args[0], usage)
+		}
+	}
+
 	tools, err := manifest()
 	if err != nil {
 		return err
@@ -304,11 +344,6 @@ func readable(answered string) string {
 	}
 	if shaped.Output == nil {
 		return answered
-	}
-
-	var text string
-	if json.Unmarshal(shaped.Output, &text) == nil {
-		return text
 	}
 
 	var indented bytes.Buffer

@@ -40,10 +40,16 @@ export interface RunToolInput {
   readonly piped: boolean;
 }
 
+export interface RunToolApproval {
+  readonly because: string;
+}
+
 export interface RunToolManifest {
   readonly name: string;
   readonly description: string;
   readonly inputs: readonly RunToolInput[];
+  readonly approval: RunToolApproval | null;
+  readonly integration?: string;
 }
 
 export interface RunFile {
@@ -188,6 +194,10 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
             defaulted: input.defaulted,
             piped: input.piped,
           })),
+          approval: each.approval ? { because: each.approval.because } : null,
+          ...(each.integration !== undefined
+            ? { integration: each.integration }
+            : {}),
         })),
       }
     : {}),

@@ -455,6 +455,7 @@ graphql:
 
       expect(reached?.declared).toEqual({
         tool: 'petstore.add-pet',
+        integrationName: 'Petstore',
         description: 'Add a new pet to the store.',
         inputs: [
           {

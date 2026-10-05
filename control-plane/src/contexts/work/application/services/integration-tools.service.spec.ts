@@ -40,6 +40,7 @@ const reaching = (given: { movedOn?: boolean } = {}) => {
     reach: async () => ({
       declared: {
         tool: 'linear.comment',
+        integrationName: 'Linear',
         description: 'Comment on an issue',
         inputs: [],
         approval: null,

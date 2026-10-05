@@ -56,7 +56,7 @@ describe('PullRequestToolUse', () => {
           repository: ' api ',
         }),
       ),
-    ).resolves.toBe('https://github.com/acme/widgets/pull/7');
+    ).resolves.toEqual({ url: 'https://github.com/acme/widgets/pull/7' });
 
     expect(asked).toEqual([
       {

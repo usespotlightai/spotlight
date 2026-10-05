@@ -31,3 +31,18 @@ func TestReadsAnInputsKindFromItsSchema(t *testing.T) {
 		}
 	}
 }
+
+func TestReadsWhyAToolWaitsForAPersonAndWhereItComesFrom(t *testing.T) {
+	var tools []ToolManifest
+	written := `[{"name":"linear.issue-create","description":"Create an issue.","approval":{"because":"It is public."},"integration":"Linear"},{"name":"pull-request","description":"Open one.","approval":null}]`
+	if err := json.Unmarshal([]byte(written), &tools); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if tools[0].Approval == nil || tools[0].Approval.Because != "It is public." || tools[0].Integration != "Linear" {
+		t.Errorf("read %+v", tools[0])
+	}
+	if tools[1].Approval != nil || tools[1].Integration != "" {
+		t.Errorf("read %+v", tools[1])
+	}
+}

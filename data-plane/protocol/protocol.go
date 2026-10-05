@@ -124,7 +124,15 @@ type ToolManifest struct {
 	Name        string              `json:"name"`
 	Description string              `json:"description"`
 	Inputs      []ToolInputManifest `json:"inputs,omitempty"`
+	Approval    *ToolApproval       `json:"approval"`
+	Integration string              `json:"integration,omitempty"`
 }
+
+type ToolApproval struct {
+	Because string `json:"because"`
+}
+
+const ToolIntentInput = "intent"
 
 type ToolInputManifest struct {
 	Name        string          `json:"name"`

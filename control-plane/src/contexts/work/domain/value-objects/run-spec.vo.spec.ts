@@ -108,7 +108,14 @@ describe('RunSpec', () => {
   it('gives the tools its manifest names, and no others', () => {
     const spec = RunSpec.of(
       parts({
-        manifest: [{ name: 'pull-request', description: 'open', inputs: [] }],
+        manifest: [
+          {
+            name: 'pull-request',
+            description: 'open',
+            inputs: [],
+            approval: null,
+          },
+        ],
       }),
     );
 
@@ -163,7 +170,14 @@ describe('RunSpec', () => {
       for (const given of [
         { wears: ['LINEAR_API_KEY'] },
         {
-          manifest: [{ name: 'core.comment', description: 'x', inputs: [] }],
+          manifest: [
+            {
+              name: 'core.comment',
+              description: 'x',
+              inputs: [],
+              approval: null,
+            },
+          ],
         },
         { catalog: ['catalog.web-search@1.1.0'] },
         {
@@ -244,7 +258,14 @@ describe('RunSpec', () => {
         { checkouts: [{ remote: 'spotlight:repository', path: 'api' }] },
         { wears: ['LINEAR_API_KEY'] },
         {
-          manifest: [{ name: 'core.comment', description: 'x', inputs: [] }],
+          manifest: [
+            {
+              name: 'core.comment',
+              description: 'x',
+              inputs: [],
+              approval: null,
+            },
+          ],
         },
         { catalog: ['catalog.web-search@1.1.0'] },
         {

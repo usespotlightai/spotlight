@@ -46,6 +46,7 @@ export class DeclaredTool {
     readonly description: string,
     readonly inputs: readonly ToolInput[],
     readonly approval: ApprovalNeeded | null,
+    readonly offeredBy: string | null,
   ) {}
 
   static of(input: {
@@ -53,6 +54,7 @@ export class DeclaredTool {
     description: string;
     inputs?: readonly ToolInput[];
     approval?: ApprovalNeeded | null;
+    offeredBy?: string | null;
   }): DeclaredTool {
     const description = input.description.trim();
     const inputs = input.inputs ?? [];
@@ -114,6 +116,7 @@ export class DeclaredTool {
       description,
       inputs,
       input.approval ?? null,
+      input.offeredBy?.trim() || null,
     );
   }
 

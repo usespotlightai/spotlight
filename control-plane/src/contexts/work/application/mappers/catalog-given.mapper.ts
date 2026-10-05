@@ -8,10 +8,13 @@ import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaratio
 import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 
+const SPOTLIGHT_CATALOG = 'the Spotlight catalog';
+
 export const CatalogGivenMapper = {
   toDeclared(given: CatalogToolGiven): DeclaredTool {
     return ToolDeclarationMapper.toDeclared({
       tool: given.id,
+      integrationName: SPOTLIGHT_CATALOG,
       description: given.description,
       inputs: given.inputs,
       approval: null,

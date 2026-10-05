@@ -35,4 +35,6 @@ export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
     })),
     ...(declared.approval ? [INTENT] : []),
   ],
+  approval: declared.approval ? { because: declared.approval.because } : null,
+  ...(declared.offeredBy ? { integration: declared.offeredBy } : {}),
 });

@@ -14,12 +14,16 @@ const BODY = {
   piped: false,
 };
 
-const tool = (approval: ApprovalNeeded | null) =>
+const tool = (
+  approval: ApprovalNeeded | null,
+  offeredBy: string | null = null,
+) =>
   DeclaredTool.of({
     tool: Tool.of('linear.comment'),
     description: 'Comment on the issue.',
     inputs: [BODY],
     approval,
+    offeredBy,
   });
 
 describe('toolManifestOf', () => {
@@ -36,10 +40,25 @@ describe('toolManifestOf', () => {
     expect(manifest.description).toContain('--intent');
   });
 
+  it('says why a person approves the call, apart from what the tool does', () => {
+    const manifest = toolManifestOf(
+      tool(ApprovalNeeded.of('linear.comment', 'It posts publicly.')),
+    );
+
+    expect(manifest.approval).toEqual({ because: 'It posts publicly.' });
+    expect(manifest.description).toContain('It posts publicly.');
+  });
+
+  it('names the integration the tool comes from', () => {
+    expect(toolManifestOf(tool(null, 'Linear')).integration).toBe('Linear');
+    expect(toolManifestOf(tool(null))).not.toHaveProperty('integration');
+  });
+
   it('asks nothing more of a tool nobody approves', () => {
     const manifest = toolManifestOf(tool(null));
 
     expect(manifest.inputs.map((each) => each.name)).toEqual(['body']);
     expect(manifest.description).toBe('Comment on the issue.');
+    expect(manifest.approval).toBeNull();
   });
 });

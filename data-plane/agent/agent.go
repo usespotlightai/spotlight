@@ -34,6 +34,8 @@ const Usage = `  spotlight handover --next <where> [--note <text>]
   spotlight candidate --name <name> --hypothesis <text | @file> <station.json | ->
   spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]
   spotlight tools
+  spotlight tools search "<words>" [--limit <n>]
+  spotlight tools describe <tool>
   spotlight <tool> [--<input> <value>...] [--json <object> | --json -]   as spotlight linear comment --body "..."`
 
 const usage = "usage:\n" + Usage
@@ -61,7 +63,7 @@ func run(args []string, in io.Reader, out io.Writer) error {
 	case "cause":
 		return causeCmd(args[1:], out)
 	case "tools":
-		return listTools(out)
+		return toolsCmd(args[1:], out)
 	default:
 		return useTool(args, in, out)
 	}

@@ -2,9 +2,13 @@ import type { OfferedTool } from '@integrations/domain/value-objects/offered-too
 import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
 
 export const ToolDeclarationMapper = {
-  toDeclaration(offered: OfferedTool): ToolDeclaration {
+  toDeclaration(
+    offered: OfferedTool,
+    integrationName: string,
+  ): ToolDeclaration {
     return {
       tool: offered.tool,
+      integrationName,
       description: offered.description,
       inputs: offered.inputs.map((each) => ({
         name: each.name,

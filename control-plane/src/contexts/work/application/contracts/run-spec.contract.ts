@@ -19,6 +19,7 @@ import {
   type RunSearch,
   RunSpec,
   type RunSpecParts,
+  type RunToolApproval,
   type RunToolInput,
   type RunToolManifest,
 } from '@work/domain/value-objects/run-spec.vo';
@@ -138,13 +139,29 @@ const toolInputOf = (raw: unknown): RunToolInput => {
   };
 };
 
+const toolApprovalOf = (raw: unknown): RunToolApproval | null =>
+  raw === null
+    ? null
+    : {
+        because: stringAt(
+          objectAt(raw, 'why a tool waits for a person').because,
+          'why a tool waits for a person',
+        ),
+      };
+
 const toolOf = (raw: unknown): RunToolManifest => {
   const given = objectAt(raw, 'its tools');
+  const integration = optionalStringAt(
+    given.integration,
+    'the integration a tool comes from',
+  );
 
   return {
     name: stringAt(given.name, 'its tools'),
     description: stringAt(given.description, 'its tools'),
     inputs: listAt(given.inputs, 'what a tool takes', toolInputOf),
+    approval: toolApprovalOf(given.approval),
+    ...(integration !== undefined ? { integration } : {}),
   };
 };
 

@@ -32,10 +32,11 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
       throw new UnknownChatError(chatId.value);
     }
 
-    const placement = proposalPlacementWithin(lines, {
-      line: inputs.text('line') ?? '',
-      station: inputs.text('station') ?? '',
-    });
+    const named = {
+      line: (inputs.text('line') ?? '').trim(),
+      station: (inputs.text('station') ?? '').trim(),
+    };
+    const placement = proposalPlacementWithin(lines, named);
     const title = TaskTitle.of(inputs.text('title') ?? '');
     const description = inputs.text('description')?.trim();
 
@@ -49,9 +50,11 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
       }),
     );
 
-    const line = lines.find((each) => each.id.equals(placement.lineId));
-    const station = line?.stationAt(placement.stationId);
-
-    return `Proposed "${title.value}" at ${station?.name.value} on ${line?.name.value}. The person decides whether to create it, and already sees it in full, so do not repeat it to them.`;
+    return {
+      proposed: title.value,
+      line: named.line,
+      station: named.station,
+      next: 'The person decides whether to create it, and already sees it in full, so do not repeat it to them.',
+    };
   }
 }

@@ -173,7 +173,14 @@ export class IntegrationReader {
     );
 
     return offerings.flatMap((each) =>
-      each ? [ToolDeclarationMapper.toDeclaration(each.offered)] : [],
+      each
+        ? [
+            ToolDeclarationMapper.toDeclaration(
+              each.offered,
+              each.readable.integration.name,
+            ),
+          ]
+        : [],
     );
   }
 }

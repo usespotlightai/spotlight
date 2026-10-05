@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 const TEAM = TeamId.of('team_1');
 const LINEAR: ToolDeclaration = {
   tool: 'linear.comment',
+  integrationName: 'Linear',
   description: 'Comment on the issue.',
   inputs: [],
   approval: null,
@@ -25,6 +26,7 @@ describe('TeamIntegrations', () => {
 
     expect(tools.map((each) => each.tool.value)).toEqual(['linear.comment']);
     expect(tools[0]?.description).toBe('Comment on the issue.');
+    expect(tools[0]?.offeredBy).toBe('Linear');
     expect(offered).toHaveBeenCalledWith(TEAM, ['linear.comment']);
   });
 

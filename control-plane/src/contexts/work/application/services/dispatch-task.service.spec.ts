@@ -44,6 +44,7 @@ import type {
 import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
+  USING_TOOLS,
 } from '@work/domain/services/built-in-skills';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
@@ -243,6 +244,16 @@ const SHIPPED_SKILLS: ReadySkillFolder[] = [
         path: 'SKILL.md',
         text: `---\nname: ${OPENING_PULL_REQUESTS.value}\n---\n`,
       },
+    ],
+  },
+  {
+    skill: {
+      key: USING_TOOLS.value,
+      description: 'Finding and calling tools.',
+      tools: [],
+    },
+    files: [
+      { path: 'SKILL.md', text: `---\nname: ${USING_TOOLS.value}\n---\n` },
     ],
   },
 ];
@@ -909,6 +920,36 @@ describe('DispatchTask, the skills a run is given', () => {
     ]);
   });
 
+  it('lays the skill of finding and calling tools, and briefs where they come from, where an integration’s tool is described', async () => {
+    offeredTools = [
+      DeclaredTool.of({
+        tool: Tool.of('linear.comment'),
+        description: 'Comment on the issue.',
+        offeredBy: 'Linear',
+      }),
+    ];
+
+    await dispatch(triage({ tools: ['linear.comment'] }));
+    offeredTools = [];
+
+    expect(laid()).toEqual([
+      '.claude/skills/spotlight-handover/SKILL.md',
+      '.claude/skills/spotlight-tools/SKILL.md',
+    ]);
+    expect(written(queued[0]).briefing).toContain(
+      'You were given tools from Linear (1).',
+    );
+  });
+
+  it('lays no skill of finding tools where nothing describes the integration’s tool', async () => {
+    offeredTools = [];
+
+    await dispatch(triage({ tools: ['linear.missing'] }));
+
+    expect(laid()).toEqual(['.claude/skills/spotlight-handover/SKILL.md']);
+    expect(written(queued[0]).briefing).not.toContain('## Tools');
+  });
+
   it('lists the skills in the briefing where the harness does not read them', async () => {
     skillsHome = { directory: '.spotlight/skills', readByHarness: false };
 
@@ -984,6 +1025,7 @@ describe('DispatchTask, the team’s own skills', () => {
       '.claude/skills/spotlight-handover/SKILL.md',
       '.claude/skills/spotlight-pull-request/SKILL.md',
       '.claude/skills/our-migrations/SKILL.md',
+      '.claude/skills/spotlight-tools/SKILL.md',
     ]);
   });
 
@@ -1058,6 +1100,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           piped: true,
         },
       ],
+      approval: null,
     });
   });
 

@@ -106,21 +106,22 @@ export class DispatchTask implements TaskDispatching {
     line: Line;
     runId: RunId;
   }): Promise<boolean> {
-    const ordered = await this.ordering.ordered(
-      line,
-      taskOrderedAt(task, line),
-    );
+    const found = await this.ordering.ordered(line, taskOrderedAt(task, line));
 
-    if (!ordered) {
+    if (!found) {
       return false;
     }
 
-    const { order, folders, home } = ordered;
-    const offered = await this.integrations.offered(line, order.given.tools);
-    const described = describedTools(order.given.tools, [
+    const offered = await this.integrations.offered(
+      line,
+      found.order.given.tools,
+    );
+    const described = describedTools(found.order.given.tools, [
       ...offered,
-      ...ordered.catalogTools,
+      ...found.catalogTools,
     ]);
+    const ordered = this.ordering.equipped(found, described);
+    const { order, folders, home } = ordered;
 
     const id = runId;
 
@@ -152,6 +153,7 @@ export class DispatchTask implements TaskDispatching {
       listedIn: home.readByHarness ? null : home.directory,
       memories: memories.briefed,
       memoryFolder: memories.folder,
+      tools: described,
     });
     const worn = (order.given.profile?.wears ?? []).map((each) => each.value);
     const catalog = order.given.pinned.map((each) => each.value);

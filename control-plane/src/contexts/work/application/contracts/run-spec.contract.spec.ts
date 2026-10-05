@@ -66,6 +66,14 @@ const representative = {
           piped: false,
         },
       ],
+      approval: { because: 'It reads private dashboards.' },
+      integration: 'Grafana',
+    },
+    {
+      name: 'pull-request',
+      description: 'Open a pull request',
+      inputs: [],
+      approval: null,
     },
   ],
   attachments: [
@@ -121,6 +129,14 @@ describe('RunSpecContract wire', () => {
       parts({ handover: { noteLimit: 10 } }),
       parts({
         manifest: [{ name: 'x', description: 'x', inputs: [{ type: 'date' }] }],
+      }),
+      parts({
+        manifest: [{ name: 'x', description: 'x', inputs: [] }],
+      }),
+      parts({
+        manifest: [
+          { name: 'x', description: 'x', inputs: [], approval: { why: 'x' } },
+        ],
       }),
       parts({
         manifest: [
