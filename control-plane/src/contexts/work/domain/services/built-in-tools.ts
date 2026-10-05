@@ -1,3 +1,4 @@
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import {
   OPENING_PULL_REQUESTS,
   REVIEWING_PULL_REQUESTS,
@@ -33,7 +34,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
       inputs: [
         {
           name: 'title',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'What it does',
           required: true,
           defaulted: false,
@@ -41,7 +42,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'body',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'The detail, as Markdown',
           required: false,
           defaulted: false,
@@ -49,7 +50,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'repository',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description:
             'Which of the line’s repositories, where it works several',
           required: false,
@@ -69,7 +70,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
       inputs: [
         {
           name: 'path',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'The file, from the root of the repository',
           required: true,
           defaulted: false,
@@ -77,7 +78,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'line',
-          type: 'number',
+          schema: InputSchema.ofType('number'),
           description: 'The line it is about, or the last of several',
           required: true,
           defaulted: false,
@@ -85,7 +86,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'start-line',
-          type: 'number',
+          schema: InputSchema.ofType('number'),
           description: 'The first line, where it is about several',
           required: false,
           defaulted: false,
@@ -93,7 +94,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'side',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description:
             'new for a line the pull request leaves, old for one it removes',
           required: false,
@@ -102,7 +103,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'body',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'What is wrong and what would fix it, as Markdown',
           required: true,
           defaulted: false,
@@ -121,7 +122,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
       inputs: [
         {
           name: 'verdict',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'comment, approve or request-changes',
           required: false,
           defaulted: false,
@@ -129,7 +130,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'body',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'What the review comes down to, as Markdown',
           required: false,
           defaulted: false,
@@ -148,7 +149,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
       inputs: [
         {
           name: 'line',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'The line it belongs on, by its key',
           required: true,
           defaulted: false,
@@ -156,7 +157,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'station',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'The station on that line to start it at, by its key',
           required: true,
           defaulted: false,
@@ -164,7 +165,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'title',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'What the task is, in a line',
           required: true,
           defaulted: false,
@@ -172,7 +173,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         },
         {
           name: 'description',
-          type: 'string',
+          schema: InputSchema.ofType('string'),
           description: 'What whoever works it needs to know, as Markdown',
           required: false,
           defaulted: false,

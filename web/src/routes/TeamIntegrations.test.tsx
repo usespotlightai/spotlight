@@ -44,6 +44,7 @@ const listening = (over: Record<string, unknown> = {}) => ({
   path: 'integrations/linear',
   standing: 'listens',
   handle: null,
+  described: null,
   ...over,
 });
 
@@ -214,5 +215,51 @@ describe('TeamIntegrations', () => {
     expect(
       screen.getByRole('link', { name: 'Manage on GitHub' }),
     ).toHaveAttribute('href', INSTALL);
+  });
+
+  it('says how many tools a host’s API description gave, and when it was read', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([
+        listening({
+          source: 'petstore',
+          name: 'Petstore',
+          described: {
+            kind: 'openapi',
+            tools: 19,
+            readAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            problem: null,
+          },
+        }),
+      ]),
+    );
+    showing();
+
+    expect(
+      screen.getByText('19 tools from its OpenAPI description, read 2h ago.'),
+    ).toBeInTheDocument();
+  });
+
+  it('says why a host’s API description could not be read', () => {
+    github.mockReturnValue(ready());
+    configuration.mockReturnValue(
+      read([
+        listening({
+          described: {
+            kind: 'graphql',
+            tools: 0,
+            readAt: new Date().toISOString(),
+            problem: 'could not be read: api.linear.app answered 401',
+          },
+        }),
+      ]),
+    );
+    showing();
+
+    expect(
+      screen.getByText(
+        'Its GraphQL schema could not be read: api.linear.app answered 401.',
+      ),
+    ).toBeInTheDocument();
   });
 });

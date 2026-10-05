@@ -24,7 +24,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
   ): Promise<IntegrationTool | null> {
     const teamId = TeamId.of(task.teamId);
     const definitions = await this.defined.ofTeam(teamId);
-    const reachable = this.runtime.tool(
+    const reachable = await this.runtime.tool(
       definitions,
       tool,
       BoundTaskMapper.toBound(task),

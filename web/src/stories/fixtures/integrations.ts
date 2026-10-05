@@ -12,6 +12,7 @@ const CONFIGURED: ConfiguredIntegrationResponseDto[] = [
     path: 'integrations/linear',
     standing: 'listens',
     handle: null,
+    described: null,
   },
   {
     source: 'slack',
@@ -19,6 +20,33 @@ const CONFIGURED: ConfiguredIntegrationResponseDto[] = [
     path: 'integrations/slack',
     standing: 'linked',
     handle: 'Acme',
+    described: null,
+  },
+  {
+    source: 'petstore',
+    name: 'Petstore',
+    path: 'integrations/petstore',
+    standing: 'listens',
+    handle: null,
+    described: {
+      kind: 'openapi',
+      tools: 19,
+      readAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+      problem: null,
+    },
+  },
+  {
+    source: 'billing',
+    name: 'Billing',
+    path: 'integrations/billing',
+    standing: 'listens',
+    handle: null,
+    described: {
+      kind: 'openapi',
+      tools: 0,
+      readAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+      problem: 'could not be read: billing.example answered 404',
+    },
   },
 ];
 

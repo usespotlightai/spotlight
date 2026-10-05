@@ -1,8 +1,48 @@
 import {
   CONFIGURED_INTEGRATION_STANDINGS,
+  type ConfiguredDescriptionDto,
   type ConfiguredIntegrationDto,
 } from '@configuration/application/dto/configuration.dto';
 import { ApiProperty } from '@nestjs/swagger';
+
+export class ConfiguredDescriptionResponseDto {
+  @ApiProperty({
+    enum: ['openapi', 'graphql'],
+    example: 'openapi',
+    description: 'The kind of API description its tools are generated from',
+  })
+  readonly kind: string;
+
+  @ApiProperty({
+    type: 'integer',
+    example: 19,
+    description: 'How many tools were generated from it',
+  })
+  readonly tools: number;
+
+  @ApiProperty({
+    format: 'date-time',
+    example: '2026-10-05T12:00:00.000Z',
+    description: 'When it was last read',
+  })
+  readonly readAt: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: null,
+    description:
+      'Why it could not be read when it was last asked for; the tools from the last good read stay offered',
+  })
+  readonly problem: string | null;
+
+  constructor(described: ConfiguredDescriptionDto) {
+    this.kind = described.kind;
+    this.tools = described.tools;
+    this.readAt = described.readAt;
+    this.problem = described.problem;
+  }
+}
 
 export class ConfiguredIntegrationResponseDto {
   @ApiProperty({ example: 'linear' })
@@ -33,18 +73,23 @@ export class ConfiguredIntegrationResponseDto {
   })
   readonly handle: string | null;
 
-  constructor(
-    source: string,
-    name: string,
-    path: string,
-    standing: ConfiguredIntegrationDto['standing'],
-    handle: string | null,
-  ) {
-    this.source = source;
-    this.name = name;
-    this.path = path;
-    this.standing = standing;
-    this.handle = handle;
+  @ApiProperty({
+    description:
+      'The API description its tools are generated from, as last read; null where it names none',
+    type: ConfiguredDescriptionResponseDto,
+    nullable: true,
+  })
+  readonly described: ConfiguredDescriptionResponseDto | null;
+
+  constructor(integration: ConfiguredIntegrationDto) {
+    this.source = integration.source;
+    this.name = integration.name;
+    this.path = integration.path;
+    this.standing = integration.standing;
+    this.handle = integration.handle;
+    this.described = integration.described
+      ? new ConfiguredDescriptionResponseDto(integration.described)
+      : null;
   }
 }
 

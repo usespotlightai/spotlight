@@ -1,4 +1,8 @@
 import type {
+  JsonObject,
+  JsonValue,
+} from '@shared-kernel/domain/services/json-value';
+import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
@@ -28,7 +32,8 @@ export type ApprovalSubjectRow =
   | {
       readonly kind: 'tool-call';
       readonly tool: string;
-      readonly inputs: Readonly<Record<string, string | number | boolean>>;
+      readonly inputs: Readonly<Record<string, JsonValue>>;
+      readonly shapes: Readonly<Record<string, JsonObject>>;
     }
   | {
       readonly kind: 'harness-permission';
@@ -51,7 +56,7 @@ export interface ApprovalRow {
   readonly decidedAt: string | null;
   readonly reason: string | null;
   readonly spent: boolean;
-  readonly edited?: Readonly<Record<string, string | number | boolean>> | null;
+  readonly edited?: Readonly<Record<string, JsonValue>> | null;
   readonly intent?: string | null;
 }
 

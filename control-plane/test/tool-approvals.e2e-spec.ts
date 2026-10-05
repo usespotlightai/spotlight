@@ -304,6 +304,41 @@ describe('an approval a run asked for', () => {
     expect(edited?.inputs.values).toEqual({ queue: 'retries', limit: 100 });
   });
 
+  it('is read back with structured inputs, and a person’s change to one of them', async () => {
+    const asked = ApprovalSubject.toolCall(
+      ToolCall.of(
+        Tool.of('linear.issue-create'),
+        ToolInputs.of({
+          input: { title: 'Broken', labelIds: ['bug'], estimate: null },
+        }),
+      ),
+    );
+    const { task, owner } = await asking(asked);
+    const at =
+      task.notes[task.notes.length - 1]?.position ?? NotePosition.of(0);
+
+    expect((await readBack(task)).approvalFor(asked)?.approval.open).toBe(true);
+
+    await tasks.save(
+      task.answered(
+        at,
+        {
+          station: StationName.of('Backlog'),
+          body: TaskNoteBody.of('Approved, retitled.'),
+          at: NOW,
+          voice: Voice.person(owner),
+        },
+        'granted',
+        { input: '{"title": "Broken queue", "labelIds": ["bug"]}' },
+      ),
+    );
+
+    const edited = (await readBack(task)).notes[at.value]?.approval?.edited;
+    expect(edited?.inputs.values).toEqual({
+      input: { title: 'Broken queue', labelIds: ['bug'] },
+    });
+  });
+
   it('is read back with what the agent said it wants to do', async () => {
     const { list } = await openTeam(db, tasks, `approvals-${randomUUID()}`);
     const runId = RunId.of(randomUUID());

@@ -11,6 +11,8 @@ export interface WornSecretAt {
 
 type Held = Readonly<Record<string, unknown>>;
 
+const DESCRIBED_SOURCES = ['openapi', 'graphql'] as const;
+
 const isHeld = (value: unknown): value is Held =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -89,6 +91,11 @@ export const secretsWornBy = (definition: Held): readonly WornSecretAt[] => {
           ...inEvents(definition.poll.events, root.to('poll', 'events')),
         ]
       : []),
+    ...DESCRIBED_SOURCES.flatMap((kind) =>
+      isHeld(definition[kind])
+        ? inAuth(definition[kind].auth, root.to(kind, 'auth'))
+        : [],
+    ),
     ...(isHeld(definition.connection) && isHeld(definition.connection.manual)
       ? references(
           definition.connection.manual.secrets,

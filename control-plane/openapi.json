@@ -29492,6 +29492,43 @@
           "items"
         ]
       },
+      "ConfiguredDescriptionResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "openapi",
+              "graphql"
+            ],
+            "example": "openapi",
+            "description": "The kind of API description its tools are generated from"
+          },
+          "tools": {
+            "type": "integer",
+            "example": 19,
+            "description": "How many tools were generated from it"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-05T12:00:00.000Z",
+            "description": "When it was last read"
+          },
+          "problem": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Why it could not be read when it was last asked for; the tools from the last good read stay offered"
+          }
+        },
+        "required": [
+          "kind",
+          "tools",
+          "readAt",
+          "problem"
+        ]
+      },
       "ConfiguredIntegrationResponseDto": {
         "type": "object",
         "properties": {
@@ -29523,6 +29560,16 @@
             "description": "What the host calls the team once linked, where it says",
             "example": "Acme",
             "nullable": true
+          },
+          "described": {
+            "description": "The API description its tools are generated from, as last read; null where it names none",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredDescriptionResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -29530,7 +29577,8 @@
           "name",
           "path",
           "standing",
-          "handle"
+          "handle",
+          "described"
         ]
       },
       "ConfigurationResponseDto": {
@@ -30934,6 +30982,50 @@
           "url"
         ]
       },
+      "DescribedSourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "openapi",
+              "graphql"
+            ],
+            "example": "openapi",
+            "description": "The kind of API description its tools are generated from"
+          },
+          "hash": {
+            "type": "string",
+            "nullable": true,
+            "example": "9f2c4e1a7b3d5f6081a2c3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f607182",
+            "description": "The sha256 of what was last read, kept while a later read fails; null when it has never been read"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-05T12:00:00.000Z",
+            "description": "When the description was last read"
+          },
+          "problem": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected"
+          },
+          "tools": {
+            "type": "integer",
+            "example": 19,
+            "description": "How many of its tools were generated from the description"
+          }
+        },
+        "required": [
+          "kind",
+          "hash",
+          "readAt",
+          "problem",
+          "tools"
+        ]
+      },
       "IntegrationResourceResponseDto": {
         "type": "object",
         "properties": {
@@ -30982,7 +31074,17 @@
             "example": {
               "search": "grafana.search"
             },
-            "description": "Each tool the integration offers, by its name within the integration, to the name a station or hook gives it by; not settable"
+            "description": "Each tool the integration offers, hand-written or generated from its API description, by its name within the integration, to the name a station or hook gives it by; not settable"
+          },
+          "described": {
+            "nullable": true,
+            "description": "The API description its tools are generated from, as last read; null when it names none; not settable",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DescribedSourceResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -30993,7 +31095,8 @@
           "teamId",
           "source",
           "definition",
-          "tools"
+          "tools",
+          "described"
         ]
       },
       "IntegrationResourceListResponseDto": {

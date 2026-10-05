@@ -13,7 +13,7 @@ const told = (declared: DeclaredTool): string =>
 
 const INTENT = {
   name: APPROVAL_INTENT_INPUT,
-  type: 'string' as const,
+  schema: { type: 'string' },
   description:
     'What you want to do and why it needs a person, as one short phrase that completes “Spotlight would like to …”, in the words of the reason above, as in: post the drain summary on ENG-412, publicly under the team’s name',
   required: false,
@@ -27,7 +27,7 @@ export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
   inputs: [
     ...declared.inputs.map((each) => ({
       name: each.name,
-      type: each.type,
+      schema: each.schema.written,
       ...(each.description ? { description: each.description } : {}),
       required: each.required,
       defaulted: each.defaulted,

@@ -4,23 +4,26 @@ import type { IntegrationDefinition } from '@integrations/domain/aggregates/inte
 import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/integration-already-defined.error';
 import {
   access,
-  compiler,
   creates,
   definitions,
   LINEAR,
+  recalls,
+  sources,
   TEAM,
   teams,
 } from '@integrations/integrations.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentClaim } from '@shared-kernel/application/ports/idempotent-creates.port';
+import type { IdempotentRecall } from '@shared-kernel/application/ports/idempotent-recalls.port';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const creating = (
   over: {
     administers?: boolean;
     claim?: IdempotentClaim;
+    recall?: IdempotentRecall;
     refusing?: Error;
   } = {},
 ) => {
@@ -31,9 +34,10 @@ const creating = (
   const handler = new CreateIntegrationHandler(
     access(over.administers),
     teams(),
-    compiler,
+    sources,
     kept,
     keys,
+    recalls(over.recall),
     { generate: () => 'integration_new' },
     {
       run: async (work) => {
@@ -81,6 +85,10 @@ const creating = (
 };
 
 describe('CreateIntegrationHandler', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('claims the key, creates, and records what the key created in one transaction', async () => {
     const { create, within } = creating();
 
@@ -118,6 +126,32 @@ describe('CreateIntegrationHandler', () => {
       id: 'integration_first',
       replayed: true,
     });
+    expect(kept.save).not.toHaveBeenCalled();
+  });
+
+  it('answers a retry the key already created from what it created, reading nothing again', async () => {
+    const reading = vi.spyOn(sources, 'compiled');
+    const { create, kept, keys } = creating({
+      recall: { kind: 'replay', createdId: 'integration_first' },
+    });
+
+    expect(await create(LINEAR)).toEqual({
+      outcome: 'created',
+      id: 'integration_first',
+      replayed: true,
+    });
+    expect(reading).not.toHaveBeenCalled();
+    expect(keys.claim).not.toHaveBeenCalled();
+    expect(kept.save).not.toHaveBeenCalled();
+  });
+
+  it('refuses a key already used for a different request before reading anything', async () => {
+    const reading = vi.spyOn(sources, 'compiled');
+    const { create, kept, keys } = creating({ recall: { kind: 'reused' } });
+
+    expect(await create(LINEAR)).toEqual({ outcome: 'key-reused' });
+    expect(reading).not.toHaveBeenCalled();
+    expect(keys.claim).not.toHaveBeenCalled();
     expect(kept.save).not.toHaveBeenCalled();
   });
 

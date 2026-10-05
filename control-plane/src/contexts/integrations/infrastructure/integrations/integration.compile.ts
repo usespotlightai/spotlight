@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import type { ExpressionErrorDto } from '@integrations/application/dto/expression-check.dto';
 import type {
   CompiledIntegration,
+  DescribedOperations,
   IntegrationCompilerPort,
 } from '@integrations/application/ports/integration-compiler.port';
 import {
@@ -10,22 +12,26 @@ import {
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
+import {
+  type ApprovalOverride,
+  generatedTools,
+} from '@integrations/domain/services/generated-tools';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
-import {
-  OfferedTool,
-  type ToolInputType,
-} from '@integrations/domain/value-objects/offered-tool.vo';
+import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
+import { OperationFilter } from '@integrations/domain/value-objects/operation-filter.vo';
 import { Poll } from '@integrations/domain/value-objects/poll.vo';
 import { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import { cronCalendar } from '@integrations/infrastructure/integrations/cron-calendar';
 import type { Additions } from '@integrations/infrastructure/integrations/expression-position';
@@ -37,13 +43,16 @@ import {
 import {
   type AuthFile,
   type EventFile,
+  type GraphQlFile,
   type IntegrationFile,
   integrationSchema,
   isExpression,
   ON_EVENTS,
+  type OpenApiFile,
   type RaiseFile,
   type RequestFile,
   secretOf,
+  type ToolInputFile,
   written,
 } from '@integrations/infrastructure/integrations/integration.schema';
 import { Place } from '@integrations/infrastructure/integrations/place';
@@ -62,6 +71,7 @@ import type { NamedType, SchemaFields } from '@platform/expressions/scope';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 interface Freshness {
@@ -196,7 +206,7 @@ interface OnBindingIR {
 
 interface ToolInputIR {
   readonly name: string;
-  readonly type: ToolInputType;
+  readonly schema: InputSchema;
   readonly description: string | null;
   readonly required: boolean;
   readonly default: Templated | null;
@@ -209,9 +219,17 @@ interface ToolIR {
   readonly output: Expression | null;
 }
 
+interface DescribedIR {
+  readonly source: DescribedSource;
+  readonly auth: AuthIR | null;
+  readonly filter: OperationFilter;
+  readonly approvals: ReadonlyMap<string, ApprovalOverride>;
+}
+
 export interface ReadableIntegration {
   readonly path: string;
   readonly integration: Integration;
+  readonly described: DescribedIR | null;
   readonly webhook: WebhookIR | null;
   readonly poll: PollIR | null;
   readonly connection: ConnectionIR | null;
@@ -225,6 +243,7 @@ export type Compiled =
       readonly ok: true;
       readonly readable: ReadableIntegration;
       readonly definition: IntegrationFile;
+      readonly passedOver: readonly string[];
       readonly warnings: readonly ConfigurationProblem[];
       readonly places: ReadonlyMap<string, Place>;
     }
@@ -360,7 +379,7 @@ class Compiler {
     }
   }
 
-  private warn(at: FieldPath, reason: string): void {
+  warn(at: FieldPath, reason: string): void {
     const key = `${at.rendered} ${reason}`;
 
     if (!this.warned.has(key)) {
@@ -670,6 +689,70 @@ class Compiler {
   }
 }
 
+type SourceFile =
+  | { readonly kind: 'openapi'; readonly file: OpenApiFile }
+  | { readonly kind: 'graphql'; readonly file: GraphQlFile };
+
+const sourceFileOf = (file: IntegrationFile): SourceFile | null =>
+  file.openapi
+    ? { kind: 'openapi', file: file.openapi }
+    : file.graphql
+      ? { kind: 'graphql', file: file.graphql }
+      : null;
+
+const documentOf = (written: SourceFile): string | null =>
+  written.file.document === undefined
+    ? null
+    : typeof written.file.document === 'string'
+      ? written.file.document
+      : JSON.stringify(written.file.document);
+
+const fingerprintOf = (written: SourceFile): string =>
+  createHash('sha256')
+    .update(
+      JSON.stringify({
+        kind: written.kind,
+        url: written.file.url ?? null,
+        document: documentOf(written),
+        baseUrl:
+          written.kind === 'openapi' ? (written.file.baseUrl ?? null) : null,
+        revision: written.file.revision ?? null,
+        depth: written.kind === 'graphql' ? (written.file.depth ?? null) : null,
+        connected: written.file.auth?.oauth2 !== undefined,
+      }),
+    )
+    .digest('hex');
+
+const describedSourceOf = (
+  written: SourceFile,
+  auth: AuthIR | null,
+): DescribedSource => {
+  const document = documentOf(written);
+
+  return DescribedSource.of({
+    kind: written.kind,
+    url: written.file.url ?? null,
+    document,
+    baseUrl: written.kind === 'openapi' ? (written.file.baseUrl ?? null) : null,
+    depth: written.kind === 'graphql' ? (written.file.depth ?? null) : null,
+    wears:
+      auth?.kind === 'secrets'
+        ? auth.secrets.map((each) => SecretName.of(each))
+        : [],
+    connected: auth?.kind === 'oauth2',
+    fingerprint: fingerprintOf(written),
+  });
+};
+
+const inputSchemaOf = (input: ToolInputFile): InputSchema =>
+  input.schema
+    ? InputSchema.of(
+        input.description && !('description' in input.schema)
+          ? { ...input.schema, description: input.description }
+          : input.schema,
+      )
+    : InputSchema.ofType(input.type ?? 'string', input.description ?? null);
+
 const addressOf = (held: unknown): string => {
   const source =
     typeof held === 'object' && held !== null && 'integration' in held
@@ -688,6 +771,7 @@ const addressOf = (held: unknown): string => {
 export const compileIntegration = (
   held: unknown,
   expressions: ExpressionEnginePort,
+  described: DescribedOperations | null = null,
 ): Compiled => {
   const read = integrationSchema.safeParse(held);
 
@@ -784,7 +868,7 @@ export const compileIntegration = (
   for (const tool of Object.values(file.tools)) {
     const held = inputsOf.get(tool.does) ?? {};
     for (const [name, input] of Object.entries(tool.inputs)) {
-      const type = seenAs(input.type);
+      const type = seenAs(inputSchemaOf(input));
       held[name] =
         held[name] === undefined || held[name] === type ? type : 'dyn';
     }
@@ -825,7 +909,7 @@ export const compileIntegration = (
       name,
       inputs: Object.entries(tool.inputs).map(([input, declared]) => ({
         name: input,
-        type: declared.type,
+        schema: inputSchemaOf(declared),
         description: declared.description ?? null,
         required: declared.required,
         piped: declared.piped,
@@ -874,6 +958,40 @@ export const compileIntegration = (
           : null,
       }
     : null;
+
+  const written = sourceFileOf(file);
+  const filter = written
+    ? compiler.part(FieldPath.of([written.kind, 'tools']), () =>
+        OperationFilter.of(written.file.tools),
+      )
+    : null;
+  const approvals = new Map<string, ApprovalOverride>();
+  if (written) {
+    for (const [name, approval] of Object.entries(
+      written.file.tools.approval,
+    )) {
+      const at = FieldPath.of([written.kind, 'tools', 'approval', name]);
+      const override = compiler.part(at, () =>
+        approval === false ? false : ApprovalNeeded.of(approval, at.rendered),
+      );
+      if (override !== null) {
+        approvals.set(name, override);
+      }
+    }
+  }
+  const describedIR: DescribedIR | null =
+    written && filter
+      ? (() => {
+          const auth = written.file.auth
+            ? compiler.auth(written.file.auth, root.to(written.kind).to('auth'))
+            : null;
+          const source = compiler.part(FieldPath.of([written.kind]), () =>
+            describedSourceOf(written, auth),
+          );
+
+          return source ? { source, auth, filter, approvals } : null;
+        })()
+      : null;
 
   const schedule = file.schedule
     ? (() => {
@@ -940,11 +1058,11 @@ export const compileIntegration = (
         source,
         name: tool.name,
         description: file.tools[tool.name]?.description ?? '',
-        does: file.tools[tool.name]?.does ?? '',
+        backing: ToolBacking.action(file.tools[tool.name]?.does ?? ''),
         approval: approvalOf(file.tools[tool.name]?.approval, tool.name),
         inputs: tool.inputs.map((input) => ({
           name: input.name,
-          type: input.type,
+          schema: input.schema,
           description: input.description,
           required: input.required,
           defaulted: input.default !== null,
@@ -953,6 +1071,35 @@ export const compileIntegration = (
       }),
     ),
   );
+
+  const generation =
+    described && describedIR && written
+      ? compiler.part(FieldPath.of([written.kind, 'tools']), () =>
+          generatedTools({
+            source,
+            integration: file.name?.trim() || source.value,
+            described: describedIR.source,
+            hash: described.hash,
+            operations: described.operations,
+            filter: describedIR.filter,
+            approvals: describedIR.approvals,
+            handWritten: Object.keys(file.tools),
+          }),
+        )
+      : null;
+
+  if (written && described) {
+    const named = new Set(described.operations.map((each) => each.name));
+
+    for (const name of approvals.keys()) {
+      if (!named.has(name)) {
+        compiler.warn(
+          FieldPath.of([written.kind, 'tools', 'approval', name]),
+          `names ${name}, which no operation of its ${describedIR?.source.described ?? 'description'} is called`,
+        );
+      }
+    }
+  }
 
   if (compiler.problems.length > 0 || !defined) {
     return {
@@ -979,7 +1126,7 @@ export const compileIntegration = (
       bindings,
       connects: connection?.oauth2 !== null && connection?.oauth2 !== undefined,
       credentials: [...compiler.secrets].map((name) => SecretName.of(name)),
-      offers: offers.filter(isPresent),
+      offers: [...offers.filter(isPresent), ...(generation?.tools ?? [])],
     });
 
     return {
@@ -987,6 +1134,7 @@ export const compileIntegration = (
       readable: {
         path,
         integration,
+        described: describedIR,
         webhook,
         poll,
         connection,
@@ -995,6 +1143,7 @@ export const compileIntegration = (
         tools,
       },
       definition: file,
+      passedOver: generation?.passedOver ?? [],
       warnings: compiler.warnings,
       places: compiler.places,
     };
@@ -1080,14 +1229,19 @@ const hintProblemsOf = (
 export class IntegrationCompiler implements IntegrationCompilerPort {
   constructor(private readonly expressions: ExpressionEnginePort) {}
 
-  compile(held: unknown): CompiledIntegration {
-    const compiled = compileIntegration(held, this.expressions);
+  compile(
+    held: unknown,
+    described: DescribedOperations | null = null,
+  ): CompiledIntegration {
+    const compiled = compileIntegration(held, this.expressions, described);
 
     return compiled.ok
       ? {
           ok: true,
           integration: compiled.readable.integration,
           document: DefinitionDocument.of(compiled.definition),
+          source: compiled.readable.described?.source ?? null,
+          passedOver: compiled.passedOver,
           warnings: compiled.warnings,
         }
       : compiled;

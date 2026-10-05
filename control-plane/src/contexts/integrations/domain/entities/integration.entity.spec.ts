@@ -6,6 +6,7 @@ import { HappeningName } from '@integrations/domain/value-objects/happening-name
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -93,7 +94,7 @@ describe('Integration', () => {
             source: LINEAR,
             name: 'comment',
             description: 'Comment.',
-            does: 'comment',
+            backing: ToolBacking.action('comment'),
           }),
         ],
       }),

@@ -1,7 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
-import type { IntegrationCompilerPort } from '@integrations/application/ports/integration-compiler.port';
 import { IntegrationProblems } from '@integrations/application/rendering/integration-problems';
+import type { IntegrationSources } from '@integrations/application/services/integration-sources.service';
 import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
 import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
@@ -23,7 +23,7 @@ export class UpdateIntegrationHandler
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
-    private readonly compiler: IntegrationCompilerPort,
+    private readonly sources: IntegrationSources,
     private readonly definitions: IntegrationDefinitionRepository,
     private readonly given: ToolsGiven,
     private readonly transaction: TransactionPort,
@@ -53,7 +53,11 @@ export class UpdateIntegrationHandler
 
       standing.expecting(command.expectedVersion);
 
-      const compiled = this.compiler.compile(command.definition);
+      const { compiled, reading } = await this.sources.compiled({
+        definition: command.definition,
+        teamId: standing.teamId,
+        standing: standing.reading,
+      });
 
       if (!compiled.ok) {
         return { outcome: 'invalid', problems: compiled.problems };
@@ -65,6 +69,7 @@ export class UpdateIntegrationHandler
         this.definitions.save(
           standing.redefinedAs(
             compiled,
+            reading,
             given,
             Attribution.of(command.actor, cleared.workspaceId),
           ),

@@ -12,7 +12,6 @@ import type {
 } from '@work/application/contracts/happenings.contract';
 import type {
   ToolDeclaration,
-  ToolInputDeclaration,
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 
@@ -102,7 +101,7 @@ export interface ReachableTool {
   readonly offered: OfferedTool;
   readonly declared: ToolDeclaration;
   readonly wears: readonly string[];
-  defaultFor(input: ToolInputDeclaration): unknown;
+  defaultFor(input: string): unknown;
   call(inputs: ToolInputValues, reach: Reach): Promise<ToolOutput>;
 }
 
@@ -136,7 +135,7 @@ export interface IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     tool: string,
     task: BoundTask,
-  ): ReachableTool | null;
+  ): Promise<ReachableTool | null>;
 
   renew(
     definitions: readonly DefinedIntegration[],

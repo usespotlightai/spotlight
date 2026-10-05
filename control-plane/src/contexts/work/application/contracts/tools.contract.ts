@@ -1,14 +1,13 @@
-const TOOL_INPUT_TYPES = ['string', 'number', 'boolean'] as const;
+import type {
+  JsonObject,
+  JsonValue,
+} from '@shared-kernel/domain/services/json-value';
 
-type ToolInputType = (typeof TOOL_INPUT_TYPES)[number];
+export type ToolInputValues = Readonly<Record<string, JsonValue>>;
 
-type ToolInputValue = string | number | boolean;
-
-export type ToolInputValues = Readonly<Record<string, ToolInputValue>>;
-
-export interface ToolInputDeclaration {
+interface ToolInputDeclaration {
   readonly name: string;
-  readonly type: ToolInputType;
+  readonly schema: JsonObject;
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;

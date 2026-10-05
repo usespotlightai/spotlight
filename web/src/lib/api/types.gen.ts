@@ -2789,6 +2789,25 @@ export type WorkspaceRunnersResourceListResponseDto = {
   items: Array<WorkspaceRunnersResourceResponseDto>;
 };
 
+export type ConfiguredDescriptionResponseDto = {
+  /**
+   * The kind of API description its tools are generated from
+   */
+  kind: 'openapi' | 'graphql';
+  /**
+   * How many tools were generated from it
+   */
+  tools: number;
+  /**
+   * When it was last read
+   */
+  readAt: string;
+  /**
+   * Why it could not be read when it was last asked for; the tools from the last good read stay offered
+   */
+  problem: string | null;
+};
+
 export type ConfiguredIntegrationResponseDto = {
   source: string;
   name: string;
@@ -2804,6 +2823,10 @@ export type ConfiguredIntegrationResponseDto = {
    * What the host calls the team once linked, where it says
    */
   handle: string | null;
+  /**
+   * The API description its tools are generated from, as last read; null where it names none
+   */
+  described: ConfiguredDescriptionResponseDto | null;
 };
 
 export type ConfigurationResponseDto = {
@@ -3369,6 +3392,29 @@ export type OAuth2StartResponseDto = {
   url: string;
 };
 
+export type DescribedSourceResponseDto = {
+  /**
+   * The kind of API description its tools are generated from
+   */
+  kind: 'openapi' | 'graphql';
+  /**
+   * The sha256 of what was last read, kept while a later read fails; null when it has never been read
+   */
+  hash: string | null;
+  /**
+   * When the description was last read
+   */
+  readAt: string;
+  /**
+   * Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected
+   */
+  problem: string | null;
+  /**
+   * How many of its tools were generated from the description
+   */
+  tools: number;
+};
+
 export type IntegrationResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -3401,11 +3447,15 @@ export type IntegrationResourceResponseDto = {
     [key: string]: unknown;
   };
   /**
-   * Each tool the integration offers, by its name within the integration, to the name a station or hook gives it by; not settable
+   * Each tool the integration offers, hand-written or generated from its API description, by its name within the integration, to the name a station or hook gives it by; not settable
    */
   tools: {
     [key: string]: string;
   };
+  /**
+   * The API description its tools are generated from, as last read; null when it names none; not settable
+   */
+  described: DescribedSourceResponseDto | null;
 };
 
 export type IntegrationResourceListResponseDto = {

@@ -50,6 +50,11 @@ export const integrationDefinition = pgTable(
     source: text('source').notNull(),
     definition: jsonb('definition').$type<Record<string, unknown>>().notNull(),
     offers: jsonb('offers').$type<string[]>().notNull(),
+    sourceFingerprint: text('source_fingerprint'),
+    sourceHash: text('source_hash'),
+    sourceReadAt: timestamp('source_read_at'),
+    sourceProblem: text('source_problem'),
+    sourcePassedOver: jsonb('source_passed_over').$type<string[]>(),
     version: integer('version').notNull().default(1),
     definedAt: timestamp('defined_at')
       .defaultNow()
@@ -57,4 +62,25 @@ export const integrationDefinition = pgTable(
       .notNull(),
   },
   (table) => [unique().on(table.teamId, table.source)],
+);
+
+export const describedDocument = pgTable('described_document', {
+  hash: text('hash').primaryKey(),
+  kind: text('kind').notNull(),
+  operations: integer('operations').notNull(),
+  passedOver: jsonb('passed_over').$type<string[]>().notNull(),
+  readAt: timestamp('read_at').notNull(),
+});
+
+export const describedOperation = pgTable(
+  'described_operation',
+  {
+    hash: text('hash')
+      .notNull()
+      .references(() => describedDocument.hash, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    position: integer('position').notNull(),
+    operation: jsonb('operation').$type<Record<string, unknown>>().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.hash, table.name] })],
 );

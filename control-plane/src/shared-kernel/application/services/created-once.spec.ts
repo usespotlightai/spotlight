@@ -2,7 +2,14 @@ import type {
   IdempotentClaim,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
+import type {
+  IdempotentRecall,
+  IdempotentRecallsPort,
+} from '@shared-kernel/application/ports/idempotent-recalls.port';
+import {
+  createdEarlier,
+  createdOnce,
+} from '@shared-kernel/application/services/created-once';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -56,5 +63,31 @@ describe('createdOnce', () => {
 
     await expect(run()).rejects.toThrow('taken');
     expect(creates.created).not.toHaveBeenCalled();
+  });
+});
+
+describe('createdEarlier', () => {
+  const recalling = (recall: IdempotentRecall) =>
+    createdEarlier(
+      { recall: async () => recall } satisfies IdempotentRecallsPort,
+      CREATE,
+    );
+
+  it('says nothing of a key it has not seen, so the create goes ahead', async () => {
+    expect(await recalling({ kind: 'unseen' })).toBeNull();
+  });
+
+  it('answers a retry with what the key created', async () => {
+    expect(await recalling({ kind: 'replay', createdId: 'made_0' })).toEqual({
+      outcome: 'created',
+      id: 'made_0',
+      replayed: true,
+    });
+  });
+
+  it('refuses a key used for another request', async () => {
+    expect(await recalling({ kind: 'reused' })).toEqual({
+      outcome: 'key-reused',
+    });
   });
 });

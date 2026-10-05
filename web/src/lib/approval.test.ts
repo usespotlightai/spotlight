@@ -61,6 +61,22 @@ describe('approval', () => {
     expect(readsAsCode(COMMENT, { name: 'command', value: 'ls' })).toBe(true);
   });
 
+  it('reads a structured value a tool takes as code', () => {
+    expect(
+      readsAsCode(COMMENT, {
+        name: 'input',
+        value: '{\n  "title": "Broken"\n}',
+      }),
+    ).toBe(true);
+    expect(readsAsCode(COMMENT, { name: 'labels', value: '["bug"]' })).toBe(
+      true,
+    );
+    expect(readsAsCode(COMMENT, { name: 'body', value: '{not json' })).toBe(
+      false,
+    );
+    expect(readsAsCode(COMMENT, { name: 'count', value: '3' })).toBe(false);
+  });
+
   it('names no label over what a harness says it would do', () => {
     expect(labelOf(EXECUTE, { name: 'title', value: 'ls' })).toBeNull();
     expect(labelOf(COMMENT, { name: 'body', value: 'Fixed.' })).toBe('body');

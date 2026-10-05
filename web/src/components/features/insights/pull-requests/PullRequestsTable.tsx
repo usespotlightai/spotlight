@@ -13,7 +13,7 @@ import {
   stateShown,
   typeShown,
 } from '@/lib/insights-pull-requests';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 import { taskPath } from '@/lib/task';
 
 type PullRequestsTableProps = {

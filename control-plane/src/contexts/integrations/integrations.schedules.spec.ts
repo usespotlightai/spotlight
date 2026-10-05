@@ -15,6 +15,7 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import {
   injecting,
   reachFor,
@@ -33,7 +34,7 @@ const runtimeWith = (
   clients: OAuth2Clients = OAuth2Clients.from('{}'),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions),
+    new IntegrationReader(expressions, operationsHolding()),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,

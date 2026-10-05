@@ -1,6 +1,5 @@
 import type {
   ToolDeclaration,
-  ToolInputDeclaration,
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
@@ -14,7 +13,7 @@ export interface RunAttemptDto {
 
 export interface IntegrationTool {
   readonly declared: ToolDeclaration;
-  defaultFor(input: ToolInputDeclaration): unknown;
+  defaultFor(input: string): unknown;
   call(inputs: ToolInputValues): Promise<unknown>;
 }
 

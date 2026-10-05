@@ -1,6 +1,6 @@
 import { OUTCOME_COLUMNS } from '@/components/features/stations/outcomes/columns';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 import {
   checksShown,
   deliveryShown,

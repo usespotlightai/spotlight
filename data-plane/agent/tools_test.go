@@ -14,9 +14,21 @@ var commenting = protocol.ToolManifest{
 	Name:        "linear.comment",
 	Description: "Comment on the Linear issue this task came from.",
 	Inputs: []protocol.ToolInputManifest{
-		{Name: "issue", Type: "string", Defaulted: true},
-		{Name: "body", Type: "string", Description: "What to say", Required: true, Piped: true},
-		{Name: "notify", Type: "boolean"},
+		{Name: "issue", Schema: json.RawMessage(`{"type":"string"}`), Defaulted: true},
+		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "What to say", Required: true, Piped: true},
+		{Name: "notify", Schema: json.RawMessage(`{"type":"boolean"}`)},
+	},
+}
+
+var searching = protocol.ToolManifest{
+	Name:        "linear.search",
+	Description: "Search the team's Linear issues.",
+	Inputs: []protocol.ToolInputManifest{
+		{Name: "filter", Schema: json.RawMessage(`{"type":"object","properties":{"state":{"type":"string"}}}`)},
+		{Name: "first", Schema: json.RawMessage(`{"type":["integer","null"]}`)},
+		{Name: "team_id", Schema: json.RawMessage(`{"type":"string"}`), Required: true},
+		{Name: "state", Schema: json.RawMessage(`{"enum":["open","closed"]}`)},
+		{Name: "json", Schema: json.RawMessage(`{"type":"string"}`)},
 	},
 }
 
@@ -25,8 +37,8 @@ func withTools(t *testing.T, answer string) (*channel, *map[string]any) {
 
 	server := inARun(t)
 	carried := map[string]any{}
-	server.Tools([]string{"linear.comment"}, func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
-		if name != "linear.comment" {
+	server.Tools([]string{"linear.comment", "linear.search"}, func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
+		if name != "linear.comment" && name != "linear.search" {
 			t.Errorf("reached for %q", name)
 		}
 		if err := json.Unmarshal(input, &carried); err != nil {
@@ -36,6 +48,7 @@ func withTools(t *testing.T, answer string) (*channel, *map[string]any) {
 	})
 	server.Manifest([]protocol.ToolManifest{
 		commenting,
+		searching,
 		{Name: "linear.close", Description: "Close the issue."},
 	})
 
@@ -52,7 +65,8 @@ func TestListsTheToolsTheRunWasGiven(t *testing.T) {
 
 	listed := out.String()
 	for _, want := range []string{
-		"spotlight linear comment [--issue <string>] --body <string> (or piped in) [--notify]",
+		"spotlight linear comment [--issue <string>] --body <string> (or piped in) [--notify] [--json <object> | --json -]",
+		"spotlight linear search [--filter <json>] [--first <number>] --team_id <string> [--state <string>] [--json <object> | --json -]",
 		"Comment on the Linear issue this task came from.",
 		"--body  What to say",
 	} {
@@ -142,5 +156,103 @@ func TestReadsAPipedInputFromStandardInputWhenNamed(t *testing.T) {
 				t.Errorf("carried %v", *carried)
 			}
 		})
+	}
+}
+
+func TestTakesTheWholeInputAsOneJSONObject(t *testing.T) {
+	_, carried := withTools(t, `{}`)
+
+	args := []string{"linear", "search", "--json", `{"team_id":"ENG","first":5,"filter":{"state":"open"}}`}
+	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	filter, _ := (*carried)["filter"].(map[string]any)
+	if (*carried)["team_id"] != "ENG" || (*carried)["first"] != float64(5) || filter["state"] != "open" {
+		t.Errorf("carried %v", *carried)
+	}
+}
+
+func TestReadsTheJSONObjectFromStandardInput(t *testing.T) {
+	_, carried := withTools(t, `{}`)
+
+	args := []string{"linear", "comment", "--json", "-"}
+	if err := run(args, strings.NewReader(`{"body":"From the object.","notify":true}`), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if (*carried)["body"] != "From the object." || (*carried)["notify"] != true {
+		t.Errorf("carried %v", *carried)
+	}
+}
+
+func TestRefusesAPipedInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) {
+	withTools(t, `{}`)
+
+	args := []string{"linear", "comment", "--json", "-", "--body", "-"}
+	err := run(args, strings.NewReader(`{"notify":true}`), new(bytes.Buffer))
+	if err == nil || !strings.Contains(err.Error(), "--body cannot be read from stdin when --json is") {
+		t.Fatalf("err = %v, want it to say stdin carries the JSON", err)
+	}
+}
+
+func TestAFlagOverridesTheJSONObjectsField(t *testing.T) {
+	_, carried := withTools(t, `{}`)
+
+	args := []string{"linear", "search", "--json", `{"team_id":"ENG","first":5}`, "--team_id", "OPS"}
+	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if (*carried)["team_id"] != "OPS" || (*carried)["first"] != float64(5) {
+		t.Errorf("carried %v", *carried)
+	}
+}
+
+func TestCarriesFlagsAsTheTextGiven(t *testing.T) {
+	_, carried := withTools(t, `{}`)
+
+	args := []string{"linear", "search", "--team_id", "ENG", "--first", "10", "--filter", `{"state":"open"}`}
+	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if (*carried)["first"] != "10" || (*carried)["filter"] != `{"state":"open"}` {
+		t.Errorf("carried %v, want the number and the object as the text given", *carried)
+	}
+}
+
+func TestRefusesJSONThatIsNotAnObject(t *testing.T) {
+	for _, given := range []string{`["ENG"]`, `null`, `{"team_id":`} {
+		t.Run(given, func(t *testing.T) {
+			withTools(t, `{}`)
+
+			err := run([]string{"linear", "search", "--json", given}, strings.NewReader(""), new(bytes.Buffer))
+			if err == nil || !strings.Contains(err.Error(), "--json takes one JSON object") {
+				t.Fatalf("err = %v, want it to ask for a JSON object", err)
+			}
+		})
+	}
+}
+
+func TestRefusesAValueAfterASwitch(t *testing.T) {
+	_, carried := withTools(t, `{}`)
+
+	args := []string{"linear", "comment", "--notify", "false", "--body", "Fixed."}
+	err := run(args, strings.NewReader(""), new(bytes.Buffer))
+	if err == nil || !strings.Contains(err.Error(), `"false" follows --notify, which takes no value; write --notify=false`) {
+		t.Fatalf("err = %v, want it to say how a switch takes a value", err)
+	}
+	if len(*carried) != 0 {
+		t.Errorf("carried %v, want nothing used", *carried)
+	}
+}
+
+func TestRefusesAStrayArgument(t *testing.T) {
+	withTools(t, `{}`)
+
+	err := run([]string{"linear", "comment", "--body", "Fixed.", "again"}, strings.NewReader(""), new(bytes.Buffer))
+	if err == nil || !strings.Contains(err.Error(), `"again" is not a flag`) {
+		t.Fatalf("err = %v, want it to name the stray argument", err)
 	}
 }

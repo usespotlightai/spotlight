@@ -1,24 +1,26 @@
+import type { JsonValue } from '@shared-kernel/domain/services/json-value';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
-import { WORDS } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import {
+  INPUT_NAME,
+  WHOLE_CALL_INPUT,
+} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { InvalidToolError } from '@work/domain/exceptions/invalid-tool.error';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
-import {
-  ToolInputs,
-  type ToolInputValue,
-} from '@work/domain/value-objects/tool-inputs.vo';
+import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
-export const TOOL_INPUT_TYPES = ['string', 'number', 'boolean'] as const;
+const TOOL_INPUT_NAME = new RegExp(`^${INPUT_NAME}$`);
 
-export type ToolInputType = (typeof TOOL_INPUT_TYPES)[number];
-
-const TOOL_INPUT_NAME = new RegExp(`^${WORDS}$`);
+const SHOWN_AT_MOST = 80;
 
 export interface ToolInput {
   readonly name: string;
-  readonly type: ToolInputType;
+  readonly schema: InputSchema;
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;
@@ -30,35 +32,12 @@ const absent = (read: unknown): boolean =>
   read === null ||
   (typeof read === 'string' && read.trim() === '');
 
-const asType = (
-  type: ToolInputType,
-  read: unknown,
-): ToolInputValue | undefined => {
-  switch (type) {
-    case 'string':
-      return typeof read === 'string'
-        ? read
-        : typeof read === 'number' || typeof read === 'boolean'
-          ? String(read)
-          : undefined;
-    case 'number': {
-      const number =
-        typeof read === 'number'
-          ? read
-          : typeof read === 'string' && read.trim() !== ''
-            ? Number(read)
-            : Number.NaN;
-      return Number.isFinite(number) ? number : undefined;
-    }
-    case 'boolean':
-      return typeof read === 'boolean'
-        ? read
-        : read === 'true'
-          ? true
-          : read === 'false'
-            ? false
-            : undefined;
-  }
+const shown = (value: unknown): string => {
+  const written = JSON.stringify(value) ?? String(value);
+
+  return written.length > SHOWN_AT_MOST
+    ? `${written.slice(0, SHOWN_AT_MOST - 1)}…`
+    : written;
 };
 
 export class DeclaredTool {
@@ -89,7 +68,14 @@ export class DeclaredTool {
       if (!TOOL_INPUT_NAME.test(each.name)) {
         throw new InvalidToolError(
           input.tool.value,
-          `takes ${JSON.stringify(each.name)}: name an input in lowercase words joined by dashes, as in issue`,
+          `takes ${JSON.stringify(each.name)}: name an input in letters, digits, dashes and underscores, as in issue or team_id`,
+        );
+      }
+
+      if (each.name === WHOLE_CALL_INPUT) {
+        throw new InvalidToolError(
+          input.tool.value,
+          `takes ${WHOLE_CALL_INPUT}, which Spotlight keeps for handing a tool every input at once`,
         );
       }
     }
@@ -116,7 +102,7 @@ export class DeclaredTool {
       );
     }
 
-    if (piped.some((each) => each.type !== 'string')) {
+    if (piped.some((each) => !each.schema.takesText)) {
       throw new InvalidToolError(
         input.tool.value,
         'has an input piped in that is not text, and text is what is piped',
@@ -153,6 +139,14 @@ export class DeclaredTool {
     return { intent: ApprovalIntent.said(said), rest };
   }
 
+  callWith(inputs: ToolInputs): ToolCall {
+    return ToolCall.of(
+      this.tool,
+      inputs,
+      Object.fromEntries(this.inputs.map((each) => [each.name, each.schema])),
+    );
+  }
+
   accept(
     given: unknown,
     defaultFor: (input: ToolInput) => unknown = () => undefined,
@@ -174,7 +168,7 @@ export class DeclaredTool {
       );
     }
 
-    const values: Record<string, ToolInputValue> = {};
+    const values: Record<string, JsonValue> = {};
 
     for (const each of this.inputs) {
       const read =
@@ -194,16 +188,21 @@ export class DeclaredTool {
         continue;
       }
 
-      const typed = asType(each.type, read);
+      const coerced = each.schema.coerce(read);
+      const problem = each.schema.problemWith(coerced);
 
-      if (typed === undefined) {
+      if (problem) {
         throw new InvalidToolInputError(
           this.tool.value,
-          `takes ${each.name} as a ${each.type}, and ${JSON.stringify(read)} is not one`,
+          `takes ${each.name}, and ${
+            problem.at.isRoot
+              ? shown(coerced)
+              : FieldPath.of([each.name, ...problem.at.segments]).rendered
+          } ${problem.why}`,
         );
       }
 
-      values[each.name] = typed;
+      values[each.name] = coerced as JsonValue;
     }
 
     return ToolInputs.of(values);

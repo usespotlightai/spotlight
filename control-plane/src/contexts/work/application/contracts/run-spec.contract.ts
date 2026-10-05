@@ -1,10 +1,11 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import {
+  isJsonObject,
+  isJsonValue,
+  type JsonObject,
+} from '@shared-kernel/domain/services/json-value';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import type { Continuity } from '@work/domain/value-objects/continuity.vo';
-import {
-  TOOL_INPUT_TYPES,
-  type ToolInputType,
-} from '@work/domain/value-objects/declared-tool.vo';
 import {
   checkoutFoldersOf,
   type RunAttachment,
@@ -118,10 +119,10 @@ const commandOf = (raw: unknown): RunCommand => {
   };
 };
 
-const inputTypeOf = (raw: unknown): ToolInputType =>
-  (TOOL_INPUT_TYPES as readonly unknown[]).includes(raw)
-    ? (raw as ToolInputType)
-    : unreadable('what a tool takes');
+const inputSchemaOf = (raw: unknown): JsonObject =>
+  isJsonObject(raw) && isJsonValue(raw)
+    ? raw
+    : unreadable('the shape a tool input takes');
 
 const toolInputOf = (raw: unknown): RunToolInput => {
   const given = objectAt(raw, 'what a tool takes');
@@ -129,7 +130,7 @@ const toolInputOf = (raw: unknown): RunToolInput => {
 
   return {
     name: stringAt(given.name, 'what a tool takes'),
-    type: inputTypeOf(given.type),
+    schema: inputSchemaOf(given.schema),
     ...(description !== undefined ? { description } : {}),
     required: booleanAt(given.required, 'what a tool takes'),
     defaulted: booleanAt(given.defaulted, 'what a tool takes'),

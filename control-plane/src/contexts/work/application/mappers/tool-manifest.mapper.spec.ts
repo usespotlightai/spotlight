@@ -1,3 +1,4 @@
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
@@ -6,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const BODY = {
   name: 'body',
-  type: 'string' as const,
+  schema: InputSchema.ofType('string'),
   description: null,
   required: true,
   defaulted: false,

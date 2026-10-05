@@ -9,6 +9,7 @@ import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/o
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -70,7 +71,7 @@ const linking = (
 
   const it = new OAuth2Linking(
     { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
-    new IntegrationReader(expressions),
+    new IntegrationReader(expressions, operationsHolding()),
     OAuth2Clients.from(over.clients ?? '{"slack":{"id":"c-1","secret":"s-1"}}'),
     { exchange } as unknown as OAuth2Exchange,
     {

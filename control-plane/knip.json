@@ -1,7 +1,12 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "drizzle": false,
-  "entry": ["src/main.ts", "scripts/*.ts", "drizzle.config.ts"],
+  "entry": [
+    "src/main.ts",
+    "src/**/*.worker.ts",
+    "scripts/*.ts",
+    "drizzle.config.ts"
+  ],
   "ignoreDependencies": ["pino-pretty"],
   "ignoreBinaries": ["terraform"],
   "ignoreIssues": {

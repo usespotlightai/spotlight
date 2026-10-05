@@ -1,3 +1,4 @@
+import { ToolDeclarationMapper } from '@integrations/application/mappers/tool-declaration.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type {
   Acted,
@@ -17,7 +18,10 @@ import type { AccessToken } from '@integrations/domain/value-objects/access-toke
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type { ReadableIntegration } from '@integrations/infrastructure/integrations/integration.compile';
-import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import type {
+  IntegrationReader,
+  Offering,
+} from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import {
@@ -28,6 +32,7 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { operationRequest } from '@integrations/infrastructure/outbound/operation-request';
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
 import { bound } from '@platform/expressions/bindings';
 import { reads, value } from '@platform/expressions/readings';
@@ -43,6 +48,30 @@ const refusalOf = (result: OutboundResult): HostRefusal => ({
   status: result.status,
   said: asJson(result.response ?? null).slice(0, SAID_AT_MOST),
 });
+
+const refusedUsing = (
+  tool: string,
+  status: number,
+  response: unknown,
+): UpstreamRefusedError =>
+  new UpstreamRefusedError(
+    `using ${tool}`,
+    `the integration answered ${status}: ${asJson(response ?? null).slice(0, SAID_AT_MOST)}`,
+  );
+
+const fieldOf = (held: unknown, field: string): unknown =>
+  typeof held === 'object' && held !== null && field in held
+    ? (held as Record<string, unknown>)[field]
+    : undefined;
+
+const graphqlErrorsOf = (response: unknown): unknown => {
+  const errors = fieldOf(response, 'errors');
+
+  return Array.isArray(errors) && errors.length > 0 ? errors : null;
+};
+
+const dataOf = (response: unknown, field: string): unknown =>
+  fieldOf(fieldOf(response, 'data'), field) ?? null;
 
 const reached = (reach: Reach) =>
   reach.connection ? { connection: reach.connection.value } : {};
@@ -195,19 +224,33 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     return { kind: 'posted', marks };
   }
 
-  tool(
+  async tool(
     definitions: readonly DefinedIntegration[],
     tool: string,
     task: BoundTask,
-  ): ReachableTool | null {
-    const readable = this.readable(definitions).find(
-      (each) => each.integration.offered(tool) !== null,
-    );
-    const declared = readable?.integration.offered(tool) ?? null;
-    const compiled = declared ? readable?.tools.get(declared.name) : undefined;
-    const action = declared ? readable?.actions.get(declared.does) : undefined;
+  ): Promise<ReachableTool | null> {
+    const offering = await this.reader.offering(definitions, tool);
 
-    if (!declared || !readable || !compiled || !action) {
+    if (!offering) {
+      return null;
+    }
+
+    return offering.offered.backing.described
+      ? this.generated(offering, tool)
+      : this.written(offering, tool, task);
+  }
+
+  private written(
+    { readable, offered }: Offering,
+    tool: string,
+    task: BoundTask,
+  ): ReachableTool | null {
+    const compiled = readable.tools.get(offered.name);
+    const action = offered.backing.action
+      ? readable.actions.get(offered.backing.action)
+      : undefined;
+
+    if (!compiled || !action) {
       return null;
     }
 
@@ -215,19 +258,12 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     return {
       integration: readable.integration,
-      offered: declared,
+      offered,
       wears: action.auth?.kind === 'secrets' ? action.auth.secrets : [],
-      declared: {
-        tool: declared.tool,
-        description: declared.description,
-        inputs: declared.inputs,
-        approval: declared.approval
-          ? { because: declared.approval.because }
-          : null,
-      },
+      declared: ToolDeclarationMapper.toDeclaration(offered),
       defaultFor: (input) => {
         const written = compiled.inputs.find(
-          (each) => each.name === input.name,
+          (each) => each.name === input,
         )?.default;
         return written ? textOf(written, bound) : undefined;
       },
@@ -240,10 +276,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         );
 
         if (!result.ok) {
-          throw new UpstreamRefusedError(
-            `using ${tool}`,
-            `the integration answered ${result.status}: ${asJson(result.response ?? null).slice(0, 500)}`,
-          );
+          throw refusedUsing(tool, result.status, result.response);
         }
 
         return plainJson(
@@ -256,6 +289,49 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
               })
             : result.capture,
         );
+      },
+    };
+  }
+
+  private generated(
+    { readable, offered, operation }: Offering,
+    tool: string,
+  ): ReachableTool | null {
+    const auth = readable.described?.auth ?? null;
+
+    if (!operation) {
+      return null;
+    }
+
+    return {
+      integration: readable.integration,
+      offered,
+      wears: auth?.kind === 'secrets' ? auth.secrets : [],
+      declared: ToolDeclarationMapper.toDeclaration(offered),
+      defaultFor: () => undefined,
+      call: async (inputs, reach) => {
+        const answered = await this.outbound.answer(
+          operationRequest(operation, inputs),
+          auth,
+          reach.connection?.value ?? null,
+          reach.credentials,
+        );
+
+        if (!answered.ok) {
+          throw refusedUsing(tool, answered.status, answered.response);
+        }
+
+        if (operation.call.kind === 'http') {
+          return plainJson(answered.response);
+        }
+
+        const errors = graphqlErrorsOf(answered.response);
+
+        if (errors) {
+          throw refusedUsing(tool, answered.status, errors);
+        }
+
+        return plainJson(dataOf(answered.response, operation.call.field));
       },
     };
   }

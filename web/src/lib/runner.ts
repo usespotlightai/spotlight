@@ -9,6 +9,7 @@ import type {
 } from '@/lib/api';
 import { runPath } from '@/lib/run';
 import { settingsPath } from '@/lib/settings';
+import { since } from '@/lib/since';
 
 export type HeldRun = HeldRunResponseDto;
 
@@ -92,29 +93,6 @@ export const standing = (host: Host): string => {
 export const through = (way: AdmittedThroughResponseDto): string => {
   const kind = way.kind === 'pool' ? 'Pool' : 'Trust';
   return way.key === null ? `${kind} no longer defined` : `${kind} ${way.key}`;
-};
-
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-
-export const since = (at: string): string => {
-  const ago = Date.now() - new Date(at).getTime();
-
-  if (ago < MINUTE) {
-    return 'just now';
-  }
-  if (ago < HOUR) {
-    return `${Math.floor(ago / MINUTE)}m ago`;
-  }
-  if (ago < DAY) {
-    return `${Math.floor(ago / HOUR)}h ago`;
-  }
-
-  return new Date(at).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  });
 };
 
 export const seenAt = (host: Host): string =>

@@ -4,7 +4,10 @@ import {
   compileIntegration,
   type RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import {
+  ANSWER_AT_MOST_BYTES,
+  HttpOutbound,
+} from '@integrations/infrastructure/outbound/http-outbound';
 import {
   credentialsFor,
   injecting,
@@ -202,13 +205,67 @@ actions:
     });
   });
 
-  it('follows no redirect while wearing a secret', async () => {
-    const fetch = replying({ ok: true });
+  it('follows a redirect itself, wearing nothing toward another host', async () => {
+    const fetch = vi.fn(async (url: string) =>
+      url.startsWith('https://slack.com')
+        ? new Response(null, {
+            status: 307,
+            headers: { location: 'https://files.slack-edge.com/post' },
+          })
+        : new Response(JSON.stringify({ ok: true, ts: '1' })),
+    );
 
-    await new HttpOutbound(['slack.com'], fetch).run(action(), against, SLACK);
+    await new HttpOutbound(
+      ['slack.com', 'slack-edge.com'],
+      fetch as unknown as typeof globalThis.fetch,
+    ).run(action(), against, SLACK);
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(init.redirect).toBe('manual');
+    const [first, second] = fetch.mock.calls as unknown as [
+      [string, RequestInit],
+      [string, RequestInit],
+    ];
+    expect(first[1].redirect).toBe('manual');
+    expect((first[1].headers as Record<string, string>).authorization).toBe(
+      'Bearer xoxb-1',
+    );
+    expect(second[0]).toBe('https://files.slack-edge.com/post');
+    expect(second[1].method).toBe('POST');
+    expect(
+      (second[1].headers as Record<string, string>).authorization,
+    ).toBeUndefined();
+  });
+
+  it('checks every host a redirect sends it to', async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: 'https://169.254.169.254/latest' },
+        }),
+    );
+
+    await expect(
+      new HttpOutbound(['slack.com'], fetch).run(action(), against, SLACK),
+    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses an answer larger than it reads from a tool', async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response('{}', {
+          headers: { 'content-length': String(ANSWER_AT_MOST_BYTES + 1) },
+        }),
+    );
+
+    await expect(
+      new HttpOutbound(['slack.com'], fetch).answer(
+        { method: 'GET', url: 'https://slack.com/api/x', headers: {} },
+        null,
+        null,
+        SLACK,
+      ),
+    ).rejects.toThrow(/larger than the 4 MB/);
   });
 
   it('refuses a host the deployment did not allow', async () => {

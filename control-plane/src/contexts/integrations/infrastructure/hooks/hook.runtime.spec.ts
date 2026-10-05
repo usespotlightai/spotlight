@@ -17,6 +17,7 @@ import type { HookFailure } from '@integrations/domain/value-objects/hook-failur
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
 import type { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
@@ -86,7 +87,7 @@ const tool = (
       source: SourceKey.of('slack'),
       name: 'post-message',
       description: 'Post',
-      does: 'post',
+      backing: ToolBacking.action('post'),
       approval: approval ? ApprovalNeeded.of(approval, 'post-message') : null,
     }),
     declared: {

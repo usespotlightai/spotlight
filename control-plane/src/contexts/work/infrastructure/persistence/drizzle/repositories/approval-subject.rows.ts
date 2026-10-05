@@ -10,7 +10,11 @@ import type {
 export const toApprovalSubject = (row: ApprovalSubjectRow): ApprovalSubject =>
   row.kind === 'tool-call'
     ? ApprovalSubject.toolCall(
-        ToolCall.rehydrate({ tool: row.tool, inputs: row.inputs }),
+        ToolCall.rehydrate({
+          tool: row.tool,
+          inputs: row.inputs,
+          shapes: row.shapes,
+        }),
       )
     : ApprovalSubject.harnessPermission(
         HarnessPermission.rehydrate({
@@ -41,5 +45,9 @@ export const toApprovalSubjectRow = (
 
 export const toEditedCall = (row: ApprovalRow): ToolCall | null =>
   row.edited && row.subject.kind === 'tool-call'
-    ? ToolCall.rehydrate({ tool: row.subject.tool, inputs: row.edited })
+    ? ToolCall.rehydrate({
+        tool: row.subject.tool,
+        inputs: row.edited,
+        shapes: row.subject.shapes,
+      })
     : null;

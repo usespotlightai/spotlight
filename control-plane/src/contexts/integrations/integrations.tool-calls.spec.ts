@@ -1,4 +1,7 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
+import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
+import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -9,12 +12,14 @@ import {
   type OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import {
   injecting,
   reachFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type {
@@ -22,6 +27,7 @@ import type {
   RunAttemptDto,
 } from '@work/application/ports/integration-tool-calls.port';
 import { describe, expect, it, vi } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const expressions = new CelExpressionEngine();
 
@@ -33,7 +39,7 @@ const runtimeWith = (
   clients: OAuth2Clients = OAuth2Clients.from('{}'),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions),
+    new IntegrationReader(expressions, operationsHolding()),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
@@ -285,9 +291,7 @@ describe('IntegrationToolCalls', () => {
     const reached = (await using().reaching(
       'linear.comment',
     )) as IntegrationTool;
-    const issue = reached.declared.inputs.find((each) => each.name === 'issue');
-
-    expect(issue && reached.defaultFor(issue)).toBe('ENG-12');
+    expect(reached.defaultFor('issue')).toBe('ENG-12');
   });
 
   it('says what the host refused', async () => {
@@ -323,5 +327,221 @@ describe('IntegrationToolCalls', () => {
     const answered = await comment({ body: 'x' });
 
     expect(answered).toBe(long);
+  });
+
+  describe('a tool generated from an API description', () => {
+    const HASH = ContentHash.of('f'.repeat(64));
+
+    const PETSTORE = `integration: petstore
+name: Petstore
+openapi:
+  url: https://petstore3.swagger.io/api/v3/openapi.json
+  auth:
+    secrets: [secret.PETSTORE_KEY]
+`;
+
+    const LINEAR_GRAPHQL = `integration: linear
+graphql:
+  url: https://api.linear.app/graphql
+`;
+
+    const ADD_PET = DescribedOperation.of({
+      name: 'add-pet',
+      upstream: 'addPet',
+      description: 'Add a new pet to the store.',
+      inputs: [
+        {
+          name: 'body',
+          schema: InputSchema.of({
+            type: 'object',
+            required: ['name'],
+            properties: { name: { type: 'string' } },
+          }),
+          required: true,
+          description: null,
+        },
+      ],
+      writes: true,
+      call: {
+        kind: 'http',
+        method: 'POST',
+        server: 'https://petstore3.swagger.io/api/v3',
+        path: '/pet',
+        params: [],
+        body: { input: 'body', contentType: 'application/json' },
+      },
+    });
+
+    const ISSUE = DescribedOperation.of({
+      name: 'issue',
+      upstream: 'issue',
+      description: 'Find one issue.',
+      inputs: [
+        {
+          name: 'id',
+          schema: InputSchema.ofType('string'),
+          required: true,
+          description: null,
+        },
+      ],
+      writes: false,
+      call: {
+        kind: 'graphql',
+        endpoint: 'https://api.linear.app/graphql',
+        operation: 'query',
+        field: 'issue',
+        document: 'query issue($id: String!) { issue(id: $id) { id title } }',
+        variables: ['id'],
+      },
+    });
+
+    const generated = (
+      text: string,
+      operation: DescribedOperation,
+      answering: Response,
+    ) => {
+      const fetch = vi.fn(async () => answering);
+      const secrets = injecting({
+        PETSTORE_KEY: {
+          host: 'petstore3.swagger.io',
+          header: 'api_key',
+          value: 'special-key',
+        },
+      });
+      const source = String(parseYaml(text).integration);
+      const tools = new IntegrationToolCalls(
+        {
+          ofTeam: vi.fn(async () => [
+            defined(text, {
+              hash: HASH.value,
+              offers: [`${source}.${operation.name}`],
+            }),
+          ]),
+        } as unknown as DefinedIntegrationsPort,
+        new CompiledIntegrationRuntime(
+          new IntegrationReader(
+            expressions,
+            operationsHolding(
+              DescribedDocument.read({
+                hash: HASH,
+                kind: 'openapi',
+                operations: [operation],
+                passedOver: [],
+                readAt: new Date('2026-10-05T12:00:00.000Z'),
+              }),
+            ),
+          ),
+          new HttpOutbound(['petstore3.swagger.io', 'api.linear.app'], fetch),
+          OAuth2Clients.from('{}'),
+          {} as OAuth2Exchange,
+        ),
+        reachFor(secrets.injection),
+      );
+
+      return {
+        fetch,
+        reaching: (tool: string) => tools.reach(tool, task(), ATTEMPT),
+      };
+    };
+
+    it('declares what the operation takes, needing approval because it writes', async () => {
+      const reached = await generated(
+        PETSTORE,
+        ADD_PET,
+        new Response('{}'),
+      ).reaching('petstore.add-pet');
+
+      expect(reached?.declared).toEqual({
+        tool: 'petstore.add-pet',
+        description: 'Add a new pet to the store.',
+        inputs: [
+          {
+            name: 'body',
+            schema: {
+              type: 'object',
+              properties: { name: { type: 'string' } },
+              required: ['name'],
+            },
+            description: null,
+            required: true,
+            defaulted: false,
+            piped: false,
+          },
+        ],
+        approval: { because: 'It changes data in Petstore.' },
+      });
+    });
+
+    it('makes the call the operation describes, wearing the description’s secrets', async () => {
+      const { fetch, reaching } = generated(
+        PETSTORE,
+        ADD_PET,
+        new Response(JSON.stringify({ id: 10, name: 'doggie' })),
+      );
+      const reached = (await reaching('petstore.add-pet')) as IntegrationTool;
+
+      await expect(reached.call({ body: { name: 'doggie' } })).resolves.toEqual(
+        {
+          id: 10,
+          name: 'doggie',
+        },
+      );
+      expect(fetch).toHaveBeenCalledWith(
+        'https://petstore3.swagger.io/api/v3/pet',
+        expect.objectContaining({
+          method: 'POST',
+          body: '{"name":"doggie"}',
+          redirect: 'manual',
+          headers: expect.objectContaining({
+            api_key: 'special-key',
+            'content-type': 'application/json',
+          }),
+        }),
+      );
+    });
+
+    it('answers with the field a GraphQL operation selects, and refuses an answer carrying errors', async () => {
+      const answered = generated(
+        LINEAR_GRAPHQL,
+        ISSUE,
+        new Response(
+          JSON.stringify({ data: { issue: { id: 'i1', title: 'Broken' } } }),
+        ),
+      );
+      const reached = (await answered.reaching(
+        'linear.issue',
+      )) as IntegrationTool;
+
+      await expect(reached.call({ id: 'i1' })).resolves.toEqual({
+        id: 'i1',
+        title: 'Broken',
+      });
+
+      const refused = generated(
+        LINEAR_GRAPHQL,
+        ISSUE,
+        new Response(
+          JSON.stringify({
+            data: null,
+            errors: [{ message: 'Entity not found' }],
+          }),
+        ),
+      );
+      const failing = (await refused.reaching(
+        'linear.issue',
+      )) as IntegrationTool;
+
+      await expect(failing.call({ id: 'nope' })).rejects.toThrow(
+        /the integration answered 200: .*Entity not found/,
+      );
+    });
+
+    it('reaches nothing the stored reading does not offer', async () => {
+      await expect(
+        generated(PETSTORE, ADD_PET, new Response('{}')).reaching(
+          'petstore.delete-pet',
+        ),
+      ).resolves.toBeNull();
+    });
   });
 });

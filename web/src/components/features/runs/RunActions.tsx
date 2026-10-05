@@ -2,7 +2,7 @@ import { RunRemembered } from '@/components/features/runs/remembered/RunRemember
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { IconAction } from '@/components/shared/IconAction';
 import { useCopied } from '@/hooks/useCopied';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type RunActionsProps = {
   slug: string;

@@ -4,6 +4,7 @@ import type {
 } from '@catalog/application/contracts/catalog.contract';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -251,11 +252,11 @@ const SHIPPED: BuiltInSkillsPort = {
 };
 
 let offeredTools: DeclaredTool[] = [];
-let offeredAsked = 0;
+let offeredAsked: string[] = [];
 
 const integrations = {
-  offered: async () => {
-    offeredAsked += 1;
+  offered: async (_line: unknown, tools: readonly Tool[]) => {
+    offeredAsked = tools.map((each) => each.value);
     return offeredTools;
   },
 } as unknown as TeamIntegrations;
@@ -300,7 +301,7 @@ const WEB_SEARCH = {
   inputs: [
     {
       name: 'query',
-      type: 'string' as const,
+      schema: { type: 'string' },
       description: null,
       required: true,
       defaulted: false,
@@ -929,7 +930,7 @@ describe('DispatchTask, the team’s own skills', () => {
     kept = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
     offeredTools = [];
-    offeredAsked = 0;
+    offeredAsked = [];
     keptSkills = [
       {
         skill: {
@@ -1002,7 +1003,7 @@ describe('DispatchTask, the tools a run is told about', () => {
     queued = [];
     kept = [];
     offeredTools = [];
-    offeredAsked = 0;
+    offeredAsked = [];
   });
 
   it('describes Spotlight’s own tools, and what they take, without reading the team’s', async () => {
@@ -1014,7 +1015,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       'body',
       'repository',
     ]);
-    expect(offeredAsked).toBe(0);
+    expect(offeredAsked).toEqual(['pull-request']);
   });
 
   it('describes a tool a team’s integration offers, where the station names it', async () => {
@@ -1025,7 +1026,7 @@ describe('DispatchTask, the tools a run is told about', () => {
         inputs: [
           {
             name: 'body',
-            type: 'string',
+            schema: InputSchema.ofType('string'),
             description: null,
             required: true,
             defaulted: false,
@@ -1051,7 +1052,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       inputs: [
         {
           name: 'body',
-          type: 'string',
+          schema: { type: 'string' },
           required: true,
           defaulted: false,
           piped: true,

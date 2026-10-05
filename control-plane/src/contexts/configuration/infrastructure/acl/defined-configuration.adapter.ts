@@ -19,6 +19,7 @@ export class DefinedConfiguration implements ConfigurationReaderPort {
         connectable: each.connects,
         linked: each.linked,
         handle: each.handle,
+        described: each.described,
       })),
     };
   }

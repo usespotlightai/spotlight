@@ -5,6 +5,7 @@ import type {
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -143,7 +144,7 @@ const LINEAR_COMMENT = DeclaredTool.of({
   inputs: [
     {
       name: 'issue',
-      type: 'string',
+      schema: InputSchema.ofType('string'),
       description: null,
       required: true,
       defaulted: true,
@@ -151,7 +152,7 @@ const LINEAR_COMMENT = DeclaredTool.of({
     },
     {
       name: 'body',
-      type: 'string',
+      schema: InputSchema.ofType('string'),
       description: null,
       required: true,
       defaulted: false,
@@ -269,7 +270,7 @@ const using = (
               inputs: [
                 {
                   name: 'query',
-                  type: 'string' as const,
+                  schema: { type: 'string' },
                   description: null,
                   required: true,
                   defaulted: false,

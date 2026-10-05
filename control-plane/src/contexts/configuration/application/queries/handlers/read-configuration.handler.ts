@@ -35,6 +35,14 @@ export class ConfigurationHandler
           name: each.name,
           standing: standingOf(each.connectable, each.linked),
           handle: each.handle,
+          described: each.described
+            ? {
+                kind: each.described.kind,
+                tools: each.described.tools,
+                readAt: each.described.readAt.toISOString(),
+                problem: each.described.problem,
+              }
+            : null,
         })),
       };
     } catch (error) {

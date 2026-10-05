@@ -5,11 +5,13 @@ import {
   type OfferedToolInput,
 } from '@integrations/domain/value-objects/offered-tool.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { describe, expect, it } from 'vitest';
 
 const input = (over: Partial<OfferedToolInput> = {}): OfferedToolInput => ({
   name: 'body',
-  type: 'string',
+  schema: InputSchema.ofType('string'),
   description: null,
   required: true,
   defaulted: false,
@@ -26,7 +28,7 @@ const offered = (
     name: 'comment',
     description,
     inputs,
-    does: 'comment',
+    backing: ToolBacking.action('comment'),
   });
 
 describe('OfferedTool', () => {
@@ -50,9 +52,21 @@ describe('OfferedTool', () => {
 
   it('refuses an input named twice, or named unlike a flag', () => {
     expect(() => offered([input(), input()])).toThrow(InvalidIntegrationError);
-    expect(() => offered([input({ name: 'Body' })])).toThrow(
+    expect(() => offered([input({ name: '$filter' })])).toThrow(
       InvalidIntegrationError,
     );
+    expect(() => offered([input({ name: 'json' })])).toThrow(
+      /every input at once/,
+    );
+  });
+
+  it('keeps an upstream input name as it is', () => {
+    expect(
+      offered([
+        input({ name: 'teamId' }),
+        input({ name: 'team_key' }),
+      ]).inputs.map((each) => each.name),
+    ).toEqual(['teamId', 'team_key']);
   });
 
   it('refuses a tool needing approval that takes intent, which the agent says what it wants to do in', () => {
@@ -62,7 +76,7 @@ describe('OfferedTool', () => {
         name: 'comment',
         description: 'Comment on the issue.',
         inputs: [input({ name: 'intent' })],
-        does: 'comment',
+        backing: ToolBacking.action('comment'),
         approval,
       });
 
@@ -81,8 +95,8 @@ describe('OfferedTool', () => {
         input({ name: 'two', piped: true }),
       ]),
     ).toThrow(InvalidIntegrationError);
-    expect(() => offered([input({ type: 'number', piped: true })])).toThrow(
-      InvalidIntegrationError,
-    );
+    expect(() =>
+      offered([input({ schema: InputSchema.ofType('number'), piped: true })]),
+    ).toThrow(InvalidIntegrationError);
   });
 });

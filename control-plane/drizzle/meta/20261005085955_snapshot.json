@@ -1,5 +1,5 @@
 {
-  "id": "8540f7f9-b532-4503-814a-31974b9f5227",
+  "id": "7b588a08-7cb5-406f-ad36-264262633cd9",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3816,6 +3816,108 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.described_document": {
+      "name": "described_document",
+      "schema": "",
+      "columns": {
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operations": {
+          "name": "operations",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "passed_over": {
+          "name": "passed_over",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.described_operation": {
+      "name": "described_operation",
+      "schema": "",
+      "columns": {
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "described_operation_hash_described_document_hash_fk": {
+          "name": "described_operation_hash_described_document_hash_fk",
+          "tableFrom": "described_operation",
+          "tableTo": "described_document",
+          "columnsFrom": [
+            "hash"
+          ],
+          "columnsTo": [
+            "hash"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "described_operation_hash_name_pk": {
+          "name": "described_operation_hash_name_pk",
+          "columns": [
+            "hash",
+            "name"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.host_connection": {
       "name": "host_connection",
       "schema": "",
@@ -3984,6 +4086,36 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "source_fingerprint": {
+          "name": "source_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_hash": {
+          "name": "source_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_read_at": {
+          "name": "source_read_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_problem": {
+          "name": "source_problem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_passed_over": {
+          "name": "source_passed_over",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "version": {
           "name": "version",

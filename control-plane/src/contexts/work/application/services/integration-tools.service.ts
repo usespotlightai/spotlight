@@ -46,7 +46,7 @@ export class IntegrationTools implements IntegrationToolsPort {
     return found
       ? {
           declared: ToolDeclarationMapper.toDeclared(found.declared),
-          defaultFor: (input) => found.defaultFor(input),
+          defaultFor: (input) => found.defaultFor(input.name),
           call: async (inputs) => {
             await this.works.stillOn(attempt, runnerId);
             return found.call(inputs.values);

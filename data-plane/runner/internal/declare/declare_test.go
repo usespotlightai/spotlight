@@ -365,7 +365,9 @@ func TestDescribesOnlyTheToolsTheRunWasGiven(t *testing.T) {
 		return nil, nil
 	})
 	server.Manifest([]protocol.ToolManifest{
-		{Name: "linear.comment", Description: "Comment on the issue."},
+		{Name: "linear.comment", Description: "Comment on the issue.", Inputs: []protocol.ToolInputManifest{
+			{Name: "body", Schema: json.RawMessage(`{"type":["string","null"]}`), Required: true},
+		}},
 		{Name: "linear.close", Description: "Close the issue."},
 	})
 
@@ -388,6 +390,9 @@ func TestDescribesOnlyTheToolsTheRunWasGiven(t *testing.T) {
 
 	if response.StatusCode != http.StatusOK || len(described) != 1 || described[0].Name != "linear.comment" {
 		t.Fatalf("status %d, described %+v", response.StatusCode, described)
+	}
+	if schema := string(described[0].Inputs[0].Schema); schema != `{"type":["string","null"]}` {
+		t.Errorf("described the body as %s, want its schema as given", schema)
 	}
 }
 

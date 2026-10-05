@@ -7,14 +7,18 @@ import { HostRenewalRefused } from '@integrations/domain/events/host-renewal-ref
 import { IntegrationAbandonmentDue } from '@integrations/domain/events/integration-abandonment-due.event';
 import { IntegrationDefined } from '@integrations/domain/events/integration-defined.event';
 import { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
+import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
 import { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { CallbackNote } from '@integrations/domain/value-objects/callback-note.vo';
+import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
+import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
@@ -28,9 +32,13 @@ import { IntegrationDefinitionId } from '@integrations/domain/value-objects/inte
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
+import { OperationFilter } from '@integrations/domain/value-objects/operation-filter.vo';
 import { Poll } from '@integrations/domain/value-objects/poll.vo';
+import { RereadDetail } from '@integrations/domain/value-objects/reread-detail.vo';
 import { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { SourceReading } from '@integrations/domain/value-objects/source-reading.vo';
+import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
@@ -40,10 +48,13 @@ export const INTEGRATIONS_EVENT_TYPES = [
   ApprovalNeeded,
   Binding,
   CallbackNote,
+  ContentHash,
   CronExpression,
   DeclaredHappening,
   DefinedActions,
   DefinitionDocument,
+  DescribedOperation,
+  DescribedSource,
   HappeningName,
   HookAddress,
   HookDefinitionId,
@@ -55,10 +66,14 @@ export const INTEGRATIONS_EVENT_TYPES = [
   IntegrationDefinitionId,
   MarkKind,
   OfferedTool,
+  OperationFilter,
   Opening,
   Poll,
   Schedule,
+  RereadDetail,
   SourceKey,
+  SourceReading,
+  ToolBacking,
   ToolName,
   ToolUses,
   Webhook,
@@ -71,5 +86,6 @@ export const INTEGRATIONS_EVENT_TYPES = [
   IntegrationAbandonmentDue,
   IntegrationDefined,
   IntegrationRedefined,
+  IntegrationReread,
   IntegrationRetired,
 ] as const;

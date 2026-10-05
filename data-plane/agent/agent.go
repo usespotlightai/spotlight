@@ -34,7 +34,7 @@ const Usage = `  spotlight handover --next <where> [--note <text>]
   spotlight candidate --name <name> --hypothesis <text | @file> <station.json | ->
   spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]
   spotlight tools
-  spotlight <tool> [--<input> <value>...]   as spotlight linear comment --body "..."`
+  spotlight <tool> [--<input> <value>...] [--json <object> | --json -]   as spotlight linear comment --body "..."`
 
 const usage = "usage:\n" + Usage
 

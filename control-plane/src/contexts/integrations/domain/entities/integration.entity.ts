@@ -1,5 +1,6 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { Binding } from '@integrations/domain/value-objects/binding.vo';
+import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
@@ -73,6 +74,19 @@ export class Integration {
       );
     }
 
+    const read = new Set(
+      offers.flatMap((each) =>
+        each.backing.described ? [each.backing.described.hash.value] : [],
+      ),
+    );
+
+    if (read.size > 1) {
+      throw new InvalidIntegrationError(
+        source.value,
+        'offers tools from two readings of its description',
+      );
+    }
+
     const bindings = input.bindings ?? [];
     const events = bindings.map((each) => each.event);
 
@@ -92,7 +106,9 @@ export class Integration {
     }
 
     for (const offered of offers) {
-      actions.named(offered.does, `tool ${offered.tool}`);
+      if (offered.backing.action !== null) {
+        actions.named(offered.backing.action, `tool ${offered.tool}`);
+      }
     }
 
     return new Integration(
@@ -125,6 +141,13 @@ export class Integration {
 
   bindingFor(event: string): Binding | null {
     return this.bindings.find((each) => each.isFor(event)) ?? null;
+  }
+
+  get generatedFrom(): ContentHash | null {
+    return (
+      this.offers.find((each) => each.backing.described)?.backing.described
+        ?.hash ?? null
+    );
   }
 
   offered(tool: string): OfferedTool | null {

@@ -36,6 +36,9 @@ import { type Bindings, bound } from '@platform/expressions/bindings';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import { holds } from '@platform/expressions/readings';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { JsonValue } from '@shared-kernel/domain/services/json-value';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   ToolDeclaration,
@@ -157,7 +160,7 @@ const inputsFor = (
     given && typeof given === 'object' && !Array.isArray(given)
       ? (given as Record<string, unknown>)
       : {};
-  const inputs: Record<string, string | number | boolean> = {};
+  const inputs: Record<string, JsonValue> = {};
 
   for (const name of Object.keys(held)) {
     if (!declared.inputs.some((input) => input.name === name)) {
@@ -176,16 +179,21 @@ const inputsFor = (
       continue;
     }
 
-    if (input.type === 'number' && typeof value !== 'number') {
-      throw new Error(`${declared.tool} takes a number as ${input.name}`);
+    const schema = InputSchema.of(input.schema);
+    const coerced = schema.coerce(value);
+    const problem = schema.problemWith(coerced);
+
+    if (problem) {
+      throw new Error(
+        `${declared.tool} takes ${input.name}, and ${
+          problem.at.isRoot
+            ? JSON.stringify(coerced)
+            : FieldPath.of([input.name, ...problem.at.segments]).rendered
+        } ${problem.why}`,
+      );
     }
 
-    if (input.type === 'boolean' && typeof value !== 'boolean') {
-      throw new Error(`${declared.tool} takes true or false as ${input.name}`);
-    }
-
-    inputs[input.name] =
-      input.type === 'string' ? String(value) : (value as number | boolean);
+    inputs[input.name] = coerced as JsonValue;
   }
 
   return inputs;
@@ -337,7 +345,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       const definitions = await this.defined.ofTeam(
         TeamId.of(moment.task.teamId),
       );
-      const reachable = this.runtime.tool(
+      const reachable = await this.runtime.tool(
         definitions,
         step.tool,
         boundTask(moment),
@@ -359,13 +367,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
         inputs = inputsFor(
           reachable.declared,
           requiredValueOf(step.with, bindings),
-          (name) => {
-            const input = reachable.declared.inputs.find(
-              (each) => each.name === name,
-            );
-
-            return input ? reachable.defaultFor(input) : undefined;
-          },
+          (name) => reachable.defaultFor(name),
         );
       } catch (error) {
         throw new StepRefused(

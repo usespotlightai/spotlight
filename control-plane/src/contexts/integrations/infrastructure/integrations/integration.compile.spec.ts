@@ -1,3 +1,5 @@
+import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
+import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 import {
   compileIntegration,
   IntegrationCompiler,
@@ -5,6 +7,7 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -777,7 +780,7 @@ tools:
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.offered('linear.comment')?.does,
+        compiled.readable.integration.offered('linear.comment')?.backing.action,
     ).toBe('comment');
     expect(tool?.output).not.toBeNull();
     expect(tool?.inputs[0]?.default?.parts).toHaveLength(1);
@@ -960,5 +963,281 @@ describe('IntegrationCompiler', () => {
     expect(
       new IntegrationCompiler(expressions).compile({ integration: 'linear' }),
     ).toMatchObject({ ok: false, problems: [{ path: 'integrations/linear' }] });
+  });
+});
+
+describe('the tools an API description offers', () => {
+  const PETSTORE = `integration: petstore
+name: Petstore
+openapi:
+  url: https://petstore3.swagger.io/api/v3/openapi.json
+  auth:
+    secrets: [secret.PETSTORE_KEY]
+  tools:
+    exclude: [get-*]
+    approval:
+      add-pet: false
+`;
+
+  const HASH = ContentHash.of('d'.repeat(64));
+
+  const operation = (name: string, writes: boolean) =>
+    DescribedOperation.of({
+      name,
+      upstream: name,
+      description: `Does ${name}.`,
+      inputs: [
+        {
+          name: 'petId',
+          schema: InputSchema.ofType('integer'),
+          required: true,
+          description: null,
+        },
+      ],
+      writes,
+      call: {
+        kind: 'http',
+        method: writes ? 'DELETE' : 'GET',
+        server: 'https://petstore3.swagger.io/api/v3',
+        path: '/pet/{petId}',
+        params: [
+          { name: 'petId', in: 'path', style: 'simple', explode: false },
+        ],
+        body: null,
+      },
+    });
+
+  const OPERATIONS = {
+    hash: HASH,
+    operations: [
+      operation('find-pet', false),
+      operation('add-pet', true),
+      operation('delete-pet', true),
+      operation('get-inventory', false),
+    ],
+  };
+
+  const read = (text: string, described = OPERATIONS) =>
+    compileIntegration(parseYaml(text), expressions, described);
+
+  it('names the description it offers tools from, and what it wears to read it', () => {
+    const compiled = new IntegrationCompiler(expressions).compile(
+      parseYaml(PETSTORE),
+    );
+
+    expect(compiled.ok && compiled.source).toMatchObject({
+      kind: 'openapi',
+      url: 'https://petstore3.swagger.io/api/v3/openapi.json',
+      document: null,
+    });
+    expect(
+      compiled.ok && compiled.source?.wears.map((each) => each.value),
+    ).toEqual(['PETSTORE_KEY']);
+    expect(
+      compiled.ok && compiled.integration.credentials.map((each) => each.value),
+    ).toEqual(['PETSTORE_KEY']);
+    expect(compiled.ok && compiled.integration.offers).toEqual([]);
+  });
+
+  it('fingerprints where a description is read from, but not what is offered from it', () => {
+    const fingerprint = (text: string) => {
+      const compiled = new IntegrationCompiler(expressions).compile(
+        parseYaml(text),
+      );
+
+      return compiled.ok ? compiled.source?.fingerprint : null;
+    };
+
+    expect(fingerprint(PETSTORE)).toBe(
+      fingerprint(PETSTORE.replace('exclude: [get-*]', 'exclude: []')),
+    );
+    expect(fingerprint(PETSTORE)).not.toBe(
+      fingerprint(PETSTORE.replace('  auth:', '  revision: "2"\n  auth:')),
+    );
+    expect(fingerprint(PETSTORE)).not.toBe(
+      fingerprint(PETSTORE.replace('/v3/openapi.json', '/v3/openapi.yaml')),
+    );
+  });
+
+  it('offers the operations the filter lets through, needing approval where they write', () => {
+    const compiled = read(PETSTORE);
+
+    expect(
+      compiled.ok &&
+        compiled.readable.integration.offers.map((each) => [
+          each.tool,
+          each.approval?.because ?? null,
+        ]),
+    ).toEqual([
+      ['petstore.find-pet', null],
+      ['petstore.add-pet', null],
+      ['petstore.delete-pet', 'It changes data in Petstore.'],
+    ]);
+    expect(
+      compiled.ok &&
+        compiled.readable.integration.offers.map(
+          (each) => each.backing.described?.operation,
+        ),
+    ).toEqual(['find-pet', 'add-pet', 'delete-pet']);
+  });
+
+  it('warns of an approval naming no operation of the description', () => {
+    const compiled = read(
+      PETSTORE.replace('      add-pet: false', '      add-pets: false'),
+    );
+
+    expect(
+      compiled.ok &&
+        compiled.warnings.map((each) => [each.field.rendered, each.reason]),
+    ).toEqual([
+      [
+        'openapi.tools.approval.add-pets',
+        'names add-pets, which no operation of its OpenAPI description is called',
+      ],
+    ]);
+  });
+
+  it('lets a hand-written tool of the same name win', () => {
+    const compiled = read(`${PETSTORE}actions:
+  remove:
+    request:
+      method: DELETE
+      url: https://petstore3.swagger.io/api/v3/pet/1
+tools:
+  delete-pet:
+    does: remove
+    description: Remove the pet this task is about.
+`);
+    const offered = compiled.ok
+      ? compiled.readable.integration.offered('petstore.delete-pet')
+      : null;
+
+    expect(offered?.backing.action).toBe('remove');
+    expect(
+      compiled.ok &&
+        compiled.readable.integration.offers.filter(
+          (each) => each.name === 'delete-pet',
+        ),
+    ).toHaveLength(1);
+  });
+
+  it('takes structured inputs a tool declares by JSON Schema', () => {
+    const compiled = read(
+      `${PETSTORE}actions:
+  search:
+    request:
+      url: https://petstore3.swagger.io/api/v3/pet/search
+      body: \${{ inputs.filter }}
+tools:
+  search:
+    does: search
+    description: Search the pets.
+    inputs:
+      filter:
+        schema:
+          type: object
+          properties:
+            name: { type: string }
+        description: What to match
+      limit:
+        type: integer
+`,
+    );
+    const inputs = compiled.ok
+      ? compiled.readable.integration.offered('petstore.search')?.inputs
+      : [];
+
+    expect(inputs?.map((each) => [each.name, each.schema.written])).toEqual([
+      [
+        'filter',
+        {
+          type: 'object',
+          properties: { name: { type: 'string' } },
+          description: 'What to match',
+        },
+      ],
+      ['limit', { type: 'integer' }],
+    ]);
+  });
+
+  it('refuses an input given both a type and a schema', () => {
+    expect(
+      compileIntegration(
+        parseYaml(`${PETSTORE}actions:
+  search:
+    request:
+      url: https://petstore3.swagger.io/api/v3/pet/search
+tools:
+  search:
+    does: search
+    description: Search the pets.
+    inputs:
+      filter:
+        type: string
+        schema: { type: object }
+`),
+        expressions,
+      ),
+    ).toMatchObject({
+      ok: false,
+      problems: [{ reason: expect.stringMatching(/not both/) }],
+    });
+  });
+
+  it('refuses a description that is both read from a url and written out, or two descriptions', () => {
+    const refusals = (text: string) => {
+      const compiled = compileIntegration(parseYaml(text), expressions);
+
+      return compiled.ok ? [] : compiled.problems.map((each) => each.reason);
+    };
+
+    expect(
+      refusals(
+        PETSTORE.replace('  auth:', '  document: { openapi: 3.1.0 }\n  auth:'),
+      ),
+    ).toEqual([expect.stringMatching(/but not both/)]);
+    expect(
+      refusals(`${PETSTORE}graphql:\n  url: https://api.linear.app/graphql\n`),
+    ).toEqual([expect.stringMatching(/one API description/)]);
+  });
+
+  it('refuses more tools than a station can choose between, at the filter', () => {
+    const many = {
+      hash: HASH,
+      operations: Array.from({ length: 1001 }, (_, at) =>
+        operation(`op-${at}`, false),
+      ),
+    };
+    const compiled = read(PETSTORE, many);
+
+    expect(compiled).toMatchObject({
+      ok: false,
+      problems: expect.arrayContaining([
+        expect.objectContaining({ field: FieldPath.of(['openapi', 'tools']) }),
+      ]),
+    });
+  });
+
+  it('counts a GraphQL description as one of the things an integration does', () => {
+    expect(
+      compileIntegration(
+        parseYaml(`integration: linear
+graphql:
+  url: https://api.linear.app/graphql
+  depth: 3
+  auth:
+    oauth2: {}
+`),
+        expressions,
+      ),
+    ).toMatchObject({
+      ok: true,
+      readable: {
+        described: {
+          source: { kind: 'graphql', depth: 3, connected: true },
+          auth: { kind: 'oauth2' },
+        },
+      },
+    });
   });
 });

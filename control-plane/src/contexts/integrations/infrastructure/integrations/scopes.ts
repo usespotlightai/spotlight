@@ -1,5 +1,5 @@
-import type { ToolInputType } from '@integrations/domain/value-objects/offered-tool.vo';
 import { type Declared, Scope } from '@platform/expressions/scope';
+import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
 export const OUTSIDE = 'dyn';
 
@@ -58,10 +58,13 @@ export const attaching = (scope: Scope): Scope => scope.and({ file: OUTSIDE });
 export const answered = (scope: Scope): Scope =>
   scope.and({ response: OUTSIDE, status: OUTSIDE, headers: OUTSIDE });
 
-const TOOL_INPUTS_AS: Readonly<Record<ToolInputType, string>> = {
-  string: 'string',
-  number: 'dyn',
-  boolean: 'bool',
+export const seenAs = (schema: InputSchema): string => {
+  switch (schema.type) {
+    case 'string':
+      return 'string';
+    case 'boolean':
+      return 'bool';
+    default:
+      return OUTSIDE;
+  }
 };
-
-export const seenAs = (type: ToolInputType): string => TOOL_INPUTS_AS[type];

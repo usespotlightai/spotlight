@@ -1,6 +1,5 @@
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { since } from '@/lib/runner';
 import {
   appPathOf,
   type ReplayCheckSummary,
@@ -8,6 +7,7 @@ import {
   regressionsShown,
 } from '@/lib/search';
 import { verdictShown } from '@/lib/search-words';
+import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
 const INK: Record<ReplayCheckSummary['verdict'], string> = {

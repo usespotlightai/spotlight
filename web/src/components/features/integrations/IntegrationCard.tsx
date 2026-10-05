@@ -1,4 +1,5 @@
 import { IntegrationConnect } from '@/components/features/integrations/IntegrationConnect';
+import { IntegrationDescribedSource } from '@/components/features/integrations/IntegrationDescribedSource';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
 import type { ConfiguredIntegrationResponseDto } from '@/lib/api';
 
@@ -36,6 +37,9 @@ export function IntegrationCard({ integration, teamId }: IntegrationCardProps) {
             <p className="text-muted-foreground text-xs leading-5">
               {said(integration)}
             </p>
+            {integration.described && (
+              <IntegrationDescribedSource described={integration.described} />
+            )}
           </div>
         </div>
 

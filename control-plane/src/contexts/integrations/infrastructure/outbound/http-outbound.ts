@@ -1,11 +1,19 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import type { RequestIR } from '@integrations/infrastructure/integrations/integration.compile';
+import type {
+  AuthIR,
+  RequestIR,
+} from '@integrations/infrastructure/integrations/integration.compile';
 import {
   asJson,
   requiredTextOf,
   requiredValueOf,
   type Templated,
 } from '@integrations/infrastructure/integrations/templating';
+import { cappedText } from '@integrations/infrastructure/outbound/capped-body';
+import {
+  followed,
+  sameHost,
+} from '@integrations/infrastructure/outbound/followed-redirects';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import type { Bindings } from '@platform/expressions/bindings';
 import { holds, value } from '@platform/expressions/readings';
@@ -18,7 +26,27 @@ export interface OutboundResult {
   readonly capture: Record<string, unknown>;
 }
 
+export interface PlainRequest {
+  readonly method: string;
+  readonly url: string;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body?: string;
+}
+
+export interface Answered {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly response: unknown;
+}
+
 type Fetch = typeof globalThis.fetch;
+
+export const ANSWER_AT_MOST_BYTES = 4 * 1024 * 1024;
+
+const connectionOf = (against: Bindings): string | null =>
+  typeof against.connection === 'string' && against.connection !== ''
+    ? against.connection
+    : null;
 
 export class HttpOutbound {
   private readonly policy: OutboundPolicy;
@@ -85,18 +113,50 @@ export class HttpOutbound {
     return new Uint8Array(await reply.arrayBuffer());
   }
 
+  async answer(
+    request: PlainRequest,
+    auth: AuthIR | null,
+    connection: string | null,
+    credentials: Credentials,
+  ): Promise<Answered> {
+    const reply = await this.dispatch(request, auth, connection, credentials);
+    const status = reply.status;
+
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      response: parsed(
+        await cappedText(
+          reply,
+          ANSWER_AT_MOST_BYTES,
+          () =>
+            new UpstreamRefusedError(
+              `reading what ${new URL(request.url).host} answered`,
+              `it is larger than the ${ANSWER_AT_MOST_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
+            ),
+        ),
+      ),
+    };
+  }
+
   private async send(
     request: RequestIR,
     against: Bindings,
     credentials: Credentials,
   ): Promise<Response | null> {
+    const plain = this.render(request, against);
+
+    return plain
+      ? this.dispatch(plain, request.auth, connectionOf(against), credentials)
+      : null;
+  }
+
+  private render(request: RequestIR, against: Bindings): PlainRequest | null {
     const url = this.templated(request.url, against);
 
     if (!url) {
       return null;
     }
-
-    this.policy.allow(url);
 
     const headers: Record<string, string> = {};
     for (const header of request.headers) {
@@ -120,20 +180,41 @@ export class HttpOutbound {
       headers['content-type'] = 'application/json';
     }
 
-    const wearsSecrets = await this.authorize(
-      request,
-      against,
-      url,
+    return {
+      method: request.method,
+      url: target,
       headers,
-      credentials,
+      ...(body ? { body: body.text } : {}),
+    };
+  }
+
+  private async dispatch(
+    request: PlainRequest,
+    auth: AuthIR | null,
+    connection: string | null,
+    credentials: Credentials,
+  ): Promise<Response> {
+    const { reply } = await followed(
+      this.fetch,
+      this.policy,
+      request,
+      async (hop) => {
+        if (!sameHost(hop.url, request.url)) {
+          return Object.fromEntries(
+            Object.entries(request.headers).filter(
+              ([name]) => name.toLowerCase() !== 'authorization',
+            ),
+          );
+        }
+
+        const headers = { ...request.headers };
+        await this.authorize(auth, connection, hop.url, headers, credentials);
+
+        return headers;
+      },
     );
 
-    return this.fetch(target, {
-      method: request.method,
-      headers,
-      body: body?.text,
-      redirect: wearsSecrets ? 'manual' : 'follow',
-    });
+    return reply;
   }
 
   private templated(held: Templated, against: Bindings): string | null {
@@ -161,28 +242,19 @@ export class HttpOutbound {
   }
 
   private async authorize(
-    request: RequestIR,
-    against: Bindings,
+    auth: AuthIR | null,
+    connection: string | null,
     url: string,
     headers: Record<string, string>,
     credentials: Credentials,
-  ): Promise<boolean> {
-    const auth = request.auth;
-
-    if (auth?.kind === 'oauth2') {
-      const token = against.connection;
-      if (typeof token === 'string' && token !== '') {
-        headers.authorization = `Bearer ${token}`;
-      }
-      return false;
+  ): Promise<void> {
+    if (auth?.kind === 'oauth2' && connection) {
+      headers.authorization = `Bearer ${connection}`;
     }
 
     if (auth?.kind === 'secrets') {
       (await credentials.wornToward(url, auth.secrets)).applyTo(headers);
-      return true;
     }
-
-    return false;
   }
 }
 
@@ -199,9 +271,10 @@ const succeeded = (request: RequestIR, beside: Bindings): boolean => {
 const has = (headers: Record<string, string>, name: string): boolean =>
   Object.keys(headers).some((key) => key.toLowerCase() === name);
 
-const parse = async (reply: Response): Promise<unknown> => {
-  const body = await reply.text();
+const parse = async (reply: Response): Promise<unknown> =>
+  parsed(await reply.text());
 
+const parsed = (body: string): unknown => {
   if (body === '') {
     return null;
   }

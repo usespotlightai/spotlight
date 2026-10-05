@@ -8,6 +8,10 @@ import {
   type IdempotentCreate,
   type IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
+import {
+  IDEMPOTENT_RECALLS,
+  type IdempotentRecallsPort,
+} from '@shared-kernel/application/ports/idempotent-recalls.port';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -25,6 +29,7 @@ const settled = <T>(work: Promise<T>, within: number) =>
 describe('idempotent creates, claimed in the caller’s transaction (e2e)', () => {
   let app: INestApplication;
   let creates: IdempotentCreatesPort;
+  let recalls: IdempotentRecallsPort;
   let context: DrizzleContext;
   let db: DrizzleDatabase;
   const by = `creates-${randomUUID()}`;
@@ -63,6 +68,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
   beforeAll(async () => {
     app = await openApp();
     creates = app.get(IDEMPOTENT_CREATES);
+    recalls = app.get(IDEMPOTENT_RECALLS);
     context = app.get(DrizzleContext);
     db = app.get(DRIZZLE);
   });
@@ -136,5 +142,42 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
       .where(eq(schema.idempotentCreate.scope, by));
 
     expect(await creates.claim(made)).toEqual({ kind: 'fresh' });
+  });
+
+  it('recalls what a key created without claiming it', async () => {
+    const made = create();
+
+    expect(await recalls.recall(made)).toEqual({ kind: 'unseen' });
+
+    await context.run(async () => {
+      await creates.claim(made);
+      await creates.created(made, 'created_first');
+    });
+
+    expect(await recalls.recall(made)).toEqual({
+      kind: 'replay',
+      createdId: 'created_first',
+    });
+    expect(
+      await recalls.recall({ ...made, request: { name: 'Slack' } }),
+    ).toEqual({ kind: 'reused' });
+  });
+
+  it('recalls nothing of a key still being created, or one a day old', async () => {
+    const made = create();
+    const first = holding(made, 'commit');
+
+    await first.hasClaimed;
+
+    expect(await recalls.recall(made)).toEqual({ kind: 'unseen' });
+
+    first.release();
+    await first.done;
+    await db
+      .update(schema.idempotentCreate)
+      .set({ createdAt: sql`now() - interval '25 hours'` })
+      .where(eq(schema.idempotentCreate.scope, by));
+
+    expect(await recalls.recall(made)).toEqual({ kind: 'unseen' });
   });
 });

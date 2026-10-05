@@ -463,6 +463,22 @@ CREATE TABLE "hook_firing" (
 	CONSTRAINT "hook_firing_hook_id_occurrence_unique" UNIQUE("hook_id","occurrence")
 );
 --> statement-breakpoint
+CREATE TABLE "described_document" (
+	"hash" text PRIMARY KEY NOT NULL,
+	"kind" text NOT NULL,
+	"operations" integer NOT NULL,
+	"passed_over" jsonb NOT NULL,
+	"read_at" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "described_operation" (
+	"hash" text NOT NULL,
+	"name" text NOT NULL,
+	"position" integer NOT NULL,
+	"operation" jsonb NOT NULL,
+	CONSTRAINT "described_operation_hash_name_pk" PRIMARY KEY("hash","name")
+);
+--> statement-breakpoint
 CREATE TABLE "host_connection" (
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
@@ -492,6 +508,11 @@ CREATE TABLE "integration_definition" (
 	"source" text NOT NULL,
 	"definition" jsonb NOT NULL,
 	"offers" jsonb NOT NULL,
+	"source_fingerprint" text,
+	"source_hash" text,
+	"source_read_at" timestamp,
+	"source_problem" text,
+	"source_passed_over" jsonb,
 	"version" integer DEFAULT 1 NOT NULL,
 	"defined_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "integration_definition_team_id_source_unique" UNIQUE("team_id","source")
@@ -1597,6 +1618,7 @@ ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_user_id_user_id_
 ALTER TABLE "workspace_token" ADD CONSTRAINT "workspace_token_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_token_trust" ADD CONSTRAINT "workspace_token_trust_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "hook_firing" ADD CONSTRAINT "hook_firing_hook_id_hook_definition_id_fk" FOREIGN KEY ("hook_id") REFERENCES "public"."hook_definition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "described_operation" ADD CONSTRAINT "described_operation_hash_described_document_hash_fk" FOREIGN KEY ("hash") REFERENCES "public"."described_document"("hash") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_proposal" ADD CONSTRAINT "memory_proposal_draft_id_memory_draft_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."memory_draft"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_use" ADD CONSTRAINT "memory_use_memory_id_memory_id_fk" FOREIGN KEY ("memory_id") REFERENCES "public"."memory"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_alert" ADD CONSTRAINT "station_alert_station_id_station_watch_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station_watch"("station_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

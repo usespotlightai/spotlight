@@ -24,7 +24,6 @@ import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.erro
 import { ToolNotGivenError } from '@work/domain/exceptions/tool-not-given.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
 import { Tool } from '@work/domain/value-objects/tool.vo';
-import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
 
@@ -74,7 +73,7 @@ export class UseToolHandler
       );
       const cleared = await work.clearFor(
         reachable.declared,
-        ToolCall.of(tool, asked),
+        reachable.declared.callWith(asked),
         intent,
       );
 

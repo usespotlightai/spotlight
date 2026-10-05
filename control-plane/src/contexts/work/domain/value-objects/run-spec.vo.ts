@@ -1,7 +1,7 @@
+import type { JsonObject } from '@shared-kernel/domain/services/json-value';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import type { ToolInputType } from '@work/domain/value-objects/declared-tool.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 
@@ -33,7 +33,7 @@ export interface RunContinuity {
 
 export interface RunToolInput {
   readonly name: string;
-  readonly type: ToolInputType;
+  readonly schema: JsonObject;
   readonly description?: string;
   readonly required: boolean;
   readonly defaulted: boolean;
@@ -180,7 +180,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
           description: each.description,
           inputs: each.inputs.map((input) => ({
             name: input.name,
-            type: input.type,
+            schema: structuredClone(input.schema),
             ...(input.description !== undefined
               ? { description: input.description }
               : {}),

@@ -116,11 +116,7 @@ export class DispatchTask implements TaskDispatching {
     }
 
     const { order, folders, home } = ordered;
-    const offered = order.given.tools.some(
-      (each) => each.origin === 'integration',
-    )
-      ? await this.integrations.offered(line)
-      : [];
+    const offered = await this.integrations.offered(line, order.given.tools);
     const described = describedTools(order.given.tools, [
       ...offered,
       ...ordered.catalogTools,

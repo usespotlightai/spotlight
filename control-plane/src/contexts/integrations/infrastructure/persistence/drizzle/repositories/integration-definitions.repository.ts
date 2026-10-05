@@ -2,9 +2,11 @@ import { IntegrationDefinition } from '@integrations/domain/aggregates/integrati
 import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/integration-already-defined.error';
 import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
+import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { SourceReading } from '@integrations/domain/value-objects/source-reading.vo';
 import { integrationDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -24,15 +26,35 @@ const collided = (error: unknown): boolean =>
     } | null
   )?.code === UNIQUE_VIOLATION;
 
-const rehydrated = (
-  row: typeof integrationDefinition.$inferSelect,
-): IntegrationDefinition =>
+type Row = typeof integrationDefinition.$inferSelect;
+
+const readingOf = (row: Row): SourceReading | null =>
+  row.sourceFingerprint && row.sourceReadAt
+    ? SourceReading.rehydrate({
+        fingerprint: row.sourceFingerprint,
+        hash: row.sourceHash ? ContentHash.of(row.sourceHash) : null,
+        readAt: row.sourceReadAt,
+        problem: row.sourceProblem,
+        passedOver: row.sourcePassedOver ?? [],
+      })
+    : null;
+
+const readingColumns = (reading: SourceReading | null) => ({
+  sourceFingerprint: reading?.fingerprint ?? null,
+  sourceHash: reading?.hash?.value ?? null,
+  sourceReadAt: reading?.readAt ?? null,
+  sourceProblem: reading?.problem ?? null,
+  sourcePassedOver: reading ? [...reading.passedOver] : null,
+});
+
+const rehydrated = (row: Row): IntegrationDefinition =>
   IntegrationDefinition.rehydrate({
     id: IntegrationDefinitionId.of(row.id),
     teamId: TeamId.of(row.teamId),
     source: SourceKey.of(row.source),
     document: DefinitionDocument.of(row.definition),
     offers: row.offers,
+    reading: readingOf(row),
     version: row.version,
   });
 
@@ -85,6 +107,7 @@ export class DrizzleIntegrationDefinitions
     const fields = {
       definition: { ...definition.document.fields },
       offers: [...definition.offers],
+      ...readingColumns(definition.reading),
     };
 
     if (definition.isNew) {

@@ -16,7 +16,7 @@ import type {
   SetNoiseResponseDto,
 } from '@/lib/api';
 import { percentShown } from '@/lib/judge';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 export type ReplayRefusal = NonNullable<ReplaySetEntryResponseDto['refusal']>;
 export type ReplayState = ReplayResponseDto['state'];

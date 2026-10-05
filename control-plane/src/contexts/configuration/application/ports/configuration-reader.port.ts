@@ -1,3 +1,4 @@
+import type { DescribedSummary } from '@configuration/application/ports/integration-reader.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const CONFIGURATION_READER = Symbol('CONFIGURATION_READER');
@@ -9,6 +10,7 @@ interface ReadIntegrationView {
   readonly connectable: boolean;
   readonly linked: boolean;
   readonly handle: string | null;
+  readonly described: DescribedSummary | null;
 }
 
 export interface ConfigurationView {
