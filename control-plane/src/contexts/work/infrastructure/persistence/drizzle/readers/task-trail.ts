@@ -91,7 +91,10 @@ export const attachmentsFor = async (
   return held;
 };
 
-const asked = (parts: ApprovalRow | null): InboxApproval | null => {
+const asked = (
+  parts: ApprovalRow | null,
+  named: ReadonlyMap<string, { readonly name: string }>,
+): InboxApproval | null => {
   if (!parts) {
     return null;
   }
@@ -106,6 +109,9 @@ const asked = (parts: ApprovalRow | null): InboxApproval | null => {
     standing: parts.standing,
     edited: toEditedCall(parts)?.given ?? null,
     intent: parts.intent ?? null,
+    askedOf: parts.askedOf
+      ? { id: parts.askedOf, name: named.get(parts.askedOf)?.name ?? '' }
+      : null,
   };
 };
 
@@ -186,6 +192,7 @@ export const trailsFor = async (
     rows.flatMap((row) => [
       ...(row.authorId ? [UserId.of(row.authorId)] : []),
       ...(row.connectionAsk ? [UserId.of(row.connectionAsk.personId)] : []),
+      ...(row.approval?.askedOf ? [UserId.of(row.approval.askedOf)] : []),
     ]),
   );
 
@@ -214,7 +221,7 @@ export const trailsFor = async (
             image: author?.image ?? null,
           }
         : null,
-      approval: asked(row.approval),
+      approval: asked(row.approval, authors),
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),
     });

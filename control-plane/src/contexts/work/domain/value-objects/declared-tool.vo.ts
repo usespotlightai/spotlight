@@ -1,4 +1,7 @@
-import type { JsonValue } from '@shared-kernel/domain/services/json-value';
+import type {
+  JsonObject,
+  JsonValue,
+} from '@shared-kernel/domain/services/json-value';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import {
@@ -47,6 +50,7 @@ export class DeclaredTool {
     readonly inputs: readonly ToolInput[],
     readonly approval: ApprovalNeeded | null,
     readonly offeredBy: string | null,
+    readonly learnedOutput: JsonObject | null,
   ) {}
 
   static of(input: {
@@ -55,6 +59,7 @@ export class DeclaredTool {
     inputs?: readonly ToolInput[];
     approval?: ApprovalNeeded | null;
     offeredBy?: string | null;
+    learnedOutput?: JsonObject | null;
   }): DeclaredTool {
     const description = input.description.trim();
     const inputs = input.inputs ?? [];
@@ -117,6 +122,18 @@ export class DeclaredTool {
       inputs,
       input.approval ?? null,
       input.offeredBy?.trim() || null,
+      input.learnedOutput ?? null,
+    );
+  }
+
+  withApproval(needed: ApprovalNeeded): DeclaredTool {
+    return new DeclaredTool(
+      this.tool,
+      this.description,
+      this.inputs,
+      needed,
+      this.offeredBy,
+      this.learnedOutput,
     );
   }
 

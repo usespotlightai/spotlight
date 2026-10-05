@@ -1,3 +1,4 @@
+import { PersonRuleMapper } from '@work/application/mappers/person-rule.mapper';
 import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
 import type { IntegrationToolCallsPort } from '@work/application/ports/integration-tool-calls.port';
@@ -53,6 +54,9 @@ export class IntegrationTools implements IntegrationToolsPort {
             ? ToolActingAsMapper.toActingAs(found.actingAs)
             : null,
           wants: found.wants,
+          personRule: found.personRule
+            ? PersonRuleMapper.toRule(found.personRule)
+            : null,
           defaultFor: (input) => found.defaultFor(input.name),
           call: async (inputs) => {
             await this.works.stillOn(attempt, runnerId);

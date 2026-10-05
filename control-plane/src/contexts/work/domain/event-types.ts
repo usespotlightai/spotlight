@@ -144,6 +144,7 @@ import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
+import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
@@ -246,6 +247,7 @@ export const WORK_EVENT_TYPES = [
   ToolCall,
   ToolActingAs,
   ToolInputs,
+  ToolRule,
   ToolOutput,
   Tool,
   Trail,

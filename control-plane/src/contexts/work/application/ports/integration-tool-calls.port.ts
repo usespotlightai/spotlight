@@ -28,10 +28,17 @@ export interface ConnectionWantedDto {
     | 'not-a-member';
 }
 
+export interface PersonRuleDto {
+  readonly rule: 'allowed' | 'needs-approval' | 'blocked';
+  readonly personId: string;
+  readonly personName: string;
+}
+
 export interface IntegrationTool {
   readonly declared: ToolDeclaration;
   readonly actingAs: ToolActingAsDto | null;
   readonly wants: ConnectionWantedDto | null;
+  readonly personRule: PersonRuleDto | null;
   defaultFor(input: string): unknown;
   call(inputs: ToolInputValues): Promise<unknown>;
 }

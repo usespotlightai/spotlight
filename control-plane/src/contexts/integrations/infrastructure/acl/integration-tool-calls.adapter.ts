@@ -1,6 +1,8 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { LearnOutputShapes } from '@integrations/application/services/learn-output-shapes.service';
+import type { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
 import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -17,6 +19,8 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly hosts: HostReach,
+    private readonly learning: LearnOutputShapes,
+    private readonly personRules: PersonToolRules,
   ) {}
 
   async reach(
@@ -47,6 +51,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
       return {
         declared: reachable.declared,
         actingAs: null,
+        personRule: null,
         wants: {
           source: found.wanted.source.value,
           integration: found.wanted.integrationName,
@@ -63,8 +68,22 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
       };
     }
 
+    const held = await this.personRules.ruleFor(
+      teamId,
+      reachable.integration.source,
+      found.holder,
+      tool,
+    );
+
     return {
       declared: reachable.declared,
+      personRule: held
+        ? {
+            rule: held.rule.name,
+            personId: held.personId.value,
+            personName: held.personName,
+          }
+        : null,
       actingAs: reachable.integration.connects
         ? {
             holder: found.holder.isPerson ? 'person' : 'team',
@@ -74,8 +93,8 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
         : null,
       wants: null,
       defaultFor: (input) => reachable.defaultFor(input),
-      call: async (inputs) =>
-        reachable.call(
+      call: async (inputs) => {
+        const answer = await reachable.call(
           inputs,
           await this.hosts.forRun(
             {
@@ -87,7 +106,11 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
             },
             found.connection,
           ),
-        ),
+        );
+        void this.learning.learn(teamId, tool, answer);
+
+        return answer;
+      },
     };
   }
 }

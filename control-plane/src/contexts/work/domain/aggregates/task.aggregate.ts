@@ -1114,7 +1114,7 @@ export class Task extends EventRecorder {
       };
     }
 
-    if (standing?.approval.grants) {
+    if (standing?.approval.grantedFor(needed.askedOf)) {
       return {
         task: this.withApprovalAt(standing.at, (note) =>
           note.approvalClaimed(),
@@ -1131,17 +1131,23 @@ export class Task extends EventRecorder {
       return { task: this, clearance: { kind: 'asked' } };
     }
 
+    const askedOf = needed.askedOf;
+
     return {
-      task: this.putToAPersonBy(by, {
-        ...asking,
-        form: 'approval',
-        approval: Approval.asked(
-          subject,
-          this.stationId,
-          needed.because,
-          intent,
-        ),
-      }),
+      task: (askedOf ? this.with({ assignee: askedOf }) : this).putToAPersonBy(
+        by,
+        {
+          ...asking,
+          form: 'approval',
+          approval: Approval.asked(
+            subject,
+            this.stationId,
+            needed.because,
+            intent,
+            askedOf,
+          ),
+        },
+      ),
       clearance: { kind: 'asked' },
     };
   }

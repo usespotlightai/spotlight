@@ -149,6 +149,11 @@ const toolApprovalOf = (raw: unknown): RunToolApproval | null =>
         ),
       };
 
+const toolOutputOf = (raw: unknown): JsonObject =>
+  isJsonObject(raw) && isJsonValue(raw)
+    ? raw
+    : unreadable('what a tool answered before');
+
 const toolOf = (raw: unknown): RunToolManifest => {
   const given = objectAt(raw, 'its tools');
   const integration = optionalStringAt(
@@ -162,6 +167,9 @@ const toolOf = (raw: unknown): RunToolManifest => {
     inputs: listAt(given.inputs, 'what a tool takes', toolInputOf),
     approval: toolApprovalOf(given.approval),
     ...(integration !== undefined ? { integration } : {}),
+    ...(given.output !== undefined
+      ? { output: toolOutputOf(given.output) }
+      : {}),
   };
 };
 

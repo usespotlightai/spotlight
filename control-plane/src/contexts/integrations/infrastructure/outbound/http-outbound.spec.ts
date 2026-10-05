@@ -467,3 +467,91 @@ actions:
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe('HttpOutbound, a secret worn in the query', () => {
+  const GOOGLE = credentialsFor({
+    MAPS_KEY: {
+      host: 'maps.googleapis.com',
+      carrier: 'query',
+      name: 'key',
+      value: 'AIza-1/2',
+    },
+  });
+
+  const geocode = {
+    method: 'GET',
+    url: 'https://maps.googleapis.com/maps/api/geocode/json?address=10%20Downing%20St&key=forged',
+    headers: { accept: 'application/json' },
+  };
+
+  const auth = { kind: 'secrets', secrets: ['MAPS_KEY'] } as const;
+
+  it('reaches the host with the key in its parameter, the rest of the query kept', async () => {
+    const fetch = replying({ results: [] });
+    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+
+    await out.answer(geocode, auth, null, GOOGLE);
+
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    const reached = new URL(url);
+    expect(reached.searchParams.getAll('key')).toEqual(['AIza-1/2']);
+    expect(reached.searchParams.get('address')).toBe('10 Downing St');
+    expect(init.headers).toEqual({ accept: 'application/json' });
+  });
+
+  it('answers with the key taken out of whatever the host echoed', async () => {
+    const fetch = replying(
+      {
+        error: {
+          message: 'API key not valid: AIza-1/2',
+          url: 'https://maps.googleapis.com/?key=AIza-1%2F2',
+        },
+      },
+      400,
+    );
+    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+
+    const answered = await out.answer(geocode, auth, null, GOOGLE);
+
+    expect(answered.status).toBe(400);
+    expect(JSON.stringify(answered.response)).not.toContain('AIza');
+    expect(JSON.stringify(answered.response)).toContain('[secret]');
+  });
+
+  it('says why a call never arrived without the key in what it says', async () => {
+    const fetch = vi.fn(async (url: string | URL | Request) => {
+      throw new TypeError(`fetch failed for ${String(url)}`);
+    });
+    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+
+    const refused = await out
+      .answer(geocode, auth, null, GOOGLE)
+      .catch((error: unknown) => error);
+
+    expect(refused).toBeInstanceOf(UpstreamRefusedError);
+    expect((refused as Error).message).not.toContain('AIza');
+  });
+
+  it('wears nothing toward another host a redirect sends it to, even where the redirect echoes the key', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: {
+            location: 'https://cdn.example.com/geocode?page=2&key=AIza-1%2F2',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    const out = new HttpOutbound(
+      ['maps.googleapis.com', 'cdn.example.com'],
+      fetch,
+    );
+
+    await out.answer(geocode, auth, null, GOOGLE);
+
+    const [second] = fetch.mock.calls[1] as unknown as [string];
+    expect(second).toBe('https://cdn.example.com/geocode?page=2&key=[secret]');
+  });
+});

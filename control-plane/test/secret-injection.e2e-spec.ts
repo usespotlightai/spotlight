@@ -22,6 +22,10 @@ import {
   type IntegrationTool,
   type IntegrationToolCallsPort,
 } from '@work/application/ports/integration-tool-calls.port';
+import {
+  TEAM_INTEGRATIONS,
+  type TeamIntegrationsPort,
+} from '@work/application/ports/team-integrations.port';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -34,6 +38,7 @@ import {
   vi,
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -161,6 +166,9 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     await db
       .delete(schema.hostConnection)
       .where(eq(schema.hostConnection.teamId, held));
+    await db
+      .delete(schema.learnedOutput)
+      .where(eq(schema.learnedOutput.teamId, held));
     await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
     await db
       .delete(schema.runGrants)
@@ -188,6 +196,53 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       `Bearer ${VALUE}`,
     );
     expect(init.redirect).toBe('manual');
+  });
+
+  it('reaches the host with a secret bound to a query parameter, and keeps it out of the answer', async () => {
+    await post(`/api/resources/workspaces/${held}/secrets`, {
+      ...secretBoundTo('api.linear.app'),
+      bindings: [{ host: 'api.linear.app', carrier: 'query', name: 'key' }],
+    });
+    fetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ url: `https://linear.app/c/1?key=${VALUE}` }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(comment()).resolves.toBe(
+      'https://linear.app/c/1?key=[secret]',
+    );
+
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).searchParams.get('key')).toBe(VALUE);
+    expect(
+      (init.headers as Record<string, string>).authorization,
+    ).toBeUndefined();
+  });
+
+  it('learns what the tool answered, without its values, for the next run’s manifest', async () => {
+    await post(
+      `/api/resources/workspaces/${held}/secrets`,
+      secretBoundTo('api.linear.app'),
+    );
+
+    await comment();
+
+    const [kept] = await eventually(() =>
+      db
+        .select()
+        .from(schema.learnedOutput)
+        .where(eq(schema.learnedOutput.teamId, held))
+        .then((rows) => (rows.length > 0 ? rows : null)),
+    );
+    expect(kept?.tool).toBe('linear.comment');
+    expect(JSON.stringify(kept?.shape)).not.toContain('linear.app');
+
+    const [offered] = await app
+      .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
+      .offered(TeamId.of(held), ['linear.comment']);
+    expect(offered?.learnedOutput).toEqual({ type: 'string' });
   });
 
   it('grants the run the secret toward its host alone', async () => {

@@ -1,8 +1,12 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
+import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
+import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
+import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -15,9 +19,17 @@ import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import {
+  InMemoryLearnedOutputs,
+  learningInto,
+} from '@integrations/integrations.learned.fake-spec';
+import {
   discoveringNothing,
   reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
+import {
+  InMemoryPersonToolPolicies,
+  personRulesFrom,
+} from '@integrations/integrations.policies.fake-spec';
 import {
   injecting,
   reachFor,
@@ -25,6 +37,8 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type {
@@ -98,11 +112,16 @@ const using = (
     response: { url: 'https://linear.app/acme/issue/ENG-12#comment-1' },
     capture: { url: 'https://linear.app/acme/issue/ENG-12#comment-1' },
   },
-  over: { file?: string } = {},
+  over: {
+    file?: string;
+    learned?: InMemoryLearnedOutputs;
+    policies?: InMemoryPersonToolPolicies;
+  } = {},
 ) => {
   const run = vi.fn(
     async (_action: unknown, _against: Record<string, unknown>) => reply,
   );
+  const learned = over.learned ?? new InMemoryLearnedOutputs();
 
   const tools = new IntegrationToolCalls(
     {
@@ -110,6 +129,8 @@ const using = (
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
     reachFor(),
+    learningInto(learned),
+    personRulesFrom(over.policies),
   );
 
   const reaching = (tool: string, marked = true) =>
@@ -124,7 +145,7 @@ const using = (
     return reached.call(inputs);
   };
 
-  return { reaching, run, comment };
+  return { reaching, run, comment, learned, tools };
 };
 
 const usingApproved = () =>
@@ -210,6 +231,8 @@ describe('IntegrationToolCalls', () => {
         } as unknown as DefinedIntegrationsPort,
         runtimeWith(new HttpOutbound(allowed, fetch)),
         reachFor(secrets.injection),
+        learningInto(),
+        personRulesFrom(),
       );
 
       const comment = async () => {
@@ -293,6 +316,63 @@ describe('IntegrationToolCalls', () => {
       Record<string, unknown>,
     ];
     expect(against).not.toHaveProperty('secret');
+  });
+
+  it('learns what the tool answered, and only from a call that succeeded', async () => {
+    const { comment, learned } = using();
+
+    await comment({ body: 'Fixed.' });
+
+    const held = await vi.waitFor(async () => {
+      const [kept] = await learned.ofTools(TeamId.of('team_1'), [
+        'linear.comment',
+      ]);
+      expect(kept).toBeDefined();
+      return kept;
+    });
+    expect(held?.tool.value).toBe('linear.comment');
+    expect(held?.shape.schema).toEqual({ type: 'string' });
+
+    const refused = using({
+      ok: false,
+      status: 500,
+      response: null,
+      capture: {},
+    });
+    await expect(refused.comment({ body: 'Fixed.' })).rejects.toThrow();
+    expect(
+      await refused.learned.ofTools(TeamId.of('team_1'), ['linear.comment']),
+    ).toEqual([]);
+  });
+
+  it('answers the call even when what it answered cannot be learned', async () => {
+    const learned = new InMemoryLearnedOutputs();
+    vi.spyOn(learned, 'save').mockRejectedValue(new Error('database gone'));
+
+    await expect(
+      using(undefined, { learned }).comment({ body: 'Fixed.' }),
+    ).resolves.toBe('https://linear.app/acme/issue/ENG-12#comment-1');
+  });
+
+  it('ignores a person’s rule where the call acts with the team’s connection', async () => {
+    const policies = new InMemoryPersonToolPolicies();
+    await policies.save(
+      PersonToolPolicy.none({
+        teamId: TeamId.of('team_1'),
+        personId: UserId.of('user_alice'),
+        source: SourceKey.of('linear'),
+      }).set(ToolName.of('linear.comment'), PersonToolRule.of('blocked')),
+    );
+    const { tools } = using(undefined, { policies });
+
+    const reached = await tools.reach(
+      'linear.comment',
+      task(),
+      ATTEMPT,
+      'user_alice',
+    );
+
+    expect(reached?.personRule).toBeNull();
   });
 
   it('reads an input the agent left out from the task', async () => {
@@ -412,7 +492,7 @@ graphql:
       const secrets = injecting({
         PETSTORE_KEY: {
           host: 'petstore3.swagger.io',
-          header: 'api_key',
+          name: 'api_key',
           value: 'special-key',
         },
       });
@@ -446,6 +526,8 @@ graphql:
           reachingNoServer(),
         ),
         reachFor(secrets.injection),
+        learningInto(),
+        personRulesFrom(),
       );
 
       return {
@@ -480,6 +562,7 @@ graphql:
           },
         ],
         approval: { because: 'It changes data in Petstore.' },
+        learnedOutput: null,
       });
     });
 

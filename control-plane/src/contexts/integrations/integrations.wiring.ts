@@ -4,7 +4,10 @@ import {
   GITHUB_WEBHOOKS,
   type GitHubWebhooksPort,
 } from '@github/application/ports/github-webhooks.port';
-import { PERSON_READER } from '@identity/application/ports/person-reader.port';
+import {
+  PERSON_READER,
+  type PersonReaderPort,
+} from '@identity/application/ports/person-reader.port';
 import {
   TEAM_DIRECTORY,
   TeamDirectoryPort,
@@ -37,9 +40,11 @@ import {
 } from '@integrations/application/commands/handlers/oauth2-connection.handler';
 import { ReadDeliveryHandler } from '@integrations/application/commands/handlers/read-delivery.handler';
 import { RereadIntegrationSourceHandler } from '@integrations/application/commands/handlers/reread-integration-source.handler';
+import { SetPersonToolRuleHandler } from '@integrations/application/commands/handlers/set-person-tool-rule.handler';
 import { UpdateIntegrationHandler } from '@integrations/application/commands/handlers/update-integration.handler';
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
 import { RereadIntegrationSourceCommand } from '@integrations/application/commands/reread-integration-source.command';
+import { SetPersonToolRuleCommand } from '@integrations/application/commands/set-person-tool-rule.command';
 import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import { INTEGRATIONS_PUBLICATIONS } from '@integrations/application/integration-events/integrations.publications';
 import {
@@ -133,7 +138,9 @@ import { HookedHappenings } from '@integrations/application/services/hooked-happ
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import { IntegrationSources } from '@integrations/application/services/integration-sources.service';
 import { IntegrationViews } from '@integrations/application/services/integration-views.service';
+import { LearnOutputShapes } from '@integrations/application/services/learn-output-shapes.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
+import { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
 import { RelistServers } from '@integrations/application/services/relist-servers.service';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
@@ -158,9 +165,17 @@ import {
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { INTEGRATION_DEFINITIONS } from '@integrations/domain/repositories/integration-definition.repository';
 import {
+  LEARNED_OUTPUTS,
+  type LearnedOutputRepository,
+} from '@integrations/domain/repositories/learned-output.repository';
+import {
   OAUTH2_CLIENT_REGISTRATIONS,
   type OAuth2ClientRegistrationRepository,
 } from '@integrations/domain/repositories/oauth2-client-registration.repository';
+import {
+  PERSON_TOOL_POLICIES,
+  type PersonToolPolicyRepository,
+} from '@integrations/domain/repositories/person-tool-policy.repository';
 import { HeldIntegrations } from '@integrations/infrastructure/acl/held-integrations.adapter';
 import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
@@ -192,8 +207,10 @@ import { DrizzleDescribedDocuments } from '@integrations/infrastructure/persiste
 import { DrizzleHostConnections } from '@integrations/infrastructure/persistence/drizzle/repositories/host-connections.repository';
 import { DrizzleIntegrationCursors } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-cursors.repository';
 import { DrizzleIntegrationDefinitions } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-definitions.repository';
+import { DrizzleLearnedOutputs } from '@integrations/infrastructure/persistence/drizzle/repositories/learned-outputs.repository';
 import { DrizzleOAuth2ClientRegistrations } from '@integrations/infrastructure/persistence/drizzle/repositories/oauth2-client-registrations.repository';
 import { DrizzleOAuth2Nonces } from '@integrations/infrastructure/persistence/drizzle/repositories/oauth2-nonces.repository';
+import { DrizzlePersonToolPolicies } from '@integrations/infrastructure/persistence/drizzle/repositories/person-tool-policies.repository';
 import { GitHubSource } from '@integrations/infrastructure/sources/github.source';
 import { McpSourceReader } from '@integrations/infrastructure/sources/mcp/mcp-source-reader';
 import { SourceFetch } from '@integrations/infrastructure/sources/source-fetch';
@@ -297,6 +314,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       HOOK_DEFINITIONS,
       HOST_CONNECTIONS,
       OAUTH2_CLIENT_REGISTRATIONS,
+      LEARNED_OUTPUTS,
+      PERSON_TOOL_POLICIES,
       HookedHappenings,
       RereadIntegrationSourceHandler,
     ],
@@ -308,6 +327,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       hooks: HookDefinitionRepository,
       connections: HostConnectionRepository,
       registrations: OAuth2ClientRegistrationRepository,
+      learned: LearnedOutputRepository,
+      policies: PersonToolPolicyRepository,
       hooked: HookedHappenings,
       rereading: RereadIntegrationSourceHandler,
     ) => {
@@ -320,9 +341,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
             hooks,
             connections,
             registrations,
+            learned,
+            policies,
           ),
           hooked,
           rereading,
+          learned,
         ),
       );
       return true;
@@ -492,9 +516,44 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: TEAM_INTEGRATIONS,
-    inject: [DEFINED_INTEGRATIONS, IntegrationReader],
-    useFactory: (defined: DefinedIntegrationsPort, reader: IntegrationReader) =>
-      new TeamIntegrations(defined, reader),
+    inject: [DEFINED_INTEGRATIONS, IntegrationReader, LEARNED_OUTPUTS],
+    useFactory: (
+      defined: DefinedIntegrationsPort,
+      reader: IntegrationReader,
+      learned: LearnedOutputRepository,
+    ) => new TeamIntegrations(defined, reader, learned),
+  },
+
+  {
+    provide: LEARNED_OUTPUTS,
+    inject: [DrizzleContext],
+    useFactory: (context: DrizzleContext) => new DrizzleLearnedOutputs(context),
+  },
+
+  {
+    provide: PERSON_TOOL_POLICIES,
+    inject: [DrizzleContext],
+    useFactory: (context: DrizzleContext) =>
+      new DrizzlePersonToolPolicies(context),
+  },
+
+  {
+    provide: PersonToolRules,
+    inject: [PERSON_TOOL_POLICIES, PERSON_READER],
+    useFactory: (
+      policies: PersonToolPolicyRepository,
+      people: PersonReaderPort,
+    ) => new PersonToolRules(policies, people),
+  },
+
+  {
+    provide: LearnOutputShapes,
+    inject: [LEARNED_OUTPUTS, CLOCK, LOGGER],
+    useFactory: (
+      learned: LearnedOutputRepository,
+      clock: ClockPort,
+      log: LoggerPort,
+    ) => new LearnOutputShapes(learned, clock, log),
   },
 
   {
@@ -930,6 +989,15 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     HOST_CONNECTION_ROSTER,
     PERSON_READER,
+    DEFINED_INTEGRATIONS,
+    PERSON_TOOL_POLICIES,
+  ]),
+
+  ...bindCommandHandler(SetPersonToolRuleCommand, SetPersonToolRuleHandler, [
+    WORKSPACE_ACCESS,
+    DEFINED_INTEGRATIONS,
+    INTEGRATION_RUNTIME,
+    PERSON_TOOL_POLICIES,
   ]),
 
   ...bindCommandHandler(
@@ -1003,12 +1071,21 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INTEGRATION_TOOL_CALLS,
-    inject: [DEFINED_INTEGRATIONS, INTEGRATION_RUNTIME, HostReach],
+    inject: [
+      DEFINED_INTEGRATIONS,
+      INTEGRATION_RUNTIME,
+      HostReach,
+      LearnOutputShapes,
+      PersonToolRules,
+    ],
     useFactory: (
       defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
       reach: HostReach,
-    ) => new IntegrationToolCalls(defined, runtime, reach),
+      learning: LearnOutputShapes,
+      personRules: PersonToolRules,
+    ) =>
+      new IntegrationToolCalls(defined, runtime, reach, learning, personRules),
   },
 
   {

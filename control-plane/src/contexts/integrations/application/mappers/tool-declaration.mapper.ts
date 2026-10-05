@@ -19,6 +19,7 @@ export const ToolDeclarationMapper = {
         piped: each.piped,
       })),
       approval: offered.approval ? { because: offered.approval.because } : null,
+      learnedOutput: null,
     };
   },
 };

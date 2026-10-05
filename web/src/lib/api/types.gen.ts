@@ -1035,7 +1035,14 @@ export type RedeemedSecretResponseDto = {
    * The one host egress wears it toward
    */
   host: string;
-  header: string;
+  /**
+   * Whether egress wears it in a request header or a query parameter
+   */
+  carrier: 'header' | 'query';
+  /**
+   * The header or query parameter that holds its stand-in
+   */
+  name: string;
   prefix: string;
   /**
    * The value, sealed to the recipient for this run; null when egress reads it in its own network
@@ -1169,6 +1176,11 @@ export type InboxApprovalInputResponseDto = {
   value: string;
 };
 
+export type InboxApprovalAskedOfResponseDto = {
+  id: string;
+  name: string;
+};
+
 export type InboxApprovalResponseDto = {
   /**
    * Whether a tool call or a harness asking permission waits on a person
@@ -1195,6 +1207,10 @@ export type InboxApprovalResponseDto = {
    * What the agent said it wants to do, completing “Spotlight would like to …”; absent where it said nothing, as a harness asking permission never does
    */
   intent: string | null;
+  /**
+   * The one person who can approve it, where it asks first because of their own rule for their connection; anyone can still dismiss it
+   */
+  askedOf: InboxApprovalAskedOfResponseDto | null;
 };
 
 export type InboxConnectionResponseDto = {
@@ -2406,11 +2422,15 @@ export type SecretBindingResponseDto = {
    */
   host: string;
   /**
-   * The request header it is worn in
+   * Whether it is worn in a request header or a query parameter
    */
-  header: string;
+  carrier: 'header' | 'query';
   /**
-   * Written before the value in that header
+   * The header or query parameter it is worn in
+   */
+  name: string;
+  /**
+   * Written before the value it is worn with
    */
   prefix: string;
 };
@@ -3444,13 +3464,25 @@ export type OAuth2StartResponseDto = {
   url: string;
 };
 
-export type OwnConnectionResponseDto = {
+export type ConnectionToolRuleResponseDto = {
+  tool: string;
+  /**
+   * What the caller asks of calls made with their connection: allowed follows the team, needs-approval asks them first, blocked never sends
+   */
+  rule: 'allowed' | 'needs-approval' | 'blocked';
+};
+
+export type MyConnectionResponseDto = {
   source: string;
   /**
    * What the host calls the person, where it says
    */
   handle: string | null;
   connectedAt: string;
+  /**
+   * Each tool the integration offers, with the caller’s rule for calls made with this connection
+   */
+  tools: Array<ConnectionToolRuleResponseDto>;
 };
 
 export type PersonConnectionResponseDto = {
@@ -3468,11 +3500,18 @@ export type HostConnectionsResponseDto = {
   /**
    * The connections the caller made themselves
    */
-  mine: Array<OwnConnectionResponseDto>;
+  mine: Array<MyConnectionResponseDto>;
   /**
    * Who in the team has connected what, shown to admins only; it never holds a token
    */
   people: Array<PersonConnectionResponseDto> | null;
+};
+
+export type SetToolRuleRequestDto = {
+  /**
+   * What to ask of calls made with the caller’s connection; it can only make the team’s rule stricter
+   */
+  rule: 'allowed' | 'needs-approval' | 'blocked';
 };
 
 export type DescribedSourceResponseDto = {
@@ -12211,7 +12250,11 @@ export type CreateSecretData = {
     };
     bindings?: Array<{
       host: string;
-      header?: string;
+      carrier?: 'header' | 'query';
+      /**
+       * The header or query parameter it is worn in; authorization when a header is not named
+       */
+      name?: string;
       prefix?: string;
     }>;
     /**
@@ -12398,7 +12441,11 @@ export type UpdateSecretData = {
     };
     bindings?: Array<{
       host: string;
-      header?: string;
+      carrier?: 'header' | 'query';
+      /**
+       * The header or query parameter it is worn in; authorization when a header is not named
+       */
+      name?: string;
       prefix?: string;
     }>;
     /**
@@ -15179,6 +15226,41 @@ export type DisconnectMineResponses = {
 };
 
 export type DisconnectMineResponse = DisconnectMineResponses[keyof DisconnectMineResponses];
+
+export type SetMyToolRuleData = {
+  body: SetToolRuleRequestDto;
+  path: {
+    teamId: string;
+    source: string;
+    tool: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/integrations/{source}/connections/mine/tools/{tool}';
+};
+
+export type SetMyToolRuleErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team for this caller, or the integration offers no such tool
+   */
+  404: unknown;
+  /**
+   * No such rule
+   */
+  422: unknown;
+};
+
+export type SetMyToolRuleResponses = {
+  /**
+   * The rule is set
+   */
+  204: void;
+};
+
+export type SetMyToolRuleResponse = SetMyToolRuleResponses[keyof SetMyToolRuleResponses];
 
 export type CreateIntegrationData = {
   body: {

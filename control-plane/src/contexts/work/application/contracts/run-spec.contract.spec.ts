@@ -68,6 +68,15 @@ const representative = {
       ],
       approval: { because: 'It reads private dashboards.' },
       integration: 'Grafana',
+      output: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { title: { type: 'string' } },
+          required: ['title'],
+          additionalProperties: false,
+        },
+      },
     },
     {
       name: 'pull-request',

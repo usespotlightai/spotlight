@@ -23,7 +23,8 @@ import { vi } from 'vitest';
 
 interface Bound {
   readonly host: string;
-  readonly header?: string;
+  readonly carrier?: 'header' | 'query';
+  readonly name?: string;
   readonly prefix?: string;
   readonly value: string;
 }
@@ -56,8 +57,10 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
         }
 
         return {
-          name: secret.header ?? 'authorization',
+          carrier: secret.carrier ?? 'header',
+          name: secret.name ?? 'authorization',
           value: `${secret.prefix ?? ''}${secret.value}`,
+          bare: secret.value,
         };
       }),
     );

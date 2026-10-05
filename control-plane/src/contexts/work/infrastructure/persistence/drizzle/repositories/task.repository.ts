@@ -94,6 +94,7 @@ const toApproval = (row: ApprovalRow): Approval =>
     spent: row.spent,
     edited: toEditedCall(row),
     intent: row.intent ? ApprovalIntent.rehydrate(row.intent) : null,
+    askedOf: row.askedOf ? UserId.of(row.askedOf) : null,
   });
 
 const toApprovalRow = (approval: Approval): ApprovalRow => ({
@@ -107,6 +108,7 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
   spent: approval.spent,
   edited: approval.edited?.inputs.values ?? null,
   intent: approval.intent?.value ?? null,
+  askedOf: approval.askedOf?.value ?? null,
 });
 
 const toHeldBack = (row: HeldBackRow): HeldBack =>

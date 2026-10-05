@@ -8,6 +8,7 @@ const configuration = vi.fn();
 const connections = vi.fn();
 const connect = vi.fn();
 const disconnect = vi.fn();
+const setRule = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
 
@@ -33,6 +34,10 @@ vi.mock('@/hooks/api/useConnectIntegration', () => ({
 
 vi.mock('@/hooks/api/useDisconnect', () => ({
   useDisconnect: () => ({ mutate: disconnect, isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useSetToolRule', () => ({
+  useSetToolRule: () => ({ mutate: setRule, isPending: false }),
 }));
 
 const integration = (over: Record<string, unknown> = {}) => ({
@@ -65,6 +70,7 @@ beforeEach(() => {
   connections.mockReturnValue(undefined);
   connect.mockClear();
   disconnect.mockClear();
+  setRule.mockClear();
   refetch.mockClear();
 });
 
@@ -121,7 +127,7 @@ describe('TeamConnections', () => {
   it('shows whom a person is connected as, and lets them disconnect', async () => {
     configuration.mockReturnValue({ integrations: [integration()] });
     connections.mockReturnValue({
-      mine: [{ source: 'linear', handle: '@sam', connectedAt: AT }],
+      mine: [{ source: 'linear', handle: '@sam', connectedAt: AT, tools: [] }],
       people: null,
     });
     showing();
@@ -133,6 +139,41 @@ describe('TeamConnections', () => {
 
     expect(disconnect).toHaveBeenCalledWith('linear');
     expect(screen.queryByText('Who has connected')).not.toBeInTheDocument();
+  });
+
+  it('lets a person ask first or block a tool on calls made with their connection', async () => {
+    configuration.mockReturnValue({ integrations: [integration()] });
+    connections.mockReturnValue({
+      mine: [
+        {
+          source: 'linear',
+          handle: '@sam',
+          connectedAt: AT,
+          tools: [
+            { tool: 'linear.comment', rule: 'needs-approval' },
+            { tool: 'linear.issue-create', rule: 'allowed' },
+          ],
+        },
+      ],
+      people: null,
+    });
+    showing();
+
+    expect(
+      screen.getByRole('button', { name: 'Rule for linear.comment' }),
+    ).toHaveTextContent('Ask me first');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Rule for linear.issue-create' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitemradio', { name: /Blocked/ }),
+    );
+
+    expect(setRule).toHaveBeenCalledWith({
+      source: 'linear',
+      tool: 'linear.issue-create',
+      rule: 'blocked',
+    });
   });
 
   it('shows an admin who in the team has connected what', () => {

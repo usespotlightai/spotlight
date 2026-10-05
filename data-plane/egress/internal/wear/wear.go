@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -37,14 +38,35 @@ func (l Limits) reads(secretID string) bool {
 
 type worn struct {
 	secret   string
-	header   string
+	carrier  string
+	name     string
 	value    []byte
+	bare     []byte
+	prefix   string
 	standIns []string
 	held     bool
 }
 
 func (w *worn) inPlaceOf(header http.Header) bool {
-	return slices.Contains(w.standIns, header.Get(w.header))
+	return w.carrier == protocol.CarriedInHeader && slices.Contains(w.standIns, header.Get(w.name))
+}
+
+func (w *worn) standsIn(name, value string) bool {
+	return w.carrier == protocol.CarriedInQuery && w.name == name && slices.Contains(w.standIns, value)
+}
+
+func (w *worn) slot() string {
+	if w.carrier == protocol.CarriedInQuery {
+		return "?" + w.name
+	}
+	return w.name
+}
+
+func carried(carrier, name string) (string, string) {
+	if carrier == protocol.CarriedInHeader {
+		return carrier, http.CanonicalHeaderKey(name)
+	}
+	return carrier, name
 }
 
 type Wearing struct {
@@ -67,8 +89,11 @@ func From(
 		}
 		wearing.toward[host] = append(wearing.toward[host], &worn{
 			secret:   key.Name,
-			header:   header,
+			carrier:  protocol.CarriedInHeader,
+			name:     header,
 			value:    []byte(key.Prefix + key.Value),
+			bare:     []byte(key.Value),
+			prefix:   key.Prefix,
 			standIns: []string{key.Prefix + protocol.StandInPrefix + key.Name},
 			held:     true,
 		})
@@ -80,16 +105,17 @@ func From(
 	}
 
 	for _, secret := range redeemed.Secrets {
-		host, header := reach.Normal(secret.Host), http.CanonicalHeaderKey(secret.Header)
+		host := reach.Normal(secret.Host)
+		carrier, name := carried(secret.Carrier, secret.Name)
 
-		if refusal := wearing.refusal(host, header, secret, limits); refusal != "" {
+		if refusal := wearing.refusal(host, carrier, name, secret, limits); refusal != "" {
 			log.Warn("egress will not wear a secret the run wears", "secret", secret.Secret, "host", host, "reason", refusal)
 			continue
 		}
 
 		value, err := valueOf(ctx, redeemed.RunID, secret, opener, reader)
 		if err == nil && strings.ContainsAny(value, "\r\n\x00") {
-			err = fmt.Errorf("it holds more than one line, so it cannot be worn in a header")
+			err = fmt.Errorf("it holds more than one line, so it cannot be worn in a request")
 		}
 		if err != nil {
 			log.Warn("could not hold a secret the run wears", "secret", secret.Secret, "host", secret.Host, "error", err)
@@ -99,11 +125,14 @@ func From(
 		standIn := protocol.StandInPrefix + secret.Secret
 		wearing.toward[host] = append(wearing.toward[host], &worn{
 			secret:   secret.Secret,
-			header:   header,
+			carrier:  carrier,
+			name:     name,
 			value:    []byte(secret.Prefix + value),
+			bare:     []byte(value),
+			prefix:   secret.Prefix,
 			standIns: slices.Compact([]string{standIn, secret.Prefix + standIn}),
 		})
-		log.Info("holds a secret for the run", "secret", secret.Secret, "host", host, "header", secret.Header)
+		log.Info("holds a secret for the run", "secret", secret.Secret, "host", host, "carrier", carrier, "name", name)
 	}
 
 	return wearing
@@ -120,7 +149,9 @@ func heldRefusal(host, header string, key protocol.HeldByTheHost, limits Limits)
 	}
 }
 
-func (w *Wearing) refusal(host, header string, secret protocol.RedeemedSecret, limits Limits) string {
+func (w *Wearing) refusal(host, carrier, name string, secret protocol.RedeemedSecret, limits Limits) string {
+	slot := (&worn{carrier: carrier, name: name}).slot()
+
 	switch {
 	case slices.ContainsFunc(w.toward[host], func(each *worn) bool { return each.held }):
 		return "the host holds a key of its own for " + host
@@ -128,8 +159,12 @@ func (w *Wearing) refusal(host, header string, secret protocol.RedeemedSecret, l
 		return "the host's allow-list does not admit " + host
 	case secret.ReadInNetwork != nil && !limits.reads(secret.ReadInNetwork.SecretID):
 		return "the host does not let egress read " + secret.ReadInNetwork.SecretID
-	case slices.ContainsFunc(w.toward[host], func(each *worn) bool { return each.header == header }):
-		return "another secret is already worn in " + header + " toward " + host
+	case carrier != protocol.CarriedInHeader && carrier != protocol.CarriedInQuery:
+		return "it is worn in neither a header nor a query parameter"
+	case name == "":
+		return "it names no " + carrier + " to be worn in"
+	case slices.ContainsFunc(w.toward[host], func(each *worn) bool { return each.slot() == slot }):
+		return "another secret is already worn in " + slot + " toward " + host
 	default:
 		return ""
 	}
@@ -172,29 +207,75 @@ func (w *Wearing) Wears(host string) bool {
 	return len(w.toward[reach.Normal(host)]) > 0
 }
 
-func (w *Wearing) Onto(host string, header http.Header) {
+func (w *Wearing) Onto(host string, r *http.Request) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
+	held := w.toward[reach.Normal(host)]
+	w.ontoHeader(host, held, r.Header)
+	w.ontoQuery(host, held, r.URL)
+}
+
+func (w *Wearing) ontoHeader(host string, held []*worn, header http.Header) {
 	var wearing []*worn
-	for _, each := range w.toward[reach.Normal(host)] {
+	for _, each := range held {
 		if each.inPlaceOf(header) {
 			wearing = append(wearing, each)
 		}
 	}
 
 	for _, each := range wearing {
-		header.Del(each.header)
+		header.Del(each.name)
 	}
 	for name, values := range header {
-		if slices.ContainsFunc(values, func(value string) bool { return strings.Contains(value, protocol.StandInPrefix) }) {
+		if slices.ContainsFunc(values, standsIn) {
 			delete(header, name)
 			w.log.Warn("took a stand-in egress does not hold off a request", "host", host, "header", name)
 		}
 	}
 	for _, each := range wearing {
-		header.Add(each.header, string(each.value))
+		header.Add(each.name, string(each.value))
 	}
+}
+
+func (w *Wearing) ontoQuery(host string, held []*worn, target *url.URL) {
+	if target.RawQuery == "" {
+		return
+	}
+
+	segments := strings.Split(target.RawQuery, "&")
+	kept := segments[:0]
+	for _, segment := range segments {
+		rawName, rawValue, _ := strings.Cut(segment, "=")
+		name, value := unescaped(rawName), unescaped(rawValue)
+		if !standsIn(segment) && !standsIn(name+"="+value) {
+			kept = append(kept, segment)
+			continue
+		}
+
+		index := slices.IndexFunc(held, func(each *worn) bool { return each.standsIn(name, value) })
+		if index < 0 {
+			w.log.Warn("took a stand-in egress does not hold off a request", "host", host, "parameter", name)
+			continue
+		}
+
+		kept = append(kept, rawName+"="+url.QueryEscape(string(held[index].value)))
+	}
+
+	target.RawQuery = strings.Join(kept, "&")
+}
+
+func unescaped(raw string) string {
+	if read, err := url.QueryUnescape(raw); err == nil {
+		return read
+	}
+	return raw
+}
+
+var standInMark = strings.TrimSuffix(protocol.StandInPrefix, ":")
+
+func standsIn(text string) bool {
+	return strings.Contains(strings.ToLower(text), standInMark)
 }
 
 func (w *Wearing) Forget() {
@@ -204,6 +285,7 @@ func (w *Wearing) Forget() {
 	for host, held := range w.toward {
 		for _, each := range held {
 			clear(each.value)
+			clear(each.bare)
 		}
 		delete(w.toward, host)
 	}

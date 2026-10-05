@@ -2,11 +2,13 @@ import type { Credentials } from '@integrations/application/ports/integration-ru
 import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
 import { cappedText } from '@integrations/infrastructure/outbound/capped-body';
 import {
+  type Dressed,
   followed,
   type Hop,
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DescriptionUnreadable } from '@integrations/infrastructure/sources/operation-record';
+import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -58,13 +60,24 @@ export class SourceFetch {
 
   async text(request: SourceRequest, wearing: SourceWearing): Promise<string> {
     const signal = AbortSignal.timeout(READ_WITHIN_MS);
+    let worn = WornSecrets.none();
 
     try {
       const { reply, url } = await followed(
         this.fetch,
         this.policy,
         request,
-        (hop) => this.headers(hop, request, wearing),
+        async (hop) => {
+          const dressed = await this.dressed(hop, request, wearing);
+
+          if (dressed.worn.isEmpty) {
+            return { ...dressed, url: worn.redact(dressed.url) };
+          }
+
+          worn = dressed.worn;
+
+          return dressed;
+        },
         signal,
       );
 
@@ -100,16 +113,17 @@ export class SourceFetch {
       }
 
       throw new DescriptionUnreadable(
-        `could not be read: ${hostOf(request.url)}: ${codeOf(error)}`,
+        `could not be read: ${hostOf(request.url)}: ${worn.redact(codeOf(error))}`,
       );
     }
   }
 
-  private async headers(
+  private async dressed(
     hop: Hop,
     request: SourceRequest,
     wearing: SourceWearing,
-  ): Promise<Record<string, string>> {
+  ): Promise<Dressed & { readonly worn: WornSecrets }> {
+    const url = new URL(hop.url);
     const headers: Record<string, string> = { accept: request.accept };
 
     if (hop.body !== undefined) {
@@ -117,19 +131,19 @@ export class SourceFetch {
     }
 
     if (hostOf(hop.url) !== wearing.apiHost) {
-      return headers;
+      return { url: url.href, headers, worn: WornSecrets.none() };
     }
 
     if (wearing.connection) {
       headers.authorization = `Bearer ${wearing.connection}`;
     }
 
-    if (wearing.secrets.length > 0) {
-      (await wearing.credentials.wornToward(hop.url, wearing.secrets)).applyTo(
-        headers,
-      );
-    }
+    const worn =
+      wearing.secrets.length > 0
+        ? await wearing.credentials.wornToward(hop.url, wearing.secrets)
+        : WornSecrets.none();
+    worn.applyTo({ url, headers });
 
-    return headers;
+    return { url: url.href, headers, worn };
   }
 }

@@ -11,6 +11,8 @@ export type Approval = InboxApprovalResponseDto;
 
 export type ApprovalInput = InboxApprovalInputResponseDto;
 
+export type ApprovalMode = 'viewing' | 'editing' | 'refusing';
+
 export type ApprovalAnswer = {
   readonly approve: boolean;
   readonly said: string;
@@ -36,6 +38,14 @@ const isStructured = (value: string): boolean => {
     return false;
   }
 };
+
+export const approvedOnlyBy = (
+  approval: Approval,
+  viewerId: string | null,
+): string | null =>
+  approval.askedOf && approval.askedOf.id !== viewerId
+    ? approval.askedOf.name || 'the person it was asked of'
+    : null;
 
 export const editable = (approval: Approval): boolean =>
   approval.kind === 'tool-call' && approval.inputs.length > 0;

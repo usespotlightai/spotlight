@@ -6,6 +6,7 @@ import {
   emptyTeamConnections,
   failTeamConnections,
   seedTeamConnections,
+  seedTeamConnectionsWithRules,
 } from '@/stories/fixtures/connections';
 import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
 import { StoryPage } from '@/stories/StoryPage';
@@ -51,6 +52,15 @@ export const Failed: Story = {
 export const WithData: Story = {
   render: () => (
     <StoryPage at={at} seed={seedTeamConnections}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const WithRules: Story = {
+  name: 'With rules',
+  render: () => (
+    <StoryPage at={at} seed={seedTeamConnectionsWithRules}>
       {routes}
     </StoryPage>
   ),

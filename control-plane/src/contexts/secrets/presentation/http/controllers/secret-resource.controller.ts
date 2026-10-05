@@ -30,6 +30,7 @@ import type {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
 
 const KIND = 'secret';
 
@@ -67,7 +68,17 @@ const DEFINITION = ApiBody({
           required: ['host'],
           properties: {
             host: { type: 'string', example: 'api.linear.app' },
-            header: { type: 'string', default: 'authorization' },
+            carrier: {
+              type: 'string',
+              enum: [...SECRET_CARRIERS],
+              default: 'header',
+            },
+            name: {
+              type: 'string',
+              description:
+                'The header or query parameter it is worn in; authorization when a header is not named',
+              example: 'authorization',
+            },
             prefix: { type: 'string', default: '', example: 'Bearer ' },
           },
         },

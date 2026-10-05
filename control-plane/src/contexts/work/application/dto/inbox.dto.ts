@@ -33,6 +33,7 @@ export interface InboxApprovalDto {
   readonly standing: string;
   readonly edited: readonly InboxApprovalInputDto[] | null;
   readonly intent: string | null;
+  readonly askedOf: { readonly id: string; readonly name: string } | null;
 }
 
 export interface InboxConnectionDto {

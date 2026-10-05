@@ -50,6 +50,7 @@ export interface RunToolManifest {
   readonly inputs: readonly RunToolInput[];
   readonly approval: RunToolApproval | null;
   readonly integration?: string;
+  readonly output?: JsonObject;
 }
 
 export interface RunFile {
@@ -197,6 +198,9 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
           approval: each.approval ? { because: each.approval.because } : null,
           ...(each.integration !== undefined
             ? { integration: each.integration }
+            : {}),
+          ...(each.output !== undefined
+            ? { output: structuredClone(each.output) }
             : {}),
         })),
       }

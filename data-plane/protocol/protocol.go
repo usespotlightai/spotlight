@@ -126,6 +126,7 @@ type ToolManifest struct {
 	Inputs      []ToolInputManifest `json:"inputs,omitempty"`
 	Approval    *ToolApproval       `json:"approval"`
 	Integration string              `json:"integration,omitempty"`
+	Output      json.RawMessage     `json:"output,omitempty"`
 }
 
 type ToolApproval struct {

@@ -1,3 +1,5 @@
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
 import {
@@ -12,6 +14,29 @@ import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const wearingKey = {
+  connection: null,
+  secrets: ['TRACKER_KEY'],
+  credentials: {
+    wornToward: async () =>
+      WornSecrets.of([
+        { carrier: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
+      ]),
+  } as Credentials,
+};
+
+const serving = async (
+  answer: Parameters<typeof createServer>[1],
+): Promise<{ readonly origin: string; readonly server: Server }> => {
+  const server = createServer(answer);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+
+  return {
+    origin: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    server,
+  };
+};
 
 const wearingNothing = {
   connection: null,
@@ -219,7 +244,14 @@ describe('McpSessions', () => {
 
   it('wears the connection and the secrets only toward the server', async () => {
     const wornToward = vi.fn(async () =>
-      WornSecrets.of([{ name: 'x-api-key', value: 'tk_live' }]),
+      WornSecrets.of([
+        {
+          carrier: 'header',
+          name: 'x-api-key',
+          value: 'tk_live',
+          bare: 'tk_live',
+        },
+      ]),
     );
 
     await sessions.call(
@@ -240,6 +272,34 @@ describe('McpSessions', () => {
       apiKey: 'tk_live',
     });
     expect(wornToward).toHaveBeenCalledWith(server.url, ['TRACKER_KEY']);
+  });
+
+  it('wears a secret in the query, and takes it out of what the server answers', async () => {
+    const answered = await sessions.call(
+      'team_1:tracker:team:key',
+      server.url,
+      'delete_issue',
+      { id: 'tk/live' },
+      {
+        connection: null,
+        secrets: ['TRACKER_KEY'],
+        credentials: {
+          wornToward: async () =>
+            WornSecrets.of([
+              {
+                carrier: 'query',
+                name: 'key',
+                value: 'tk/live',
+                bare: 'tk/live',
+              },
+            ]),
+        },
+      },
+    );
+
+    expect(server.heard[server.heard.length - 1]?.key).toBe('tk/live');
+    expect(JSON.stringify(answered)).not.toContain('tk/live');
+    expect(JSON.stringify(answered)).toContain('[secret]');
   });
 
   it('says when the server refuses the connection it was handed', async () => {
@@ -264,6 +324,71 @@ describe('McpSessions', () => {
     } finally {
       asking.onModuleDestroy();
       await guarded.close();
+    }
+  });
+
+  it('says why a server refused to list its tools without the key it echoed', async () => {
+    const refusing = await serving((request, reply) => {
+      let body = '';
+      request.on('data', (chunk) => {
+        body += chunk;
+      });
+      request.on('end', () => {
+        const id = (JSON.parse(body) as { id?: number }).id ?? null;
+        reply.writeHead(200, { 'content-type': 'application/json' }).end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32600, message: `no such key in ${request.url}` },
+          }),
+        );
+      });
+    });
+    const listing = new McpSessions(
+      new OutboundPolicy([new URL(refusing.origin).host]),
+    );
+
+    try {
+      const refused = await listing
+        .tools(`${refusing.origin}/mcp`, wearingKey)
+        .catch((error: unknown) => error as Error);
+
+      expect(refused).toBeInstanceOf(Error);
+      expect((refused as Error).message).toContain('[secret]');
+      expect((refused as Error).message).not.toMatch(/k(%2F|\/)live/);
+    } finally {
+      listing.onModuleDestroy();
+      refusing.server.close();
+    }
+  });
+
+  it('carries no key to another host a server redirects to', async () => {
+    const heard: string[] = [];
+    const elsewhere = await serving((request, reply) => {
+      heard.push(request.url ?? '');
+      reply.writeHead(404).end();
+    });
+    const moving = await serving((request, reply) => {
+      reply
+        .writeHead(307, { location: `${elsewhere.origin}${request.url}` })
+        .end();
+    });
+    const listing = new McpSessions(
+      new OutboundPolicy([
+        new URL(moving.origin).host,
+        new URL(elsewhere.origin).host,
+      ]),
+    );
+
+    try {
+      await listing.tools(`${moving.origin}/mcp`, wearingKey).catch(() => null);
+
+      expect(heard.length).toBeGreaterThan(0);
+      expect(heard.join(' ')).not.toMatch(/k(%2F|\/)live/);
+    } finally {
+      listing.onModuleDestroy();
+      moving.server.close();
+      elsewhere.server.close();
     }
   });
 

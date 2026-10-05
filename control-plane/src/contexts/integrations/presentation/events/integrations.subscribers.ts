@@ -5,6 +5,9 @@ import type { HookedHappenings } from '@integrations/application/services/hooked
 import type { HookAbandonmentDue } from '@integrations/domain/events/hook-abandonment-due.event';
 import type { HostConnected } from '@integrations/domain/events/host-connected.event';
 import type { IntegrationAbandonmentDue } from '@integrations/domain/events/integration-abandonment-due.event';
+import type { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
+import type { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
+import type { LearnedOutputRepository } from '@integrations/domain/repositories/learned-output.repository';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
@@ -36,6 +39,7 @@ export const integrationsSubscribers = (
   abandoning: AbandonTeamIntegrations,
   hooked: HookedHappenings,
   rereading: RereadIntegrationSourceHandler,
+  learned: LearnedOutputRepository,
 ): readonly DomainEventSubscriber[] => [
   subscribing<TeamDisbandedIntegrationEvent>(
     'integrations.abandon-integrations-of-disbanded-team',
@@ -72,6 +76,11 @@ export const integrationsSubscribers = (
           event.source.value,
         ),
       ),
+  ),
+  subscribing<IntegrationRedefined | IntegrationRetired>(
+    'integrations.forget-learned-outputs-of-a-changed-integration',
+    ['integrations.integration-redefined', 'integrations.integration-retired'],
+    (event) => learned.forgetSource(event.teamId, event.source),
   ),
   subscribing<RunEndedIntegrationEvent>(
     'integrations.fire-hooks-when-a-run-ended',

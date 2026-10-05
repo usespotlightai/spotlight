@@ -44,9 +44,11 @@ const reaching = (given: { movedOn?: boolean } = {}) => {
         description: 'Comment on an issue',
         inputs: [],
         approval: null,
+        learnedOutput: null,
       },
       actingAs: null,
       wants: null,
+      personRule: null,
       defaultFor: () => undefined,
       call: async () => {
         steps.push('called with its secrets worn');

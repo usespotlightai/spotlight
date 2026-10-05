@@ -49,6 +49,18 @@ describe('toolManifestOf', () => {
     expect(manifest.description).toContain('It posts publicly.');
   });
 
+  it('says what the tool answered before', () => {
+    const learnedOutput = { type: 'string' };
+    const learned = DeclaredTool.of({
+      tool: Tool.of('linear.comment'),
+      description: 'Comment on the issue.',
+      learnedOutput,
+    });
+
+    expect(toolManifestOf(learned).output).toEqual(learnedOutput);
+    expect(toolManifestOf(tool(null))).not.toHaveProperty('output');
+  });
+
   it('names the integration the tool comes from', () => {
     expect(toolManifestOf(tool(null, 'Linear')).integration).toBe('Linear');
     expect(toolManifestOf(tool(null))).not.toHaveProperty('integration');

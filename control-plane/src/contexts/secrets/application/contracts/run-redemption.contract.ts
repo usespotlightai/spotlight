@@ -15,7 +15,8 @@ interface ReadInNetwork {
 export interface RedeemedSecret {
   readonly secret: string;
   readonly host: string;
-  readonly header: string;
+  readonly carrier: string;
+  readonly name: string;
   readonly prefix: string;
   readonly sealed: string | null;
   readonly readInNetwork: ReadInNetwork | null;

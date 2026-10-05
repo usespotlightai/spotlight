@@ -32,7 +32,8 @@ export const SecretResourceMapper = {
       },
       bindings: secret.bindings.all.map((each) => ({
         host: each.host,
-        header: each.header,
+        carrier: each.carrier.kind,
+        name: each.carrier.name,
         prefix: each.prefix,
       })),
       keepsValue: secret.source.isBuiltIn,

@@ -440,6 +440,19 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     });
 
     expect(JSON.stringify(journalled)).toContain('tracker.search-issues');
+
+    const learned = await eventually(async () => {
+      const [found] = await app
+        .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
+        .offered(team.teamId, ['tracker.search-issues']);
+
+      return found?.learnedOutput ?? null;
+    });
+
+    expect(JSON.stringify(learned)).not.toContain('Queue stuck');
+    expect(learned).toMatchObject({
+      properties: { issues: { type: 'array' } },
+    });
   });
 
   it('holds a tool that may destroy data for a person, and runs it with what they changed', async () => {

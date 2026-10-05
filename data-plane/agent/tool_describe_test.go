@@ -194,3 +194,18 @@ func TestNamesTheNearestToolsForOneTheRunWasNotGiven(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestDescribesWhatAToolAnsweredBeforeAsLearned(t *testing.T) {
+	learned := tool("linear.comment", "Comment on an issue.")
+	learned.Output = json.RawMessage(`{"type":"object","properties":{"url":{"type":"string"},"labels":{"type":"object","additionalProperties":{"type":"number"}}},"required":["url"],"additionalProperties":false}`)
+
+	described := describing(learned)
+	want := "Answers with (learned from earlier calls, may be incomplete):\n{\n  labels?: {\n    [key: string]: number;\n  };\n  url: string;\n}\n\nFor example:"
+	if !strings.Contains(described, want) {
+		t.Errorf("described\n%s\nwant it to say\n%s", described, want)
+	}
+
+	if described := describing(tool("linear.teams", "Lists the teams.")); strings.Contains(described, "Answers with") {
+		t.Errorf("described an output nobody knows:\n%s", described)
+	}
+}

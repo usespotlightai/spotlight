@@ -14,6 +14,10 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import {
+  INTEGRATION_TOOL_CALLS,
+  type IntegrationToolCallsPort,
+} from '@work/application/ports/integration-tool-calls.port';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -75,7 +79,26 @@ describe('each person’s own connections (e2e)', () => {
         .send(body),
     delete: (path: string) =>
       served(app).delete(path).set(TEST_USER_HEADER, viewer),
+    put: (path: string, body: object) =>
+      served(app).put(path).set(TEST_USER_HEADER, viewer).send(body),
   });
+
+  const reaching = (requester: string) =>
+    app.get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS).reach(
+      'linear.comment',
+      {
+        taskId: 'task_1',
+        workspaceId: held,
+        teamId: held,
+        line: 'delivery',
+        station: 'Implementation',
+        stationKey: 'implementation',
+        marks: {},
+        waiting: null,
+      },
+      { runId: 'run_1', attempt: 1 },
+      requester,
+    );
 
   const connect = (personId: string, handle: string) =>
     app.get<HostConnectionRepository>(HOST_CONNECTIONS).save(
@@ -120,6 +143,9 @@ describe('each person’s own connections (e2e)', () => {
     await db
       .delete(schema.hostConnection)
       .where(eq(schema.hostConnection.teamId, held));
+    await db
+      .delete(schema.personToolPolicy)
+      .where(eq(schema.personToolPolicy.teamId, held));
     await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, held));
@@ -194,6 +220,56 @@ describe('each person’s own connections (e2e)', () => {
     expect(
       roster.body.people.map((each: { handle: string }) => each.handle),
     ).toEqual(['@ada']);
+  });
+
+  it('lets a person set a rule for calls made with their own connection, and carries it to the tool', async () => {
+    await connect(seat.member, '@bea');
+    await connect(seat.owner, '@ada');
+    const rule = `/api/teams/${held}/integrations/linear/connections/mine/tools/linear.comment`;
+
+    expect(
+      (await as(seat.member).put(rule, { rule: 'needs-approval' })).status,
+    ).toBe(204);
+
+    const theirs = await as(seat.member).get(`/api/teams/${held}/connections`);
+    const mine = await as(seat.owner).get(`/api/teams/${held}/connections`);
+    expect(theirs.body.mine[0].tools).toEqual([
+      { tool: 'linear.comment', rule: 'needs-approval' },
+    ]);
+    expect(mine.body.mine[0].tools).toEqual([
+      { tool: 'linear.comment', rule: 'allowed' },
+    ]);
+
+    expect((await reaching(seat.member))?.personRule).toEqual({
+      rule: 'needs-approval',
+      personId: seat.member,
+      personName: 'Bea',
+    });
+    expect((await reaching(seat.owner))?.personRule).toBeNull();
+  });
+
+  it('refuses a rule that is not one, and a tool the integration does not offer', async () => {
+    await connect(seat.member, '@bea');
+    const mine = `/api/teams/${held}/integrations/linear/connections/mine/tools`;
+
+    expect(
+      (
+        await as(seat.member).put(`${mine}/linear.comment`, {
+          rule: 'sometimes',
+        })
+      ).status,
+    ).toBe(422);
+    expect(
+      (await as(seat.member).put(`${mine}/linear.archive`, { rule: 'blocked' }))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await as(randomUUID()).put(`${mine}/linear.comment`, {
+          rule: 'blocked',
+        })
+      ).status,
+    ).toBe(404);
   });
 
   it('shows nothing to someone off the team', async () => {

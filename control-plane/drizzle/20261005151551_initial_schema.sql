@@ -520,6 +520,17 @@ CREATE TABLE "integration_definition" (
 	CONSTRAINT "integration_definition_team_id_source_unique" UNIQUE("team_id","source")
 );
 --> statement-breakpoint
+CREATE TABLE "learned_output" (
+	"team_id" text NOT NULL,
+	"tool" text NOT NULL,
+	"source" text NOT NULL,
+	"shape" jsonb NOT NULL,
+	"calls" integer NOT NULL,
+	"learned_at" timestamp NOT NULL,
+	"version" integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "learned_output_team_id_tool_pk" PRIMARY KEY("team_id","tool")
+);
+--> statement-breakpoint
 CREATE TABLE "oauth2_client_registration" (
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
@@ -540,6 +551,15 @@ CREATE TABLE "oauth2_client_registration" (
 CREATE TABLE "oauth2_spent_nonce" (
 	"nonce" text PRIMARY KEY NOT NULL,
 	"until" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "person_tool_policy" (
+	"team_id" text NOT NULL,
+	"person_id" text NOT NULL,
+	"source" text NOT NULL,
+	"rules" jsonb NOT NULL,
+	"version" integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "person_tool_policy_team_id_person_id_source_pk" PRIMARY KEY("team_id","person_id","source")
 );
 --> statement-breakpoint
 CREATE TABLE "memory" (
@@ -1712,6 +1732,7 @@ CREATE INDEX "hook_definition_on_idx" ON "hook_definition" USING btree ("team_id
 CREATE INDEX "hook_firing_state_idx" ON "hook_firing" USING btree ("state","due_at");--> statement-breakpoint
 CREATE INDEX "hook_firing_repeats_idx" ON "hook_firing" USING btree ("hook_id","task_id","fired_at");--> statement-breakpoint
 CREATE INDEX "host_connection_holder_idx" ON "host_connection" USING btree ("team_id","holder");--> statement-breakpoint
+CREATE INDEX "learned_output_source_idx" ON "learned_output" USING btree ("team_id","source");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_handle_idx" ON "memory" USING btree ("handle");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_supersedes_idx" ON "memory" USING btree ("supersedes");--> statement-breakpoint
 CREATE INDEX "memory_standing_idx" ON "memory" USING btree ("team_id","standing","approved_at");--> statement-breakpoint

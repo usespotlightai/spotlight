@@ -44,6 +44,10 @@ const CONNECTIONS: HostConnectionsResponseDto = {
       source: 'linear',
       handle: '@sam',
       connectedAt: '2026-10-01T09:00:00.000Z',
+      tools: [
+        { tool: 'linear.comment', rule: 'allowed' },
+        { tool: 'linear.issue-create', rule: 'allowed' },
+      ],
     },
   ],
   people: [
@@ -76,6 +80,21 @@ export const seedTeamConnections = (client: QueryClient) => {
     integrations: PERSONAL,
   });
   client.setQueryData(connectionKeys.forTeam(TEAM_ID), CONNECTIONS);
+};
+
+export const seedTeamConnectionsWithRules = (client: QueryClient) => {
+  seedTeamConnections(client);
+  client.setQueryData(connectionKeys.forTeam(TEAM_ID), {
+    ...CONNECTIONS,
+    mine: CONNECTIONS.mine.map((each) => ({
+      ...each,
+      tools: [
+        { tool: 'linear.comment', rule: 'needs-approval' },
+        { tool: 'linear.issue-create', rule: 'blocked' },
+        { tool: 'linear.issue', rule: 'allowed' },
+      ],
+    })),
+  });
 };
 
 export const emptyTeamConnections = (client: QueryClient) => {

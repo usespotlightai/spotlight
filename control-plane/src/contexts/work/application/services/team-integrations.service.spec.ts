@@ -12,6 +12,7 @@ const LINEAR: ToolDeclaration = {
   description: 'Comment on the issue.',
   inputs: [],
   approval: null,
+  learnedOutput: null,
 };
 
 describe('TeamIntegrations', () => {
@@ -28,6 +29,19 @@ describe('TeamIntegrations', () => {
     expect(tools[0]?.description).toBe('Comment on the issue.');
     expect(tools[0]?.offeredBy).toBe('Linear');
     expect(offered).toHaveBeenCalledWith(TEAM, ['linear.comment']);
+  });
+
+  it('carries what a tool answered before', async () => {
+    const learnedOutput = { type: 'string' };
+    const service = new TeamIntegrations({
+      offered: vi.fn(async () => [{ ...LINEAR, learnedOutput }]),
+    });
+
+    const [tool] = await service.offered({ teamId: TEAM } as Line, [
+      Tool.of('linear.comment'),
+    ]);
+
+    expect(tool?.learnedOutput).toEqual(learnedOutput);
   });
 
   it('asks nothing of the integrations when no tool given comes from one', async () => {

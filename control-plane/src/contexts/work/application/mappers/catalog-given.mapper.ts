@@ -18,6 +18,7 @@ export const CatalogGivenMapper = {
       description: given.description,
       inputs: given.inputs,
       approval: null,
+      learnedOutput: null,
     });
   },
 

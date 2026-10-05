@@ -55,6 +55,7 @@ import {
   REVIEW,
   REVIEW_COMMENT,
 } from '@work/domain/services/built-in-tools';
+import type { PersonRule } from '@work/domain/services/stricter-rule';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -78,6 +79,7 @@ import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
+import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -161,6 +163,7 @@ const LINEAR_COMMENT = DeclaredTool.of({
       piped: true,
     },
   ],
+  offeredBy: 'Linear',
 });
 
 const describedAs = (tool: string) => {
@@ -251,6 +254,7 @@ const using = (
     movedOnTo?: Run;
     wants?: ConnectionWantedDto;
     actingAs?: ToolActingAs;
+    personRule?: PersonRule;
     withheld?: {
       readonly when: 'before' | 'during';
       readonly reason: CatalogRefusalReason;
@@ -316,6 +320,7 @@ const using = (
         description: LINEAR_COMMENT.description,
         inputs: LINEAR_COMMENT.inputs,
         approval: over.approval,
+        offeredBy: LINEAR_COMMENT.offeredBy,
       })
     : LINEAR_COMMENT;
 
@@ -347,6 +352,7 @@ const using = (
             declared: linear,
             actingAs: over.actingAs ?? null,
             wants: over.wants ?? null,
+            personRule: over.personRule ?? null,
             defaultFor: (input) =>
               input.name === 'issue' ? 'ENG-12' : undefined,
             call: async (inputs) => {
@@ -721,6 +727,84 @@ describe('UseToolHandler', () => {
     await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow();
 
     expect(standing().notes).toHaveLength(asked);
+  });
+
+  describe('a rule the person it acts as set', () => {
+    const ALICE = UserId.of('user_alice');
+
+    const ruling = (rule: string): PersonRule => ({
+      rule: ToolRule.of(rule),
+      personId: ALICE,
+      personName: 'Alice',
+    });
+
+    const lastAsked = (standing: () => Task) =>
+      standing().notes[standing().notes.length - 1]?.approval;
+
+    it('asks them first where they ask to approve a tool the team allows', async () => {
+      const { reach, called, standing } = using(claimed(['linear.comment']), {
+        personRule: ruling('needs-approval'),
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.', intent: 'post the fix' }),
+      ).rejects.toMatchObject({ kind: 'conflict' });
+
+      expect(called).toEqual([]);
+      expect(lastAsked(standing)?.askedOf?.equals(ALICE)).toBe(true);
+      expect(lastAsked(standing)?.because).toBe(
+        'Alice asks to approve each call made with their Linear connection.',
+      );
+      expect(lastAsked(standing)?.intent?.value).toBe('post the fix');
+    });
+
+    it('still asks the team where they allow a tool the team gates', async () => {
+      const { reach, called, standing } = using(claimed(['linear.comment']), {
+        approval: NEEDS_APPROVAL,
+        personRule: ruling('allowed'),
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toMatchObject({ kind: 'conflict' });
+
+      expect(called).toEqual([]);
+      expect(lastAsked(standing)?.askedOf).toBeNull();
+      expect(lastAsked(standing)?.because).toBe(NEEDS_APPROVAL.because);
+    });
+
+    it('asks only them, for the team’s reason, where both ask', async () => {
+      const { reach, standing } = using(claimed(['linear.comment']), {
+        approval: NEEDS_APPROVAL,
+        personRule: ruling('needs-approval'),
+      });
+
+      await expect(
+        reach('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toThrow();
+
+      expect(lastAsked(standing)?.askedOf?.equals(ALICE)).toBe(true);
+      expect(lastAsked(standing)?.because).toBe(NEEDS_APPROVAL.because);
+    });
+
+    it('sends nothing and asks nobody where they block it, whatever the team says', async () => {
+      for (const approval of [null, NEEDS_APPROVAL]) {
+        const { reach, called, standing } = using(claimed(['linear.comment']), {
+          approval,
+          personRule: ruling('blocked'),
+        });
+        const before = standing().notes.length;
+
+        await expect(
+          reach('linear.comment', { body: 'Fixed.' }),
+        ).rejects.toMatchObject({
+          kind: 'not-allowed',
+          message: expect.stringContaining('Alice blocks it'),
+        });
+        expect(called).toEqual([]);
+        expect(standing().notes).toHaveLength(before);
+      }
+    });
   });
 
   it('calls a tool the person approved, and spends that approval on the one call', async () => {

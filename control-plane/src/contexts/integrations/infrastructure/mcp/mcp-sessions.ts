@@ -23,6 +23,10 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OnModuleDestroy } from '@nestjs/common';
+import {
+  type WornRequest,
+  WornSecrets,
+} from '@secrets/application/contracts/worn-secrets.contract';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
 type Fetch = typeof globalThis.fetch;
@@ -35,6 +39,7 @@ export interface McpWearing {
 
 interface Worn extends McpWearing {
   readonly server: string;
+  seen: WornSecrets;
 }
 
 interface Session {
@@ -56,6 +61,20 @@ const NO_STREAM = 405;
 
 const SPOTLIGHT = { name: 'spotlight', version: '1.0.0' };
 
+const unechoedIn = (error: unknown, worn: WornSecrets): void => {
+  if (!(error instanceof Error)) {
+    return;
+  }
+
+  error.message = worn.redact(error.message);
+
+  const { cause } = error as { cause?: unknown };
+
+  if (cause instanceof Error) {
+    cause.message = worn.redact(cause.message);
+  }
+};
+
 export class McpSessions implements OnModuleDestroy {
   readonly #idle = new Map<string, Session[]>();
   readonly #busy = new Set<Session>();
@@ -67,8 +86,8 @@ export class McpSessions implements OnModuleDestroy {
     fetch: Fetch = globalThis.fetch,
     private readonly idleMs = IDLE_MS,
   ) {
-    const policed = policedFetch(fetch, policy, (hop, headers) =>
-      this.wear(hop.url, headers),
+    const policed = policedFetch(fetch, policy, (hop, request) =>
+      this.wear(hop.url, request),
     );
 
     this.#fetch = async (url, init) => {
@@ -93,40 +112,11 @@ export class McpSessions implements OnModuleDestroy {
   }
 
   tools(server: string, wearing: McpWearing): Promise<readonly Tool[]> {
-    return this.#worn.run({ ...wearing, server }, async () => {
-      let session: Session | null = null;
+    const worn: Worn = { ...wearing, server, seen: WornSecrets.none() };
 
-      try {
-        session = await this.connected(server);
-
-        const tools: Tool[] = [];
-        let cursor: string | undefined;
-
-        for (let page = 0; page < PAGES_AT_MOST; page += 1) {
-          const listed = await session.client.listTools(
-            cursor ? { cursor } : undefined,
-            { timeout: ANSWERS_WITHIN_MS },
-          );
-
-          tools.push(...listed.tools);
-          cursor = listed.nextCursor;
-
-          if (!cursor) {
-            break;
-          }
-        }
-
-        return tools;
-      } catch (error) {
-        throw refusedAuthorization(error)
-          ? new McpAuthorizationRefused(server)
-          : error;
-      } finally {
-        if (session) {
-          await this.closed(session);
-        }
-      }
-    });
+    return this.#worn.run(worn, () =>
+      this.unechoed(worn, () => this.listing(server)),
+    );
   }
 
   call(
@@ -138,31 +128,94 @@ export class McpSessions implements OnModuleDestroy {
   ): Promise<CallToolResult> {
     const pool = `${server} ${key}`;
 
-    return this.#worn.run({ ...wearing, server }, async () => {
+    const worn: Worn = { ...wearing, server, seen: WornSecrets.none() };
+
+    return this.#worn.run(worn, async () =>
+      this.unechoed(worn, () => this.calling(pool, server, tool, args)),
+    );
+  }
+
+  private async listing(server: string): Promise<readonly Tool[]> {
+    let session: Session | null = null;
+
+    try {
+      session = await this.connected(server);
+
+      const tools: Tool[] = [];
+      let cursor: string | undefined;
+
+      for (let page = 0; page < PAGES_AT_MOST; page += 1) {
+        const listed = await session.client.listTools(
+          cursor ? { cursor } : undefined,
+          { timeout: ANSWERS_WITHIN_MS },
+        );
+
+        tools.push(...listed.tools);
+        cursor = listed.nextCursor;
+
+        if (!cursor) {
+          break;
+        }
+      }
+
+      return tools;
+    } catch (error) {
+      throw refusedAuthorization(error)
+        ? new McpAuthorizationRefused(server)
+        : error;
+    } finally {
+      if (session) {
+        await this.closed(session);
+      }
+    }
+  }
+
+  private async calling(
+    pool: string,
+    server: string,
+    tool: string,
+    args: Readonly<Record<string, unknown>>,
+  ): Promise<CallToolResult> {
+    try {
+      return await this.callOn(
+        pool,
+        await this.taken(pool, server),
+        tool,
+        args,
+      );
+    } catch (error) {
+      if (!sessionGone(error)) {
+        throw this.refused(server, error);
+      }
+
       try {
         return await this.callOn(
           pool,
-          await this.taken(pool, server),
+          await this.connected(server),
           tool,
           args,
         );
-      } catch (error) {
-        if (!sessionGone(error)) {
-          throw this.refused(server, error);
-        }
-
-        try {
-          return await this.callOn(
-            pool,
-            await this.connected(server),
-            tool,
-            args,
-          );
-        } catch (again) {
-          throw this.refused(server, again);
-        }
+      } catch (again) {
+        throw this.refused(server, again);
       }
-    });
+    }
+  }
+
+  private async unechoed<T>(
+    worn: Worn,
+    answering: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      const answer = await answering();
+
+      return worn.seen.redactedIn(answer) as T;
+    } catch (error) {
+      if (!worn.seen.isEmpty) {
+        unechoedIn(error, worn.seen);
+      }
+
+      throw error;
+    }
   }
 
   onModuleDestroy(): void {
@@ -303,22 +356,25 @@ export class McpSessions implements OnModuleDestroy {
       : error;
   }
 
-  private async wear(
-    url: string,
-    headers: Record<string, string>,
-  ): Promise<void> {
+  private async wear(url: string, request: WornRequest): Promise<WornSecrets> {
     const worn = this.#worn.getStore();
 
     if (!worn || !sameHost(url, worn.server)) {
-      return;
+      return WornSecrets.none();
     }
 
     if (worn.connection) {
-      headers.authorization = `Bearer ${worn.connection}`;
+      request.headers.authorization = `Bearer ${worn.connection}`;
     }
 
-    if (worn.secrets.length > 0) {
-      (await worn.credentials.wornToward(url, worn.secrets)).applyTo(headers);
+    if (worn.secrets.length === 0) {
+      return WornSecrets.none();
     }
+
+    const secrets = await worn.credentials.wornToward(url, worn.secrets);
+    secrets.applyTo(request);
+    worn.seen = secrets;
+
+    return secrets;
   }
 }

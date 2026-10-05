@@ -1,4 +1,5 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
 import type {
   AuthIR,
   RequestIR,
@@ -11,12 +12,14 @@ import {
 } from '@integrations/infrastructure/integrations/templating';
 import { cappedText } from '@integrations/infrastructure/outbound/capped-body';
 import {
+  type Dressed,
   followed,
   sameHost,
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import type { Bindings } from '@platform/expressions/bindings';
 import { holds, value } from '@platform/expressions/readings';
+import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
 export interface OutboundResult {
@@ -41,6 +44,11 @@ export interface Answered {
 
 type Fetch = typeof globalThis.fetch;
 
+interface Dispatched {
+  readonly reply: Response;
+  readonly worn: WornSecrets;
+}
+
 export const ANSWER_AT_MOST_BYTES = 4 * 1024 * 1024;
 
 const connectionOf = (against: Bindings): string | null =>
@@ -63,13 +71,14 @@ export class HttpOutbound {
     against: Bindings,
     credentials: Credentials,
   ): Promise<OutboundResult> {
-    const reply = await this.send(request, against, credentials);
+    const sent = await this.send(request, against, credentials);
 
-    if (!reply) {
+    if (!sent) {
       return { ok: false, status: 0, response: null, capture: {} };
     }
 
-    const response = await parse(reply);
+    const { reply, worn } = sent;
+    const response = worn.redactedIn(await parse(reply));
     const status = reply.status;
     const beside: Bindings = { ...against, response, status };
 
@@ -86,15 +95,16 @@ export class HttpOutbound {
     against: Bindings,
     credentials: Credentials,
   ): Promise<Uint8Array> {
-    const reply = await this.send(request, against, credentials);
+    const sent = await this.send(request, against, credentials);
 
-    if (!reply) {
+    if (!sent) {
       throw new UpstreamRefusedError(
         'fetching a file',
         'it names nowhere to fetch it from',
       );
     }
 
+    const { reply } = sent;
     const beside: Bindings = {
       ...against,
       status: reply.status,
@@ -119,21 +129,28 @@ export class HttpOutbound {
     connection: string | null,
     credentials: Credentials,
   ): Promise<Answered> {
-    const reply = await this.dispatch(request, auth, connection, credentials);
+    const { reply, worn } = await this.dispatch(
+      request,
+      auth,
+      connection,
+      credentials,
+    );
     const status = reply.status;
 
     return {
       ok: status >= 200 && status < 300,
       status,
-      response: parsed(
-        await cappedText(
-          reply,
-          ANSWER_AT_MOST_BYTES,
-          () =>
-            new UpstreamRefusedError(
-              `reading what ${new URL(request.url).host} answered`,
-              `it is larger than the ${ANSWER_AT_MOST_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
-            ),
+      response: worn.redactedIn(
+        parsed(
+          await cappedText(
+            reply,
+            ANSWER_AT_MOST_BYTES,
+            () =>
+              new UpstreamRefusedError(
+                `reading what ${new URL(request.url).host} answered`,
+                `it is larger than the ${ANSWER_AT_MOST_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
+              ),
+          ),
         ),
       ),
     };
@@ -143,7 +160,7 @@ export class HttpOutbound {
     request: RequestIR,
     against: Bindings,
     credentials: Credentials,
-  ): Promise<Response | null> {
+  ): Promise<Dispatched | null> {
     const plain = this.render(request, against);
 
     return plain
@@ -193,28 +210,51 @@ export class HttpOutbound {
     auth: AuthIR | null,
     connection: string | null,
     credentials: Credentials,
-  ): Promise<Response> {
-    const { reply } = await followed(
-      this.fetch,
-      this.policy,
-      request,
-      async (hop) => {
-        if (!sameHost(hop.url, request.url)) {
-          return Object.fromEntries(
-            Object.entries(request.headers).filter(
-              ([name]) => name.toLowerCase() !== 'authorization',
-            ),
+  ): Promise<Dispatched> {
+    let worn = WornSecrets.none();
+
+    try {
+      const { reply } = await followed(
+        this.fetch,
+        this.policy,
+        request,
+        async (hop): Promise<Dressed> => {
+          if (!sameHost(hop.url, request.url)) {
+            return {
+              url: worn.redact(hop.url),
+              headers: Object.fromEntries(
+                Object.entries(request.headers).filter(
+                  ([name]) => name.toLowerCase() !== 'authorization',
+                ),
+              ),
+            };
+          }
+
+          const url = new URL(hop.url);
+          const headers = { ...request.headers };
+          worn = await this.authorize(
+            auth,
+            connection,
+            url,
+            headers,
+            credentials,
           );
-        }
 
-        const headers = { ...request.headers };
-        await this.authorize(auth, connection, hop.url, headers, credentials);
+          return { url: url.href, headers };
+        },
+      );
 
-        return headers;
-      },
-    );
+      return { reply, worn };
+    } catch (error) {
+      if (worn.isEmpty || error instanceof OutboundRefusedError) {
+        throw error;
+      }
 
-    return reply;
+      throw new UpstreamRefusedError(
+        `reaching ${new URL(request.url).host}`,
+        worn.redact(error instanceof Error ? error.message : String(error)),
+      );
+    }
   }
 
   private templated(held: Templated, against: Bindings): string | null {
@@ -244,17 +284,22 @@ export class HttpOutbound {
   private async authorize(
     auth: AuthIR | null,
     connection: string | null,
-    url: string,
+    url: URL,
     headers: Record<string, string>,
     credentials: Credentials,
-  ): Promise<void> {
+  ): Promise<WornSecrets> {
     if (auth?.kind === 'oauth2' && connection) {
       headers.authorization = `Bearer ${connection}`;
     }
 
-    if (auth?.kind === 'secrets') {
-      (await credentials.wornToward(url, auth.secrets)).applyTo(headers);
+    if (auth?.kind !== 'secrets') {
+      return WornSecrets.none();
     }
+
+    const worn = await credentials.wornToward(url.href, auth.secrets);
+    worn.applyTo({ url, headers });
+
+    return worn;
   }
 }
 

@@ -117,6 +117,7 @@ export function InboxMessage({
       {approval ? (
         <ApprovalCard
           approval={approval}
+          viewerId={session?.user.id ?? null}
           pending={deciding?.pending ?? false}
           onDecide={deciding?.onDecide}
           failure={deciding?.failure ?? null}

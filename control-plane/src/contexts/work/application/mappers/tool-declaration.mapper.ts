@@ -17,6 +17,7 @@ export const ToolDeclarationMapper = {
         ? ApprovalNeeded.of(declaration.tool, declaration.approval.because)
         : null,
       offeredBy: declaration.integrationName,
+      learnedOutput: declaration.learnedOutput,
     });
   },
 };

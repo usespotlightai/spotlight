@@ -5,6 +5,7 @@ import { HostConnection } from '@integrations/domain/aggregates/host-connection.
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { InMemoryLearnedOutputs } from '@integrations/integrations.learned.fake-spec';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -26,6 +27,7 @@ const rereadOn = async (holder: ConnectionHolder) => {
     {} as AbandonTeamIntegrations,
     {} as HookedHappenings,
     { execute } as unknown as RereadIntegrationSourceHandler,
+    new InMemoryLearnedOutputs(),
   ).find(
     (each) => each.name === 'integrations.reread-source-when-a-host-connected',
   );

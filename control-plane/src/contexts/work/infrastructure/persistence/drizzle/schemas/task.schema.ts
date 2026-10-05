@@ -59,6 +59,7 @@ export interface ApprovalRow {
   readonly spent: boolean;
   readonly edited?: Readonly<Record<string, JsonValue>> | null;
   readonly intent?: string | null;
+  readonly askedOf?: string | null;
 }
 
 export type HeldBackRow =

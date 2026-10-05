@@ -43,6 +43,37 @@ export const hostConnection = pgTable(
   ],
 );
 
+export const learnedOutput = pgTable(
+  'learned_output',
+  {
+    teamId: text('team_id').notNull(),
+    tool: text('tool').notNull(),
+    source: text('source').notNull(),
+    shape: jsonb('shape').notNull(),
+    calls: integer('calls').notNull(),
+    learnedAt: timestamp('learned_at').notNull(),
+    version: integer('version').notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.teamId, table.tool] }),
+    index('learned_output_source_idx').on(table.teamId, table.source),
+  ],
+);
+
+export const personToolPolicy = pgTable(
+  'person_tool_policy',
+  {
+    teamId: text('team_id').notNull(),
+    personId: text('person_id').notNull(),
+    source: text('source').notNull(),
+    rules: jsonb('rules').$type<Record<string, string>>().notNull(),
+    version: integer('version').notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.teamId, table.personId, table.source] }),
+  ],
+);
+
 export const oauth2ClientRegistration = pgTable(
   'oauth2_client_registration',
   {

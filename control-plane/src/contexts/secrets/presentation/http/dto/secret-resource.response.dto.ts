@@ -5,6 +5,7 @@ import {
   SECRET_SOURCE_KINDS,
   type SecretSourceKind,
 } from '@secrets/domain/value-objects/secret-source.vo';
+import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
 
 class SecretSourceResponseDto {
   @ApiProperty({
@@ -46,20 +47,28 @@ class SecretBindingResponseDto {
   readonly host: string;
 
   @ApiProperty({
-    example: 'authorization',
-    description: 'The request header it is worn in',
+    enum: SECRET_CARRIERS,
+    example: 'header',
+    description: 'Whether it is worn in a request header or a query parameter',
   })
-  readonly header: string;
+  readonly carrier: string;
+
+  @ApiProperty({
+    example: 'authorization',
+    description: 'The header or query parameter it is worn in',
+  })
+  readonly name: string;
 
   @ApiProperty({
     example: 'Bearer ',
-    description: 'Written before the value in that header',
+    description: 'Written before the value it is worn with',
   })
   readonly prefix: string;
 
   constructor(binding: SecretResourceDto['bindings'][number]) {
     this.host = binding.host;
-    this.header = binding.header;
+    this.carrier = binding.carrier;
+    this.name = binding.name;
     this.prefix = binding.prefix;
   }
 }

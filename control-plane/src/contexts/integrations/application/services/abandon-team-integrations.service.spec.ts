@@ -9,6 +9,8 @@ import type { IntegrationDefinitionRepository } from '@integrations/domain/repos
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
+import { InMemoryLearnedOutputs } from '@integrations/integrations.learned.fake-spec';
+import { InMemoryPersonToolPolicies } from '@integrations/integrations.policies.fake-spec';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -56,6 +58,8 @@ const setUp = ({ gone = false } = {}) => {
       {
         forgetTeam: async () => {},
       } as unknown as OAuth2ClientRegistrationRepository,
+      new InMemoryLearnedOutputs(),
+      new InMemoryPersonToolPolicies(),
     ),
   };
 };

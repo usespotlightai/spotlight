@@ -15,6 +15,7 @@ interface McpHeard {
   readonly path: string;
   readonly authorization: string | undefined;
   readonly apiKey: string | undefined;
+  readonly key: string | null;
 }
 
 interface McpCalled {
@@ -143,6 +144,7 @@ export const fakeMcpServer = async (
       path,
       authorization,
       apiKey: headerOf(request, 'x-api-key'),
+      key: new URL(request.url ?? '/', origin).searchParams.get('key'),
     });
 
     if (path !== PATH) {

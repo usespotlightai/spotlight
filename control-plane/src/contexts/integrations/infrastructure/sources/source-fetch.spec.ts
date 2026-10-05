@@ -110,6 +110,40 @@ describe('SourceFetch', () => {
     );
   });
 
+  it('reads a description keyed in its query, never taking the key past the API’s host', async () => {
+    const keyed = wearing({
+      connection: null,
+      credentials: credentialsFor({
+        LINEAR_API_KEY: {
+          host: 'api.linear.app',
+          carrier: 'query',
+          name: 'key',
+          value: 'lin_api_1',
+        },
+      }),
+    });
+    const moved = answering(
+      new Response(null, {
+        status: 302,
+        headers: { location: 'https://specs.example/v2.json?key=lin_api_1' },
+      }),
+      new Response('{}'),
+    );
+
+    await moved.fetching.text(
+      { ...GET, url: 'https://api.linear.app/spec.json?v=2' },
+      keyed,
+    );
+
+    expect(moved.fetch.mock.calls[0]?.[0]).toBe(
+      'https://api.linear.app/spec.json?v=2&key=lin_api_1',
+    );
+    expect(moved.headersAt(0).authorization).toBeUndefined();
+    expect(moved.fetch.mock.calls[1]?.[0]).toBe(
+      'https://specs.example/v2.json?key=[secret]',
+    );
+  });
+
   it('will not follow an https redirect to plain http', async () => {
     const { fetching } = answering(
       new Response(null, {

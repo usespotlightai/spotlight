@@ -1,11 +1,14 @@
 import type {
+  ConnectionToolRuleDto,
   HostConnectionsDto,
+  MyConnectionDto,
   OwnConnectionDto,
   PersonConnectionDto,
 } from '@integrations/application/dto/host-connections.dto';
+import { PERSON_TOOL_RULES } from '@integrations/domain/value-objects/person-tool-rule.vo';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class OwnConnectionResponseDto {
+class OwnConnectionResponseDto {
   @ApiProperty({ example: 'linear' })
   readonly source: string;
 
@@ -27,6 +30,41 @@ export class OwnConnectionResponseDto {
   }
 }
 
+export class ConnectionToolRuleResponseDto {
+  @ApiProperty({ example: 'linear.comment' })
+  readonly tool: string;
+
+  @ApiProperty({
+    enum: PERSON_TOOL_RULES,
+    example: 'needs-approval',
+    description:
+      'What the caller asks of calls made with their connection: allowed follows the team, needs-approval asks them first, blocked never sends',
+  })
+  readonly rule: string;
+
+  constructor(rule: ConnectionToolRuleDto) {
+    this.tool = rule.tool;
+    this.rule = rule.rule;
+  }
+}
+
+export class MyConnectionResponseDto extends OwnConnectionResponseDto {
+  @ApiProperty({
+    type: ConnectionToolRuleResponseDto,
+    isArray: true,
+    description:
+      'Each tool the integration offers, with the caller’s rule for calls made with this connection',
+  })
+  readonly tools: readonly ConnectionToolRuleResponseDto[];
+
+  constructor(connection: MyConnectionDto) {
+    super(connection);
+    this.tools = connection.tools.map(
+      (each) => new ConnectionToolRuleResponseDto(each),
+    );
+  }
+}
+
 export class PersonConnectionResponseDto extends OwnConnectionResponseDto {
   @ApiProperty({ example: 'user_1' })
   readonly personId: string;
@@ -43,11 +81,11 @@ export class PersonConnectionResponseDto extends OwnConnectionResponseDto {
 
 export class HostConnectionsResponseDto {
   @ApiProperty({
-    type: OwnConnectionResponseDto,
+    type: MyConnectionResponseDto,
     isArray: true,
     description: 'The connections the caller made themselves',
   })
-  readonly mine: readonly OwnConnectionResponseDto[];
+  readonly mine: readonly MyConnectionResponseDto[];
 
   @ApiProperty({
     type: PersonConnectionResponseDto,
@@ -60,7 +98,7 @@ export class HostConnectionsResponseDto {
 
   constructor(connections: HostConnectionsDto) {
     this.mine = connections.mine.map(
-      (each) => new OwnConnectionResponseDto(each),
+      (each) => new MyConnectionResponseDto(each),
     );
     this.people =
       connections.people?.map(

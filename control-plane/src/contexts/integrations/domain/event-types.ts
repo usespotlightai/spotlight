@@ -38,6 +38,8 @@ import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
 import { OperationFilter } from '@integrations/domain/value-objects/operation-filter.vo';
+import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo';
+import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
 import { Poll } from '@integrations/domain/value-objects/poll.vo';
 import { RenewalClaim } from '@integrations/domain/value-objects/renewal-claim.vo';
 import { RereadDetail } from '@integrations/domain/value-objects/reread-detail.vo';
@@ -78,6 +80,8 @@ export const INTEGRATIONS_EVENT_TYPES = [
   OfferedTool,
   OperationFilter,
   Opening,
+  OutputShape,
+  PersonToolRule,
   Poll,
   RenewalClaim,
   Schedule,

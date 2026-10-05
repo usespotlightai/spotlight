@@ -59,6 +59,7 @@ const APPROVAL = {
   standing: 'asked' as const,
   edited: null,
   intent: null,
+  askedOf: null,
 };
 
 const showing = (

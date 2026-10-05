@@ -299,6 +299,76 @@ describe('deciding an approval', () => {
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
   });
 
+  it('lets only the person it was asked of approve it, and anyone dismiss it', () => {
+    const askedOfTheTeam = clear(working()).task;
+    const alice = ApprovalNeeded.of(
+      'linear.comment',
+      'Alice asks to approve each call made with their Linear connection.',
+      UserId.of('user_alice'),
+    );
+    const asked = working().clearFor(CALL, alice, asking(), RUN, null).task;
+    const at = asked.approvalFor(CALL)?.at;
+
+    expect(askedOfTheTeam.approvalFor(CALL)?.approval.askedOf).toBeNull();
+    expect(at && asked.approvalFor(CALL)?.approval.askedOf?.value).toBe(
+      'user_alice',
+    );
+    if (!at) {
+      throw new Error('nothing was asked');
+    }
+
+    expect(() =>
+      asked.answered(at, person('Approved.', 'user_bob'), 'granted'),
+    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    expect(
+      asked
+        .answered(at, person('Approved.', 'user_alice'), 'granted')
+        .approvalFor(CALL)?.approval.standing,
+    ).toBe('granted');
+    expect(
+      asked
+        .answered(at, person('Not now.', 'user_bob'), 'refused')
+        .approvalFor(CALL)?.approval.standing,
+    ).toBe('refused');
+  });
+
+  it('puts a call asked of one person to that person', () => {
+    const alice = ApprovalNeeded.of(
+      'linear.comment',
+      'Alice asks to approve each call made with their Linear connection.',
+      UserId.of('user_alice'),
+    );
+
+    const asked = working().clearFor(CALL, alice, asking(), RUN, null).task;
+
+    expect(asked.assignee?.value).toBe('user_alice');
+    expect(clear(working()).task.assignee).toEqual(working().assignee);
+  });
+
+  it('spends a grant on a call asked of one person only where that person gave it', () => {
+    const { task } = decided('granted');
+    const alice = ApprovalNeeded.of(
+      'linear.comment',
+      'Alice asks to approve each call made with their Linear connection.',
+      UserId.of('user_alice'),
+    );
+    const user1 = ApprovalNeeded.of(
+      'linear.comment',
+      'It posts publicly.',
+      UserId.of('user_1'),
+    );
+    const held = heldAt(task);
+
+    const reasked = held.clearFor(CALL, alice, asking(), RUN, null);
+    expect(reasked.clearance.kind).toBe('asked');
+    expect(reasked.task.approvalFor(CALL)?.approval.askedOf?.value).toBe(
+      'user_alice',
+    );
+    expect(held.clearFor(CALL, user1, asking(), RUN, null).clearance.kind).toBe(
+      'given',
+    );
+  });
+
   it('refuses a decision nobody can be named for', () => {
     const { asked, at } = askedOnce();
 

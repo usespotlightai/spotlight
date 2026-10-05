@@ -49,6 +49,19 @@ export class InboxApprovalInputResponseDto {
   }
 }
 
+export class InboxApprovalAskedOfResponseDto {
+  @ApiProperty({ example: 'user_1' })
+  readonly id: string;
+
+  @ApiProperty({ example: 'Alice Martin' })
+  readonly name: string;
+
+  constructor(id: string, name: string) {
+    this.id = id;
+    this.name = name;
+  }
+}
+
 export class InboxApprovalResponseDto {
   @ApiProperty({
     example: 'tool-call',
@@ -100,6 +113,14 @@ export class InboxApprovalResponseDto {
   })
   readonly intent: string | null;
 
+  @ApiProperty({
+    type: InboxApprovalAskedOfResponseDto,
+    nullable: true,
+    description:
+      'The one person who can approve it, where it asks first because of their own rule for their connection; anyone can still dismiss it',
+  })
+  readonly askedOf: InboxApprovalAskedOfResponseDto | null;
+
   constructor(approval: InboxApprovalDto) {
     this.kind = approval.kind;
     this.name = approval.name;
@@ -113,6 +134,12 @@ export class InboxApprovalResponseDto {
         (input) => new InboxApprovalInputResponseDto(input.name, input.value),
       ) ?? null;
     this.intent = approval.intent;
+    this.askedOf = approval.askedOf
+      ? new InboxApprovalAskedOfResponseDto(
+          approval.askedOf.id,
+          approval.askedOf.name,
+        )
+      : null;
   }
 }
 

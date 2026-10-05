@@ -90,10 +90,12 @@ const reaching = (
 };
 
 const headersWorn = async (
-  worn: Promise<{ applyTo(headers: Record<string, string>): void }>,
+  worn: Promise<{
+    applyTo(request: { url: URL; headers: Record<string, string> }): void;
+  }>,
 ) => {
   const headers: Record<string, string> = {};
-  (await worn).applyTo(headers);
+  (await worn).applyTo({ url: new URL('https://slack.com/api/x'), headers });
 
   return headers;
 };

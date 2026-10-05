@@ -21,11 +21,13 @@ import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.er
 import { ToolApprovalRefusedError } from '@work/domain/exceptions/tool-approval-refused.error';
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
 import { ToolAwaitsConnectionError } from '@work/domain/exceptions/tool-awaits-connection.error';
+import { ToolBlockedByPersonError } from '@work/domain/exceptions/tool-blocked-by-person.error';
 import { ToolConnectionRefusedError } from '@work/domain/exceptions/tool-connection-refused.error';
 import { ToolHookRefusedError } from '@work/domain/exceptions/tool-hook-refused.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
 import { ToolNotGivenError } from '@work/domain/exceptions/tool-not-given.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
+import { StricterRule } from '@work/domain/services/stricter-rule';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import type { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -87,13 +89,23 @@ export class UseToolHandler
         throw new ToolConnectionRefusedError(tool.value, asked.reason);
       }
 
-      const { intent, rest } = reachable.declared.intentIn(command.input);
-      const asked = reachable.declared.accept(rest, (input) =>
+      const ruled = StricterRule.of(reachable.declared, reachable.personRule);
+
+      if (ruled.kind === 'blocked') {
+        throw new ToolBlockedByPersonError(tool.value, ruled.by);
+      }
+
+      const declared =
+        ruled.kind === 'needs-approval'
+          ? reachable.declared.withApproval(ruled.needed)
+          : reachable.declared;
+      const { intent, rest } = declared.intentIn(command.input);
+      const asked = declared.accept(rest, (input) =>
         reachable.defaultFor(input),
       );
       const cleared = await work.clearFor(
-        reachable.declared,
-        reachable.declared.callWith(asked),
+        declared,
+        declared.callWith(asked),
         intent,
       );
 
@@ -109,7 +121,7 @@ export class UseToolHandler
 
       try {
         if (cleared.edited) {
-          inputs = reachable.declared.accept(cleared.edited.values, (input) =>
+          inputs = declared.accept(cleared.edited.values, (input) =>
             reachable.defaultFor(input),
           );
         }

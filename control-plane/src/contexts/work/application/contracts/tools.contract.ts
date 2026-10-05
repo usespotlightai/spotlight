@@ -24,4 +24,5 @@ export interface ToolDeclaration {
   readonly description: string;
   readonly inputs: readonly ToolInputDeclaration[];
   readonly approval: ApprovalDeclaration | null;
+  readonly learnedOutput: JsonObject | null;
 }

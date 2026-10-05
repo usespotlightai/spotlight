@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   type Approval,
+  approvedOnlyBy,
   askedFor,
   blanked,
   changedNames,
@@ -24,6 +25,7 @@ const COMMENT: Approval = {
   standing: 'asked',
   edited: null,
   intent: null,
+  askedOf: null,
 };
 
 const EXECUTE: Approval = {
@@ -40,9 +42,18 @@ const EXECUTE: Approval = {
   standing: 'asked',
   edited: null,
   intent: null,
+  askedOf: null,
 };
 
 describe('approval', () => {
+  it('names who alone can approve a call asked of someone else', () => {
+    const alice = { ...COMMENT, askedOf: { id: 'user_alice', name: 'Alice' } };
+
+    expect(approvedOnlyBy(alice, 'user_bob')).toBe('Alice');
+    expect(approvedOnlyBy(alice, 'user_alice')).toBeNull();
+    expect(approvedOnlyBy(COMMENT, 'user_bob')).toBeNull();
+  });
+
   it('lets a tool call be changed, never what a harness asked', () => {
     expect(editable(COMMENT)).toBe(true);
     expect(editable(EXECUTE)).toBe(false);

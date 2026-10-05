@@ -218,6 +218,7 @@ const INBOX: InboxItemResponseDto[] = [
           edited: null,
           intent:
             'post the drain summary on the issue, publicly under the team’s name',
+          askedOf: null,
         },
       }),
     ],

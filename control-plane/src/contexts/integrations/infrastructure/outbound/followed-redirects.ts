@@ -15,11 +15,16 @@ export interface Hop {
   readonly body?: string;
 }
 
+export interface Dressed {
+  readonly url: string;
+  readonly headers: Record<string, string>;
+}
+
 export const followed = async (
   fetch: Fetch,
   policy: OutboundPolicy,
   first: Hop,
-  headersFor: (hop: Hop) => Promise<Record<string, string>>,
+  dressed: (hop: Hop) => Promise<Dressed>,
   signal?: AbortSignal,
 ): Promise<{ readonly reply: Response; readonly url: string }> => {
   let hop = first;
@@ -27,9 +32,10 @@ export const followed = async (
   for (let followed = 0; followed <= REDIRECTS_AT_MOST; followed += 1) {
     policy.allow(hop.url);
 
-    const reply = await fetch(hop.url, {
+    const sending = await dressed(hop);
+    const reply = await fetch(sending.url, {
       method: hop.method,
-      headers: await headersFor(hop),
+      headers: sending.headers,
       body: hop.body,
       redirect: 'manual',
       signal,

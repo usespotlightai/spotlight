@@ -12,6 +12,7 @@ import { OAuth2ClientResolution } from '@integrations/application/services/oauth
 import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
+import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { OAuth2ClientRegistrationMovedOnError } from '@integrations/domain/exceptions/oauth2-client-registration-moved-on.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
@@ -19,7 +20,9 @@ import { ConnectionHolder } from '@integrations/domain/value-objects/connection-
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
+import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -33,10 +36,15 @@ import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-p
 import { InMemoryHostConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { learningInto } from '@integrations/integrations.learned.fake-spec';
 import {
   discoveringNothing,
   reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
+import {
+  InMemoryPersonToolPolicies,
+  personRulesFrom,
+} from '@integrations/integrations.policies.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -272,7 +280,11 @@ graphql:
       connection: true
 `;
 
-const settingUp = ({ registered = true, generated = false } = {}) => {
+const settingUp = ({
+  registered = true,
+  generated = false,
+  policies = new InMemoryPersonToolPolicies(),
+} = {}) => {
   const linear = new FakeLinear();
   const clock = { now: () => NOW } as ClockPort;
   const connections = new InMemoryHostConnections();
@@ -345,6 +357,8 @@ const settingUp = ({ registered = true, generated = false } = {}) => {
       injecting().injection,
       renewal,
     ),
+    learningInto(),
+    personRulesFrom(policies, { [ALICE.value]: 'Alice' }),
   );
   const linking = new OAuth2Linking(
     definitions as unknown as DefinedIntegrationsPort,
@@ -548,6 +562,35 @@ describe('OAuth that recovers from a refused token', () => {
       handle: '@alice',
     });
     expect(nobody?.wants?.because).toBe('no-requester');
+  });
+
+  it('carries the rule the person set for calls made with their own connection', async () => {
+    const policies = new InMemoryPersonToolPolicies();
+    await policies.save(
+      PersonToolPolicy.none({
+        teamId: TEAM,
+        personId: ALICE,
+        source: LINEAR,
+      }).set(
+        ToolName.of('linear.comment'),
+        PersonToolRule.of('needs-approval'),
+      ),
+    );
+    const { connectedAs, tools } = settingUp({ policies });
+    connectedAs('at-1');
+
+    const reached = await tools.reach(
+      'linear.comment',
+      TASK,
+      { runId: 'run_1', attempt: 1 },
+      ALICE.value,
+    );
+
+    expect(reached?.personRule).toEqual({
+      rule: 'needs-approval',
+      personId: ALICE.value,
+      personName: 'Alice',
+    });
   });
 
   it('registers a client with the host once when someone connects, and renews with it', async () => {

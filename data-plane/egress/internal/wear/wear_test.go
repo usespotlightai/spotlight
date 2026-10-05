@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -36,20 +39,24 @@ func redemption() protocol.EgressRedemption {
 	return protocol.EgressRedemption{
 		RunID: "run_1",
 		Secrets: []protocol.RedeemedSecret{
-			{Secret: "LINEAR_API_KEY", Host: "MCP.linear.app", Header: "authorization", Prefix: "Bearer ", Sealed: "sealed:lin_api_1"},
-			{Secret: "LINEAR_WORKSPACE", Host: "mcp.linear.app", Header: "x-workspace", Sealed: "sealed:acme"},
-			{Secret: "SENTRY_TOKEN", Host: "sentry.io", Header: "x-sentry-token",
+			{Secret: "LINEAR_API_KEY", Host: "MCP.linear.app", Carrier: "header", Name: "authorization", Prefix: "Bearer ", Sealed: "sealed:lin_api_1"},
+			{Secret: "LINEAR_WORKSPACE", Host: "mcp.linear.app", Carrier: "header", Name: "x-workspace", Sealed: "sealed:acme"},
+			{Secret: "SENTRY_TOKEN", Host: "sentry.io", Carrier: "header", Name: "x-sentry-token",
 				ReadInNetwork: &protocol.ReadInNetwork{Kind: protocol.ReadFromAWSSecretsManager, SecretID: "sentry-token"}},
-			{Secret: "GONE", Host: "gone.example.com", Header: "authorization",
+			{Secret: "GONE", Host: "gone.example.com", Carrier: "header", Name: "authorization",
 				ReadInNetwork: &protocol.ReadInNetwork{Kind: protocol.ReadFromAWSSecretsManager, SecretID: "gone"}},
-			{Secret: "MULTI", Host: "multi.example.com", Header: "authorization", Sealed: "sealed:one\ntwo"},
-			{Secret: "OUTSIDE", Host: "exfiltrate.example.net", Header: "authorization", Sealed: "sealed:outside"},
-			{Secret: "UNLISTED_READ", Host: "sentry.io", Header: "x-other",
+			{Secret: "MULTI", Host: "multi.example.com", Carrier: "header", Name: "authorization", Sealed: "sealed:one\ntwo"},
+			{Secret: "OUTSIDE", Host: "exfiltrate.example.net", Carrier: "header", Name: "authorization", Sealed: "sealed:outside"},
+			{Secret: "UNLISTED_READ", Host: "sentry.io", Carrier: "header", Name: "x-other",
 				ReadInNetwork: &protocol.ReadInNetwork{Kind: protocol.ReadFromAWSSecretsManager, SecretID: "prod/payments"}},
-			{Secret: "SAME_HEADER", Host: "mcp.linear.app", Header: "Authorization", Sealed: "sealed:second"},
+			{Secret: "SAME_HEADER", Host: "mcp.linear.app", Carrier: "header", Name: "Authorization", Sealed: "sealed:second"},
 		},
 		Withheld: []protocol.WithheldSecret{{Secret: "NOWHERE", Reason: "no such secret"}},
 	}
+}
+
+func onto(wearing *Wearing, host string, header http.Header) {
+	wearing.Onto(host, &http.Request{Header: header, URL: &url.URL{}})
 }
 
 func holding(t *testing.T) (*Wearing, *bytes.Buffer) {
@@ -79,7 +86,7 @@ func TestWearsEachSecretOnlyTowardItsOwnHost(t *testing.T) {
 		"X-Workspace":   {"spotlight-egress:LINEAR_WORKSPACE"},
 		"Accept":        {"application/json"},
 	}
-	wearing.Onto("mcp.linear.app", header)
+	onto(wearing, "mcp.linear.app", header)
 	if header.Get("Authorization") != "Bearer lin_api_1" || header.Get("X-Workspace") != "acme" || len(header.Values("Authorization")) != 1 {
 		t.Errorf("wore %v", header)
 	}
@@ -88,13 +95,13 @@ func TestWearsEachSecretOnlyTowardItsOwnHost(t *testing.T) {
 	}
 
 	unbound := http.Header{"Authorization": {"Bearer mine"}}
-	wearing.Onto("api.github.com", unbound)
+	onto(wearing, "api.github.com", unbound)
 	if unbound.Get("Authorization") != "Bearer mine" {
 		t.Errorf("wore a secret toward a host it is not bound to: %v", unbound)
 	}
 
 	sentry := http.Header{"X-Sentry-Token": {"spotlight-egress:SENTRY_TOKEN"}}
-	wearing.Onto("SENTRY.io", sentry)
+	onto(wearing, "SENTRY.io", sentry)
 	if sentry.Get("X-Sentry-Token") != "read:sentry-token" {
 		t.Errorf("did not wear what it read in the network: %v", sentry)
 	}
@@ -105,26 +112,26 @@ func TestWearsARunSecretOnlyInPlaceOfItsStandIn(t *testing.T) {
 
 	for _, sent := range []string{"Bearer spotlight-egress:LINEAR_API_KEY", "spotlight-egress:LINEAR_API_KEY"} {
 		header := http.Header{"Authorization": {sent}}
-		wearing.Onto("mcp.linear.app", header)
+		onto(wearing, "mcp.linear.app", header)
 		if header.Get("Authorization") != "Bearer lin_api_1" {
 			t.Errorf("did not wear in place of %q: %v", sent, header)
 		}
 	}
 
 	own := http.Header{"Authorization": {"Bearer mine"}, "X-Workspace": {"theirs"}}
-	wearing.Onto("mcp.linear.app", own)
+	onto(wearing, "mcp.linear.app", own)
 	if own.Get("Authorization") != "Bearer mine" || own.Get("X-Workspace") != "theirs" {
 		t.Errorf("wore over what the sandbox sent without a stand-in: %v", own)
 	}
 
 	bare := http.Header{}
-	wearing.Onto("mcp.linear.app", bare)
+	onto(wearing, "mcp.linear.app", bare)
 	if len(bare) != 0 {
 		t.Errorf("added a secret to a request that named none: %v", bare)
 	}
 
-	unknown := http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEYS"}, "X-Other": {"spotlight-egress:NOWHERE"}}
-	wearing.Onto("mcp.linear.app", unknown)
+	unknown := http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEYS"}, "X-Other": {"spotlight-egress:NOWHERE"}, "X-Shout": {"SPOTLIGHT-EGRESS:NOWHERE"}}
+	onto(wearing, "mcp.linear.app", unknown)
 	if len(unknown) != 0 {
 		t.Errorf("sent on a stand-in it does not hold: %v", unknown)
 	}
@@ -184,8 +191,8 @@ func TestWearsAKeyTheHostHoldsOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 	wearing := From(context.Background(), protocol.EgressRedemption{
 		RunID: "run_1",
 		Secrets: []protocol.RedeemedSecret{
-			{Secret: "CLAUDE_OAUTH", Host: "api.anthropic.com", Header: "x-other", Sealed: "sealed:from-a-run"},
-			{Secret: "DOTTED", Host: "API.anthropic.com.", Header: "x-dotted", Sealed: "sealed:dotted"},
+			{Secret: "CLAUDE_OAUTH", Host: "api.anthropic.com", Carrier: "header", Name: "x-other", Sealed: "sealed:from-a-run"},
+			{Secret: "DOTTED", Host: "API.anthropic.com.", Carrier: "header", Name: "x-dotted", Sealed: "sealed:dotted"},
 		},
 	}, []protocol.HeldByTheHost{
 		{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-ant-api"},
@@ -196,7 +203,7 @@ func TestWearsAKeyTheHostHoldsOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 	}, Limits{Hosts: hosts}, opener{}, func() (Reader, error) { return reader{}, nil }, slog.New(slog.NewTextHandler(&logged, nil)))
 
 	sent := func(host string, header http.Header) http.Header {
-		wearing.Onto(host, header)
+		onto(wearing, host, header)
 		return header
 	}
 
@@ -235,5 +242,139 @@ func TestWearsAKeyTheHostHoldsOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 		if strings.Contains(logged.String(), value) {
 			t.Errorf("logged the value %q", value)
 		}
+	}
+}
+
+func TestWearsAQuerySecretOnlyInPlaceOfItsStandInKeepingTheRestOfTheQuery(t *testing.T) {
+	var logged bytes.Buffer
+	hosts, _ := reach.Parse([]string{"maps.googleapis.com", "api.example.com"})
+	wearing := From(context.Background(), protocol.EgressRedemption{
+		RunID: "run_1",
+		Secrets: []protocol.RedeemedSecret{
+			{Secret: "MAPS_KEY", Host: "maps.googleapis.com", Carrier: "query", Name: "key", Sealed: "sealed:AIza/1+2 3&x=y"},
+			{Secret: "MAPS_HEADER", Host: "maps.googleapis.com", Carrier: "header", Name: "key", Sealed: "sealed:in-a-header"},
+			{Secret: "SAME_SLOT", Host: "maps.googleapis.com", Carrier: "query", Name: "key", Sealed: "sealed:second"},
+			{Secret: "PREFIXED", Host: "api.example.com", Carrier: "query", Name: "token", Prefix: "v1.", Sealed: "sealed:tok"},
+			{Secret: "NAMELESS", Host: "api.example.com", Carrier: "query", Sealed: "sealed:nameless"},
+		},
+	}, nil, Limits{Hosts: hosts}, opener{}, func() (Reader, error) { return reader{}, nil }, slog.New(slog.NewTextHandler(&logged, nil)))
+
+	sent := func(host, rawQuery string) string {
+		request := &http.Request{Header: http.Header{}, URL: &url.URL{RawQuery: rawQuery}}
+		wearing.Onto(host, request)
+		return request.URL.RawQuery
+	}
+
+	if got := sent("maps.googleapis.com", "b=2&key=spotlight-egress:MAPS_KEY&a=%7Ex+y&c"); got != "b=2&key=AIza%2F1%2B2+3%26x%3Dy&a=%7Ex+y&c" {
+		t.Errorf("a query stand-in went out as %q", got)
+	}
+	if got := sent("maps.googleapis.com", "key=spotlight-egress%3AMAPS_KEY"); got != "key=AIza%2F1%2B2+3%26x%3Dy" {
+		t.Errorf("an escaped query stand-in went out as %q", got)
+	}
+	if got := sent("api.example.com", "token=v1.spotlight-egress:PREFIXED"); got != "token=v1.tok" {
+		t.Errorf("a prefixed query stand-in went out as %q", got)
+	}
+	if got := sent("api.example.com", "token=spotlight-egress:PREFIXED"); got != "token=v1.tok" {
+		t.Errorf("a query stand-in without its prefix went out as %q", got)
+	}
+	if got := sent("maps.googleapis.com", "z=1&key=mine&a=%2f"); got != "z=1&key=mine&a=%2f" {
+		t.Errorf("rewrote a query with no stand-in: %q", got)
+	}
+	if got := sent("maps.googleapis.com", "a=1&other=spotlight-egress:MAPS_KEY&key=spotlight-egress:NOWHERE&k=%73potlight-egress%3AX&b=2"); got != "a=1&b=2" {
+		t.Errorf("sent on a query stand-in it does not hold: %q", got)
+	}
+	if got := sent("api.github.com", "key=spotlight-egress:MAPS_KEY"); got != "" {
+		t.Errorf("wore a query secret toward a host it is not bound to: %q", got)
+	}
+
+	header := http.Header{"Key": {"spotlight-egress:MAPS_HEADER"}}
+	onto(wearing, "maps.googleapis.com", header)
+	if header.Get("Key") != "in-a-header" {
+		t.Errorf("a header and a query parameter of one name did not both wear: %v", header)
+	}
+
+	for _, said := range []string{"SAME_SLOT", "already worn in ?key toward maps.googleapis.com", "NAMELESS", "parameter=other", "parameter=key", "parameter=k"} {
+		if !strings.Contains(logged.String(), said) {
+			t.Errorf("did not say %q: %s", said, logged.String())
+		}
+	}
+	for _, value := range []string{"AIza", "in-a-header", "second", "tok\n", "nameless\n"} {
+		if strings.Contains(logged.String(), value) {
+			t.Errorf("logged the value %q", value)
+		}
+	}
+}
+
+type trickle struct{ text []byte }
+
+func (t *trickle) Read(into []byte) (int, error) {
+	if len(t.text) == 0 {
+		return 0, io.EOF
+	}
+	into[0] = t.text[0]
+	t.text = t.text[1:]
+	return 1, nil
+}
+
+func (t *trickle) Close() error { return nil }
+
+func TestHandsBackTheStandInWhereverTheHostEchoesASecret(t *testing.T) {
+	var logged bytes.Buffer
+	hosts, _ := reach.Parse([]string{"api.example.com"})
+	wearing := From(context.Background(), protocol.EgressRedemption{
+		RunID: "run_1",
+		Secrets: []protocol.RedeemedSecret{
+			{Secret: "TOKEN", Host: "api.example.com", Carrier: "header", Name: "authorization", Prefix: "Bearer ", Sealed: "sealed:tok/1+2"},
+			{Secret: "ODD", Host: "api.example.com", Carrier: "cookie", Name: "k", Sealed: "sealed:odd"},
+		},
+	}, nil, Limits{Hosts: hosts}, opener{}, func() (Reader, error) { return reader{}, nil }, slog.New(slog.NewTextHandler(&logged, nil)))
+
+	answered := func(contentType, body string) *http.Response {
+		response := &http.Response{
+			Header:        http.Header{"Content-Type": {contentType}, "Content-Length": {fmt.Sprint(len(body))}, "Location": {"https://api.example.com/?t=tok%2F1%2B2"}, "Link": {"<https://x/?t=tok%2f1%2b2>"}},
+			ContentLength: int64(len(body)),
+			Body:          &trickle{text: []byte(body)},
+		}
+		wearing.Unwear("API.example.com", response)
+		return response
+	}
+
+	response := answered("application/json; charset=utf-8", `{"said":"Bearer tok/1+2","bare":"tok/1+2","query":"tok%2F1%2B2","path":"tok%2F1+2","lower":"tok%2f1%2b2"}`)
+	read, _ := io.ReadAll(response.Body)
+	want := `{"said":"Bearer spotlight-egress:TOKEN","bare":"spotlight-egress:TOKEN","query":"spotlight-egress%3ATOKEN","path":"spotlight-egress:TOKEN","lower":"spotlight-egress%3aTOKEN"}`
+	if string(read) != want {
+		t.Errorf("the sandbox read\n%s\nwant\n%s", read, want)
+	}
+	if response.ContentLength != -1 || response.Header.Get("Content-Length") != "" {
+		t.Errorf("kept a length the body no longer has: %d %v", response.ContentLength, response.Header)
+	}
+	if location := response.Header.Get("Location"); location != "https://api.example.com/?t=spotlight-egress%3ATOKEN" {
+		t.Errorf("redirected the sandbox to %q", location)
+	}
+	if link := response.Header.Get("Link"); strings.Contains(link, "tok") {
+		t.Errorf("linked the sandbox to %q", link)
+	}
+
+	escaped := answered("application/json", `{"said":"tok\/1+2"}`)
+	if read, _ := io.ReadAll(escaped.Body); string(read) != `{"said":"spotlight-egress:TOKEN"}` {
+		t.Errorf("the sandbox read %s", read)
+	}
+
+	head := answered("application/json", "")
+	head.Request = &http.Request{Method: http.MethodHead}
+	head.Header.Set("Content-Length", "42")
+	head.ContentLength = 42
+	wearing.Unwear("api.example.com", head)
+	if head.Header.Get("Content-Length") != "42" {
+		t.Errorf("took the length off an answer with no body to change: %v", head.Header)
+	}
+
+	binary := answered("image/png", "tok/1+2")
+	if read, _ := io.ReadAll(binary.Body); string(read) != "tok/1+2" || binary.ContentLength != 7 {
+		t.Errorf("rewrote a body that is not text: %q", read)
+	}
+
+	if !strings.Contains(logged.String(), "it is worn in neither a header nor a query parameter") {
+		t.Errorf("did not refuse a carrier that is neither: %s", logged.String())
 	}
 }
