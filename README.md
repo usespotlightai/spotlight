@@ -60,7 +60,7 @@ curl -fsSL https://app.dev.usespotlight.ai/api/install.sh | SPOTLIGHT_TOKEN=<poo
 
 The script installs only `spotlight`, pinned to the control plane's
 release (`SPOTLIGHT_VERSION` overrides it), from the public
-[`usespotlightai/cli`](https://github.com/usespotlightai/cli) releases. It
+[`usespotlightai/spotlight`](https://github.com/usespotlightai/spotlight) releases. It
 checks for Docker or Podman (on macOS: Docker Desktop, OrbStack or Colima),
 pulls the runner image, writes `/etc/spotlight/host.env` (as root) or
 `~/.spotlight/host.env`, and runs `spotlight host` as a systemd service or a launchd agent. It
@@ -167,7 +167,7 @@ and `CODEX_ACP_VERSION` as build arguments).
 
 Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
 service images and the runner image, plus the `spotlight` binaries
-published to `usespotlightai/cli`, since this repository is private.
+attached to this repository's release for the tag.
 
 ## Runner environments
 

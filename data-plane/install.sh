@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPO="${SPOTLIGHT_REPO:-usespotlightai/cli}"
+REPO="${SPOTLIGHT_REPO:-usespotlightai/spotlight}"
 VERSION="${SPOTLIGHT_VERSION:-__VERSION__}"
 API_BASE="${SPOTLIGHT_URL:-__API_BASE__}"
 IMAGE="${SPOTLIGHT_RUNNER_IMAGE:-ghcr.io/usespotlightai/spotlight-runner:$VERSION}"
