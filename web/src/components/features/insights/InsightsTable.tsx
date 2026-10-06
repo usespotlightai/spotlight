@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react';
-import {
-  CardTitle,
-  useCardHeading,
-} from '@/components/features/insights/CardHeading';
+import { CardTitle } from '@/components/features/insights/CardHeading';
+import { useCardHeading } from '@/lib/card-heading';
 import { cn } from '@/lib/utils';
 
 export type InsightsColumn<T> = {

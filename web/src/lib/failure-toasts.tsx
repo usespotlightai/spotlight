@@ -1,8 +1,8 @@
 import { MutationCache } from '@tanstack/react-query';
 import { FailureDetail } from '@/components/shared/FailureDetail';
-import { toast } from '@/components/ui/toast';
 import { messageOf } from '@/lib/error';
 import { failureHeadline, sentRequestOf } from '@/lib/request-failure';
+import { toast } from '@/lib/toast';
 
 declare module '@tanstack/react-query' {
   interface Register {

@@ -1,8 +1,6 @@
-import {
-  CardTitle,
-  useCardHeading,
-} from '@/components/features/insights/CardHeading';
+import { CardTitle } from '@/components/features/insights/CardHeading';
 import { DeltaShown } from '@/components/features/insights/DeltaShown';
+import { useCardHeading } from '@/lib/card-heading';
 import { comparedRows, type MeasureVerdict } from '@/lib/tally-comparison';
 import { cn } from '@/lib/utils';
 

@@ -3,6 +3,7 @@ import { Toast as ToastPrimitive } from "@base-ui/react/toast"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
+import { toast } from "@/lib/toast"
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -11,8 +12,6 @@ import {
   TriangleAlertIcon,
   XIcon,
 } from "lucide-react"
-
-const toast = ToastPrimitive.createToastManager()
 
 function ToastProvider({ ...props }: ToastPrimitive.Provider.Props) {
   return <ToastPrimitive.Provider {...props} />
@@ -116,7 +115,7 @@ function ToastAction({
 function ToastClose({
   className,
   children,
-  render = <Button variant="ghost" size="icon-xs" />,
+  render = <Button variant="ghost" size="icon-xs" aria-label="Close toast" />,
   ...props
 }: ToastPrimitive.Close.Props) {
   return (
@@ -221,4 +220,4 @@ function Toaster({
   )
 }
 
-export { Toaster, toast }
+export { Toaster }

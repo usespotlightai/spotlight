@@ -7,7 +7,7 @@ import { withSentRequest } from '@/lib/request-failure';
 
 const added = vi.fn();
 
-vi.mock('@/components/ui/toast', () => ({
+vi.mock('@/lib/toast', () => ({
   toast: { add: (shown: unknown) => added(shown) },
 }));
 

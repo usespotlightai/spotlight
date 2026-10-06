@@ -47,7 +47,7 @@ describe('DeclaredTool', () => {
     );
     expect(
       declared([input({ name: 'teamId' })]).inputs.map((each) => each.name),
-    ).toEqual(["teamId"]);
+    ).toEqual(['teamId']);
   });
 
   it('refuses more than one piped input, and one that is not text', () => {

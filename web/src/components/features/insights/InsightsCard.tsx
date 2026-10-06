@@ -1,11 +1,8 @@
 import { ChartNoAxesColumn, Table2 } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
-import {
-  CardHeadingContext,
-  type CardHeadingParts,
-  CardTitle,
-} from '@/components/features/insights/CardHeading';
+import { CardTitle } from '@/components/features/insights/CardHeading';
 import { Button } from '@/components/ui/button';
+import { CardHeadingContext, type CardHeadingParts } from '@/lib/card-heading';
 
 type InsightsCardProps = {
   title: string;

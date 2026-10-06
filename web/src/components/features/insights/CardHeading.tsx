@@ -1,17 +1,5 @@
-import { createContext, type ReactNode, useContext } from 'react';
 import { InfoNote } from '@/components/features/insights/InfoNote';
-
-export type CardHeadingParts = {
-  readonly titleId: string;
-  readonly title: string;
-  readonly description?: string;
-  readonly controls: ReactNode;
-};
-
-export const CardHeadingContext = createContext<CardHeadingParts | null>(null);
-
-export const useCardHeading = (): CardHeadingParts | null =>
-  useContext(CardHeadingContext);
+import type { CardHeadingParts } from '@/lib/card-heading';
 
 type CardTitleProps = {
   heading: CardHeadingParts;

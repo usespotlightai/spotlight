@@ -13,6 +13,7 @@ import type {
   ChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
   chatAttachment,
@@ -22,7 +23,6 @@ import {
   line,
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;

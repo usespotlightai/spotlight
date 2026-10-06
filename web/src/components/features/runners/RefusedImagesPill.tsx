@@ -16,10 +16,9 @@ export function RefusedImagesPill({
     <Tooltip>
       <TooltipTrigger
         render={
-          <span
-            // biome-ignore lint/a11y/noNoninteractiveTabindex: the refusals are only told in the tooltip
-            tabIndex={0}
-            className="flex shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          <button
+            type="button"
+            className="flex shrink-0 cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           />
         }
       >

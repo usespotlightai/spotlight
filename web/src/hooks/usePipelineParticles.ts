@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef } from 'react';
+import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
 import {
   advance,
@@ -53,10 +53,9 @@ export function usePipelineParticles({
   const dots = useRef<Dot[]>([]);
   const colors = useRef<Record<PullRequestType, string> | null>(null);
   const latest = useRef({ geometry, middle, shares, focus });
-  latest.current = { geometry, middle, shares, focus };
-
   const draw = useRef(() => {});
-  draw.current = () => {
+
+  const paint = () => {
     const element = canvas.current;
     const context = element?.getContext('2d');
 
@@ -92,6 +91,11 @@ export function usePipelineParticles({
       context.fill();
     }
   };
+
+  useLayoutEffect(() => {
+    latest.current = { geometry, middle, shares, focus };
+    draw.current = paint;
+  });
 
   useEffect(() => {
     if (width > 0 && stages > 0) {
