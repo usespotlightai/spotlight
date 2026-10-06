@@ -575,6 +575,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleTaskAsideRepository } from '@work/infrastructure/persistence/drizzle/repositories/task-aside.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
+import { s3ClientsOf } from '@work/infrastructure/storage/s3-clients';
 import { S3WorkspaceArchiveStore } from '@work/infrastructure/storage/s3-workspace-archive.store';
 import { StorageReach } from '@work/infrastructure/storage/storage-reach';
 import { InMemoryRunStream } from '@work/infrastructure/streaming/in-memory-run-stream';
@@ -912,7 +913,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   {
     provide: ATTACHMENT_STORE,
     inject: [ENV],
-    useFactory: (env: Env) => new S3AttachmentStore(env),
+    useFactory: (env: Env) => new S3AttachmentStore(s3ClientsOf(env)),
   },
 
   {
@@ -1501,12 +1502,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RaiseTask,
-    inject: [DrizzleTaskRepository, TASK_DISPATCH, TRANSACTION],
+    inject: [DrizzleTaskRepository, TASK_DISPATCH, TRANSACTION, FilesAtHand],
     useFactory: (
       tasks: DrizzleTaskRepository,
       dispatch: DispatchTask,
       transaction: TransactionPort,
-    ) => new RaiseTask(tasks, dispatch, transaction),
+      files: FilesAtHand,
+    ) => new RaiseTask(tasks, dispatch, transaction, files),
   },
 
   {

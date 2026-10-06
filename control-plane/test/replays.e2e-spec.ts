@@ -40,6 +40,7 @@ const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 
 const attachmentStore = {
   received: async () => [],
+  taken: async () => undefined,
   open: async () => ({
     bytes: new Uint8Array([1, 2, 3, 4]),
     contentType: 'image/png',

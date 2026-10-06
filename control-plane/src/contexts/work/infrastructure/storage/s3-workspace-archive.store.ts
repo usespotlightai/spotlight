@@ -1,7 +1,6 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
-  HeadObjectCommand,
   type HeadObjectCommandOutput,
   PutObjectCommand,
   type S3Client,
@@ -19,7 +18,10 @@ import type {
 import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-workspace-archive.error';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import { missing, s3ClientsOf } from '@work/infrastructure/storage/s3-clients';
+import {
+  headObject,
+  s3ClientsOf,
+} from '@work/infrastructure/storage/s3-clients';
 
 const SIGNED_FOR = 15 * 60;
 
@@ -82,15 +84,11 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
   async stored(archive: WorkspaceArchive): Promise<StoredArchive | null> {
     this.refuseWithoutABucket();
 
-    const held: HeadObjectCommandOutput | null = await this.store
-      .send(
-        new HeadObjectCommand({
-          Bucket: this.bucket,
-          Key: keyOf(archive),
-          ChecksumMode: 'ENABLED',
-        }),
-      )
-      .catch(missing);
+    const held = await headObject(this.store, {
+      Bucket: this.bucket,
+      Key: keyOf(archive),
+      ChecksumMode: 'ENABLED',
+    });
 
     const digest = held ? digestOf(held) : null;
 

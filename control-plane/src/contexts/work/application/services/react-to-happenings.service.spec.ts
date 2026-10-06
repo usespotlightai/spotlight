@@ -60,6 +60,7 @@ const kept: Attachment[] = [];
 const files = {
   grant: vi.fn(),
   received: vi.fn(async () => []),
+  taken: vi.fn(),
   keep: vi.fn(async (_at, file: Attachment) => {
     kept.push(file);
   }),

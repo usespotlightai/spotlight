@@ -336,6 +336,7 @@ const dispatching = () =>
       },
     },
     {
+      taken: async () => undefined,
       received: async (
         _workspace: WorkspaceId,
         ids: readonly AttachmentId[],

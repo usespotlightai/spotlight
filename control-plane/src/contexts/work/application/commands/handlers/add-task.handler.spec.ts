@@ -148,7 +148,7 @@ const lines = (found: Line | null = line()) =>
     ofTeam: vi.fn(async () => []),
   }) satisfies LineRepository;
 
-const files = new FilesAtHand({
+const store = {
   grant: vi.fn(),
   received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
     given.map((id) =>
@@ -161,9 +161,12 @@ const files = new FilesAtHand({
     ),
   ),
   keep: vi.fn(),
+  taken: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
-} satisfies AttachmentStorePort);
+} satisfies AttachmentStorePort;
+
+const files = new FilesAtHand(store);
 
 const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
   new AddTaskHandler(
@@ -171,7 +174,7 @@ const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
     new LineAtHand(access(), board),
     ids,
     clock,
-    new RaiseTask(tasks(), dispatch(), transaction),
+    new RaiseTask(tasks(), dispatch(), transaction, files),
     people,
     files,
   ).execute(command);
@@ -265,6 +268,10 @@ describe('AddTaskHandler', () => {
     expect(added?.attachments.map((each) => each.id.value)).toEqual(['file_1']);
     expect(dispatched[0]?.brief).toContain(
       '- `.spotlight/attachments/file_1/queue.png` (image/png, 4 KB)',
+    );
+    expect(store.taken).toHaveBeenCalledWith(
+      added?.workspaceId,
+      added?.attachments,
     );
   });
 

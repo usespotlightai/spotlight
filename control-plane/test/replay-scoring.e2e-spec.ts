@@ -59,6 +59,7 @@ const RUBRIC = 'scores: 1-5\nDoes it drain the queue in order?';
 
 const attachmentStore = {
   received: async () => [],
+  taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 

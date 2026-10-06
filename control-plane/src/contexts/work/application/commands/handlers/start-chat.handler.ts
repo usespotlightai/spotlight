@@ -95,6 +95,7 @@ export class StartChatHandler
 
         const taken = await this.dispatch.takenUp(chat);
         await this.chats.add(taken);
+        await this.files.takenIn(workspaceId, attachments);
 
         return taken;
       });

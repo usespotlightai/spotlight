@@ -1,12 +1,12 @@
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
-  HeadObjectCommand,
   type HeadObjectCommandOutput,
   PutObjectCommand,
   type S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { Env } from '@platform/config/env.schema';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -18,12 +18,19 @@ import type {
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
-import { missing, s3ClientsOf } from '@work/infrastructure/storage/s3-clients';
+import {
+  headObject,
+  missing,
+  type S3Clients,
+} from '@work/infrastructure/storage/s3-clients';
 
 const SIGNED_FOR = 15 * 60;
 
 const UPLOADER = 'uploader';
 const NAME = 'name';
+
+const pendingKeyOf = (workspaceId: WorkspaceId, id: AttachmentId): string =>
+  `pending/${workspaceId.value}/${id.value}`;
 
 const keyOf = (workspaceId: WorkspaceId, id: AttachmentId): string =>
   `workspaces/${workspaceId.value}/attachments/${id.value}`;
@@ -43,9 +50,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
   private readonly signer: S3Client;
   private readonly bucket: string;
 
-  constructor(env: Env) {
-    const clients = s3ClientsOf(env);
-
+  constructor(clients: S3Clients) {
     this.bucket = clients.bucket;
     this.store = clients.store;
     this.signer = clients.signer;
@@ -68,7 +73,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       this.signer,
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: keyOf(workspaceId, file.id),
+        Key: pendingKeyOf(workspaceId, file.id),
         ContentType: file.contentType,
         ContentLength: file.size,
         Metadata: { [UPLOADER]: uploader.value, [NAME]: encoded(file.name) },
@@ -95,14 +100,9 @@ export class S3AttachmentStore implements AttachmentStorePort {
 
     return Promise.all(
       [...new Set(ids)].map(async (id) => {
-        const held: HeadObjectCommandOutput | null = await this.store
-          .send(
-            new HeadObjectCommand({
-              Bucket: this.bucket,
-              Key: keyOf(workspaceId, id),
-            }),
-          )
-          .catch(missing);
+        const held =
+          (await this.kept(workspaceId, id)) ??
+          (await this.pending(workspaceId, id));
 
         if (!held) {
           throw new InvalidAttachmentError('was never uploaded');
@@ -180,6 +180,72 @@ export class S3AttachmentStore implements AttachmentStorePort {
       bytes: await read.Body.transformToByteArray(),
       contentType: read.ContentType ?? file.contentType,
     };
+  }
+
+  async taken(
+    workspaceId: WorkspaceId,
+    files: readonly Attachment[],
+  ): Promise<void> {
+    if (files.length === 0) {
+      return;
+    }
+
+    this.refuseWithoutABucket();
+
+    await Promise.all(files.map((file) => this.movedIn(workspaceId, file.id)));
+  }
+
+  private async movedIn(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+  ): Promise<void> {
+    if (await this.kept(workspaceId, id)) {
+      return;
+    }
+
+    const from = pendingKeyOf(workspaceId, id);
+    const copied = await this.store
+      .send(
+        new CopyObjectCommand({
+          Bucket: this.bucket,
+          CopySource: `${this.bucket}/${from}`,
+          Key: keyOf(workspaceId, id),
+          MetadataDirective: 'COPY',
+        }),
+      )
+      .catch(missing);
+
+    if (!copied) {
+      if (!(await this.kept(workspaceId, id))) {
+        throw new InvalidAttachmentError('was never uploaded');
+      }
+
+      return;
+    }
+
+    await this.store
+      .send(new DeleteObjectCommand({ Bucket: this.bucket, Key: from }))
+      .catch(missing);
+  }
+
+  private kept(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+  ): Promise<HeadObjectCommandOutput | null> {
+    return headObject(this.store, {
+      Bucket: this.bucket,
+      Key: keyOf(workspaceId, id),
+    });
+  }
+
+  private pending(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+  ): Promise<HeadObjectCommandOutput | null> {
+    return headObject(this.store, {
+      Bucket: this.bucket,
+      Key: pendingKeyOf(workspaceId, id),
+    });
   }
 
   private refuseWithoutABucket(): void {
