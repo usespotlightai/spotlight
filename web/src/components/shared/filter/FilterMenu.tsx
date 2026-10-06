@@ -41,7 +41,10 @@ export function FilterMenu({
                 ? 'sm'
                 : 'icon-sm',
           }),
-          'rounded-full bg-card shadow-none data-[popup-open]:bg-muted',
+          'bg-card shadow-none data-[popup-open]:bg-muted',
+          compact
+            ? cn('h-5 rounded-md', filled ? 'px-1.5 text-[0.7rem]' : 'w-5')
+            : 'rounded-full',
         )}
       >
         <ListFilter aria-hidden className={compact ? 'size-3' : 'size-3.5'} />
