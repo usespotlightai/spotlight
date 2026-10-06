@@ -123,7 +123,7 @@ describe('ReplaySets', () => {
     renderSets();
 
     expect(
-      screen.getByText('Only the team’s members can see its replays'),
+      screen.getByText('Only team members can see its replays'),
     ).toBeInTheDocument();
   });
 

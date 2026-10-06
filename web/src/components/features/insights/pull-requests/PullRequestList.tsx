@@ -51,7 +51,7 @@ export function PullRequestList({
     <div ref={here} id={PULL_REQUESTS_LIST_ID} className="scroll-mt-4">
       <InsightsCard
         title="Pull requests"
-        description="Every pull request in the team’s repositories opened or closed in the period, or still open, the latest first."
+        description="Pull requests in the team’s repositories: opened or closed this period, or still open. Latest first."
       >
         <div className="flex flex-col gap-3">
           <PullRequestFilters

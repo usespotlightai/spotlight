@@ -15,13 +15,14 @@ const noteAvatar = (note: MemoryGroundNote) => {
   if (note.author) {
     return (
       <PersonAvatar
+        size="md"
         person={{ name: note.author.name ?? '?', image: note.author.image }}
       />
     );
   }
 
   return (
-    <IconAvatar>
+    <IconAvatar size="md">
       {note.by === 'world' ? <HatGlasses aria-hidden /> : <User aria-hidden />}
     </IconAvatar>
   );
@@ -45,7 +46,7 @@ export function MemoryGroundList({ grounds }: { grounds: MemoryGround }) {
           <PersonNote
             name={agent ?? 'The agent'}
             avatar={
-              <IconAvatar>
+              <IconAvatar size="md">
                 {grounds.harness ? (
                   <HarnessLogo harness={grounds.harness} />
                 ) : (

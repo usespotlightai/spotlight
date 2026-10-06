@@ -11,7 +11,9 @@ export function useSignIn(callbackURL = '/') {
       });
 
       if (error) {
-        throw new Error(error.message ?? 'Sign in failed');
+        throw new Error(
+          error.message ?? 'Sorry, sign-in failed. Please try again.',
+        );
       }
 
       return data;

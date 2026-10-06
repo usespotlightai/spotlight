@@ -11,9 +11,7 @@ export class MemoryBody {
     const body = raw.trim();
 
     if (!body || body.length > MOST_BODY) {
-      throw new InvalidMemoryError(
-        `says what is remembered in at most ${MOST_BODY} characters`,
-      );
+      throw new InvalidMemoryError(`must be at most ${MOST_BODY} characters`);
     }
 
     return new MemoryBody(body);

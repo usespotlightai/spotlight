@@ -62,11 +62,11 @@ export class ChangeMarkerResponseDto {
   readonly fingerprint: string;
 
   @ApiProperty({
-    nullable: true,
-    type: String,
-    description: 'The config the station ran with just before',
+    example: '9b1d…',
+    description:
+      'The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too',
   })
-  readonly previousFingerprint: string | null;
+  readonly previousFingerprint: string;
 
   @ApiProperty({
     example: '2026-09-30T10:00:00.000Z',
@@ -80,14 +80,14 @@ export class ChangeMarkerResponseDto {
   @ApiProperty({
     type: RunTallyResponseDto,
     description:
-      'The station’s runs with the config before that started since its config before last changed, up to this change',
+      'The station’s runs with the config before, from its config before last changing up to this change, a run that never started placed where it ended; one that failed provisioning counts as a failed run',
   })
   readonly before: RunTallyResponseDto;
 
   @ApiProperty({
     type: RunTallyResponseDto,
     description:
-      'The station’s runs with this config that started from this change up to the next one',
+      'The station’s runs with this config from this change up to the next one, and its runs meant to run this config that never ran it since the change before, even those that ended before this change; one that failed provisioning counts as a failed run',
   })
   readonly after: RunTallyResponseDto;
 

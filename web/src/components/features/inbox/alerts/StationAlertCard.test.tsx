@@ -126,9 +126,7 @@ describe('StationAlertCard', () => {
     showing();
 
     expect(
-      screen.getByText(
-        'You’re no longer on this team, so you can’t see this alert',
-      ),
+      screen.getByText('Only team members can see this alert'),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /try again/i }),
@@ -151,7 +149,7 @@ describe('StationAlertCard', () => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name: 'An alert went off at Implementation',
+        name: 'Alert raised at Implementation',
       }),
     ).toBeInTheDocument();
     expect(
@@ -177,7 +175,7 @@ describe('StationAlertCard', () => {
       '/w/acme/team/team_1/lines/line_1/stations/station_impl',
     );
     expect(
-      screen.getByRole('link', { name: 'See it on Insights' }),
+      screen.getByRole('link', { name: 'Open in Insights' }),
     ).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/insights?tab=stations&period=7d#station-station_impl',
@@ -201,7 +199,7 @@ describe('StationAlertCard', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'The runs behind this alert have been deleted, so there’s no chart to show.',
+        'No chart to show. The runs behind this alert are deleted.',
       ),
     ).toBeInTheDocument();
   });

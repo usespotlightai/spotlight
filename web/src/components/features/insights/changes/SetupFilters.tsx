@@ -32,9 +32,10 @@ export function SetupFilters({
   return (
     <fieldset
       aria-label="Narrow the setups"
-      className="m-0 flex flex-wrap items-center gap-2 border-0 p-0"
+      className="m-0 flex flex-wrap items-center gap-1.5 border-0 p-0"
     >
       <ChoiceSelect
+        compact
         label="Outcome"
         choices={OUTCOME_MEASURES.filter(
           (each) =>
@@ -47,6 +48,7 @@ export function SetupFilters({
         }
       />
       <ChoiceSelect
+        compact
         label="Station"
         choices={[...names.values()]
           .filter((station) => station.kind === 'work')
@@ -59,6 +61,7 @@ export function SetupFilters({
         onChange={(stationId) => onNarrow({ ...narrowed, stationId })}
       />
       <ChoiceSelect
+        compact
         label="Task size"
         choices={RUN_SIZES.map((size) => ({
           value: size,

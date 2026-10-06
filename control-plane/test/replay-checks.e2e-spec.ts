@@ -444,7 +444,7 @@ describe('a replay set guarding a station’s changes', () => {
     const refused = await bearing(planToken)
       .post(`${teamPath()}/replay-sets/${other}/guards-changes`, {}, null)
       .expect(409);
-    expect(refused.body.detail).toContain('guards the changes');
+    expect(refused.body.detail).toContain('already guards changes');
 
     const sets = (
       await bearing(readToken).get(`${stationPath()}/replay-sets`).expect(200)
@@ -494,7 +494,7 @@ describe('a replay check', () => {
       'application/problem+json',
     );
     expect(refused.body.detail).toContain(
-      'No replay set guards the changes of the station build',
+      'No replay set guards changes of station build.',
     );
   });
 
@@ -512,7 +512,7 @@ describe('a replay check', () => {
         .post(`${teamPath()}/replay-checks`, checkBody(planned()))
         .expect(409);
 
-      expect(refused.body.detail).toContain('has no replay_check');
+      expect(refused.body.detail).toContain('has no replay_check block');
     } finally {
       await db
         .update(schema.line)

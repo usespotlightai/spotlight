@@ -1902,6 +1902,14 @@ export type ChatProposalResponseDto = {
   stationId: string;
   stationName: string | null;
   stationColor: string | null;
+  /**
+   * Where the station stands on its line, from 0
+   */
+  stationPosition: number | null;
+  /**
+   * How many stations its line has
+   */
+  stationCount: number | null;
   title: string;
   description: string | null;
   state: 'open' | 'accepted' | 'created' | 'dismissed';
@@ -4143,12 +4151,20 @@ export type RunTallyResponseDto = {
 
 export type FingerprintGroupResponseDto = {
   /**
-   * The station config these runs ran with; none for runs from before configs were fingerprinted
+   * The group’s oldest listed run: the run that started its config, or for a group carrying on the config of a run from before the listing, a group with no config, or a group of a config that never ran, its oldest run
+   */
+  firstRunId: string;
+  /**
+   * The station config in force when these runs started, or for a group that never ran its config, the config its runs were meant to run; none only for runs from before the station first ran a config
    */
   fingerprint: string | null;
+  /**
+   * Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or withdrawn), which are kept apart from the group in force
+   */
+  ran: boolean;
   config: StationConfigResponseDto | null;
   /**
-   * How the config differs from the one before it
+   * How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force
    */
   changes: Array<ConfigChangeResponseDto>;
   /**
@@ -4158,12 +4174,23 @@ export type FingerprintGroupResponseDto = {
   tally: RunTallyResponseDto;
 };
 
+export type ConfigInForceResponseDto = {
+  /**
+   * One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the stretch whole and are not counted
+   */
+  tally: RunTallyResponseDto;
+};
+
 export type StationOutcomesResponseDto = {
   stationId: string;
   /**
-   * The station’s latest runs, in runs of the same config, the newest first
+   * The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or withdrawn) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force
    */
   groups: Array<FingerprintGroupResponseDto>;
+  /**
+   * The config the station last ran, as of the listed runs, with its tally; there under a config carried on from before the listing even when no listed run ran a config, and none when the station had run no config by the newest listed run
+   */
+  inForce: ConfigInForceResponseDto | null;
 };
 
 export type StationJudgeSettingsResponseDto = {
@@ -4543,6 +4570,10 @@ export type ConfigMarkerResponseDto = {
    */
   fingerprint: string;
   /**
+   * The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too
+   */
+  previousFingerprint: string;
+  /**
    * When the first run with it started, or ended where it never started
    */
   firstRunAt: string;
@@ -4574,6 +4605,10 @@ export type SignalReadingResponseDto = {
    * It trails the team
    */
   trails: boolean;
+  /**
+   * The line it crossed to be flagged: the lower of the period before and the team, each made 25% worse and, for a share, at least 5 points worse
+   */
+  flaggedAbove: number;
   /**
    * The currency now, before and team are spent in, for the cost signal; none for every other signal
    */
@@ -5243,9 +5278,9 @@ export type ChangeMarkerResponseDto = {
    */
   fingerprint: string;
   /**
-   * The config the station ran with just before
+   * The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too
    */
-  previousFingerprint: string | null;
+  previousFingerprint: string;
   /**
    * When the first run with the new config started
    */
@@ -5255,11 +5290,11 @@ export type ChangeMarkerResponseDto = {
    */
   runId: string;
   /**
-   * The station’s runs with the config before that started since its config before last changed, up to this change
+   * The station’s runs with the config before, from its config before last changing up to this change, a run that never started placed where it ended; one that failed provisioning counts as a failed run
    */
   before: RunTallyResponseDto;
   /**
-   * The station’s runs with this config that started from this change up to the next one
+   * The station’s runs with this config from this change up to the next one, and its runs meant to run this config that never ran it since the change before, even those that ended before this change; one that failed provisioning counts as a failed run
    */
   after: RunTallyResponseDto;
   /**
@@ -7948,6 +7983,30 @@ export type ReplayedSearchResponseDto = {
   seed: ReplayedSeedResponseDto;
 };
 
+export type CreditedToResponseDto = {
+  candidateId: string;
+  name: string;
+  /**
+   * Whether the newer candidate has since been withdrawn; a withdrawn candidate keeps its credit but can no longer be opened
+   */
+  withdrawn: boolean;
+};
+
+export type ReplayedAdoptionResponseDto = {
+  /**
+   * When the station last changed to the candidate’s config with a change credited to it, so a station that left the config and took it up again shows the return
+   */
+  at: string;
+  /**
+   * Whether the station’s latest config change is the one credited to the candidate and the station still runs that config, as Work fingerprints it; a later candidate credited with a return to the same config takes over
+   */
+  live: boolean;
+  /**
+   * The newer candidate credited with the station’s latest config change, where that change went back to this candidate’s config; this candidate is then not live
+   */
+  creditedTo: CreditedToResponseDto | null;
+};
+
 export type ReplayedCandidateResponseDto = {
   candidateId: string;
   name: string;
@@ -8042,6 +8101,10 @@ export type ReplayedCandidateResponseDto = {
    * The pull request Spotlight opens once a person picks it from its search; null until then
    */
   pullRequest: CandidatePullRequestResponseDto | null;
+  /**
+   * When the station last changed to its config with a change config-origins credits to it, whatever the period, and whether the station still runs it; null while no change is credited to it
+   */
+  adoption: ReplayedAdoptionResponseDto | null;
 };
 
 export type ReplayedSetResponseDto = {
@@ -8085,6 +8148,76 @@ export type ReplayedCandidatesResponseDto = {
    * Stations with a candidate replayed in the period, newest first
    */
   stations: Array<ReplayedStationResponseDto>;
+};
+
+export type ConfigChangeRequestDto = {
+  /**
+   * The station whose config changed
+   */
+  stationId: string;
+  /**
+   * The run the change took effect with: its first run with the config, as an insights change marker names it
+   */
+  runId: string;
+};
+
+export type ReadConfigOriginsRequestDto = {
+  /**
+   * The config changes to find origins for, each named by its station and first run; a run at a station asked about twice counts once. At most 100 changes.
+   */
+  changes: Array<ConfigChangeRequestDto>;
+};
+
+export type ConfigOriginResponseDto = {
+  /**
+   * The station of the change asked about
+   */
+  stationId: string;
+  /**
+   * The run of the change asked about, as asked
+   */
+  runId: string;
+  /**
+   * The config the station changed to
+   */
+  fingerprint: string;
+  /**
+   * When the change took effect: when its run began
+   */
+  changedAt: string;
+  /**
+   * The candidate the change came from
+   */
+  candidateId: string;
+  name: string;
+  /**
+   * Found by a search, or proposed by a person or Terraform
+   */
+  kind: 'searched' | 'proposed';
+  lineId: string;
+  /**
+   * The search that found it, for information only: a withdrawn candidate’s search may be gone too; null unless searched
+   */
+  searchId: string | null;
+  /**
+   * Its newest replay, for a proposed candidate still standing; null when searched, withdrawn or never replayed
+   */
+  replayId: string | null;
+  /**
+   * When the candidate was made
+   */
+  createdAt: string;
+  /**
+   * Whether the candidate has since been withdrawn; a withdrawn origin still names it, but it has no page to link to
+   */
+  withdrawn: boolean;
+};
+
+export type ConfigOriginsResponseDto = {
+  /**
+   * For each change asked about that came from a candidate, that candidate, in the order asked; changes with no origin are left out
+   */
+  origins: Array<ConfigOriginResponseDto>;
 };
 
 export type HookSigningRequestDtoWritable = {
@@ -12620,7 +12753,7 @@ export type LeaveAsHostData = {
 
 export type LeaveAsHostErrors = {
   /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   * Pool token is missing, rotated or unknown, or no trust admits this workload.
    */
   401: unknown;
 };
@@ -12651,7 +12784,7 @@ export type ReportHostPresenceData = {
 
 export type ReportHostPresenceErrors = {
   /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   * Pool token is missing, rotated or unknown, or no trust admits this workload.
    */
   401: unknown;
   /**
@@ -16260,7 +16393,7 @@ export type ListStationOutcomesData = {
   };
   query?: {
     /**
-     * How many of the latest runs to look at: 50 unless asked, 200 at most
+     * How many of the latest-started runs to look at: 50 unless asked, 200 at most
      */
     last?: number;
   };
@@ -18823,3 +18956,49 @@ export type ReadReplayedCandidatesResponses = {
 };
 
 export type ReadReplayedCandidatesResponse = ReadReplayedCandidatesResponses[keyof ReadReplayedCandidatesResponses];
+
+export type ReadConfigOriginsData = {
+  body: ReadConfigOriginsRequestDto;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/config-origins';
+};
+
+export type ReadConfigOriginsErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team for this caller
+   */
+  404: ProblemResponseDto;
+  /**
+   * A change with a blank station or run, or too many changes
+   */
+  422: ProblemResponseDto;
+};
+
+export type ReadConfigOriginsError = ReadConfigOriginsErrors[keyof ReadConfigOriginsErrors];
+
+export type ReadConfigOriginsResponses = {
+  200: ConfigOriginsResponseDto;
+};
+
+export type ReadConfigOriginsResponse = ReadConfigOriginsResponses[keyof ReadConfigOriginsResponses];

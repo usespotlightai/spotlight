@@ -16,8 +16,8 @@ export function PendingInvite({ invite, teamId }: PendingInviteProps) {
         type="button"
         onClick={() => revoke.mutate(invite.id)}
         disabled={revoke.isPending}
-        aria-label={`Unsend the invitation to ${invite.email}`}
-        title="Unsend"
+        aria-label={`Withdraw the invitation to ${invite.email}`}
+        title="Withdraw"
         className="group flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50"
       >
         <Send

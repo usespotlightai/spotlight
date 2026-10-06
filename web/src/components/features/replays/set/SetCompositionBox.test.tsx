@@ -72,7 +72,7 @@ describe('SetCompositionBox', () => {
     );
 
     expect(screen.getByRole('note')).toHaveTextContent(
-      '7 of 8 runs failed, so the set says little about how other runs go.',
+      '7 of 8 runs failed. Add runs that turned out other ways',
     );
   });
 

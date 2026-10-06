@@ -35,7 +35,7 @@ export function JudgeAgreement({
   if (failed(query) && notFound(query.error)) {
     return (
       <div className={BOX}>
-        <MembersOnly title="Only the team’s members can see how the judge agrees with people" />
+        <MembersOnly title="Only team members can see judge agreement" />
       </div>
     );
   }
@@ -62,8 +62,8 @@ export function JudgeAgreement({
           title="No judged runs yet"
           action={<CreateTaskLink slug={slug} teamId={teamId} />}
         >
-          Once the judge scores runs here, how often it agrees with people shows
-          here, rubric by rubric.
+          Judge agreement with people shows here per rubric once the judge
+          scores runs.
         </EmptyState>
       </div>
     );

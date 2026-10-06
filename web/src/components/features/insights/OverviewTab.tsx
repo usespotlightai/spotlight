@@ -48,14 +48,18 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
   if (headline.runs === 0 && headline.mergedPullRequests === 0) {
     return (
       <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Once stations run tasks, what they cost and what they deliver shows
-        here.
+        Cost and delivery show here once stations run tasks.
       </NoRunsInPeriod>
     );
   }
 
+  const trends: Record<string, number[]> = {
+    spend: output.map((day) => day.spend?.amount ?? 0),
+    merged: output.map((day) => day.merged),
+  };
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {truncated && <TruncatedNote />}
 
       <InsightsTiles label="Headline numbers">
@@ -67,6 +71,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
             detail={tile.detail}
             delta={tile.delta}
             drill={tile.drill}
+            trend={trends[tile.id]}
           />
         ))}
       </InsightsTiles>

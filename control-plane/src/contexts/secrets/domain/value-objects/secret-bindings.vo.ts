@@ -20,10 +20,7 @@ export class SecretBindings {
     }[],
   ): SecretBindings {
     if (inputs.length > MOST) {
-      throw new InvalidSecretError(
-        FIELD,
-        `names more than ${MOST} hosts; a secret goes to the few hosts that accept it`,
-      );
+      throw new InvalidSecretError(FIELD, `must name at most ${MOST} hosts`);
     }
 
     const bindings = inputs.map((input, at) => {
@@ -45,7 +42,7 @@ export class SecretBindings {
       if (bindings.slice(0, at).some((each) => each.host === binding.host)) {
         throw new InvalidSecretError(
           [FIELD, at, 'host'],
-          `binds ${binding.host} twice; a secret is worn one way toward each host`,
+          `binds ${binding.host} more than once`,
         );
       }
     });

@@ -3,6 +3,7 @@ import { Unfold } from '@/components/shared/Unfold';
 
 type StepProps = {
   title: string;
+  id?: string;
   description?: string;
   open?: boolean;
   onOpen?: () => void;
@@ -11,6 +12,7 @@ type StepProps = {
 
 export function Step({
   title,
+  id,
   description,
   open = true,
   onOpen,
@@ -19,7 +21,10 @@ export function Step({
   const contentId = useId();
 
   return (
-    <li className="relative flex gap-3 pb-6 [counter-increment:step] before:flex before:size-5 before:shrink-0 before:items-center before:justify-center before:rounded-full before:bg-muted before:font-medium before:text-muted-foreground before:text-xs before:tabular-nums before:content-[counter(step)] after:absolute after:top-6 after:bottom-1 after:left-2.5 after:w-px after:bg-border last:pb-0 last:after:hidden">
+    <li
+      id={id}
+      className="relative flex scroll-mt-4 gap-3 pb-6 [counter-increment:step] before:flex before:size-5 before:shrink-0 before:items-center before:justify-center before:rounded-full before:bg-muted before:font-medium before:text-muted-foreground before:text-xs before:tabular-nums before:content-[counter(step)] after:absolute after:top-6 after:bottom-1 after:left-2.5 after:w-px after:bg-border last:pb-0 last:after:hidden"
+    >
       <div className="flex min-w-0 flex-1 flex-col">
         <h3 className="font-medium text-foreground text-sm leading-5">
           {onOpen ? (

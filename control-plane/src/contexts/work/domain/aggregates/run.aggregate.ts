@@ -69,7 +69,7 @@ export interface RunStart {
 
 const LOST = RunFailure.of('runner-lost').retry;
 
-const LET_GO_QUEUED = 'Its task moved on before a runner took it up.';
+const LET_GO_QUEUED = 'Task moved on before a runner took the run.';
 
 const endingIn = (outcome: RunOutcome): RunState =>
   outcome.superseded ? 'superseded' : outcome.failed ? 'failed' : 'completed';
@@ -144,25 +144,25 @@ export class Run extends EventRecorder {
 
     if (run.isReplay !== run.spec.isReplay) {
       throw new InvalidRunTransitionError(
-        'replays a run only with a spec that says what it replays, and the other way round',
+        `Run ${run.id.value} and its spec disagree on what it replays.`,
       );
     }
 
     if (run.isSearch !== run.spec.isSearch) {
       throw new InvalidRunTransitionError(
-        'searches only with a spec that says it searches, and the other way round',
+        `Run ${run.id.value} and its spec disagree on whether it searches.`,
       );
     }
 
     if (run.configuredAs && !run.stationId) {
       throw new InvalidRunTransitionError(
-        'cannot record a station config on a run that works at no station',
+        `Run ${run.id.value} works at no station. It cannot record a station config.`,
       );
     }
 
     if (run.isReplay && !run.configuredAs) {
       throw new InvalidRunTransitionError(
-        'replays a run only as the station it replays at is configured',
+        `Run ${run.id.value} is a replay without a station config.`,
       );
     }
 
@@ -170,19 +170,19 @@ export class Run extends EventRecorder {
 
     if (briefed && !run.taskId) {
       throw new InvalidRunTransitionError(
-        'cannot record the task it was briefed with when it works no task',
+        `Run ${run.id.value} works no task. It cannot record a briefed task.`,
       );
     }
 
     if (briefed && !run.stationId?.equals(briefed.stationId)) {
       throw new InvalidRunTransitionError(
-        'cannot record a task briefed at a station other than the one it works at',
+        `Run ${run.id.value} cannot record a task briefed at another station.`,
       );
     }
 
     if (run.briefedWith.briefed.length > 0 && run.isSearch) {
       throw new InvalidRunTransitionError(
-        'cannot brief a search with what the team remembers',
+        `Run ${run.id.value} is a search. Searches are not briefed with team memories.`,
       );
     }
 
@@ -371,12 +371,12 @@ export class Run extends EventRecorder {
   claim(by: RunnerId, now: Date): Run {
     if (this.state !== 'queued') {
       throw new InvalidRunTransitionError(
-        `cannot be claimed while it is ${this.state}`,
+        `Run ${this.id.value} is ${this.state}. It cannot be claimed.`,
       );
     }
     if (this.isReservedAt(now) && !this.reservation?.heldFor(by)) {
       throw new InvalidRunTransitionError(
-        'cannot be claimed while it waits for the runner provisioned for it',
+        `Run ${this.id.value} is waiting for the runner provisioned for it.`,
       );
     }
 
@@ -434,13 +434,13 @@ export class Run extends EventRecorder {
   reservedFor(runner: RunnerId, pool: PoolId, now: Date): Run {
     if (this.wearsSecrets) {
       throw new InvalidRunTransitionError(
-        'cannot be reserved for a runner a pool provisions while it wears secrets, which only the egress beside a host’s sandbox wears',
+        `Run ${this.id.value} uses secrets. Only a host sandbox can run it, not a pool runner.`,
       );
     }
 
     if (!this.provisionableAt(now)) {
       throw new InvalidRunTransitionError(
-        `cannot be reserved for a runner to be provisioned while it is ${this.state}${this.reservation ? ' and reserved' : ''}`,
+        `Run ${this.id.value} is ${this.state}${this.reservation ? ' and reserved' : ''}. It cannot be reserved for a new runner.`,
       );
     }
 
@@ -504,7 +504,7 @@ export class Run extends EventRecorder {
   requeue(now: Date): Run {
     if (!this.lapsed(now)) {
       throw new InvalidRunTransitionError(
-        `cannot be requeued while it is ${this.state} and its lease holds`,
+        `Run ${this.id.value} is ${this.state} and its lease holds. It cannot be requeued.`,
       );
     }
 
@@ -589,7 +589,7 @@ export class Run extends EventRecorder {
 
     if (this.ranIn) {
       throw new InvalidRunTransitionError(
-        'cannot be unclaimed once it has started',
+        `Run ${this.id.value} has started. It cannot be unclaimed.`,
       );
     }
 
@@ -606,7 +606,7 @@ export class Run extends EventRecorder {
 
     if (!image.isPinned) {
       throw new InvalidRunTransitionError(
-        `records the image it runs in by digest, not by ${image.value}`,
+        `Run ${this.id.value} must record its image by digest, not ${image.value}.`,
       );
     }
 
@@ -614,7 +614,7 @@ export class Run extends EventRecorder {
 
     if (wanted && wanted.repository !== image.repository) {
       throw new InvalidRunTransitionError(
-        `runs in ${wanted.value}, not ${image.value}`,
+        `Run ${this.id.value} runs in ${wanted.value}, not ${image.value}.`,
       );
     }
 
@@ -628,11 +628,11 @@ export class Run extends EventRecorder {
     now: Date,
   ): Run {
     this.assertStillOn(attempt, by);
-    this.requireWorkedBy(by, 'record where it started');
+    this.requireWorkedBy(by, 'record the start of');
 
     if (!this.taskId) {
       throw new InvalidRunTransitionError(
-        'records where it started only when it works a task',
+        `Run ${this.id.value} works no task. It cannot record a starting point.`,
       );
     }
 
@@ -640,7 +640,7 @@ export class Run extends EventRecorder {
 
     if (restored && !restored.restores(this.workspaceId, this.restoresFrom)) {
       throw new InvalidStartingPointError(
-        `names archive ${restored.id.value}, which this run could not have restored`,
+        `names archive ${restored.id.value}, which run ${this.id.value} did not restore`,
       );
     }
 
@@ -659,7 +659,7 @@ export class Run extends EventRecorder {
       }
 
       throw new InvalidRunTransitionError(
-        'already recorded where it started, and somewhere else',
+        `Run ${this.id.value} already recorded a different starting point.`,
       );
     }
 
@@ -772,7 +772,7 @@ export class Run extends EventRecorder {
 
     if (!this.leavesNothingBehind) {
       throw new InvalidRunTransitionError(
-        'asks a person through what it works, not of itself',
+        `Run ${this.id.value} must ask a person through its task or chat.`,
       );
     }
 
@@ -789,19 +789,19 @@ export class Run extends EventRecorder {
 
     if (this.leavesNothingBehind) {
       throw new InvalidRunTransitionError(
-        'is a replay or a search, and neither ever waits for a person',
+        `Run ${this.id.value} is a replay or a search. It never waits for a person.`,
       );
     }
 
     if (!outcome.handsOver) {
       throw new InvalidRunTransitionError(
-        'cannot wait for a person on a turn that failed or was stopped',
+        `Run ${this.id.value} failed or was stopped. It cannot wait for a person.`,
       );
     }
 
     if (this.stopRequested) {
       throw new InvalidRunTransitionError(
-        'cannot wait for a person once it has been asked to stop',
+        `Run ${this.id.value} was asked to stop. It cannot wait for a person.`,
       );
     }
 
@@ -847,7 +847,7 @@ export class Run extends EventRecorder {
   resumed(): Run {
     if (!this.resumable) {
       throw new InvalidRunTransitionError(
-        `cannot be taken up again while it is ${this.state}${this.stopRequested ? ' and asked to stop' : ''}`,
+        `Run ${this.id.value} is ${this.state}${this.stopRequested ? ' and asked to stop' : ''}. It cannot be taken up again.`,
       );
     }
 
@@ -890,7 +890,7 @@ export class Run extends EventRecorder {
   private parkedCold(by: RunnerId, now: Date): Run {
     if (this.state !== 'claimed' || !this.spec.resumes) {
       throw new InvalidRunTransitionError(
-        'is parked cold only once a person’s answer has taken it up from a pause',
+        `Run ${this.id.value} can be parked only after an answer resumes it from a pause.`,
       );
     }
 
@@ -950,7 +950,7 @@ export class Run extends EventRecorder {
   refused(outcome: RunOutcome): Run {
     if (this.state !== 'queued') {
       throw new InvalidRunTransitionError(
-        `cannot be refused while it is ${this.state}`,
+        `Run ${this.id.value} is ${this.state}. It cannot be refused.`,
       );
     }
 
@@ -1077,7 +1077,7 @@ export class Run extends EventRecorder {
   withdrawn(reason: string): Run {
     if (this.state !== 'queued') {
       throw new InvalidRunTransitionError(
-        `cannot be withdrawn while it is ${this.state}`,
+        `Run ${this.id.value} is ${this.state}. It cannot be withdrawn.`,
       );
     }
 
@@ -1135,7 +1135,7 @@ export class Run extends EventRecorder {
 
     if (!isHeld(this.state)) {
       throw new InvalidRunTransitionError(
-        `cannot be stopped while it is ${this.state}`,
+        `Run ${this.id.value} is ${this.state}. It cannot be stopped.`,
       );
     }
 
@@ -1278,7 +1278,7 @@ export class Run extends EventRecorder {
   private requireWorkedBy(by: RunnerId, action: string): void {
     if (this.state !== 'claimed') {
       throw new InvalidRunTransitionError(
-        `cannot ${action} a run that is ${this.state}`,
+        `Cannot ${action} run ${this.id.value} while it is ${this.state}.`,
       );
     }
 
@@ -1288,12 +1288,12 @@ export class Run extends EventRecorder {
   private requireHeldBy(by: RunnerId, action: string): void {
     if (!isHeld(this.state)) {
       throw new InvalidRunTransitionError(
-        `cannot ${action} a run that is ${this.state}`,
+        `Cannot ${action} run ${this.id.value} while it is ${this.state}.`,
       );
     }
     if (!this.claimedBy?.equals(by)) {
       throw new InvalidRunTransitionError(
-        `cannot ${action} a run claimed by another runner`,
+        `Run ${this.id.value} is claimed by runner ${this.claimedBy?.value ?? 'none'}.`,
       );
     }
   }

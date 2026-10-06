@@ -11,16 +11,6 @@ export type CreatedWorkspaceToken = {
   token: string;
 };
 
-export class WorkspaceTokenNameTakenError extends Error {
-  readonly token: string;
-
-  constructor(token: string) {
-    super(`A token named ${token} already exists`);
-    this.name = 'WorkspaceTokenNameTakenError';
-    this.token = token;
-  }
-}
-
 export function useCreateWorkspaceToken(workspaceId: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -40,10 +30,14 @@ export function useCreateWorkspaceToken(workspaceId: string | undefined) {
       }
 
       if (response?.status === 409) {
-        throw new WorkspaceTokenNameTakenError(terms.name);
+        throw new Error(
+          `Token ${terms.name} already exists. Please choose another name.`,
+        );
       }
 
-      throw new Error(messageOf(error, 'Could not create the token'));
+      throw new Error(
+        messageOf(error, 'Sorry, the token couldn’t be created.'),
+      );
     },
     onSettled: () =>
       queryClient.invalidateQueries({

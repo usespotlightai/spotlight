@@ -31,7 +31,7 @@ export class PendingMessagesHandler
 
       if (!pending) {
         throw new UnknownRunError(
-          `runner ${query.runnerId} holds no run ${query.runId}`,
+          `Runner ${query.runnerId} holds no run ${query.runId}.`,
         );
       }
 

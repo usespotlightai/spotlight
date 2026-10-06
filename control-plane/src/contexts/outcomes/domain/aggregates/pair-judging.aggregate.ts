@@ -113,7 +113,7 @@ export class PairJudging
   }): PairJudging {
     if (!Number.isInteger(input.mostAttempts) || input.mostAttempts < 1) {
       throw InvalidScoreError.ofJudging(
-        'is tried at least once, and only as often as its asker pays for',
+        'attempts must be from 1 to the number paid for',
       );
     }
     if (
@@ -122,7 +122,7 @@ export class PairJudging
       input.reference.equals(input.against)
     ) {
       throw InvalidScoreError.ofJudging(
-        'sets two different runs’ changes side by side, beside a third accepted before',
+        'must compare two different runs against an accepted third',
       );
     }
 
@@ -227,10 +227,10 @@ export class PairJudging
     const work = this.state.work;
 
     if (!work) {
-      throw InvalidScoreError.ofJudging('is done, and owes no more work');
+      throw InvalidScoreError.ofJudging('is already done');
     }
     if (!work.dueBy(now) || work.exhausted) {
-      throw InvalidScoreError.ofJudging('cannot be worked on again yet');
+      throw InvalidScoreError.ofJudging('cannot be retried yet');
     }
 
     return this.with({ work: work.leased(now) });
@@ -288,7 +288,7 @@ export class PairJudging
       )
     ) {
       throw InvalidScoreError.ofJudging(
-        'is judged on its own two runs’ changes, shown once in the order drawn and once the other way round',
+        'must judge its own two runs, once in each order',
       );
     }
 

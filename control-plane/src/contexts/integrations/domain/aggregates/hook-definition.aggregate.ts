@@ -77,7 +77,7 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   if (missing.length > 0) {
     throw new InvalidHookError(
       FieldPath.of(['match', 'tools']),
-      `names ${missing.map((tool) => tool.value).join(', ')}, which no integration of the team offers`,
+      `names tools no team integration offers: ${missing.map((tool) => tool.value).join(', ')}`,
     );
   }
 
@@ -85,7 +85,7 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
     if (step.kind === 'call' && !allowances.offered.includes(step.tool.value)) {
       throw new InvalidHookError(
         FieldPath.of(['steps', index, 'call']),
-        `names ${step.tool.value}, which no integration of the team offers`,
+        `names tool ${step.tool.value}, which no team integration offers`,
       );
     }
 
@@ -97,7 +97,7 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
     ) {
       throw new InvalidHookError(
         FieldPath.of(['steps', index, 'request', 'url']),
-        `sends to ${step.url.host}, which is not among the hosts this Spotlight allows outbound calls to; send it from the team's network instead, or ask for the host to be allowed`,
+        `sends to ${step.url.host}, which is not an allowed outbound host`,
       );
     }
   });
@@ -105,7 +105,7 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   if (hook.signing === 'oidc' && !allowances.signsTokens) {
     throw new InvalidHookError(
       FieldPath.of(['signing', 'oidc']),
-      'asks for OIDC tokens, but this Spotlight has no key to sign them with; sign with a secret instead, or set HOOK_SIGNING_KEY',
+      'needs HOOK_SIGNING_KEY set to sign OIDC tokens',
     );
   }
 };
@@ -137,13 +137,13 @@ const signingFor = (
   if (held) {
     throw new InvalidHookError(
       FieldPath.of(['signing', 'secret']),
-      `is missing; secretVersion moved from ${held.version}, and the new version needs its secret`,
+      `is required when secretVersion changes from ${held.version}`,
     );
   }
 
   throw new InvalidHookError(
     FieldPath.of(['signing', 'secret']),
-    'is missing; a hook signed with HMAC is given its secret when it is defined',
+    'is required for HMAC signing',
   );
 };
 
@@ -217,7 +217,7 @@ export class HookDefinition extends EventRecorder {
     if (!compiled.hook.key.equals(this.key)) {
       throw new HookKeyFixedError(
         this.key.value,
-        `keeps its key for its whole life; replace it to define ${compiled.hook.key.value}`,
+        `cannot change its key to ${compiled.hook.key.value}`,
       );
     }
 

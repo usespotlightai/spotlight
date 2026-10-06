@@ -3,12 +3,11 @@ export class MintedTokenFixedError extends Error {
 
   readonly field = 'description';
 
-  readonly because =
-    'is fixed for a token minted through a trust, since it is not configuration; change the trust, or revoke the token';
+  readonly because = 'cannot change on a token minted through a trust';
 
   constructor(tokenName: string) {
     super(
-      `The ${tokenName} token was minted through a trust and is never described anew`,
+      `Token ${tokenName} was minted through a trust. Its description cannot change.`,
     );
     this.name = 'MintedTokenFixedError';
   }

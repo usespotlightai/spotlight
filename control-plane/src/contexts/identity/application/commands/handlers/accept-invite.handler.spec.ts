@@ -142,7 +142,7 @@ describe('AcceptInviteHandler', () => {
       standing({ sentAt: new Date('2026-08-01T09:00:00.000Z') }),
     );
 
-    await expect(handler.execute(accept())).rejects.toThrow(/run out/);
+    await expect(handler.execute(accept())).rejects.toThrow(/has expired/);
     expect(save).not.toHaveBeenCalled();
   });
 

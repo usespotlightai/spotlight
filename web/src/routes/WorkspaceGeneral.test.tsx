@@ -118,9 +118,8 @@ describe('WorkspaceGeneral', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Download' }));
 
-    const retry = await screen.findByRole('button', {
-      name: 'Could not download. Try again',
-    });
+    const retry = screen.getByRole('button', { name: 'Download' });
+    await waitFor(() => expect(retry).toBeEnabled());
     expect(saveFile).not.toHaveBeenCalled();
 
     exportWorkspace.mockResolvedValue({ data: { files: [] } });

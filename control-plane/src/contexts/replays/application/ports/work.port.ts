@@ -142,6 +142,8 @@ export interface WorkPort {
 
   keyed(lineId: string, key: string): Promise<StationAtHand | null>;
 
+  standingAmong(stationIds: readonly string[]): Promise<readonly string[]>;
+
   replayable(
     workspaceId: WorkspaceId,
     runs: readonly RunId[],

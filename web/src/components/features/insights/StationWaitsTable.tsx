@@ -4,14 +4,16 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
+import { SpreadShown } from '@/components/features/insights/SpreadShown';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   countShown,
   deltaOf,
+  medianShown,
   type StationFlow,
   type StationNames,
-  spreadShown,
   stationShown,
+  tailShown,
 } from '@/lib/insights';
 import { stationPath } from '@/lib/station';
 
@@ -77,19 +79,31 @@ export function StationWaitsTable({
       id: 'queued',
       header: 'Queued',
       numeric: true,
-      cell: (station) => spreadShown(station.queued),
+      cell: (station) => (
+        <SpreadShown tail={tailShown(station.queued)}>
+          {medianShown(station.queued)}
+        </SpreadShown>
+      ),
     },
     {
       id: 'running',
       header: 'Running',
       numeric: true,
-      cell: (station) => spreadShown(station.running),
+      cell: (station) => (
+        <SpreadShown tail={tailShown(station.running)}>
+          {medianShown(station.running)}
+        </SpreadShown>
+      ),
     },
     {
       id: 'inbox',
       header: 'In the inbox',
       numeric: true,
-      cell: (station) => spreadShown(station.inbox),
+      cell: (station) => (
+        <SpreadShown tail={tailShown(station.inbox)}>
+          {medianShown(station.inbox)}
+        </SpreadShown>
+      ),
     },
     {
       id: 'asks',

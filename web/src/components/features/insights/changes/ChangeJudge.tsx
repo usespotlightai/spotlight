@@ -44,7 +44,7 @@ export function ChangeJudge({
         </dl>
       ) : (
         <p className="text-muted-foreground text-xs">
-          Its scores stay hidden until it agrees with people often enough.
+          Judge scores are hidden until it agrees with people often enough.
         </p>
       )}
       {agreement}

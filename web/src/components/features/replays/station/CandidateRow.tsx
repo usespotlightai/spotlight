@@ -30,7 +30,7 @@ export function CandidateRow({ candidate }: CandidateRowProps) {
 
       <ChangedFromLive
         changes={changes}
-        same="The same as the live config when it was proposed."
+        same="Same as the live config when proposed."
         from={<Fingerprint fingerprint={candidate.changedFrom.fingerprint} />}
       />
     </li>

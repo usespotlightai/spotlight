@@ -72,7 +72,7 @@ export function McpServersTable({
         server.failedCalls > 0
           ? toRuns(
               <span
-                title={`${server.failedCalls} of ${server.calls} calls, counting calls that never finished`}
+                title={`${server.failedCalls} of ${server.calls} calls, unfinished included`}
               >
                 {shareShown(server.errorRate)}
               </span>,
@@ -88,7 +88,7 @@ export function McpServersTable({
         server.failingRuns > 0
           ? toRuns(
               <span
-                title={`Runs that failed where the run’s last call to ${server.server} failed`}
+                title={`Failed runs whose last call to ${server.server} failed`}
               >
                 {countShown(server.failingRuns)}
               </span>,

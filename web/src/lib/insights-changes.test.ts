@@ -115,16 +115,20 @@ describe('sizeRuleShown', () => {
 });
 
 describe('markerOf', () => {
-  it('finds a change by its station and config', () => {
+  it('finds a change by the run it took effect in, though its config returns later', () => {
     const changes = {
-      markers: [{ stationId: 'station_1', fingerprint: 'abc' }],
+      markers: [
+        { stationId: 'station_1', fingerprint: 'b', runId: 'run_2' },
+        { stationId: 'station_1', fingerprint: 'a', runId: 'run_3' },
+        { stationId: 'station_1', fingerprint: 'b', runId: 'run_4' },
+      ],
     } as unknown as InsightsChanges;
 
+    expect(markerOf(changes, { stationId: 'station_1', runId: 'run_4' })).toBe(
+      changes.markers[2],
+    );
     expect(
-      markerOf(changes, { stationId: 'station_1', fingerprint: 'abc' }),
-    ).toBe(changes.markers[0]);
-    expect(
-      markerOf(changes, { stationId: 'station_1', fingerprint: 'def' }),
+      markerOf(changes, { stationId: 'station_1', runId: 'run_5' }),
     ).toBeNull();
   });
 });

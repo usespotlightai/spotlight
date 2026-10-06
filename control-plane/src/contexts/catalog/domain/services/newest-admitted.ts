@@ -27,8 +27,8 @@ export const newestAdmitted = (
     found: false,
     because:
       versions.length === 0
-        ? `The catalog has no ${kind} named ${name.value}`
-        : `No version of the catalog ${kind} ${name.value} matches ${constraint.value}; it has ${versions
+        ? `Catalog has no ${kind} named ${name.value}.`
+        : `No version of catalog ${kind} ${name.value} matches ${constraint.value}. Available versions: ${versions
             .map((each) => each.listing.version.value)
             .join(', ')}`,
   };

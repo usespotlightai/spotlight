@@ -5,9 +5,9 @@ export class LineInUseError extends Error {
 
   constructor(key: string, stranded: readonly Stranded[]) {
     super(
-      `The ${key} line would strand work at ${stranded
-        .map((each) => `${each.name} (${each.tasks} standing there)`)
-        .join(', ')}; move those tasks first`,
+      `Line ${key} would strand tasks. Please move those tasks first. Stations with tasks: ${stranded
+        .map((each) => `${each.name} (${each.tasks})`)
+        .join(', ')}`,
     );
     this.name = 'LineInUseError';
   }

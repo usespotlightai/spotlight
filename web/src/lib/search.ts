@@ -25,7 +25,7 @@ import {
   type ReplaySet,
 } from '@/lib/replay';
 import type { CauseKind, SearchState } from '@/lib/search-words';
-import { stationPath } from '@/lib/station';
+import { stationPath, stationTabPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
 export type Search = SearchResponseDto;
@@ -95,7 +95,7 @@ export const searchCandidatePath = (
   `${searchPath(at, searchId)}#${searchCandidateAnchor(candidateId)}`;
 
 export const searchesAnchorPath = (at: ReplayedStation): string =>
-  `${stationPath(at.slug, at.teamId, at.lineId, at.stationId)}#${SEARCHES_ANCHOR}`;
+  `${stationTabPath(at.slug, at.teamId, at.lineId, at.stationId, 'improve')}#${SEARCHES_ANCHOR}`;
 
 export const ongoing = (state: SearchState): boolean =>
   state === 'seeding' || state === 'searching' || state === 'holding-out';
@@ -144,13 +144,13 @@ const tasksShown = (count: number): string =>
 
 export const setRefusal = (set: ReplaySet): string | null => {
   if (set.stationGone) {
-    return 'Its station is gone from its line.';
+    return 'Station is gone from its line.';
   }
 
   const tasks = tasksIn(set);
 
   return tasks < LEAST_TASKS
-    ? `It covers ${tasksShown(tasks)}; a search needs runs of at least ${LEAST_TASKS} different tasks, to hold some out.`
+    ? `Covers ${tasksShown(tasks)}. A search holds some out. Minimum different tasks: ${LEAST_TASKS}`
     : null;
 };
 
@@ -159,7 +159,7 @@ export const startRefusal = (
   underway: Search | null,
 ): string | null => {
   if (underway) {
-    return 'A search of this station is under way.';
+    return 'A search of this station is underway.';
   }
   if (sets.length === 0) {
     return 'Open a replay set first.';
@@ -259,7 +259,10 @@ export const refusalsOf = (
         ? unplaced.join(' ')
         : placed
           ? null
-          : messageOf(thrown, 'Spotlight would not start the search.'),
+          : messageOf(
+              thrown,
+              'Sorry, the search couldn’t be started. Please try again later.',
+            ),
   };
 };
 
@@ -284,7 +287,7 @@ export const heldOutShown = (candidate: SearchCandidate): string => {
 
 export const durationShown = (ms: number | null): string =>
   ms === null
-    ? 'Unknown, as none of the set’s runs was timed'
+    ? 'Unknown. None of the set’s runs was timed.'
     : `About ${lasted(ms)}`;
 
 export const searchChanges = (candidate: SearchCandidate): ConfigChange[] =>
@@ -292,20 +295,20 @@ export const searchChanges = (candidate: SearchCandidate): ConfigChange[] =>
 
 export const pickRefusal = (candidate: SearchCandidate): string | null => {
   if (candidate.seed) {
-    return 'The live config is what the station runs already.';
+    return 'Live config is what the station already runs.';
   }
 
   switch (candidate.replayState) {
     case 'finished':
       return null;
     case 'stopped':
-      return 'It can’t be picked: its replay was stopped before it finished.';
+      return 'Can’t be picked. Its replay was stopped before finishing.';
     case 'over-budget':
-      return 'It can’t be picked: its replay ran over its ceiling before it finished.';
+      return 'Can’t be picked. Its replay hit its ceiling before finishing.';
     case null:
-      return 'It can’t be picked: its replay is gone.';
+      return 'Can’t be picked. Its replay is gone.';
     default:
-      return 'It can be picked once its replay on the searched tasks finishes.';
+      return 'Can be picked once its replay on the searched tasks finishes.';
   }
 };
 

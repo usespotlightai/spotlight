@@ -36,14 +36,14 @@ export class SecretSource {
     if (!AWS_SECRET_ID.test(secretId)) {
       throw new InvalidSecretError(
         ['source', 'secretId'],
-        'is the name or ARN of the secret in AWS Secrets Manager, as in arn:aws:secretsmanager:eu-west-1:123456789012:secret:linear-api-key',
+        'must be a secret name or ARN in AWS Secrets Manager, as in arn:aws:secretsmanager:eu-west-1:123456789012:secret:linear-api-key',
       );
     }
 
     if (field !== null && !FIELD.test(field)) {
       throw new InvalidSecretError(
         ['source', 'field'],
-        'is one key of the JSON the secret holds, as in token',
+        'must be one key of the secret’s JSON, as in token',
       );
     }
 

@@ -9,8 +9,6 @@ vi.mock('@/hooks/api/usePickSearchCandidate', () => ({
   usePickSearchCandidate: () => ({
     mutate,
     isPending: false,
-    isError: false,
-    error: null,
   }),
 }));
 
@@ -66,7 +64,7 @@ describe('PickCandidate', () => {
     renderPick({ ...CANDIDATE, onlyOnSeenTasks: 'marked' });
 
     expect(screen.getByRole('note')).toHaveTextContent(
-      'Its gain showed only on the tasks the search could see.',
+      'Gain showed only on searched tasks.',
     );
     expect(screen.getByRole('button', { name: 'Pick' })).toBeEnabled();
   });
@@ -128,7 +126,7 @@ describe('PickCandidate', () => {
     });
 
     const refusal = screen.getByText(
-      'An attribute it would change is computed in Terraform, so it must be set by hand',
+      'Attribute is computed in Terraform. Please set it by hand.',
     );
     expect(refusal).toBeInTheDocument();
     expect(screen.getByText('effort comes from a local')).toBeInTheDocument();

@@ -424,8 +424,7 @@ describe('Runners', () => {
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
         kind: 'unusable',
-        detail:
-          'the pool’s provision secret does not open with this deployment’s keys',
+        detail: 'provision secret doesn’t open with this deployment’s keys',
       });
       expect(called).toEqual([]);
       expect(saved[0]?.isDiscarded).toBe(true);

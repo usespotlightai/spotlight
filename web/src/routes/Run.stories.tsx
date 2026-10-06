@@ -16,6 +16,7 @@ import {
   rememberedFailedRun,
   rememberingRun,
   SLUG,
+  seedApprovalWaitingRun,
   seedCarryingOnRun,
   seedRun,
   seedWaitingRun,
@@ -120,6 +121,15 @@ export const WaitingForYou: Story = {
   name: 'Waiting for you',
   render: () => (
     <StoryPage at={at} seed={seedWaitingRun}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ApprovalWaiting: Story = {
+  name: 'Approval waiting for you',
+  render: () => (
+    <StoryPage at={at} seed={seedApprovalWaitingRun}>
       {routes}
     </StoryPage>
   ),

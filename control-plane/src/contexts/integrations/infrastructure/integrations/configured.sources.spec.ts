@@ -144,7 +144,7 @@ describe('ConfiguredSources', () => {
         raw: Buffer.from('{}'),
       }),
     ).rejects.toThrow(
-      'The workspace holds no secret named LINEAR_WEBHOOK_SECRET',
+      'Secret LINEAR_WEBHOOK_SECRET not found. Please define it first.',
     );
   });
 

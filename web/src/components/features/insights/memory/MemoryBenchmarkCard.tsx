@@ -10,7 +10,7 @@ export function MemoryBenchmarkCard({
   return (
     <InsightsCard
       title="Memory benchmark"
-      description="The same cases run with the team’s memories and without them."
+      description="The same cases, run with and without the team’s memories."
     >
       {benchmark ? (
         <p data-slot="memory-benchmark" className="text-foreground text-sm">

@@ -2,7 +2,7 @@ export class InvalidTaskFailureError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`A task failure ${reason}`);
+    super(`Task failure ${reason}.`);
     this.name = 'InvalidTaskFailureError';
   }
 }

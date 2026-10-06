@@ -1842,7 +1842,7 @@ describe('Task and the happenings heard while a run holds it', () => {
     expect(spoken?.kind).toBe('passed');
     expect(spoken?.form).toBe('words');
     expect(spoken?.body.value).toBe(
-      'Moved to Spec when the run ended, because of an event that arrived while it worked.\n\nUploads retry now.',
+      'Moved to Spec when the run ended. An event arrived while the run worked.\n\nUploads retry now.',
     );
   });
 

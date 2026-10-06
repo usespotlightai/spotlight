@@ -44,10 +44,9 @@ export function StartSearchDialog({
         <DialogHeader>
           <DialogTitle>Start a search</DialogTitle>
           <DialogDescription>
-            An agent proposes changed configs for this station, and each is
-            replayed on most of the set’s tasks. The best are then replayed on
-            the tasks it never saw, to check they hold up. Nothing is applied
-            until you pick one.
+            An agent proposes configs for this station. Each replays on most of
+            the set’s tasks. The best then replay on held-out tasks to check
+            they hold up. Nothing is applied until you pick one.
           </DialogDescription>
         </DialogHeader>
 
@@ -111,12 +110,6 @@ export function StartSearchDialog({
               onUseRepeats={(next) => form.change('repeats')(String(next))}
               disabled={form.pending}
             />
-          )}
-
-          {form.startRefusal && (
-            <p role="alert" className="text-destructive text-xs">
-              {form.startRefusal}
-            </p>
           )}
 
           <DialogFooter>

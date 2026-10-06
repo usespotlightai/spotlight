@@ -10,7 +10,9 @@ const scaleOfRubric = (text: string): ScoreScale => {
     return ScoreScale.of(RubricScale.of(text).kind);
   } catch (error) {
     if (error instanceof InvalidRubricScaleError) {
-      throw InvalidScoreError.ofJudging(`has a rubric whose ${error.message}`);
+      throw InvalidScoreError.ofJudging(
+        `rubric is invalid. ${error.message.replace(/\.$/, '')}`,
+      );
     }
     throw error;
   }
@@ -34,17 +36,15 @@ export class JudgeCriteria {
     const passShare = input.passShare ?? 1;
 
     if (rubric === null && claims.length === 0) {
-      throw InvalidScoreError.ofJudging('has a rubric or claims to judge by');
+      throw InvalidScoreError.ofJudging('needs a rubric or claims');
     }
     if (claims.length > MOST_CLAIMS || claims.some((each) => !each)) {
       throw InvalidScoreError.ofJudging(
-        `judges by at most ${MOST_CLAIMS} claims, none of them empty`,
+        `claims must be at most ${MOST_CLAIMS}, none empty`,
       );
     }
     if (!Number.isFinite(passShare) || passShare < 0 || passShare > 1) {
-      throw InvalidScoreError.ofJudging(
-        'passes a run on a share of its claims from 0 to 1',
-      );
+      throw InvalidScoreError.ofJudging('pass share must be from 0 to 1');
     }
 
     const scale =

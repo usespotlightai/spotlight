@@ -101,7 +101,7 @@ describe('EditMemoryHandler', () => {
 
     await expect(edit()).rejects.toMatchObject({
       kind: 'not-found',
-      message: 'There is no team team_1 for this caller',
+      message: 'Team team_1 not found.',
     });
     expect(memories.add).not.toHaveBeenCalled();
   });

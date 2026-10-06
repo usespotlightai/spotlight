@@ -11,12 +11,15 @@ import {
 import { ConfigMarkers } from '@/components/features/insights/ConfigMarkers';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { OutputTable } from '@/components/features/insights/OutputTable';
+import { ChartTip } from '@/components/shared/chart/ChartTip';
+import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
 import {
   type OutputDay,
   type StationNames,
   stationShown,
 } from '@/lib/insights';
+import { changeKey } from '@/lib/insights-changes';
 import { dayShown } from '@/lib/judge';
 
 const HEIGHT = 200;
@@ -24,11 +27,13 @@ const HEIGHT = 200;
 const INSET = 8;
 
 const Said = ({
+  placement,
   active,
   payload,
   currency,
   names,
 }: {
+  placement: TipPlacement;
   active?: boolean;
   payload?: { payload: OutputDay }[];
   currency: string | null;
@@ -41,7 +46,7 @@ const Said = ({
   }
 
   return (
-    <div className="whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-overlay">
+    <ChartTip placement={placement}>
       <p className="text-muted-foreground">{dayShown(day.day)}</p>
       <p className="pt-0.5 text-foreground">
         {day.spend !== null && currency ? spentIn(day.spend, currency) : '–'}{' '}
@@ -51,14 +56,11 @@ const Said = ({
         {day.merged} {day.merged === 1 ? 'PR' : 'PRs'} merged
       </p>
       {day.changes.map((change) => (
-        <p
-          key={`${change.stationId}:${change.fingerprint}`}
-          className="text-muted-foreground"
-        >
-          New config at {stationShown(names, change.stationId)}
+        <p key={changeKey(change)} className="text-muted-foreground">
+          Config changed at {stationShown(names, change.stationId)}
         </p>
       ))}
-    </div>
+    </ChartTip>
   );
 };
 
@@ -79,6 +81,7 @@ export function OutputAgainstCost({
   noSpend,
   names,
 }: OutputAgainstCostProps) {
+  const cursor = useCursorTooltip();
   const priced = currency !== null;
 
   return (
@@ -86,8 +89,8 @@ export function OutputAgainstCost({
       title="Output against cost"
       description={
         priced
-          ? 'Spend and merged pull requests per day. A diamond marks a station starting a new config.'
-          : `Merged pull requests per day. ${noSpend}, so spend is left out.`
+          ? 'Spend and merged pull requests per day. A diamond marks a station’s new config.'
+          : `Merged pull requests per day. Spend not shown. ${noSpend}.`
       }
       table={
         <OutputTable
@@ -103,7 +106,7 @@ export function OutputAgainstCost({
         <figcaption className="flex items-center gap-3 text-muted-foreground text-xs">
           {priced && (
             <span className="flex items-center gap-1">
-              <span aria-hidden className="h-0.5 w-3 bg-primary" />
+              <span aria-hidden className="h-0.5 w-3 bg-chart-primary" />
               Spend
             </span>
           )}
@@ -114,58 +117,66 @@ export function OutputAgainstCost({
         </figcaption>
 
         <div className="[&_*:focus:not(:focus-visible)]:outline-none">
-          <ResponsiveContainer width="100%" height={HEIGHT}>
-            <ComposedChart
-              data={[...days]}
-              margin={{ top: 8, right: INSET, bottom: 0, left: INSET }}
-            >
-              <XAxis
-                dataKey="day"
-                tickLine={false}
-                axisLine={{ stroke: 'var(--border)' }}
-                tick={{ fill: 'var(--faint)', fontSize: 10 }}
-                tickFormatter={dayShown}
-                minTickGap={24}
-              />
-              <YAxis yAxisId="merged" hide allowDecimals={false} />
-              <YAxis yAxisId="spend" hide orientation="right" />
-              <Tooltip
-                content={<Said currency={currency} names={names} />}
-                isAnimationActive={false}
-                cursor={{ fill: 'var(--accent)' }}
-              />
-              {days
-                .filter((day) => day.changes.length > 0)
-                .map((day) => (
-                  <ReferenceLine
-                    key={day.day}
-                    x={day.day}
-                    yAxisId="merged"
-                    stroke="var(--faint)"
-                    strokeDasharray="3 3"
-                  />
-                ))}
-              <Bar
-                yAxisId="merged"
-                dataKey="merged"
-                name="PRs merged"
-                fill="var(--chart-2)"
-                isAnimationActive={false}
-              />
-              {priced && (
-                <Line
-                  yAxisId="spend"
-                  dataKey="spend"
-                  name="Spend"
-                  stroke="var(--primary)"
-                  strokeWidth={1.5}
-                  dot={false}
-                  connectNulls
+          <div {...cursor.area}>
+            <ResponsiveContainer width="100%" height={HEIGHT}>
+              <ComposedChart
+                data={[...days]}
+                margin={{ top: 8, right: INSET, bottom: 0, left: INSET }}
+              >
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={{ stroke: 'var(--chart-grid)' }}
+                  tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                  tickFormatter={dayShown}
+                  minTickGap={24}
+                />
+                <YAxis yAxisId="merged" hide allowDecimals={false} />
+                <YAxis yAxisId="spend" hide orientation="right" />
+                <Tooltip
+                  {...cursor.tooltip}
+                  content={
+                    <Said
+                      placement={cursor.placement}
+                      currency={currency}
+                      names={names}
+                    />
+                  }
+                  cursor={{ fill: 'var(--accent)' }}
+                />
+                {days
+                  .filter((day) => day.changes.length > 0)
+                  .map((day) => (
+                    <ReferenceLine
+                      key={day.day}
+                      x={day.day}
+                      yAxisId="merged"
+                      stroke="var(--chart-axis)"
+                      strokeDasharray="3 3"
+                    />
+                  ))}
+                <Bar
+                  yAxisId="merged"
+                  dataKey="merged"
+                  name="PRs merged"
+                  fill="var(--chart-2)"
                   isAnimationActive={false}
                 />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
+                {priced && (
+                  <Line
+                    yAxisId="spend"
+                    dataKey="spend"
+                    name="Spend"
+                    stroke="var(--chart-primary)"
+                    strokeWidth={1.5}
+                    dot={false}
+                    connectNulls
+                    isAnimationActive={false}
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <ConfigMarkers

@@ -54,8 +54,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
               title="No chats yet"
               className="self-center py-16"
             >
-              Say what you want to work on, and the agent will help shape it
-              into tasks.
+              Say what you want to work on. The agent helps shape it into tasks.
             </EmptyState>
           )}
 

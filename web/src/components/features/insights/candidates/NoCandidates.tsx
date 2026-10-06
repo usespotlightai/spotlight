@@ -31,9 +31,8 @@ export function NoCandidates({ slug, teamId, lineId }: NoCandidatesProps) {
           </TrailLink>
         }
       >
-        A replay runs a station’s past tasks again against a changed config,
-        without applying it. Start one from a station’s Replays, or search for a
-        better config, and the candidates show here beside the live config.
+        Replay a station’s past tasks under a changed config to compare it with
+        live.
       </EmptyState>
     </div>
   );

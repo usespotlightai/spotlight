@@ -42,9 +42,7 @@ export function StationAlertCard({
   }
 
   if (failed(alert) && notFound(alert.error)) {
-    return (
-      <MembersOnly title="You’re no longer on this team, so you can’t see this alert" />
-    );
+    return <MembersOnly title="Only team members can see this alert" />;
   }
 
   if (failed(alert) || !alert.data) {
@@ -66,7 +64,7 @@ export function StationAlertCard({
       <DecisionHeader
         title={
           <DecisionTitle as="h2" icon={BellRing}>
-            An alert went off at {stationShown(names, crossed.stationId)}
+            Alert raised at {stationShown(names, crossed.stationId)}
           </DecisionTitle>
         }
         trailing={
@@ -103,7 +101,7 @@ export function StationAlertCard({
           Open the station
         </PillLink>
         <PillLink to={alertOnInsightsPath(slug, teamId, crossed, new Date())}>
-          See it on Insights
+          Open in Insights
         </PillLink>
         {named && (
           <ImproveStationLink

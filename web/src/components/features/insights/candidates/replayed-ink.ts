@@ -8,7 +8,7 @@ type Ink = {
 
 export const REPLAYED_INK: Record<ReplayedMark, Ink> = {
   baseline: {
-    fill: 'var(--foreground)',
+    fill: 'var(--chart-5)',
     swatch: 'bg-foreground',
     outline: 'border-[1.5px] border-foreground',
   },
@@ -25,6 +25,6 @@ export const REPLAYED_INK: Record<ReplayedMark, Ink> = {
 };
 
 export const FRONTIER_INK: Omit<Ink, 'outline'> = {
-  fill: 'var(--primary)',
-  swatch: 'bg-primary',
+  fill: 'var(--chart-primary)',
+  swatch: 'bg-chart-primary',
 };

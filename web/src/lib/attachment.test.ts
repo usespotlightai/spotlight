@@ -54,7 +54,7 @@ describe('refused', () => {
 
   it('says why a larger one is refused', () => {
     expect(refused({ size: MAX_ATTACHMENT_BYTES + 1 })).toBe(
-      'Larger than 25 MB',
+      'Too large. Maximum size: 25 MB',
     );
   });
 });

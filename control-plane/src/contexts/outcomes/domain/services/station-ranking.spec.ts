@@ -25,7 +25,7 @@ const runsAt = (stationId: string, when: string, count: number, sentBack = 0) =>
   });
 
 describe('stationsWorthImproving', () => {
-  it('names a station whose sent-back rate rose against the period before', () => {
+  it('names a station whose sent-back rate rose against the period before, flagged once it is 5 points worse', () => {
     const history = historyOf({
       records: [
         ...runsAt('station_1', '2026-09-20', 4, 0),
@@ -49,6 +49,7 @@ describe('stationsWorthImproving', () => {
           team: 0.5,
           rose: true,
           trails: false,
+          flaggedAbove: 0.05,
           currency: null,
         },
       ],
@@ -116,7 +117,7 @@ describe('stationsWorthImproving', () => {
     expect(worst?.signals.map((each) => each.signal)).not.toContain('cost');
   });
 
-  it('says the currency of a cost signal, and compares cost only with spend in that same currency', () => {
+  it('says the currency of a cost signal, compares cost only with spend in that same currency, and flags it a quarter above the team', () => {
     const history = historyOf({
       records: [
         ...runsAt('station_1', '2026-09-28', 3, 0),
@@ -152,6 +153,7 @@ describe('stationsWorthImproving', () => {
       rose: false,
       trails: true,
     });
+    expect(cost?.flaggedAbove).toBeCloseTo((cost?.team ?? 0) * 1.25);
   });
 
   it('passes over a station with too few runs to tell', () => {

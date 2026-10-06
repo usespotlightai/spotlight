@@ -55,7 +55,7 @@ describe('InsightsPeriod', () => {
 
   it('says what it looks back over without repeating what it was asked', () => {
     expect(() => InsightsPeriod.of('<b>14d</b>', NOW)).toThrow(
-      /^Insights look back 7d, 30d or 90d$/,
+      /^Period must be 7d, 30d or 90d\.$/,
     );
   });
 

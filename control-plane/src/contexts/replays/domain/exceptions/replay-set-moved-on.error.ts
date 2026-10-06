@@ -2,7 +2,9 @@ export class ReplaySetMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(setId: string) {
-    super(`The replay set ${setId} changed while this was being written`);
+    super(
+      `Replay set ${setId} changed since you loaded it. Please reload and try again.`,
+    );
     this.name = 'ReplaySetMovedOnError';
   }
 }

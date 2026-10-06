@@ -7,12 +7,14 @@ export class ArchiveSize {
 
   static of(bytes: number): ArchiveSize {
     if (!Number.isSafeInteger(bytes) || bytes < 1) {
-      throw new InvalidWorkspaceArchiveError('must have a size in bytes');
+      throw new InvalidWorkspaceArchiveError(
+        'size must be a whole number of bytes',
+      );
     }
 
     if (bytes > MOST_BYTES) {
       throw new InvalidWorkspaceArchiveError(
-        `may be at most ${MOST_BYTES} bytes, and this one is ${bytes}`,
+        `can be at most ${MOST_BYTES} bytes, not ${bytes}`,
       );
     }
 

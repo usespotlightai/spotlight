@@ -28,7 +28,7 @@ export class WorkloadRule {
     const held = raw.trim();
     const refused = new InvalidTokenTrustError(
       'issuer',
-      'is the https URL the CI platform signs its tokens as, with no query or fragment, as in https://token.actions.githubusercontent.com',
+      'must be an https URL with no query or fragment, as in https://token.actions.githubusercontent.com',
     );
     let url: URL;
 
@@ -62,7 +62,7 @@ export class WorkloadRule {
     if (!held || held.length > LONGEST || /\s/.test(held)) {
       throw new InvalidTokenTrustError(
         'audience',
-        `is one word of at most ${LONGEST} characters, as in spotlight`,
+        `must be one word of at most ${LONGEST} characters, as in spotlight`,
       );
     }
 
@@ -73,7 +73,7 @@ export class WorkloadRule {
     if (!CLAIM_NAME.test(raw) || REGISTERED.has(raw)) {
       throw new InvalidTokenTrustError(
         'claims',
-        `are named as the token names them, in lowercase letters, digits and underscores, as in repository or workflow_ref; ${[...REGISTERED].join(', ')} are checked already`,
+        `must be lowercase letters, digits and underscores, other than ${[...REGISTERED].join(', ')}, as in workflow_ref`,
       );
     }
 
@@ -91,7 +91,7 @@ export class WorkloadRule {
     if (named.length > MOST_CLAIMS) {
       throw new InvalidTokenTrustError(
         'claims',
-        `name at most ${MOST_CLAIMS} claims`,
+        `must name at most ${MOST_CLAIMS} claims`,
       );
     }
 
@@ -106,7 +106,7 @@ export class WorkloadRule {
     if (!subject.isExact && !subject.literalStart.includes(OWNER_END)) {
       throw new InvalidTokenTrustError(
         'subject',
-        'names the owner it admits before any *, as in repo:acme/* or repo:acme/platform:*; a trust open to every owner would admit any workload its issuer signs a token for',
+        'must name an owner before any *, as in repo:acme/* or repo:acme/platform:*',
       );
     }
 

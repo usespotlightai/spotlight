@@ -206,19 +206,27 @@ describe('compileHook', () => {
 
   it('refuses to block an event that has already happened', () => {
     expect(problemsOf({ ...GRAFANA_READS, failure: 'block' })).toEqual([
-      ['failure', expect.stringMatching(/already happened/)],
+      ['failure', expect.stringMatching(/cannot be block after/)],
     ]);
   });
 
   it('refuses tools matched on an event that is not about a tool', () => {
     expect(
       problemsOf({ ...MIGRATIONS, match: { tools: ['grafana.search'] } }),
-    ).toEqual([['match.tools', expect.stringMatching(/not about a tool/)]]);
+    ).toEqual([
+      [
+        'match.tools',
+        expect.stringMatching(/only applies to tool.using and tool.used/),
+      ],
+    ]);
   });
 
   it('refuses a request with no signing', () => {
     expect(problemsOf({ ...MIGRATIONS, signing: null })).toEqual([
-      ['signing', expect.stringMatching(/signs them/)],
+      [
+        'signing',
+        expect.stringMatching(/required for a hook that makes requests/),
+      ],
     ]);
   });
 
@@ -231,7 +239,7 @@ describe('compileHook', () => {
     });
 
     expect(problemsOf(plain('spotlight'))).toEqual([
-      ['steps[0].request.url', expect.stringMatching(/not https/)],
+      ['steps[0].request.url', expect.stringMatching(/must be https/)],
     ]);
     expect(problemsOf(plain('network'))).toEqual([]);
   });

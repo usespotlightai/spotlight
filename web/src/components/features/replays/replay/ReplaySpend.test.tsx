@@ -42,7 +42,7 @@ describe('ReplaySpend', () => {
 
     expect(screen.getByText('Side by side').parentElement).toHaveAttribute(
       'title',
-      'Judging changes side by side counts against the ceiling, but not toward cost per run.',
+      'Side-by-side judging counts against the ceiling. It doesn’t count toward cost per run.',
     );
     expect(
       screen.getByText('Side by side').nextElementSibling,
@@ -62,7 +62,7 @@ describe('ReplaySpend', () => {
 
     expect(screen.getByText('Also spent').parentElement).toHaveAttribute(
       'title',
-      'Spent in another currency, so not counted against the ceiling',
+      'Spent in another currency. Not counted against the ceiling.',
     );
     expect(screen.getByText('Also spent').nextElementSibling).toHaveTextContent(
       spendShown({ amount: 2, currency: 'EUR' }),

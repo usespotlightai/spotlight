@@ -103,7 +103,7 @@ describe('Notices', () => {
   it('refuses a form it does not know', async () => {
     await expect(
       noticesOver(new InMemoryNotices()).raise({ ...STALLED, form: 'gossip' }),
-    ).rejects.toThrow('A notice is one of');
+    ).rejects.toThrow('Notice form must be one of');
   });
 
   it('forgets the notices of a disbanded team, and only those', async () => {

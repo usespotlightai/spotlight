@@ -61,7 +61,7 @@ export const HandoverFor = {
           )
         : Handover.review(
             TaskNoteBody.of(
-              'The run said the work is done, and the line does not end where the task stands.',
+              'The run said the work is done. The task is not at the end of its line.',
             ),
             ownWords(declaration),
           );

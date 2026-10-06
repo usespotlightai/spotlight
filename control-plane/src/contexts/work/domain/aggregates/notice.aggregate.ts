@@ -46,7 +46,7 @@ export class Notice {
 
     if (!subject || subject.length > MOST_SUBJECT) {
       throw new InvalidNoticeError(
-        `names what it is about in at most ${MOST_SUBJECT} characters`,
+        `subject must be 1 to ${MOST_SUBJECT} characters`,
       );
     }
 

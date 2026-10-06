@@ -152,12 +152,15 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     ]);
 
     if (!named || !path) {
-      return refusedAs('no-source', 'The pull request has nowhere to go');
+      return refusedAs(
+        'no-source',
+        'Config pull request has no target repository.',
+      );
     }
     if (!search || !station || !teamKey) {
       return refusedAs(
         'block-not-found',
-        'The searched station is no longer on its line',
+        'Searched station is no longer on its line.',
       );
     }
 
@@ -174,7 +177,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     if (!candidate || !seed) {
       return refusedAs(
         'block-not-found',
-        'The picked candidate or the config the search started from is gone',
+        'Picked candidate or search seed no longer exists.',
       );
     }
 
@@ -187,7 +190,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     if (!file) {
       return refusedAs(
         'file-missing',
-        `${repository.value} holds no ${path} on its default branch`,
+        `File ${path} not found on the default branch of ${repository.value}.`,
       );
     }
 

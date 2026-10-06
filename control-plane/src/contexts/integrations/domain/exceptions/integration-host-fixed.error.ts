@@ -7,7 +7,7 @@ export class IntegrationHostFixedError extends Error {
     readonly source: string,
     readonly because: string,
   ) {
-    super(`The ${source} integration ${because}`);
+    super(`Integration ${source} ${because}.`);
     this.name = 'IntegrationHostFixedError';
   }
 }

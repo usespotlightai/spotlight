@@ -102,7 +102,7 @@ export class CompleteRunHandler
     const run = await this.runs.findById(runId);
 
     if (!run) {
-      throw new UnknownRunError(`there is no run ${runId.value}`);
+      throw new UnknownRunError(`Run ${runId.value} not found.`);
     }
 
     await this.runs.save(run.timedOut(by, this.clock.now()));
@@ -120,7 +120,7 @@ export class CompleteRunHandler
     const run = await this.runs.findById(runId);
 
     if (!run) {
-      throw new UnknownRunError(`there is no run ${runId.value}`);
+      throw new UnknownRunError(`Run ${runId.value} not found.`);
     }
 
     const task = run.taskId ? await this.tasks.find(run.taskId) : null;

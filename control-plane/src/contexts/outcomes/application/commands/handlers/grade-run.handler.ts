@@ -20,7 +20,7 @@ const gradedOn = (
   if (terms.scale.byClaims) {
     if (command.claims === null || command.value !== null) {
       throw new InvalidScoreError(
-        'from a person on a claims scale marks each claim met or not',
+        'on a claims scale must mark each claim met or not',
       );
     }
 
@@ -30,7 +30,7 @@ const gradedOn = (
     };
   }
   if (command.value === null || command.claims !== null) {
-    throw new InvalidScoreError('from a person gives a grade');
+    throw new InvalidScoreError('must include a grade');
   }
 
   return { value: terms.scale.valueOf(command.value), marks: null };

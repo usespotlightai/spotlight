@@ -62,7 +62,6 @@ export function FileThread({
             open={replying}
             onOpenChange={onReplying}
             pending={draft.isPending}
-            failed={draft.isError}
             onSubmit={(body) =>
               draft.mutate(
                 {

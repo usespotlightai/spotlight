@@ -40,7 +40,6 @@ export function WriteMemoryButton({ teamId }: WriteMemoryButtonProps) {
         initial={null}
         lines={lines.data ?? []}
         pending={write.isPending}
-        failed={write.isError}
         onSave={(memory) =>
           write.mutate({ teamId, memory }, { onSuccess: () => setOpen(false) })
         }

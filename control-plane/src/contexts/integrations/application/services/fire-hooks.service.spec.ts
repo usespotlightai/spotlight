@@ -274,7 +274,7 @@ describe('FireHooks.before', () => {
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
       HookVerdict.refused(
-        'The hook dba refused: the migration drops a column in use',
+        'Hook dba refused. Reason: the migration drops a column in use',
       ),
     );
   });
@@ -286,7 +286,7 @@ describe('FireHooks.before', () => {
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
       HookVerdict.refused(
-        'The hook dba failed at ask (could not reach https://dba.example.com: timed out), and it blocks on failure',
+        'Hook dba failed at step ask and blocks on failure. Reason: could not reach https://dba.example.com: timed out',
       ),
     );
   });
@@ -302,7 +302,7 @@ describe('FireHooks.before', () => {
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
       HookVerdict.refused(
-        'The hook dba failed at ask (the callback token could not be minted), and it blocks on failure',
+        'Hook dba failed at step ask and blocks on failure. Reason: the callback token could not be minted',
       ),
     );
     await expect(
@@ -338,7 +338,7 @@ describe('FireHooks.before', () => {
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
       HookVerdict.refused(
-        'The hook dba no longer reads as it was written (when No such key: gone), and it blocks on failure',
+        'Hook dba is broken and blocks on failure. Reason: when No such key: gone',
       ),
     );
     await expect(
@@ -552,7 +552,7 @@ describe('FireHooks.workOne', () => {
     expect(last()?.failure).toEqual(
       HookFailure.of(
         'server-error',
-        'The hook audit failed at b: was answered 503',
+        'Hook audit failed at step b. Reason: was answered 503',
       ),
     );
   });
@@ -702,7 +702,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
       hook: 'audit',
       code: 'loop',
       saying:
-        'The hook audit was stopped: the hook audit would fire again for what caused it: task.moved of Add a column (triage → build) → the hook audit → a delivery from slack → task.moved of Add a column (triage → build) → the hook audit',
+        'Hook audit was stopped. Reason: the hook audit would fire again for what caused it: task.moved of Add a column (triage → build) → the hook audit → a delivery from slack → task.moved of Add a column (triage → build) → the hook audit',
       heardAs: 'loop:firing_1',
     });
     expect(saved[0]?.stoppedForLooping).toBe(true);

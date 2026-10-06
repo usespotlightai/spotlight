@@ -7,7 +7,7 @@ export class SecretNameFixedError extends Error {
     readonly secretName: string,
     readonly because: string,
   ) {
-    super(`The ${secretName} secret ${because}`);
+    super(`Secret ${secretName} ${because}.`);
     this.name = 'SecretNameFixedError';
   }
 }

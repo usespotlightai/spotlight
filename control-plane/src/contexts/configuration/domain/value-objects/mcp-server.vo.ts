@@ -27,14 +27,14 @@ export class McpServer {
     if (!areWords(name)) {
       throw new InvalidHarnessProfileError(
         ['mcpServers', at, 'name'],
-        'names an MCP server in lower case words joined by dashes, as in linear',
+        'MCP server name must be lowercase words joined by dashes, such as linear',
       );
     }
 
     if (command.length === 0) {
       throw new InvalidHarnessProfileError(
         ['mcpServers', at, 'command'],
-        'starts an MCP server with a command, as in npx',
+        'MCP server needs a command, such as npx',
       );
     }
 
@@ -42,7 +42,7 @@ export class McpServer {
       if (!ENV_NAME.test(variable)) {
         throw new InvalidHarnessProfileError(
           ['mcpServers', at, 'env', variable],
-          'names an environment variable in letters, digits and underscores',
+          'environment variable names must use letters, digits and underscores',
         );
       }
     }

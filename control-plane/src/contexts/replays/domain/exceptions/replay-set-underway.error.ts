@@ -3,7 +3,7 @@ export class ReplaySetUnderwayError extends Error {
 
   constructor(setId: string) {
     super(
-      `The replay set ${setId} is being replayed or searched; stop its replays and searches first`,
+      `Replay set ${setId} is being replayed or searched. Please stop its replays and searches first.`,
     );
     this.name = 'ReplaySetUnderwayError';
   }

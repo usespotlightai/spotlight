@@ -52,7 +52,7 @@ describe('FilesAtHand', () => {
 
     await expect(
       new FilesAtHand(files).handedOver(WORKSPACE, ['../file_2']),
-    ).rejects.toThrow('must say which file it is');
+    ).rejects.toThrow('Attachment id must not be empty.');
 
     expect(files.received).not.toHaveBeenCalled();
   });

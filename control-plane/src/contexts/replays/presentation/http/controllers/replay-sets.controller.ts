@@ -64,7 +64,7 @@ import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo
 
 const SET = 'replay set';
 
-const NAME_SAYS = 'names the set, in 1 to 100 characters';
+const NAME_SAYS = 'must be text of 1 to 100 characters';
 
 const STATION = 'lines/:lineId/stations/:stationId';
 
@@ -319,7 +319,7 @@ export class ReplaySetsController {
         new AddReplaySetEntryCommand(
           teamId,
           setId,
-          textAt(body, 'runId', 'names a past run of the station'),
+          textAt(body, 'runId', 'must name a past run of the station'),
           principal,
         ),
       ),

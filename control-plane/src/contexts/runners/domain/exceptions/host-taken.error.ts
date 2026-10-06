@@ -3,7 +3,7 @@ export class HostTakenError extends Error {
 
   constructor(hostId: string) {
     super(
-      `The host ${hostId} is serving another pool or trust right now; stop it there, or give this one its own state directory`,
+      `Host ${hostId} is serving another pool or trust. Please stop it there, or give it its own state directory.`,
     );
     this.name = 'HostTakenError';
   }

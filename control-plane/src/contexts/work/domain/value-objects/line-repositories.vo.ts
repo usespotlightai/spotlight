@@ -71,9 +71,7 @@ export class LineRepositories {
       const named = this.named(name);
 
       if (!named) {
-        throw new NoRepositoryError(
-          `This line works no repository named "${name}"`,
-        );
+        throw new NoRepositoryError(`Line has no repository named ${name}.`);
       }
 
       return named;
@@ -88,7 +86,7 @@ export class LineRepositories {
     throw new NoRepositoryError(
       this.isEmpty
         ? undefined
-        : 'This line works several repositories, so name which one',
+        : 'Line has several repositories. Please name one.',
     );
   }
 }

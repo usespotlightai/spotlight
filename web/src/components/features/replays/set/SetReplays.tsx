@@ -55,8 +55,8 @@ export function SetReplays({ at, set, replays }: SetReplaysProps) {
     body = (
       <StateBox>
         <EmptyState icon={Play} title="Not replayed yet" action={start}>
-          Replay the set’s runs under a candidate, or under the live config to
-          take a baseline.
+          Replay the set under a candidate. Replay it under the live config for
+          a baseline.
         </EmptyState>
       </StateBox>
     );

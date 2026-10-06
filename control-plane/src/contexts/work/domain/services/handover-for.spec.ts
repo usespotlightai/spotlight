@@ -124,7 +124,7 @@ describe('HandoverFor.declared', () => {
     const handover = declared('done', 'Pull request opened.');
 
     expect(handover.kind).toBe('review');
-    expect(handover.body.value).toContain('does not end where the task stands');
+    expect(handover.body.value).toContain('is not at the end of its line');
   });
 
   it('asks a person when the run names nowhere at all', () => {

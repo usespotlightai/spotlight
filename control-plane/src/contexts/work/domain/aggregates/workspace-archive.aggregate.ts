@@ -77,7 +77,7 @@ export class WorkspaceArchive extends EventRecorder {
 
     if (!continuity || !holder) {
       throw new InvalidWorkspaceArchiveError(
-        'is kept only for work that carries on in a later run',
+        'is kept only for work that continues in a later run',
       );
     }
 
@@ -183,7 +183,7 @@ export class WorkspaceArchive extends EventRecorder {
 
     if (!this.isSealed || !restored.restores(workspaceId, continuity)) {
       throw new InvalidStartingPointError(
-        `names archive ${this.state.id.value}, which the run could not have restored`,
+        `names archive ${this.state.id.value}, which the run did not restore`,
       );
     }
 
@@ -220,7 +220,7 @@ export class WorkspaceArchive extends EventRecorder {
     ) {
       throw new WorkspaceArchiveNotUploadedError(
         this.state.id.value,
-        'was uploaded with a size or SHA-256 other than the one granted',
+        'was uploaded with a different size or SHA-256 than granted',
       );
     }
 
@@ -276,7 +276,7 @@ export class WorkspaceArchive extends EventRecorder {
   removed(now: Date, facts: ArchiveFacts): WorkspaceArchive {
     if (!this.removableAt(now, facts)) {
       throw new InvalidWorkspaceArchiveTransitionError(
-        'is removed only once no later run will restore it',
+        'can be removed only when no later run will restore it',
       );
     }
 

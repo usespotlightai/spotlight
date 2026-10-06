@@ -13,7 +13,6 @@ vi.mock('@/hooks/api/useProbeReplaySet', () => ({
   useProbeReplaySet: () => ({
     mutate: probe,
     isPending: false,
-    isError: false,
     reset: vi.fn(),
   }),
 }));
@@ -22,7 +21,6 @@ vi.mock('@/hooks/api/useStartSanityReplay', () => ({
   useStartSanityReplay: () => ({
     mutate: sanity,
     isPending: false,
-    isError: false,
     reset: vi.fn(),
   }),
 }));
@@ -228,7 +226,7 @@ describe('SetHealth', () => {
     expect(line('judge')).toHaveTextContent('Not checked');
     expect(line('sanity')).toHaveTextContent('Not tried');
     expect(line('checks')).toHaveTextContent(
-      'Check this set to run the station’s check a second time',
+      'Check this set to run the station’s check twice',
     );
 
     await userEvent.click(
@@ -273,7 +271,7 @@ describe('SetHealth', () => {
       ).getByRole('link', { name: 'Fix the queue' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_probe_a');
     expect(line('checks')).toHaveTextContent('Passed, then failed');
-    expect(line('sanity')).toHaveTextContent('opus did not do clearly better');
+    expect(line('sanity')).toHaveTextContent('opus didn’t do clearly better');
     expect(
       within(
         screen.getByRole('list', {
@@ -284,7 +282,7 @@ describe('SetHealth', () => {
     expect(line('sanity')).toHaveTextContent('100% live, 33% stronger');
     expect(
       within(line('sanity') as HTMLElement).getByRole('link', {
-        name: 'Its replay',
+        name: 'View replay',
       }),
     ).toHaveAttribute('href', `${PATH}/replays/replay_stronger`);
   });
@@ -299,7 +297,7 @@ describe('SetHealth', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Start replay' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Choose a model or an effort other than the live config’s.',
+      'Choose a model or effort other than the live config’s.',
     );
     expect(sanity).not.toHaveBeenCalled();
   });
@@ -340,7 +338,7 @@ describe('SetHealth', () => {
     );
 
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'Pick a model the harness offers, or a higher effort than the live config’s medium: high.',
+      'Pick a model the harness offers, or a higher effort. Live effort: medium · Higher efforts: high',
     );
 
     await user.click(screen.getByRole('button', { name: 'Model and effort' }));
@@ -348,7 +346,7 @@ describe('SetHealth', () => {
     fireEvent.click(await screen.findByRole('menuitemradio', { name: 'low' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'That effort is not higher than the live config’s.',
+      'Effort isn’t higher than the live config’s.',
     );
   });
 
@@ -376,7 +374,7 @@ describe('SetHealth', () => {
 
       expect(line('sanity')).toHaveTextContent('Could not be compared');
       expect(line('sanity')).toHaveTextContent(
-        `The live replay it was compared with ${said}, so this can’t be compared.`,
+        `Live replay to compare with ${said}.`,
       );
 
       await userEvent.click(
@@ -398,7 +396,7 @@ describe('SetHealth', () => {
       screen.getByRole('button', { name: 'Try a stronger model' }),
     ).toBeDisabled();
     expect(healthBox()).toHaveTextContent(
-      'The station names no harness, so there is no model to choose.',
+      'Station names no harness. No model to choose.',
     );
   });
 
@@ -437,7 +435,7 @@ describe('SetHealth', () => {
     expect(
       screen.getByRole('button', { name: 'Try a stronger model' }),
     ).toHaveAccessibleDescription(
-      'The station names no harness, so there is no model to choose.',
+      'Station names no harness. No model to choose.',
     );
   });
 
@@ -480,7 +478,7 @@ describe('SetHealth', () => {
     renderHealth(retryable, { harness: null, model: null, effort: null });
 
     expect(
-      healthBox().textContent?.split('The station names no harness').length,
+      healthBox().textContent?.split('Station names no harness').length,
     ).toBe(2);
     expect(
       within(line('sanity') as HTMLElement).getByRole('button', {
@@ -545,7 +543,7 @@ describe('SetHealth', () => {
     );
 
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'Pick a model the harness offers, or a higher effort than the live config’s default, counted as its lowest, low: medium, high.',
+      'Pick a model the harness offers, or a higher effort. Live effort: default (counted as low) · Higher efforts: medium, high',
     );
   });
 });

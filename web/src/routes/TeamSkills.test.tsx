@@ -123,7 +123,7 @@ describe('TeamSkills', () => {
     showing();
 
     expect(
-      screen.getByText('This team defines no skills yet.'),
+      screen.getByText('No skills defined for this team.'),
     ).toBeInTheDocument();
   });
 

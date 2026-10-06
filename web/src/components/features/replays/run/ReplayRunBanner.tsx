@@ -78,7 +78,7 @@ export function ReplayRunBanner({ slug, teamId, run }: ReplayRunBannerProps) {
         </div>
       ) : (
         <p className="text-muted-foreground text-xs">
-          Its replay could not be loaded.
+          Sorry, the replay couldn’t be loaded. Please try again later.
         </p>
       )}
     </div>

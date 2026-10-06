@@ -25,7 +25,9 @@ describe('EmailAddress', () => {
     ['a name around it', 'Ada <ada@example.com>'],
     ['longer than any address is', `${'a'.repeat(250)}@example.com`],
   ])('refuses %s', (_why, written) => {
-    expect(() => EmailAddress.of(written)).toThrow(/not an email address/);
+    expect(() => EmailAddress.of(written)).toThrow(
+      /Email address is not valid/,
+    );
   });
 
   it('is the same address as one written differently', () => {

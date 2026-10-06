@@ -147,7 +147,7 @@ describe('SetChecks', () => {
     expect(screen.getByText('Passed')).toBeInTheDocument();
     expect(screen.getByText('Commit abcdef1')).toBeInTheDocument();
     expect(
-      screen.getByText('Undecided: its replay reached its ceiling'),
+      screen.getByText('Undecided: replay reached its ceiling'),
     ).toBeInTheDocument();
     expect(screen.getByText('2 regressions')).toBeInTheDocument();
     expect(screen.getByText('· attempt 2')).toBeInTheDocument();

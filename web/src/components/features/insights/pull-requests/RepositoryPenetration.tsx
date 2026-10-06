@@ -21,11 +21,11 @@ type RepositoryPenetrationProps = {
 const weekCell = (repository: Repository, week: WeekShare | undefined) =>
   week && week.merged > 0 ? (
     <InsightsLink
-      tab="pull-requests"
+      tab="productivity"
       filter={weekFilter(week.week, repository.repository)}
     >
       <span
-        title={`${week.made + week.touched} of ${week.merged} made by Spotlight or with a Spotlight review task opened`}
+        title={`${week.made + week.touched} of ${week.merged} made or reviewed by Spotlight`}
       >
         {shareShown(week.share)}
       </span>
@@ -63,7 +63,7 @@ export function RepositoryPenetration({
       cell: (repository) =>
         repository.merged > 0 ? (
           <InsightsLink
-            tab="pull-requests"
+            tab="productivity"
             filter={mergedPullRequestsFilter({
               repository: repository.repository,
             })}
@@ -84,8 +84,9 @@ export function RepositoryPenetration({
 
   return (
     <InsightsCard
+      tableOnly
       title="By repository"
-      description="Of what merged in each repository each week, the share Spotlight made or reviewed."
+      description="Share of each repository’s weekly merges that Spotlight made or reviewed."
     >
       <InsightsTable
         label="Spotlight’s share by repository and week"

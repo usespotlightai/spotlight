@@ -105,7 +105,7 @@ const literalIn = (block: Block, field: string, unset: HclLiteral) => {
 
   if (!isLiteral(value)) {
     throw new UnwritableValue(
-      `The station block holds a ${field} Spotlight cannot write into Terraform; change it by hand`,
+      `Station field ${field} cannot be written into Terraform. Please change it by hand.`,
     );
   }
 

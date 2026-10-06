@@ -70,6 +70,8 @@ const run = (over: Partial<StationRunOutcome>): StationRunOutcome => ({
 });
 
 const NEWER: FingerprintGroup = {
+  ran: true,
+  firstRunId: 'run_2',
   fingerprint: 'b7d4a60c8e2f1a9b3d5c7e9f',
   config: null,
   changes: [
@@ -92,6 +94,8 @@ const NEWER: FingerprintGroup = {
 };
 
 const OLDER: FingerprintGroup = {
+  ran: true,
+  firstRunId: 'run_0',
   fingerprint: '3f2a9c1e5b7d4a60',
   config: null,
   changes: [],
@@ -176,7 +180,7 @@ describe('StationOutcomes', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_2');
   });
 
-  it('names runs from before configs were recorded', () => {
+  it('names runs from before the first run with a config', () => {
     outcomes.mockReturnValue({
       stationId: 'station_1',
       groups: [{ ...OLDER, fingerprint: null }],
@@ -185,8 +189,21 @@ describe('StationOutcomes', () => {
     showing();
 
     expect(
-      screen.getByText('Before configs were recorded'),
+      screen.getByText('Before the first run with a config'),
     ).toBeInTheDocument();
+  });
+
+  it('marks a config whose runs never started, apart from the config in force', () => {
+    outcomes.mockReturnValue({
+      stationId: 'station_1',
+      groups: [{ ...NEWER, ran: false, firstRunId: 'run_3' }, OLDER],
+    });
+
+    showing();
+
+    const groups = document.querySelectorAll('[data-slot="config-group"]');
+    expect(groups[0]).toHaveTextContent('Never started');
+    expect(groups[1]).not.toHaveTextContent('Never started');
   });
 
   it('holds the shape of a config while they load', () => {
@@ -196,9 +213,6 @@ describe('StationOutcomes', () => {
 
     expect(
       screen.getByRole('status', { name: 'Loading how its runs turned out' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'How its runs turned out' }),
     ).toBeInTheDocument();
   });
 
@@ -237,9 +251,7 @@ describe('StationOutcomes', () => {
     showing();
 
     expect(
-      screen.getByText(
-        'Only the team’s members can see how its runs turned out',
-      ),
+      screen.getByText('Only team members can see this station’s runs'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });

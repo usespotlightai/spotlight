@@ -88,7 +88,7 @@ describe('BuiltInSkillFiles', () => {
           'spotlight-example',
           written('spotlight-other', 'When to use it.', 'So.'),
         ),
-      ).toThrow(/must be named for its folder, spotlight-example/);
+      ).toThrow(/must be named spotlight-example in its frontmatter/);
     });
 
     it('refuses one that says nothing about when to use it', () => {
@@ -97,7 +97,7 @@ describe('BuiltInSkillFiles', () => {
           'spotlight-example',
           '---\nname: spotlight-example\n---\n\nSo.',
         ),
-      ).toThrow(/give it a description/);
+      ).toThrow(/needs a description/);
     });
 
     it('refuses one that has nothing to say', () => {
@@ -106,7 +106,7 @@ describe('BuiltInSkillFiles', () => {
           'spotlight-example',
           written('spotlight-example', 'When to use it.', ''),
         ),
-      ).toThrow(/nothing to say/);
+      ).toThrow(/needs instructions/);
     });
   });
 });

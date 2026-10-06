@@ -533,7 +533,7 @@ describe('a replay set', () => {
         runId: unanchored.runId,
       })
       .expect(409);
-    expect(refused.body.detail).toContain('never said where it started');
+    expect(refused.body.detail).toContain('never reported a starting point');
     await owner()
       .post(`${teamPath()}/replay-sets/${setId}/entries`, {
         runId: elsewhere.runId,

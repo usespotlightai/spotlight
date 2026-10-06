@@ -46,7 +46,7 @@ const nameOf = (written: unknown): Named => {
 
 class ProposalRefusedError extends Error {
   constructor(readonly problems: readonly ConfigurationProblem[]) {
-    super('The proposal is not valid');
+    super('Candidate proposal is invalid.');
     this.name = 'ProposalRefusedError';
   }
 }

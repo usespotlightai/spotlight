@@ -138,7 +138,7 @@ describe('AgentChat', () => {
       expect(
         screen.getByRole('status', { name: 'Loading the chat' }),
       ).toBeInTheDocument();
-      expect(screen.queryByText(/no such chat/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Chat not found/)).not.toBeInTheDocument();
     });
 
     it('waits for the work too, so it does not open up beneath the reader', () => {
@@ -169,7 +169,7 @@ describe('AgentChat', () => {
         'The chat could not be loaded.',
       );
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
-      expect(screen.queryByText(/no such chat/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Chat not found/)).not.toBeInTheDocument();
     });
 
     it('tries again when asked', async () => {
@@ -189,7 +189,7 @@ describe('AgentChat', () => {
 
     expect(container.querySelector('header')).toBeInTheDocument();
     expect(
-      screen.getByText('There is no such chat for this team.'),
+      screen.getByText('Chat not found on this team.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -216,7 +216,7 @@ describe('AgentChat', () => {
     expect(trace.closest('p')).toHaveTextContent('Help me plan the retries.');
   });
 
-  it('names the station it is improving, leading to it', () => {
+  it('names the station it is improving in the first message, leading to it', () => {
     chat.mockReturnValue(
       planning({
         improving: {
@@ -232,19 +232,20 @@ describe('AgentChat', () => {
 
     renderChat();
 
-    expect(screen.getByRole('link', { name: 'Spec' })).toHaveAttribute(
+    expect(
+      screen.getByRole('link', { name: 'Spec on Delivery' }),
+    ).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_spec',
-    );
-    expect(screen.getByText(/^Improving/)).toHaveTextContent(
-      'Improving Spec on Delivery',
     );
   });
 
   it('names no station where the chat improves none', () => {
     renderChat();
 
-    expect(screen.queryByText(/^Improving/)).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-kind="station"]'),
+    ).not.toBeInTheDocument();
   });
 
   it('says nothing has been said yet in a chat without a word in it', () => {

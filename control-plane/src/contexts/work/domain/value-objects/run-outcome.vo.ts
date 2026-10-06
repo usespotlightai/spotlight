@@ -22,7 +22,7 @@ export class RunOutcome {
   }): RunOutcome {
     if (!Number.isInteger(input.exitCode)) {
       throw new InvalidRunOutcomeError(
-        `must exit with a whole number, but was ${input.exitCode}`,
+        `exit code must be a whole number, not ${input.exitCode}`,
       );
     }
 
@@ -62,28 +62,28 @@ export class RunOutcome {
   ): RunOutcome {
     return RunOutcome.failedWith(
       'unprovisioned',
-      `No runner was provisioned for it in ${attempts} attempts; the last was ${failure.saying}`,
+      `No runner was provisioned after ${attempts} attempts. Last failure: ${failure.saying}`,
     );
   }
 
   static unanswered(because: string, tries: number): RunOutcome {
     return RunOutcome.failedWith(
       'hooks-unanswered',
-      `Its hooks could not be asked after ${tries} tries: ${because}`,
+      `Hooks did not answer after ${tries} tries. Last error: ${because}`,
     );
   }
 
   static lost(attempts: number): RunOutcome {
     return RunOutcome.failedWith(
       'runner-lost',
-      `no runner finished it in ${attempts} attempts`,
+      `No runner finished the run after ${attempts} attempts.`,
     );
   }
 
   static timedOut(attempts: number): RunOutcome {
     return RunOutcome.failedWith(
       'timed-out',
-      `it ran past its host's time limit, and no runner finished it in ${attempts} attempts`,
+      `Sandbox stopped at the host's time limit. No runner finished the run after ${attempts} attempts.`,
     );
   }
 

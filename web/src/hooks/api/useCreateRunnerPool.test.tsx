@@ -2,10 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  RunnerPoolNameTakenError,
-  useCreateRunnerPool,
-} from '@/hooks/api/useCreateRunnerPool';
+import { useCreateRunnerPool } from '@/hooks/api/useCreateRunnerPool';
 
 const createRunnerPool = vi.fn();
 
@@ -74,10 +71,9 @@ describe('useCreateRunnerPool', () => {
     act(() => result.current.mutate('my-computer'));
 
     await waitFor(() =>
-      expect(result.current.error).toBeInstanceOf(RunnerPoolNameTakenError),
-    );
-    expect((result.current.error as RunnerPoolNameTakenError).pool).toBe(
-      'my-computer',
+      expect(result.current.error?.message).toBe(
+        'Pool my-computer already exists. Please choose another name.',
+      ),
     );
   });
 
@@ -88,7 +84,9 @@ describe('useCreateRunnerPool', () => {
     act(() => result.current.mutate('my-computer'));
 
     await waitFor(() =>
-      expect(result.current.error?.message).toBe('Could not create the pool'),
+      expect(result.current.error?.message).toBe(
+        'Sorry, the pool couldn’t be created.',
+      ),
     );
   });
 });

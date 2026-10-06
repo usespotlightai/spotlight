@@ -1,4 +1,8 @@
 import type { ReactNode } from 'react';
+import {
+  CardTitle,
+  useCardHeading,
+} from '@/components/features/insights/CardHeading';
 import { cn } from '@/lib/utils';
 
 export type InsightsColumn<T> = {
@@ -16,6 +20,8 @@ type InsightsTableProps<T> = {
   picked?: string | null;
 };
 
+const HEADER = 'whitespace-nowrap px-2.5 py-1.5 font-normal';
+
 export function InsightsTable<T>({
   label,
   columns,
@@ -23,6 +29,9 @@ export function InsightsTable<T>({
   rowKey,
   picked = null,
 }: InsightsTableProps<T>) {
+  const heading = useCardHeading();
+  const controlled = Boolean(heading?.controls);
+
   return (
     <div className="overflow-x-auto">
       <table
@@ -31,19 +40,39 @@ export function InsightsTable<T>({
         className="w-full min-w-max border-collapse text-xs"
       >
         <thead>
-          <tr className="border-border border-b">
-            {columns.map((column) => (
+          <tr
+            className={cn(
+              'border-border border-b bg-muted/40',
+              heading && 'h-8',
+            )}
+          >
+            {columns.map((column, place) => (
               <th
                 key={column.id}
                 scope="col"
                 className={cn(
-                  'whitespace-nowrap px-2 py-1.5 font-normal text-muted-foreground',
+                  HEADER,
+                  'text-[0.7rem] text-muted-foreground',
                   column.numeric ? 'text-right' : 'text-left',
                 )}
               >
-                {column.header}
+                {heading && place === 0 ? (
+                  <>
+                    <CardTitle heading={heading} />
+                    <span className="sr-only">{column.header}</span>
+                  </>
+                ) : (
+                  column.header
+                )}
               </th>
             ))}
+            {controlled && (
+              <th scope="col" className={cn(HEADER, 'w-0 py-0 text-right')}>
+                <span className="flex items-center justify-end gap-1.5">
+                  {heading?.controls}
+                </span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -54,21 +83,22 @@ export function InsightsTable<T>({
                 picked === null ? undefined : picked === rowKey(row)
               }
               className={cn(
-                'border-border border-b last:border-b-0',
-                picked === rowKey(row) && 'bg-selected',
+                'even:bg-muted/30',
+                picked === rowKey(row) && 'bg-selected even:bg-selected',
               )}
             >
               {columns.map((column) => (
                 <td
                   key={column.id}
                   className={cn(
-                    'whitespace-nowrap px-2 py-1.5 text-foreground',
+                    'whitespace-nowrap px-2.5 py-1.5 text-foreground',
                     column.numeric && 'text-right tabular-nums',
                   )}
                 >
                   {column.cell(row)}
                 </td>
               ))}
+              {controlled && <td aria-hidden />}
             </tr>
           ))}
         </tbody>

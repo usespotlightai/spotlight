@@ -98,7 +98,7 @@ describe('IntegrationDefinition', () => {
         teamId: TEAM,
         by: BY,
       }),
-    ).toThrow(/definition of another host/);
+    ).toThrow(/compiled for another host/);
   });
 
   it('takes a new definition of its own host, keeping its id and version', () => {
@@ -146,7 +146,7 @@ describe('IntegrationDefinition', () => {
 
   it('is retired only once no station gives what it offers', () => {
     expect(() => standing(['linear.comment']).retired(GIVEN, BY)).toThrow(
-      /linear.comment, which the station delivery\/implementation uses/,
+      /linear.comment \(used by the station delivery\/implementation\)/,
     );
 
     const retired = standing(['linear.comment']).retired(ToolUses.none(), BY);

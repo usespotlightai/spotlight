@@ -12,7 +12,6 @@ vi.mock('@/hooks/api/useAddReplaySetEntry', () => ({
   useAddReplaySetEntry: () => ({
     mutate,
     isPending: false,
-    isError: false,
     reset: vi.fn(),
   }),
 }));
@@ -96,7 +95,7 @@ describe('AddRunsDialog', () => {
     expect(suggestions).toHaveTextContent('Accepted');
     expect(
       screen.getByText(
-        'Recent runs that turned out ways the set has few of. Nothing is added until you add it.',
+        'Recent runs with outcomes the set has few of. Nothing is added until you add it.',
       ),
     ).toBeInTheDocument();
 
@@ -122,7 +121,9 @@ describe('AddRunsDialog', () => {
       screen.getByRole('list', { name: 'Suggested to even the mix' }),
     ).toHaveTextContent('Split the invoice job');
     expect(
-      screen.queryByText('This station has no ended runs to replay yet.'),
+      screen.queryByText(
+        'No ended runs to replay yet. Runs appear here once they end.',
+      ),
     ).not.toBeInTheDocument();
   });
 

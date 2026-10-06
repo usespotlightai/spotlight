@@ -16,7 +16,7 @@ export function OverviewSkeleton() {
     <div
       role="status"
       aria-label="Loading the overview"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <InsightsTilesSkeleton labels={TILES} />
       <InsightsCardSkeleton title="Output against cost" rows={6} />

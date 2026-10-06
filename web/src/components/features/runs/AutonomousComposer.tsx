@@ -20,7 +20,7 @@ export function AutonomousComposer({
       <ChatInput
         slug={slug}
         label="Message the agent"
-        placeholder="This agent runs autonomously and can’t receive messages."
+        placeholder="Agent runs autonomously. It can’t receive messages."
         disabled
         settings={<FixedAgent agent={agent} />}
         below={

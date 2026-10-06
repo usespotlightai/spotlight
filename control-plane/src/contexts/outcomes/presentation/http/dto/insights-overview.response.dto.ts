@@ -188,6 +188,13 @@ export class ConfigMarkerResponseDto {
   readonly fingerprint: string;
 
   @ApiProperty({
+    example: '9b1d…',
+    description:
+      'The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too',
+  })
+  readonly previousFingerprint: string;
+
+  @ApiProperty({
     example: '2026-09-21T09:00:00.000Z',
     description:
       'When the first run with it started, or ended where it never started',
@@ -201,6 +208,7 @@ export class ConfigMarkerResponseDto {
     this.lineId = marker.lineId;
     this.stationId = marker.stationId;
     this.fingerprint = marker.fingerprint;
+    this.previousFingerprint = marker.previousFingerprint;
     this.firstRunAt = marker.firstRunAt;
     this.runId = marker.runId;
   }
@@ -240,6 +248,13 @@ export class SignalReadingResponseDto {
   readonly trails: boolean;
 
   @ApiProperty({
+    example: 0.15,
+    description:
+      'The line it crossed to be flagged: the lower of the period before and the team, each made 25% worse and, for a share, at least 5 points worse',
+  })
+  readonly flaggedAbove: number;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     example: 'USD',
@@ -255,6 +270,7 @@ export class SignalReadingResponseDto {
     this.team = reading.team;
     this.rose = reading.rose;
     this.trails = reading.trails;
+    this.flaggedAbove = reading.flaggedAbove;
     this.currency = reading.currency;
   }
 }

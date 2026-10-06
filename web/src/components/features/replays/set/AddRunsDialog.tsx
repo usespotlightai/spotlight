@@ -16,7 +16,6 @@ import {
 import { useAddReplaySetEntry } from '@/hooks/api/useAddReplaySetEntry';
 import { useReplayableRuns } from '@/hooks/api/useReplayableRuns';
 import { useReplaySetSuggestions } from '@/hooks/api/useReplaySetSuggestions';
-import { messageOf } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 
@@ -69,7 +68,7 @@ export function AddRunsDialog({
   } else if ((runs.data ?? []).length === 0) {
     body = (
       <p className="px-2 py-6 text-center text-muted-foreground text-sm">
-        This station has no ended runs to replay yet.
+        No ended runs to replay yet. Runs appear here once they end.
       </p>
     );
   } else if (listed.length > 0) {
@@ -98,8 +97,8 @@ export function AddRunsDialog({
         <DialogHeader>
           <DialogTitle>Add runs to {set.name}</DialogTitle>
           <DialogDescription>
-            The station’s latest ended runs. While a run is in the set,
-            Spotlight keeps the workspace it started from.
+            Station’s latest ended runs. Spotlight keeps a run’s starting
+            workspace while it’s in the set.
           </DialogDescription>
         </DialogHeader>
 
@@ -112,12 +111,6 @@ export function AddRunsDialog({
           />
           {body}
         </div>
-
-        {add.isError && (
-          <p role="alert" className="text-destructive text-xs">
-            {messageOf(add.error, 'Could not add the run')}
-          </p>
-        )}
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline" size="sm" />}>

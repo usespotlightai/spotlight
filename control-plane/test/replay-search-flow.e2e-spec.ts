@@ -1462,7 +1462,7 @@ describe('a search for a better station config', () => {
       teamId: team.teamId.value,
       form: 'ended',
       headline:
-        'The search for a better Build config stalled: nothing left the config can fix',
+        'The search for a better Build config ended with nothing the config can fix',
       link: `lines/${DELIVERY}/stations/${BUILD}/searches/${id}`,
       linkLabel: 'Open the search',
       unread: true,
@@ -1470,7 +1470,7 @@ describe('a search for a better station config', () => {
     });
     expect(notice?.points).toEqual([
       expect.stringMatching(
-        /^Two iterations in a row found nothing better, so its agent looked into the \d+ tasks? the best config so far still fails, and found none a change to the config could fix\./,
+        /^No config change can fix the \d+ tasks? still failing\. Unspent budget is kept\.$/,
       ),
       expect.stringMatching(
         /^Fix the judge’s rubric, for “Drain (the )?queue[^”]*”: Drop the line of the rubric that asks for tests\.$/,

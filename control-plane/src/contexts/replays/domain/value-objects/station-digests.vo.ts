@@ -10,9 +10,7 @@ export class StationDigests {
 
   static of(input: { behaviour: string; scoring: string }): StationDigests {
     if (!SHA256_HEX.test(input.behaviour) || !SHA256_HEX.test(input.scoring)) {
-      throw new InvalidCandidateError(
-        'is digested, how it runs and how it is scored, as SHA-256s in lowercase hex',
-      );
+      throw new InvalidCandidateError('digests must be lowercase hex SHA-256s');
     }
 
     return new StationDigests(input.behaviour, input.scoring);

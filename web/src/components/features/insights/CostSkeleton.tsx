@@ -7,12 +7,12 @@ export function CostSkeleton() {
     <div
       role="status"
       aria-label="Loading the cost"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <InsightsTilesSkeleton
         labels={['Spend', 'Runs with no price', 'Cache share']}
       />
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         {COST_DIMENSIONS.map((dimension) => (
           <InsightsCardSkeleton
             key={dimension.id}

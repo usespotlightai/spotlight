@@ -39,12 +39,12 @@ export const configChangesOf = (
 
 const SWITCHES: readonly ConfigChange['part'][] = ['decisions', 'memories'];
 
-const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {
+export const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {
   repository: 'setup changed',
   profile: 'settings changed',
 };
 
-const shownValue = (
+export const shownValue = (
   part: ConfigChange['part'],
   value: string | null,
 ): string | null => (value && part === 'image' ? imageShown(value) : value);
@@ -92,3 +92,13 @@ export const changePhrase = (change: ConfigChange): string => {
     ? namedPhrase(change, label, change.name)
     : valuePhrase(change, label);
 };
+
+const MOST_BRIEF = 32;
+
+const brief = (value: string | null): boolean =>
+  value === null || (value.length <= MOST_BRIEF && !value.includes('\n'));
+
+export const changeBrief = (change: ConfigChange): string =>
+  brief(change.was) && brief(change.now)
+    ? changePhrase(change)
+    : `${PART_LABELS[change.part]}${change.name ? ` ${change.name}` : ''} ${change.kind === 'changed' ? 'edited' : change.kind}`;

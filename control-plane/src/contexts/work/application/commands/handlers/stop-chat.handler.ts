@@ -23,7 +23,7 @@ export class StopChatHandler
       const run = await this.runs.findById(runId);
 
       if (!run) {
-        throw new UnknownRunError(`there is no run ${runId.value}`);
+        throw new UnknownRunError(`Run ${runId.value} not found.`);
       }
 
       const stopping = run.requestStop(this.clock.now());

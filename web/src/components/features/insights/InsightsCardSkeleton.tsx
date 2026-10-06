@@ -10,9 +10,11 @@ export function InsightsCardSkeleton({
   rows,
 }: InsightsCardSkeletonProps) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
-      <p className="font-medium text-foreground text-sm">{title}</p>
-      <div className="flex flex-col gap-2">
+    <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+      <p className="flex min-h-8 items-center border-border border-b bg-muted/40 px-2.5 py-1 font-medium text-foreground text-xs">
+        {title}
+      </p>
+      <div className="flex flex-col gap-2 p-2.5">
         {Array.from({ length: rows }, (_, at) => (
           <SkeletonLine
             // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity

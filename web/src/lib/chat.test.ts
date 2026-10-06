@@ -4,8 +4,6 @@ import {
   chatPath,
   improvingHandedOver,
   momentsOf,
-  newlyProposed,
-  type Proposal,
   tracesHandedOver,
   turnsOf,
 } from '@/lib/chat';
@@ -133,6 +131,8 @@ describe('momentsOf', () => {
             stationId: 'station_1',
             stationName: 'Backlog',
             stationColor: '#a3a8b0',
+            stationPosition: 1,
+            stationCount: 4,
             title: 'Back off exponentially',
             description: null,
             state: 'open',
@@ -177,42 +177,6 @@ describe('turnsOf', () => {
         ['Split it up.', 0],
       ],
     );
-  });
-});
-
-describe('newlyProposed', () => {
-  const proposed = (
-    position: number,
-    state: Proposal['state'] = 'open',
-  ): ChatMessage =>
-    message({
-      position,
-      kind: 'proposed',
-      proposal: {
-        lineId: 'line_1',
-        lineName: 'Default',
-        stationId: 'station_1',
-        stationName: 'Backlog',
-        stationColor: '#a3a8b0',
-        title: `Task ${position}`,
-        description: null,
-        state,
-        taskId: null,
-      },
-    });
-
-  it('names the latest open proposal among what arrived since', () => {
-    expect(newlyProposed([message({}), proposed(1), proposed(2)], 1)).toBe(2);
-  });
-
-  it('names nothing when only words arrived, or proposals already seen', () => {
-    expect(
-      newlyProposed([proposed(0), message({ position: 1 })], 1),
-    ).toBeNull();
-  });
-
-  it('never opens a proposal that is already settled', () => {
-    expect(newlyProposed([message({}), proposed(1, 'created')], 1)).toBeNull();
   });
 });
 

@@ -4,15 +4,8 @@ import { GuardsChangesToggle } from '@/components/features/replays/set/GuardsCha
 import type { ReplaySet } from '@/lib/replay';
 
 const mutate = vi.fn();
-const error = vi.fn((): unknown => null);
-
 vi.mock('@/hooks/api/useGuardChanges', () => ({
-  useGuardChanges: () => ({
-    mutate,
-    isPending: false,
-    isError: error() !== null,
-    error: error(),
-  }),
+  useGuardChanges: () => ({ mutate, isPending: false }),
 }));
 
 const SET: ReplaySet = {
@@ -51,7 +44,6 @@ const SET: ReplaySet = {
 describe('GuardsChangesToggle', () => {
   beforeEach(() => {
     mutate.mockClear();
-    error.mockReturnValue(null);
   });
 
   it('turns guarding on for the set', () => {
@@ -98,20 +90,6 @@ describe('GuardsChangesToggle', () => {
       <GuardsChangesToggle teamId="team_1" set={SET} replayCheck={null} />,
     );
 
-    expect(
-      screen.getByText(/The line sets no replay_check/),
-    ).toBeInTheDocument();
-  });
-
-  it('explains that another set at the station guards its changes already', () => {
-    error.mockReturnValue({ status: 409, detail: 'Guarded elsewhere' });
-
-    render(
-      <GuardsChangesToggle teamId="team_1" set={SET} replayCheck={null} />,
-    );
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Another replay set at this station guards its changes already',
-    );
+    expect(screen.getByText(/Line sets no replay_check/)).toBeInTheDocument();
   });
 });

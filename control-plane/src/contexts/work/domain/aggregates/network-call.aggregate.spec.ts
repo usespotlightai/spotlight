@@ -81,7 +81,7 @@ describe('NetworkCall', () => {
 
   it('is never handed out once lapsed', () => {
     expect(() => queued().claimedBy(HOST, later(15_000))).toThrow(
-      'A network call cannot be claimed once it is lapsed',
+      'Network call call_1 is lapsed. It cannot be claimed.',
     );
   });
 
@@ -106,7 +106,7 @@ describe('NetworkCall', () => {
       .answeredWith(HOST, OK, later(2_000));
 
     expect(() => answered.answeredWith(HOST, OK, later(3_000))).toThrow(
-      'A network call has already been answered',
+      'Network call call_1 was already answered.',
     );
   });
 
@@ -115,12 +115,12 @@ describe('NetworkCall', () => {
       queued()
         .claimedBy(HOST, later(1_000))
         .answeredWith(HOST, OK, later(15_000)),
-    ).toThrow('A network call lapsed before it was answered');
+    ).toThrow('Network call call_1 lapsed before it was answered.');
   });
 
   it('takes no answer before a host claims it', () => {
     expect(() => queued().answeredWith(HOST, OK, later(1_000))).toThrow(
-      'A network call cannot be answered before a host claims it',
+      'Network call call_1 is not claimed by a host yet.',
     );
   });
 
@@ -162,10 +162,10 @@ describe('NetworkCall', () => {
     expect(given.stateAt(later(60_000))).toBe('given-up');
     expect(given.request.headers).toEqual({});
     expect(() => given.answeredWith(HOST, OK, later(6_000))).toThrow(
-      'A network call was given up on, as the hook stopped waiting for it',
+      'Network call call_1 was given up. The hook stopped waiting for it.',
     );
     expect(() => queued().givenUp(later(1)).claimedBy(HOST, later(2))).toThrow(
-      'A network call was given up on, as the hook stopped waiting for it',
+      'Network call call_1 was given up. The hook stopped waiting for it.',
     );
   });
 

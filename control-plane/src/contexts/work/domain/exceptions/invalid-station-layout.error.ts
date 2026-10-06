@@ -2,7 +2,7 @@ export class InvalidStationLayoutError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`A line's stations ${reason}`);
+    super(`Line stations ${reason}.`);
     this.name = 'InvalidStationLayoutError';
   }
 }

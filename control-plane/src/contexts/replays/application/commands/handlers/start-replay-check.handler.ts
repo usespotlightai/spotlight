@@ -52,14 +52,14 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 
 class CheckRefusedError extends Error {
   constructor(readonly problems: readonly ConfigurationProblem[]) {
-    super('The planned station is not valid');
+    super('Planned station is invalid.');
     this.name = 'CheckRefusedError';
   }
 }
 
 class NothingToReplayError extends Error {
   constructor(readonly keptLive: readonly ScoringField[]) {
-    super('The planned station runs as the live one does');
+    super('Planned station runs the same as the live one.');
     this.name = 'NothingToReplayError';
   }
 }

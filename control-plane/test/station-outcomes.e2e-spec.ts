@@ -28,6 +28,11 @@ import { RecordJudgeScore } from '@outcomes/application/services/record-judge-sc
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
+import {
+  lastConfigRunsFrom,
+  stretchStartsFrom,
+} from '@outcomes/domain/outcomes.fake-spec';
+import type { StretchBound } from '@outcomes/domain/services/config-stretches';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
@@ -55,8 +60,10 @@ import { TASK_DELETED } from '@shared-kernel/application/integration-events/task
 import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -91,6 +98,13 @@ const configOf = (fingerprint: string, model: string): ConfigInOrder => ({
 });
 
 const ended = new Map<string, EndedRun>();
+
+const QUIET: LoggerPort = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+};
 
 const endedRun = (
   runId: string,
@@ -224,7 +238,7 @@ beforeAll(async () => {
   const reviews = new DrizzlePendingReviews(context);
   forgotten = new DrizzleForgotten(context);
   subscribers = outcomesSubscribers({
-    ending: new NoteRunEnded(work, records, forgotten, context),
+    ending: new NoteRunEnded(work, records, forgotten, context, QUIET),
     superseding: new NoteRunSuperseded(records, forgotten, context, {
       now: () => HEARD_AT,
       sleep: async () => {},
@@ -337,7 +351,11 @@ afterAll(async () => {
 
 describe('how a station’s runs turned out', () => {
   it('records an ended run with its config and round', async () => {
-    endedRun('run_1', { endedAt: at(9), fingerprint: SONNET });
+    endedRun('run_1', {
+      startedAt: at(8),
+      endedAt: at(9),
+      fingerprint: SONNET,
+    });
 
     await runEnded('run_1', { outcome: 'failed', failure: 'exited' });
 
@@ -384,7 +402,12 @@ describe('how a station’s runs turned out', () => {
       workspaceId: WORKSPACE,
       passed: true,
     });
-    endedRun('run_2', { endedAt: at(11), fingerprint: OPUS, round: 2 });
+    endedRun('run_2', {
+      startedAt: at(10),
+      endedAt: at(11),
+      fingerprint: OPUS,
+      round: 2,
+    });
     await runEnded('run_2');
     await deliver('outcomes.record-checked-change', {
       kind: CHANGE_CHECKED,
@@ -433,69 +456,148 @@ describe('how a station’s runs turned out', () => {
     });
   });
 
-  it('groups the station’s runs by config, the newest first', async () => {
-    endedRun('run_3', { endedAt: at(12), fingerprint: OPUS, taskId: 'task_2' });
+  it('groups the station’s runs at each config change in start order, the newest first, keeping a run withdrawn before it ran another config apart from the group in force', async () => {
+    endedRun('run_3', {
+      startedAt: at(11),
+      endedAt: at(12),
+      fingerprint: OPUS,
+      taskId: 'task_2',
+    });
     await runEnded('run_3', { stopped: true });
+    endedRun('run_withdrawn', {
+      endedAt: new Date('2026-09-30T10:30:00.000Z'),
+      fingerprint: SONNET,
+    });
+    await runEnded('run_withdrawn', { outcome: 'withdrawn' });
+    endedRun('run_4', {
+      startedAt: at(13),
+      endedAt: at(14),
+      fingerprint: SONNET,
+    });
+    await runEnded('run_4');
 
     const outcomes = await list();
 
     expect(
       outcomes.groups.map((group) => ({
+        firstRunId: group.firstRunId,
         fingerprint: group.fingerprint,
+        ran: group.ran,
         model: group.config?.model,
         changes: group.changes.map((each) => [each.was, each.now]),
         runs: group.runs.map((each) => [each.runId, each.ending]),
-        tally: group.tally,
       })),
     ).toEqual([
       {
-        fingerprint: OPUS,
-        model: 'opus',
-        changes: [['sonnet', 'opus']],
-        runs: [
-          ['run_3', 'stopped'],
-          ['run_2', 'completed'],
-        ],
-        tally: {
-          runs: 2,
-          withdrawn: 0,
-          failed: 0,
-          stopped: 1,
-          checksPassed: 1,
-          checksFailed: 0,
-          accepted: 0,
-          sentBack: 0,
-          handedOn: 0,
-          merged: 1,
-          cost: { amount: 0.8, currency: 'USD' },
-          unpriced: 0,
-          mixedCurrencies: false,
-          medianMs: 60_000,
-          p90Ms: 60_000,
-        },
+        firstRunId: 'run_4',
+        fingerprint: SONNET,
+        ran: true,
+        model: 'sonnet',
+        changes: [['opus', 'sonnet']],
+        runs: [['run_4', 'completed']],
       },
       {
+        firstRunId: 'run_3',
+        fingerprint: OPUS,
+        ran: true,
+        model: 'opus',
+        changes: [],
+        runs: [['run_3', 'stopped']],
+      },
+      {
+        firstRunId: 'run_withdrawn',
         fingerprint: SONNET,
+        ran: false,
+        model: 'sonnet',
+        changes: [['opus', 'sonnet']],
+        runs: [['run_withdrawn', 'withdrawn']],
+      },
+      {
+        firstRunId: 'run_2',
+        fingerprint: OPUS,
+        ran: true,
+        model: 'opus',
+        changes: [['sonnet', 'opus']],
+        runs: [['run_2', 'completed']],
+      },
+      {
+        firstRunId: 'run_1',
+        fingerprint: SONNET,
+        ran: true,
         model: 'sonnet',
         changes: [],
         runs: [['run_1', 'failed']],
-        tally: {
-          runs: 1,
-          withdrawn: 0,
-          failed: 1,
-          stopped: 0,
-          checksPassed: 0,
-          checksFailed: 1,
-          accepted: 0,
-          sentBack: 1,
-          handedOn: 0,
-          merged: 1,
-          cost: { amount: 0.4, currency: 'USD' },
-          unpriced: 0,
-          mixedCurrencies: false,
-          medianMs: 60_000,
-          p90Ms: 60_000,
-        },
+      },
+    ]);
+    expect(outcomes.groups[2]?.tally).toMatchObject({
+      runs: 0,
+      withdrawn: 1,
+    });
+    expect(outcomes.groups[1]?.tally).toMatchObject({
+      runs: 1,
+      withdrawn: 0,
+      stopped: 1,
+      cost: { amount: 0.4, currency: 'USD' },
+    });
+    expect(outcomes.groups[3]?.tally).toMatchObject({
+      runs: 1,
+      withdrawn: 0,
+      stopped: 0,
+      checksPassed: 1,
+      merged: 1,
+      cost: { amount: 0.4, currency: 'USD' },
+    });
+    expect(outcomes.groups[4]?.tally).toMatchObject({
+      runs: 1,
+      failed: 1,
+      checksFailed: 1,
+      sentBack: 1,
+      merged: 1,
+    });
+    expect(outcomes.inForce).toEqual({
+      tally: expect.objectContaining({ runs: 1, withdrawn: 0 }),
+    });
+  });
+
+  it('carries on the config of the station’s last config run before the oldest listed run, setting the oldest group against it', async () => {
+    const lastOf = async (last: number) =>
+      (
+        await listing.execute(
+          new ListStationOutcomesQuery(
+            'team_1',
+            'line_1',
+            'station_1',
+            'user_ada',
+            last,
+          ),
+        )
+      ).groups.map((group) => ({
+        firstRunId: group.firstRunId,
+        fingerprint: group.fingerprint,
+        changes: group.changes.map((each) => [each.was, each.now]),
+        runs: group.runs.map((each) => each.runId),
+      }));
+
+    expect(await lastOf(2)).toEqual([
+      {
+        firstRunId: 'run_4',
+        fingerprint: SONNET,
+        changes: [['opus', 'sonnet']],
+        runs: ['run_4'],
+      },
+      {
+        firstRunId: 'run_3',
+        fingerprint: OPUS,
+        changes: [],
+        runs: ['run_3'],
+      },
+    ]);
+    expect(await lastOf(1)).toEqual([
+      {
+        firstRunId: 'run_4',
+        fingerprint: SONNET,
+        changes: [['opus', 'sonnet']],
+        runs: ['run_4'],
       },
     ]);
   });
@@ -627,5 +729,393 @@ describe('how a station’s runs turned out', () => {
     });
 
     expect(await chats.of('chat_gone')).toBeNull();
+  });
+});
+
+describe('the config stretches a station’s runs make', () => {
+  let stretches: DrizzleRunRecordRepository;
+  const plannedRuns: string[] = [];
+
+  interface Planned {
+    readonly runId: string;
+    readonly fingerprint: string | null;
+    readonly startedAt: Date | null;
+    readonly endedAt: Date;
+    readonly outcome?: 'withdrawn' | 'failed';
+  }
+
+  const minute = (minutes: number) =>
+    new Date(Date.UTC(2026, 9, 1, 9, minutes));
+
+  const planned = (
+    runId: string,
+    fingerprint: string | null,
+    startedAt: number | null,
+    change: { endedAt?: number; outcome?: 'withdrawn' | 'failed' } = {},
+  ): Planned => ({
+    runId,
+    fingerprint,
+    startedAt: startedAt === null ? null : minute(startedAt),
+    endedAt: minute(change.endedAt ?? (startedAt ?? 0) + 30),
+    outcome: change.outcome,
+  });
+
+  const ranAt = async (
+    stationId: string,
+    runs: readonly Planned[],
+    teamId = 'team_1',
+  ) => {
+    const noting = new NoteRunEnded(work, stretches, forgotten, context, QUIET);
+
+    for (const run of runs) {
+      endedRun(run.runId, {
+        stationId,
+        teamId,
+        taskId: `task_${teamId}_${stationId}`,
+        fingerprint: run.fingerprint,
+        startedAt: run.startedAt,
+        endedAt: run.endedAt,
+      });
+      plannedRuns.push(run.runId);
+    }
+    for (const run of [...runs].reverse()) {
+      const outcome = run.outcome ?? 'completed';
+
+      await noting.ended({
+        runId: run.runId,
+        outcome,
+        stopped: false,
+        failure: outcome === 'failed' ? 'exited' : null,
+        asked: false,
+      });
+    }
+  };
+
+  const EVER = new Date(0);
+
+  const startsFrom = async (
+    bounds: readonly StretchBound[],
+    teamId = 'team_1',
+  ) => {
+    const named = (
+      starts: readonly {
+        runId: RunId;
+        stationId: string;
+        fingerprint: string;
+        changedAt: Date;
+      }[],
+    ) =>
+      starts.map(
+        (each) =>
+          `${each.stationId} ${each.runId.value} ${each.fingerprint.slice(0, 1)}@${each.changedAt.getUTCMinutes()}`,
+      );
+    const fromSql = named(
+      await context.run(() =>
+        stretches.stretchStarts(TeamId.of(teamId), bounds),
+      ),
+    );
+    const records = await stretches.ofRuns(
+      plannedRuns.map((each) => RunId.of(each)),
+    );
+    const fromDomain = named(
+      stretchStartsFrom(
+        records.filter((each) => each.end?.place.teamId.value === teamId),
+        bounds,
+      ),
+    );
+
+    expect([...fromSql].sort()).toEqual([...fromDomain].sort());
+
+    return fromSql;
+  };
+
+  const startsAt = (
+    stationIds: readonly string[],
+    from = EVER,
+    teamId = 'team_1',
+  ) =>
+    startsFrom(
+      stationIds.map((stationId) => ({ stationId, from })),
+      teamId,
+    );
+
+  beforeAll(async () => {
+    stretches = new DrizzleRunRecordRepository(context, {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher);
+
+    await ranAt('station_aba', [
+      planned('aba_1', SONNET, 1),
+      planned('aba_2', OPUS, 2),
+      planned('aba_3', SONNET, 3),
+      planned('aba_4', SONNET, 4),
+    ]);
+    await ranAt('station_aba', [planned('aba_elsewhere', OPUS, 3)], 'team_2');
+    await ranAt('station_tie', [
+      planned('tie_b', OPUS, 5),
+      planned('tie_a', SONNET, 5),
+      planned('tie_c', SONNET, 6),
+    ]);
+    await ranAt('station_unstarted', [
+      planned('unstarted_1', SONNET, 1),
+      planned('unstarted_withdrawn', OPUS, null, {
+        endedAt: 2,
+        outcome: 'withdrawn',
+      }),
+      planned('unstarted_2', SONNET, 3),
+      planned('unstarted_failed', OPUS, null, {
+        endedAt: 4,
+        outcome: 'failed',
+      }),
+      planned('unstarted_3', SONNET, 5),
+    ]);
+    await ranAt('station_unconfigured', [
+      planned('unconfigured_1', SONNET, 1),
+      planned('unconfigured_none', null, 2),
+      planned('unconfigured_not_sha', 'not-a-sha-256', 3),
+      planned('unconfigured_2', SONNET, 4),
+      planned('unconfigured_late', OPUS, 0, { endedAt: 50 }),
+    ]);
+  });
+
+  it('starts a stretch at each run that began after a run of another config or none, going from A to B and back to A', async () => {
+    expect(await startsAt(['station_aba'])).toEqual([
+      'station_aba aba_1 a@1',
+      'station_aba aba_2 b@2',
+      'station_aba aba_3 a@3',
+    ]);
+  });
+
+  it('reads only the team’s runs, though another team ran a station of the same id', async () => {
+    expect(await startsAt(['station_aba'], EVER, 'team_2')).toEqual([
+      'station_aba aba_elsewhere b@3',
+    ]);
+  });
+
+  it('orders runs that began at the same instant by run', async () => {
+    expect(await startsAt(['station_tie'])).toEqual([
+      'station_tie tie_a a@5',
+      'station_tie tie_b b@5',
+      'station_tie tie_c a@6',
+    ]);
+  });
+
+  it('passes over a run that never started, withdrawn or failed before starting, so a provisioning failure on B between two A runs makes no change', async () => {
+    expect(await startsAt(['station_unstarted'])).toEqual([
+      'station_unstarted unstarted_1 a@1',
+    ]);
+  });
+
+  it('passes over runs that ran no config as if they were not there, and orders a run that ended late by when it began', async () => {
+    expect(await startsAt(['station_unconfigured'])).toEqual([
+      'station_unconfigured unconfigured_late b@0',
+      'station_unconfigured unconfigured_1 a@1',
+    ]);
+  });
+
+  it('reads from a run on, telling runs that began at the same instant apart by run', async () => {
+    expect(
+      await startsFrom([
+        {
+          stationId: 'station_tie',
+          from: minute(5),
+          fromRun: RunId.of('tie_b'),
+        },
+      ]),
+    ).toEqual(['station_tie tie_b b@5', 'station_tie tie_c a@6']);
+    expect(
+      await startsFrom([
+        {
+          stationId: 'station_tie',
+          from: minute(5),
+          fromRun: RunId.of('tie_c'),
+        },
+      ]),
+    ).toEqual(['station_tie tie_c a@6']);
+  });
+
+  it('reads several stations at once, only those asked', async () => {
+    expect(await startsAt(['station_aba', 'station_tie'])).toEqual([
+      'station_aba aba_1 a@1',
+      'station_aba aba_2 b@2',
+      'station_aba aba_3 a@3',
+      'station_tie tie_a a@5',
+      'station_tie tie_b b@5',
+      'station_tie tie_c a@6',
+    ]);
+    expect(await startsAt([])).toEqual([]);
+  });
+
+  it('reads from a time on, telling a run there that changed config from one that kept it by the run before the time, A to B and back to A across it', async () => {
+    expect(await startsAt(['station_aba'], minute(2))).toEqual([
+      'station_aba aba_2 b@2',
+      'station_aba aba_3 a@3',
+    ]);
+    expect(
+      await startsAt(['station_aba'], new Date(minute(2).getTime() + 30_000)),
+    ).toEqual(['station_aba aba_3 a@3']);
+    expect(await startsAt(['station_aba'], minute(4))).toEqual([]);
+    expect(await startsAt(['station_tie'], minute(6))).toEqual([
+      'station_tie tie_c a@6',
+    ]);
+    expect(await startsAt(['station_unconfigured'], minute(1))).toEqual([
+      'station_unconfigured unconfigured_1 a@1',
+    ]);
+    expect(await startsAt(['station_unconfigured'], minute(2))).toEqual([]);
+  });
+
+  it('reads each station from its own time, taking the earliest when one is asked twice', async () => {
+    expect(
+      await startsFrom([
+        { stationId: 'station_aba', from: minute(4) },
+        { stationId: 'station_tie', from: minute(6) },
+        { stationId: 'station_aba', from: minute(3) },
+      ]),
+    ).toEqual(['station_aba aba_3 a@3', 'station_tie tie_c a@6']);
+  });
+
+  it('reads the last run that ran a config before each station’s time, passing over runs that never started and other teams’ runs', async () => {
+    const lastFrom = async (
+      bounds: readonly StretchBound[],
+      teamId = 'team_1',
+    ) => {
+      const fromSql = (
+        await context.run(() =>
+          stretches.lastConfigRunsBefore(TeamId.of(teamId), bounds),
+        )
+      )
+        .map((each) => each.runId.value)
+        .sort();
+      const records = await stretches.ofRuns(
+        plannedRuns.map((each) => RunId.of(each)),
+      );
+      const fromDomain = lastConfigRunsFrom(
+        records.filter((each) => each.end?.place.teamId.value === teamId),
+        bounds,
+      )
+        .map((each) => each.runId.value)
+        .sort();
+
+      expect(fromSql).toEqual(fromDomain);
+
+      return fromSql;
+    };
+
+    expect(
+      await lastFrom([
+        { stationId: 'station_aba', from: minute(3) },
+        { stationId: 'station_unstarted', from: minute(5) },
+        { stationId: 'station_tie', from: minute(5) },
+        { stationId: 'station_unconfigured', from: minute(4) },
+      ]),
+    ).toEqual(['aba_2', 'unconfigured_1', 'unstarted_2']);
+    expect(
+      await lastFrom([{ stationId: 'station_aba', from: minute(4) }], 'team_2'),
+    ).toEqual(['aba_elsewhere']);
+    expect(
+      await lastFrom([
+        { stationId: 'station_aba', from: minute(9) },
+        { stationId: 'station_aba', from: minute(2) },
+      ]),
+    ).toEqual(['aba_1']);
+    expect(
+      await lastFrom([
+        {
+          stationId: 'station_tie',
+          from: minute(5),
+          fromRun: RunId.of('tie_b'),
+        },
+      ]),
+    ).toEqual(['tie_a']);
+    expect(
+      await lastFrom([
+        {
+          stationId: 'station_tie',
+          from: minute(5),
+          fromRun: RunId.of('tie_a'),
+        },
+      ]),
+    ).toEqual([]);
+    expect(await lastFrom([])).toEqual([]);
+  });
+  const listedAt = async (stationId: string, last: number | null = null) =>
+    (
+      await listing.execute(
+        new ListStationOutcomesQuery(
+          'team_1',
+          'line_1',
+          stationId,
+          'user_ada',
+          last,
+        ),
+      )
+    ).groups.map((group) => ({
+      firstRunId: group.firstRunId,
+      fingerprint: group.fingerprint,
+      ran: group.ran,
+      changes: group.changes.map((each) => [each.was, each.now]),
+      runs: group.runs.map((each) => each.runId),
+      failed: group.tally.failed,
+    }));
+
+  it('lists runs meant for a config that failed to provision apart from the group in force, A, B never ran, A again', async () => {
+    await ranAt('station_never', [
+      planned('never_a1', SONNET, 1),
+      planned('never_b1', OPUS, null, { endedAt: 2, outcome: 'failed' }),
+      planned('never_b2', OPUS, null, { endedAt: 3, outcome: 'failed' }),
+      planned('never_a2', SONNET, 4),
+    ]);
+
+    expect(await listedAt('station_never')).toEqual([
+      {
+        firstRunId: 'never_a2',
+        fingerprint: SONNET,
+        ran: true,
+        changes: [],
+        runs: ['never_a2'],
+        failed: 0,
+      },
+      {
+        firstRunId: 'never_b1',
+        fingerprint: OPUS,
+        ran: false,
+        changes: [['sonnet', 'opus']],
+        runs: ['never_b2', 'never_b1'],
+        failed: 2,
+      },
+      {
+        firstRunId: 'never_a1',
+        fingerprint: SONNET,
+        ran: true,
+        changes: [],
+        runs: ['never_a1'],
+        failed: 0,
+      },
+    ]);
+    expect(await startsAt(['station_never'])).toEqual([
+      'station_never never_a1 a@1',
+    ]);
+  });
+
+  it('lists the latest-started runs, not the latest-ended, carrying on from the run before the oldest, though it began at the same instant', async () => {
+    await ranAt('station_order', [
+      planned('order_long', OPUS, 1, { endedAt: 59 }),
+      planned('order_x', SONNET, 5),
+      planned('order_y', OPUS, 5),
+    ]);
+
+    expect(await listedAt('station_order', 1)).toEqual([
+      {
+        firstRunId: 'order_y',
+        fingerprint: OPUS,
+        ran: true,
+        changes: [['sonnet', 'opus']],
+        runs: ['order_y'],
+        failed: 0,
+      },
+    ]);
+    expect(
+      (await listedAt('station_order', 2)).map((each) => each.runs),
+    ).toEqual([['order_y'], ['order_x']]);
   });
 });

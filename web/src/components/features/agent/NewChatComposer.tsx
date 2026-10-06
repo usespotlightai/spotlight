@@ -50,7 +50,7 @@ export function NewChatComposer({
     <ChatInput
       slug={slug}
       label="Plan with the agent"
-      placeholder="What are we planning?"
+      placeholder="What do you want to plan?"
       pending={start.isPending || !harness}
       initialReferences={references}
       settings={

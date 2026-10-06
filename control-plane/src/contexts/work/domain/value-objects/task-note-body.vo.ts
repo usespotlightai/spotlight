@@ -28,7 +28,7 @@ export class TaskNoteBody {
     to: StationName,
   ): TaskNoteBody {
     return TaskNoteBody.of(
-      `Heard while a run held the task. It moves to ${to.value} when the run ends, unless the run passes it on:\n\n${TaskNoteBody.heard(told, said).value}`,
+      `Heard while a run held the task. It moves to ${to.value} when the run ends, unless the run passes it on.\n\n${TaskNoteBody.heard(told, said).value}`,
     );
   }
 
@@ -36,7 +36,7 @@ export class TaskNoteBody {
     to: StationName,
     account: TaskNoteBody | null,
   ): TaskNoteBody {
-    const moved = `Moved to ${to.value} when the run ended, because of an event that arrived while it worked.`;
+    const moved = `Moved to ${to.value} when the run ended. An event arrived while the run worked.`;
 
     return TaskNoteBody.of(account ? `${moved}\n\n${account.value}` : moved);
   }

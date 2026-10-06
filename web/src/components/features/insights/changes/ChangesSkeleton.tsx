@@ -6,7 +6,7 @@ export function ChangesSkeleton() {
     <div
       role="status"
       aria-label="Loading the changes"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <InsightsCardSkeleton title="Config changes" rows={3} />
       <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">

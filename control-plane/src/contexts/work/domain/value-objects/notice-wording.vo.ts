@@ -21,7 +21,7 @@ export class NoticeWording {
 
     if (!headline || headline.length > MOST_HEADLINE) {
       throw new InvalidNoticeError(
-        `says what it is about in a headline of at most ${MOST_HEADLINE} characters`,
+        `headline must be 1 to ${MOST_HEADLINE} characters`,
       );
     }
     if (
@@ -30,7 +30,7 @@ export class NoticeWording {
       points.some((each) => !each || each.length > MOST_POINT)
     ) {
       throw new InvalidNoticeError(
-        `makes 1 to ${MOST_POINTS} points of 1 to ${MOST_POINT.toLocaleString('en-US')} characters each`,
+        `must make 1 to ${MOST_POINTS} points of 1 to ${MOST_POINT.toLocaleString('en-US')} characters each`,
       );
     }
 

@@ -9,7 +9,7 @@ export class AttachmentId {
     const value = raw.trim();
 
     if (!ID.test(value)) {
-      throw new InvalidAttachmentError('must say which file it is');
+      throw new InvalidAttachmentError('id must not be empty');
     }
 
     return new AttachmentId(value);

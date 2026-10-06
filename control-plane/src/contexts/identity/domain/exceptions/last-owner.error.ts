@@ -3,7 +3,7 @@ export class LastOwnerError extends Error {
 
   constructor() {
     super(
-      'This workspace would be left with nobody who owns it. Make somebody else an owner first',
+      'The workspace needs at least one owner. Please make someone else an owner first.',
     );
     this.name = 'LastOwnerError';
   }

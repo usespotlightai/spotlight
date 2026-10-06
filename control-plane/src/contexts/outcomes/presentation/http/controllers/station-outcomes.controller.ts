@@ -40,7 +40,7 @@ export class StationOutcomesController {
     required: false,
     type: Number,
     description:
-      'How many of the latest runs to look at: 50 unless asked, 200 at most',
+      'How many of the latest-started runs to look at: 50 unless asked, 200 at most',
   })
   @ApiOkResponse({ type: StationOutcomesResponseDto })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })

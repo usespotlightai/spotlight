@@ -17,17 +17,7 @@ type ReplayStatePillProps = {
 
 export function ReplayStatePill({ state, className }: ReplayStatePillProps) {
   return (
-    <Pill
-      className={cn(INK[state], className)}
-      lead={
-        state === 'running' ? (
-          <span
-            aria-hidden
-            className="size-1.5 animate-pulse rounded-full bg-current"
-          />
-        ) : undefined
-      }
-    >
+    <Pill className={cn(INK[state], className)}>
       <span title={stateNote(state) ?? undefined}>{stateShown(state)}</span>
     </Pill>
   );

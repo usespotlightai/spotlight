@@ -2,7 +2,7 @@ export class InvalidRunSpecError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`A run spec ${reason}`);
+    super(`Run spec ${reason}.`);
     this.name = 'InvalidRunSpecError';
   }
 }

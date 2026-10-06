@@ -6,10 +6,7 @@ export class Webhook {
 
   static of(input: { declares: readonly DeclaredHappening[] }): Webhook {
     if (input.declares.length === 0) {
-      throw new InvalidIntegrationPartError(
-        'webhook',
-        'raises nothing, and what a host can raise is what a webhook is for',
-      );
+      throw new InvalidIntegrationPartError('webhook', 'raises no events');
     }
 
     return new Webhook(input.declares);

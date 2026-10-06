@@ -37,18 +37,18 @@ export class ReviewAnchor {
 
     if (!(REVIEW_SIDES as readonly string[]).includes(input.side)) {
       throw new InvalidReviewError(
-        'comment is on the new or the old side of a change',
+        'comment must be on the new or old side of a change',
       );
     }
     if (!Number.isInteger(input.line) || input.line < 1) {
-      throw new InvalidReviewError('comment is on a line numbered from 1');
+      throw new InvalidReviewError('comment line must be 1 or more');
     }
     if (
       startLine !== null &&
       (!Number.isInteger(startLine) || startLine < 1 || startLine > input.line)
     ) {
       throw new InvalidReviewError(
-        'comment on several lines starts on a line before the one it ends on',
+        'comment on several lines must start before its last line',
       );
     }
 

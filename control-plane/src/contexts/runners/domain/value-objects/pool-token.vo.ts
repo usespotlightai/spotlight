@@ -19,7 +19,7 @@ export class PoolToken implements Secret {
     if (!SHAPE.test(raw)) {
       throw new InvalidRunnerPoolError(
         'token',
-        'is 32 to 255 URL-safe characters, as a generated password would be',
+        'must be 32 to 255 URL-safe characters',
       );
     }
 

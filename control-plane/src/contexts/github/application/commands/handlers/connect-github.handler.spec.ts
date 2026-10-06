@@ -159,7 +159,7 @@ describe('ConnectGitHubHandler', () => {
     const { handler, save } = connecting({ administration: 'cannot-tell' });
 
     await expect(handler.execute(command())).rejects.toThrow(
-      /would not say whether that installation is yours/,
+      /could not confirm this installation is yours/,
     );
     expect(save).not.toHaveBeenCalled();
   });

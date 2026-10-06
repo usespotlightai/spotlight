@@ -699,7 +699,7 @@ describe('DispatchTask', () => {
       expect(id).not.toBeNull();
       expect(queued[0]?.state).toBe('failed');
       expect(queued[0]?.outcome?.message).toBe(
-        'harness_profile_unknown: The Triage station names the reckless harness profile, which its team does not hold',
+        'harness_profile_unknown: Harness profile reckless is not in this team. Station: Triage',
       );
       expect(written(queued[0]).harnessSetup).toBeUndefined();
     });

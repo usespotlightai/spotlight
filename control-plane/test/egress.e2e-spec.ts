@@ -237,7 +237,7 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
       withheld: [
         {
           secret: 'NOWHERE',
-          reason: expect.stringContaining('holds no secret named NOWHERE'),
+          reason: expect.stringContaining('Secret NOWHERE not found'),
         },
       ],
     });

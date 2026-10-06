@@ -117,7 +117,7 @@ describe('placeOf', () => {
         { lineId: 'line_gone', stationId: null, repository: null, paths: [] },
         [],
       ),
-    ).toBe('A line that is gone');
+    ).toBe('Line deleted');
   });
 });
 
@@ -149,7 +149,7 @@ describe('what a run remembered', () => {
   });
 
   it('counts the runs that used a memory', () => {
-    expect(usedBy(0)).toBe('No run has used it yet');
+    expect(usedBy(0)).toBe('Not used by any run yet');
     expect(usedBy(1)).toBe('Used by 1 run');
     expect(usedBy(4)).toBe('Used by 4 runs');
   });
@@ -190,7 +190,7 @@ describe('what a run remembered', () => {
     ).toBe('Kept');
     expect(
       proposalStateOf(proposal({ state: 'approved', standing: 'retired' })),
-    ).toBe('Kept, since retired');
+    ).toBe('Kept, now retired');
   });
 
   it('links to one memory on the team’s memory page', () => {

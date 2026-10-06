@@ -36,11 +36,11 @@ const written = (body: string): string => {
   const trimmed = body.trim();
 
   if (!trimmed) {
-    throw new InvalidReviewError('comment says something');
+    throw new InvalidReviewError('comment must say something');
   }
   if (trimmed.length > MOST_REVIEW_COMMENT) {
     throw new InvalidReviewError(
-      `comment is at most ${MOST_REVIEW_COMMENT} characters`,
+      `comment must be at most ${MOST_REVIEW_COMMENT} characters`,
     );
   }
 
@@ -80,7 +80,7 @@ export class ReviewComment extends EventRecorder {
   }): ReviewComment {
     if (!input.author.inSpotlight) {
       throw new InvalidReviewError(
-        'comment is drafted by someone in Spotlight, or by an agent',
+        'comment must be drafted by a person or an agent',
       );
     }
 
@@ -117,7 +117,7 @@ export class ReviewComment extends EventRecorder {
   }): ReviewComment {
     if (input.author.inSpotlight) {
       throw new InvalidReviewError(
-        'comment arrives from GitHub by someone on GitHub',
+        'comment from GitHub must have a GitHub author',
       );
     }
 
@@ -222,20 +222,20 @@ export class ReviewComment extends EventRecorder {
     now: Date;
   }): ReviewComment {
     if (this.state === 'deleted') {
-      throw new InvalidReviewError('reply is to a comment that is still there');
+      throw new InvalidReviewError(
+        'reply must be to a comment that still exists',
+      );
     }
     if (this.state === 'draft') {
-      throw new InvalidReviewError(
-        'reply is to a comment that has been submitted',
-      );
+      throw new InvalidReviewError('reply must be to a submitted comment');
     }
     if (!this.answerable) {
       throw new InvalidReviewError(
-        'reply is to a comment that reached GitHub, or is on its way there',
+        'reply must be to a comment posted to GitHub',
       );
     }
     if (input.author.kind !== 'person') {
-      throw new InvalidReviewError('reply is written by someone in Spotlight');
+      throw new InvalidReviewError('reply must be written by a person');
     }
 
     const body = written(input.body);
@@ -299,7 +299,7 @@ export class ReviewComment extends EventRecorder {
 
   submittedIn(reviewId: ReviewId): ReviewComment {
     if (this.state !== 'draft' || this.reviewId) {
-      throw new InvalidReviewError('only submits comments still in draft');
+      throw new InvalidReviewError('can only submit draft comments');
     }
 
     return this.with({ state: 'submitted', reviewId, sentBody: this.body });
@@ -342,7 +342,9 @@ export class ReviewComment extends EventRecorder {
     this.assertWrittenBy(by);
 
     if (this.state === 'deleted') {
-      throw new InvalidReviewError('comment that was deleted cannot change');
+      throw new InvalidReviewError(
+        'comment that was deleted cannot be changed',
+      );
     }
 
     const rewritten = this.with({

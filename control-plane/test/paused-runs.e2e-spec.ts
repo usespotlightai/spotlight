@@ -667,7 +667,7 @@ describe('a message in a run chat', () => {
       .send({ body: 'Drain it after all.' })
       .expect(409);
 
-    expect(refused.body.message).toContain('has moved on from there');
+    expect(refused.body.message).toContain('has moved on from that station');
     expect((await taskRow(taskId))?.currentRunId).toBeNull();
   });
 });

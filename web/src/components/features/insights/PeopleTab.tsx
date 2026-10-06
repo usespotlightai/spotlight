@@ -1,5 +1,6 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
+import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
@@ -42,19 +43,19 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
   if (load.tasks === 0 && adoption.active.length === 0) {
     return (
       <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Once people open tasks, answer the inbox or chat with the agent, what
-        the work asks of them shows here.
+        Load on people shows here once they open tasks, answer the inbox or chat
+        with the agent.
       </NoRunsInPeriod>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {truncated && <TruncatedNote />}
 
-      <InsightsCard
+      <InsightsSection
         title="What the work asks of people"
-        description={`Over ${countShown(load.tasks)} ${load.tasks === 1 ? 'task' : 'tasks'} worked this period.`}
+        note={`Tasks worked this period: ${countShown(load.tasks)}`}
       >
         <InsightsTiles label="Human load">
           <InsightsTile
@@ -95,11 +96,11 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
             drill={refused ? { tab: 'runs', filter: refused } : undefined}
           />
         </InsightsTiles>
-      </InsightsCard>
+      </InsightsSection>
 
-      <InsightsCard
+      <InsightsSection
         title="Who is using Spotlight"
-        description="Weekly and monthly count the last 7 and 30 days, whatever the period."
+        note="Weekly and monthly always count the last 7 and 30 days."
       >
         <InsightsTiles label="Adoption">
           <InsightsTile
@@ -125,10 +126,10 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
             detail={`${shareShown(adoption.stickiness)} of them weekly`}
           />
         </InsightsTiles>
-      </InsightsCard>
+      </InsightsSection>
 
       {adoption.people.length > 0 && (
-        <InsightsCard title="What each person did">
+        <InsightsCard title="What each person did" tableOnly>
           <PeopleTable people={adoption.people} />
         </InsightsCard>
       )}

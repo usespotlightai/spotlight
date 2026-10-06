@@ -3,7 +3,7 @@ export class StackCheckMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This change stack check changed since it was read, and cannot be written over (${id})`,
+      `Change stack check ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'StackCheckMovedOnError';
   }

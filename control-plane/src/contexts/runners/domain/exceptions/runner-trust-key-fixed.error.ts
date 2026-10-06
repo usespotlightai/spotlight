@@ -7,7 +7,7 @@ export class RunnerTrustKeyFixedError extends Error {
     readonly key: string,
     readonly because: string,
   ) {
-    super(`The ${key} runner trust ${because}`);
+    super(`Runner trust ${key} ${because}.`);
     this.name = 'RunnerTrustKeyFixedError';
   }
 }

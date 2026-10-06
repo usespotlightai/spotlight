@@ -2,7 +2,7 @@ export class InvalidApprovalAnswerError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(because: string) {
-    super(`The conversation ${because}`);
+    super(because);
     this.name = 'InvalidApprovalAnswerError';
   }
 }

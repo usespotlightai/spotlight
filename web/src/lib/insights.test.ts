@@ -157,11 +157,11 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=pull-requests&repository=acme/api&author=spotlight&type=fix&state=merged&week=2026-09-28&reverted=true&rounds=3%2B&page=2&stationId=s',
+          'tab=productivity&repository=acme/api&author=spotlight&type=fix&state=merged&week=2026-09-28&reverted=true&rounds=3%2B&page=2&stationId=s',
         ),
       ),
     ).toEqual({
-      tab: 'pull-requests',
+      tab: 'productivity',
       period: '30d',
       filter: {
         repository: 'acme/api',
@@ -177,7 +177,7 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=pull-requests&author=robots&type=epic&state=draft&week=monday&reverted=no&rounds=9',
+          'tab=productivity&author=robots&type=epic&state=draft&week=monday&reverted=no&rounds=9',
         ),
       ).filter,
     ).toEqual({});
@@ -185,7 +185,7 @@ describe('the insights view in the address', () => {
 
   it('keeps pull request filters, so they survive a reload', () => {
     const view = {
-      tab: 'pull-requests' as const,
+      tab: 'productivity' as const,
       period: '90d' as const,
       filter: { author: 'people', repository: 'acme/api,acme/web' },
       page: 3,
@@ -264,7 +264,7 @@ describe('headlineTiles', () => {
     const [spend] = headlineTiles(headline({ spend: null }), headline());
 
     expect(spend?.value).toBe('–');
-    expect(spend?.detail).toBe('Nothing was priced');
+    expect(spend?.detail).toBe('No priced runs');
     expect(spend?.delta).toBeNull();
   });
 
@@ -274,7 +274,7 @@ describe('headlineTiles', () => {
       headline(),
     );
 
-    expect(spend?.detail).toBe('Prices came in more than one currency');
+    expect(spend?.detail).toBe('Prices in more than one currency');
   });
 
   it('drills from merged pull requests into the runs of the tasks that merged', () => {
@@ -351,6 +351,8 @@ describe('outputDays', () => {
           lineId: 'line_1',
           stationId: 'station_build',
           fingerprint: 'abc',
+          previousFingerprint:
+            '0000000000000000000000000000000000000000000000000000000000000000',
           firstRunAt: '2026-09-30T10:00:00.000Z',
           runId: 'run_1',
         },
@@ -382,7 +384,7 @@ describe('what to show for failures and signals', () => {
     );
   });
 
-  it('sets a signal against the period before and the team', () => {
+  it('sets a signal against the period before and all stations', () => {
     expect(
       signalShown({
         signal: 'sent-back',
@@ -391,9 +393,10 @@ describe('what to show for failures and signals', () => {
         team: 0.15,
         rose: true,
         trails: true,
+        flaggedAbove: 0.15,
         currency: null,
       }),
-    ).toBe('Sent back 30% (was 10%, team 15%)');
+    ).toBe('Sent back 30% (was 10%, all stations 15%)');
     expect(
       signalShown({
         signal: 'cost',
@@ -402,6 +405,7 @@ describe('what to show for failures and signals', () => {
         team: null,
         rose: false,
         trails: true,
+        flaggedAbove: 1.2,
         currency: 'EUR',
       }),
     ).toBe('Cost per run 1.50 EUR');

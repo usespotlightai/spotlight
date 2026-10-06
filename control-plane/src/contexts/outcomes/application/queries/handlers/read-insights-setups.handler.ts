@@ -31,7 +31,7 @@ const sizeAsked = (raw: string | null) => {
 
   if (!size) {
     throw new InvalidSetupFilterError(
-      `by a size of ${RUN_SIZES.join(', ')}, not ${raw}`,
+      `size must be one of ${RUN_SIZES.join(', ')}, not ${raw}`,
     );
   }
 

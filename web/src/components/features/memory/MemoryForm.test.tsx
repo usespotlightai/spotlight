@@ -27,7 +27,6 @@ const showing = (initial: TeamMemory | null = null) => {
       initial={initial}
       lines={LINES}
       pending={false}
-      failed={false}
       onSave={onSave}
     />,
   );

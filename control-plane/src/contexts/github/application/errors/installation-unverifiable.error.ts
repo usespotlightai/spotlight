@@ -3,7 +3,7 @@ export class InstallationUnverifiableError extends Error {
 
   constructor() {
     super(
-      'GitHub would not say whether that installation is yours. Sign in again, and if it keeps happening the sign-in is not authorised to list App installations.',
+      'GitHub could not confirm this installation is yours. Please sign in again.',
     );
     this.name = 'InstallationUnverifiableError';
   }

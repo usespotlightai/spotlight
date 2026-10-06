@@ -12,12 +12,14 @@ import { TrailContext, useTrail } from '@/lib/trail';
 type TeamSectionPageProps = {
   section: TeamSectionId;
   actions?: ReactNode;
+  bordered?: boolean;
   children: ReactNode;
 };
 
 export function TeamSectionPage({
   section,
   actions,
+  bordered,
   children,
 }: TeamSectionPageProps) {
   const { slug, teamId } = useParams();
@@ -34,7 +36,11 @@ export function TeamSectionPage({
 
   return (
     <TrailContext value={forward}>
-      <PageHeader title={<Breadcrumbs segments={trail} />} actions={actions} />
+      <PageHeader
+        title={<Breadcrumbs segments={trail} />}
+        actions={actions}
+        bordered={bordered}
+      />
 
       {children}
     </TrailContext>

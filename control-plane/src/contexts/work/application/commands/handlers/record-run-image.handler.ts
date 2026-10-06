@@ -30,7 +30,7 @@ export class RecordRunImageHandler
       const run = await this.runs.findById(RunId.of(command.runId));
 
       if (!run) {
-        throw new UnknownRunError(`there is no run ${command.runId}`);
+        throw new UnknownRunError(`Run ${command.runId} not found.`);
       }
 
       await this.runs.save(

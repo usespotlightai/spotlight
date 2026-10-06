@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type FingerprintGroup,
+  recentRuns,
   runSpent,
   type StationTally,
   tallyFigures,
@@ -69,5 +71,23 @@ describe('runSpent', () => {
         currency: null,
       }),
     ).toBe('–');
+  });
+});
+
+describe('recentRuns', () => {
+  it('keeps the listing’s start order across groups, not when runs ended', () => {
+    const group = (...runIds: string[]) =>
+      ({
+        runs: runIds.map((runId, at) => ({
+          runId,
+          endedAt: `2026-10-0${at + 1}T00:00:00.000Z`,
+        })),
+      }) as unknown as FingerprintGroup;
+
+    expect(
+      recentRuns([group('run_4', 'run_3'), group('run_2', 'run_1')], 3).map(
+        (run) => run.runId,
+      ),
+    ).toEqual(['run_4', 'run_3', 'run_2']);
   });
 });

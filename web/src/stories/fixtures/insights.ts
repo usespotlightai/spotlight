@@ -214,6 +214,8 @@ const OVERVIEW: InsightsOverview = {
       stationId: 'station_implementation',
       fingerprint:
         'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
+      previousFingerprint:
+        '0000000000000000000000000000000000000000000000000000000000000000',
       firstRunAt: daysAgo(18),
       runId: 'run_implementation_1',
     },
@@ -222,6 +224,8 @@ const OVERVIEW: InsightsOverview = {
       stationId: 'station_review',
       fingerprint:
         'c81e4f07a2d6b9e3f5a7c1d3e5b7a9f1c3e5d7b9a1f3c5e7d9b1a3f5c7e9d1b3',
+      previousFingerprint:
+        '0000000000000000000000000000000000000000000000000000000000000000',
       firstRunAt: daysAgo(6),
       runId: 'run_review_1',
     },
@@ -239,6 +243,7 @@ const OVERVIEW: InsightsOverview = {
           team: 0.18,
           rose: true,
           trails: true,
+          flaggedAbove: 0.17,
           currency: null,
         },
         {
@@ -248,6 +253,7 @@ const OVERVIEW: InsightsOverview = {
           team: 0.87,
           rose: true,
           trails: true,
+          flaggedAbove: 1.0875,
           currency: 'USD',
         },
       ],
@@ -266,6 +272,7 @@ const OVERVIEW: InsightsOverview = {
           team: 0.08,
           rose: true,
           trails: true,
+          flaggedAbove: 0.1,
           currency: null,
         },
       ],

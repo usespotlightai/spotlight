@@ -3,16 +3,17 @@ import type {
   FingerprintGroupDto,
   StationOutcomesDto,
 } from '@outcomes/application/dto/station-outcomes.dto';
-import type {
-  ConfigInOrder,
-  WorkPort,
-} from '@outcomes/application/ports/work.port';
+import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
+import {
+  configChangesOf,
+  fingerprintsAsked,
+} from '@outcomes/application/services/config-changes';
 import type { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import {
-  type FingerprintGroup,
+  configInForce,
   fingerprintGroupsNewestFirst,
 } from '@outcomes/domain/services/fingerprint-groups';
 import { runTally } from '@outcomes/domain/services/run-tally';
@@ -26,27 +27,6 @@ const lastOf = (asked: number | null): number =>
   asked !== null && Number.isInteger(asked) && asked > 0
     ? Math.min(asked, MOST_LAST)
     : DEFAULT_LAST;
-
-const configsAlong = (
-  oldestFirst: readonly FingerprintGroup[],
-  configs: readonly ConfigInOrder[],
-): (ConfigInOrder | null)[] => {
-  let at = 0;
-
-  return oldestFirst.map((group) => {
-    const config = configs[at];
-
-    if (
-      group.fingerprint !== null &&
-      config?.fingerprint === group.fingerprint
-    ) {
-      at += 1;
-      return config;
-    }
-
-    return null;
-  });
-};
 
 export class ListStationOutcomesHandler
   implements QueryHandlerPort<ListStationOutcomesQuery, StationOutcomesDto>
@@ -64,7 +44,7 @@ export class ListStationOutcomesHandler
         query.teamId,
         query.viewerId,
       );
-      const records = await this.records.lastAtStation({
+      const records = await this.records.latestStartedAtStation({
         workspaceId: clearance.workspaceId,
         teamId: clearance.teamId,
         lineId: query.lineId,
@@ -74,32 +54,47 @@ export class ListStationOutcomesHandler
       const deliveries = await this.deliveries.forTasks(
         records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
       );
-      const oldestFirst = [...fingerprintGroupsNewestFirst(records)].reverse();
-      const configs = configsAlong(
-        oldestFirst,
-        await this.work.configsInOrder(
-          oldestFirst.flatMap((each) =>
-            each.fingerprint === null ? [] : [each.fingerprint],
-          ),
-        ),
+      const oldest = records[records.length - 1];
+      const carried = oldest?.end
+        ? await this.records.lastConfigRunsBefore(clearance.teamId, [
+            {
+              stationId: query.stationId,
+              from: oldest.end.beganAt,
+              fromRun: oldest.runId,
+            },
+          ])
+        : [];
+      const newestFirst = fingerprintGroupsNewestFirst(records, carried);
+      const pairs = newestFirst.map((group) => ({
+        previous: group.previous,
+        next: group.fingerprint,
+      }));
+      const configs = configChangesOf(
+        await this.work.configsInOrder(fingerprintsAsked([...pairs].reverse())),
       );
 
-      const groups: FingerprintGroupDto[] = oldestFirst.map((group, at) => {
-        const config = configs[at] ?? null;
+      const groups: FingerprintGroupDto[] = newestFirst.map((group, at) => ({
+        firstRunId: group.firstRunId.value,
+        fingerprint: group.fingerprint,
+        ran: group.ran,
+        config: configs.configOf(group.fingerprint),
+        changes: configs.between(pairs[at]),
+        runs: group.records.flatMap((each) => {
+          const outcome = runOutcomeOf(each, deliveries);
+          return outcome ? [outcome] : [];
+        }),
+        tally: runTally(group.records, deliveries),
+      }));
 
-        return {
-          fingerprint: group.fingerprint,
-          config: config?.config ?? null,
-          changes: config?.changes ?? [],
-          runs: group.records.flatMap((each) => {
-            const outcome = runOutcomeOf(each, deliveries);
-            return outcome ? [outcome] : [];
-          }),
-          tally: runTally(group.records, deliveries),
-        };
-      });
+      const inForce = configInForce(newestFirst);
 
-      return { stationId: query.stationId, groups: groups.reverse() };
+      return {
+        stationId: query.stationId,
+        groups,
+        inForce: inForce
+          ? { tally: runTally(inForce.records, deliveries) }
+          : null,
+      };
     } catch (error) {
       rethrowAsFault(error);
     }

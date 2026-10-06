@@ -79,7 +79,7 @@ export class TeamSkillFiles implements SkillReaderPort {
           ConfigurationProblem.of({
             path: file.path,
             at: FieldPath.root(),
-            reason: `sits in ${SKILLS_UNDER} itself, where no skill reads it: put it in the folder of the skill it belongs to`,
+            reason: `is outside any skill folder. Please move it into its skill's folder under ${SKILLS_UNDER}`,
             severity: 'warning',
           }),
         );

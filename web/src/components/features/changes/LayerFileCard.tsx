@@ -1,13 +1,21 @@
 import { ChevronRight, MessageSquarePlus } from 'lucide-react';
 import { useState } from 'react';
+import { FileDiffSkeleton } from '@/components/features/changes/FileDiffSkeleton';
 import { FileThread } from '@/components/features/changes/FileThread';
+import { LargeDiffNotice } from '@/components/features/changes/LargeDiffNotice';
 import { FileDecisions } from '@/components/features/decisions/FileDecisions';
 import { HunkReview } from '@/components/features/review/HunkReview';
 import { DiffTally } from '@/components/shared/DiffTally';
 import { UNFOLD_MS, Unfold } from '@/components/shared/Unfold';
 import { Button } from '@/components/ui/button';
+import { useAfterPaint } from '@/hooks/useAfterPaint';
 import { useLingering } from '@/hooks/useLingering';
-import { type LayerFile, tallyOf } from '@/lib/change-stack';
+import {
+  isLargeDiff,
+  type LayerFile,
+  linesOf,
+  tallyOf,
+} from '@/lib/change-stack';
 import { useReviewing } from '@/lib/review-context';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +39,14 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
   const [replying, setReplying] = useState(false);
   const reviewing = useReviewing();
   const mounted = useLingering(open || null, UNFOLD_MS) !== null;
+  const [loaded, setLoaded] = useState(false);
+
+  if (loaded && !mounted) {
+    setLoaded(false);
+  }
+
+  const held = mounted && isLargeDiff(hunks) && !loaded;
+  const drawn = useAfterPaint(mounted && !held);
 
   return (
     <article
@@ -104,7 +120,18 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
 
         <FileDecisions path={file.path} />
 
-        {mounted && (
+        {held && (
+          <LargeDiffNotice
+            lines={tally.added + tally.removed}
+            onLoad={() => setLoaded(true)}
+          />
+        )}
+
+        {mounted && !held && !drawn && (
+          <FileDiffSkeleton lines={linesOf(hunks)} />
+        )}
+
+        {drawn && (
           <ol className="flex flex-col divide-y-[0.5px] divide-border">
             {hunks.map((hunk) => (
               <li key={hunk.id} className="flex flex-col">
@@ -113,7 +140,7 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
                 ) : (
                   <p className="px-3 py-2 text-faint text-xs">
                     {file.binary
-                      ? 'A binary file, with no lines to show.'
+                      ? 'Binary file. No lines to show.'
                       : 'No lines changed.'}
                   </p>
                 )}

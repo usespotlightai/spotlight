@@ -4,6 +4,10 @@ import type {
   SearchBudgetAsked,
   SearchObjectiveAsked,
 } from '@replays/application/commands/start-search.command';
+import {
+  atChange,
+  type RawChange,
+} from '@replays/domain/services/changes-asked-about';
 import { isSearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -11,7 +15,10 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const REQUEST = 'request';
 
-const refusedAt = (field: readonly string[], reason: string): never => {
+const refusedAt = (
+  field: readonly (string | number)[],
+  reason: string,
+): never => {
   throw ProblemException.invalid(REQUEST, [
     ConfigurationProblem.of({ path: '', at: FieldPath.of(field), reason }),
   ]);
@@ -38,7 +45,7 @@ const ceilingAt = (
   if (typeof amount !== 'number') {
     return refusedAt(
       [...at, 'amount'],
-      `is the most the ${what} may spend, as a number`,
+      `must be a number, the most the ${what} may spend`,
     );
   }
 
@@ -47,10 +54,7 @@ const ceilingAt = (
     currency:
       typeof currency === 'string'
         ? currency
-        : refusedAt(
-            [...at, 'currency'],
-            'is the currency it is counted in, as in USD',
-          ),
+        : refusedAt([...at, 'currency'], 'must be a currency code, as in USD'),
   };
 };
 
@@ -89,33 +93,21 @@ export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
   const repeats = budget.repeats;
 
   return {
-    iterations: countAt(
-      budget,
-      ['budget', 'iterations'],
-      'is how many times the search runs its agent, as a number',
-    ),
+    iterations: countAt(budget, ['budget', 'iterations'], 'must be a number'),
     perIteration: countAt(
       budget,
       ['budget', 'perIteration'],
-      'is how many candidates each agent run may propose, as a number',
+      'must be a number',
     ),
     ceiling: ceilingAt(budget.ceiling, ['budget', 'ceiling'], 'search'),
     concurrency:
       concurrency === undefined || concurrency === null
         ? null
-        : countAt(
-            budget,
-            ['budget', 'concurrency'],
-            'is how many replay runs the search runs at once, as a number',
-          ),
+        : countAt(budget, ['budget', 'concurrency'], 'must be a number'),
     repeats:
       repeats === undefined || repeats === null
         ? null
-        : countAt(
-            budget,
-            ['budget', 'repeats'],
-            'is how many times each replay replays each run, as a number',
-          ),
+        : countAt(budget, ['budget', 'repeats'], 'must be a number'),
   };
 };
 
@@ -127,19 +119,16 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
     harness:
       typeof harness === 'string'
         ? harness
-        : refusedAt(
-            ['agent', 'harness'],
-            'names the harness the search’s agent runs on',
-          ),
+        : refusedAt(['agent', 'harness'], 'must name the agent’s harness'),
     model: optionalTextAt(
       agent,
       ['agent', 'model'],
-      'names the agent’s model, or is left out',
+      'must be text or left out',
     ),
     effort: optionalTextAt(
       agent,
       ['agent', 'effort'],
-      'names the agent’s effort, or is left out',
+      'must be text or left out',
     ),
   };
 };
@@ -153,7 +142,7 @@ export const objectiveIn = (body: unknown): SearchObjectiveAsked => {
 
   return isSearchObjective(held)
     ? held
-    : refusedAt(['objective'], 'is success or cost, or is left out');
+    : refusedAt(['objective'], 'must be success, cost or left out');
 };
 
 export const strongerModelIn = (
@@ -162,16 +151,8 @@ export const strongerModelIn = (
   const held = fieldsOf(body);
 
   return {
-    model: optionalTextAt(
-      held,
-      ['model'],
-      'names the stronger model to replay the set under, or is left out',
-    ),
-    effort: optionalTextAt(
-      held,
-      ['effort'],
-      'names the higher effort to replay the set at, or is left out',
-    ),
+    model: optionalTextAt(held, ['model'], 'must be text or left out'),
+    effort: optionalTextAt(held, ['effort'], 'must be text or left out'),
   };
 };
 
@@ -181,11 +162,7 @@ export const repeatsIn = (body: unknown): number => {
 
   return repeats === undefined || repeats === null
     ? 1
-    : countAt(
-        held,
-        ['repeats'],
-        'is how many times the replay replays each run, as a number',
-      );
+    : countAt(held, ['repeats'], 'must be a number');
 };
 
 export const referenceIn = (
@@ -201,7 +178,7 @@ export const referenceIn = (
     commit: optionalTextAt(
       reference,
       ['reference', 'commit'],
-      'is the commit of the planned change, as a hex sha, or is left out',
+      'must be a hex sha or left out',
     ),
     pullRequest:
       pullRequest === undefined || pullRequest === null
@@ -209,7 +186,7 @@ export const referenceIn = (
         : countAt(
             reference,
             ['reference', 'pullRequest'],
-            'is the number of the pull request that plans the change, or is left out',
+            'must be a number or left out',
           ),
   };
 };
@@ -226,7 +203,7 @@ export const keyedIn = (
     ? { lineId: line, key: station }
     : refusedAt(
         [line ? 'station' : 'line'],
-        'names a station together with its line',
+        'must be given with both line and station',
       );
 };
 
@@ -239,4 +216,30 @@ export const allowed = <T>(kind: string, outcome: T | Forbidden): T => {
   }
 
   return outcome;
+};
+
+const changeAt = (held: unknown, position: number): RawChange => {
+  const change = fieldsOf(held);
+  const text = (field: keyof RawChange): string => {
+    const value = change[field];
+
+    return typeof value === 'string'
+      ? value
+      : refusedAt([], atChange(position, `${field} must be text`));
+  };
+
+  return {
+    stationId: text('stationId'),
+    runId: text('runId'),
+  };
+};
+
+export const changesIn = (body: unknown): readonly RawChange[] => {
+  const held = fieldsOf(body).changes;
+
+  if (!Array.isArray(held)) {
+    return refusedAt(['changes'], 'must be a list of changes');
+  }
+
+  return held.map((each, at) => changeAt(each, at + 1));
 };

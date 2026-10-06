@@ -606,7 +606,7 @@ describe('a search’s iterations', () => {
         about: 'stalled',
         endedSearch: true,
         headline:
-          'The search for a better Build config stalled, with no budget left to look into why',
+          'The search for a better Build config ended with no budget left to reflect',
       }),
     ]);
   });
@@ -728,7 +728,7 @@ describe('a stalled search looking into why', () => {
         about: 'iteration 3',
         endedSearch: true,
         points: [
-          'Two iterations in a row found nothing better, so its agent looked into the 2 tasks the best config so far still fails, and found none a change to the config could fix. The search ended, keeping what it did not spend.',
+          'No config change can fix the 2 tasks still failing. Unspent budget is kept.',
           'Fix the judge’s rubric, for “Drain the queue”: Loosen the rubric.',
           `Fix what the run needed around the work, for one of the searched tasks: Task ${searchedAt(1).taskId.value} failed for the infra.`,
         ],
@@ -778,10 +778,10 @@ describe('a stalled search looking into why', () => {
       expect.objectContaining({
         endedSearch: true,
         points: [
-          'Two iterations in a row found nothing better, and its best config already passes every task it searches, so the search ended.',
+          'Two iterations in a row found nothing better. The best config already passes every searched task.',
         ],
         headline:
-          'The search for a better Build config stalled: its best config already passes every task it searches, so there was nothing to look into',
+          'The search for a better Build config ended with every searched task passing',
       }),
     ]);
   });

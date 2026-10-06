@@ -1,4 +1,8 @@
 import type { OriginalOutcome } from '@replays/domain/services/composition';
+import type {
+  StretchBound,
+  StretchStart,
+} from '@replays/domain/services/stretch-starts';
 import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -40,4 +44,9 @@ export interface OutcomesPort {
   judgeAgain(run: RunId): Promise<JudgingAgainOrdered>;
 
   judgePair(order: PairJudgingOrder): Promise<JudgingOrdered>;
+
+  stretchStarts(
+    teamId: TeamId,
+    bounds: readonly StretchBound[],
+  ): Promise<readonly StretchStart[]>;
 }

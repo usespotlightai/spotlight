@@ -37,8 +37,9 @@ export function RefusedTools({
 
   return (
     <InsightsCard
+      tableOnly
       title="Refused approvals"
-      description="Runs in which a person refused to approve a tool, per tool of each server."
+      description="Runs where a person refused a tool approval, per server and tool."
     >
       <InsightsTable
         label="Refused approvals per tool"

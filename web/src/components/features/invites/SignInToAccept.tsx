@@ -1,5 +1,4 @@
 import { ContinueWithGitHub } from '@/components/shell/auth/ContinueWithGitHub';
-import { ErrorMessage } from '@/components/shell/auth/ErrorMessage';
 import { useSignIn } from '@/hooks/api/useSignIn';
 
 type SignInToAcceptProps = {
@@ -15,8 +14,6 @@ export function SignInToAccept({ token }: SignInToAcceptProps) {
         onClick={() => signIn.mutate()}
         disabled={signIn.isPending}
       />
-
-      {signIn.isError && <ErrorMessage error={signIn.error} />}
     </div>
   );
 }

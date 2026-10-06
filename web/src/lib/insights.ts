@@ -92,15 +92,11 @@ export const stationAnchor = (stationId: string): string =>
 
 export const INSIGHTS_TABS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'flow', label: 'Flow' },
-  { id: 'pull-requests', label: 'Pull requests' },
-  { id: 'stations', label: 'Stations' },
-  { id: 'changes', label: 'Changes' },
-  { id: 'candidates', label: 'Candidates' },
-  { id: 'people', label: 'People' },
   { id: 'cost', label: 'Cost' },
-  { id: 'tools', label: 'Tools' },
-  { id: 'memory', label: 'Memory' },
+  { id: 'people', label: 'People' },
+  { id: 'productivity', label: 'Productivity' },
+  { id: 'stations', label: 'Stations' },
+  { id: 'tools', label: 'Tools and skills' },
   { id: 'runs', label: 'Runs' },
   { id: 'traces', label: 'Traces' },
 ] as const;
@@ -166,6 +162,8 @@ const RUN_FILTER_KEYS = [
 
 export type RunFilterKey = (typeof RUN_FILTER_KEYS)[number];
 
+const STATION_FILTER_KEYS = ['stationId'] as const;
+
 export type InsightsFilter = {
   readonly [key in RunFilterKey | PullRequestFilterKey]?: string;
 };
@@ -179,14 +177,16 @@ export type InsightsView = {
   readonly page: number;
 };
 
-const LISTED_TABS: readonly InsightsTab[] = ['runs', 'pull-requests'];
+const LISTED_TABS: readonly InsightsTab[] = ['runs', 'productivity'];
 
 const filterKeysOf = (tab: InsightsTab): readonly (keyof InsightsFilter)[] => {
   switch (tab) {
     case 'runs':
       return RUN_FILTER_KEYS;
-    case 'pull-requests':
+    case 'productivity':
       return PULL_REQUEST_FILTER_KEYS;
+    case 'stations':
+      return STATION_FILTER_KEYS;
     default:
       return [];
   }
@@ -232,8 +232,12 @@ const filterOf = (
   switch (tab) {
     case 'runs':
       return runFilterOf(params);
-    case 'pull-requests':
+    case 'productivity':
       return pullRequestFilterOf(params);
+    case 'stations': {
+      const stationId = params.get('stationId');
+      return stationId ? { stationId } : {};
+    }
     default:
       return {};
   }
@@ -279,9 +283,9 @@ export const insightsPath = (
 export const narrowedBy = (filter: RunFilter): RunFilterKey[] =>
   RUN_FILTER_KEYS.filter((key) => Boolean(filter[key]));
 
-const NOTHING_PRICED = 'Nothing was priced';
+const NOTHING_PRICED = 'No priced runs';
 
-const MIXED_CURRENCIES = 'Prices came in more than one currency';
+const MIXED_CURRENCIES = 'Prices in more than one currency';
 
 export const whyNoSpend = (mixedCurrencies: boolean): string =>
   mixedCurrencies ? MIXED_CURRENCIES : NOTHING_PRICED;
@@ -329,6 +333,12 @@ export const lasted = (ms: number): string => {
 
 export const lastedOrNone = (ms: number | null): string =>
   ms === null ? '–' : lasted(ms);
+
+export const medianShown = (spread: Spread): string =>
+  spread.p50Ms === null ? '–' : lasted(spread.p50Ms);
+
+export const tailShown = (spread: Spread): string | null =>
+  spread.p50Ms === null ? null : `p90 ${lastedOrNone(spread.p90Ms)}`;
 
 export const spreadShown = (spread: Spread): string =>
   spread.p50Ms === null
@@ -561,10 +571,13 @@ const SIGNALS: Record<SignalReading['signal'], string> = {
   cost: 'Cost per run',
 };
 
-const signalLabel = (signal: SignalReading['signal']): string =>
+export const signalLabel = (signal: SignalReading['signal']): string =>
   SIGNALS[signal];
 
-const signalValue = (reading: SignalReading, value: number | null): string => {
+export const signalValue = (
+  reading: SignalReading,
+  value: number | null,
+): string => {
   if (value === null) {
     return '–';
   }
@@ -580,11 +593,65 @@ const signalValue = (reading: SignalReading, value: number | null): string => {
   return shareShown(value);
 };
 
+const SIGNAL_ROOM = 1.1;
+
+const TIDY_STEPS = [1, 2, 2.5, 5, 10];
+
+const SHARES = new Set<SignalReading['signal']>([
+  'sent-back',
+  'checks-failed',
+  'run-failures',
+]);
+
+const tidyAbove = (value: number): number => {
+  const power = 10 ** Math.floor(Math.log10(value));
+  const step = TIDY_STEPS.find((each) => each * power >= value) ?? 10;
+
+  return step * power;
+};
+
+export const signalScale = (reading: SignalReading): number => {
+  const most = Math.max(
+    reading.now,
+    reading.before ?? 0,
+    reading.team ?? 0,
+    reading.flaggedAbove,
+  );
+
+  if (most <= 0) {
+    return 1;
+  }
+
+  const tidy = tidyAbove(most * SIGNAL_ROOM);
+
+  return SHARES.has(reading.signal) ? Math.min(tidy, 1) : tidy;
+};
+
+export const signalPlace = (reading: SignalReading, value: number): number =>
+  value / signalScale(reading);
+
+export const signalTick = (reading: SignalReading, value: number): string => {
+  if (SHARES.has(reading.signal)) {
+    return shareShown(value);
+  }
+
+  const number = value.toLocaleString('en', { maximumFractionDigits: 2 });
+
+  return reading.signal === 'cost' && reading.currency
+    ? value.toLocaleString('en', {
+        style: 'currency',
+        currency: reading.currency,
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0,
+      })
+    : number;
+};
+
 export const signalShown = (reading: SignalReading): string => {
   const shown = (value: number | null) => signalValue(reading, value);
   const against = [
     ...(reading.before === null ? [] : [`was ${shown(reading.before)}`]),
-    ...(reading.team === null ? [] : [`team ${shown(reading.team)}`]),
+    ...(reading.team === null ? [] : [`all stations ${shown(reading.team)}`]),
   ];
 
   return against.length > 0

@@ -2,7 +2,7 @@ export class InvalidConversationIdError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(value: string) {
-    super(`${value} does not name a conversation of a task`);
+    super(`Conversation id ${value} names no task conversation.`);
     this.name = 'InvalidConversationIdError';
   }
 }

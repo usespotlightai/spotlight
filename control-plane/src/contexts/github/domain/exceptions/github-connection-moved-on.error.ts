@@ -3,7 +3,7 @@ export class GitHubConnectionMovedOnError extends Error {
 
   constructor() {
     super(
-      'The GitHub connection of this workspace has been changed since it was read, and cannot be written over',
+      'GitHub connection changed since you loaded it. Please reload and try again.',
     );
     this.name = 'GitHubConnectionMovedOnError';
   }

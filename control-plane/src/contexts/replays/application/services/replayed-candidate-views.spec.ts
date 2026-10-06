@@ -79,6 +79,7 @@ const seenIn = (
   pullRequests: [],
   standing: [],
   standards: STANDARDS,
+  adoptions: new Map(),
   ...more,
 });
 
@@ -471,6 +472,43 @@ describe('replayedCandidatesView', () => {
     });
   });
 
+  it('says when the station took up each candidate’s config and whether it still runs it, and null for one it never did', () => {
+    const terse = world.candidates.find((each) => each.name.value === 'terse');
+    const adopted = new Date('2026-07-01T10:00:00.000Z');
+    const candidates = onlySet({
+      adoptions: new Map([
+        [
+          terse?.id.value ?? '',
+          {
+            at: adopted,
+            live: true,
+            creditedTo: {
+              candidateId: 'cand_later',
+              name: 'Later',
+              withdrawn: false,
+            },
+          },
+        ],
+      ]),
+    }).candidates;
+
+    expect(
+      Object.fromEntries(candidates.map((each) => [each.name, each.adoption])),
+    ).toEqual({
+      terse: {
+        at: adopted.toISOString(),
+        live: true,
+        creditedTo: {
+          candidateId: 'cand_later',
+          name: 'Later',
+          withdrawn: false,
+        },
+      },
+      wordy: null,
+      'Shorter prompt': null,
+    });
+  });
+
   it('shows nothing for a set with no candidate in the period', () => {
     expect(
       replayedCandidatesView({
@@ -485,6 +523,7 @@ describe('replayedCandidatesView', () => {
         pullRequests: [],
         standing: [],
         standards: STANDARDS,
+        adoptions: new Map(),
       }),
     ).toMatchObject({ truncated: true, stations: [] });
   });

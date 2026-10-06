@@ -9,12 +9,8 @@ import { useNavigate } from 'react-router';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
-import { ErrorMessage } from '@/components/shell/auth/ErrorMessage';
 import { Button } from '@/components/ui/button';
-import {
-  useCreateWorkspace,
-  WorkspaceSlugTakenError,
-} from '@/hooks/api/useCreateWorkspace';
+import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
 import { openedJustNow } from '@/hooks/api/useInbox';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
@@ -79,11 +75,6 @@ export function CreateWorkspace() {
       ? namedWorkspace
       : teamName.trim() !== '' && !createWorkspace.isPending;
 
-  const failure =
-    createWorkspace.error instanceof WorkspaceSlugTakenError
-      ? 'That workspace URL is already taken. Go back and choose another.'
-      : 'Something went wrong. Please try again later.';
-
   return (
     <>
       <header className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-4">
@@ -107,23 +98,20 @@ export function CreateWorkspace() {
       <AuthScreen logo={false} className="w-72">
         {step === 'workspace' ? (
           <AuthTitle title="Create workspace" large>
-            A workspace is a shared environment your team works in.
+            A workspace is the shared space your company’s teams work in.
           </AuthTitle>
         ) : (
           <AuthTitle title="Name your first team" large>
-            A team has its own board, its own repository and its own
-            integrations.
+            A team has its own board, repository and integrations.
           </AuthTitle>
         )}
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          {createWorkspace.isError && <ErrorMessage error={failure} />}
-
           <div className="flex flex-col gap-2">
             {step === 'workspace' ? (
               <>
                 <label htmlFor={nameId} className="sr-only">
-                  Workspace Name
+                  Workspace name
                 </label>
                 <FieldInput
                   id={nameId}
@@ -160,7 +148,7 @@ export function CreateWorkspace() {
             ) : (
               <>
                 <label htmlFor={teamId} className="sr-only">
-                  Team Name
+                  Team name
                 </label>
                 <FieldInput
                   id={teamId}

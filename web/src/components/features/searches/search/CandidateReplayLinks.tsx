@@ -16,14 +16,14 @@ export function CandidateReplayLinks({
   return (
     <p className="flex flex-wrap gap-x-3 text-xs">
       <TrailLink to={replayPath(at, candidate.replayId)} className={LINK}>
-        {candidate.seed ? 'Its replay of the set' : 'Its replay'}
+        {candidate.seed ? 'Replay of the set' : 'Replay'}
       </TrailLink>
       {candidate.heldOutReplayId && (
         <TrailLink
           to={replayPath(at, candidate.heldOutReplayId)}
           className={LINK}
         >
-          Its held-out replay
+          Held-out replay
         </TrailLink>
       )}
     </p>

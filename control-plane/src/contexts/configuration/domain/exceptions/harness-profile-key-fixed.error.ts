@@ -7,7 +7,7 @@ export class HarnessProfileKeyFixedError extends Error {
     readonly key: string,
     readonly because: string,
   ) {
-    super(`The ${key} harness profile ${because}`);
+    super(`Harness profile ${key} ${because}.`);
     this.name = 'HarnessProfileKeyFixedError';
   }
 }

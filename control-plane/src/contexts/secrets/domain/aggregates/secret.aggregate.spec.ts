@@ -94,13 +94,17 @@ describe('Secret', () => {
       expect(() => set({ value: null })).toThrow(
         expect.objectContaining({
           constructor: InvalidSecretError,
-          because: expect.stringMatching(/never read back/),
+          because: expect.stringMatching(
+            /required for a secret kept by Spotlight/,
+          ),
         }),
       );
     });
 
     it('takes no value when AWS Secrets Manager holds it', () => {
-      expect(() => set({ source: AWS })).toThrow(/set there/);
+      expect(() => set({ source: AWS })).toThrow(
+        /cannot be set on a secret read from AWS Secrets Manager/,
+      );
       expect(set({ source: AWS, value: null }).keeping).toBeNull();
     });
 
@@ -146,7 +150,7 @@ describe('Secret', () => {
           BY,
           LATER,
         ),
-      ).toThrow(/whenever valueWoVersion changes/);
+      ).toThrow(/required when valueWoVersion changes/);
     });
 
     it('records where it is bound once its bindings change', () => {
@@ -185,7 +189,7 @@ describe('Secret', () => {
           BY,
           LATER,
         ),
-      ).toThrow(/needed once the secret is kept by Spotlight/);
+      ).toThrow(/required once Spotlight keeps the secret/);
     });
 
     it('keeps its name for life', () => {

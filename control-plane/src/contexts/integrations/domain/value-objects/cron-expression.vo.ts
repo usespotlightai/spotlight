@@ -18,7 +18,7 @@ export class CronExpression {
     } catch (error) {
       throw new InvalidIntegrationPartError(
         'schedule cron',
-        `is not a cron expression: ${reasoned(error)}`,
+        `is not a valid cron expression (${reasoned(error)})`,
       );
     }
 

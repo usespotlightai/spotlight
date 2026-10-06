@@ -2,7 +2,7 @@ export class SkillAlreadyDefinedError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(key: string) {
-    super(`The team already has a ${key} skill`);
+    super(`Skill ${key} already exists. Please choose another key.`);
     this.name = 'SkillAlreadyDefinedError';
   }
 }

@@ -31,7 +31,7 @@ describe('Poll', () => {
 
   it('refuses one that raises nothing', () => {
     expect(() => Poll.of({ every: 60, declares: [] })).toThrow(
-      /raises nothing/,
+      /raises no events/,
     );
   });
 });

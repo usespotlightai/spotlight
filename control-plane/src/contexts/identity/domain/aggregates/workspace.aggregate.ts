@@ -113,7 +113,7 @@ export class Workspace extends EventRecorder {
     if (!definition.slug.equals(this.slug)) {
       throw new WorkspaceSlugFixedError(
         this.slug.value,
-        `keeps its slug for its whole life; replace it to have ${definition.slug.value}`,
+        `cannot change its slug to ${definition.slug.value}`,
       );
     }
 

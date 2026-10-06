@@ -125,10 +125,10 @@ const SEARCH: Search = {
   endedAt: null,
 };
 
-const renderSearches = (source = null) =>
+const renderSearches = () =>
   render(
     <MemoryRouter>
-      <StationSearches at={AT} source={source} replayCheck={null} />
+      <StationSearches at={AT} />
     </MemoryRouter>,
   );
 
@@ -153,7 +153,7 @@ describe('StationSearches', () => {
     renderSearches();
 
     expect(
-      screen.getByText('Only the team’s members can see its searches'),
+      screen.getByText('Only team members can see its searches'),
     ).toBeInTheDocument();
   });
 
@@ -202,7 +202,7 @@ describe('StationSearches', () => {
       screen.getByRole('button', { name: 'Start a search' }),
     ).toBeDisabled();
     expect(
-      screen.getByText('A search of this station is under way.'),
+      screen.getByText('A search of this station is underway.'),
     ).toBeInTheDocument();
   });
 
@@ -224,29 +224,5 @@ describe('StationSearches', () => {
     expect(
       screen.getByText('Too few held-out tasks to tell'),
     ).toBeInTheDocument();
-  });
-
-  it('names where a picked candidate opens its pull request', () => {
-    searches.mockReturnValue([]);
-
-    render(
-      <MemoryRouter>
-        <StationSearches
-          at={AT}
-          source={{ repository: 'acme/config', path: 'lines/default.tf' }}
-          replayCheck={{
-            mostRegressions: 1,
-            ceiling: 10,
-            currency: 'USD',
-            minGain: 0.05,
-          }}
-        />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText('acme/config')).toBeInTheDocument();
-    expect(screen.getByText('lines/default.tf')).toBeInTheDocument();
-    expect(screen.getByText('1 regression')).toBeInTheDocument();
-    expect(screen.getByText('$10.00')).toBeInTheDocument();
   });
 });

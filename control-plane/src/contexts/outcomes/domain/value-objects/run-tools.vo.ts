@@ -16,25 +16,23 @@ const blank = (text: string): boolean => text.trim().length === 0;
 
 const checked = (each: ServerCalls): ServerCalls => {
   if (blank(each.server)) {
-    throw new InvalidOutcomeError('names each server it called');
+    throw new InvalidOutcomeError('must name each server called');
   }
   if (!whole(each.calls) || each.calls === 0) {
-    throw new InvalidOutcomeError('called each server it names at least once');
+    throw new InvalidOutcomeError('must call each named server at least once');
   }
   if (!whole(each.failed) || each.failed > each.calls) {
-    throw new InvalidOutcomeError('failed no more calls than it made');
+    throw new InvalidOutcomeError('failed calls cannot exceed calls made');
   }
   if (each.latency.timed > each.calls) {
-    throw new InvalidOutcomeError('timed no more calls than it made');
+    throw new InvalidOutcomeError('timed calls cannot exceed calls made');
   }
   if (each.calls - each.latency.timed > each.failed) {
-    throw new InvalidOutcomeError(
-      'counted every call that never finished as failed',
-    );
+    throw new InvalidOutcomeError('must count every unfinished call as failed');
   }
   if (each.lastCallFailed && each.failed === 0) {
     throw new InvalidOutcomeError(
-      'ended on a failed call to a server only where one failed',
+      'can end on a failed server call only when one failed',
     );
   }
 
@@ -56,10 +54,10 @@ export class RunTools {
     const servers = input.servers.map(checked);
 
     if (new Set(servers.map((each) => each.server)).size !== servers.length) {
-      throw new InvalidOutcomeError('counts each server it called once');
+      throw new InvalidOutcomeError('must count each server once');
     }
     if (input.skillsRead.some(blank)) {
-      throw new InvalidOutcomeError('names each skill it read');
+      throw new InvalidOutcomeError('must name each skill read');
     }
 
     return new RunTools(servers, [...new Set(input.skillsRead)]);

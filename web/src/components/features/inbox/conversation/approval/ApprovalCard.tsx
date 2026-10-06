@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { ApprovalAction } from '@/components/features/inbox/conversation/approval/ApprovalAction';
-import { ApprovalAwaitsInbox } from '@/components/features/inbox/conversation/approval/ApprovalAwaitsInbox';
 import { ApprovalDecision } from '@/components/features/inbox/conversation/approval/ApprovalDecision';
 import { ApprovalEditControls } from '@/components/features/inbox/conversation/approval/ApprovalEditControls';
 import { ApprovalFields } from '@/components/features/inbox/conversation/approval/ApprovalFields';
@@ -20,14 +19,12 @@ type Mode = 'viewing' | 'editing' | 'refusing';
 type ApprovalCardProps = {
   approval: Approval;
   pending: boolean;
-  failure?: string | null;
   onDecide?: (answer: ApprovalAnswer) => void;
 };
 
 export function ApprovalCard({
   approval,
   pending,
-  failure = null,
   onDecide,
 }: ApprovalCardProps) {
   const [mode, setMode] = useState<Mode>('viewing');
@@ -73,18 +70,8 @@ export function ApprovalCard({
           <ApprovalAction approval={approval} />
         )}
 
-        {deciding && failure && (
-          <p role="alert" className="text-destructive text-xs">
-            {failure}
-          </p>
-        )}
-
         {!deciding ? (
-          approval.standing === 'asked' ? (
-            <ApprovalAwaitsInbox />
-          ) : (
-            <ApprovalDecision approval={approval} pending={false} />
-          )
+          <ApprovalDecision approval={approval} pending={false} />
         ) : mode === 'editing' ? (
           <ApprovalEditControls
             approval={approval}

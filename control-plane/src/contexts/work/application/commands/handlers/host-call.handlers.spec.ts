@@ -284,7 +284,7 @@ describe('AnswerHostCallHandler', () => {
       await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
     ).toEqual({
       outcome: 'settled',
-      reason: 'A network call has already been answered',
+      reason: 'Network call call_1 was already answered.',
     });
   });
 

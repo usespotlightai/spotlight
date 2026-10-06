@@ -8,7 +8,7 @@ export function BeforeAfterSkeleton() {
     <div
       role="status"
       aria-label="Loading the change"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <div className="flex flex-col gap-1">
         <SkeletonLine className="w-24 text-xs" />

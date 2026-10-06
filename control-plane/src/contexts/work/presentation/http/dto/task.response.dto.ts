@@ -8,7 +8,7 @@ export class TaskNoteResponseDto {
   @ApiProperty({ example: 'Implementation' })
   readonly station: string;
 
-  @ApiProperty({ example: 'The run was given up on after 3 attempts.' })
+  @ApiProperty({ example: 'No runner finished the run after 3 attempts.' })
   readonly body: string;
 
   constructor(position: number, station: string, body: string) {

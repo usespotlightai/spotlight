@@ -22,9 +22,9 @@ describe('SecretValue', () => {
   });
 
   it('refuses nothing at all, and more than any credential needs', () => {
-    expect(() => SecretValue.of('')).toThrow(/is empty/);
+    expect(() => SecretValue.of('')).toThrow(/must not be empty/);
     expect(() => SecretValue.of('x'.repeat(64 * 1024 + 1))).toThrow(
-      /longer than/,
+      /must be at most/,
     );
   });
 

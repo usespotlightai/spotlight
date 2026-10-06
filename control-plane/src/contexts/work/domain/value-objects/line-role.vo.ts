@@ -19,7 +19,7 @@ export class LineRole {
     if (!areWords(named)) {
       throw new InvalidIdentifierError(
         'line role',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in delivery`,
+        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in delivery`,
       );
     }
 

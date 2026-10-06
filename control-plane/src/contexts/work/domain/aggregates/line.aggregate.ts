@@ -118,7 +118,7 @@ export class Line extends EventRecorder {
 
       if (found < 0) {
         throw new InvalidStationLayoutError(
-          `must name one station "${key.value}", but name none`,
+          `must include station ${key.value}`,
         );
       }
 
@@ -233,7 +233,7 @@ export class Line extends EventRecorder {
 
     if (layout.reviews && !reviewsOn(layout.role ?? null)) {
       throw new InvalidReviewPolicyError(
-        `belongs only on a line whose role is ${LineRole.REVIEW.value}`,
+        `belongs only on a line with role ${LineRole.REVIEW.value}`,
       );
     }
 
@@ -265,7 +265,7 @@ export class Line extends EventRecorder {
     if (!layout.key.equals(this.key)) {
       throw new LineKeyFixedError(
         this.key.value,
-        `keeps its key for its whole life, since its tasks and address hang on it; replace it to key a line ${layout.key.value}`,
+        `cannot change to ${layout.key.value}. Please create a new line instead`,
       );
     }
 
@@ -562,7 +562,7 @@ export class Line extends EventRecorder {
     stations: readonly Station[],
   ): void {
     if (stations.length === 0) {
-      throw new InvalidStationLayoutError('must number at least one');
+      throw new InvalidStationLayoutError('must include at least one station');
     }
 
     const positions = stations
@@ -571,7 +571,7 @@ export class Line extends EventRecorder {
 
     if (positions.some((position, index) => position !== index)) {
       throw new InvalidStationLayoutError(
-        `must sit at positions 0 to ${stations.length - 1}, but sit at ${positions.join(', ')}`,
+        `must sit at positions 0 to ${stations.length - 1}, not ${positions.join(', ')}`,
       );
     }
   }
@@ -581,7 +581,7 @@ export class Line extends EventRecorder {
 
     if (!standing) {
       throw new InvalidStationLayoutError(
-        'must hold one completed, but hold 0',
+        'must include exactly one completed station, not 0',
       );
     }
 
@@ -592,7 +592,9 @@ export class Line extends EventRecorder {
     const standing = this.stations.find((each) => each.isBacklog);
 
     if (!standing) {
-      throw new InvalidStationLayoutError('must hold one backlog, but hold 0');
+      throw new InvalidStationLayoutError(
+        'must include exactly one backlog, not 0',
+      );
     }
 
     return standing;

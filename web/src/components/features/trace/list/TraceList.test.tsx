@@ -140,7 +140,7 @@ describe('TraceList', () => {
 
     expect(screen.getByText('No traces')).toBeInTheDocument();
     expect(
-      screen.getByText(/Nothing was traced in the past 7 days/),
+      screen.getByText(/No traces in the past 7 days/),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Create a task' })).toHaveAttribute(
       'href',

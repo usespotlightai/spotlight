@@ -8,7 +8,7 @@ export class SecretsUnheldError extends Error {
     readonly unheld: readonly WornSecret[],
   ) {
     super(
-      `The ${key} harness profile names secrets the workspace does not hold: ${unheld.map((each) => each.secret.value).join(', ')}`,
+      `Harness profile ${key} uses secrets the workspace does not hold. Missing secrets: ${unheld.map((each) => each.secret.value).join(', ')}`,
     );
     this.name = 'SecretsUnheldError';
   }

@@ -3,7 +3,7 @@ export class ChangeJudgingMovedOnError extends Error {
 
   constructor(runId: string) {
     super(
-      `This change's judging changed since it was read, and cannot be written over (${runId})`,
+      `Judging of the change of run ${runId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'ChangeJudgingMovedOnError';
   }

@@ -64,7 +64,9 @@ describe('TeamSkillFiles', () => {
         path: '.spotlight/skills/our-migrations/SKILL.md',
         severity: 'error',
       });
-      expect(found.problems[0]?.reason).toContain('no frontmatter');
+      expect(found.problems[0]?.reason).toContain(
+        'needs a name and description between --- lines',
+      );
     });
 
     it('is named for its folder, and nothing else', () => {
@@ -73,7 +75,9 @@ describe('TeamSkillFiles', () => {
       );
 
       expect(found.skills).toEqual([]);
-      expect(reasons(found)[0]).toContain('must be named for its folder');
+      expect(reasons(found)[0]).toContain(
+        'must be named our-migrations in its frontmatter',
+      );
     });
 
     it('has a SKILL.md to be read from', () => {
@@ -82,7 +86,7 @@ describe('TeamSkillFiles', () => {
       );
 
       expect(reasons(found)).toEqual([
-        '.spotlight/skills/our-migrations/notes.md: The our-migrations skill has no SKILL.md in our-migrations, which is what a skill is read from',
+        '.spotlight/skills/our-migrations/notes.md: Skill our-migrations has no SKILL.md in our-migrations.',
       ]);
     });
 
@@ -108,7 +112,7 @@ describe('TeamSkillFiles', () => {
 
       expect(found.skills).toEqual([]);
       expect(reasons(found)[0]).toContain(
-        'cannot start spotlight-, which is reserved for the skills Spotlight ships',
+        'cannot start with spotlight-. That prefix is reserved for built-in skills',
       );
     });
 

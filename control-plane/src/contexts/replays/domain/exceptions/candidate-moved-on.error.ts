@@ -2,7 +2,9 @@ export class CandidateMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(candidateId: string) {
-    super(`The candidate ${candidateId} changed while this was being written`);
+    super(
+      `Candidate ${candidateId} changed since you loaded it. Please reload and try again.`,
+    );
     this.name = 'CandidateMovedOnError';
   }
 }

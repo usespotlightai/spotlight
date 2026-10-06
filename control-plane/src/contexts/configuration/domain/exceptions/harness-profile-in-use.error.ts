@@ -5,7 +5,7 @@ export class HarnessProfileInUseError extends Error {
 
   constructor(key: string, uses: StationUses) {
     super(
-      `The ${key} harness profile is named by ${uses.stations}; take it off those stations first`,
+      `Harness profile ${key} is in use. Stations using it: ${uses.stations}`,
     );
     this.name = 'HarnessProfileInUseError';
   }

@@ -2,7 +2,9 @@ export class RunnerTrustAlreadyDefinedError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(key: string) {
-    super(`The workspace already has a runner trust keyed ${key}`);
+    super(
+      `A runner trust keyed ${key} already exists. Please choose another key.`,
+    );
     this.name = 'RunnerTrustAlreadyDefinedError';
   }
 }

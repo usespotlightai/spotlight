@@ -97,7 +97,7 @@ export class HookCallbackController {
 
     if (noted === 'empty') {
       throw new BadRequestException(
-        'A note says something, in at most 20000 characters',
+        'Note must not be empty. Maximum length: 20000 characters',
       );
     }
 

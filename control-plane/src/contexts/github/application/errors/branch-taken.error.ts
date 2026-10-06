@@ -3,7 +3,7 @@ export class BranchTakenError extends Error {
 
   constructor(branch: string) {
     super(
-      `The branch ${branch} holds commits Spotlight did not write; Spotlight leaves it alone`,
+      `Branch ${branch} has commits not written by Spotlight. It is left unchanged.`,
     );
     this.name = 'BranchTakenError';
   }

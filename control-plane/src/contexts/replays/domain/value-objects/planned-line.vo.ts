@@ -11,7 +11,7 @@ export class PlannedLine {
 
     if (!Array.isArray(repositories) || !repositories.every(isBlock)) {
       throw new InvalidCandidateError(
-        'planned with its line names the line’s repositories, as the line holds them',
+        'planned line must name the line’s repositories',
       );
     }
 
@@ -19,7 +19,7 @@ export class PlannedLine {
 
     if (written.length > MOST_CHARACTERS) {
       throw new InvalidCandidateError(
-        `planned with its line holds at most ${MOST_CHARACTERS} characters of it`,
+        `planned line must be at most ${MOST_CHARACTERS} characters`,
       );
     }
 

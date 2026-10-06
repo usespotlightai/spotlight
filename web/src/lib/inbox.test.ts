@@ -117,11 +117,9 @@ describe('previewOf', () => {
         aside: { form: 'alert', about: 'alert_1' },
       }) as InboxItem;
 
-    expect(previewOf(alert(false))).toBe(
-      'A station crossed one of its alert thresholds.',
-    );
+    expect(previewOf(alert(false))).toBe('Station crossed an alert threshold.');
     expect(previewOf(alert(true))).toBe(
-      'The station is back within its alert.',
+      'Station back within its alert threshold.',
     );
   });
 });

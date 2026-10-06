@@ -19,7 +19,7 @@ export class WorkspaceSlug {
     }
     if (!SHAPE.test(candidate)) {
       throw new InvalidWorkspaceSlugError(
-        'may only contain letters, numbers and single dashes between them',
+        'must contain only letters, numbers and single dashes',
       );
     }
     return new WorkspaceSlug(candidate);
@@ -30,7 +30,7 @@ export class WorkspaceSlug {
 
     if (slug.value !== raw) {
       throw new InvalidWorkspaceSlugError(
-        `is written exactly as it is kept, in lowercase, as in ${slug.value}`,
+        `must be lowercase, as in ${slug.value}`,
       );
     }
 

@@ -9,7 +9,7 @@ export class FilePath {
     const value = raw.trim().replace(/^\/+/, '');
 
     if (!value) {
-      throw new InvalidFilePathError('names a file');
+      throw new InvalidFilePathError('must not be empty');
     }
 
     return new FilePath(value);

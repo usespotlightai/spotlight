@@ -68,6 +68,35 @@ describe('changeVerdictOf', () => {
     expect(of(verdicts, 'failed_rate')?.settledAfter).toBe(5);
   });
 
+  it('counts a run that failed provisioning as a failed run on its side', () => {
+    const unstarted = (runId: string, hour: number) =>
+      endedRecord(runId, {
+        taskId: `task_${runId}`,
+        ending: 'failed',
+        failure: 'provisioning',
+        endedAt: at(hour),
+      });
+    const before = runs('b', FIVE_CLOSED);
+    const after = [
+      ...runs('a', FIVE_CLOSED),
+      unstarted('a_unstarted_1', 7),
+      unstarted('a_unstarted_2', 8),
+    ];
+
+    expect(of(changeVerdictOf(before, after, []), 'failed_rate')).toMatchObject(
+      {
+        before: 0,
+        after: 2 / 7,
+        settledBefore: 5,
+        settledAfter: 7,
+        verdict: 'worse',
+      },
+    );
+    expect(of(changeVerdictOf(after, before, []), 'failed_rate')?.verdict).toBe(
+      'better',
+    );
+  });
+
   it('reads merging as a rate of tasks whose pull request closed', () => {
     const before = runs('b', FIVE_CLOSED);
     const after = runs('a', FIVE_CLOSED);

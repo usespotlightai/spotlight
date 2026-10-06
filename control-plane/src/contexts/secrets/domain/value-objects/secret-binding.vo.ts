@@ -46,21 +46,21 @@ export class SecretBinding {
     if (!HOST.test(host)) {
       throw new InvalidSecretError(
         'host',
-        'is the one host the secret may be sent to, as in api.linear.app, with no scheme, port or path',
+        'must be one host with no scheme, port or path, as in api.linear.app',
       );
     }
 
     if (!HEADER.test(header) || NEVER_WORN.has(header)) {
       throw new InvalidSecretError(
         'header',
-        'is the request header the secret is worn in, as in authorization or x-api-key',
+        'must be a request header name, as in authorization or x-api-key',
       );
     }
 
     if (!PREFIX.test(prefix)) {
       throw new InvalidSecretError(
         'prefix',
-        'is up to 64 printable characters written before the value, as in "Bearer "',
+        'must be at most 64 printable characters, as in "Bearer "',
       );
     }
 

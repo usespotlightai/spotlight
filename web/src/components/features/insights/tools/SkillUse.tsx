@@ -30,7 +30,7 @@ export function SkillUse({
   return (
     <InsightsCard
       title="Skills"
-      description="Runs that read each skill, week by week, against all runs. A run reads a skill when a tool call touches its folder or asks for it by name."
+      description="Runs that read each skill per week, against all runs. A read is a tool call that touches the skill’s folder or names it."
       table={<SkillUseTable skills={skills} weeks={weeks} />}
     >
       <ul

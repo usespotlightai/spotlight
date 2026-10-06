@@ -2,7 +2,9 @@ export class UnknownHappeningError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(happening: string) {
-    super(`No source here raises "${happening}", so nothing would ever wait`);
+    super(
+      `No source raises happening ${happening}. A wait on it would never end.`,
+    );
     this.name = 'UnknownHappeningError';
   }
 }

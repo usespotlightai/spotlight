@@ -107,7 +107,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
       }
       if (!check.runId.equals(runId)) {
         throw new UnknownChangeStackError(
-          `run ${runId.value} drafted no change stack ${stackId}`,
+          `Run ${runId.value} drafted no change stack ${stackId}.`,
         );
       }
 

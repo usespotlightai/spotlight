@@ -4,7 +4,9 @@ export const MOST_RUN_PAGE = 10_000;
 
 export const pageAskedOf = (page: number): number => {
   if (page > MOST_RUN_PAGE) {
-    throw new InvalidRunPageError(`up to page ${MOST_RUN_PAGE}, not ${page}`);
+    throw new InvalidRunPageError(
+      `must be at most ${MOST_RUN_PAGE}, not ${page}`,
+    );
   }
 
   return page;
@@ -17,6 +19,6 @@ export const pageWithin = (page: number, total: number, size: number): void => {
   const last = lastPageOf(total, size);
 
   if (page > last) {
-    throw new InvalidRunPageError(`up to page ${last}, not ${page}`);
+    throw new InvalidRunPageError(`must be at most ${last}, not ${page}`);
   }
 };

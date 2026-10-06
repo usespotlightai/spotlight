@@ -430,9 +430,7 @@ describe('Station', () => {
 
     expect(screen.getByRole('heading', { name: 'Judge' })).toBeInTheDocument();
     expect(screen.getByText('20% of runs')).toBeInTheDocument();
-    expect(
-      screen.getByText('agreement with people of 0.60 or more'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('0.60')).toBeInTheDocument();
   });
 
   it('keeps the rubric folded away until asked, then shows it without letting it be written', async () => {
@@ -631,7 +629,7 @@ describe('Station', () => {
 
       expect(
         document.querySelector('[data-slot="judge-standing"]'),
-      ).toHaveTextContent('Trusted: Cohen’s kappa is 0.71 over 24 runs');
+      ).toHaveTextContent('Trusted. Cohen’s kappa: 0.71 over 24 runs');
     });
 
     it('says why the judge’s scores are hidden when it agrees too seldom', () => {
@@ -650,7 +648,7 @@ describe('Station', () => {
       expect(
         document.querySelector('[data-slot="judge-standing"]'),
       ).toHaveTextContent(
-        'Hidden: Cohen’s kappa is 0.38, below the 0.60 it needs.',
+        'Hidden. Cohen’s kappa: 0.38. Minimum required: 0.60',
       );
     });
 
@@ -716,9 +714,7 @@ describe('Station', () => {
       renderAt('station_2');
 
       expect(
-        screen.getByText(
-          'Only the team’s members can see how the judge agrees with people',
-        ),
+        screen.getByText('Only team members can see judge agreement'),
       ).toBeInTheDocument();
     });
 

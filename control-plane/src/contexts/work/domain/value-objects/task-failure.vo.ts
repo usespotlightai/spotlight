@@ -30,7 +30,7 @@ export class TaskFailure {
 
   static fromHook(hook: string, code: string): TaskFailure {
     if (blank(hook)) {
-      throw new InvalidTaskFailureError('from a hook names the hook');
+      throw new InvalidTaskFailureError('from a hook must name the hook');
     }
 
     return TaskFailure.raised(`${HOOK}${hook.trim()}`, code);
@@ -38,7 +38,7 @@ export class TaskFailure {
 
   private static raised(source: TaskFailureSource, code: string): TaskFailure {
     if (blank(code)) {
-      throw new InvalidTaskFailureError('says what went wrong');
+      throw new InvalidTaskFailureError('must say what went wrong');
     }
 
     return new TaskFailure(source, code, 1);

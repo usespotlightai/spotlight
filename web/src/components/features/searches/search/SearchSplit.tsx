@@ -35,10 +35,9 @@ export function SearchSplit({ slug, teamId, split, set }: SearchSplitProps) {
         </dl>
 
         <p className="text-muted-foreground text-xs leading-5">
-          Its agent sees the searched tasks and how candidates did on them. It
-          never sees the held-out tasks: the best candidates are replayed on
-          them once it stops searching, to check they did not just fit what it
-          saw.
+          Search agent sees only the searched tasks and their scores. Held-out
+          tasks stay hidden. The best candidates replay on them after searching,
+          to check they didn’t just fit what it saw.
         </p>
 
         {split.heldOut.length > 0 && (

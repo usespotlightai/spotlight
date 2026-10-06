@@ -6,7 +6,7 @@ export function MemorySkeleton() {
     <div
       role="status"
       aria-label="Loading the memory"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <InsightsTilesSkeleton
         labels={['Standing memories', 'Briefed', 'Read', 'Flagged wrong']}

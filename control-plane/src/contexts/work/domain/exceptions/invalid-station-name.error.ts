@@ -2,7 +2,7 @@ export class InvalidStationNameError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`A station name ${reason}`);
+    super(`Station name ${reason}.`);
     this.name = 'InvalidStationNameError';
   }
 }

@@ -1,4 +1,6 @@
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { tilesInARow } from '@/lib/insights-tiles';
+import { cn } from '@/lib/utils';
 
 export function InsightsTilesSkeleton({
   labels,
@@ -6,17 +8,24 @@ export function InsightsTilesSkeleton({
   labels: readonly string[];
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+    <div
+      className={cn(
+        'grid grid-cols-2 gap-2 sm:grid-cols-3',
+        tilesInARow(labels.length),
+      )}
+    >
       {labels.map((label) => (
         <div
           key={label}
-          className="flex min-w-0 flex-col gap-0.5 rounded-xl border border-border bg-card p-3"
+          className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
         >
-          <span className="truncate text-muted-foreground text-xs">
+          <span className="flex min-h-7 items-center truncate border-border border-b bg-muted/40 px-2.5 py-1 text-foreground text-xs">
             {label}
           </span>
-          <SkeletonLine className="w-14 text-xl" />
-          <SkeletonLine className="w-20 text-xs" />
+          <span className="flex flex-col gap-1 px-2.5 pt-2 pb-2">
+            <SkeletonLine className="w-16 text-[1.375rem]" />
+            <SkeletonLine className="w-24 text-xs" />
+          </span>
         </div>
       ))}
     </div>

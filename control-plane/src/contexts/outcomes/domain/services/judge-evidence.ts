@@ -176,7 +176,7 @@ export class JudgeEvidence {
 
       if (!step) {
         throw new InvalidScoreError(
-          'cites only steps of its run the judge read',
+          'can cite only steps the judge read',
           'reason',
         );
       }
@@ -188,7 +188,7 @@ export class JudgeEvidence {
 
       if (!hunk) {
         throw new InvalidScoreError(
-          'cites only hunks of its run’s changes the judge read',
+          'can cite only hunks the judge read',
           'reason',
         );
       }

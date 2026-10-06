@@ -79,7 +79,7 @@ const PAGE = 50;
 
 const LONGEST_PAGE = 200;
 
-const SET_SAYS = 'names the replay set at the station to search on';
+const SET_SAYS = 'must name a replay set at the station';
 
 interface Answerable {
   status(code: number): unknown;

@@ -5,9 +5,8 @@ import type {
   SetHealthDto,
   StationChangeDto,
 } from '@replays/application/dto/replays.dto';
+import type { OriginKind } from '@replays/domain/value-objects/candidate-kind';
 import type { ReplayedPeriodName } from '@replays/domain/value-objects/replayed-period.vo';
-
-type ReplayedCandidateKind = 'searched' | 'proposed';
 
 export interface ReplayedPeriodDto {
   readonly name: ReplayedPeriodName;
@@ -70,7 +69,7 @@ export interface ReplayedSearchDto {
 export interface ReplayedCandidateDto {
   readonly candidateId: string;
   readonly name: string;
-  readonly kind: ReplayedCandidateKind;
+  readonly kind: OriginKind;
   readonly hypothesis: string | null;
   readonly fingerprint: string | null;
   readonly changes: readonly StationChangeDto[];
@@ -95,6 +94,19 @@ export interface ReplayedCandidateDto {
   readonly onFrontier: boolean | null;
   readonly search: ReplayedSearchDto | null;
   readonly pullRequest: CandidatePullRequestDto | null;
+  readonly adoption: ReplayedAdoptionDto | null;
+}
+
+export interface CreditedToDto {
+  readonly candidateId: string;
+  readonly name: string;
+  readonly withdrawn: boolean;
+}
+
+export interface ReplayedAdoptionDto {
+  readonly at: string;
+  readonly live: boolean;
+  readonly creditedTo: CreditedToDto | null;
 }
 
 export interface ReplayedSetDto {

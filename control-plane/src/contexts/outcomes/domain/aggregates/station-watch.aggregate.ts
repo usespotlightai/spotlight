@@ -60,7 +60,9 @@ export class StationWatch extends EventRecorder {
     const open = input.crossings.filter((each) => each.open);
 
     if (new Set(open.map((each) => each.rule.key)).size !== open.length) {
-      throw new InvalidAlertError('stands crossed once per rule at a time');
+      throw new InvalidAlertError(
+        'can be crossed only once per rule at a time',
+      );
     }
 
     return new StationWatch(

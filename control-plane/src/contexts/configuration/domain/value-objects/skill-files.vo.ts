@@ -2,15 +2,15 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 
 export const skillFileRefusal = (path: string): string | null => {
   if (path.length === 0) {
-    return 'is a path within the skill’s folder, and cannot be empty';
+    return 'must not be empty';
   }
 
   if (path.startsWith('/') || path.includes('\\') || path.includes('\0')) {
-    return 'is a path within the skill’s folder, as in scripts/query.sh';
+    return 'must be a relative path in the skill folder, such as scripts/query.sh';
   }
 
   if (path.split('/').some((each) => ['', '.', '..'].includes(each))) {
-    return 'names each folder on its way, with no empty, . or .. part';
+    return 'must not have empty, . or .. parts';
   }
 
   return null;

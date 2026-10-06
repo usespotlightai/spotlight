@@ -31,7 +31,7 @@ export const memoryPath = (
 
 export const usedBy = (runs: number): string =>
   runs === 0
-    ? 'No run has used it yet'
+    ? 'Not used by any run yet'
     : `Used by ${runs} ${runs === 1 ? 'run' : 'runs'}`;
 
 export const givenMemories = (memories: RunMemories): TeamMemory[] => {
@@ -68,16 +68,15 @@ export const KIND_LABELS: Record<MemoryKind, string> = {
 
 export const KIND_DESCRIPTIONS: Record<MemoryKind, string> = {
   rationale:
-    "Why something was done the way it was, where the reason isn't written down.",
+    "Why something was done a certain way. The reason isn't written down elsewhere.",
   'rejected-approach':
-    'An approach that was tried or weighed and set aside, and why, so nobody tries it again.',
+    'An approach set aside, and why. Stops anyone trying it again.',
   failure:
-    'Something that failed and what it failed on, such as a flaky test or a broken command.',
+    'Something that failed, and what it failed on. For example, a flaky test.',
   environment:
-    'A quirk of where the work runs, such as a service that must be started first.',
+    'A quirk of where the work runs. For example, a service that must start first.',
   preference: 'How someone on the team wants things done.',
-  correction:
-    'Someone telling the agent it was wrong, and what is right instead.',
+  correction: 'A person correcting the agent, and what is right instead.',
 };
 
 const REACH_LABELS: Record<ProposedMemory['reach'], string> = {
@@ -242,7 +241,7 @@ export const placeOf = (
     : line
       ? line.name
       : memory.lineId
-        ? 'A line that is gone'
+        ? 'Line deleted'
         : 'The whole team';
 
   if (!memory.repository) {
@@ -271,7 +270,7 @@ export const proposalStateOf = (proposal: RunProposal): string => {
   }
 
   if (proposal.state === 'approved') {
-    return proposal.standing === 'retired' ? 'Kept, since retired' : 'Kept';
+    return proposal.standing === 'retired' ? 'Kept, now retired' : 'Kept';
   }
 
   return 'Waiting for you';

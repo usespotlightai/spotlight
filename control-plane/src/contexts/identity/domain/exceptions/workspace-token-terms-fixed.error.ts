@@ -5,7 +5,7 @@ export class WorkspaceTokenTermsFixedError extends Error {
     readonly field: string,
     readonly because: string,
   ) {
-    super(`A workspace token's ${field} ${because}`);
+    super(`Workspace token ${field} ${because}.`);
     this.name = 'WorkspaceTokenTermsFixedError';
   }
 }

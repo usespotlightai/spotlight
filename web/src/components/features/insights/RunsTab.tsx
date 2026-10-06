@@ -54,7 +54,7 @@ export function RunsTab({
         <InsightsFailed what="The runs" query={runs} />
       ) : runs.data.total === 0 && !narrowed ? (
         <NoRunsInPeriod slug={slug} teamId={teamId}>
-          Every run that ends in the period is listed here, newest first.
+          Runs that end in this period show here, newest first.
         </NoRunsInPeriod>
       ) : runs.data.total === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-border py-10">

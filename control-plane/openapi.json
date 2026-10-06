@@ -9030,7 +9030,7 @@
             }
           },
           "401": {
-            "description": "Missing, rotated or unknown pool token, or a workload the trust does not admit"
+            "description": "Pool token is missing, rotated or unknown, or no trust admits this workload."
           },
           "409": {
             "description": "The host id serves another pool or trust"
@@ -9073,7 +9073,7 @@
             "description": "Gone"
           },
           "401": {
-            "description": "Missing, rotated or unknown pool token, or a workload the trust does not admit"
+            "description": "Pool token is missing, rotated or unknown, or no trust admits this workload."
           }
         },
         "security": [
@@ -16988,7 +16988,7 @@
             "name": "last",
             "required": false,
             "in": "query",
-            "description": "How many of the latest runs to look at: 50 unless asked, 200 at most",
+            "description": "How many of the latest-started runs to look at: 50 unless asked, 200 at most",
             "schema": {
               "type": "number"
             }
@@ -22548,6 +22548,116 @@
           "replays"
         ]
       }
+    },
+    "/teams/{teamId}/config-origins": {
+      "post": {
+        "description": "Origins are worked out when asked, from the runs the team has kept. Each change is named by its station and the run it took effect with, as the team's insights change markers name them. A station changes config when a run that ran a config began with another config than the run that began before it there, ties broken by run; a run asked about that did not change its station's config has no origin. Otherwise its origin is the newest-made candidate at the station with the config it changed to, found by a search or proposed by a person or Terraform, made no later than the run began, among those the caller can see at stations that still exist, including candidates withdrawn since, which come back with withdrawn set. Deleting a task's runs changes the answer. The live config, sanity replays and pull-request check candidates are never an origin. Changes with no origin are left out; a run asked about twice at a station is answered once. At most 100 changes.",
+        "operationId": "readConfigOrigins",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version it was answered in",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadConfigOriginsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigOriginsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or asking for an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team for this caller",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A change with a blank station or run, or too many changes",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The searched or proposed candidate each station config change came from, replayed or not; nothing is written",
+        "tags": [
+          "replays"
+        ]
+      }
     }
   },
   "info": {
@@ -22981,7 +23091,7 @@
           },
           "detail": {
             "type": "string",
-            "example": "The integration is at version 4; read it again and send that version as If-Match"
+            "example": "The integration changed since you read it. Please send the current version as If-Match. Current version: 4"
           },
           "errors": {
             "description": "Each field that is wrong, when the request was invalid",
@@ -26077,7 +26187,7 @@
           },
           "body": {
             "type": "string",
-            "example": "The run was given up on after 3 attempts."
+            "example": "No runner finished the run after 3 attempts."
           }
         },
         "required": [
@@ -27444,6 +27554,18 @@
             "nullable": true,
             "example": "#edc12b"
           },
+          "stationPosition": {
+            "type": "number",
+            "nullable": true,
+            "example": 2,
+            "description": "Where the station stands on its line, from 0"
+          },
+          "stationCount": {
+            "type": "number",
+            "nullable": true,
+            "example": 5,
+            "description": "How many stations its line has"
+          },
           "title": {
             "type": "string",
             "example": "Back off retries exponentially"
@@ -27474,6 +27596,8 @@
           "stationId",
           "stationName",
           "stationColor",
+          "stationPosition",
+          "stationCount",
           "title",
           "description",
           "state",
@@ -32976,11 +33100,20 @@
       "FingerprintGroupResponseDto": {
         "type": "object",
         "properties": {
+          "firstRunId": {
+            "type": "string",
+            "example": "run_8f2c",
+            "description": "The group’s oldest listed run: the run that started its config, or for a group carrying on the config of a run from before the listing, a group with no config, or a group of a config that never ran, its oldest run"
+          },
           "fingerprint": {
             "type": "string",
             "nullable": true,
             "example": "a3f9…",
-            "description": "The station config these runs ran with; none for runs from before configs were fingerprinted"
+            "description": "The station config in force when these runs started, or for a group that never ran its config, the config its runs were meant to run; none only for runs from before the station first ran a config"
+          },
+          "ran": {
+            "type": "boolean",
+            "description": "Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or withdrawn), which are kept apart from the group in force"
           },
           "config": {
             "nullable": true,
@@ -32992,7 +33125,7 @@
             ]
           },
           "changes": {
-            "description": "How the config differs from the one before it",
+            "description": "How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ConfigChangeResponseDto"
@@ -33010,10 +33143,28 @@
           }
         },
         "required": [
+          "firstRunId",
           "fingerprint",
+          "ran",
           "config",
           "changes",
           "runs",
+          "tally"
+        ]
+      },
+      "ConfigInForceResponseDto": {
+        "type": "object",
+        "properties": {
+          "tally": {
+            "description": "One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the stretch whole and are not counted",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunTallyResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
           "tally"
         ]
       },
@@ -33025,16 +33176,27 @@
             "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
           },
           "groups": {
-            "description": "The station’s latest runs, in runs of the same config, the newest first",
+            "description": "The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or withdrawn) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FingerprintGroupResponseDto"
             }
+          },
+          "inForce": {
+            "nullable": true,
+            "description": "The config the station last ran, as of the listed runs, with its tally; there under a config carried on from before the listing even when no listed run ran a config, and none when the station had run no config by the newest listed run",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigInForceResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "stationId",
-          "groups"
+          "groups",
+          "inForce"
         ]
       },
       "StationJudgeSettingsResponseDto": {
@@ -34033,6 +34195,11 @@
             "example": "a3f9…",
             "description": "The station config the station changed to"
           },
+          "previousFingerprint": {
+            "type": "string",
+            "example": "9b1d…",
+            "description": "The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too"
+          },
           "firstRunAt": {
             "type": "string",
             "example": "2026-09-21T09:00:00.000Z",
@@ -34047,6 +34214,7 @@
           "lineId",
           "stationId",
           "fingerprint",
+          "previousFingerprint",
           "firstRunAt",
           "runId"
         ]
@@ -34090,6 +34258,11 @@
             "type": "boolean",
             "description": "It trails the team"
           },
+          "flaggedAbove": {
+            "type": "number",
+            "example": 0.15,
+            "description": "The line it crossed to be flagged: the lower of the period before and the team, each made 25% worse and, for a share, at least 5 points worse"
+          },
           "currency": {
             "type": "string",
             "nullable": true,
@@ -34104,6 +34277,7 @@
           "team",
           "rose",
           "trails",
+          "flaggedAbove",
           "currency"
         ]
       },
@@ -35577,8 +35751,8 @@
           },
           "previousFingerprint": {
             "type": "string",
-            "nullable": true,
-            "description": "The config the station ran with just before"
+            "example": "9b1d…",
+            "description": "The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too"
           },
           "firstRunAt": {
             "type": "string",
@@ -35591,7 +35765,7 @@
             "description": "That first run"
           },
           "before": {
-            "description": "The station’s runs with the config before that started since its config before last changed, up to this change",
+            "description": "The station’s runs with the config before, from its config before last changing up to this change, a run that never started placed where it ended; one that failed provisioning counts as a failed run",
             "allOf": [
               {
                 "$ref": "#/components/schemas/RunTallyResponseDto"
@@ -35599,7 +35773,7 @@
             ]
           },
           "after": {
-            "description": "The station’s runs with this config that started from this change up to the next one",
+            "description": "The station’s runs with this config from this change up to the next one, and its runs meant to run this config that never ran it since the change before, even those that ended before this change; one that failed provisioning counts as a failed run",
             "allOf": [
               {
                 "$ref": "#/components/schemas/RunTallyResponseDto"
@@ -42418,6 +42592,58 @@
           "seed"
         ]
       },
+      "CreditedToResponseDto": {
+        "type": "object",
+        "properties": {
+          "candidateId": {
+            "type": "string",
+            "example": "f2b8c0d4-5e6a-4b7c-8d9e-0f1a2b3c4d5e"
+          },
+          "name": {
+            "type": "string",
+            "example": "Shorter review prompt"
+          },
+          "withdrawn": {
+            "type": "boolean",
+            "description": "Whether the newer candidate has since been withdrawn; a withdrawn candidate keeps its credit but can no longer be opened"
+          }
+        },
+        "required": [
+          "candidateId",
+          "name",
+          "withdrawn"
+        ]
+      },
+      "ReplayedAdoptionResponseDto": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-30T10:00:00.000Z",
+            "description": "When the station last changed to the candidate’s config with a change credited to it, so a station that left the config and took it up again shows the return"
+          },
+          "live": {
+            "type": "boolean",
+            "description": "Whether the station’s latest config change is the one credited to the candidate and the station still runs that config, as Work fingerprints it; a later candidate credited with a return to the same config takes over"
+          },
+          "creditedTo": {
+            "nullable": true,
+            "description": "The newer candidate credited with the station’s latest config change, where that change went back to this candidate’s config; this candidate is then not live",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreditedToResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "at",
+          "live",
+          "creditedTo"
+        ]
+      },
       "ReplayedCandidateResponseDto": {
         "type": "object",
         "properties": {
@@ -42593,6 +42819,16 @@
                 "$ref": "#/components/schemas/CandidatePullRequestResponseDto"
               }
             ]
+          },
+          "adoption": {
+            "nullable": true,
+            "description": "When the station last changed to its config with a change config-origins credits to it, whatever the period, and whether the station still runs it; null while no change is credited to it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReplayedAdoptionResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -42622,7 +42858,8 @@
           "againstLive",
           "onFrontier",
           "search",
-          "pullRequest"
+          "pullRequest",
+          "adoption"
         ]
       },
       "ReplayedSetResponseDto": {
@@ -42723,6 +42960,132 @@
           "period",
           "truncated",
           "stations"
+        ]
+      },
+      "ConfigChangeRequestDto": {
+        "type": "object",
+        "properties": {
+          "stationId": {
+            "type": "string",
+            "description": "The station whose config changed"
+          },
+          "runId": {
+            "type": "string",
+            "example": "run_1",
+            "description": "The run the change took effect with: its first run with the config, as an insights change marker names it"
+          }
+        },
+        "required": [
+          "stationId",
+          "runId"
+        ]
+      },
+      "ReadConfigOriginsRequestDto": {
+        "type": "object",
+        "properties": {
+          "changes": {
+            "maxItems": 100,
+            "description": "The config changes to find origins for, each named by its station and first run; a run at a station asked about twice counts once. At most 100 changes.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigChangeRequestDto"
+            }
+          }
+        },
+        "required": [
+          "changes"
+        ]
+      },
+      "ConfigOriginResponseDto": {
+        "type": "object",
+        "properties": {
+          "stationId": {
+            "type": "string",
+            "description": "The station of the change asked about"
+          },
+          "runId": {
+            "type": "string",
+            "example": "run_1",
+            "description": "The run of the change asked about, as asked"
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "The config the station changed to"
+          },
+          "changedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-30T10:00:00.000Z",
+            "description": "When the change took effect: when its run began"
+          },
+          "candidateId": {
+            "type": "string",
+            "description": "The candidate the change came from"
+          },
+          "name": {
+            "type": "string",
+            "example": "one-comment-per-problem"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "searched",
+              "proposed"
+            ],
+            "description": "Found by a search, or proposed by a person or Terraform"
+          },
+          "lineId": {
+            "type": "string"
+          },
+          "searchId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The search that found it, for information only: a withdrawn candidate’s search may be gone too; null unless searched"
+          },
+          "replayId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Its newest replay, for a proposed candidate still standing; null when searched, withdrawn or never replayed"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-29T16:00:00.000Z",
+            "description": "When the candidate was made"
+          },
+          "withdrawn": {
+            "type": "boolean",
+            "description": "Whether the candidate has since been withdrawn; a withdrawn origin still names it, but it has no page to link to"
+          }
+        },
+        "required": [
+          "stationId",
+          "runId",
+          "fingerprint",
+          "changedAt",
+          "candidateId",
+          "name",
+          "kind",
+          "lineId",
+          "searchId",
+          "replayId",
+          "createdAt",
+          "withdrawn"
+        ]
+      },
+      "ConfigOriginsResponseDto": {
+        "type": "object",
+        "properties": {
+          "origins": {
+            "description": "For each change asked about that came from a candidate, that candidate, in the order asked; changes with no origin are left out",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigOriginResponseDto"
+            }
+          }
+        },
+        "required": [
+          "origins"
         ]
       }
     }

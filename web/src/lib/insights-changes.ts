@@ -22,11 +22,11 @@ export type OutcomeMeasure = SetupOutcome['frontier'][number];
 
 export type ChangeAt = {
   readonly stationId: string;
-  readonly fingerprint: string;
+  readonly runId: string;
 };
 
 export const changeKey = (change: ChangeAt): string =>
-  `${change.stationId}:${change.fingerprint}`;
+  `${change.stationId}:${change.runId}`;
 
 export const markerOf = (
   changes: InsightsChanges,
@@ -101,6 +101,35 @@ export type SetupPoint = {
   readonly frontier: boolean;
 };
 
+const DOT_AREA: readonly [number, number] = [40, 240];
+
+export type RunsScale = {
+  readonly domain: readonly [number, number];
+  readonly range: readonly [number, number];
+  readonly legend: readonly number[];
+};
+
+export const runsScaleOf = (points: readonly SetupPoint[]): RunsScale => {
+  const runs = points.map((each) => each.runs);
+  const least = Math.min(...runs);
+  const most = Math.max(...runs);
+  const middle = Math.round((least + most) / 2);
+
+  return {
+    domain: [least, most],
+    range: DOT_AREA,
+    legend: [...new Set([least, middle, most])],
+  };
+};
+
+export const dotRadius = (scale: RunsScale, runs: number): number => {
+  const [least, most] = scale.domain;
+  const [small, large] = scale.range;
+  const share = most === least ? 1 : (runs - least) / (most - least);
+
+  return Math.sqrt((small + share * (large - small)) / Math.PI);
+};
+
 export const setupPoints = (
   setups: readonly SetupOutcome[],
   measure: OutcomeMeasure,
@@ -132,17 +161,6 @@ export const frontierOf = (points: readonly SetupPoint[]): SetupPoint[] =>
     .sort((a, b) => a.cost - b.cost || a.value - b.value);
 
 export const outcomeShown = (value: number | null): string => shareShown(value);
-
-const JUDGE_WITHHELD: Record<
-  NonNullable<InsightsSetups['judgeWithheld']>,
-  string
-> = {
-  no_station: 'Pick a station to compare judge scores.',
-};
-
-export const judgeWithheldShown = (
-  reason: InsightsSetups['judgeWithheld'],
-): string | null => (reason ? JUDGE_WITHHELD[reason] : null);
 
 export const judgeShown = (share: JudgeShare | null): string =>
   share && share.mean !== null

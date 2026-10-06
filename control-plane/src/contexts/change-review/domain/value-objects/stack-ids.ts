@@ -20,7 +20,7 @@ const LAYER = new RegExp(`^c${PLACE}\\.l${PLACE}$`);
 
 const placed = (place: number, what: string): number => {
   if (!Number.isInteger(place) || place < 1) {
-    throw InvalidChangeStackError.because(`counts its ${what} from 1`);
+    throw InvalidChangeStackError.because(`must number its ${what} from 1`);
   }
 
   return place;
@@ -33,7 +33,7 @@ const named = <T extends string>(
 ): T => {
   if (!shape.test(raw)) {
     throw InvalidChangeStackError.because(
-      `names ${raw || 'nothing'}, which is not how a ${what} is named`,
+      `${what} name ${raw || 'nothing'} is not valid`,
     );
   }
 

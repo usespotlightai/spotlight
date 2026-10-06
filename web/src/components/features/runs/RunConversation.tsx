@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
-import { Conversation } from '@/components/features/inbox/conversation/Conversation';
+import {
+  Conversation,
+  type Deciding,
+} from '@/components/features/inbox/conversation/Conversation';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import type { RunJournal } from '@/lib/inbox';
-import type { TeamRun } from '@/lib/run';
 import {
   conversingOf,
   type RunConversation as Said,
@@ -10,27 +12,32 @@ import {
 
 type RunConversationProps = {
   teamId: string;
-  run: TeamRun;
   said: Said;
   worked: readonly RunJournal[];
-  activity: ReactNode;
-  closing: ReactNode;
   footer: ReactNode;
+  deciding?: Deciding;
+  live?: ReactNode;
+  closing?: ReactNode;
+  openAt?: number | null;
+  afterRun?: (runId: string) => ReactNode;
 };
 
 export function RunConversation({
   teamId,
-  run,
   said,
   worked,
-  activity,
-  closing,
   footer,
+  deciding,
+  live,
+  closing,
+  openAt,
+  afterRun,
 }: RunConversationProps) {
   return (
     <Conversation
       item={conversingOf(said, teamId)}
       worked={worked}
+      openAt={openAt}
       opening={
         said.briefing ? (
           <RunBriefing
@@ -39,9 +46,11 @@ export function RunConversation({
           />
         ) : undefined
       }
-      live={run.state === 'claimed' ? activity : undefined}
+      live={live}
       closing={closing}
       footer={footer}
+      deciding={deciding}
+      afterRun={afterRun}
     />
   );
 }

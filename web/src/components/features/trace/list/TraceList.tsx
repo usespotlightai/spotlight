@@ -58,7 +58,7 @@ export function TraceList({
           title="No traces"
           action={<CreateTaskLink slug={slug} teamId={teamId} />}
         >
-          {`Nothing was traced in the ${rangeOf(range).label.toLowerCase()}. A task leaves a trace once a station works it.`}
+          {`No traces in the ${rangeOf(range).label.toLowerCase()}. Create a task to leave one.`}
         </EmptyState>
       </Notice>
     );

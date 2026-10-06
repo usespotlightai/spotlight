@@ -10,16 +10,6 @@ type CreatedRunnerPool = {
   token: string;
 };
 
-export class RunnerPoolNameTakenError extends Error {
-  readonly pool: string;
-
-  constructor(pool: string) {
-    super(`A pool named ${pool} already exists`);
-    this.name = 'RunnerPoolNameTakenError';
-    this.pool = pool;
-  }
-}
-
 export function useCreateRunnerPool(workspaceId: string) {
   const queryClient = useQueryClient();
 
@@ -39,10 +29,12 @@ export function useCreateRunnerPool(workspaceId: string) {
       }
 
       if (response?.status === 409) {
-        throw new RunnerPoolNameTakenError(key);
+        throw new Error(
+          `Pool ${key} already exists. Please choose another name.`,
+        );
       }
 
-      throw new Error(messageOf(error, 'Could not create the pool'));
+      throw new Error(messageOf(error, 'Sorry, the pool couldn’t be created.'));
     },
     onSuccess: () =>
       queryClient.invalidateQueries({

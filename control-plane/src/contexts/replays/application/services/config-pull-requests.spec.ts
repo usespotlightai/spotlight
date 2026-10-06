@@ -259,7 +259,7 @@ describe('picking a search candidate', () => {
 
   it('refuses the seed and a reader who may not plan', async () => {
     await expect(pick(search.seed.candidateId.value)).rejects.toThrow(
-      'The seed is the station’s live config already',
+      'The seed is already the station’s live config.',
     );
     expect(await pick(TERSE.value, false)).toMatchObject({
       outcome: 'forbidden',

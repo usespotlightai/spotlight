@@ -58,7 +58,7 @@ const refuseValueFor = (source: SecretSource): void => {
   if (!source.isBuiltIn) {
     throw new InvalidSecretError(
       VALUE_FIELD,
-      'is kept only by Spotlight; a secret read from AWS Secrets Manager is set there',
+      'cannot be set on a secret read from AWS Secrets Manager',
     );
   }
 };
@@ -86,10 +86,7 @@ export class Secret extends EventRecorder {
     },
   ): Secret {
     const keeping = definition.source.isBuiltIn
-      ? valueFor(
-          definition,
-          'is the value Spotlight keeps; it is written once and never read back',
-        )
+      ? valueFor(definition, 'is required for a secret kept by Spotlight')
       : null;
 
     if (definition.value && !keeping) {
@@ -151,7 +148,7 @@ export class Secret extends EventRecorder {
     if (!definition.name.equals(this.name)) {
       throw new SecretNameFixedError(
         this.name.value,
-        `keeps its name for its whole life, since integrations name it; replace it to name a secret ${definition.name.value}`,
+        `cannot be renamed to ${definition.name.value}`,
       );
     }
 
@@ -168,8 +165,8 @@ export class Secret extends EventRecorder {
         ? valueFor(
             definition,
             rotating
-              ? 'carries the new value whenever valueWoVersion changes'
-              : 'is needed once the secret is kept by Spotlight',
+              ? 'is required when valueWoVersion changes'
+              : 'is required once Spotlight keeps the secret',
           )
         : null;
 

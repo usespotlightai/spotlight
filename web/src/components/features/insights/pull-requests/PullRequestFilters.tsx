@@ -46,10 +46,11 @@ export function PullRequestFilters({
   return (
     <fieldset
       aria-label="Narrow the pull requests"
-      className="m-0 flex flex-wrap items-center gap-2 border-0 p-0"
+      className="m-0 flex flex-wrap items-center gap-1.5 border-0 p-0"
     >
       {oneRepository && (
         <ChoiceSelect
+          compact
           label="Repository"
           choices={repositories.map((repository) => ({
             value: repository,
@@ -61,6 +62,7 @@ export function PullRequestFilters({
         />
       )}
       <ChoiceSelect
+        compact
         label="Written by"
         choices={PULL_REQUEST_AUTHORS.map((author) => ({
           value: author,
@@ -71,6 +73,7 @@ export function PullRequestFilters({
         onChange={(author) => change('author', author)}
       />
       <ChoiceSelect
+        compact
         label="Type"
         choices={PULL_REQUEST_TYPES.map((type) => ({
           value: type,
@@ -81,6 +84,7 @@ export function PullRequestFilters({
         onChange={(type) => change('type', type)}
       />
       <ChoiceSelect
+        compact
         label="State"
         choices={PULL_REQUEST_STATES.map((state) => ({
           value: state,
@@ -92,7 +96,7 @@ export function PullRequestFilters({
       />
 
       {others.map((key) => (
-        <Pill key={key} className="h-8 text-foreground">
+        <Pill key={key} className="h-6 text-[0.7rem] text-foreground">
           <span className="text-muted-foreground">
             {pullRequestFilterLabel(key)}
           </span>

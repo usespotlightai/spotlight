@@ -1,4 +1,7 @@
 import type {
+  ConfigChangeRequestDto,
+  ConfigOriginResponseDto,
+  ReplayedAdoptionResponseDto,
   ReplayedCandidateResponseDto,
   ReplayedCandidatesResponseDto,
   ReplayedSetResponseDto,
@@ -7,6 +10,7 @@ import type {
 } from '@/lib/api';
 import { spentIn } from '@/lib/inbox';
 import { countShown } from '@/lib/insights';
+import { type ChangeAt, changeKey } from '@/lib/insights-changes';
 import { dayShown, percentShown } from '@/lib/judge';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
 import {
@@ -236,13 +240,6 @@ export const replayedFrontiersOf = (
   );
 };
 
-export const unchartedShown = (
-  uncharted: readonly UnchartedCandidate[],
-): string =>
-  uncharted
-    .map((each) => (each.note ? `${each.label} (${each.note})` : each.label))
-    .join(', ');
-
 export const stationReplayedChart = (
   candidates: InsightsCandidates,
   stationId: string,
@@ -310,7 +307,7 @@ export const changeLinkOf = (
   }
 
   return {
-    label: 'Its changes',
+    label: 'View changes',
     to: replayPath(at, candidate.replayId),
     external: false,
   };
@@ -401,8 +398,164 @@ export const healthShown = (health: SetHealth, now: Date): string => {
 export const replayedNote = (points: readonly ReplayedPoint[]): string => {
   const scored = Math.max(0, ...points.map((each) => each.scored));
 
-  return `Replayed points’ height is replay success on up to ${runsShown(scored)} of past tasks, scored by each candidate’s own checks and judge — not the live outcome the other points show. The task-size filter does not apply to them.`;
+  return `Replayed points show replay success on up to ${runsShown(scored)} of past tasks, not live outcomes. Scored by each candidate’s own checks and judge. The task-size filter doesn’t apply.`;
 };
 
 export const CANDIDATES_TRUNCATED =
-  'Only the latest replays over this period are counted; the oldest are left out.';
+  'Only the latest replays in this period are counted.';
+
+export const rankedCandidates = (set: CandidatesSet): SetCandidate[] =>
+  [...set.candidates].sort(
+    (a, b) =>
+      (b.againstLive?.gain ?? Number.NEGATIVE_INFINITY) -
+      (a.againstLive?.gain ?? Number.NEGATIVE_INFINITY),
+  );
+
+export type ComparedRates = {
+  readonly own: number | null;
+  readonly interval: SetCandidate['interval'];
+  readonly live: number | null;
+  readonly runs: number;
+};
+
+export const comparedRates = (candidate: SetCandidate): ComparedRates =>
+  candidate.live && candidate.compared > 0
+    ? {
+        own: candidate.successRateOnCompared,
+        interval: candidate.intervalOnCompared,
+        live: candidate.live.successRate,
+        runs: candidate.compared,
+      }
+    : {
+        own: candidate.successRate,
+        interval: candidate.interval,
+        live: null,
+        runs: candidate.scored,
+      };
+
+export type ComparedCosts = {
+  readonly own: number | null;
+  readonly live: number | null;
+};
+
+export const comparedCosts = (candidate: SetCandidate): ComparedCosts => {
+  const live = candidate.live;
+
+  return live && candidate.compared > 0 && live.currency === candidate.currency
+    ? { own: candidate.costPerRunOnCompared, live: live.costPerRun }
+    : { own: candidate.costPerRun, live: null };
+};
+
+export const heldOutBrief = (candidate: SetCandidate): string => {
+  const heldOut = candidate.heldOut;
+
+  if (!heldOut) {
+    return '–';
+  }
+  if (heldOut.score !== null) {
+    return percentShown(heldOut.score);
+  }
+
+  return heldOut.state === 'queued' || heldOut.state === 'running'
+    ? 'Replaying'
+    : '–';
+};
+
+export const originShown = (candidate: SetCandidate): string => {
+  if (candidate.kind === 'proposed') {
+    return 'Proposed';
+  }
+
+  return candidate.onFrontier ? 'Search · best value' : 'Search';
+};
+
+export const originNote = (candidate: SetCandidate): string => {
+  if (candidate.kind === 'proposed') {
+    return 'Put forward by a person or Terraform, then replayed on this set.';
+  }
+
+  const found =
+    'A search agent proposed configs for the station and replayed each on this set.';
+
+  return candidate.onFrontier
+    ? `${found} Best value: no other config from the same search, nor the live config it started from, succeeded as often for less. Not the same as beating live; see Against live.`
+    : `${found} Another config from the same search did at least as well for less.`;
+};
+
+export type ChangeAskedAbout = ConfigChangeRequestDto;
+
+export type ConfigOrigin = ConfigOriginResponseDto;
+
+export const MOST_CHANGES_ASKED = 100;
+
+export const changeBatches = (
+  changes: readonly ChangeAt[],
+): ChangeAskedAbout[][] => {
+  const asked = [
+    ...new Map(
+      changes
+        .map((each) => ({ stationId: each.stationId, runId: each.runId }))
+        .map((each) => [changeKey(each), each] as const),
+    ).entries(),
+  ]
+    .sort(([one], [other]) => one.localeCompare(other))
+    .map(([, each]) => each);
+  const batches: ChangeAskedAbout[][] = [];
+
+  for (let at = 0; at < asked.length; at += MOST_CHANGES_ASKED) {
+    batches.push(asked.slice(at, at + MOST_CHANGES_ASKED));
+  }
+
+  return batches;
+};
+
+export type AdoptedCandidate = {
+  readonly name: string;
+  readonly to: string | null;
+  readonly withdrawn: boolean;
+};
+
+const originPathOf = (
+  at: ReplayedStation,
+  origin: ConfigOrigin,
+): string | null => {
+  if (origin.withdrawn) {
+    return null;
+  }
+
+  if (origin.searchId) {
+    return searchCandidatePath(at, origin.searchId, origin.candidateId);
+  }
+
+  return origin.replayId ? replayPath(at, origin.replayId) : null;
+};
+
+export const adoptedFrom = (
+  origins: readonly ConfigOrigin[],
+  change: ChangeAt,
+  slug: string,
+  teamId: string,
+): AdoptedCandidate | null => {
+  const origin = origins.find(
+    (each) =>
+      each.stationId === change.stationId && each.runId === change.runId,
+  );
+
+  return origin
+    ? {
+        name: origin.name,
+        withdrawn: origin.withdrawn,
+        to: originPathOf(
+          {
+            slug,
+            teamId,
+            lineId: origin.lineId,
+            stationId: origin.stationId,
+          },
+          origin,
+        ),
+      }
+    : null;
+};
+
+export type Adoption = ReplayedAdoptionResponseDto;

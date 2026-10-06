@@ -25,11 +25,11 @@ export const entitlementTo = (
     ? {
         entitled: false,
         reason: 'lapsed',
-        because: `${item.id.value} needs the ${needs.title} plan, and this workspace’s ${plan.plan.title} plan lapsed at ${plan.lapsesAt?.toISOString()}`,
+        because: `${item.id.value} needs the ${needs.title} plan. The workspace’s ${plan.plan.title} plan has lapsed. Lapsed at: ${plan.lapsesAt?.toISOString()}`,
       }
     : {
         entitled: false,
         reason: 'not-entitled',
-        because: `${item.id.value} needs the ${needs.title} plan, and this workspace is on the ${on.title} plan`,
+        because: `${item.id.value} needs the ${needs.title} plan. Workspace plan: ${on.title}`,
       };
 };

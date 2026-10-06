@@ -44,9 +44,9 @@ export function RunComposer({
       }
       placeholder={
         answering
-          ? 'Answer the question, and the run carries on…'
+          ? 'Answer the question to continue the run…'
           : restarts
-            ? `Say what to change, and ${station} starts again…`
+            ? `Say what to change. ${station} starts again…`
             : 'Say something…'
       }
       pending={say.isPending}

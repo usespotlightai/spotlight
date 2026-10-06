@@ -25,7 +25,7 @@ export class CandidateAddress {
 
     if (!station || name === undefined || rest.length > 0) {
       throw new InvalidCandidateError(
-        'is addressed by its team, line and station keys, then its name, as in core/delivery/build/Shorter prompt',
+        'address must be team, line and station keys, then name, as in core/delivery/build/Shorter prompt',
       );
     }
 

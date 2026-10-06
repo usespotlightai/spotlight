@@ -109,13 +109,13 @@ describe('LineRepositories', () => {
 
     it('refuses where several are worked and none is named', () => {
       expect(() => of('acme/api', 'acme/web').opening(null)).toThrow(
-        /name which one/,
+        /Please name one/,
       );
     });
 
     it('refuses a name the line does not work', () => {
       expect(() => of('acme/api').opening('web')).toThrow(
-        /no repository named "web"/,
+        /no repository named web/,
       );
     });
 
@@ -134,7 +134,7 @@ describe('LineRepositories', () => {
       }
 
       expect(message).not.toContain('--repository');
-      expect(message).toMatch(/name which one/);
+      expect(message).toMatch(/Please name one/);
     });
   });
 });

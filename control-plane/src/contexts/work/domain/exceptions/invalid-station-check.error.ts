@@ -1,6 +1,6 @@
 export class InvalidStationCheckError extends Error {
   constructor(reason: string) {
-    super(`Invalid station check: ${reason}`);
+    super(`Station check ${reason}.`);
     this.name = 'InvalidStationCheckError';
   }
 }

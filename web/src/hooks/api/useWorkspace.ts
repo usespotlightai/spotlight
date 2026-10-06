@@ -16,7 +16,7 @@ export function useWorkspace(slug: string | undefined) {
         return null;
       }
       if (!data) {
-        throw new Error('Could not load the workspace');
+        throw new Error('Sorry, the workspace couldn’t be loaded.');
       }
       return data;
     },

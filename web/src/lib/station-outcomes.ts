@@ -122,3 +122,38 @@ export const TALLY_COLUMNS: readonly TallyColumn[] = [
   { label: 'Median', shown: (tally) => tookShown(tally.medianMs) },
   { label: 'p90', shown: (tally) => tookShown(tally.p90Ms) },
 ];
+
+const columnsNamed = (labels: readonly string[]): TallyColumn[] =>
+  labels.map((label) => {
+    const column = TALLY_COLUMNS.find((each) => each.label === label);
+
+    if (!column) {
+      throw new Error(`No tally column ${label}`);
+    }
+
+    return column;
+  });
+
+export const GLANCE_COLUMNS = columnsNamed([
+  'Runs',
+  'Accepted',
+  'Sent back',
+  'Failed',
+  'Cost',
+  'Median',
+]);
+
+export const PERIOD_COLUMNS = columnsNamed([
+  'Runs',
+  'Failed',
+  'Accepted',
+  'Sent back',
+  'Merged',
+  'Cost',
+  'Median',
+]);
+
+export const recentRuns = (
+  groups: readonly FingerprintGroup[],
+  count: number,
+): StationRunOutcome[] => groups.flatMap((group) => group.runs).slice(0, count);

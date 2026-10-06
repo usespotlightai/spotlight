@@ -28,14 +28,14 @@ export function IterationFacts({ at, iteration }: IterationFactsProps) {
       )}
       {spent && spent.spends.length > 0 && (
         <span className="text-muted-foreground tabular-nums">
-          · its agent spent {spent.spends.map(spendShown).join(' · ')}
+          · agent spent {spent.spends.map(spendShown).join(' · ')}
         </span>
       )}
       <TrailLink
         to={runPath(at.slug, at.teamId, iteration.runId)}
         className="text-foreground underline-offset-2 hover:underline sm:ml-auto"
       >
-        Its agent’s run
+        Agent run
       </TrailLink>
     </>
   );

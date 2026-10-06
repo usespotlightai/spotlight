@@ -3,7 +3,7 @@ export class InviteMovedOnError extends Error {
 
   constructor(inviteId: string) {
     super(
-      `This invite has been changed since it was read, and cannot be written over (${inviteId})`,
+      `Invite ${inviteId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'InviteMovedOnError';
   }

@@ -3,7 +3,7 @@ export class ChatRecordMovedOnError extends Error {
 
   constructor(chatId: string) {
     super(
-      `This chat's record was written since it was read, and cannot be written over (${chatId})`,
+      `Record of chat ${chatId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'ChatRecordMovedOnError';
   }

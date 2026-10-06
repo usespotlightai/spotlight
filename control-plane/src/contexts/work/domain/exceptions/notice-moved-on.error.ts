@@ -3,7 +3,7 @@ export class NoticeMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This notice changed since it was read, and cannot be written over (${id})`,
+      `Notice ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'NoticeMovedOnError';
   }

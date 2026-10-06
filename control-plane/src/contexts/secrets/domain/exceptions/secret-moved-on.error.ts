@@ -3,7 +3,7 @@ export class SecretMovedOnError extends Error {
 
   constructor(name: string) {
     super(
-      `The ${name} secret has been changed since it was read, and cannot be written over`,
+      `Secret ${name} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'SecretMovedOnError';
   }

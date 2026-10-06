@@ -53,7 +53,6 @@ vi.mock('@/hooks/api/useTaskDecisions', () => ({
 vi.mock('@/hooks/api/useDisputeDecision', () => ({
   useDisputeDecision: () => ({
     isPending: false,
-    isError: false,
     mutateAsync: vi.fn(),
   }),
 }));
@@ -165,7 +164,7 @@ describe('RunChangeStack', () => {
       renderAt();
 
       expect(
-        screen.getByText('The change stack could not be drafted'),
+        screen.getByText('Sorry, the change stack couldn’t be drafted'),
       ).toBeInTheDocument();
     });
   });

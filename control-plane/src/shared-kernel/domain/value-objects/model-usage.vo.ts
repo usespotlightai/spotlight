@@ -58,7 +58,7 @@ export class ModelUsage {
       new Set(currencies).size !== currencies.length
     ) {
       throw new InvalidModelUsageError(
-        'is counted in amounts of no less than nothing, one sum per currency',
+        'must have non-negative amounts, one per currency',
       );
     }
 
@@ -77,7 +77,7 @@ export class ModelUsage {
     }
     if (call.cost && !isCost(call.cost)) {
       throw new InvalidModelUsageError(
-        'is priced at no less than nothing, in a three-letter currency',
+        'must have a non-negative price in a three-letter currency',
       );
     }
 

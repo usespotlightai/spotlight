@@ -63,15 +63,23 @@
 
   --scrollbar-thumb-hover: #858588;
 
-  --chart-1: oklch(0.87 0 0);
+  --chart-primary: #5e6ad2;
 
-  --chart-2: oklch(0.556 0 0);
+  --chart-1: #d0d6e0;
 
-  --chart-3: oklch(0.439 0 0);
+  --chart-2: #8a8f98;
 
-  --chart-4: oklch(0.371 0 0);
+  --chart-3: #7a7fad;
 
-  --chart-5: oklch(0.269 0 0);
+  --chart-4: #828fff;
+
+  --chart-5: #62666d;
+
+  --chart-success: #27a644;
+
+  --chart-grid: #d0d6e0;
+
+  --chart-axis: #62666d;
 
   --radius: 0.625rem;
 
@@ -113,6 +121,10 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-chart-primary: var(--chart-primary);
+  --color-chart-success: var(--chart-success);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -174,11 +186,15 @@
   --ring: #5e69d1;
   --scrollbar-thumb: #4a4a4f;
   --scrollbar-thumb-hover: #626268;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --chart-primary: #5e6ad2;
+  --chart-1: #62666d;
+  --chart-2: #8a8f98;
+  --chart-3: #7a7fad;
+  --chart-4: #828fff;
+  --chart-5: #d0d6e0;
+  --chart-success: #27a644;
+  --chart-grid: #23252a;
+  --chart-axis: #8a8f98;
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

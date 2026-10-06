@@ -3,7 +3,7 @@ export class PairJudgingMovedOnError extends Error {
 
   constructor(runId: string, against: string) {
     super(
-      `This pair's judging changed since it was read, and cannot be written over (${runId} against ${against})`,
+      `Judging of run ${runId} against ${against} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'PairJudgingMovedOnError';
   }

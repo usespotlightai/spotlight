@@ -35,21 +35,21 @@ type Unpaired = NonNullable<EntryPairResponseDto['unpaired']>;
 export type TurnedOut = ReplaySetEntryResponseDto['outcome'];
 
 const REFUSALS: Record<ReplayRefusal, string> = {
-  'unknown-run': 'There is no such run',
-  'not-a-task-run': 'It worked no task of its own',
-  'task-gone': 'Its task was deleted',
-  'still-running': 'It has not ended yet',
-  'no-starting-point': 'It never recorded where it started',
-  'no-briefing': 'The task as it was briefed was never kept',
-  'archive-gone': 'The workspace it started from is no longer kept',
-  'attachments-gone': 'Files it was briefed with are gone',
-  'repository-gone': 'A repository it worked in has left the line',
-  'not-at-the-station': 'It did not run at this station',
-  'candidate-unfit': 'The candidate cannot run it',
-  'cannot-start': 'It could not be started',
-  unchecked: 'It could not be checked just now',
-  forgone: 'It was never started',
-  'dispatch-failed': 'It failed to start after several tries',
+  'unknown-run': 'Run doesn’t exist',
+  'not-a-task-run': 'Run has no task of its own',
+  'task-gone': 'Task was deleted',
+  'still-running': 'Run hasn’t ended yet',
+  'no-starting-point': 'Run recorded no starting point',
+  'no-briefing': 'Task briefing wasn’t kept',
+  'archive-gone': 'Starting workspace is no longer kept',
+  'attachments-gone': 'Briefing files are gone',
+  'repository-gone': 'Repository has left the line',
+  'not-at-the-station': 'Run wasn’t at this station',
+  'candidate-unfit': 'Candidate can’t run it',
+  'cannot-start': 'Run couldn’t be started',
+  unchecked: 'Couldn’t be checked just now',
+  forgone: 'Never started',
+  'dispatch-failed': 'Failed to start after several tries',
 };
 
 const STATES: Record<ReplayState, string> = {
@@ -62,8 +62,8 @@ const STATES: Record<ReplayState, string> = {
 
 const STATE_NOTES: Partial<Record<ReplayState, string>> = {
   queued: 'Waiting for a runner',
-  stopped: 'Stopped by a person; nothing more starts',
-  'over-budget': 'It spent its ceiling, so nothing more starts',
+  stopped: 'Stopped by a person. No more runs start.',
+  'over-budget': 'Ceiling reached. No more runs start.',
 };
 
 const RESULTS: Record<EntryResult, string> = {
@@ -74,64 +74,63 @@ const RESULTS: Record<EntryResult, string> = {
 };
 
 const REASONS: Record<ReasonCode, string> = {
-  unreplayable: 'It could not be replayed or started',
-  'not-run': 'It never ran',
-  'run-failed': 'The run failed',
-  'run-stopped':
-    'Its replay was stopped, or reached its ceiling, before the run finished',
-  'asked-a-person': 'It asked a person, which a replay cannot',
-  'check-failed': 'Its checks failed',
-  'check-skipped': 'Its checks could not run',
-  'change-undrafted': 'Its change could not be drafted',
-  'no-change': 'It changed nothing for the checks to run on',
-  'no-change-stack': 'It changed files, but its change never reached Spotlight',
-  judged: 'The judge passed it',
-  'judge-failed': 'The judge failed it',
-  unjudged: 'The judge could not judge it',
-  'nothing-judges': 'Neither checks nor a judge score this station',
+  unreplayable: 'Couldn’t be replayed or started',
+  'not-run': 'Never ran',
+  'run-failed': 'Run failed',
+  'run-stopped': 'Replay stopped or hit its ceiling before the run finished',
+  'asked-a-person': 'Asked a person (replays can’t)',
+  'check-failed': 'Checks failed',
+  'check-skipped': 'Checks couldn’t run',
+  'change-undrafted': 'Change couldn’t be drafted',
+  'no-change': 'No change for the checks to run on',
+  'no-change-stack': 'Files changed, but the change never reached Spotlight',
+  judged: 'Judge passed it',
+  'judge-failed': 'Judge failed it',
+  unjudged: 'Judge couldn’t judge it',
+  'nothing-judges': 'No checks or judge score this station',
 };
 
 const CHECKS: Record<ChecksState, string> = {
   absent: 'No change to check',
-  drafting: 'Drafting its change',
+  drafting: 'Drafting the change',
   checking: 'Checking',
   passed: 'Checks passed',
   failed: 'Checks failed',
-  none: 'Nothing checks it',
+  none: 'No checks',
   unchecked: 'Unchecked',
 };
 
 const UNJUDGED: Record<Unjudged, string> = {
-  unavailable: 'no judge model was available',
-  'unreadable-rubric': 'the rubric could not be read',
-  'no-evidence': 'there was nothing to judge',
-  refused: 'the judge declined',
-  unreadable: 'the judge’s answer could not be read',
-  ungrounded: 'the judge cited nothing the run did',
-  errored: 'judging went wrong',
+  unavailable: 'no judge model available',
+  'unreadable-rubric': 'rubric couldn’t be read',
+  'no-evidence': 'nothing to judge',
+  refused: 'judge declined',
+  unreadable: 'judge’s answer couldn’t be read',
+  ungrounded: 'judge cited nothing the run did',
+  errored: 'judging failed',
   interrupted: 'judging was interrupted',
-  'stopped-before-judging': 'the replay stopped before judging',
+  'stopped-before-judging': 'replay stopped before judging',
 };
 
 const UNCOMPARED: Record<ScoreUncompared, string> = {
-  unjudged: 'One side was not judged',
+  unjudged: 'One side wasn’t judged',
   'other-rubric': 'Judged by different rubrics',
-  'other-reference': 'Only one was judged against the accepted change',
+  'other-reference': 'Only one judged against the accepted change',
 };
 
 const CHECK_SKIPS: Record<CheckSkip, string> = {
-  'no-base': 'its starting commit was missing',
-  'no-checkout': 'its checkout was missing',
-  'checkout-failed': 'its checkout failed',
-  'setup-failed': 'the repository’s setup failed',
-  'no-room': 'there was no runner to check on',
-  'out-of-time': 'the checks ran out of time',
-  'no-image': 'the image to check in was missing',
-  unprovisioned: 'no runner could be provisioned to check on',
+  'no-base': 'starting commit missing',
+  'no-checkout': 'checkout missing',
+  'checkout-failed': 'checkout failed',
+  'setup-failed': 'repository setup failed',
+  'no-room': 'no runner to check on',
+  'out-of-time': 'checks ran out of time',
+  'no-image': 'check image missing',
+  unprovisioned: 'no runner could be provisioned for the check',
   'nobody-checked': 'no runner took the check in time',
-  skipped: 'the checks were skipped',
-  undrafted: 'its change was never drafted',
-  'no-check-asked': 'the candidate runs no check command',
+  skipped: 'checks skipped',
+  undrafted: 'change never drafted',
+  'no-check-asked': 'candidate has no check command',
 };
 
 type RunFailure = NonNullable<ReplayEntryResponseDto['failure']>;
@@ -140,9 +139,9 @@ const RUN_FAILURES: Record<RunFailure, string> = {
   exited: 'agent exited with an error',
   unprepared: 'workspace setup failed before the agent started (not scored)',
   refused:
-    'configuration not allowed for this run, such as a missing harness profile or tools, MCP servers or secrets a replay is not given',
+    'config not allowed: missing harness profile, or tools, MCP servers or secrets replays don’t get',
   unprovisioned: 'no runner available (not scored)',
-  'hooks-unanswered': 'hooks did not respond (not scored)',
+  'hooks-unanswered': 'hooks didn’t respond (not scored)',
   'runner-lost': 'runner lost (not scored)',
   'timed-out': 'exceeded the host’s time limit',
   superseded: 'superseded (not scored)',
@@ -219,10 +218,10 @@ export const unpricedCallsShown = (count: number): string =>
   counted(count, 'model call', 'model calls');
 
 export const OVER_CEILING_NOTE =
-  'Runs already running when the ceiling was reached finished, so a replay may end a little over it';
+  'Runs underway at the ceiling still finish. A replay may end slightly over it.';
 
 export const ELSEWHERE_NOTE =
-  'Spent in another currency, so not counted against the ceiling';
+  'Spent in another currency. Not counted against the ceiling.';
 
 const detailShown = (reason: EntryReasonResponseDto): string | null => {
   const detail = reason.detail;
@@ -270,7 +269,7 @@ export const intervalShown = (
   `${Math.round(interval.low * POINTS)}–${percentShown(interval.high)}`;
 
 export const INTERVAL_NOTE =
-  'The likely range: 95 times in 100, the true rate falls within it';
+  'Likely range: the true rate falls inside it 95 times in 100.';
 
 export const gainShown = (gain: Pick<GainReadingResponseDto, 'gain'>): string =>
   `${signedPoints(gain.gain)} pts`;
@@ -282,7 +281,7 @@ export const gainRangeShown = (
 const GAIN_VERDICTS: Record<GainVerdictCode, string> = {
   better: 'Better',
   worse: 'Worse',
-  'within-noise': 'Within noise',
+  'within-noise': 'within noise',
 };
 
 export const gainVerdictShown = (verdict: GainVerdictCode): string =>
@@ -292,16 +291,16 @@ export const minGainShown = (minGain: number): string =>
   `+${pointsShown(minGain)}`;
 
 export const gainVerdictNote = (gain: GainReadingResponseDto): string => {
-  const real = minGainShown(gain.minGain);
-  const over = `over ${gain.tasks.toLocaleString()} ${gain.tasks === 1 ? 'task' : 'tasks'} both scored`;
+  const minimum = `Minimum real gain: ${minGainShown(gain.minGain)}`;
+  const over = `over ${counted(gain.tasks, 'task', 'tasks')} scored on both sides.`;
 
   switch (gain.verdict) {
     case 'better':
-      return `A real gain ${over}: its likely range stays above no change, and it reaches the ${real} the line counts as real.`;
+      return `Real gain ${over} Likely range stays above zero and reaches the minimum. ${minimum}`;
     case 'worse':
-      return `A real loss ${over}: its likely range stays below no change, and it reaches the ${real} the line counts as real.`;
+      return `Real loss ${over} Likely range stays below zero and reaches the minimum. ${minimum}`;
     default:
-      return `Could be chance ${over}: its likely range reaches across no change, or it is short of the ${real} the line counts as real.`;
+      return `Could be chance ${over} Likely range crosses zero or falls short of the minimum. ${minimum}`;
   }
 };
 
@@ -319,20 +318,12 @@ export const repeatsShown = (repeats: number): string =>
   repeats === 1 ? 'Each run once' : `Each run ${repeats} times`;
 
 export const REPEATS_HINT =
-  'How many times each run is replayed, 1 to 5. More copies measure the set’s noise and narrow the ranges; runs and spend grow with them.';
+  'Times each run is replayed, 1 to 5. More copies measure noise and narrow the ranges. Runs and spend grow with them.';
 
 const NOISE_UNMEASURED = 'Not measured';
 
 const noiseShown = (noise: SetNoiseResponseDto): string =>
   `Success moved ${pointsShown(noise.spread)} between ${noise.repeats} copies`;
-
-const noiseAgainstShown = (
-  noise: SetNoiseResponseDto,
-  minGain: number,
-): string =>
-  noise.spread > minGain
-    ? `more than the ${minGainShown(minGain)} the line counts as real, so one copy can’t tell a real gain from chance`
-    : `within the ${minGainShown(minGain)} the line counts as real`;
 
 export const perRepeatShown = (perRepeat: readonly number[]): string =>
   perRepeat.map((rate) => percentShown(rate)).join(', ');
@@ -374,7 +365,9 @@ export const heldOutRunsShown = (runs: number): string =>
   `of ${counted(runs, 'held-out run', 'held-out runs')}`;
 
 export const minGainSentence = (minGain: number): string =>
-  `a gain in success counts as real from ${minGainShown(minGain)}`;
+  `Minimum real gain: ${minGainShown(minGain)}`;
+
+const TWICE_CEILING = 'Most both may spend: twice this ceiling';
 
 const timesShown = (repeats: number): string =>
   repeats === 1 ? 'once' : `${repeats} times`;
@@ -386,20 +379,20 @@ export const baselineNoteShown = (
 ): string => {
   if (baselineRepeats === null) {
     return proposed
-      ? 'The set has no baseline yet, so a baseline of the live config also starts beside it, with a ceiling of its own the same as this one: the two together may spend up to twice it.'
-      : 'The set has no baseline yet, so this replay of the live config becomes it.';
+      ? `Set has no baseline yet. A baseline of the live config also starts, with its own equal ceiling. ${TWICE_CEILING}`
+      : 'Set has no baseline yet. This replay of the live config becomes it.';
   }
   if (repeats !== null && repeats > baselineRepeats) {
-    const fewer = `The set’s baseline replays each run ${timesShown(baselineRepeats)}, fewer than this replay`;
+    const fewer = `Set’s baseline replays each run ${timesShown(baselineRepeats)}, fewer than this replay.`;
 
     return proposed
-      ? `${fewer}, so a new baseline of the live config also starts beside it, replaying each run ${timesShown(repeats)}, with a ceiling of its own the same as this one: the two together may spend up to twice it.`
-      : `${fewer}, so this replay of the live config becomes the new baseline.`;
+      ? `${fewer} A new baseline replaying each run ${timesShown(repeats)} also starts, with its own equal ceiling. ${TWICE_CEILING}`
+      : `${fewer} This replay of the live config becomes the new baseline.`;
   }
 
   return proposed
-    ? 'If the set’s runs changed since its baseline, a new baseline of the live config also starts, with a ceiling of its own the same as this one.'
-    : 'If the set’s runs changed since its baseline, this replay of the live config becomes the new baseline; otherwise it replays beside it.';
+    ? 'If the set’s runs changed since its baseline, a new baseline also starts. It gets its own equal ceiling.'
+    : 'If the set’s runs changed since its baseline, this replay becomes the new baseline. Otherwise it replays beside it.';
 };
 
 export type SetHealth = SetHealthResponseDto;
@@ -451,19 +444,20 @@ const noiseReading = (
       said: NOISE_UNMEASURED,
       tone: 'unknown',
       advice:
-        'Check this set to replay the live config over it 3 times and see how much its success moves by chance alone.',
+        'Check this set to replay the live config 3 times. Shows how much success moves by chance.',
     };
   }
 
   const noisy = noise.spread > minGain;
+  const minimum = `Minimum real gain: ${minGainShown(minGain)}`;
 
   return {
     ...base,
     said: noiseShown(noise),
     tone: noisy ? 'bad' : 'good',
     advice: noisy
-      ? `${sentence(noiseAgainstShown(noise, minGain))}. Search with each run replayed more times, or raise the line’s min_gain.`
-      : `${sentence(noiseAgainstShown(noise, minGain))}, so a gain that size is unlikely to be chance.`,
+      ? `One copy can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. ${minimum}`
+      : `Noise is within the line’s minimum real gain. A gain that size is unlikely to be chance. ${minimum}`,
   };
 };
 
@@ -490,13 +484,13 @@ const saturationReading = (
         said: `Almost none: ${succeeds}`,
         tone: 'bad',
         advice:
-          'A search for more success has nowhere to go. Search for the same success at less cost, or add tasks the live config fails.',
+          'No room for more success. Search for the same success at less cost, or add tasks the live config fails.',
       }
     : {
         ...base,
         said: sentence(succeeds),
         tone: 'good',
-        advice: 'There is room for a search to find more success.',
+        advice: 'Room left for a search to find more success.',
       };
 };
 
@@ -509,7 +503,7 @@ const judgeReading = (judge: SetHealth['judge']): HealthReading => {
       said: NOT_CHECKED,
       tone: 'unknown',
       advice:
-        'Check this set to judge each change a second time and see whether the judge gives the same verdict.',
+        'Check this set to judge each change twice. Shows whether verdicts match.',
     };
   }
 
@@ -531,13 +525,13 @@ const judgeReading = (judge: SetHealth['judge']): HealthReading => {
         ...base,
         said,
         tone: 'bad',
-        advice: `Its verdicts are partly chance, so a search would chase luck. Make the rubric more specific before you search.${pending}`,
+        advice: `Verdicts are partly chance. Make the rubric more specific before you search.${pending}`,
       }
     : {
         ...base,
         said,
         tone: 'good',
-        advice: `Its verdicts hold when it is asked again.${pending}`,
+        advice: `Verdicts hold when judged again.${pending}`,
       };
 };
 
@@ -550,7 +544,7 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
       said: NOT_CHECKED,
       tone: 'unknown',
       advice:
-        'Check this set to run the station’s check a second time on each change and see whether it gives the same answer.',
+        'Check this set to run the station’s check twice on each change. Shows whether it gives the same answer.',
     };
   }
 
@@ -570,13 +564,13 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
         ...base,
         said: `${checks.flaky.length} of ${changesShown(checks.rechecked)} flipped`,
         tone: 'bad',
-        advice: `The check passed once and failed once on these, so it can flip a candidate’s result by chance. Fix the flaky tests, or take these tasks out of the set.${pending}`,
+        advice: `Check passed once and failed once on these. Fix the flaky tests, or take these tasks out of the set.${pending}`,
       }
     : {
         ...base,
         said: `None of ${changesShown(checks.rechecked)} flipped`,
         tone: 'good',
-        advice: `The check gave the same answer both times.${pending}`,
+        advice: `Check gave the same answer both times.${pending}`,
       };
 };
 
@@ -612,20 +606,28 @@ export const TRY_AGAIN = 'Try again';
 const liveEffortShown = (
   effort: string | null,
   lowest: string | null,
-): string => {
+): string | null => {
   if (effort) {
-    return ` ${effort}`;
+    return effort;
   }
 
-  return lowest ? ` default, counted as its lowest, ${lowest}` : '';
+  return lowest ? `default (counted as ${lowest})` : null;
 };
 
 export const strongerHintShown = (
   effort: string | null,
   lowest: string | null,
   higher: readonly string[],
-): string =>
-  `Pick a model the harness offers, or a higher effort than the live config’s${liveEffortShown(effort, lowest)}${higher.length > 0 ? `: ${higher.join(', ')}` : ', which it has none of'}.`;
+): string => {
+  const live = liveEffortShown(effort, lowest);
+
+  const labels = [
+    live && `Live effort: ${live}`,
+    `Higher efforts: ${higher.length > 0 ? higher.join(', ') : 'none'}`,
+  ].filter(Boolean);
+
+  return `Pick a model the harness offers, or a higher effort. ${labels.join(' · ')}`;
+};
 
 export const strongerTitleShown = (setName: string): string =>
   `Try a stronger model on ${setName}`;
@@ -646,15 +648,13 @@ export const LIVE_MODEL_UNREAD = 'The station’s model';
 
 export const HARNESS_MODELS_UNREAD = 'The harness’s models and efforts';
 
-export const compactHealthLabelShown = (label: string): string => `${label}:`;
-
 export const healthListLabelShown = (setName: string): string =>
   `${HEALTH_LABEL} of ${setName}`;
 
 export const EFFORT_NOT_HIGHER =
-  'That effort is not higher than the live config’s. Pick a higher one, or keep the live effort.';
+  'Effort isn’t higher than the live config’s. Pick a higher one, or keep the live effort.';
 
-export const MODEL_NOT_OFFERED = 'Its harness does not offer that model.';
+export const MODEL_NOT_OFFERED = 'Harness doesn’t offer that model.';
 
 const sanityReading = (sanity: SetHealth['sanity']): HealthReading => {
   const base = { key: 'sanity', label: 'Stronger model' } as const;
@@ -665,7 +665,7 @@ const sanityReading = (sanity: SetHealth['sanity']): HealthReading => {
       said: 'Not tried',
       tone: 'unknown',
       advice:
-        'Replay the set with a stronger model or a higher effort. A good set rewards it; if it doesn’t, its tasks may be unclear or its scoring off.',
+        'Replay the set with a stronger model or higher effort. A good set rewards it with more success.',
     };
   }
 
@@ -676,16 +676,16 @@ const sanityReading = (sanity: SetHealth['sanity']): HealthReading => {
       ...base,
       said: `Replaying with ${config}`,
       tone: 'pending',
-      advice: 'It is compared with the live config once its replay finishes.',
+      advice: 'Compared with the live config once its replay finishes.',
     };
   }
   if (sanity.state !== 'finished') {
     return {
       ...base,
-      said: `${config} did not finish`,
+      said: `${config} didn’t finish`,
       tone: 'unknown',
       advice:
-        'Its replay ended before every run did, so nothing was compared. Try the stronger model again with a higher ceiling.',
+        'Replay ended before every run finished. Try the stronger model again with a higher ceiling.',
     };
   }
   if (comparisonLost(sanity)) {
@@ -693,7 +693,7 @@ const sanityReading = (sanity: SetHealth['sanity']): HealthReading => {
       ...base,
       said: 'Could not be compared',
       tone: 'unknown',
-      advice: `The live replay it was compared with ${LOST_COMPARISONS[sanity.againstState as LostComparison]}, so this can’t be compared. Try the stronger model again.`,
+      advice: `Live replay to compare with ${LOST_COMPARISONS[sanity.againstState as LostComparison]}. Try the stronger model again.`,
     };
   }
   if (sanity.rewardsStrongerModel === null) {
@@ -702,7 +702,7 @@ const sanityReading = (sanity: SetHealth['sanity']): HealthReading => {
       said: 'Nothing to compare with yet',
       tone: 'pending',
       advice:
-        'It is compared once a replay of the live config, run as often, finishes on the set.',
+        'Compared once a live-config replay with the same repeats finishes.',
     };
   }
 
@@ -711,15 +711,14 @@ const sanityReading = (sanity: SetHealth['sanity']): HealthReading => {
         ...base,
         said: `${config} did better`,
         tone: 'good',
-        advice:
-          'The set rewards a stronger config, so it can tell better work apart.',
+        advice: 'Set rewards a stronger config. It can tell better work apart.',
       }
     : {
         ...base,
-        said: `${config} did not do clearly better`,
+        said: `${config} didn’t do clearly better`,
         tone: 'bad',
         advice:
-          'A stronger config should do better, so the set’s tasks may be unclear or its scoring off. Start with the tasks it did worse on: their rubric or checks may be wrong.',
+          'Set’s tasks may be unclear, or its scoring off. Review the rubric and checks of tasks it did worse on.',
       };
 };
 
@@ -760,25 +759,24 @@ export const WORSE_TASKS_LABEL = 'Tasks the stronger model did worse on';
 
 export const AGAINST_LIVE = 'the live config';
 
-export const HEALTH_REPLAY_LINK = 'Its replay';
+export const HEALTH_REPLAY_LINK = 'View replay';
 
 export const PROBE_NOTE =
-  'Replays the live config over the set 3 times, which measures its noise. Then the judge judges each change again and the check runs again on each, to see whether they give the same answer.';
+  'Replays the live config over the set 3 times to measure noise. Then re-judges and re-checks each change for consistency.';
 
 export const PROBE_CEILING_NOTE =
-  'The most the check may spend: its runs, and judging and checking each change twice. Once it is spent, nothing more starts.';
+  'Most the check may spend: its runs, plus judging and checking each change twice. Nothing more starts once spent.';
 
 export const STRONGER_MODEL_NOTE =
-  'Replays the set under the live config with a stronger model or a higher effort. A good set rewards it with clearly more success.';
+  'Replays the set with a stronger model or higher effort. A good set rewards it with clearly more success.';
 
 export const STRONGER_CEILING_NOTE =
-  'The most this replay may spend. If the set has no replay of the live config run as often, one also starts beside it to compare with, with a ceiling of its own the same as this one.';
+  'Most this replay may spend. A live-config replay with the same repeats also starts if none exists. It gets its own equal ceiling.';
 
 export const SAME_AS_LIVE =
-  'Choose a model or an effort other than the live config’s.';
+  'Choose a model or effort other than the live config’s.';
 
-export const NO_HARNESS =
-  'The station names no harness, so there is no model to choose.';
+export const NO_HARNESS = 'Station names no harness. No model to choose.';
 
 export const CLOSER_TO_ACCEPTED = 'Closer to the accepted change';
 
@@ -799,7 +797,7 @@ export const pairTallyShown = (tally: PairTally): string =>
   ].join(', ');
 
 export const pairTallyNote = (against: string): string =>
-  `Each task’s change set beside ${against}’s, without the judge knowing which is which: a win when this one is closer to the change people accepted, a loss when ${against}’s is, a tie when neither is. It never changes the success rate.`;
+  `A blind judge compares each task’s change with ${against}’s. Win: this one is closer to the accepted change. Loss: ${against}’s is closer. Tie: neither. Success rate is unaffected.`;
 
 export const pairsJudged = (tally: PairTally | null): tally is PairTally =>
   tally !== null && tally.wins + tally.losses + tally.ties > 0;
@@ -830,33 +828,33 @@ export const OTHER_RUN = 'The other run';
 export const READINGS_LABEL = 'Both readings';
 
 export const PAIR_ASKED =
-  'Not judged side by side yet: that happens once the replay finishes.';
+  'Not judged side by side yet. Happens once the replay finishes.';
 
 export const PAIRING_SPEND_LABEL = 'Side by side';
 
 export const PAIRING_SPEND_NOTE =
-  'Judging changes side by side counts against the ceiling, but not toward cost per run.';
+  'Side-by-side judging counts against the ceiling. It doesn’t count toward cost per run.';
 
 export const COMPARED_WITH = 'Each task compared with';
 
 const UNPAIRED: Record<Unpaired, string> = {
-  unavailable: 'no judge model was available',
-  'unreadable-rubric': 'the rubric could not be read',
-  'no-evidence': 'there was nothing to compare',
-  refused: 'the judge declined',
-  unreadable: 'the judge’s answer could not be read',
-  ungrounded: 'the judge cited nothing either change did',
-  errored: 'judging went wrong',
+  unavailable: 'no judge model available',
+  'unreadable-rubric': 'rubric couldn’t be read',
+  'no-evidence': 'nothing to compare',
+  refused: 'judge declined',
+  unreadable: 'judge’s answer couldn’t be read',
+  ungrounded: 'judge cited nothing either change did',
+  errored: 'judging failed',
   interrupted: 'judging was interrupted',
-  'other-rubric': 'its counterpart was judged by another version of the judge',
-  budget: 'no room was left under the ceiling',
+  'other-rubric': 'counterpart was judged by another judge version',
+  budget: 'no room left under the ceiling',
 };
 
 export const READINGS_DISAGREED =
-  'The judge read the two changes both ways round and picked a different one depending on which it saw first, so this counts as a tie.';
+  'Judge picked a different change depending on which it saw first. Counts as a tie.';
 
 export const unpairedShown = (why: Unpaired | null): string =>
-  `Not judged side by side: ${why ? UNPAIRED[why] : 'nothing was set beside it'}.`;
+  `Not judged side by side: ${why ? UNPAIRED[why] : 'nothing to compare it with'}.`;
 
 export const readingShown = (ownShownFirst: boolean): string =>
   ownShownFirst
@@ -911,7 +909,7 @@ export const ORIGINS_LABEL = 'Where their tasks came from';
 export const balanceWarningShown = (
   warning: BalanceWarningResponseDto,
 ): string =>
-  `${warning.count} of ${warning.entries} runs ${TURNED_OUT_PHRASES[warning.dominant]}, so the set says little about how other runs go. Add runs that turned out other ways.`;
+  `${warning.count} of ${warning.entries} runs ${TURNED_OUT_PHRASES[warning.dominant]}. Add runs that turned out other ways to balance the set.`;
 
 export const endedSpanShown = (
   composition: SetCompositionResponseDto,
@@ -925,10 +923,10 @@ export const endedSpanShown = (
     return `Ended ${since(oldest)}`;
   }
 
-  return `Ended between ${since(oldest)} and ${since(newest)}, half of them by ${since(median)}`;
+  return `Ended between ${since(oldest)} and ${since(newest)} · Median: ${since(median)}`;
 };
 
 export const SUGGESTIONS_LABEL = 'Suggested to even the mix';
 
 export const SUGGESTIONS_NOTE =
-  'Recent runs that turned out ways the set has few of. Nothing is added until you add it.';
+  'Recent runs with outcomes the set has few of. Nothing is added until you add it.';

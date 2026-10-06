@@ -10,7 +10,7 @@ export const pickedFrom = (
 ): SearchProposal => {
   if (search.seed.candidateId.equals(candidateId)) {
     throw new CandidateUnpickableError(
-      'The seed is the station’s live config already; pick a candidate the search proposed',
+      'The seed is already the station’s live config. Please pick a candidate the search proposed.',
     );
   }
 
@@ -23,7 +23,7 @@ export const pickedFrom = (
   }
   if (!proposal.replay.hasFinished) {
     throw new CandidateUnpickableError(
-      `The candidate ${proposal.name.value} has no finished replay on the searched tasks; pick it once its replay finishes`,
+      `Candidate ${proposal.name.value} has no finished replay on the searched tasks. Please pick it once its replay finishes.`,
     );
   }
 

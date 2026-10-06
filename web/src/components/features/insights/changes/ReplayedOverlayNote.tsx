@@ -1,5 +1,4 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import { UnchartedNotes } from '@/components/features/insights/candidates/UnchartedNotes';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import {
   chartedNothing,
@@ -15,7 +14,6 @@ type ReplayedOverlayNoteProps = {
   drawn: boolean;
   scattered: boolean;
   hiddenFor: string | null;
-  priced: boolean;
   candidates: UseQueryResult<InsightsCandidates>;
 };
 
@@ -27,15 +25,10 @@ export function ReplayedOverlayNote({
   drawn,
   scattered,
   hiddenFor,
-  priced,
   candidates,
 }: ReplayedOverlayNoteProps) {
   if (!stationId) {
-    return (candidates.data?.stations.length ?? 0) > 0 ? (
-      <p data-slot="replayed-note" className={NOTE}>
-        Pick a station to see its replayed candidates beside its live setups.
-      </p>
-    ) : null;
+    return null;
   }
 
   if (failed(candidates)) {
@@ -56,7 +49,7 @@ export function ReplayedOverlayNote({
   if (hiddenFor) {
     return (
       <p data-slot="replayed-note" className={NOTE}>
-        Replayed points show success, so they’re hidden while the chart shows{' '}
+        Replayed points show success only. They’re hidden while the chart shows{' '}
         {hiddenFor}.
       </p>
     );
@@ -66,8 +59,8 @@ export function ReplayedOverlayNote({
     <>
       {!scattered && chart.priced.length > 0 && (
         <p data-slot="replayed-note" className={NOTE}>
-          This station’s replayed candidates are not drawn, as no live setup
-          here has a priced outcome to set them beside. The table lists them.
+          Replayed candidates aren’t drawn: no live setup has a priced outcome.
+          The table lists them.
         </p>
       )}
       {drawn && (
@@ -75,7 +68,6 @@ export function ReplayedOverlayNote({
           {replayedNote(chart.priced)}
         </p>
       )}
-      <UnchartedNotes chart={chart} priced={priced} />
     </>
   );
 }

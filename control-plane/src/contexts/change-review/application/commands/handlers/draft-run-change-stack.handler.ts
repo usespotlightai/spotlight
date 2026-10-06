@@ -24,14 +24,14 @@ export class DraftRunChangeStackHandler
         !(await this.work.wasWorkedBy(runId, RunnerId.of(command.runnerId)))
       ) {
         throw new UnknownChangeStackError(
-          `there is no run ${command.runId} this runner worked`,
+          `Run ${command.runId} was not worked by this runner.`,
         );
       }
 
       const run = await this.work.run(runId);
 
       if (!run) {
-        throw new UnknownChangeStackError(`there is no run ${command.runId}`);
+        throw new UnknownChangeStackError(`Run ${command.runId} not found.`);
       }
 
       await this.drafting.begin(

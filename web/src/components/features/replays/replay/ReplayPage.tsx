@@ -55,61 +55,59 @@ export function ReplayPage({
     <TrailContext value={forward}>
       <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-      <div className="flex min-h-0 flex-1">
-        <StationLayout>
-          <ReplayHeader
-            at={at}
-            replay={replay}
-            setName={set.name}
-            baseline={baseline}
+      <StationLayout
+        aside={
+          <EntryDetailOf
+            slug={at.slug}
+            teamId={at.teamId}
+            chosen={chosen}
+            onClose={() => setPicked(null)}
           />
-
-          <section
-            aria-labelledby="task-by-task"
-            className="flex flex-col gap-2"
-          >
-            <ReplaysHeading title="Task by task" id="task-by-task" level="h2" />
-            <ComparedWith at={at} replay={replay} />
-
-            {replay.comparison.length === 0 ? (
-              <StateBox>
-                <EmptyState
-                  icon={ListChecks}
-                  title="No tasks in this replay"
-                  action={
-                    <TrailLink
-                      to={replaySetPath(at, replay.setId)}
-                      className={cn(
-                        buttonVariants({ size: 'sm' }),
-                        'rounded-full',
-                      )}
-                    >
-                      Open the set
-                    </TrailLink>
-                  }
-                >
-                  The set had no runs when this replay started.
-                </EmptyState>
-              </StateBox>
-            ) : (
-              <ReplayComparison
-                slug={at.slug}
-                teamId={at.teamId}
-                replay={replay}
-                picked={chosen?.originalRunId ?? null}
-                onPick={(id) => setPicked((was) => (was === id ? null : id))}
-              />
-            )}
-          </section>
-        </StationLayout>
-
-        <EntryDetailOf
-          slug={at.slug}
-          teamId={at.teamId}
-          chosen={chosen}
-          onClose={() => setPicked(null)}
+        }
+      >
+        <ReplayHeader
+          at={at}
+          replay={replay}
+          setName={set.name}
+          baseline={baseline}
         />
-      </div>
+
+        <section aria-labelledby="task-by-task" className="flex flex-col gap-2">
+          <ReplaysHeading title="Task by task" id="task-by-task" level="h2" />
+          <ComparedWith at={at} replay={replay} />
+
+          {replay.comparison.length === 0 ? (
+            <StateBox>
+              <EmptyState
+                icon={ListChecks}
+                title="No tasks in this replay"
+                action={
+                  <TrailLink
+                    to={replaySetPath(at, replay.setId)}
+                    className={cn(
+                      buttonVariants({ size: 'sm' }),
+                      'rounded-full',
+                    )}
+                  >
+                    Open the set
+                  </TrailLink>
+                }
+              >
+                Set had no runs when this replay started. Add runs to the set,
+                then replay it again.
+              </EmptyState>
+            </StateBox>
+          ) : (
+            <ReplayComparison
+              slug={at.slug}
+              teamId={at.teamId}
+              replay={replay}
+              picked={chosen?.originalRunId ?? null}
+              onPick={(id) => setPicked((was) => (was === id ? null : id))}
+            />
+          )}
+        </section>
+      </StationLayout>
     </TrailContext>
   );
 }

@@ -19,44 +19,41 @@ export function RunSidePanel({ children }: { children: ReactNode }) {
   const [showing, setShowing] = useState<Showing | null>(null);
   const held = useLingering(showing, LEAVING);
 
-  const value = useMemo(
-    () => ({
+  const value = useMemo(() => {
+    const aside =
+      held?.kind === 'change' ? (
+        <ChangeDetail
+          key="change"
+          file={held.file}
+          lines={held.lines}
+          open={showing === held}
+          onClose={() => setShowing(null)}
+        />
+      ) : held?.kind === 'remembered' ? (
+        <RememberedDetail
+          key="remembered"
+          {...held.run}
+          open={showing === held}
+          onClose={() => setShowing(null)}
+        />
+      ) : null;
+
+    return {
       selected: showing?.kind === 'change' ? showing.file : null,
       lines: showing?.kind === 'change' ? showing.lines : null,
       remembered: showing?.kind === 'remembered' ? showing.run : null,
+      aside,
       open: (file: FileChange, at?: LineRange) =>
         setShowing({ kind: 'change', file, lines: at ?? null }),
       openRemembered: (run: RememberedRun) =>
         setShowing({ kind: 'remembered', run }),
       close: () => setShowing(null),
-    }),
-    [showing],
-  );
+    };
+  }, [showing, held]);
 
   return (
     <RunSidePanelContext value={value}>
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-
-        {held?.kind === 'change' && (
-          <ChangeDetail
-            key="change"
-            file={held.file}
-            lines={held.lines}
-            open={showing === held}
-            onClose={() => setShowing(null)}
-          />
-        )}
-
-        {held?.kind === 'remembered' && (
-          <RememberedDetail
-            key="remembered"
-            {...held.run}
-            open={showing === held}
-            onClose={() => setShowing(null)}
-          />
-        )}
-      </div>
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </RunSidePanelContext>
   );
 }

@@ -3,7 +3,7 @@ export class RunGrantsMovedOnError extends Error {
 
   constructor(runId: string) {
     super(
-      `The secrets granted to run ${runId} have changed since they were read, and cannot be written over`,
+      `Secret grants for run ${runId} changed since they were loaded. Please try again.`,
     );
     this.name = 'RunGrantsMovedOnError';
   }

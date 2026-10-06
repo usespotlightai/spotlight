@@ -1,8 +1,10 @@
 import { useParams } from 'react-router';
+import { StationConfigTab } from '@/components/features/stations/config/StationConfigTab';
+import { StationImproveTab } from '@/components/features/stations/improve/StationImproveTab';
+import { StationOverviewTab } from '@/components/features/stations/overview/StationOverviewTab';
 import { StationHeading } from '@/components/features/stations/StationHeading';
 import { StationLayout } from '@/components/features/stations/StationLayout';
 import { StationSkeleton } from '@/components/features/stations/StationSkeleton';
-import { WorkStationSections } from '@/components/features/stations/WorkStationSections';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
@@ -11,6 +13,7 @@ import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { failed, loading } from '@/lib/query';
+import { stationTab } from '@/lib/station';
 import { linePath } from '@/lib/team';
 import { teamCrumb } from '@/lib/team-crumb';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -23,7 +26,8 @@ const ENDS = {
 };
 
 export function Station() {
-  const { slug, teamId, lineId, stationId } = useParams();
+  const { slug, teamId, lineId, stationId, tab: shown } = useParams();
+  const tab = stationTab(shown);
   const { data: workspace } = useWorkspace(slug);
   const { lines, line, station } = useStation(teamId, lineId, stationId);
 
@@ -55,7 +59,7 @@ export function Station() {
     );
   }
 
-  if (!line || !station || !slug || !teamId) {
+  if (!line || !station || !slug || !teamId || !tab) {
     return (
       <PageNotice title="Station not found">
         <p className="text-muted-foreground text-sm">
@@ -75,19 +79,34 @@ export function Station() {
           teamId={teamId}
           line={line}
           station={station}
+          tab={tab}
         />
 
-        {station.kind === 'work' ? (
-          <WorkStationSections
+        {station.kind !== 'work' ? (
+          <p className="text-muted-foreground text-sm leading-6">
+            {ENDS[station.kind]}
+          </p>
+        ) : tab === 'overview' ? (
+          <StationOverviewTab
+            slug={slug}
+            teamId={teamId}
+            lineId={line.id}
+            station={station}
+          />
+        ) : tab === 'improve' ? (
+          <StationImproveTab
             slug={slug}
             teamId={teamId}
             line={line}
             station={station}
           />
         ) : (
-          <p className="text-muted-foreground text-sm leading-6">
-            {ENDS[station.kind]}
-          </p>
+          <StationConfigTab
+            slug={slug}
+            teamId={teamId}
+            line={line}
+            station={station}
+          />
         )}
       </StationLayout>
     </TrailContext>

@@ -11,9 +11,9 @@ import { failed, loading } from '@/lib/query';
 const WIDTH = 'w-80';
 
 const SAYS: Record<string, string> = {
-  accepted: 'This invitation has already been accepted.',
-  revoked: 'This invitation has been taken back.',
-  expired: 'This invitation has run out. Ask for another.',
+  accepted: 'Invitation already accepted.',
+  revoked: 'Invitation withdrawn.',
+  expired: 'Invitation expired. Please ask for a new one.',
 };
 
 export function AcceptInvite() {
@@ -42,9 +42,8 @@ export function AcceptInvite() {
   if (!invite) {
     return (
       <AuthScreen className={WIDTH}>
-        <AuthTitle title="This invitation link does not work">
-          It may have been taken back, or copied only in part. Ask whoever
-          invited you to send another.
+        <AuthTitle title="Invitation link doesn’t work">
+          It may be withdrawn or only partly copied. Please ask for a new one.
         </AuthTitle>
       </AuthScreen>
     );

@@ -3,22 +3,26 @@ import type {
   ChangeMarkerDto,
   InsightsChangesDto,
 } from '@outcomes/application/dto/insights-changes.dto';
-import type {
-  ConfigInOrder,
-  ConfigPart,
-  WorkPort,
-} from '@outcomes/application/ports/work.port';
+import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type { ReadInsightsChangesQuery } from '@outcomes/application/queries/read-insights-changes.query';
+import {
+  type ConfigPair,
+  configChangesOf,
+  fingerprintsAsked,
+} from '@outcomes/application/services/config-changes';
 import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import type { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { changeSplitsOf } from '@outcomes/domain/services/before-after';
+import {
+  type ChangeSplit,
+  changeSplitsOf,
+} from '@outcomes/domain/services/before-after';
 import { changeVerdictOf } from '@outcomes/domain/services/change-verdict';
 import { judgeShareOf } from '@outcomes/domain/services/judge-shares';
 import { runTally } from '@outcomes/domain/services/run-tally';
 import {
-  endedWithin,
   type StationPlace,
+  startedWithin,
 } from '@outcomes/domain/services/team-history';
 import { within } from '@outcomes/domain/value-objects/insights-period.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -28,21 +32,10 @@ const placesOf = (places: readonly StationPlace[]): readonly StationPlace[] => [
   ...new Map(places.map((each) => [each.stationId, each])).values(),
 ];
 
-const pairOf = (previous: string, next: string): string =>
-  `${previous}>${next}`;
-
-const changesBetween = (
-  configs: readonly ConfigInOrder[],
-): ReadonlyMap<string, readonly ConfigPart[]> =>
-  new Map(
-    configs.flatMap((each, at) => {
-      const previous = configs[at - 1];
-
-      return previous
-        ? [[pairOf(previous.fingerprint, each.fingerprint), each.changes]]
-        : [];
-    }),
-  );
+const pairOfSplit = (split: ChangeSplit): ConfigPair => ({
+  previous: split.previousFingerprint,
+  next: split.marker.fingerprint,
+});
 
 const sharesOf = (
   records: readonly RunRecord[],
@@ -64,14 +57,20 @@ export class ReadInsightsChangesHandler
 
   async execute(query: ReadInsightsChangesQuery): Promise<InsightsChangesDto> {
     try {
-      const { clearance, period, history, truncated } = await this.histories.of(
+      const held = await this.histories.of(
         query.teamId,
         query.principal,
         query.period,
       );
+      const { clearance, period, history, truncated } = held;
+      const carried = await this.histories.carriedOn(held);
       const splits = changeSplitsOf(
-        endedWithin(history.records, period.lookback),
+        startedWithin(history.records, {
+          from: carried.from,
+          to: period.lookback.to,
+        }),
         (marker) => within(period.current, marker.firstRunAt),
+        carried.lastRuns,
       );
       const judging = await this.judges.of(
         clearance,
@@ -83,13 +82,9 @@ export class ReadInsightsChangesHandler
           .filter((each) => each.trusted)
           .map((each) => each.stationId),
       );
-      const changes = changesBetween(
+      const configs = configChangesOf(
         await this.work.configsInOrder(
-          splits.flatMap((each) =>
-            each.previousFingerprint
-              ? [each.previousFingerprint, each.marker.fingerprint]
-              : [],
-          ),
+          fingerprintsAsked(splits.map(pairOfSplit)),
         ),
       );
       const markers: ChangeMarkerDto[] = splits.map((split) => {
@@ -116,11 +111,7 @@ export class ReadInsightsChangesHandler
           judgeAfter: judged
             ? judgeShareOf(sharesOf(split.after, judging.shares))
             : null,
-          changes: split.previousFingerprint
-            ? (changes.get(
-                pairOf(split.previousFingerprint, marker.fingerprint),
-              ) ?? [])
-            : [],
+          changes: configs.between(pairOfSplit(split)),
         };
       });
 

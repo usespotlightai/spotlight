@@ -70,13 +70,13 @@ describe('AlertRule', () => {
 
   it('refuses an unknown measure, two thresholds at once, or a broken count of runs', () => {
     expect(() => AlertRule.of({ measure: 'joy', above: 1, over: 1 })).toThrow(
-      /watches one of/,
+      /measure must be one of/,
     );
     expect(() =>
       AlertRule.of({ measure: 'failed_rate', above: 0.1, below: 0.2, over: 1 }),
     ).toThrow(/exactly one/);
     expect(() =>
       AlertRule.of({ measure: 'failed_rate', above: 0.1, over: 0 }),
-    ).toThrow(/whole number of runs/);
+    ).toThrow(/run count must be a whole number/);
   });
 });

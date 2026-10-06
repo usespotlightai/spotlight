@@ -101,7 +101,11 @@ describe('TeamRuns', () => {
 
     await userEvent.click(filter('Waiting for you'));
 
-    expect(screen.getByText('Nothing is waiting for you.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Nothing is waiting for you. Switch to All to see every run.',
+      ),
+    ).toBeInTheDocument();
     expect(filter('All')).toBeInTheDocument();
   });
 

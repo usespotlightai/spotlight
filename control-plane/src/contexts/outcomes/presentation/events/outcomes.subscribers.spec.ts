@@ -132,7 +132,12 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const asked: string[] = [];
   let next = 0;
   const subscribers = outcomesSubscribers({
-    ending: new NoteRunEnded(WORK, records, forgotten, inTransaction),
+    ending: new NoteRunEnded(WORK, records, forgotten, inTransaction, {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }),
     superseding: new NoteRunSuperseded(records, forgotten, inTransaction, {
       now: () => HEARD_AT,
       sleep: async () => {},

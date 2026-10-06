@@ -3,7 +3,7 @@ export class ScoreMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This score changed since it was read, and cannot be written over (${id})`,
+      `Score ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'ScoreMovedOnError';
   }

@@ -25,7 +25,7 @@ export class DecisionDispute {
 
     if (!reason || reason.length > MOST_REASON) {
       throw new InvalidDecisionError(
-        `is disputed with a reason of at most ${MOST_REASON} characters`,
+        `dispute reason must be at most ${MOST_REASON} characters`,
       );
     }
 

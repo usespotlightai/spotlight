@@ -3,7 +3,7 @@ export class TaskChangeShapeMovedOnError extends Error {
 
   constructor(taskId: string) {
     super(
-      `This task's change shape changed since it was read, and cannot be written over (${taskId})`,
+      `Change shape of task ${taskId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'TaskChangeShapeMovedOnError';
   }

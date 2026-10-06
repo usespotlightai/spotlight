@@ -86,16 +86,14 @@ export interface RunFilter {
 const single = (asked: AskedValue, what: string): string | null => {
   if (typeof asked === 'string' && asked.length > LONGEST_FILTER) {
     throw new InvalidRunFilterError(
-      `by a ${what} of at most ${LONGEST_FILTER} characters`,
+      `${what} must be at most ${LONGEST_FILTER} characters`,
     );
   }
   if (typeof asked === 'string' || asked === null) {
     return asked;
   }
 
-  throw new InvalidRunFilterError(
-    `by one ${what} at a time, not ${asked.length}`,
-  );
+  throw new InvalidRunFilterError(`takes one ${what}, not ${asked.length}`);
 };
 
 const oneOf = <T extends string>(
@@ -113,7 +111,7 @@ const oneOf = <T extends string>(
 
   if (!found) {
     throw new InvalidRunFilterError(
-      `by one ${what} of ${values.join(', ')}, not ${asked}`,
+      `${what} must be one of ${values.join(', ')}, not ${asked}`,
     );
   }
 
@@ -163,7 +161,7 @@ const dayOf = (value: AskedValue, period: Window): Window | null => {
 
   if (!from || !within(period, from)) {
     throw new InvalidRunFilterError(
-      `by a day of the period written YYYY-MM-DD, not ${asked}`,
+      `day must be in the period, written YYYY-MM-DD, not ${asked}`,
     );
   }
 
@@ -186,7 +184,7 @@ const weekOf = (value: AskedValue): Window | null => {
 
   if (!window || !monday) {
     throw new InvalidRunFilterError(
-      `by a week that starts on a Monday written YYYY-MM-DD, not ${asked}`,
+      `week must be a Monday written YYYY-MM-DD, not ${asked}`,
     );
   }
 
@@ -196,7 +194,7 @@ const weekOf = (value: AskedValue): Window | null => {
 const taskIdsOf = (asked: RunFilterAsked): readonly string[] | null => {
   if (asked.taskIds !== null && asked.taskIds.length > MOST_FILTERED_TASKS) {
     throw new InvalidRunFilterError(
-      `by at most ${MOST_FILTERED_TASKS} tasks at once`,
+      `takes at most ${MOST_FILTERED_TASKS} tasks`,
     );
   }
 

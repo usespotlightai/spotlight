@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RetireInPlace } from '@/components/features/memory/RetireInPlace';
 
-const retire = { mutate: vi.fn(), isPending: false, isError: false };
+const retire = { mutate: vi.fn(), isPending: false };
 
 vi.mock('@/hooks/api/useRetireMemory', () => ({
   useRetireMemory: () => retire,
@@ -21,7 +21,6 @@ const showing = () =>
 
 beforeEach(() => {
   retire.mutate.mockReset();
-  retire.isError = false;
   onCancel.mockReset();
 });
 
@@ -71,15 +70,5 @@ describe('RetireInPlace', () => {
 
     await userEvent.keyboard('{Escape}');
     expect(onCancel).toHaveBeenCalled();
-  });
-
-  it('says so when it could not be retired', () => {
-    retire.isError = true;
-
-    showing();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'It could not be retired. Try again.',
-    );
   });
 });

@@ -51,10 +51,10 @@ export function SearchCandidates({ at, search }: SearchCandidatesProps) {
             }
           >
             {search.state === 'seeding'
-              ? 'The live config is replayed first. Its agent starts proposing candidates once that replay finishes.'
+              ? 'Live config replays first. The search agent proposes candidates once it finishes.'
               : search.ending === 'seed-failed'
-                ? 'The live config could not be replayed, so its agent never ran.'
-                : 'Its agent proposed no candidates.'}
+                ? 'Live config couldn’t be replayed. The search agent never ran.'
+                : 'Search agent proposed no candidates.'}
           </EmptyState>
         </StateBox>
       ) : (

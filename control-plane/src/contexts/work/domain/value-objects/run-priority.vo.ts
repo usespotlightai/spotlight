@@ -7,9 +7,7 @@ export class RunPriority {
 
   static of(value: number): RunPriority {
     if (!Number.isInteger(value)) {
-      throw new InvalidRunPriorityError(
-        `must be a whole number, but was ${value}`,
-      );
+      throw new InvalidRunPriorityError(`must be a whole number, not ${value}`);
     }
 
     return new RunPriority(value);

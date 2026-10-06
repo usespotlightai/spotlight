@@ -32,7 +32,7 @@ export function TallySparkline({ trend }: { trend: readonly TrendPoint[] }) {
         <YAxis hide domain={[0, 'dataMax']} />
         <Line
           dataKey="runs"
-          stroke="var(--primary)"
+          stroke="var(--chart-primary)"
           strokeWidth={1.5}
           dot={false}
           isAnimationActive={false}

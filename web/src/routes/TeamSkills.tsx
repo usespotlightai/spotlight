@@ -27,7 +27,7 @@ export function TeamSkills() {
   return (
     <SettingsPage
       title="Skills"
-      description="Reusable instructions and context for your agents, available to any station that references them."
+      description="Skill: reusable instructions and context for agents. Any station can reference one."
     >
       {loading(skills) && (
         <SettingsSection>
@@ -49,7 +49,7 @@ export function TeamSkills() {
       )}
 
       {skills.data?.skills.length === 0 && (
-        <SettingsEmpty>This team defines no skills yet.</SettingsEmpty>
+        <SettingsEmpty>No skills defined for this team.</SettingsEmpty>
       )}
 
       {held.length > 0 && (

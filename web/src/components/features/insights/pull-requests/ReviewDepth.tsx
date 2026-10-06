@@ -20,7 +20,7 @@ export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
   const counted = (share: RoundsShare, author: 'spotlight' | 'people') =>
     share[author] > 0 ? (
       <InsightsLink
-        tab="pull-requests"
+        tab="productivity"
         filter={groupFilter(author, repositories, { rounds: share.rounds })}
       >
         {countShown(share[author])}
@@ -51,8 +51,9 @@ export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
 
   return (
     <InsightsCard
+      tableOnly
       title="Review depth"
-      description="How many rounds of review merged pull requests took. Each approval or request for changes by a person is a round, and comments after the last of them make one more; dismissed reviews do not count."
+      description="Review rounds per merged pull request. A person’s approval or change request is a round. Comments after the last add one more. Dismissed reviews don’t count."
     >
       <InsightsTable
         label="Merged pull requests by review rounds"

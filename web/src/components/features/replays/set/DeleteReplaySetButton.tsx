@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useDeleteReplaySet } from '@/hooks/api/useDeleteReplaySet';
-import { messageOf } from '@/lib/error';
 import type { ReplaySet } from '@/lib/replay';
 
 type DeleteReplaySetButtonProps = {
@@ -56,16 +55,10 @@ export function DeleteReplaySetButton({
           <DialogHeader>
             <DialogTitle>Delete {set.name}?</DialogTitle>
             <DialogDescription>
-              Its replays and their results go with it, and the workspaces its
-              runs started from are no longer kept for it. It can’t be undone.
+              Deletes its replays and results. Its runs’ starting workspaces are
+              no longer kept. This can’t be undone.
             </DialogDescription>
           </DialogHeader>
-
-          {deleting.isError && (
-            <p role="alert" className="text-destructive text-xs">
-              {messageOf(deleting.error, 'Could not delete the set')}
-            </p>
-          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

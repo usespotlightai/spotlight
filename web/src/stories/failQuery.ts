@@ -3,7 +3,7 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query';
 export const failQuery = (
   client: QueryClient,
   queryKey: QueryKey,
-  error: Error = new Error('The control plane did not answer.'),
+  error: Error = new Error('Control plane didn’t respond.'),
 ) => {
   const query = client.getQueryCache().build(client, { queryKey });
 

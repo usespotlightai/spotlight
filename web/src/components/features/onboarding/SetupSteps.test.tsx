@@ -107,7 +107,7 @@ describe('SetupSteps', () => {
         from: '/w/acme/inbox/item_1',
       }),
     );
-    expect(screen.getByRole('link', { name: 'Take me there' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Go to runners' })).toHaveAttribute(
       'href',
       '/w/acme/settings/runners',
     );
@@ -139,7 +139,7 @@ describe('SetupSteps', () => {
       screen.getByRole('button', { name: /Install the GitHub App/ }),
     ).toHaveAttribute('aria-expanded', 'false');
     expect(
-      screen.getByRole('link', { name: 'Take me there' }),
+      screen.getByRole('link', { name: 'Go to runners' }),
     ).toBeInTheDocument();
   });
 

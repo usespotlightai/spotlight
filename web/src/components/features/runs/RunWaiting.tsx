@@ -28,7 +28,7 @@ export function RunWaiting({ slug, run, deciding }: RunWaitingProps) {
         className="ml-auto"
       >
         <Inbox aria-hidden className="size-3" />
-        {deciding ? 'Approve or deny in the inbox' : 'Answer in the inbox'}
+        {deciding ? 'Open in the inbox' : 'Answer in the inbox'}
       </PillLink>
     </div>
   );

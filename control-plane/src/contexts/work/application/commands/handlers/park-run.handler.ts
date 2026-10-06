@@ -49,7 +49,7 @@ export class ParkRunHandler
     const run = await this.runs.findById(runId);
 
     if (!run) {
-      throw new UnknownRunError(`there is no run ${runId.value}`);
+      throw new UnknownRunError(`Run ${runId.value} not found.`);
     }
 
     const parked = run.park(runner, this.clock.now(), cold);

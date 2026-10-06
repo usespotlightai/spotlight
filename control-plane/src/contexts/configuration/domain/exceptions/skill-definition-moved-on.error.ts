@@ -2,7 +2,9 @@ export class SkillDefinitionMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(key: string) {
-    super(`The ${key} skill was defined again while this was`);
+    super(
+      `Skill ${key} changed since you loaded it. Please reload and try again.`,
+    );
     this.name = 'SkillDefinitionMovedOnError';
   }
 }

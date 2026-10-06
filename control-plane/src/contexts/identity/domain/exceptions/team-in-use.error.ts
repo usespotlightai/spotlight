@@ -4,9 +4,7 @@ export class TeamInUseError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(key: string, holdings: Holdings) {
-    super(
-      `The ${key} team still holds ${holdings.held.join(', ')}; delete those first`,
-    );
+    super(`Team ${key} is not empty. Still holds: ${holdings.held.join(', ')}`);
     this.name = 'TeamInUseError';
   }
 }

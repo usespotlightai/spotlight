@@ -20,7 +20,7 @@ describe('RunnerController, taking a run’s completion', () => {
       exitCode: -1,
       failed: true,
       timedOut: true,
-      message: 'Its sandbox ran past the host’s limit',
+      message: "Sandbox stopped at the host's time limit. Time limit: 2h0m0s",
     });
 
     expect(sent[0]).toBeInstanceOf(CompleteRunCommand);

@@ -16,7 +16,7 @@ export class ReplayThreshold {
   }): ReplayThreshold {
     if (!Number.isInteger(input.mostRegressions) || input.mostRegressions < 0) {
       throw new InvalidReplayCheckError(
-        'lets a planned change regress on a whole number of tasks, from 0',
+        'allowed regressions must be a whole number from 0',
       );
     }
     if (
@@ -25,7 +25,7 @@ export class ReplayThreshold {
       input.minGain > 1
     ) {
       throw new InvalidReplayCheckError(
-        'counts a gain in success as real from a share above 0 and at most 1',
+        'success gain must be above 0 and at most 1',
       );
     }
 

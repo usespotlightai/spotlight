@@ -47,7 +47,7 @@ export class ConfigPullRequestReason {
   static noSource(lineKey: string): ConfigPullRequestReason {
     return ConfigPullRequestReason.of({
       code: 'no-source',
-      message: `The line ${lineKey} does not say where its Terraform lives; give spotlight_line a source block with its repository and path`,
+      message: `Line ${lineKey} has no Terraform source. Please add a source block with repository and path to spotlight_line.`,
     });
   }
 }

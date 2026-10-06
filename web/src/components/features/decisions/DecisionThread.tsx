@@ -82,7 +82,6 @@ export function DecisionThread({
         open={replying}
         onOpenChange={setReplying}
         pending={disputing.pending}
-        failed={disputing.failed}
         onSubmit={(reason) =>
           void disputing
             .dispute(decision.id, path, reason)

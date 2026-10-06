@@ -11,16 +11,14 @@ export class StationBlock {
 
   static of(held: unknown): StationBlock {
     if (!isBlock(held) || typeof held.key !== 'string') {
-      throw new InvalidCandidateError(
-        'holds a station block, as a line holds it, with its key',
-      );
+      throw new InvalidCandidateError('must hold a station block with its key');
     }
 
     const written = JSON.stringify(held);
 
     if (written.length > MOST_CHARACTERS) {
       throw new InvalidCandidateError(
-        `holds a station block of at most ${MOST_CHARACTERS} characters`,
+        `station block must be at most ${MOST_CHARACTERS} characters`,
       );
     }
 

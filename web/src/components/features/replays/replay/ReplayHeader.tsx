@@ -74,8 +74,8 @@ export function ReplayHeader({
 
       {replay.isBaseline && (
         <p className="text-muted-foreground text-sm">
-          This is the set’s baseline: the live config, which every other replay
-          of the set is compared against.
+          Set’s baseline: the live config. Every other replay of the set is
+          compared against it.
         </p>
       )}
 
@@ -114,11 +114,11 @@ export function ReplayHeader({
 
 const scoringShown = (replay: ReplayDetail): string => {
   if (replay.checks && replay.judges) {
-    return 'by its checks and its judge';
+    return 'by checks and judge';
   }
   if (replay.checks) {
-    return 'by its checks';
+    return 'by checks';
   }
 
-  return replay.judges ? 'by its judge' : 'nothing scores this station';
+  return replay.judges ? 'by judge' : 'nothing scores this station';
 };

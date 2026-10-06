@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listTeamRuns } from '@/lib/api';
 
 export const teamRunKeys = {
+  all: ['runs'] as const,
   forTeam: (teamId?: string) => ['runs', 'team', teamId ?? null] as const,
 };
 

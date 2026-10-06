@@ -14,7 +14,7 @@ export const reviewAsking = (raw: string): ReviewAsking => {
 
   if (!asking) {
     throw new InvalidReviewRequestError(
-      'is asked for as a pull request opens, or by a mention',
+      'must come from an opened pull request or a mention',
     );
   }
 

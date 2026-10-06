@@ -1,6 +1,6 @@
 export class InvalidHarnessNameError extends Error {
   constructor(reason: string) {
-    super(`Invalid harness name: ${reason}`);
+    super(`Harness name ${reason}.`);
     this.name = 'InvalidHarnessNameError';
   }
 }

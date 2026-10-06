@@ -5,7 +5,8 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
-import { countShown, shareShown, spreadShown } from '@/lib/insights';
+import { SpreadShown } from '@/components/features/insights/SpreadShown';
+import { countShown, medianShown, shareShown, tailShown } from '@/lib/insights';
 import {
   type GroupMeasures,
   groupFilter,
@@ -18,6 +19,7 @@ type Measure = {
   readonly id: string;
   readonly label: string;
   readonly shown: (measures: GroupMeasures) => string;
+  readonly tail?: (measures: GroupMeasures) => string | null;
   readonly narrowed?: PullRequestFilter;
 };
 
@@ -30,12 +32,14 @@ const MEASURES: readonly Measure[] = [
   {
     id: 'to-merge',
     label: 'Time to merge',
-    shown: (measures) => spreadShown(measures.toMerge),
+    shown: (measures) => medianShown(measures.toMerge),
+    tail: (measures) => tailShown(measures.toMerge),
   },
   {
     id: 'in-review',
     label: 'Time in review',
-    shown: (measures) => spreadShown(measures.inReview),
+    shown: (measures) => medianShown(measures.inReview),
+    tail: (measures) => tailShown(measures.inReview),
   },
   {
     id: 'rounds',
@@ -67,20 +71,26 @@ export function SpotlightAgainstPeople({
     (author: 'spotlight' | 'people') =>
     (measure: Measure): ReactNode => {
       const measures = comparison[author];
+      const shown =
+        measures.merged > 0 ? (
+          <InsightsLink
+            tab="productivity"
+            filter={groupFilter(
+              author,
+              comparison.repositories,
+              measure.narrowed,
+            )}
+          >
+            {measure.shown(measures)}
+          </InsightsLink>
+        ) : (
+          measure.shown(measures)
+        );
 
-      return measures.merged > 0 ? (
-        <InsightsLink
-          tab="pull-requests"
-          filter={groupFilter(
-            author,
-            comparison.repositories,
-            measure.narrowed,
-          )}
-        >
-          {measure.shown(measures)}
-        </InsightsLink>
-      ) : (
-        measure.shown(measures)
+      return (
+        <SpreadShown tail={measure.tail?.(measures) ?? null}>
+          {shown}
+        </SpreadShown>
       );
     };
 
@@ -102,11 +112,12 @@ export function SpotlightAgainstPeople({
 
   return (
     <InsightsCard
+      tableOnly
       title="Spotlight against people"
       description={
         comparison.repositories.length > 0
-          ? `Pull requests merged in the repositories Spotlight merged into: ${comparison.repositories.join(', ')}. People’s leave out bots’ and any with a Spotlight review task opened. Times are the median and the p90; rounds and comments are per pull request.`
-          : 'Spotlight merged nothing in this period, so there is nothing to set people’s pull requests against.'
+          ? `People’s exclude bots’ and any with a Spotlight review task. Times are medians, with the p90 under the info icon; rounds and comments per pull request. Repositories Spotlight merged into: ${comparison.repositories.join(', ')}`
+          : 'Spotlight merged nothing in this period. Nothing to compare people’s pull requests with.'
       }
     >
       <InsightsTable

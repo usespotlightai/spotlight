@@ -6,7 +6,7 @@ export function FlowSkeleton() {
     <div
       role="status"
       aria-label="Loading the flow"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <InsightsCardSkeleton title="Where tasks wait" rows={5} />
       <InsightsTilesSkeleton

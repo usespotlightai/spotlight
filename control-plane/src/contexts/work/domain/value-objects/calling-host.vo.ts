@@ -9,9 +9,7 @@ export class CallingHost {
     const value = raw.trim();
 
     if (!SHAPE.test(value)) {
-      throw new InvalidNetworkCallError(
-        'is claimed by a host that names itself',
-      );
+      throw new InvalidNetworkCallError('must be claimed by a named host');
     }
 
     return new CallingHost(value);

@@ -3,7 +3,7 @@ export class SearchUnderwayError extends Error {
 
   constructor(stationId: string) {
     super(
-      `The station ${stationId} is being searched already; stop that search first`,
+      `Station ${stationId} is already being searched. Please stop that search first.`,
     );
     this.name = 'SearchUnderwayError';
   }

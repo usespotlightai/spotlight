@@ -26,7 +26,7 @@ const toolsIn = (key: SkillKey, raw: unknown): ToolName[] => {
   if (!Array.isArray(raw)) {
     throw new InvalidSkillError(
       key.value,
-      'lists its tools as something other than a list: write each as its integration and name, as in [grafana.search]',
+      'tools must be a list, such as [grafana.search]',
     );
   }
 
@@ -36,7 +36,7 @@ const toolsIn = (key: SkillKey, raw: unknown): ToolName[] => {
     } catch {
       throw new InvalidSkillError(
         key.value,
-        `lists a tool named ${JSON.stringify(each)}: name a tool as its integration and name, as in grafana.search`,
+        `tool ${JSON.stringify(each)} must be named integration.tool, such as grafana.search`,
       );
     }
   });
@@ -50,7 +50,7 @@ const secretsIn = (key: SkillKey, raw: unknown): SkillSecret[] => {
   if (typeof raw !== 'object' || Array.isArray(raw)) {
     throw new InvalidSkillError(
       key.value,
-      'lists its secrets as something other than a map: write each name with what it is for, as in GRAFANA_TOKEN: A read-only token its tools use',
+      'secrets must map each name to its purpose, such as GRAFANA_TOKEN: A read-only token',
     );
   }
 
@@ -63,7 +63,7 @@ const secretsIn = (key: SkillKey, raw: unknown): SkillSecret[] => {
     } catch {
       throw new InvalidSkillError(
         key.value,
-        `asks for a secret named ${JSON.stringify(name)}: name secrets in capitals, digits and underscores, as in GRAFANA_TOKEN`,
+        `secret ${JSON.stringify(name)} must use capitals, digits and underscores, such as GRAFANA_TOKEN`,
       );
     }
   });
@@ -80,7 +80,7 @@ const readSkill = (
   if (!matched) {
     throw new InvalidSkillError(
       key.value,
-      `opens with no frontmatter: start ${SKILL_FILE} with a --- line, its name and description, and another --- line`,
+      `needs a name and description between --- lines at the top of ${SKILL_FILE}`,
     );
   }
 
@@ -91,7 +91,7 @@ const readSkill = (
   } catch (error) {
     throw new InvalidSkillError(
       key.value,
-      `has frontmatter that is not YAML: ${error instanceof Error ? error.message : String(error)}`,
+      `has frontmatter that is not valid YAML (${error instanceof Error ? error.message : String(error)})`,
     );
   }
 
@@ -126,10 +126,7 @@ export const readSkillFolder = (
   const main = files.find((each) => each.path === SKILL_FILE);
 
   if (!main) {
-    throw new InvalidSkillError(
-      folder,
-      `has no ${SKILL_FILE} in ${folder}, which is what a skill is read from`,
-    );
+    throw new InvalidSkillError(folder, `has no ${SKILL_FILE} in ${folder}`);
   }
 
   return { skill: readSkill(key, main.text, origin, files), files };

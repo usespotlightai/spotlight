@@ -254,7 +254,7 @@ describe('DispatchSearch', () => {
 
     expect(runs.get('run_9')?.hasEnded).toBe(true);
     expect(runs.get('run_9')?.outcome?.message).toBe(
-      'Its search was stopped before a runner took it up.',
+      'Search stopped before a runner took the run.',
     );
 
     await dispatch.enqueue({ ...ORDER, id: 'run_10' });
@@ -291,7 +291,7 @@ describe('DispatchSearch', () => {
       started: false,
     });
     expect(runs.get('run_9')?.outcome?.message).toBe(
-      'No runner took it up in time, so its search let it go.',
+      'No runner took the run in time. Its search released it.',
     );
     expect(await dispatch.withdrawUnclaimed('run_9')).toEqual({
       outcome: 'ended',

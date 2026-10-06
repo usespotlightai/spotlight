@@ -21,7 +21,7 @@ export function PullRequestListSkeleton() {
       aria-label="Loading the pull request list"
       className="overflow-x-auto"
     >
-      <div className="grid min-w-max grid-cols-9 gap-4 text-xs">
+      <div className="grid min-w-max grid-cols-9 gap-3 text-xs">
         {COLUMNS.map((column) => (
           <span key={column} className="text-muted-foreground">
             {column}

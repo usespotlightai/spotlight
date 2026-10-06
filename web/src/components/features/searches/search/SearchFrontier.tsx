@@ -39,7 +39,7 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
 
       {priced.length === 0 ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
-          No candidate has a priced score yet. Show the table for what there is.
+          No candidate has a priced score yet. Show the table to see the rest.
         </p>
       ) : (
         <FrontierChart points={priced} currency={currency} />
@@ -47,7 +47,7 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
 
       {unpriced.length > 0 && (
         <p data-slot="unpriced" className="text-muted-foreground text-xs">
-          Not priced, so not shown:{' '}
+          Hidden, not priced:{' '}
           {unpriced.map((each, place) => (
             <span key={each.candidateId}>
               {place > 0 && ', '}
@@ -66,7 +66,7 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
 
       {unfinished.length > 0 && (
         <p data-slot="unfinished" className="text-muted-foreground text-xs">
-          Still replaying or stopped early, so not shown:{' '}
+          Hidden, still replaying or stopped early:{' '}
           {unfinished
             .map(
               (each) =>

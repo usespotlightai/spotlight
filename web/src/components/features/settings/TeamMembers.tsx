@@ -7,7 +7,6 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { Button } from '@/components/ui/button';
 import { useChangeMemberRole } from '@/hooks/api/useChangeMemberRole';
 import { useMembers } from '@/hooks/api/useMembers';
-import { messageOf } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 
 type TeamMembersProps = {
@@ -56,7 +55,7 @@ export function TeamMembers({ slug, teamId }: TeamMembersProps) {
 
         {members.data?.length === 0 && (
           <p className="px-4 py-4 text-muted-foreground text-sm">
-            No one is on this team yet.
+            No members yet. Add one to get started.
           </p>
         )}
 
@@ -72,12 +71,6 @@ export function TeamMembers({ slug, teamId }: TeamMembersProps) {
           />
         ))}
       </SettingsSection>
-
-      {changeRole.isError && (
-        <p role="alert" className="-mt-4 text-destructive text-xs">
-          {messageOf(changeRole.error)}
-        </p>
-      )}
 
       <InviteMemberDialog
         open={inviting}

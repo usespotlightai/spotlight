@@ -143,6 +143,7 @@ const OVERVIEW = {
           team: 0.15,
           rose: true,
           trails: true,
+          flaggedAbove: 0.15,
           currency: null,
         },
       ],
@@ -297,7 +298,11 @@ describe('TeamInsights', () => {
     expect(
       within(station).getByRole('link', { name: 'Improve this station' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/agent');
-    expect(station).toHaveTextContent('Sent back 30% (was 10%, team 15%)');
+    expect(
+      within(station).getByRole('img', {
+        name: 'Sent back 30% (was 10%, all stations 15%)',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('holds the shape of the overview while it loads', () => {
@@ -351,7 +356,7 @@ describe('TeamInsights', () => {
     showing('?tab=cost');
 
     expect(
-      screen.getByText('Prices came in more than one currency'),
+      screen.getByText('Prices in more than one currency'),
     ).toBeInTheDocument();
   });
 
@@ -366,7 +371,7 @@ describe('TeamInsights', () => {
 
     expect(
       screen.getByText(
-        'Merged pull requests per day. Prices came in more than one currency, so spend is left out.',
+        'Merged pull requests per day. Spend not shown. Prices in more than one currency.',
       ),
     ).toBeInTheDocument();
   });
@@ -379,7 +384,7 @@ describe('TeamInsights', () => {
 
     showing('?tab=cost');
 
-    expect(screen.getByText('Nothing was priced')).toBeInTheDocument();
+    expect(screen.getByText('No priced runs')).toBeInTheDocument();
   });
 
   it('reads cache share as not reported where it is unknown', () => {

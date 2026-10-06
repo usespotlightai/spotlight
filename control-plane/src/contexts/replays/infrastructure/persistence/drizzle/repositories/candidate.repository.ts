@@ -11,8 +11,13 @@ import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import {
+  ORIGIN_KINDS,
+  type OriginKind,
+} from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import type { PossibleOrigin } from '@replays/domain/value-objects/config-origin.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -23,7 +28,10 @@ import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-import { replayCandidate } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import {
+  replayCandidate,
+  withdrawnOriginCandidate,
+} from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -31,9 +39,52 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 type CandidateRow = typeof replayCandidate.$inferSelect;
+
+interface OriginRow {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly teamId: string;
+  readonly lineId: string;
+  readonly stationId: string;
+  readonly fingerprint: string;
+  readonly name: string;
+  readonly kind: string;
+  readonly searchId: string | null;
+  readonly createdAt: Date;
+  readonly withdrawn: boolean;
+}
+
+const originKindOf = (row: OriginRow): OriginKind => {
+  const kind = ORIGIN_KINDS.find((each) => each === row.kind);
+
+  if (!kind || (kind === 'searched') !== (row.searchId !== null)) {
+    throw new InconsistentStateError(
+      'origin candidate',
+      `is searched or proposed, naming the search that found it when, and only when, a search did: ${row.id}`,
+    );
+  }
+
+  return kind;
+};
+
+const possibleOriginOf = (row: OriginRow): PossibleOrigin => ({
+  workspaceId: WorkspaceId.of(row.workspaceId),
+  teamId: TeamId.of(row.teamId),
+  lineId: row.lineId,
+  stationId: row.stationId,
+  fingerprint: StationFingerprint.of(row.fingerprint),
+  candidate: {
+    id: CandidateId.of(row.id),
+    name: CandidateName.of(row.name),
+    kind: originKindOf(row),
+    searchId: row.searchId === null ? null : SearchId.of(row.searchId),
+    createdAt: row.createdAt,
+  },
+  withdrawn: row.withdrawn,
+});
 
 const ADDRESS_INDEX = 'replay_candidate_address_idx';
 
@@ -166,6 +217,90 @@ export class DrizzleCandidateRepository implements CandidateRepository {
     );
   }
 
+  async possibleOriginsAt(
+    teamId: TeamId,
+    stationIds: readonly string[],
+  ): Promise<readonly PossibleOrigin[]> {
+    if (stationIds.length === 0) {
+      return [];
+    }
+
+    const stations = [...new Set(stationIds)];
+    const rows = await this.context.db
+      .select({
+        id: replayCandidate.id,
+        workspaceId: replayCandidate.workspaceId,
+        teamId: replayCandidate.teamId,
+        lineId: replayCandidate.lineId,
+        stationId: replayCandidate.stationId,
+        fingerprint: replayCandidate.fingerprint,
+        name: replayCandidate.name,
+        kind: sql<string>`${replayCandidate.kind}::text`,
+        searchId: replayCandidate.searchId,
+        createdAt: replayCandidate.createdAt,
+        withdrawn: sql<boolean>`false`,
+      })
+      .from(replayCandidate)
+      .where(
+        and(
+          eq(replayCandidate.teamId, teamId.value),
+          inArray(replayCandidate.stationId, stations),
+          inArray(replayCandidate.kind, [...ORIGIN_KINDS]),
+        ),
+      )
+      .unionAll(
+        this.context.db
+          .select({
+            id: withdrawnOriginCandidate.id,
+            workspaceId: withdrawnOriginCandidate.workspaceId,
+            teamId: withdrawnOriginCandidate.teamId,
+            lineId: withdrawnOriginCandidate.lineId,
+            stationId: withdrawnOriginCandidate.stationId,
+            fingerprint: withdrawnOriginCandidate.fingerprint,
+            name: withdrawnOriginCandidate.name,
+            kind: sql<string>`'proposed'`,
+            searchId: sql<string | null>`null`,
+            createdAt: withdrawnOriginCandidate.createdAt,
+            withdrawn: sql<boolean>`true`,
+          })
+          .from(withdrawnOriginCandidate)
+          .where(
+            and(
+              eq(withdrawnOriginCandidate.teamId, teamId.value),
+              inArray(withdrawnOriginCandidate.stationId, stations),
+            ),
+          ),
+      );
+
+    return rows.map(possibleOriginOf);
+  }
+
+  async removeWithdrawn(id: CandidateId): Promise<void> {
+    await this.context.db
+      .delete(withdrawnOriginCandidate)
+      .where(eq(withdrawnOriginCandidate.id, id.value));
+  }
+
+  async removeWithdrawnOfTeam(teamId: TeamId): Promise<void> {
+    await this.context.db
+      .delete(withdrawnOriginCandidate)
+      .where(eq(withdrawnOriginCandidate.teamId, teamId.value));
+  }
+
+  async removeWithdrawnAtStations(
+    stationIds: readonly string[],
+  ): Promise<void> {
+    if (stationIds.length === 0) {
+      return;
+    }
+
+    await this.context.db
+      .delete(withdrawnOriginCandidate)
+      .where(
+        inArray(withdrawnOriginCandidate.stationId, [...new Set(stationIds)]),
+      );
+  }
+
   async proposedAt(
     teamId: TeamId,
     address: CandidateAddress,
@@ -184,7 +319,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
   }
 
   async save(saved: Candidate): Promise<void> {
-    if (!saved.isAbandoned) {
+    if (!saved.isGone) {
       return;
     }
 
@@ -201,6 +336,24 @@ export class DrizzleCandidateRepository implements CandidateRepository {
 
       if (written.length === 0) {
         throw new CandidateMovedOnError(saved.id.value);
+      }
+
+      const origin = saved.withdrawnOrigin;
+
+      if (origin) {
+        await this.context.db
+          .insert(withdrawnOriginCandidate)
+          .values({
+            id: origin.candidate.id.value,
+            workspaceId: origin.workspaceId.value,
+            teamId: origin.teamId.value,
+            lineId: origin.lineId,
+            stationId: origin.stationId,
+            fingerprint: origin.fingerprint.value,
+            name: origin.candidate.name.value,
+            createdAt: origin.candidate.createdAt,
+          })
+          .onConflictDoNothing({ target: withdrawnOriginCandidate.id });
       }
 
       await this.events.dispatch(saved.pullEvents());

@@ -1,6 +1,6 @@
 export class InvalidReviewPolicyError extends Error {
   constructor(reason: string) {
-    super(`Invalid review policy: ${reason}`);
+    super(`Review policy ${reason}.`);
     this.name = 'InvalidReviewPolicyError';
   }
 }

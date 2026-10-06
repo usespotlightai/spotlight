@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
-import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
-import { RunBriefing } from '@/components/features/runs/RunBriefing';
+import { RunConversation } from '@/components/features/runs/RunConversation';
 import { RunFooter } from '@/components/features/runs/RunFooter';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -13,9 +12,10 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunConversation } from '@/hooks/api/useRunConversation';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
+import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { decisionOwed } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
-import { conversingOf, lastNoteOf } from '@/lib/run-conversation';
+import { lastNoteOf } from '@/lib/run-conversation';
 
 type RunThreadProps = {
   slug: string;
@@ -39,6 +39,7 @@ export function RunThread({
   const runs = useTeamRuns(teamId);
   const said = conversation.data;
   const run = runs.data?.find((each) => each.id === runId);
+  const decide = useRunDeciding(slug, run);
 
   if (loading(conversation) || loading(journal)) {
     return <InboxItemSkeleton />;
@@ -59,18 +60,11 @@ export function RunThread({
         </div>
       ) : (
         <RunSidePanel>
-          <Conversation
-            item={conversingOf(said, teamId)}
+          <RunConversation
+            teamId={teamId}
+            said={said}
             worked={journal.data ?? []}
             openAt={lastNoteOf(said.notes, runId)}
-            opening={
-              said.briefing ? (
-                <RunBriefing
-                  briefing={said.briefing}
-                  attachments={said.attachments}
-                />
-              ) : undefined
-            }
             footer={
               run ? (
                 <RunFooter
@@ -82,6 +76,7 @@ export function RunThread({
                 />
               ) : null
             }
+            deciding={decide}
             afterRun={(ran) => (ran === runId ? after : null)}
           />
         </RunSidePanel>

@@ -30,11 +30,12 @@ export class ReadInsightsOverviewHandler
     query: ReadInsightsOverviewQuery,
   ): Promise<InsightsOverviewDto> {
     try {
-      const { period, history, truncated } = await this.histories.of(
+      const held = await this.histories.of(
         query.teamId,
         query.principal,
         query.period,
       );
+      const { period, history, truncated } = held;
       const headline = headlineOf(history, period.current);
       const before = headlineOf(history, period.previous);
       const ids = [...headline.peopleIds, ...before.peopleIds];
@@ -49,7 +50,11 @@ export class ReadInsightsOverviewHandler
         output,
         outputCurrency: currency.currency,
         outputMixedCurrencies: currency.mixedCurrencies,
-        configChanges: configMarkersOf(history, period).map(configMarkerDtoOf),
+        configChanges: configMarkersOf(
+          history,
+          period,
+          await this.histories.carriedOn(held),
+        ).map(configMarkerDtoOf),
         worthImproving: stationsWorthImproving(history, period),
         people: namedOf(ids, await this.people.namesOf(ids)),
       };

@@ -126,6 +126,12 @@ vi.mock('@/hooks/api/useSayToRun', () => ({
   useSayToRun: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+const answer = vi.fn();
+
+vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
+  useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
+}));
+
 vi.mock('@/hooks/api/useStopRun', () => ({
   useStopRun: () => ({ mutate: vi.fn() }),
 }));
@@ -342,9 +348,7 @@ describe('Run', () => {
     const { container } = renderRun();
 
     expect(container.querySelector('header')).toBeInTheDocument();
-    expect(
-      screen.getByText('There is no such run for this team.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('This team has no such run.')).toBeInTheDocument();
   });
 
   describe('a replay run', () => {
@@ -548,7 +552,7 @@ describe('Run', () => {
         }),
       ).toHaveAttribute(
         'aria-placeholder',
-        'Say what to change, and Implementation starts again…',
+        'Say what to change. Implementation starts again…',
       );
     });
 
@@ -621,22 +625,43 @@ describe('Run', () => {
         screen.getByRole('textbox', { name: 'Answer Implementation' }),
       ).toHaveAttribute(
         'aria-placeholder',
-        'Answer the question, and the run carries on…',
+        'Answer the question to continue the run…',
       );
     });
 
-    it('leaves an approval to be decided in the inbox, rather than answered here', () => {
+    it('lets an approval be decided right here, through its inbox conversation', async () => {
       runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
       const approval = said().notes.map((note) => ({
         ...note,
         form: 'approval',
+        approval: {
+          kind: 'tool-call' as const,
+          name: 'linear.comment',
+          because: 'It posts publicly, under the team’s name.',
+          inputs: [{ name: 'body', value: 'Fixed.' }],
+          standing: 'asked' as const,
+          edited: null,
+          intent: null,
+        },
       }));
       conversation.mockReturnValue(said({ notes: approval }));
 
       renderRun();
 
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Approve linear.comment' }),
+      );
+
+      expect(answer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          slug: 'acme',
+          itemId: 'task_1:0',
+          approve: true,
+        }),
+      );
+
       expect(
-        screen.getByRole('link', { name: 'Approve or deny in the inbox' }),
+        screen.getByRole('link', { name: 'Open in the inbox' }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole('textbox', {
@@ -806,7 +831,7 @@ describe('Run', () => {
       expect(composer).toHaveAttribute('contenteditable', 'false');
       expect(composer).toHaveAttribute(
         'aria-placeholder',
-        'This agent runs autonomously and can’t receive messages.',
+        'Agent runs autonomously. It can’t receive messages.',
       );
       expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     });

@@ -2,13 +2,17 @@ import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { EndedRun, WorkPort } from '@outcomes/application/ports/work.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
-import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
+import {
+  configFingerprintOf,
+  RunEnd,
+} from '@outcomes/domain/value-objects/run-end.vo';
 import {
   endingOf,
   type RunEnding,
 } from '@outcomes/domain/value-objects/run-ending';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -25,6 +29,7 @@ export interface RunEnded {
 
 const endOf = (
   run: EndedRun,
+  fingerprint: string | null,
   ending: RunEnding,
   failure: string | null,
   asked: boolean,
@@ -36,7 +41,7 @@ const endOf = (
       stationId: run.stationId,
       taskId: TaskId.of(run.taskId),
     }),
-    fingerprint: run.fingerprint,
+    fingerprint,
     setup: RunSetup.of({
       harness: run.harness,
       model: run.model,
@@ -60,6 +65,7 @@ export class NoteRunEnded {
     private readonly records: RunRecordRepository,
     private readonly forgotten: ForgottenPort,
     private readonly transaction: TransactionPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async ended(heard: RunEnded): Promise<void> {
@@ -75,7 +81,20 @@ export class NoteRunEnded {
       return;
     }
 
-    const end = endOf(run, ending, heard.failure, heard.asked);
+    const fingerprint = configFingerprintOf(run.fingerprint);
+
+    if (run.fingerprint !== null && fingerprint === null) {
+      this.logger.warn(
+        {
+          runId: run.runId,
+          stationId: run.stationId,
+          fingerprint: run.fingerprint,
+        },
+        'Run ended with a malformed config fingerprint, recorded as no config',
+      );
+    }
+
+    const end = endOf(run, fingerprint, ending, heard.failure, heard.asked);
     const { taskId, teamId } = end.place;
     const workspaceId = WorkspaceId.of(run.workspaceId);
 

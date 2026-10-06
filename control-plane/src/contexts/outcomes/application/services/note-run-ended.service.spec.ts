@@ -9,6 +9,10 @@ import {
   SET_UP,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
+import type {
+  LogFields,
+  LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -36,6 +40,15 @@ const endedRun = (runId: string, change: Partial<EndedRun> = {}): EndedRun => ({
 });
 
 const noting = (runs: readonly EndedRun[]) => {
+  const warned: { fields: LogFields; message: string }[] = [];
+  const logger: LoggerPort = {
+    debug: () => {},
+    info: () => {},
+    warn: (fields, message) => {
+      warned.push({ fields, message });
+    },
+    error: () => {},
+  };
   const records = new RunRecordsInMemory();
   const forgotten = forgottenInMemory();
   const work: WorkPort = {
@@ -50,7 +63,8 @@ const noting = (runs: readonly EndedRun[]) => {
   return {
     records,
     forgotten,
-    service: new NoteRunEnded(work, records, forgotten, inTransaction),
+    warned,
+    service: new NoteRunEnded(work, records, forgotten, inTransaction, logger),
     superseding: new NoteRunSuperseded(records, forgotten, inTransaction, {
       now: () => HEARD_AT,
       sleep: async () => {},
@@ -61,7 +75,7 @@ const noting = (runs: readonly EndedRun[]) => {
       stopped = false,
       asked = false,
     ) =>
-      new NoteRunEnded(work, records, forgotten, inTransaction).ended({
+      new NoteRunEnded(work, records, forgotten, inTransaction, logger).ended({
         runId,
         outcome,
         stopped,
@@ -86,6 +100,37 @@ describe('noting that a run ended', () => {
     expect(record?.end?.place.taskId.value).toBe('task_1');
     expect(record?.end?.endedAt).toEqual(at(10));
     expect(record?.end?.round).toBe(1);
+  });
+
+  it('takes a config Work did not fingerprint as a SHA-256 for no config, and warns of it', async () => {
+    const noted = noting([
+      endedRun('run_unfingerprinted', { fingerprint: 'not-a-sha-256' }),
+    ]);
+
+    await noted.ended('run_unfingerprinted');
+
+    expect((await noted.stored('run_unfingerprinted'))?.end?.fingerprint).toBe(
+      null,
+    );
+    expect(noted.warned).toEqual([
+      {
+        fields: {
+          runId: 'run_unfingerprinted',
+          stationId: 'station_1',
+          fingerprint: 'not-a-sha-256',
+        },
+        message:
+          'Run ended with a malformed config fingerprint, recorded as no config',
+      },
+    ]);
+  });
+
+  it('warns of nothing when a run ended with no config', async () => {
+    const noted = noting([endedRun('run_unconfigured', { fingerprint: null })]);
+
+    await noted.ended('run_unconfigured');
+
+    expect(noted.warned).toEqual([]);
   });
 
   it('records that it ended waiting on a person', async () => {

@@ -31,12 +31,12 @@ export class RunnerPlacement {
 
       if (!areWords(trimmed)) {
         throw new InvalidRunnerPlacementError(
-          `are each named by a runner pool or trust label: lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in vpc-internal`,
+          `must each name a pool or trust label in lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, such as vpc-internal`,
         );
       }
 
       if (selectors.includes(trimmed)) {
-        throw new InvalidRunnerPlacementError(`name ${trimmed} only once`);
+        throw new InvalidRunnerPlacementError(`must name ${trimmed} only once`);
       }
 
       selectors.push(trimmed);
@@ -69,7 +69,7 @@ export class RunnerPlacement {
 
     if (images.length > 1) {
       throw new InvalidRunnerPlacementError(
-        `run in one image, but are asked to run in ${images.map((each) => each.value).join(' and ')}`,
+        `must run in one image, not ${images.map((each) => each.value).join(' and ')}`,
       );
     }
 

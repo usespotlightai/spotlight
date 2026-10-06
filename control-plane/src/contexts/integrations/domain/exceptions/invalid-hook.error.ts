@@ -7,7 +7,7 @@ export class InvalidHookError extends Error {
     readonly at: FieldPath,
     readonly because: string,
   ) {
-    super(`A hook's ${at.rendered} ${because}`);
+    super(`Hook ${at.rendered} ${because}.`);
     this.name = 'InvalidHookError';
   }
 }

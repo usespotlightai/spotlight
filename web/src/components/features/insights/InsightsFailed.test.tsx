@@ -30,7 +30,7 @@ describe('InsightsFailed', () => {
     );
 
     expect(
-      screen.getByText('Only the team’s members can see its Insights'),
+      screen.getByText('Only team members can see Insights'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(

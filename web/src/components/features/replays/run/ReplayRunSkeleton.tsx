@@ -39,7 +39,7 @@ export function ReplayRunSkeleton() {
         </div>
 
         <ComposerFooter>
-          <ChatInputSkeleton placeholder="This agent runs autonomously and can’t receive messages." />
+          <ChatInputSkeleton placeholder="Agent runs autonomously. It can’t receive messages." />
         </ComposerFooter>
       </RunSidePanel>
     </div>

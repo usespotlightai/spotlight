@@ -12,7 +12,7 @@ const said = ({
   handle,
 }: ConfiguredIntegrationResponseDto): string => {
   if (standing === 'listens') {
-    return 'Listens for what the host sends.';
+    return 'Listens for incoming events.';
   }
 
   if (standing === 'unlinked') {

@@ -154,7 +154,7 @@ describe('StartSearchDialog', () => {
       screen.getByText('is too low to give each replay run a cent'),
     ).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Estimate' })).toHaveTextContent(
-      'Fix the field marked above to see an estimate.',
+      'Please fix the marked field to see an estimate.',
     );
   });
 
@@ -165,7 +165,7 @@ describe('StartSearchDialog', () => {
     expect(screen.getByRole('radio', { name: /Two tasks/ })).toBeDisabled();
     expect(
       screen.getByText(
-        'It covers 2 tasks; a search needs runs of at least 5 different tasks, to hold some out.',
+        'Covers 2 tasks. A search holds some out. Minimum different tasks: 5',
       ),
     ).toBeInTheDocument();
   });
@@ -178,7 +178,7 @@ describe('StartSearchDialog', () => {
     });
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Give a whole number from 1 to 10.',
+      'Please enter a whole number from 1 to 10.',
     );
   });
 
@@ -218,9 +218,7 @@ describe('StartSearchDialog', () => {
     const warnings = screen.getByRole('list', { name: 'Warnings' });
     expect(
       warnings.querySelector('[data-kind="noise-unmeasured"]'),
-    ).toHaveTextContent(
-      /Nobody has measured how much this set’s success moves by chance/,
-    );
+    ).toHaveTextContent(/Set’s noise is unmeasured/);
     expect(
       screen.getByRole('button', { name: 'Start search' }),
     ).not.toBeDisabled();
@@ -247,7 +245,7 @@ describe('StartSearchDialog', () => {
     );
 
     expect(screen.getByRole('list', { name: 'Warnings' })).toHaveTextContent(
-      'This set’s success moved 15 pts between copies of the same runs, more than the +5 pts the line counts as real. Replaying each run 5 times would bring that down.',
+      'Success moved 15 pts between copies of the same runs, above the line’s minimum real gain. Replaying each run 5 times would bring it under. Minimum real gain: +5 pts',
     );
 
     fireEvent.click(
@@ -310,7 +308,7 @@ describe('StartSearchDialog', () => {
       within(aim).getByRole('radio', { name: /The same success for less/ }),
     ).toBeChecked();
     expect(aim).toHaveTextContent(
-      'Chosen for you: the live config already succeeds on 97% of this set, so there is little room to succeed more.',
+      'Suggested: the live config already succeeds on 97% of this set. Little room for more success.',
     );
     expect(
       screen
@@ -356,7 +354,7 @@ describe('StartSearchDialog', () => {
     expect(
       within(aim).getByRole('radio', { name: /The same success for less/ }),
     ).toBeChecked();
-    expect(aim).toHaveTextContent('Chosen for you');
+    expect(aim).toHaveTextContent('Suggested');
 
     fireEvent.click(screen.getByRole('button', { name: 'Start search' }));
 
@@ -391,13 +389,13 @@ describe('StartSearchDialog', () => {
     const warnings = screen.getByRole('list', { name: 'Warnings' });
     expect(
       warnings.querySelector('[data-kind="judge-unstable"]'),
-    ).toHaveTextContent('the judge gave the same verdict only 60% of the time');
+    ).toHaveTextContent('Judge gave the same verdict twice on only 60%');
     expect(
       warnings.querySelector('[data-kind="flaky-checks"]'),
     ).toHaveTextContent('on 2 of 9 changes it ran twice');
     expect(
       warnings.querySelector('[data-kind="sanity-failed"]'),
-    ).toHaveTextContent('(−2 pts, likely −10 to +6) and did worse on 3 tasks');
+    ).toHaveTextContent('−2 pts, likely −10 to +6. It did worse on 3 tasks');
   });
 
   it('shows a refusal on the field it names', () => {
@@ -430,7 +428,7 @@ describe('StartSearchDialog', () => {
 
     expect(mutate).not.toHaveBeenCalled();
     expect(
-      screen.getByText('Give a ceiling above nothing.'),
+      screen.getByText('Please enter a ceiling above 0.'),
     ).toBeInTheDocument();
   });
 });

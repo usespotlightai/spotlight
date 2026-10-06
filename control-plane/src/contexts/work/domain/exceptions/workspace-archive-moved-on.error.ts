@@ -3,7 +3,7 @@ export class WorkspaceArchiveMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This workspace archive has changed since it was read, and cannot be written over (${id})`,
+      `Workspace archive ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'WorkspaceArchiveMovedOnError';
   }

@@ -104,7 +104,7 @@ export class Approval {
   ): Approval {
     if (!this.open) {
       throw new InvalidApprovalAnswerError(
-        `was already ${this.standing === 'granted' ? 'approved' : 'dismissed'}, so it cannot be decided again`,
+        `Approval request was already ${this.standing === 'granted' ? 'approved' : 'dismissed'}.`,
       );
     }
 
@@ -126,7 +126,7 @@ export class Approval {
   ): ToolCall | null {
     if (decision !== 'granted') {
       throw new InvalidApprovalAnswerError(
-        'is being dismissed, so there is nothing to run with changes',
+        'A dismissed request cannot run with changes.',
       );
     }
 
@@ -138,7 +138,7 @@ export class Approval {
       toolCall: (call) => call,
       harnessPermission: () => {
         throw new InvalidApprovalAnswerError(
-          'waits on a harness, which only takes a yes or a no, so what it does cannot be changed',
+          'A harness permission takes only yes or no. Its request cannot be edited.',
         );
       },
     });
@@ -146,7 +146,7 @@ export class Approval {
 
     if (!edited) {
       throw new InvalidApprovalAnswerError(
-        `asks about ${asked.given.map((each) => each.name).join(', ') || 'no inputs'}, so changes must name exactly those, each a value of the kind asked and none left blank`,
+        `Edits must fill every asked input with a value of its kind. Inputs asked: ${asked.given.map((each) => each.name).join(', ') || 'none'}`,
       );
     }
 
@@ -156,7 +156,7 @@ export class Approval {
   claimed(): Approval {
     if (!this.grants) {
       throw new InvalidApprovalAnswerError(
-        'grants nothing to use, so the tool cannot run on it',
+        'Approval grants nothing. The tool cannot run.',
       );
     }
 

@@ -6,9 +6,9 @@ import { RunFooter } from '@/components/features/runs/RunFooter';
 import { RunOpening } from '@/components/features/runs/RunOpening';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
-import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionOwed, type RunJournal, workedOn } from '@/lib/inbox';
 import { type TeamRun, working } from '@/lib/run';
@@ -40,6 +40,7 @@ export function RunPage({
 
   const notes = said?.notes ?? [];
   const deciding = decisionOwed(notes);
+  const decide = useRunDeciding(slug, run);
   const ran = workedOn(worked, notes, run.id);
 
   const footer = (
@@ -77,31 +78,28 @@ export function RunPage({
             {said && notes.length > 0 ? (
               <RunConversation
                 teamId={teamId}
-                run={run}
                 said={said}
                 worked={worked}
-                activity={activity}
+                live={run.state === 'claimed' ? activity : undefined}
                 closing={closing}
                 footer={footer}
+                deciding={decide}
               />
             ) : (
-              <>
-                <RunOpening
-                  run={run}
-                  briefing={said?.briefing ?? null}
-                  attachments={said?.attachments ?? []}
-                  closing={closing}
-                  activity={
-                    stayedQuiet(run, ran, journalFailed) ? (
-                      <RunEmpty slug={slug} teamId={teamId} run={run} />
-                    ) : (
-                      activity
-                    )
-                  }
-                />
-
-                <ComposerFooter>{footer}</ComposerFooter>
-              </>
+              <RunOpening
+                run={run}
+                briefing={said?.briefing ?? null}
+                attachments={said?.attachments ?? []}
+                closing={closing}
+                activity={
+                  stayedQuiet(run, ran, journalFailed) ? (
+                    <RunEmpty slug={slug} teamId={teamId} run={run} />
+                  ) : (
+                    activity
+                  )
+                }
+                footer={footer}
+              />
             )}
           </StepAnchorsProvider>
         </RunSidePanel>

@@ -6,7 +6,7 @@ export function PeopleSkeleton() {
     <div
       role="status"
       aria-label="Loading the people"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <InsightsTilesSkeleton
         labels={[

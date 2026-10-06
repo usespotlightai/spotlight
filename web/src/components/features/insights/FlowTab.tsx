@@ -35,13 +35,13 @@ export function FlowTab({ slug, teamId, period, names }: FlowTabProps) {
   ) {
     return (
       <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Once tasks move through the stations, where they wait shows here.
+        Where tasks wait shows here once they move through the stations.
       </NoRunsInPeriod>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {truncated && <TruncatedNote />}
 
       {now.stations.length > 0 && (

@@ -7,7 +7,7 @@ export class Remark {
     const named = value.trim();
 
     if (!named) {
-      throw new InvalidRemarkError('was said somewhere with no name');
+      throw new InvalidRemarkError('must name where it was said');
     }
 
     return new Remark(named);

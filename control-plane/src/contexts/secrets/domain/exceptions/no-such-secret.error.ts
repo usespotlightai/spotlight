@@ -2,9 +2,7 @@ export class NoSuchSecretError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(secretName: string) {
-    super(
-      `The workspace holds no secret named ${secretName}; define it before anything uses it`,
-    );
+    super(`Secret ${secretName} not found. Please define it first.`);
     this.name = 'NoSuchSecretError';
   }
 }

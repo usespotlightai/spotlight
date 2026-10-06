@@ -21,7 +21,7 @@ export function RunsSkeleton() {
       aria-label="Loading the runs"
       className="overflow-x-auto rounded-xl border border-border bg-card p-3"
     >
-      <div className="grid min-w-max grid-cols-9 gap-4 text-xs">
+      <div className="grid min-w-max grid-cols-9 gap-3 text-xs">
         {COLUMNS.map((column) => (
           <span key={column} className="text-muted-foreground">
             {column}

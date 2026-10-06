@@ -13,7 +13,7 @@ export class CatalogName {
     if (!areWords(trimmed)) {
       throw new InvalidCatalogEntryError(
         'name',
-        `is lower case words joined by dashes, at most ${LONGEST_WORDS} characters, as in web-search`,
+        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, such as web-search`,
       );
     }
 

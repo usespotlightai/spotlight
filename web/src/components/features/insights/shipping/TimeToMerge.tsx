@@ -1,0 +1,87 @@
+import { useState } from 'react';
+import { DeltaShown } from '@/components/features/insights/DeltaShown';
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { DayChart } from '@/components/features/insights/shipping/DayChart';
+import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
+import { Segmented } from '@/components/shared/Segmented';
+import { deltaOf, lasted, lastedOrNone } from '@/lib/insights';
+import {
+  type ByAuthor,
+  DEFAULT_PERCENTILE,
+  type MergeDay,
+  mergePoints,
+  type Percentile,
+  SMOOTHINGS,
+  type Smoothing,
+} from '@/lib/insights-shipping';
+
+const AUTHORS = [
+  { key: 'spotlight', label: 'Spotlight’s', color: 'var(--chart-primary)' },
+  { key: 'people', label: 'People’s alone', color: 'var(--chart-2)' },
+] as const;
+
+type TimeToMergeProps = {
+  now: ByAuthor;
+  before: ByAuthor;
+  days: readonly MergeDay[];
+};
+
+export function TimeToMerge({ now, before, days }: TimeToMergeProps) {
+  const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
+  const [smoothing, setSmoothing] = useState<Smoothing>('rolling');
+
+  return (
+    <InsightsCard
+      title="Time to merge"
+      description="From pull request opened to merge, at the chosen percentile. Spotlight’s against people’s alone, in repositories Spotlight merged into."
+      actions={
+        <div className="flex items-center gap-1.5">
+          <PercentilePicker value={percentile} onChange={setPercentile} />
+          <Segmented
+            label="Smoothing"
+            segments={SMOOTHINGS}
+            value={smoothing}
+            onChange={setSmoothing}
+          />
+        </div>
+      }
+    >
+      <dl className="flex flex-wrap gap-x-8 gap-y-3">
+        {AUTHORS.map((author) => {
+          const delta = deltaOf(
+            now[author.key][percentile],
+            before[author.key][percentile],
+            'down',
+          );
+
+          return (
+            <div key={author.key} className="flex flex-col gap-1">
+              <dt className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                <span
+                  aria-hidden
+                  className="size-2 rounded-sm"
+                  style={{ background: author.color }}
+                />
+                {author.label}
+              </dt>
+              <dd className="flex flex-col gap-1">
+                <span className="text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
+                  {lastedOrNone(now[author.key][percentile])}
+                </span>
+                {delta && <DeltaShown delta={delta} />}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+
+      <DayChart
+        label={`Time to merge at ${percentile}, ${smoothing === 'rolling' ? 'over the 7 days before each day' : 'day by day'}`}
+        points={mergePoints(days, smoothing, percentile)}
+        series={AUTHORS.map((author) => ({ ...author, as: 'line' as const }))}
+        shown={lasted}
+        durations
+      />
+    </InsightsCard>
+  );
+}

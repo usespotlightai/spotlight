@@ -11,7 +11,11 @@ export function Insights() {
   }
 
   return (
-    <TeamSectionPage section="insights" actions={<InsightsPeriodPicker />}>
+    <TeamSectionPage
+      section="insights"
+      actions={<InsightsPeriodPicker />}
+      bordered={false}
+    >
       <TeamInsights slug={slug} teamId={teamId} />
     </TeamSectionPage>
   );

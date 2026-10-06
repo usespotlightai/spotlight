@@ -8,5 +8,5 @@ export const givenChoice = (
     return given;
   }
 
-  throw new BadRequestException(`${what} must be text or null`);
+  throw new BadRequestException(`Field ${what} must be text or null.`);
 };

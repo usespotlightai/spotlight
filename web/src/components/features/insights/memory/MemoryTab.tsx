@@ -37,7 +37,7 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {read.truncated && <TruncatedNote />}
 
       <InsightsTiles label="Memory use">
@@ -52,8 +52,9 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
       </InsightsTiles>
 
       <InsightsCard
+        tableOnly
         title="Runs with memories and without"
-        description="How runs that were briefed or read a memory turned out, against the rest of the period’s runs."
+        description="Outcomes of runs briefed or reading a memory, against the period’s other runs."
       >
         <TallyComparison
           label="Runs without memories against runs with them"

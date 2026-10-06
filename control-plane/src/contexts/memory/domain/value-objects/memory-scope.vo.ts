@@ -33,17 +33,15 @@ export class MemoryScope {
     const paths = distinct(input.paths ?? []);
 
     if (stationId && !lineId) {
-      throw new InvalidMemoryError('held at a station names its line too');
+      throw new InvalidMemoryError('at a station must also name its line');
     }
 
     if (paths.length > 0 && !repository) {
-      throw new InvalidMemoryError(
-        'about paths names the repository they lie in',
-      );
+      throw new InvalidMemoryError('about paths must name their repository');
     }
 
     if (paths.length > MOST_PATHS) {
-      throw new InvalidMemoryError(`bears on at most ${MOST_PATHS} paths`);
+      throw new InvalidMemoryError(`can cover at most ${MOST_PATHS} paths`);
     }
 
     return new MemoryScope(input.teamId, lineId, stationId, repository, paths);

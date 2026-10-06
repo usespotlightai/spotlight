@@ -18,10 +18,7 @@ export function WorkspaceGeneral() {
   }
 
   return (
-    <SettingsPage
-      title="General"
-      description="What this workspace is called and where it lives."
-    >
+    <SettingsPage title="General" description="Workspace name and address.">
       {failed(workspace) ? (
         <SettingsSection>
           <CouldNotLoad
@@ -61,7 +58,7 @@ export function WorkspaceGeneral() {
       <SettingsSection title="Terraform">
         <SettingsRow
           label="Download as Terraform"
-          description="The workspace’s configuration as a Terraform module, to manage it from code."
+          description="Workspace configuration as a Terraform module. Manage it from code."
         >
           <DownloadTerraformButton
             workspaceId={workspace.data?.id}

@@ -3,7 +3,7 @@ export class DuplicateRepositoryError extends Error {
 
   constructor(name: string) {
     super(
-      `A line works ${name} twice, and each is cloned into a directory of its own name`,
+      `Repository ${name} is listed twice. Each repository is cloned into a directory of its own name.`,
     );
     this.name = 'DuplicateRepositoryError';
   }

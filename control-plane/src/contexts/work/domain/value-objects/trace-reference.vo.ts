@@ -23,7 +23,7 @@ export class TraceReference {
   static refuseTooMany(count: number): void {
     if (count > MOST_AT_ONCE) {
       throw new InvalidChatMessageError(
-        `may share at most ${MOST_AT_ONCE} traces`,
+        `can share at most ${MOST_AT_ONCE} traces`,
       );
     }
   }

@@ -17,7 +17,7 @@ import type {
   SeenHunk,
   SeenStep,
 } from '@outcomes/domain/value-objects/seen-evidence.vo';
-import { sql } from 'drizzle-orm';
+import { type SQL, sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -25,6 +25,7 @@ import {
   index,
   integer,
   jsonb,
+  type PgColumn,
   pgEnum,
   pgTable,
   primaryKey,
@@ -109,6 +110,22 @@ export const scoreKind = pgEnum('score_kind', SCORE_KINDS);
 export const judgingFailure = pgEnum('judging_failure', JUDGING_FAILURE_CODES);
 export const pairOrder = pgEnum('pair_order', PAIR_ORDERS);
 
+interface StartedColumns {
+  readonly runId: PgColumn;
+  readonly fingerprint: PgColumn;
+  readonly startedAt: PgColumn;
+  readonly endedAt: PgColumn;
+  readonly ending: PgColumn;
+}
+
+export const startOrderColumns = (table: StartedColumns): SQL[] => [
+  sql`coalesce(${table.startedAt}, ${table.endedAt})`,
+  sql`${table.runId} collate "C"`,
+];
+
+export const ranAConfig = (table: StartedColumns): SQL =>
+  sql`${table.startedAt} is not null and ${table.endedAt} is not null and ${table.fingerprint} is not null and ${table.ending} <> 'withdrawn'`;
+
 export const runRecord = pgTable(
   'run_record',
   {
@@ -160,6 +177,19 @@ export const runRecord = pgTable(
   (table) => [
     index('run_record_team_idx').on(table.teamId, table.endedAt),
     index('run_record_station_idx').on(table.stationId, table.endedAt),
+    index('run_record_team_station_began_idx')
+      .on(
+        table.teamId,
+        table.stationId,
+        ...startOrderColumns(table),
+        table.fingerprint,
+        table.startedAt,
+        table.endedAt,
+      )
+      .where(ranAConfig(table)),
+    index('run_record_team_station_started_idx')
+      .on(table.teamId, table.stationId, ...startOrderColumns(table))
+      .where(sql`${table.endedAt} is not null`),
     index('run_record_task_idx').on(table.taskId, table.endedAt),
     index('run_record_workspace_idx').on(table.workspaceId),
   ],

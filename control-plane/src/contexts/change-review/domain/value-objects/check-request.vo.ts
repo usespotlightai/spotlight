@@ -11,7 +11,7 @@ const oneLine = (raw: string, what: string): string => {
     /[\r\n]/.test(trimmed)
   ) {
     throw InvalidChangeStackError.because(
-      `needs a ${what} of one line and at most ${MOST_CHECK_COMMAND} characters`,
+      `${what} must be one line of at most ${MOST_CHECK_COMMAND} characters`,
     );
   }
 

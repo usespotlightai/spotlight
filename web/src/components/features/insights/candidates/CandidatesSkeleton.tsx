@@ -5,7 +5,7 @@ export function CandidatesSkeleton() {
     <div
       role="status"
       aria-label="Loading the candidates"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
         <SkeletonLine className="w-32 text-sm" />

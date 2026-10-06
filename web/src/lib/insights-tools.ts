@@ -27,7 +27,7 @@ const TRENDS: Record<SkillTrend, string> = {
 export const trendShown = (trend: SkillTrend): string => TRENDS[trend];
 
 export const trendRuleShown = (rule: TrendRule): string =>
-  `Spreading or fading: the share of all runs that read the skill moved ${rule.shiftPoints} points or more over the last ${rule.recentWeeks} weeks against the weeks before, with at least ${rule.fewestRuns} runs on each side.`;
+  `Spreading or fading: the share of runs reading the skill moved ${rule.shiftPoints}+ points. Compares the last ${rule.recentWeeks} weeks with the weeks before. Minimum runs on each side: ${rule.fewestRuns}`;
 
 export const latencyShown = (ms: number | null): string =>
   ms === null ? '–' : took(ms);

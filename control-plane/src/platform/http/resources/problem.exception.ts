@@ -42,7 +42,7 @@ type Refusal = (kind: string) => [title: string, detail: string];
 
 const changing: Refusal = (kind) => [
   `Not allowed to change the ${kind}`,
-  `You may read this ${kind}, but your role in its workspace, or your token’s scopes, do not let you change it`,
+  `You can read this ${kind} but not change it. Your workspace role or token scopes do not allow it.`,
 ];
 
 const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
@@ -52,15 +52,15 @@ const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
   'manage-token-trusts': changing,
   administer: (kind) => [
     `Not allowed to administer the ${kind}`,
-    `You may read this ${kind}, but only the workspace’s admins may do this; a token never administers`,
+    `Only workspace admins can do this. A token can never administer a ${kind}.`,
   ],
   'open-workspaces': () => [
     'Not allowed to open a workspace',
-    'A workspace token acts only inside its own workspace and cannot open one; a person with a Spotlight account creates workspaces',
+    'A workspace token cannot open a workspace. Only a person can create one.',
   ],
   plan: () => [
     'Not allowed to plan',
-    'Planning needs a person, or a token whose scopes include plan',
+    'Planning needs a person or a token with the plan scope.',
   ],
 };
 
@@ -126,7 +126,7 @@ export class ProblemException extends HttpException {
       type: problemType('moved-on'),
       title: `The ${kind} changed since it was read`,
       status: HttpStatus.CONFLICT,
-      detail: `The ${kind} is at version ${currentVersion}; read it again and send that version as If-Match`,
+      detail: `The ${kind} changed since you read it. Please send the current version as If-Match. Current version: ${currentVersion}`,
       currentVersion,
     });
   }
@@ -136,7 +136,7 @@ export class ProblemException extends HttpException {
       type: problemType('already-exists'),
       title: `The ${kind} already exists`,
       status: HttpStatus.CONFLICT,
-      detail: `There is already a ${kind} at ${address}; import it rather than creating it`,
+      detail: `A ${kind} already exists at ${address}. Please import it instead.`,
     });
   }
 
@@ -163,7 +163,7 @@ export class ProblemException extends HttpException {
 
   static notFound(
     kind: string,
-    detail = `There is no ${kind} here that you may see`,
+    detail = `${kind.charAt(0).toUpperCase()}${kind.slice(1)} not found.`,
   ): ProblemException {
     return new ProblemException({
       type: problemType('not-found'),
@@ -179,7 +179,7 @@ export class ProblemException extends HttpException {
       title: 'The request must say which version it changes',
       status: HttpStatus.PRECONDITION_REQUIRED,
       detail:
-        'Send the ETag of the version you read as If-Match, so a change made since is not overwritten',
+        'If-Match is missing. Please send the ETag of the version you read.',
     });
   }
 
@@ -188,7 +188,7 @@ export class ProblemException extends HttpException {
       type: problemType('malformed-if-match'),
       title: 'If-Match names no version this API issued',
       status: HttpStatus.BAD_REQUEST,
-      detail: `If-Match must be one ETag, as in "3", not ${held}`,
+      detail: `If-Match must be one ETag, such as "3". Received: ${held}`,
     });
   }
 
@@ -198,7 +198,7 @@ export class ProblemException extends HttpException {
       title: 'A create must carry an Idempotency-Key',
       status: HttpStatus.BAD_REQUEST,
       detail:
-        'Send a unique Idempotency-Key of 1 to 255 visible characters, and the same one when retrying',
+        'Idempotency-Key is missing. Please send a unique key of 1 to 255 visible characters.',
     });
   }
 
@@ -208,7 +208,7 @@ export class ProblemException extends HttpException {
       title: 'The Idempotency-Key was used for a different request',
       status: HttpStatus.UNPROCESSABLE_ENTITY,
       detail:
-        'A retry must repeat the original request exactly; use a new key for a new request',
+        'A retry must repeat the original request exactly. Please use a new key for a new request.',
     });
   }
 
@@ -220,7 +220,7 @@ export class ProblemException extends HttpException {
       type: problemType('unsupported-api-version'),
       title: 'This API version is not served here',
       status: HttpStatus.BAD_REQUEST,
-      detail: `Asked for ${asked}; this server serves ${supported.join(', ')}`,
+      detail: `API version ${asked} is not supported. Supported versions: ${supported.join(', ')}`,
     });
   }
 }

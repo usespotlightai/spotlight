@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { readRunConversation } from '@/lib/api';
 
 export const runConversationKeys = {
+  all: ['run-conversation'] as const,
   forRun: (runId?: string) => ['run-conversation', runId ?? null] as const,
 };
 

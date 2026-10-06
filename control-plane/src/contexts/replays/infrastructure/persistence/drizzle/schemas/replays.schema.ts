@@ -270,6 +270,24 @@ export const replayCandidate = pgTable(
   ],
 );
 
+export const withdrawnOriginCandidate = pgTable(
+  'withdrawn_origin_candidate',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    lineId: text('line_id').notNull(),
+    stationId: text('station_id').notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at').notNull(),
+  },
+  (table) => [
+    index('withdrawn_origin_candidate_station_idx').on(table.stationId),
+    index('withdrawn_origin_candidate_team_idx').on(table.teamId),
+  ],
+);
+
 export const replay = pgTable(
   'replay',
   {

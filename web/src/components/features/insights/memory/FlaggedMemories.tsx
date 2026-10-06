@@ -18,11 +18,11 @@ export function FlaggedMemories({
   return (
     <InsightsCard
       title="Flagged wrong"
-      description="Memories people retired as wrong this period, rather than a newer memory replacing them."
+      description="Memories people retired as wrong this period. Replaced memories don’t count."
     >
       {flagged.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          Nobody flagged a memory wrong in this period.
+          No memory flagged wrong in this period.
         </p>
       ) : (
         <ul

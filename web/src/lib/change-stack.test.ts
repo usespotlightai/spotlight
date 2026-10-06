@@ -5,6 +5,7 @@ import {
   currentStacks,
   drafting,
   filesOf,
+  isLargeDiff,
   layerAt,
   patchOf,
   settling,
@@ -184,5 +185,27 @@ describe('tallyOf', () => {
       added: 2,
       removed: 2,
     });
+  });
+});
+
+describe('isLargeDiff', () => {
+  const hunk = (lines: number) => ({
+    id: 'h1',
+    oldStart: 0,
+    oldLines: 0,
+    newStart: 1,
+    newLines: lines,
+    patch: [
+      '@@ -0,0 +1 @@',
+      ...Array.from({ length: lines - 1 }, () => '+x'),
+    ].join('\n'),
+  });
+
+  it('holds back a diff over a thousand lines', () => {
+    expect(isLargeDiff([hunk(600), hunk(401)])).toBe(true);
+  });
+
+  it('shows a diff of a thousand lines or fewer', () => {
+    expect(isLargeDiff([hunk(1_000)])).toBe(false);
   });
 });

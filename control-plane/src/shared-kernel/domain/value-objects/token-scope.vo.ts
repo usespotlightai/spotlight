@@ -42,7 +42,7 @@ export class TokenScope {
 
     if (!known) {
       throw new InvalidTokenScopeError(
-        `are each one of ${TOKEN_SCOPES.join(', ')}, not ${named || 'nothing'}`,
+        `must each be one of ${TOKEN_SCOPES.join(', ')}, not ${named || 'nothing'}`,
       );
     }
 

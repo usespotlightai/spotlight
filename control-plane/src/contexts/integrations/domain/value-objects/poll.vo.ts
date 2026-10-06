@@ -14,15 +14,12 @@ export class Poll {
     if (!Number.isInteger(input.every) || input.every < 0) {
       throw new InvalidIntegrationPartError(
         'poll interval',
-        'is a whole number of seconds, as in 60s',
+        'must be a whole number of seconds, as in 60s',
       );
     }
 
     if (input.declares.length === 0) {
-      throw new InvalidIntegrationPartError(
-        'poll',
-        'raises nothing, and what a host can raise is what a poll is for',
-      );
+      throw new InvalidIntegrationPartError('poll', 'raises no events');
     }
 
     return new Poll(input.every, input.declares);

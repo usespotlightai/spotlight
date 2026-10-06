@@ -8,7 +8,7 @@ export class MessagePosition {
   static of(value: number): MessagePosition {
     if (!Number.isInteger(value) || value < 0) {
       throw new InvalidChatMessageError(
-        `cannot stand at ${value}; places are whole numbers from 0`,
+        `position must be a whole number from 0, not ${value}`,
       );
     }
 

@@ -282,19 +282,19 @@ class Backlog extends Station {
 
   runsOn(): Station {
     throw new InvalidStationChangeError(
-      'is a backlog, where tasks wait to be started, so nothing runs there',
+      `${this.key.value} is a backlog. Nothing runs there`,
     );
   }
 
   atEffort(): Station {
     throw new InvalidStationChangeError(
-      'is a backlog, where nothing runs, so there is no effort to set',
+      `${this.key.value} is a backlog and takes no effort`,
     );
   }
 
   instruct(): Station {
     throw new InvalidStationChangeError(
-      'is a backlog, so there is nothing there to instruct',
+      `${this.key.value} is a backlog and takes no prompt`,
     );
   }
 
@@ -330,19 +330,19 @@ class Completed extends Station {
 
   runsOn(): Station {
     throw new InvalidStationChangeError(
-      'is where the line ends, so nothing runs there',
+      `${this.key.value} is the completed station. Nothing runs there`,
     );
   }
 
   atEffort(): Station {
     throw new InvalidStationChangeError(
-      'is where the line ends, so there is no effort to set',
+      `${this.key.value} is the completed station and takes no effort`,
     );
   }
 
   instruct(): Station {
     throw new InvalidStationChangeError(
-      'is where the line ends, so there is nothing there to instruct',
+      `${this.key.value} is the completed station and takes no prompt`,
     );
   }
 

@@ -40,7 +40,7 @@ describe('what a skill asks a team for', () => {
   it('refuses a name no secret could have', () => {
     expect(() =>
       readSkill('grafana-dashboards', SKILL('secrets:\n  grafana_token: x\n')),
-    ).toThrow('name secrets in capitals');
+    ).toThrow('must use capitals, digits and underscores');
   });
 
   it('reads the tools it brings, each named for its integration', () => {
@@ -58,9 +58,9 @@ describe('what a skill asks a team for', () => {
   it('refuses tools written as something other than a list of tool names', () => {
     expect(() =>
       readSkill('grafana-dashboards', SKILL('tools: grafana.search\n')),
-    ).toThrow('as something other than a list');
+    ).toThrow('tools must be a list');
     expect(() =>
       readSkill('grafana-dashboards', SKILL('tools:\n  - Grafana Search\n')),
-    ).toThrow('name a tool as its integration and name');
+    ).toThrow('must be named integration.tool');
   });
 });

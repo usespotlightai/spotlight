@@ -105,7 +105,7 @@ export class HarnessProfile extends EventRecorder {
     if (!read.key.equals(this.key)) {
       throw new HarnessProfileKeyFixedError(
         this.key.value,
-        `keeps its key for its whole life, since stations name it by that key; replace it to define ${read.key.value}`,
+        `cannot be renamed to ${read.key.value}. Please replace it instead`,
       );
     }
 

@@ -70,11 +70,11 @@ const LINES: LineResponseDto[] = [
         position: 2,
         description: 'Where a spec becomes a pull request.',
         harness: 'claude-code',
-        model: 'opus',
+        model: 'sonnet',
         effort: 'high',
         agentPrompt:
           '## Role\n\nImplement the spec on the task.\n\n- Keep the change small\n- Ask when the spec is unclear',
-        skills: ['our-migrations', 'grafana-dashboards'],
+        skills: ['grafana-dashboards'],
         judge: {
           rubric:
             '## A good run\n\n- Changes only what the spec asks for\n- Leaves the tests passing\n- Says what it could not do',
@@ -173,10 +173,12 @@ const outcome = (
   ...over,
 });
 
-const OUTCOMES: StationOutcomesResponseDto = {
+const LISTED = {
   stationId: STATION_ID,
   groups: [
     {
+      ran: true,
+      firstRunId: 'run_docs_1',
       fingerprint:
         'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
       config: null,
@@ -240,6 +242,8 @@ const OUTCOMES: StationOutcomesResponseDto = {
       ],
     },
     {
+      ran: true,
+      firstRunId: 'run_queue_1',
       fingerprint:
         '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
       config: null,
@@ -293,6 +297,13 @@ const OUTCOMES: StationOutcomesResponseDto = {
       ],
     },
   ],
+} satisfies Omit<StationOutcomesResponseDto, 'inForce'>;
+
+const [NEWEST] = LISTED.groups;
+
+const OUTCOMES: StationOutcomesResponseDto = {
+  ...LISTED,
+  inForce: { tally: NEWEST.tally },
 };
 
 const RUBRIC =
@@ -457,6 +468,7 @@ export const seedStationWithoutRuns = (client: QueryClient) => {
   client.setQueryData(stationOutcomeKeys.forStation(STATION_ID), {
     stationId: STATION_ID,
     groups: [],
+    inForce: null,
   } satisfies StationOutcomesResponseDto);
 };
 

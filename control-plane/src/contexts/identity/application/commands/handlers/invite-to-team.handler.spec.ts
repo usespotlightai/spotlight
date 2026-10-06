@@ -150,9 +150,7 @@ describe('InviteToTeamHandler', () => {
   it('refuses somebody already on the team', async () => {
     const { handler, send } = inviting({ onTeam: true });
 
-    await expect(handler.execute(invite())).rejects.toThrow(
-      /already on this team/,
-    );
+    await expect(handler.execute(invite())).rejects.toThrow(/already includes/);
     expect(send).not.toHaveBeenCalled();
   });
 
@@ -160,7 +158,7 @@ describe('InviteToTeamHandler', () => {
     const { handler, send } = inviting();
 
     await expect(handler.execute(invite('ada'))).rejects.toThrow(
-      /not an email address/,
+      /Email address is not valid/,
     );
     expect(send).not.toHaveBeenCalled();
   });

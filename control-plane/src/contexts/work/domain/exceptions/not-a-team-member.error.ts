@@ -2,7 +2,7 @@ export class NotATeamMemberError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor() {
-    super('That person is not on this team, so work cannot be given to them');
+    super('Assignee is not a member of this team.');
     this.name = 'NotATeamMemberError';
   }
 }

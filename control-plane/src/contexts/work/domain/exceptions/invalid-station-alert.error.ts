@@ -13,7 +13,7 @@ export class InvalidStationAlertError extends Error {
     readonly field: StationAlertField | null,
     reason: string,
   ) {
-    super(`An alert ${reason}`);
+    super(`Alert ${reason}.`);
     this.name = 'InvalidStationAlertError';
   }
 }

@@ -63,7 +63,7 @@ class StepFailed extends Error {
   readonly failure: HookFailure;
 
   constructor(hook: string, step: string, failure: HookFailure) {
-    super(`The hook ${hook} failed at ${step}: ${failure.reason}`);
+    super(`Hook ${hook} failed at step ${step}. Reason: ${failure.reason}`);
     this.name = 'StepFailed';
     this.failure = HookFailure.of(failure.code, this.message);
   }
@@ -415,7 +415,7 @@ export class FireHooks {
         firing.failedWith(
           HookFailure.of(
             'broken',
-            `The hook ${hook.key} no longer reads as it was written: ${hook.broken}`,
+            `Hook ${hook.key} is broken. Reason: ${hook.broken}`,
           ),
           this.clock.now(),
           false,

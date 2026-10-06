@@ -3,7 +3,7 @@ export class NoGitHubInstallationError extends Error {
 
   constructor() {
     super(
-      'This workspace has not been connected to GitHub, so nothing here can reach a repository',
+      'Workspace is not connected to GitHub. Please connect it to reach repositories.',
     );
     this.name = 'NoGitHubInstallationError';
   }

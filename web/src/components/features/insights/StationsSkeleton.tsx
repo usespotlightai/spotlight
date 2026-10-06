@@ -5,7 +5,7 @@ export function StationsSkeleton() {
     <div
       role="status"
       aria-label="Loading the stations"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <InsightsCardSkeleton title="The whole team" rows={1} />
       <InsightsCardSkeleton title="By station" rows={6} />

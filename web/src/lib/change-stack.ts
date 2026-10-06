@@ -121,6 +121,11 @@ export const cohortTallyOf = (
 export const linesOf = (hunks: readonly DiffHunk[]): number =>
   hunks.reduce((rows, hunk) => rows + hunk.patch.split('\n').length, 0);
 
+const LARGE_DIFF_LINES = 1_000;
+
+export const isLargeDiff = (hunks: readonly DiffHunk[]): boolean =>
+  linesOf(hunks) > LARGE_DIFF_LINES;
+
 export const tallyOf = (
   hunks: readonly DiffHunk[],
 ): { added: number; removed: number } => {

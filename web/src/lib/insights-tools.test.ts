@@ -11,7 +11,7 @@ describe('the Tools tab’s view model', () => {
     expect(
       trendRuleShown({ recentWeeks: 3, fewestRuns: 8, shiftPoints: 15 }),
     ).toBe(
-      'Spreading or fading: the share of all runs that read the skill moved 15 points or more over the last 3 weeks against the weeks before, with at least 8 runs on each side.',
+      'Spreading or fading: the share of runs reading the skill moved 15+ points. Compares the last 3 weeks with the weeks before. Minimum runs on each side: 8',
     );
   });
 

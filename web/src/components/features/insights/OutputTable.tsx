@@ -11,6 +11,7 @@ import {
   type StationNames,
   stationShown,
 } from '@/lib/insights';
+import { changeKey } from '@/lib/insights-changes';
 import { dayShown } from '@/lib/judge';
 import { stationPath } from '@/lib/station';
 
@@ -63,7 +64,7 @@ export function OutputTable({
     },
     {
       id: 'changes',
-      header: 'New configs',
+      header: 'Config changes',
       cell: (day) =>
         day.changes.length === 0 ? (
           '–'
@@ -71,7 +72,7 @@ export function OutputTable({
           <span className="flex gap-2">
             {day.changes.map((change) => (
               <TrailLink
-                key={`${change.stationId}:${change.fingerprint}`}
+                key={changeKey(change)}
                 to={stationPath(slug, teamId, change.lineId, change.stationId)}
                 className="hover:underline"
               >

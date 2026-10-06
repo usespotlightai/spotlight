@@ -9,7 +9,6 @@ type ReplyBoxProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pending: boolean;
-  failed: boolean;
   onSubmit: (body: string) => void;
 };
 
@@ -18,7 +17,6 @@ export function ReplyBox({
   open,
   onOpenChange,
   pending,
-  failed,
   onSubmit,
 }: ReplyBoxProps) {
   const content = useRef<HTMLDivElement>(null);
@@ -49,7 +47,6 @@ export function ReplyBox({
             submitLabel="Reply"
             avatar={<ReviewerAvatar />}
             pending={pending}
-            failed={failed}
             onCancel={() => onOpenChange(false)}
             onSubmit={onSubmit}
           />

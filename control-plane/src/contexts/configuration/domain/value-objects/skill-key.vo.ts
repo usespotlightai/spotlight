@@ -13,7 +13,7 @@ export class SkillKey {
     if (!areWords(trimmed)) {
       throw new InvalidIdentifierError(
         'skill',
-        `is lower case words joined by dashes, at most ${LONGEST_WORDS} characters, as in spotlight-handover`,
+        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, such as spotlight-handover`,
       );
     }
 

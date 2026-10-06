@@ -70,15 +70,15 @@ export class ReplayCheck extends EventRecorder {
 
     if (state.candidateDigests.runsAs(state.liveDigests)) {
       throw new InvalidReplayCheckError(
-        'checks a change to how the station runs, not its live config',
+        'must check a planned change, not the live config',
       );
     }
     if (!Number.isInteger(state.attempt) || state.attempt < 1) {
-      throw new InvalidReplayCheckError('counts its attempts from 1');
+      throw new InvalidReplayCheckError('attempts must count from 1');
     }
     if (!holdsRepeats(state.repeats)) {
       throw new InvalidReplayCheckError(
-        `replays each run of its set from 1 to ${MOST_REPEATS} times`,
+        `repeats must be from 1 to ${MOST_REPEATS}`,
       );
     }
 

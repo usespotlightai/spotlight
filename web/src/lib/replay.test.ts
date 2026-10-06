@@ -82,9 +82,9 @@ describe('replays', () => {
 
   it('reads repeats as a whole number from 1 to 5', () => {
     expect(repeatsFrom('3')).toBe(3);
-    expect(repeatsFrom('0')).toBe('Give a whole number from 1 to 5.');
-    expect(repeatsFrom('6')).toBe('Give a whole number from 1 to 5.');
-    expect(repeatsFrom('2.5')).toBe('Give a whole number from 1 to 5.');
+    expect(repeatsFrom('0')).toBe('Please enter a whole number from 1 to 5.');
+    expect(repeatsFrom('6')).toBe('Please enter a whole number from 1 to 5.');
+    expect(repeatsFrom('2.5')).toBe('Please enter a whole number from 1 to 5.');
   });
 
   it('tallies a task’s copies and averages their cost and time', () => {
@@ -134,18 +134,18 @@ describe('replays', () => {
 
     expect(strongerProblem(live, 'opus', 'high', offer)).toBeNull();
     expect(strongerProblem(live, 'sonnet', 'medium', offer)).toBe(
-      'Choose a model or an effort other than the live config’s.',
+      'Choose a model or effort other than the live config’s.',
     );
     expect(strongerProblem(live, 'sonnet', 'low', offer)).toBe(
-      'That effort is not higher than the live config’s. Pick a higher one, or keep the live effort.',
+      'Effort isn’t higher than the live config’s. Pick a higher one, or keep the live effort.',
     );
     expect(strongerProblem(live, 'haiku', 'medium', offer)).toBe(
-      'Its harness does not offer that model.',
+      'Harness doesn’t offer that model.',
     );
     expect(
       strongerProblem({ ...live, effort: null }, 'sonnet', 'low', offer),
     ).toBe(
-      'That effort is not higher than the live config’s. Pick a higher one, or keep the live effort.',
+      'Effort isn’t higher than the live config’s. Pick a higher one, or keep the live effort.',
     );
     expect(
       strongerProblem({ ...live, effort: null }, 'sonnet', 'medium', offer),
@@ -160,7 +160,7 @@ describe('replays', () => {
 
     expect(
       strongerRefusal(set, { harness: null, model: null, effort: null }),
-    ).toBe('The station names no harness, so there is no model to choose.');
+    ).toBe('Station names no harness. No model to choose.');
     expect(
       strongerRefusal(set, {
         harness: 'claude-code',
@@ -285,11 +285,11 @@ describe('replays', () => {
 
   it('takes a ceiling above nothing and at most a thousand, in three letters of currency', () => {
     expect(ceilingFrom('5', 'USD')).toEqual({ amount: 5, currency: 'USD' });
-    expect(ceilingFrom('0', 'USD')).toBe('Give a ceiling above nothing.');
-    expect(ceilingFrom('', 'USD')).toBe('Give a ceiling above nothing.');
-    expect(ceilingFrom('1001', 'USD')).toBe('A ceiling is at most 1,000.');
+    expect(ceilingFrom('0', 'USD')).toBe('Please enter a ceiling above 0.');
+    expect(ceilingFrom('', 'USD')).toBe('Please enter a ceiling above 0.');
+    expect(ceilingFrom('1001', 'USD')).toBe('Maximum ceiling: 1,000');
     expect(ceilingFrom('5', 'US')).toBe(
-      'Name the currency in three letters, like USD.',
+      'Please enter a three-letter currency code, like USD.',
     );
   });
 
@@ -302,7 +302,7 @@ describe('replays', () => {
       'Add runs to the set first.',
     );
     expect(startRefusal(set({ stationGone: true }))).toBe(
-      'Its station is gone from its line.',
+      'Station is gone from its line.',
     );
   });
 

@@ -312,7 +312,7 @@ describe('AnswerInboxItem', () => {
           body: 'Fixed in #41.',
         }),
       ),
-    ).rejects.toThrow(/is being dismissed/);
+    ).rejects.toThrow(/A dismissed request cannot run with changes/);
     expect(saved).toBeUndefined();
   });
 

@@ -143,7 +143,7 @@ describe('Hook', () => {
         }),
       ).toEqual(
         HookVerdict.refused(
-          'The hook dba refused: the migration drops a column',
+          'Hook dba refused. Reason: the migration drops a column',
         ),
       );
     });
@@ -156,7 +156,7 @@ describe('Hook', () => {
         }),
       ).toEqual(
         HookVerdict.refused(
-          'The hook dba failed at ask (was answered 503), and it blocks on failure',
+          'Hook dba failed at step ask and blocks on failure. Reason: was answered 503',
         ),
       );
     });

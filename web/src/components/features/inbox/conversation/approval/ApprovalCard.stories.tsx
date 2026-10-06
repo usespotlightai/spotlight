@@ -86,8 +86,3 @@ export const Refused: Story = {
   name: 'Dismissed',
   args: { approval: { ...LOGS, standing: 'refused' } },
 };
-
-export const Watching: Story = {
-  name: 'Waiting, seen elsewhere',
-  args: { onDecide: undefined },
-};

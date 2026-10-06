@@ -45,8 +45,7 @@ interface State extends Kept {
   readonly revoked: boolean;
 }
 
-const FIXED =
-  'is fixed for the life of the token; replace the token to change it';
+const FIXED = 'cannot change after the token is issued';
 
 const sameInstant = (a: Date | null, b: Date | null): boolean =>
   a?.getTime() === b?.getTime();
@@ -68,7 +67,7 @@ export class WorkspaceToken extends EventRecorder {
     if (input.expiresAt && input.expiresAt.getTime() <= input.now.getTime()) {
       throw new InvalidWorkspaceTokenError(
         'expiresAt',
-        'is a moment still to come, since a token that has expired admits nobody',
+        'must be in the future',
       );
     }
 

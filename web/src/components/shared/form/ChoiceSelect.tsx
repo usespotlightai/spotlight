@@ -20,6 +20,7 @@ type ChoiceSelectProps = {
   placeholder: string;
   onChange: (value: string | null) => void;
   disabled?: boolean;
+  compact?: boolean;
   className?: string;
 };
 
@@ -32,6 +33,7 @@ export function ChoiceSelect({
   placeholder,
   onChange,
   disabled = false,
+  compact = false,
   className,
 }: ChoiceSelectProps) {
   const chosen = choices.find((each) => each.value === value);
@@ -42,7 +44,8 @@ export function ChoiceSelect({
         aria-label={`${label}: ${chosen?.label ?? placeholder}`}
         disabled={disabled}
         className={cn(
-          'flex h-8 min-w-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-left text-xs outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent',
+          'flex min-w-0 items-center rounded-full border border-border bg-card text-left outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent',
+          compact ? 'h-6 gap-1 px-2 text-[0.7rem]' : 'h-8 gap-2 px-3 text-xs',
           className,
         )}
       >
@@ -56,7 +59,10 @@ export function ChoiceSelect({
         </span>
         <ChevronsUpDown
           aria-hidden
-          className="ml-auto size-3 shrink-0 text-muted-foreground"
+          className={cn(
+            'ml-auto shrink-0 text-muted-foreground',
+            compact ? 'size-2.5' : 'size-3',
+          )}
         />
       </DropdownMenuTrigger>
 

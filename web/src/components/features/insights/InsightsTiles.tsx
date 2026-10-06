@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { Children, type ReactNode } from 'react';
+import { tilesInARow } from '@/lib/insights-tiles';
+import { cn } from '@/lib/utils';
 
 export function InsightsTiles({
   label,
@@ -7,10 +9,15 @@ export function InsightsTiles({
   label: string;
   children: ReactNode;
 }) {
+  const count = Children.toArray(children).length;
+
   return (
     <dl
       aria-label={label}
-      className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4"
+      className={cn(
+        'grid grid-cols-2 gap-2 sm:grid-cols-3',
+        tilesInARow(count),
+      )}
     >
       {children}
     </dl>

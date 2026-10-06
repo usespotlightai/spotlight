@@ -6,7 +6,7 @@ export function PullRequestsSkeleton() {
     <div
       role="status"
       aria-label="Loading the pull requests"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
       <InsightsTilesSkeleton
         labels={['PRs merged', 'Made by Spotlight', 'Reviewed by Spotlight']}

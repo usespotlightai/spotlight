@@ -61,7 +61,7 @@ export class NetworkRequest implements Secret {
     }
 
     if (!reachable(input.url)) {
-      throw new InvalidNetworkCallError('is sent to an http or https address');
+      throw new InvalidNetworkCallError('must go to an http or https address');
     }
 
     if (
@@ -70,13 +70,13 @@ export class NetworkRequest implements Secret {
       input.timeoutMs > MOST_TIMEOUT_MS
     ) {
       throw new InvalidNetworkCallError(
-        `waits between 1 and ${MOST_TIMEOUT_MS} milliseconds for its answer`,
+        `timeout must be 1 to ${MOST_TIMEOUT_MS} milliseconds`,
       );
     }
 
     if (input.body.byteLength > MOST_BODY_BYTES) {
       throw new InvalidNetworkCallError(
-        `carries at most ${MOST_BODY_BYTES} bytes`,
+        `body can be at most ${MOST_BODY_BYTES} bytes`,
       );
     }
 

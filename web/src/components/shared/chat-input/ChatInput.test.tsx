@@ -172,7 +172,7 @@ describe('ChatInput', () => {
       (await within(box()).findByText('notes.txt')).closest(
         '[data-slot="chat-reference"]',
       ),
-    ).toHaveAttribute('title', 'Larger than 25 MB');
+    ).toHaveAttribute('title', 'Too large. Maximum size: 25 MB');
     expect(send()).toBeDisabled();
   });
 

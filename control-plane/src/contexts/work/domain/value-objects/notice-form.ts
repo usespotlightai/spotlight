@@ -9,7 +9,7 @@ export const noticeForm = (raw: string): NoticeForm => {
 
   if (!form) {
     throw new InvalidNoticeError(
-      `is one of ${NOTICE_FORMS.join(', ')}, not ${raw}`,
+      `form must be one of ${NOTICE_FORMS.join(', ')}, not ${raw}`,
     );
   }
 

@@ -115,7 +115,6 @@ describe('Conversation', () => {
   it('puts a tool call up as the action itself, ready to run', () => {
     showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }], {
       pending: false,
-      failure: null,
       onDecide: vi.fn(),
     });
 
@@ -129,7 +128,6 @@ describe('Conversation', () => {
     const onDecide = vi.fn();
     showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }], {
       pending: false,
-      failure: null,
       onDecide,
     });
 
@@ -144,11 +142,11 @@ describe('Conversation', () => {
     showing([{ ...note(0, AT), form: 'approval', approval: APPROVAL }]);
 
     expect(
-      screen.getByText('Waiting on a decision in the inbox.'),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Approve linear.comment' }),
+    ).toBeDisabled();
     expect(
-      screen.queryByRole('button', { name: 'Approve linear.comment' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Dismiss linear.comment' }),
+    ).toBeDisabled();
   });
 
   it('closes a run once, after its last note, when a person answers in between', () => {

@@ -23,8 +23,8 @@ export function LineSource({ source }: LineSourceProps) {
         </span>
       ) : (
         <span className="min-w-0">
-          The line does not say where its Terraform lives, so a picked candidate
-          cannot open a pull request. Give the line a source in Terraform.
+          Line names no Terraform source. A picked candidate can’t open a pull
+          request. Please give the line a source in Terraform.
         </span>
       )}
     </p>

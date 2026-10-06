@@ -351,7 +351,7 @@ export class TaskController {
     >(new ReadTaskTraceQuery(taskId, user.id));
 
     if (!trace) {
-      throw new NotFoundException('No such task');
+      throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
     return TaskTraceHttpMapper.toResponse(trace);

@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useInviteToTeam } from '@/hooks/api/useInviteToTeam';
-import { messageOf } from '@/lib/error';
 
 type InviteMemberDialogProps = {
   open: boolean;
@@ -53,8 +52,7 @@ export function InviteMemberDialog({
         <DialogHeader>
           <DialogTitle>Add a member</DialogTitle>
           <DialogDescription>
-            They are sent a link, and join the team by signing in with the
-            address you send it to.
+            They get a link by email. They join by signing in with that address.
           </DialogDescription>
         </DialogHeader>
 
@@ -74,12 +72,6 @@ export function InviteMemberDialog({
               className="h-7 w-full min-w-0 rounded-md bg-transparent px-2 text-foreground text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
-
-          {invite.isError && (
-            <p role="alert" className="text-destructive text-xs">
-              {messageOf(invite.error)}
-            </p>
-          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

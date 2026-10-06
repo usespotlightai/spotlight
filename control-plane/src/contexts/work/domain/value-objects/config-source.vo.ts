@@ -8,21 +8,19 @@ const TERRAFORM_FILE = /\.tf$/;
 
 const pathRefusal = (path: string): string | null => {
   if (path.length === 0 || path.length > LONGEST_PATH) {
-    return `is the Terraform file that holds the line, of 1 to ${LONGEST_PATH.toLocaleString('en-US')} characters`;
+    return `must be 1 to ${LONGEST_PATH.toLocaleString('en-US')} characters`;
   }
   if (path.startsWith('/') || path.includes('\\')) {
-    return 'is a path from the root of the repository, with forward slashes and no leading slash, as in teams/core/delivery.tf';
+    return 'must be a path from the repository root with forward slashes, as in teams/core/delivery.tf';
   }
 
   const segments = path.split('/');
 
   if (segments.some((each) => each === '' || each === '.' || each === '..')) {
-    return 'names each directory on the way to the file, with no empty, . or .. parts';
+    return 'must not contain empty, . or .. parts';
   }
 
-  return TERRAFORM_FILE.test(path)
-    ? null
-    : 'is a Terraform file, ending in .tf';
+  return TERRAFORM_FILE.test(path) ? null : 'must end in .tf';
 };
 
 export class ConfigSource {
@@ -40,7 +38,7 @@ export class ConfigSource {
       if (error instanceof InvalidRepositoryError) {
         throw new InvalidConfigSourceError(
           'repository',
-          `is the GitHub repository that holds the line’s Terraform, as owner/name: ${error.message}`,
+          `must be a GitHub repository as owner/name, not ${input.repository}`,
         );
       }
       throw error;

@@ -173,18 +173,16 @@ describe('RunRedemptions', () => {
     expect(redeemed.withheld).toEqual([
       {
         secret: 'NOWHERE',
-        reason:
-          'The workspace holds no secret named NOWHERE; define it before anything uses it',
+        reason: 'Secret NOWHERE not found. Please define it first.',
       },
       {
         secret: 'LOOSE',
-        reason:
-          'The LOOSE secret is not bound to any host, so it is never sent there',
+        reason: 'Secret LOOSE is not bound to any host.',
       },
       {
         secret: 'MULTI_LINE',
         reason:
-          'The MULTI_LINE secret holds more than one line, so it cannot be worn in a request header',
+          'Secret MULTI_LINE holds more than one line. It cannot be sent in a request header.',
       },
     ]);
   });

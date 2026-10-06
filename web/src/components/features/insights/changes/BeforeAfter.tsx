@@ -1,10 +1,9 @@
 import { BeforeAfterSkeleton } from '@/components/features/insights/changes/BeforeAfterSkeleton';
 import { ChangeJudge } from '@/components/features/insights/changes/ChangeJudge';
+import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
 import { TallyComparison } from '@/components/features/insights/TallyComparison';
-import { ConfigChanges } from '@/components/features/stations/ConfigChanges';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { Fingerprint } from '@/components/shared/Fingerprint';
 import { PillLink } from '@/components/shared/PillLink';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
 import {
@@ -13,7 +12,6 @@ import {
   type StationNames,
 } from '@/lib/insights';
 import { type ChangeAt, markerOf } from '@/lib/insights-changes';
-import { dayShown } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 import { stationPath } from '@/lib/station';
 
@@ -56,7 +54,7 @@ export function BeforeAfter({
     return (
       <div className="flex flex-col items-start gap-3">
         <p className="text-muted-foreground text-sm">
-          This change is not in the period any more.
+          This change is outside the period.
         </p>
         {named && (
           <PillLink
@@ -74,16 +72,10 @@ export function BeforeAfter({
       <section className="flex flex-col gap-1">
         <h3 className="font-medium text-foreground text-sm">What changed</h3>
         {marker.changes.length > 0 ? (
-          <ConfigChanges changes={marker.changes} className="text-sm" />
+          <ConfigPlan changes={marker.changes} />
         ) : (
-          <p className="text-muted-foreground text-sm">
-            There is no earlier config to compare it with.
-          </p>
+          <p className="text-muted-foreground text-sm">Config not on record.</p>
         )}
-        <p className="text-muted-foreground text-xs">
-          Config <Fingerprint fingerprint={marker.fingerprint} />, first run on{' '}
-          {dayShown(marker.firstRunAt.slice(0, 10))}
-        </p>
       </section>
 
       <section className="flex flex-col gap-1">

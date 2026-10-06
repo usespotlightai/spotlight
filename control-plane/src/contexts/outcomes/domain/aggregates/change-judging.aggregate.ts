@@ -55,7 +55,7 @@ export class ChangeJudging
   }): ChangeJudging {
     if (input.reference?.equals(input.runId)) {
       throw InvalidScoreError.ofJudging(
-        'compares a change with another run’s, never its own',
+        'must compare a change with another run’s',
       );
     }
 
@@ -145,7 +145,7 @@ export class ChangeJudging
   askedAgain(now: Date): ChangeJudging {
     if (this.state.round !== 1 || this.state.judgedAt === null) {
       throw InvalidScoreError.ofJudging(
-        'is asked a second time only of a change judged once already',
+        'can be asked again only of a change judged once',
       );
     }
 
@@ -173,10 +173,10 @@ export class ChangeJudging
     const work = this.state.work;
 
     if (!work) {
-      throw InvalidScoreError.ofJudging('is done, and owes no more work');
+      throw InvalidScoreError.ofJudging('is already done');
     }
     if (!work.dueBy(now) || work.exhausted) {
-      throw InvalidScoreError.ofJudging('cannot be worked on again yet');
+      throw InvalidScoreError.ofJudging('cannot be retried yet');
     }
 
     return this.with({ work: work.leased(now) });
@@ -222,9 +222,7 @@ export class ChangeJudging
     }
 
     if (!input.evidence.isFor(this.state.runId)) {
-      throw InvalidScoreError.ofJudging(
-        'is judged only on the evidence of its own run',
-      );
+      throw InvalidScoreError.ofJudging('must use only its own run’s evidence');
     }
 
     const spending = this.usedModel(input.usage);

@@ -6,7 +6,7 @@ export class RunnerPoolFixedError extends Error {
     readonly field: 'key' | 'provision',
     readonly because: string,
   ) {
-    super(`The ${key} runner pool ${because}`);
+    super(`Runner pool ${key} ${because}.`);
     this.name = 'RunnerPoolFixedError';
   }
 }

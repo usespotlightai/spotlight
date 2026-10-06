@@ -43,7 +43,7 @@ export class ReviewPolicy {
 
     if (!(REVIEW_STARTS as readonly string[]).includes(start)) {
       throw new InvalidReviewPolicyError(
-        'starts when a pull request is opened or when Spotlight is mentioned on one',
+        'must start on an opened pull request or a mention',
       );
     }
 
@@ -51,7 +51,7 @@ export class ReviewPolicy {
 
     if (!MENTION.test(mention)) {
       throw new InvalidReviewPolicyError(
-        `is mentioned by a handle, as in ${DEFAULT_MENTION}`,
+        `mention must be a handle, as in ${DEFAULT_MENTION}`,
       );
     }
 

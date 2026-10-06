@@ -6,7 +6,7 @@ const countedIn = (currency: string): string => {
   const counted = currency.trim().toUpperCase();
 
   if (!/^[A-Z]{3}$/.test(counted)) {
-    throw new InvalidSpendError('is counted in a three-letter currency');
+    throw new InvalidSpendError('must be in a three-letter currency');
   }
 
   return counted;
@@ -26,7 +26,7 @@ export class Spend {
 
   static of(amount: number, currency: string): Spend {
     if (!Number.isFinite(amount) || amount < 0) {
-      throw new InvalidSpendError('is no less than nothing');
+      throw new InvalidSpendError('cannot be negative');
     }
 
     return new Spend(Math.round(amount * MICROS), countedIn(currency));
@@ -35,7 +35,7 @@ export class Spend {
   static ceiling(amount: number, currency: string): Spend {
     if (!Number.isFinite(amount) || amount <= 0 || amount > MOST_CEILING) {
       throw new InvalidSpendError(
-        `is capped at more than nothing and at most ${MOST_CEILING.toLocaleString('en-US')}`,
+        `ceiling must be above 0 and at most ${MOST_CEILING.toLocaleString('en-US')}`,
       );
     }
 
@@ -52,7 +52,7 @@ export class Spend {
 
   plus(other: Spend): Spend {
     if (!this.sameCurrencyAs(other)) {
-      throw new InvalidSpendError('is added up only in one currency');
+      throw new InvalidSpendError('can only be added in one currency');
     }
 
     return new Spend(this.micros + other.micros, this.currency);
@@ -65,7 +65,7 @@ export class Spend {
       parts < 0 ||
       of <= 0
     ) {
-      throw new InvalidSpendError('is shared out in whole parts');
+      throw new InvalidSpendError('must be split into whole parts');
     }
 
     return new Spend(Math.floor((this.micros * parts) / of), this.currency);

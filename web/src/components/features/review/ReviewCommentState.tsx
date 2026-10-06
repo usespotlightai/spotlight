@@ -6,7 +6,7 @@ const TOLD: Record<ReviewComment['state'], string> = {
   draft: 'Draft',
   sending: 'Sending to GitHub',
   posted: 'On GitHub',
-  failed: 'Not on GitHub',
+  failed: 'Not posted to GitHub',
 };
 
 export function ReviewCommentState({

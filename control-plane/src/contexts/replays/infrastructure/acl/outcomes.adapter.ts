@@ -1,4 +1,5 @@
 import type { ChangeJudgingPort } from '@outcomes/application/ports/change-judging.port';
+import type { ConfigStretchesPort } from '@outcomes/application/ports/config-stretches.port';
 import type { PairJudgingPort } from '@outcomes/application/ports/pair-judging.port';
 import type {
   RunAcceptancePort,
@@ -12,7 +13,16 @@ import type {
   PairJudgingOrder,
 } from '@replays/application/ports/outcomes.port';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type {
+  StretchBound,
+  StretchStart,
+} from '@replays/domain/services/stretch-starts';
+import {
+  isStationFingerprint,
+  StationFingerprint,
+} from '@replays/domain/value-objects/station-fingerprint.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const outcomeOf = (turnout: RunTurnout): OriginalOutcome => {
   switch (turnout) {
@@ -34,6 +44,7 @@ export class Outcomes implements OutcomesPort {
     private readonly acceptance: RunAcceptancePort,
     private readonly judging: ChangeJudgingPort,
     private readonly pairs: PairJudgingPort,
+    private readonly stretches: ConfigStretchesPort,
   ) {}
 
   acceptedAfter(run: RunId): Promise<boolean> {
@@ -80,5 +91,28 @@ export class Outcomes implements OutcomesPort {
       reference: order.reference.value,
       mostAttempts: order.mostAttempts,
     });
+  }
+
+  async stretchStarts(
+    teamId: TeamId,
+    bounds: readonly StretchBound[],
+  ): Promise<readonly StretchStart[]> {
+    if (bounds.length === 0) {
+      return [];
+    }
+
+    return (await this.stretches.stretchStarts(teamId.value, bounds)).flatMap(
+      (each) =>
+        isStationFingerprint(each.fingerprint)
+          ? [
+              {
+                runId: RunId.of(each.runId),
+                stationId: each.stationId,
+                fingerprint: StationFingerprint.of(each.fingerprint),
+                changedAt: each.changedAt,
+              },
+            ]
+          : [],
+    );
   }
 }

@@ -259,8 +259,8 @@ export class HookFiring extends EventRecorder {
     if (!due && !lapsed) {
       throw new InvalidHookFiringTransitionError(
         progress.kind === 'working'
-          ? 'is still held by the worker that claimed it'
-          : `cannot be claimed while it is ${progress.kind}`,
+          ? 'is still claimed'
+          : `cannot be claimed while ${progress.kind}`,
       );
     }
 
@@ -277,7 +277,7 @@ export class HookFiring extends EventRecorder {
     this.guardWorking('be matched');
 
     if (this.state.matched) {
-      throw new InvalidHookFiringTransitionError('was matched already');
+      throw new InvalidHookFiringTransitionError('was already matched');
     }
 
     return this.with({ event: heldEvent(event), matched: true });
@@ -305,7 +305,10 @@ export class HookFiring extends EventRecorder {
     });
 
     return stop
-      ? HookFailure.of('loop', `The hook ${hook} was stopped: ${stop.saying}`)
+      ? HookFailure.of(
+          'loop',
+          `Hook ${hook} was stopped. Reason: ${stop.saying}`,
+        )
       : null;
   }
 
@@ -314,7 +317,7 @@ export class HookFiring extends EventRecorder {
 
     if (loop.code !== 'loop') {
       throw new InvalidHookFiringTransitionError(
-        `cannot be stopped for looping by a failure that is ${loop.code}`,
+        `cannot be stopped for a loop by a ${loop.code} failure`,
       );
     }
 
@@ -332,7 +335,7 @@ export class HookFiring extends EventRecorder {
 
     if (!isLoop(loop)) {
       throw new InvalidHookFiringTransitionError(
-        'cannot be told of as a loop before it is stopped for one',
+        'cannot be reported as a loop before it is stopped for one',
       );
     }
 
@@ -384,7 +387,7 @@ export class HookFiring extends EventRecorder {
   forgotten(now: Date): HookFiring {
     if (!this.isForgettableAt(now)) {
       throw new InvalidHookFiringTransitionError(
-        'is kept for thirty days after it finishes before it is forgotten',
+        'is kept for 30 days after it finishes',
       );
     }
 
@@ -422,7 +425,7 @@ export class HookFiring extends EventRecorder {
 
     if (kind !== 'working') {
       throw new InvalidHookFiringTransitionError(
-        `cannot ${doing} unless a worker holds it, and it is ${kind}`,
+        `cannot ${doing} while ${kind}`,
       );
     }
   }

@@ -4,6 +4,7 @@ import type {
   RunOutcomeDto,
 } from '@outcomes/application/dto/run-outcome.dto';
 import type {
+  ConfigInForceDto,
   FingerprintGroupDto,
   StationOutcomesDto,
 } from '@outcomes/application/dto/station-outcomes.dto';
@@ -275,13 +276,26 @@ export class RunTallyResponseDto {
 
 export class FingerprintGroupResponseDto {
   @ApiProperty({
+    example: 'run_8f2c',
+    description:
+      'The group’s oldest listed run: the run that started its config, or for a group carrying on the config of a run from before the listing, a group with no config, or a group of a config that never ran, its oldest run',
+  })
+  readonly firstRunId: string;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     example: 'a3f9…',
     description:
-      'The station config these runs ran with; none for runs from before configs were fingerprinted',
+      'The station config in force when these runs started, or for a group that never ran its config, the config its runs were meant to run; none only for runs from before the station first ran a config',
   })
   readonly fingerprint: string | null;
+
+  @ApiProperty({
+    description:
+      'Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or withdrawn), which are kept apart from the group in force',
+  })
+  readonly ran: boolean;
 
   @ApiProperty({ type: StationConfigResponseDto, nullable: true })
   readonly config: StationConfigResponseDto | null;
@@ -289,7 +303,8 @@ export class FingerprintGroupResponseDto {
   @ApiProperty({
     type: ConfigChangeResponseDto,
     isArray: true,
-    description: 'How the config differs from the one before it',
+    description:
+      'How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force',
   })
   readonly changes: readonly ConfigChangeResponseDto[];
 
@@ -304,7 +319,9 @@ export class FingerprintGroupResponseDto {
   readonly tally: RunTallyResponseDto;
 
   constructor(group: FingerprintGroupDto) {
+    this.firstRunId = group.firstRunId;
     this.fingerprint = group.fingerprint;
+    this.ran = group.ran;
     this.config = group.config
       ? new StationConfigResponseDto(group.config)
       : null;
@@ -318,6 +335,19 @@ export class FingerprintGroupResponseDto {
   }
 }
 
+export class ConfigInForceResponseDto {
+  @ApiProperty({
+    type: RunTallyResponseDto,
+    description:
+      'One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the stretch whole and are not counted',
+  })
+  readonly tally: RunTallyResponseDto;
+
+  constructor(inForce: ConfigInForceDto) {
+    this.tally = new RunTallyResponseDto(inForce.tally);
+  }
+}
+
 export class StationOutcomesResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
   readonly stationId: string;
@@ -326,14 +356,25 @@ export class StationOutcomesResponseDto {
     type: FingerprintGroupResponseDto,
     isArray: true,
     description:
-      'The station’s latest runs, in runs of the same config, the newest first',
+      'The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or withdrawn) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force',
   })
   readonly groups: readonly FingerprintGroupResponseDto[];
+
+  @ApiProperty({
+    type: ConfigInForceResponseDto,
+    nullable: true,
+    description:
+      'The config the station last ran, as of the listed runs, with its tally; there under a config carried on from before the listing even when no listed run ran a config, and none when the station had run no config by the newest listed run',
+  })
+  readonly inForce: ConfigInForceResponseDto | null;
 
   constructor(outcomes: StationOutcomesDto) {
     this.stationId = outcomes.stationId;
     this.groups = outcomes.groups.map(
       (each) => new FingerprintGroupResponseDto(each),
     );
+    this.inForce = outcomes.inForce
+      ? new ConfigInForceResponseDto(outcomes.inForce)
+      : null;
   }
 }

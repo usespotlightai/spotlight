@@ -64,7 +64,7 @@ export function CostSlices({
                 </div>
                 <span aria-hidden className="h-1 rounded-full bg-muted">
                   <span
-                    className="block h-full rounded-full bg-primary"
+                    className="block h-full rounded-full bg-chart-primary"
                     style={{
                       width: `${most > 0 ? (slice.amount / most) * 100 : 0}%`,
                     }}

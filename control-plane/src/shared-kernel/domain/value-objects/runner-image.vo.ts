@@ -13,13 +13,13 @@ export class RunnerImage {
 
     if (!reference || reference.length > MOST_LENGTH) {
       throw new InvalidRunnerImageError(
-        `is named by a reference of at most ${MOST_LENGTH} characters`,
+        `reference must be at most ${MOST_LENGTH} characters`,
       );
     }
 
     if (!REFERENCE.test(reference)) {
       throw new InvalidRunnerImageError(
-        'is named by a reference such as ghcr.io/acme/runner:main, in lowercase, with an optional tag or digest',
+        'must be a lowercase reference with an optional tag or digest, such as ghcr.io/acme/runner:main',
       );
     }
 

@@ -43,10 +43,10 @@ describe('judge', () => {
 
   it('says why a judge’s scores are hidden', () => {
     expect(standingShown(STANDING)).toBe(
-      'Hidden until more runs have both a judge score and people’s: 4 so far.',
+      'Hidden until more runs have both judge and human scores. Runs so far: 4',
     );
     expect(standingShown({ ...STANDING, hiddenBecause: 'no-agreement' })).toBe(
-      'Hidden: every score so far is the same, so agreement can’t be measured.',
+      'Hidden. Agreement can’t be measured while all scores are identical.',
     );
   });
 

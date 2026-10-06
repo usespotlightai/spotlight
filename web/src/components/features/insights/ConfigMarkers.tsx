@@ -11,6 +11,7 @@ import {
   type StationNames,
   stationShown,
 } from '@/lib/insights';
+import { changeKey } from '@/lib/insights-changes';
 import { dayShown } from '@/lib/judge';
 import { stationPath } from '@/lib/station';
 
@@ -57,14 +58,11 @@ export function ConfigMarkers({
               </PopoverTrigger>
               <PopoverContent className="flex min-w-48 flex-col gap-1 p-2 text-xs">
                 <p className="text-muted-foreground">
-                  New config on {dayShown(day.day)}
+                  Config changed on {dayShown(day.day)}
                 </p>
                 <ul className="flex flex-col gap-1">
                   {day.changes.map((change) => (
-                    <li
-                      key={`${change.stationId}:${change.fingerprint}`}
-                      className="flex flex-col"
-                    >
+                    <li key={changeKey(change)} className="flex flex-col">
                       <TrailLink
                         to={stationPath(
                           slug,
@@ -81,7 +79,7 @@ export function ConfigMarkers({
                         onClick={() =>
                           panel.show({
                             stationId: change.stationId,
-                            fingerprint: change.fingerprint,
+                            runId: change.runId,
                           })
                         }
                         className="w-fit rounded-sm text-left text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"

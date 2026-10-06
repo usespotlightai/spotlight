@@ -1,6 +1,7 @@
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { PossibleOrigin } from '@replays/domain/value-objects/config-origin.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface CandidateRepository {
@@ -24,4 +25,15 @@ export interface CandidateRepository {
   ofTeam(teamId: TeamId): Promise<readonly Candidate[]>;
 
   ofTeams(teamIds: readonly TeamId[]): Promise<readonly Candidate[]>;
+
+  possibleOriginsAt(
+    teamId: TeamId,
+    stationIds: readonly string[],
+  ): Promise<readonly PossibleOrigin[]>;
+
+  removeWithdrawn(id: CandidateId): Promise<void>;
+
+  removeWithdrawnOfTeam(teamId: TeamId): Promise<void>;
+
+  removeWithdrawnAtStations(stationIds: readonly string[]): Promise<void>;
 }

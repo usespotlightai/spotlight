@@ -3,7 +3,7 @@ export class TeamMovedOnError extends Error {
 
   constructor(teamId: string) {
     super(
-      `This team has been changed since it was read, and cannot be written over (${teamId})`,
+      `Team ${teamId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'TeamMovedOnError';
   }

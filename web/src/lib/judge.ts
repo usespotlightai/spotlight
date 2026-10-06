@@ -167,17 +167,17 @@ export const versionShown = (version: string): string => version.slice(0, 7);
 export const standingShown = (standing: JudgeStanding): string => {
   switch (standing.hiddenBecause) {
     case null:
-      return `Trusted: ${measureShown(standing.measure)} is ${statShown(standing.agreement)} over ${standing.pairs} runs, at least the ${statShown(standing.trust)} it needs.`;
+      return `Trusted. ${measureShown(standing.measure)}: ${statShown(standing.agreement)} over ${standing.pairs} runs. Minimum required: ${statShown(standing.trust)}`;
     case 'no-judge':
-      return 'This station has no judge, so there are no scores to trust.';
+      return 'No judge on this station. No scores to trust.';
     case 'unreadable-rubric':
-      return 'Hidden: the station’s rubric names a scale that cannot be read.';
+      return 'Hidden. The rubric names a scale that cannot be read.';
     case 'too-few-pairs':
-      return `Hidden until more runs have both a judge score and people’s: ${standing.pairs} so far.`;
+      return `Hidden until more runs have both judge and human scores. Runs so far: ${standing.pairs}`;
     case 'no-agreement':
-      return 'Hidden: every score so far is the same, so agreement can’t be measured.';
+      return 'Hidden. Agreement can’t be measured while all scores are identical.';
     case 'below-trust':
-      return `Hidden: ${measureShown(standing.measure)} is ${statShown(standing.agreement)}, below the ${statShown(standing.trust)} it needs.`;
+      return `Hidden. ${measureShown(standing.measure)}: ${statShown(standing.agreement)}. Minimum required: ${statShown(standing.trust)}`;
   }
 };
 

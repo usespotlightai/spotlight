@@ -3,7 +3,7 @@ export class InvalidTaskRevisionError extends Error {
 
   constructor(revision: unknown) {
     super(
-      `A task revision is a whole number of moves, not ${String(revision)}`,
+      `Task revision must be a whole number from 0. Value: ${String(revision)}`,
     );
     this.name = 'InvalidTaskRevisionError';
   }

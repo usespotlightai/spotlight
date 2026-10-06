@@ -8,8 +8,7 @@ export function ChatEmpty() {
       title="Nothing said yet"
       className="flex-1 justify-center self-center py-16"
     >
-      Say what you want to plan below, and the agent will help shape it into
-      tasks.
+      Say what you want to plan below. The agent helps shape it into tasks.
     </EmptyState>
   );
 }

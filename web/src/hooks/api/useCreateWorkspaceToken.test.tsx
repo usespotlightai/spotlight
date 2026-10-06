@@ -2,10 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  useCreateWorkspaceToken,
-  WorkspaceTokenNameTakenError,
-} from '@/hooks/api/useCreateWorkspaceToken';
+import { useCreateWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
 import type { TokenTerms } from '@/lib/token';
 
@@ -93,10 +90,9 @@ describe('useCreateWorkspaceToken', () => {
     act(() => result.current.mutate(TERMS));
 
     await waitFor(() =>
-      expect(result.current.error).toBeInstanceOf(WorkspaceTokenNameTakenError),
-    );
-    expect((result.current.error as WorkspaceTokenNameTakenError).token).toBe(
-      'terraform',
+      expect(result.current.error?.message).toBe(
+        'Token terraform already exists. Please choose another name.',
+      ),
     );
   });
 
@@ -126,7 +122,9 @@ describe('useCreateWorkspaceToken', () => {
     act(() => result.current.mutate(TERMS));
 
     await waitFor(() =>
-      expect(result.current.error?.message).toBe('Could not create the token'),
+      expect(result.current.error?.message).toBe(
+        'Sorry, the token couldn’t be created.',
+      ),
     );
   });
 });

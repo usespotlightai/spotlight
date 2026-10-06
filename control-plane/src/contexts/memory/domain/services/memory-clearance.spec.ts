@@ -42,7 +42,7 @@ describe('MemoryClearance', () => {
       NotOnTeamError,
     );
     expect(() => MemoryClearance.onTeam('team_1', null)).toThrow(
-      'There is no team team_1 for this caller',
+      'Team team_1 not found.',
     );
   });
 

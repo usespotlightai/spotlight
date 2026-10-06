@@ -3,7 +3,7 @@ export class LineMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This line has changed since it was read, and cannot be written over (${id})`,
+      `Line ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'LineMovedOnError';
   }

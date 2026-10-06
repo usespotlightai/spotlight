@@ -5,8 +5,9 @@ import type { ServerReport } from '@/lib/insights-tools';
 export function McpServers({ servers }: { servers: readonly ServerReport[] }) {
   return (
     <InsightsCard
+      tableOnly={servers.length > 0}
       title="MCP servers"
-      description="How each MCP server the runs called behaved. Calls that never finished count as failed; calls a person refused are left out, and Refused counts the runs they were refused in. A failing run is one that failed where the run’s last call to the server failed."
+      description="MCP servers that runs called. Unfinished calls count as failed; refused calls are left out. Refused: runs with a refused call. Failing runs: failed runs whose last call to the server failed"
     >
       {servers.length > 0 ? (
         <McpServersTable servers={servers} />

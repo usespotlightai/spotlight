@@ -9,7 +9,7 @@ export class WorkspaceArchiveId {
     const value = raw.trim();
 
     if (!ID.test(value)) {
-      throw new InvalidWorkspaceArchiveError('must say which archive it is');
+      throw new InvalidWorkspaceArchiveError('id must not be empty');
     }
 
     return new WorkspaceArchiveId(value);

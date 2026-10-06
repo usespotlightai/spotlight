@@ -19,10 +19,10 @@ describe('StationKey', () => {
 
   it('is never a word a run hands over with rather than a station', () => {
     expect(() => StationKey.of('review')).toThrow(
-      'cannot be review, which is reserved because a run says review to hand its task over to a person; pick another key',
+      'cannot be review. A run says review to hand its task over to a person',
     );
     expect(() => StationKey.of('done')).toThrow(
-      'cannot be done, which is reserved because a run says done to finish its task; pick another key',
+      'cannot be done. A run says done to finish its task',
     );
     expect(() => StationKey.of(' review ')).toThrow(InvalidIdentifierError);
   });

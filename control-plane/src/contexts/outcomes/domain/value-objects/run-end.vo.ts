@@ -5,6 +5,9 @@ import type { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 
 const FINGERPRINT = /^[0-9a-f]{64}$/;
 
+export const configFingerprintOf = (raw: string | null): string | null =>
+  raw !== null && FINGERPRINT.test(raw) ? raw : null;
+
 const before = (earlier: Date | null, later: Date | null): boolean =>
   earlier === null || later === null || earlier.getTime() <= later.getTime();
 
@@ -36,17 +39,19 @@ export class RunEnd {
   }): RunEnd {
     if (input.fingerprint !== null && !FINGERPRINT.test(input.fingerprint)) {
       throw new InvalidOutcomeError(
-        'names its station config by a 64-character hex fingerprint',
+        'station config fingerprint must be 64 hex characters',
       );
     }
     if (!Number.isInteger(input.round) || input.round < 1) {
-      throw new InvalidOutcomeError('is its station’s first round or later');
+      throw new InvalidOutcomeError('round must be 1 or later');
     }
     if (
       !before(input.queuedAt, input.startedAt) ||
       !before(input.startedAt, input.endedAt)
     ) {
-      throw new InvalidOutcomeError('is queued, started and ended in order');
+      throw new InvalidOutcomeError(
+        'must be queued, started and ended in order',
+      );
     }
 
     return new RunEnd(
@@ -65,6 +70,14 @@ export class RunEnd {
 
   get ran(): boolean {
     return this.ending !== 'withdrawn';
+  }
+
+  get ranItsConfig(): boolean {
+    return this.ran && this.startedAt !== null;
+  }
+
+  get beganAt(): Date {
+    return this.startedAt ?? this.endedAt;
   }
 
   get queuedMs(): number | null {

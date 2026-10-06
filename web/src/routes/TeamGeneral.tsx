@@ -22,10 +22,7 @@ export function TeamGeneral() {
   }
 
   return (
-    <SettingsPage
-      title="General"
-      description="What this team is called and who has access."
-    >
+    <SettingsPage title="General" description="Team name and members.">
       {failed(workspace) ? (
         <SettingsSection>
           <CouldNotLoad

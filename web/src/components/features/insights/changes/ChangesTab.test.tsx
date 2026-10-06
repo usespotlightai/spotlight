@@ -1,9 +1,14 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamInsights } from '@/components/features/insights/TeamInsights';
-import type { InsightsCandidates } from '@/lib/insights-candidates';
+import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
+import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
+import { stationNamesOf } from '@/lib/insights';
+import type {
+  ConfigOrigin,
+  InsightsCandidates,
+} from '@/lib/insights-candidates';
 import type { InsightsChanges, InsightsSetups } from '@/lib/insights-changes';
 import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
 
@@ -23,6 +28,12 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
   refetch: vi.fn(),
 });
 
+const origins = {
+  origins: [] as ConfigOrigin[],
+  failed: false,
+  retry: vi.fn(),
+};
+
 const answer: {
   changes: Held;
   setups: Held;
@@ -37,6 +48,9 @@ const answer: {
 
 vi.mock('@/hooks/api/useInsightsChanges', () => ({
   useInsightsChanges: () => answer.changes,
+}));
+vi.mock('@/hooks/api/useConfigOrigins', () => ({
+  useConfigOrigins: () => origins,
 }));
 vi.mock('@/hooks/api/useInsightsSetups', () => ({
   useInsightsSetups: (_teamId: string, _period: string, narrowed: unknown) => {
@@ -223,15 +237,34 @@ const narrowingTo = async (station: string) => {
   );
 };
 
+const NAMES = stationNamesOf([
+  {
+    id: 'line_1',
+    key: 'delivery',
+    name: 'Delivery',
+    repositories: [],
+    reactions: [],
+    stations: [
+      {
+        id: 'station_impl',
+        key: 'implementation',
+        name: 'Implementation',
+        kind: 'work',
+        color: '#000',
+        position: 0,
+      },
+    ],
+  },
+] as unknown as Parameters<typeof stationNamesOf>[0]);
+
 const showing = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?tab=changes']}>
-      <Routes>
-        <Route
-          path="/w/:slug/team/:teamId/insights"
-          element={<TeamInsights slug="acme" teamId="team_1" />}
-        />
-      </Routes>
+    <MemoryRouter
+      initialEntries={['/w/acme/team/team_1/insights?tab=stations']}
+    >
+      <BeforeAfterHost slug="acme" teamId="team_1" period="30d" names={NAMES}>
+        <ChangesTab slug="acme" teamId="team_1" period="30d" names={NAMES} />
+      </BeforeAfterHost>
     </MemoryRouter>,
   );
 
@@ -240,18 +273,11 @@ beforeEach(() => {
   answer.setups = held(SETUPS);
   answer.candidates = held(REPLAYED);
   answer.asked = [];
+  origins.origins = [];
+  origins.failed = false;
 });
 
 describe('the Changes tab', () => {
-  it('is a tab of Insights', () => {
-    showing();
-
-    expect(screen.getByRole('link', { name: 'Changes' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/insights?tab=changes',
-    );
-  });
-
   it('shows a faithful skeleton while it loads', () => {
     answer.changes = held(undefined);
 
@@ -289,7 +315,8 @@ describe('the Changes tab', () => {
       .getByRole('link', { name: 'Implementation' })
       .closest('[data-slot="change-marker"]') as HTMLElement;
 
-    expect(row).toHaveTextContent('10 runs before · 10 runs after');
+    expect(row).toHaveTextContent('Runs before 10');
+    expect(row).toHaveTextContent('Runs after 10');
     expect(
       within(row).getByRole('list', { name: 'What changed' }),
     ).toBeInTheDocument();
@@ -325,7 +352,7 @@ describe('the Changes tab', () => {
       }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_impl#judge',
+      '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
     );
   });
 
@@ -352,7 +379,7 @@ describe('the Changes tab', () => {
       within(standings).getByRole('link', { name: 'Implementation' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_impl#judge',
+      '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
     );
     expect(standings).toHaveTextContent('trusted');
     expect(
@@ -360,7 +387,7 @@ describe('the Changes tab', () => {
     ).toBeInTheDocument();
   });
 
-  it('asks for a station before comparing judge scores across setups', async () => {
+  it('leaves judge scores out of the table until a station is picked', async () => {
     answer.setups = held({
       ...SETUPS,
       stationId: null,
@@ -376,9 +403,6 @@ describe('the Changes tab', () => {
     showing();
     await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
 
-    expect(
-      screen.getAllByText('Pick a station to compare judge scores.')[0],
-    ).toBeInTheDocument();
     expect(
       screen.queryByRole('columnheader', { name: 'Judge score' }),
     ).not.toBeInTheDocument();
@@ -397,16 +421,14 @@ describe('the Changes tab', () => {
     expect(answer.asked.at(-1)).toEqual({ stationId: null, size: 'large' });
   });
 
-  it('asks for a station before setting replayed candidates beside the setups', () => {
+  it('draws no replayed candidates until a station is picked', () => {
     showing();
 
     expect(
-      screen.getByText(
-        'Pick a station to see its replayed candidates beside its live setups.',
-      ),
-    ).toBeInTheDocument();
-    expect(
       document.querySelector('[data-slot="replayed-legend"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="replayed-note"]'),
     ).not.toBeInTheDocument();
   });
 
@@ -417,16 +439,16 @@ describe('the Changes tab', () => {
 
     expect(
       document.querySelector('[data-slot="replayed-legend"]'),
-    ).toHaveTextContent(/Replayed:.*Live config, replayed/);
+    ).toHaveTextContent(/Searched.*Live config, replayed/);
     expect(
       screen.getByText(
-        /Accepted against cost per run; replayed points show replay success on past tasks instead/,
+        /Accepted against cost per run. Replayed points show replay success on past tasks./,
       ),
     ).toBeInTheDocument();
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      /replay success on up to 18 runs of past tasks, scored by each candidate’s own checks and judge — not the live outcome the other points show/,
+      /replay success on up to 18 runs of past tasks, not live outcomes. Scored by each candidate’s own checks and judge/,
     );
   });
 
@@ -463,28 +485,15 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).not.toBeInTheDocument();
-    expect(
-      document.querySelector('[data-slot="other-currency"]'),
-    ).toHaveTextContent(
-      'Priced in another currency, so not shown: Live config, replayed (the search’s tasks) (55%), opus-with-migrations-skill (72%), sonnet-terse-prompt (50%).',
-    );
   });
 
-  it('says why each replayed candidate it leaves out is left out, and that task size does not narrow them', async () => {
+  it('says task size does not narrow the replayed candidates', async () => {
     showing();
     await narrowingTo('Implementation');
 
-    expect(document.querySelector('[data-slot="unpriced"]')).toHaveTextContent(
-      'Not priced, so not shown: cursor-careful-profile (61%).',
-    );
-    expect(
-      document.querySelector('[data-slot="unfinished"]'),
-    ).toHaveTextContent(
-      'Not finished, so not shown: sonnet-plan-first (running).',
-    );
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
-    ).toHaveTextContent('The task-size filter does not apply to them.');
+    ).toHaveTextContent('The task-size filter doesn’t apply.');
   });
 
   it('hides replayed points while the chart shows an outcome where lower is better', async () => {
@@ -503,7 +512,7 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      'Replayed points show success, so they’re hidden while the chart shows Sent back.',
+      'Replayed points show success only. They’re hidden while the chart shows Sent back.',
     );
   });
 
@@ -519,18 +528,8 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      'This station’s replayed candidates are not drawn, as no live setup here has a priced outcome to set them beside.',
+      'Replayed candidates aren’t drawn: no live setup has a priced outcome.',
     );
-  });
-
-  it('keeps quiet about replayed candidates where the team replayed none', () => {
-    answer.candidates = held({ ...REPLAYED, stations: [] });
-
-    showing();
-
-    expect(
-      screen.queryByText(/Pick a station to see its replayed candidates/),
-    ).not.toBeInTheDocument();
   });
 
   it('keeps the tab whole when the replayed candidates could not be loaded', async () => {
@@ -549,5 +548,121 @@ describe('the Changes tab', () => {
     await userEvent.click(screen.getByRole('button', { name: /try again/i }));
 
     expect(answer.candidates.refetch).toHaveBeenCalled();
+  });
+
+  it('names the candidate a config change came from', () => {
+    const [marker] = CHANGES.markers;
+    origins.origins = [
+      {
+        stationId: 'station_impl',
+        runId: marker?.runId ?? '',
+        fingerprint: marker?.fingerprint ?? '',
+        changedAt: marker?.firstRunAt ?? '',
+        candidateId: 'candidate_opus_skill',
+        name: 'opus-with-migrations-skill',
+        kind: 'searched',
+        lineId: 'line_1',
+        searchId: 'search_1',
+        replayId: null,
+        createdAt: '2026-09-01T09:00:00.000Z',
+        withdrawn: false,
+      },
+    ];
+
+    showing();
+
+    expect(
+      screen.getByRole('link', { name: 'opus-with-migrations-skill' }),
+    ).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1/stations/station_impl/searches/search_1#candidate-candidate_opus_skill',
+    );
+  });
+
+  it('says where the candidates the changes came from could not be loaded, and tries again', async () => {
+    origins.failed = true;
+
+    showing();
+
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Sorry, which candidate each change came from could not be loaded.',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(origins.retry).toHaveBeenCalled();
+  });
+
+  it('names a withdrawn candidate a change came from, without a link', () => {
+    const [marker] = CHANGES.markers;
+    origins.origins = [
+      {
+        stationId: 'station_impl',
+        runId: marker?.runId ?? '',
+        fingerprint: marker?.fingerprint ?? '',
+        changedAt: marker?.firstRunAt ?? '',
+        candidateId: 'candidate_gone',
+        name: 'withdrawn-idea',
+        kind: 'proposed',
+        lineId: 'line_1',
+        searchId: null,
+        replayId: null,
+        createdAt: '2026-09-01T09:00:00.000Z',
+        withdrawn: true,
+      },
+    ];
+
+    showing();
+
+    const from = screen.getByText('withdrawn-idea').closest('p');
+    expect(from).toHaveTextContent('From withdrawn-idea (withdrawn)');
+    expect(
+      screen.queryByRole('link', { name: 'withdrawn-idea' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the before and after of a config the station returned to, not its first adoption', async () => {
+    const [first] = CHANGES.markers;
+    const returned = (runId: string, firstRunAt: string, runs: number) => ({
+      ...first,
+      runId,
+      firstRunAt,
+      before: tally({ runs }),
+      after: tally({ runs }),
+    });
+    answer.changes = held({
+      ...CHANGES,
+      markers: [
+        returned('run_2', '2026-09-20T10:00:00.000Z', 11),
+        {
+          ...returned('run_3', '2026-09-22T10:00:00.000Z', 12),
+          fingerprint: 'a'.repeat(64),
+          previousFingerprint: 'b'.repeat(64),
+        },
+        returned('run_4', '2026-09-24T10:00:00.000Z', 13),
+      ],
+    });
+
+    showing();
+
+    const rows = [
+      ...document.querySelectorAll('[data-slot="change-marker"]'),
+    ] as HTMLElement[];
+    const newest = rows[0] as HTMLElement;
+    await userEvent.click(
+      within(newest).getByRole('button', { name: 'Before and after' }),
+    );
+
+    expect(
+      rows.map((row) =>
+        within(row)
+          .getByRole('button', { name: 'Before and after' })
+          .getAttribute('aria-pressed'),
+      ),
+    ).toEqual(['true', 'false', 'false']);
+    expect(
+      screen.getByRole('complementary', {
+        name: 'Before and after the change',
+      }),
+    ).toHaveTextContent('Runs1313');
   });
 });

@@ -40,7 +40,7 @@ export function StationSearchList({
     return (
       <StateBox>
         <MembersOnlyOrCouldNotLoad
-          membersOnly="Only the team’s members can see its searches"
+          membersOnly="Only team members can see its searches"
           what="The station’s searches"
           query={searches}
         />
@@ -67,8 +67,8 @@ export function StationSearchList({
             )
           }
         >
-          A search has an agent propose better configs for this station, and
-          replays each on a replay set to find which do better for less.
+          A search has an agent propose configs for this station. Each is
+          replayed on a replay set to find which do better for less.
         </EmptyState>
       </StateBox>
     );

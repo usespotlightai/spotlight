@@ -36,7 +36,7 @@ export class RenewLeaseHandler
 
         if (!run.isHeldBy(renewing)) {
           throw new UnknownRunError(
-            `runner ${command.runnerId} holds no run ${command.runId}`,
+            `Runner ${command.runnerId} holds no run ${command.runId}.`,
           );
         }
 
@@ -57,7 +57,7 @@ export class RenewLeaseHandler
   private async load(id: string): Promise<Run> {
     const found = await this.runs.findById(RunId.of(id));
     if (!found) {
-      throw new UnknownRunError(`there is no run ${id}`);
+      throw new UnknownRunError(`Run ${id} not found.`);
     }
     return found;
   }

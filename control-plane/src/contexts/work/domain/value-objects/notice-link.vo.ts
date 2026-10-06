@@ -21,12 +21,12 @@ export class NoticeLink {
       segments.some((each) => !SEGMENT.test(each))
     ) {
       throw new InvalidNoticeError(
-        `links to a page of its team by a relative path of plain segments, in at most ${MOST_LENGTH} characters`,
+        `link must be a relative path within its team, at most ${MOST_LENGTH} characters`,
       );
     }
     if (!label || label.length > MOST_LABEL) {
       throw new InvalidNoticeError(
-        `names where its link leads in at most ${MOST_LABEL} characters`,
+        `link label must be 1 to ${MOST_LABEL} characters`,
       );
     }
 

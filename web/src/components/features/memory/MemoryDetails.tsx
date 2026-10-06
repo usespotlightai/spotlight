@@ -67,7 +67,7 @@ export function MemoryDetails({
       {grounds && (
         <p className="flex gap-3">
           <TrailLink to={runPath(slug, teamId, grounds.runId)} className={LINK}>
-            Open the run it came from
+            Open its run
           </TrailLink>
           <TrailLink
             to={taskPath(slug, teamId, grounds.taskId)}
@@ -80,7 +80,7 @@ export function MemoryDetails({
 
       {memory.superseded && (
         <p className="text-muted-foreground text-xs leading-5">
-          It replaced: {memory.superseded.body}
+          Replaces: {memory.superseded.body}
         </p>
       )}
 
@@ -117,7 +117,6 @@ export function MemoryDetails({
           initial={memory}
           lines={lines}
           pending={edit.isPending}
-          failed={edit.isError}
           onSave={(written) =>
             edit.mutate(
               { teamId, memoryId, memory: written },

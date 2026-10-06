@@ -14,7 +14,7 @@ export class Binding {
     if (!input.known.includes(input.event)) {
       throw new InvalidIntegrationPartError(
         `binding on ${input.event}`,
-        `is not an event Spotlight raises; expected one of ${input.known.join(', ')}`,
+        `must be one of ${input.known.join(', ')}`,
       );
     }
 

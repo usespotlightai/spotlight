@@ -35,8 +35,7 @@ export function ToolsTab({ slug, teamId, period, names }: ToolsTabProps) {
   if (insights.runs === 0) {
     return (
       <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Once stations run tasks, the skills they read and the MCP servers they
-        call show here.
+        Skills read and MCP servers called show here once stations run tasks.
       </NoRunsInPeriod>
     );
   }
@@ -46,7 +45,7 @@ export function ToolsTab({ slug, teamId, period, names }: ToolsTabProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {insights.truncated && <TruncatedNote />}
 
       {insights.skills.length > 0 && (

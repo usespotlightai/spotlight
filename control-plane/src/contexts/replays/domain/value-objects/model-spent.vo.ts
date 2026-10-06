@@ -20,7 +20,7 @@ export class ModelSpent {
 
   static of(spends: readonly Spend[], unpriced: number): ModelSpent {
     if (!Number.isInteger(unpriced) || unpriced < 0) {
-      throw new InvalidSpendError('counts its unpriced calls in whole numbers');
+      throw new InvalidSpendError('unpriced calls must be a whole number');
     }
 
     return new ModelSpent(summed(spends), unpriced);

@@ -127,7 +127,7 @@ describe('TeamIntegrations', () => {
     showing();
 
     expect(
-      screen.getByText('This team listens to no host yet.'),
+      screen.getByText('No integrations configured for this team.'),
     ).toBeInTheDocument();
   });
 
@@ -159,7 +159,7 @@ describe('TeamIntegrations', () => {
     showing();
 
     expect(
-      screen.getByText('Listens for what the host sends.'),
+      screen.getByText('Listens for incoming events.'),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Connect to Linear' }),

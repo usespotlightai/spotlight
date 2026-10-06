@@ -29,9 +29,10 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 
 const QUEUED: SearchDispatched = { outcome: 'queued' };
 
-const STOPPED = 'Its search was stopped before a runner took it up.';
+const STOPPED = 'Search stopped before a runner took the run.';
 
-const LEFT_UNCLAIMED = 'No runner took it up in time, so its search let it go.';
+const LEFT_UNCLAIMED =
+  'No runner took the run in time. Its search released it.';
 
 const ENDED: UnclaimedWithdrawal = { outcome: 'ended' };
 

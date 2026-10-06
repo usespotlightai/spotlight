@@ -182,7 +182,7 @@ describe('TeamMemory', () => {
     memoriesState.data = [];
     showing();
 
-    expect(screen.getByText('Nothing remembered yet')).toBeVisible();
+    expect(screen.getByText('No memories yet')).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Write a memory' }),
     ).toBeVisible();
@@ -233,7 +233,7 @@ describe('TeamMemory', () => {
     showing();
 
     expect(screen.getByText('Used by 3 runs')).toBeVisible();
-    expect(screen.getByText('No run has used it yet')).toBeVisible();
+    expect(screen.getByText('Not used by any run yet')).toBeVisible();
   });
 
   it('opens the one memory a link names, and goes back to every memory', async () => {
@@ -256,9 +256,7 @@ describe('TeamMemory', () => {
 
     showing('/w/acme/team/team_1/memory?memory=memory_gone');
 
-    expect(
-      screen.getByText('There is no such memory for this team.'),
-    ).toBeVisible();
+    expect(screen.getByText('Memory not found on this team.')).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Show every memory' }),
     ).toBeVisible();

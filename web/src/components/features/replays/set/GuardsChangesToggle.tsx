@@ -2,14 +2,10 @@ import { useId } from 'react';
 import { ReplayCheckThreshold } from '@/components/features/replays/ReplayCheckThreshold';
 import { Switch } from '@/components/ui/switch';
 import { useGuardChanges } from '@/hooks/api/useGuardChanges';
-import { conflicted, messageOf } from '@/lib/error';
 import type { ReplaySet } from '@/lib/replay';
 import type { LineReplayCheck } from '@/lib/search';
 
 export const GUARDS_ANCHOR = 'guards-changes';
-
-const GUARDED_ELSEWHERE =
-  'Another replay set at this station guards its changes already. Turn it off there first.';
 
 type GuardsChangesToggleProps = {
   teamId: string;
@@ -25,11 +21,6 @@ export function GuardsChangesToggle({
   const guard = useGuardChanges();
   const id = useId();
   const noteId = useId();
-  const refused = guard.isError
-    ? conflicted(guard.error)
-      ? GUARDED_ELSEWHERE
-      : messageOf(guard.error, 'Could not change what the set guards')
-    : null;
 
   return (
     <div
@@ -53,18 +44,12 @@ export function GuardsChangesToggle({
         Guards config changes
       </label>
       <p id={noteId} className="text-muted-foreground text-xs leading-5">
-        When it does, <code className="font-mono">spotlight replay check</code>{' '}
-        replays a pull request’s planned change of this station on this set, and
-        fails the check past the line’s regression threshold. A station has at
-        most one such set.
+        <code className="font-mono">spotlight replay check</code> replays a pull
+        request’s change of this station on this set. It fails past the line’s
+        regression threshold. One such set per station.
       </p>
       {replayCheck !== undefined && (
         <ReplayCheckThreshold replayCheck={replayCheck} />
-      )}
-      {refused && (
-        <p role="alert" className="text-destructive text-xs">
-          {refused}
-        </p>
       )}
     </div>
   );

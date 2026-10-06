@@ -3,7 +3,7 @@ export class TaskFailuresMovedOnError extends Error {
 
   constructor(taskId: string) {
     super(
-      `This task's failures changed since they were read, and cannot be written over (${taskId})`,
+      `Failures of task ${taskId} changed since you loaded them. Please reload and try again.`,
     );
     this.name = 'TaskFailuresMovedOnError';
   }

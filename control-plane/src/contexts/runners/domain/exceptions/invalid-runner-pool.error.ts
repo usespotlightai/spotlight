@@ -5,7 +5,7 @@ export class InvalidRunnerPoolError extends Error {
     readonly field: string,
     readonly because: string,
   ) {
-    super(`A runner pool's ${field} ${because}`);
+    super(`Runner pool ${field} ${because}.`);
     this.name = 'InvalidRunnerPoolError';
   }
 }

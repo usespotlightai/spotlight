@@ -66,7 +66,7 @@ describe('InboxIndex', () => {
     it('says there are no messages', () => {
       renderIndex();
 
-      expect(screen.getByText('No messages')).toBeInTheDocument();
+      expect(screen.getByText('Inbox empty')).toBeInTheDocument();
       expect(screen.queryByText(/Pick a task/)).not.toBeInTheDocument();
     });
 
@@ -88,7 +88,7 @@ describe('InboxIndex', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'The inbox could not be loaded.',
     );
-    expect(screen.queryByText('No messages')).not.toBeInTheDocument();
+    expect(screen.queryByText('Inbox empty')).not.toBeInTheDocument();
 
     await person.click(screen.getByRole('button', { name: 'Try again' }));
 

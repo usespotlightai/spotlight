@@ -10,7 +10,7 @@ export class ToolName {
     if (!isToolName(trimmed)) {
       throw new InvalidIdentifierError(
         'tool',
-        'is lower case words joined by dashes, as in pull-request, or named for the integration it comes from, as in linear.comment',
+        'must be lowercase words joined by dashes, such as pull-request or linear.comment',
       );
     }
 

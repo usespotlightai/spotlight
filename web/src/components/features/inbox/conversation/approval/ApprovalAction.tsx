@@ -1,3 +1,4 @@
+import { Modified } from '@/components/features/inbox/conversation/approval/Modified';
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import {
@@ -16,25 +17,31 @@ export function ApprovalAction({ approval }: { approval: Approval }) {
     <dl>
       {shownInputs(approval).map((input) => {
         const label = labelOf(approval, input);
+        const modified = changed.has(input.name);
 
         return (
           <FactRow key={input.name}>
             {label && (
-              <dt className={cn(FACT_LABEL, 'flex flex-col')}>
-                <span className="truncate first-letter:uppercase">{label}</span>
-                {changed.has(input.name) && (
-                  <span className="text-[11px] leading-4">changed by you</span>
-                )}
+              <dt className={cn(FACT_LABEL, 'truncate first-letter:uppercase')}>
+                {label}
               </dt>
             )}
             <dd className={cn(!label && 'col-span-2')}>
               {readsAsCode(approval, input) ? (
-                <CodeBlock
-                  command={input.value}
-                  className="rounded-none border-0 bg-transparent p-0 py-1"
-                />
+                <>
+                  <CodeBlock command={input.value} className="px-2.5 py-1.5" />
+                  {modified && <Modified />}
+                </>
               ) : (
-                <p className={FACT_VALUE}>{input.value}</p>
+                <p className={FACT_VALUE}>
+                  {input.value}
+                  {modified && (
+                    <>
+                      {' '}
+                      <Modified />
+                    </>
+                  )}
+                </p>
               )}
             </dd>
           </FactRow>

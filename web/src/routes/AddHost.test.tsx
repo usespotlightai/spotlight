@@ -2,7 +2,6 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RunnerPoolNameTakenError } from '@/hooks/api/useCreateRunnerPool';
 import { AddHost } from '@/routes/AddHost';
 
 const role = vi.fn();
@@ -132,34 +131,6 @@ describe('AddHost', () => {
     expect(create).toHaveBeenCalledWith('build-box-2');
   });
 
-  it('says a taken pool name is taken, and asks for another', () => {
-    creating.mockReturnValue({
-      error: new RunnerPoolNameTakenError('my-computer'),
-    });
-
-    renderPage();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'A pool named my-computer already exists. Choose another name.',
-    );
-    expect(screen.getByLabelText('Pool name')).toHaveAttribute(
-      'aria-invalid',
-      'true',
-    );
-  });
-
-  it('says why a pool could not be created otherwise', () => {
-    creating.mockReturnValue({
-      error: new Error('You may not do that to the runner-pool'),
-    });
-
-    renderPage();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'You may not do that to the runner-pool',
-    );
-  });
-
   it('gives the install command with the new pool’s token, once', () => {
     poolCreated();
 
@@ -176,11 +147,11 @@ describe('AddHost', () => {
     renderPage();
 
     expect(
-      screen.getByText(/A pool is a group of hosts that authenticate/),
+      screen.getByText(/Pool: hosts that share one token/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/shown only this once/)).toBeInTheDocument();
+    expect(screen.getByText(/shown only once/)).toBeInTheDocument();
     expect(
-      screen.getByText(/The host shows here as soon as it reports/),
+      screen.getByText(/The host appears here once connected/),
     ).toBeInTheDocument();
   });
 

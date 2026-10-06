@@ -43,10 +43,8 @@ export function CandidatesTab({
     );
   }
 
-  const now = new Date();
-
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {read.truncated && <TruncatedNote said={CANDIDATES_TRUNCATED} />}
 
       {read.stations.map((station) => (
@@ -56,7 +54,6 @@ export function CandidatesTab({
           teamId={teamId}
           station={station}
           names={names}
-          now={now}
         />
       ))}
     </div>

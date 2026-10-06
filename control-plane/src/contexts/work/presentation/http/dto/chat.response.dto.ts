@@ -118,6 +118,22 @@ export class ChatProposalResponseDto {
   @ApiProperty({ type: String, nullable: true, example: '#edc12b' })
   readonly stationColor: string | null;
 
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 2,
+    description: 'Where the station stands on its line, from 0',
+  })
+  readonly stationPosition: number | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 5,
+    description: 'How many stations its line has',
+  })
+  readonly stationCount: number | null;
+
   @ApiProperty({ example: 'Back off retries exponentially' })
   readonly title: string;
 
@@ -140,6 +156,8 @@ export class ChatProposalResponseDto {
     stationId: string,
     stationName: string | null,
     stationColor: string | null,
+    stationPosition: number | null,
+    stationCount: number | null,
     title: string,
     description: string | null,
     state: string,
@@ -150,6 +168,8 @@ export class ChatProposalResponseDto {
     this.stationId = stationId;
     this.stationName = stationName;
     this.stationColor = stationColor;
+    this.stationPosition = stationPosition;
+    this.stationCount = stationCount;
     this.title = title;
     this.description = description;
     this.state = state;

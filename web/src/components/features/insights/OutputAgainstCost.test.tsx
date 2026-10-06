@@ -39,6 +39,8 @@ const DAYS: OutputDay[] = [
         lineId: 'line_1',
         stationId: 'station_build',
         fingerprint: 'b7d4a60c8e2f1a9b',
+        previousFingerprint:
+          '0000000000000000000000000000000000000000000000000000000000000000',
         firstRunAt: '2026-09-30T10:00:00.000Z',
         runId: 'run_1',
       },
@@ -46,10 +48,7 @@ const DAYS: OutputDay[] = [
   },
 ];
 
-const showing = (
-  currency: string | null = 'USD',
-  noSpend = 'Nothing was priced',
-) =>
+const showing = (currency: string | null = 'USD', noSpend = 'No priced runs') =>
   render(
     <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?period=7d']}>
       <Routes>
@@ -99,7 +98,7 @@ describe('OutputAgainstCost', () => {
                   teamId="team_1"
                   days={DAYS}
                   currency="USD"
-                  noSpend="Nothing was priced"
+                  noSpend="No priced runs"
                   names={NAMES}
                 />
               }
@@ -120,7 +119,7 @@ describe('OutputAgainstCost', () => {
 
     expect(show).toHaveBeenCalledWith({
       stationId: 'station_build',
-      fingerprint: 'b7d4a60c8e2f1a9b',
+      runId: 'run_1',
     });
   });
 
@@ -155,12 +154,10 @@ describe('OutputAgainstCost', () => {
   });
 
   it('leaves spend out where it cannot be summed in one currency', () => {
-    showing(null, 'Prices came in more than one currency');
+    showing(null, 'Prices in more than one currency');
 
     expect(
-      screen.getByText(
-        /Prices came in more than one currency, so spend is left out/,
-      ),
+      screen.getByText(/Spend not shown\. Prices in more than one currency/),
     ).toBeInTheDocument();
   });
 });

@@ -179,7 +179,7 @@ describe('the Tools tab', () => {
       migrations.querySelector('[data-slot="skill-trend"]'),
     ).toHaveAttribute('data-trend', 'spreading');
     expect(
-      screen.getByText(/moved 20 points or more over the last 2 weeks/),
+      screen.getByText(/moved 20\+ points\. Compares the last 2 weeks/),
     ).toBeInTheDocument();
   });
 

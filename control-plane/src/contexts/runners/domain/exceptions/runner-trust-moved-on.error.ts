@@ -3,7 +3,7 @@ export class RunnerTrustMovedOnError extends Error {
 
   constructor(trustId: string) {
     super(
-      `This runner trust has been changed since it was read, and cannot be written over (${trustId})`,
+      `Runner trust ${trustId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'RunnerTrustMovedOnError';
   }

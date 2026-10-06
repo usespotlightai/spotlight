@@ -1,6 +1,15 @@
-import { Get, HttpStatus, Param, Query } from '@nestjs/common';
+import {
+  Body,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import {
+  ApiBody,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -11,10 +20,16 @@ import {
   ApiProblemResponse,
   ConventionalApiController,
 } from '@platform/http/resources/conventional-api';
+import type { ConfigOriginsDto } from '@replays/application/dto/config-origins.dto';
 import type { ReplayedCandidatesDto } from '@replays/application/dto/replayed-candidates.dto';
 import { MOST_REPLAYED } from '@replays/application/queries/handlers/read-replayed-candidates.handler';
+import { ReadConfigOriginsQuery } from '@replays/application/queries/read-config-origins.query';
 import { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
+import { MOST_CHANGES } from '@replays/domain/services/changes-asked-about';
 import { REPLAYED_PERIODS } from '@replays/domain/value-objects/replayed-period.vo';
+import { changesIn } from '@replays/presentation/http/controllers/requests';
+import { ReadConfigOriginsRequestDto } from '@replays/presentation/http/dto/config-origins.request.dto';
+import { ConfigOriginsResponseDto } from '@replays/presentation/http/dto/config-origins.response.dto';
 import { ReplayedCandidatesResponseDto } from '@replays/presentation/http/dto/replayed-candidates.response.dto';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
@@ -60,6 +75,32 @@ export class ReplayedCandidatesController {
         ReadReplayedCandidatesQuery,
         ReplayedCandidatesDto
       >(new ReadReplayedCandidatesQuery(teamId, principal, periodOf(period))),
+    );
+  }
+
+  @Post('config-origins')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'readConfigOrigins',
+    summary:
+      'The searched or proposed candidate each station config change came from, replayed or not; nothing is written',
+    description: `Origins are worked out when asked, from the runs the team has kept. Each change is named by its station and the run it took effect with, as the team's insights change markers name them. A station changes config when a run that ran a config began with another config than the run that began before it there, ties broken by run; a run asked about that did not change its station's config has no origin. Otherwise its origin is the newest-made candidate at the station with the config it changed to, found by a search or proposed by a person or Terraform, made no later than the run began, among those the caller can see at stations that still exist, including candidates withdrawn since, which come back with withdrawn set. Deleting a task's runs changes the answer. The live config, sanity replays and pull-request check candidates are never an origin. Changes with no origin are left out; a run asked about twice at a station is answered once. At most ${MOST_CHANGES} changes.`,
+  })
+  @ApiBody({ type: ReadConfigOriginsRequestDto })
+  @ApiOkResponse({ type: ConfigOriginsResponseDto })
+  @ApiProblemResponse(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'A change with a blank station or run, or too many changes',
+  )
+  async configOrigins(
+    @Param('teamId') teamId: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<ConfigOriginsResponseDto> {
+    return new ConfigOriginsResponseDto(
+      await this.queryBus.execute<ReadConfigOriginsQuery, ConfigOriginsDto>(
+        new ReadConfigOriginsQuery(teamId, principal, changesIn(body)),
+      ),
     );
   }
 }

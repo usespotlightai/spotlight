@@ -5,7 +5,7 @@ export class HookKeyFixedError extends Error {
     key: string,
     readonly because: string,
   ) {
-    super(`The hook ${key} ${because}`);
+    super(`Hook ${key} ${because}.`);
     this.name = 'HookKeyFixedError';
   }
 }

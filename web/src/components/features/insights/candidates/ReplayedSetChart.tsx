@@ -1,5 +1,4 @@
 import { ReplayedScatter } from '@/components/features/insights/candidates/ReplayedScatter';
-import { UnchartedNotes } from '@/components/features/insights/candidates/UnchartedNotes';
 import {
   type CandidatesSet,
   replayedChart,
@@ -18,14 +17,12 @@ export function ReplayedSetChart({ set }: ReplayedSetChartProps) {
     <>
       {chart.priced.length === 0 || !currency ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
-          Nothing replayed over it has a priced score yet. Show the table for
-          what there is.
+          Nothing on this set has a priced score yet. Show the table to see
+          what’s there.
         </p>
       ) : (
         <ReplayedScatter points={chart.priced} currency={currency} />
       )}
-
-      <UnchartedNotes chart={chart} priced={currency !== null} />
     </>
   );
 }

@@ -50,6 +50,8 @@ interface ChatProposalView {
   readonly stationId: string;
   readonly stationName: string | null;
   readonly stationColor: string | null;
+  readonly stationPosition: number | null;
+  readonly stationCount: number | null;
   readonly title: string;
   readonly description: string | null;
   readonly state: string;

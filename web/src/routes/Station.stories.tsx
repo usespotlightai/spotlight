@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Route } from 'react-router';
-import { stationPath } from '@/lib/station';
+import { stationTabPath } from '@/lib/station';
 import { Station } from '@/routes/Station';
 import {
   failStationReplays,
@@ -18,27 +18,26 @@ import {
 } from '@/stories/fixtures/searches';
 import {
   failStation,
-  failStationJudge,
   failStationOutcomes,
   LINE_ID,
-  refuseStationJudge,
   refuseStationOutcomes,
   STATION_ID,
   seedStationAwaitingOutcomes,
   seedStationClaimsJudge,
   seedStationJudgeAwaiting,
-  seedStationJudgeEmpty,
   seedStationJudgeHidden,
   seedStationWithoutRuns,
 } from '@/stories/fixtures/station';
 import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
 import { StoryPage } from '@/stories/StoryPage';
 
-const at = stationPath(SLUG, TEAM_ID, LINE_ID, STATION_ID);
+const at = stationTabPath(SLUG, TEAM_ID, LINE_ID, STATION_ID, 'overview');
+const improve = stationTabPath(SLUG, TEAM_ID, LINE_ID, STATION_ID, 'improve');
+const config = stationTabPath(SLUG, TEAM_ID, LINE_ID, STATION_ID, 'config');
 
 const routes = (
   <Route
-    path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId"
+    path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId/:tab?"
     element={<Station />}
   />
 );
@@ -65,6 +64,7 @@ export const Failed: Story = {
 };
 
 export const WithData: Story = {
+  name: 'Overview',
   render: () => (
     <StoryPage at={at} seed={seedStationSearches}>
       {routes}
@@ -72,8 +72,33 @@ export const WithData: Story = {
   ),
 };
 
+export const Improve: Story = {
+  render: () => (
+    <StoryPage at={improve} seed={seedStationSearches}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const Config: Story = {
+  render: () => (
+    <StoryPage at={config} seed={seedStationSearches}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const ConfigJudgeByClaims: Story = {
+  name: 'Config judge by claims',
+  render: () => (
+    <StoryPage at={config} seed={seedStationClaimsJudge}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
 export const RunsLoading: Story = {
-  name: 'Runs loading',
+  name: 'Recent runs loading',
   render: () => (
     <StoryPage at={at} seed={seedStationAwaitingOutcomes}>
       {routes}
@@ -82,7 +107,7 @@ export const RunsLoading: Story = {
 };
 
 export const RunsEmpty: Story = {
-  name: 'Runs empty',
+  name: 'Recent runs empty',
   render: () => (
     <StoryPage at={at} seed={seedStationWithoutRuns}>
       {routes}
@@ -91,7 +116,7 @@ export const RunsEmpty: Story = {
 };
 
 export const RunsFailed: Story = {
-  name: 'Runs error',
+  name: 'Recent runs error',
   render: () => (
     <StoryPage at={at} seed={failStationOutcomes}>
       {routes}
@@ -100,7 +125,7 @@ export const RunsFailed: Story = {
 };
 
 export const RunsMembersOnly: Story = {
-  name: 'Runs members only',
+  name: 'Recent runs members only',
   render: () => (
     <StoryPage at={at} seed={refuseStationOutcomes}>
       {routes}
@@ -112,42 +137,6 @@ export const JudgeLoading: Story = {
   name: 'Judge loading',
   render: () => (
     <StoryPage at={at} seed={seedStationJudgeAwaiting}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const JudgeEmpty: Story = {
-  name: 'Judge empty',
-  render: () => (
-    <StoryPage at={at} seed={seedStationJudgeEmpty}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const JudgeFailed: Story = {
-  name: 'Judge error',
-  render: () => (
-    <StoryPage at={at} seed={failStationJudge}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const JudgeMembersOnly: Story = {
-  name: 'Judge members only',
-  render: () => (
-    <StoryPage at={at} seed={refuseStationJudge}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const JudgeByClaims: Story = {
-  name: 'Judge by claims',
-  render: () => (
-    <StoryPage at={at} seed={seedStationClaimsJudge}>
       {routes}
     </StoryPage>
   ),
@@ -165,7 +154,7 @@ export const JudgeHidden: Story = {
 export const ReplaysLoading: Story = {
   name: 'Replays loading',
   render: () => (
-    <StoryPage at={at} seed={seedStationReplaysAwaiting}>
+    <StoryPage at={improve} seed={seedStationReplaysAwaiting}>
       {routes}
     </StoryPage>
   ),
@@ -174,7 +163,7 @@ export const ReplaysLoading: Story = {
 export const ReplaysEmpty: Story = {
   name: 'Replays empty',
   render: () => (
-    <StoryPage at={at} seed={seedStationWithoutReplays}>
+    <StoryPage at={improve} seed={seedStationWithoutReplays}>
       {routes}
     </StoryPage>
   ),
@@ -183,7 +172,7 @@ export const ReplaysEmpty: Story = {
 export const ReplaysFailed: Story = {
   name: 'Replays error',
   render: () => (
-    <StoryPage at={at} seed={failStationReplays}>
+    <StoryPage at={improve} seed={failStationReplays}>
       {routes}
     </StoryPage>
   ),
@@ -192,7 +181,7 @@ export const ReplaysFailed: Story = {
 export const ReplaysMembersOnly: Story = {
   name: 'Replays members only',
   render: () => (
-    <StoryPage at={at} seed={refuseStationReplays}>
+    <StoryPage at={improve} seed={refuseStationReplays}>
       {routes}
     </StoryPage>
   ),
@@ -201,10 +190,7 @@ export const ReplaysMembersOnly: Story = {
 export const Replays: Story = {
   name: 'Replays',
   render: () => (
-    <StoryPage
-      at={{ pathname: at, hash: '#replays' }}
-      seed={seedStationReplays}
-    >
+    <StoryPage at={improve} seed={seedStationReplays}>
       {routes}
     </StoryPage>
   ),
@@ -213,10 +199,7 @@ export const Replays: Story = {
 export const SearchesLoading: Story = {
   name: 'Searches loading',
   render: () => (
-    <StoryPage
-      at={{ pathname: at, hash: '#searches' }}
-      seed={seedStationSearchesAwaiting}
-    >
+    <StoryPage at={improve} seed={seedStationSearchesAwaiting}>
       {routes}
     </StoryPage>
   ),
@@ -225,10 +208,7 @@ export const SearchesLoading: Story = {
 export const SearchesEmpty: Story = {
   name: 'Searches empty',
   render: () => (
-    <StoryPage
-      at={{ pathname: at, hash: '#searches' }}
-      seed={seedStationWithoutSearches}
-    >
+    <StoryPage at={improve} seed={seedStationWithoutSearches}>
       {routes}
     </StoryPage>
   ),
@@ -237,10 +217,7 @@ export const SearchesEmpty: Story = {
 export const SearchesFailed: Story = {
   name: 'Searches error',
   render: () => (
-    <StoryPage
-      at={{ pathname: at, hash: '#searches' }}
-      seed={failStationSearches}
-    >
+    <StoryPage at={improve} seed={failStationSearches}>
       {routes}
     </StoryPage>
   ),
@@ -249,10 +226,7 @@ export const SearchesFailed: Story = {
 export const SearchesMembersOnly: Story = {
   name: 'Searches members only',
   render: () => (
-    <StoryPage
-      at={{ pathname: at, hash: '#searches' }}
-      seed={refuseStationSearches}
-    >
+    <StoryPage at={improve} seed={refuseStationSearches}>
       {routes}
     </StoryPage>
   ),
@@ -261,10 +235,7 @@ export const SearchesMembersOnly: Story = {
 export const Searches: Story = {
   name: 'Searches',
   render: () => (
-    <StoryPage
-      at={{ pathname: at, hash: '#searches' }}
-      seed={seedStationSearches}
-    >
+    <StoryPage at={improve} seed={seedStationSearches}>
       {routes}
     </StoryPage>
   ),

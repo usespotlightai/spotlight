@@ -1,8 +1,8 @@
 import { COMPACT_PILL } from '@/components/features/runners/columns';
 import { ImagePill } from '@/components/features/runners/ImagePill';
+import { RefusedImagesPill } from '@/components/features/runners/RefusedImagesPill';
 import { Pill } from '@/components/shared/Pill';
 import type { HostImageResponseDto } from '@/lib/api';
-import { refusal } from '@/lib/runner';
 
 export function HostImageCell({
   images,
@@ -26,16 +26,7 @@ export function HostImageCell({
 
       {others > 0 && <Pill className={COMPACT_PILL}>+{others}</Pill>}
 
-      {refused.length > 0 && (
-        <Pill
-          title={refused
-            .map((image) => `${image.image}: ${refusal(image.refused ?? '')}`)
-            .join('\n')}
-          className={`${COMPACT_PILL} border-destructive/30 text-destructive`}
-        >
-          {refused.length} refused
-        </Pill>
-      )}
+      {refused.length > 0 && <RefusedImagesPill refused={refused} />}
     </span>
   );
 }

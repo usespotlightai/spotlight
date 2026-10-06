@@ -74,13 +74,13 @@ export class Review extends EventRecorder {
     now: Date;
   }): SubmittedReview {
     if (!input.author.inSpotlight) {
-      throw new InvalidReviewError(
-        'is submitted by someone in Spotlight, or by an agent',
-      );
+      throw new InvalidReviewError('must be submitted by a person or an agent');
     }
 
     if (!(REVIEW_VERDICTS as readonly string[]).includes(input.verdict)) {
-      throw new InvalidReviewError('comments, approves, or requests changes');
+      throw new InvalidReviewError(
+        'verdict must be comment, approve or request changes',
+      );
     }
 
     const verdict = input.verdict as ReviewVerdict;
@@ -94,7 +94,7 @@ export class Review extends EventRecorder {
         !draft.taskId.equals(input.taskId)
       ) {
         throw new InvalidReviewError(
-          'holds only its author’s drafts on this task',
+          'can only include its author’s drafts on this task',
         );
       }
     }
@@ -102,8 +102,8 @@ export class Review extends EventRecorder {
     if (!says(verdict, body, input.drafts.length)) {
       throw new InvalidReviewError(
         verdict === 'request-changes'
-          ? 'that requests changes says which'
-          : 'says something',
+          ? 'that requests changes must say which'
+          : 'must say something',
       );
     }
 
@@ -196,7 +196,7 @@ export class Review extends EventRecorder {
     onFiles: readonly ReviewCommentId[] = [],
   ): Review {
     if (this.state !== 'submitted') {
-      throw new InvalidReviewError('is posted to GitHub only once');
+      throw new InvalidReviewError('is already posted to GitHub');
     }
 
     const posted = this.with('posted', githubId, now);
@@ -215,12 +215,10 @@ export class Review extends EventRecorder {
 
   withdrawn(standing: readonly ReviewComment[]): Review {
     if (this.state !== 'submitted') {
-      throw new InvalidReviewError('is withdrawn only before it is posted');
+      throw new InvalidReviewError('cannot be withdrawn after it is posted');
     }
     if (!this.silentWith(standing)) {
-      throw new InvalidReviewError(
-        'is withdrawn only once it has nothing left to say',
-      );
+      throw new InvalidReviewError('can only be withdrawn once it is empty');
     }
 
     const withdrawn = this.with('withdrawn', null, null);

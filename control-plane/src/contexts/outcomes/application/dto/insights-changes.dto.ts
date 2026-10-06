@@ -16,7 +16,7 @@ export interface ChangeMarkerDto {
   readonly lineId: string;
   readonly stationId: string;
   readonly fingerprint: string;
-  readonly previousFingerprint: string | null;
+  readonly previousFingerprint: string;
   readonly firstRunAt: string;
   readonly runId: string;
   readonly before: RunTally;

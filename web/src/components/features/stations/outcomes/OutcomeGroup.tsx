@@ -3,6 +3,8 @@ import { ConfigChanges } from '@/components/features/stations/ConfigChanges';
 import { OutcomeRow } from '@/components/features/stations/outcomes/OutcomeRow';
 import { StationTallyFigures } from '@/components/features/stations/outcomes/StationTallyFigures';
 import { Fingerprint } from '@/components/shared/Fingerprint';
+import { Noted } from '@/components/shared/Noted';
+import { Pill } from '@/components/shared/Pill';
 import { runPath } from '@/lib/run';
 import type { FingerprintGroup } from '@/lib/station-outcomes';
 
@@ -28,10 +30,19 @@ export function OutcomeGroup({ slug, teamId, group }: OutcomeGroupProps) {
                 fingerprint={group.fingerprint}
                 className="text-muted-foreground"
               />
+              {!group.ran && (
+                <Noted note="No run started on this config. Its runs failed before starting or were withdrawn.">
+                  <span className="inline-flex">
+                    <Pill className="py-0 pr-1.5 pl-1.5 text-[0.7rem] text-foreground">
+                      Never started
+                    </Pill>
+                  </span>
+                </Noted>
+              )}
             </>
           ) : (
             <span className="font-medium text-foreground">
-              Before configs were recorded
+              Before the first run with a config
             </span>
           )}
         </p>

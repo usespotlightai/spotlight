@@ -9,7 +9,7 @@ export class NetworkCallId {
     const value = raw.trim();
 
     if (!ID.test(value)) {
-      throw new InvalidNetworkCallError('must say which call it is');
+      throw new InvalidNetworkCallError('id must not be empty');
     }
 
     return new NetworkCallId(value);

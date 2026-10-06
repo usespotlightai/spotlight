@@ -125,21 +125,6 @@ describe('ApprovalCard', () => {
     ).toBeDisabled();
   });
 
-  it('says why an answer was refused', () => {
-    render(
-      <ApprovalCard
-        approval={COMMENT}
-        pending={false}
-        failure="The conversation asks about body, issue, so changes must name exactly those"
-        onDecide={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'changes must name exactly those',
-    );
-  });
-
   it('forgets the reason on cancel, so dismissing again starts afresh', async () => {
     showing(COMMENT);
 
@@ -232,7 +217,7 @@ describe('ApprovalCard', () => {
       screen.getByRole('heading', { name: 'Request approved with changes' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Fixed in #41.')).toBeInTheDocument();
-    expect(screen.getByText('changed by you')).toBeInTheDocument();
+    expect(screen.getByText('(modified)')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     ).toBeDisabled();

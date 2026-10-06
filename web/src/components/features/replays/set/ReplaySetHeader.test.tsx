@@ -24,8 +24,6 @@ vi.mock('@/hooks/api/useGuardChanges', () => ({
   useGuardChanges: () => ({
     mutate: vi.fn(),
     isPending: false,
-    isError: false,
-    error: null,
   }),
 }));
 
@@ -89,14 +87,14 @@ describe('ReplaySetHeader', () => {
 
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
     expect(
-      screen.getByText(/can’t be deleted until that ends or is stopped/),
+      screen.getByText(/Delete it once that ends or is stopped/),
     ).toBeInTheDocument();
   });
 
   it('says a set whose station is gone takes no more runs, and still offers rename and delete', () => {
     renderHeader({ ...SET, stationGone: true }, []);
 
-    expect(screen.getByText(/takes no\s+more runs/)).toBeInTheDocument();
+    expect(screen.getByText(/takes no\s+runs/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rename' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
   });
@@ -106,7 +104,7 @@ describe('ReplaySetHeader', () => {
 
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
     expect(screen.getByRole('note')).toHaveTextContent(
-      'A search of this set is under way, so its runs stay as they are',
+      'A search of this set is underway. Its runs are frozen',
     );
   });
 });

@@ -11,7 +11,6 @@ vi.mock('@/hooks/api/useStartReplay', () => ({
   useStartReplay: () => ({
     mutate,
     isPending: false,
-    isError: false,
     reset: vi.fn(),
   }),
 }));
@@ -80,9 +79,7 @@ describe('StartReplayDialog', () => {
     renderDialog(1);
 
     expect(
-      screen.getByText(
-        /this replay of the live config becomes the new baseline/,
-      ),
+      screen.getByText(/this replay becomes the new baseline/),
     ).toBeInTheDocument();
   });
 
@@ -90,15 +87,17 @@ describe('StartReplayDialog', () => {
     renderDialog(null);
 
     expect(
-      screen.getByText(/this replay of the live config becomes it/),
+      screen.getByText(/This replay of the live config becomes it/),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/twice it/)).toBeNull();
+    expect(screen.queryByText(/twice this ceiling/)).toBeNull();
 
     await userEvent.click(
       screen.getByRole('radio', { name: /Shorter prompt/ }),
     );
 
-    expect(screen.getByText(/may spend up to twice it/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Most both may spend: twice this ceiling/),
+    ).toBeInTheDocument();
   });
 
   it('says a new baseline starts when the set’s baseline copied each run fewer times than asked', async () => {
@@ -110,7 +109,7 @@ describe('StartReplayDialog', () => {
 
     expect(
       screen.getByText(
-        /The set’s baseline replays each run once, fewer than this replay, so this replay of the live config becomes the new baseline/,
+        /Set’s baseline replays each run once, fewer than this replay\. This replay of the live config becomes the new baseline/,
       ),
     ).toBeInTheDocument();
 
@@ -119,9 +118,7 @@ describe('StartReplayDialog', () => {
     );
 
     expect(
-      screen.getByText(
-        /a new baseline of the live config also starts beside it, replaying each run 3 times/,
-      ),
+      screen.getByText(/A new baseline replaying each run 3 times also starts/),
     ).toBeInTheDocument();
   });
 
@@ -132,7 +129,7 @@ describe('StartReplayDialog', () => {
 
     expect(mutate).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Give a ceiling above nothing.',
+      'Please enter a ceiling above 0.',
     );
   });
 
@@ -168,7 +165,7 @@ describe('StartReplayDialog', () => {
 
     expect(mutate).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Give a whole number from 1 to 5.',
+      'Please enter a whole number from 1 to 5.',
     );
 
     await userEvent.clear(repeats);

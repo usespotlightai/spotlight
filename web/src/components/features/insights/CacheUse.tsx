@@ -70,12 +70,13 @@ export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
 
   return (
     <InsightsCard
+      tableOnly={stations.length > 0}
       title="Read from cache"
-      description="Cache reads as a share of everything read: input, cache reads and cache writes, in tokens. Runs whose harness did not count input and cache reads are left out."
+      description="Cache reads as a share of all tokens read: input, cache reads and cache writes. Runs whose harness doesn’t count input or cache reads are left out."
     >
       {stations.length === 0 ? (
         <p className="py-2 text-muted-foreground text-sm">
-          No station reported its tokens.
+          No station reported tokens in this period.
         </p>
       ) : (
         <InsightsTable

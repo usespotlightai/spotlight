@@ -32,7 +32,7 @@ export class Voice {
   }): Voice {
     if (input.by === 'person') {
       if (!input.author) {
-        throw new InvalidVoiceError('is a person’s, so it needs their name');
+        throw new InvalidVoiceError('of a person needs their name');
       }
 
       return Voice.person(UserId.of(input.author));
@@ -40,20 +40,20 @@ export class Voice {
 
     if (input.author) {
       throw new InvalidVoiceError(
-        `carries a name, so it is a person’s and not ${input.by}’s`,
+        `with a name belongs to a person, not to ${input.by}`,
       );
     }
 
     if (input.by === 'world') {
       if (input.run) {
-        throw new InvalidVoiceError('is the world’s, so no run of ours spoke');
+        throw new InvalidVoiceError('of the world names no run');
       }
 
       return Voice.world();
     }
 
     if (input.by !== 'station') {
-      throw new InvalidVoiceError(`is none of ${VOICES.join(', ')}`);
+      throw new InvalidVoiceError(`must be one of ${VOICES.join(', ')}`);
     }
 
     return Voice.station(input.run ? RunId.of(input.run) : null);

@@ -73,7 +73,7 @@ describe('RenewCheckLeaseHandler', () => {
 
     await expect(handler.execute(renewal())).rejects.toMatchObject({
       kind: 'not-found',
-      message: 'runner runner_1 is not known',
+      message: 'Runner runner_1 not found.',
     });
     expect(renewLease).not.toHaveBeenCalled();
   });

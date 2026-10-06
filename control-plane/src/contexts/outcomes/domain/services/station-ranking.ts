@@ -31,6 +31,7 @@ export interface SignalReading {
   readonly team: number | null;
   readonly rose: boolean;
   readonly trails: boolean;
+  readonly flaggedAbove: number;
   readonly currency: string | null;
 }
 
@@ -64,14 +65,17 @@ const ratesOf = (tally: RunTally, taskFailures: number): Rates => ({
   cost: tally.cost ? rateOf(tally.cost.amount, tally.runs) : null,
 });
 
+const worseLineOf = (signal: StationSignal, than: number): number =>
+  signal === 'cost'
+    ? than * WORSE_BY
+    : Math.max(than * WORSE_BY, than + RATE_MARGIN);
+
 const worse = (
   signal: StationSignal,
   now: number,
   than: number | null,
 ): boolean =>
-  than !== null &&
-  now > than * WORSE_BY &&
-  (signal === 'cost' || now - than >= RATE_MARGIN);
+  than !== null && now > than * WORSE_BY && now >= worseLineOf(signal, than);
 
 const MOST_WORSE = 10;
 
@@ -144,6 +148,11 @@ export const stationsWorthImproving = (
         const rose = worse(signal, reading, before[signal]);
         const trails = worse(signal, reading, team[signal]);
 
+        const crossed = [
+          rose ? before[signal] : null,
+          trails ? team[signal] : null,
+        ].flatMap((than) => (than === null ? [] : [worseLineOf(signal, than)]));
+
         return rose || trails
           ? [
               {
@@ -153,6 +162,7 @@ export const stationsWorthImproving = (
                 team: team[signal],
                 rose,
                 trails,
+                flaggedAbove: Math.min(...crossed),
                 currency: signal === 'cost' ? tallyNow.currency : null,
               },
             ]

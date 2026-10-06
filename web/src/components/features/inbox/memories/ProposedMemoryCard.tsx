@@ -17,7 +17,6 @@ type ProposedMemoryCardProps = {
   memory: ProposedMemory;
   position: number;
   pending: boolean;
-  failed: boolean;
   onApprove: (body?: string) => void;
   onReject: () => void;
 };
@@ -26,7 +25,6 @@ export function ProposedMemoryCard({
   memory,
   position,
   pending,
-  failed,
   onApprove,
   onReject,
 }: ProposedMemoryCardProps) {
@@ -67,12 +65,6 @@ export function ProposedMemoryCard({
         bodyId={bodyId}
         onBody={setBody}
       />
-
-      {open && failed && (
-        <p role="alert" className="text-destructive text-xs">
-          It could not be saved. Try again.
-        </p>
-      )}
 
       <ProposedMemoryControls
         position={position}

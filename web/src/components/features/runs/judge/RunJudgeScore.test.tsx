@@ -131,9 +131,7 @@ describe('RunJudgeScore', () => {
 
     expect(screen.getByText('score hidden')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'Hidden: Cohen’s kappa is 0.38, below the 0.60 it needs.',
-      ),
+      screen.getByText('Hidden. Cohen’s kappa: 0.38. Minimum required: 0.60'),
     ).toBeInTheDocument();
     expect(
       document.querySelector('[data-slot="judge-verdict"]'),

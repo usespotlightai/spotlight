@@ -15,7 +15,7 @@ export class ClaimPattern {
     if (!held || held.length > LONGEST || /\s/.test(held)) {
       throw new InvalidTokenTrustError(
         field,
-        `is one word of at most ${LONGEST} characters, where * stands for any run of characters, as in repo:acme/platform:ref:refs/heads/*`,
+        `must be one word of at most ${LONGEST} characters, as in repo:acme/platform:ref:refs/heads/*`,
       );
     }
 

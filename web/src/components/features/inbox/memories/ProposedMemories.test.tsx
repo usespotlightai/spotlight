@@ -12,8 +12,8 @@ const reviewState = {
   errorUpdateCount: 0,
   refetch,
 };
-const approve = { mutate: vi.fn(), isPending: false, isError: false };
-const reject = { mutate: vi.fn(), isPending: false, isError: false };
+const approve = { mutate: vi.fn(), isPending: false };
+const reject = { mutate: vi.fn(), isPending: false };
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({ data: [{ id: 'claude-code', name: 'Claude Code' }] }),
@@ -212,7 +212,7 @@ describe('ProposedMemories', () => {
 
     expect(
       await screen.findByText(
-        'Someone telling the agent it was wrong, and what is right instead.',
+        'A person correcting the agent, and what is right instead.',
       ),
     ).toBeInTheDocument();
   });

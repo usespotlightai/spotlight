@@ -15,6 +15,10 @@ export interface ReplayRepository {
 
   ofCandidate(candidateId: CandidateId): Promise<readonly Replay[]>;
 
+  newestOfCandidates(
+    candidateIds: readonly CandidateId[],
+  ): Promise<ReadonlyMap<string, ReplayId>>;
+
   pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]>;
 
   ofSearch(searchId: SearchId): Promise<readonly Replay[]>;

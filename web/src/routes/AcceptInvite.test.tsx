@@ -23,8 +23,6 @@ vi.mock('@/hooks/api/useAcceptInvite', () => ({
   useAcceptInvite: () => ({
     mutate: accept,
     isPending: false,
-    isError: false,
-    error: null,
   }),
 }));
 
@@ -32,8 +30,6 @@ vi.mock('@/hooks/api/useSignIn', () => ({
   useSignIn: (callbackURL: string) => ({
     mutate: () => signIn(callbackURL),
     isPending: false,
-    isError: false,
-    error: null,
   }),
 }));
 
@@ -135,14 +131,14 @@ describe('AcceptInvite', () => {
       screen.queryByRole('button', { name: 'Accept invitation' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/sent to ada@example.com, and you are signed in as/),
+      screen.getByText(/Invitation is for ada@example.com, not /),
     ).toBeInTheDocument();
   });
 
   it.each([
-    ['accepted', 'This invitation has already been accepted.'],
-    ['revoked', 'This invitation has been taken back.'],
-    ['expired', 'This invitation has run out. Ask for another.'],
+    ['accepted', 'Invitation already accepted.'],
+    ['revoked', 'Invitation withdrawn.'],
+    ['expired', 'Invitation expired. Please ask for a new one.'],
   ])('says an invitation that is %s is no longer open', (standing, said) => {
     invite.mockReturnValue(offered({ standing }));
     session.mockReturnValue({
@@ -167,7 +163,7 @@ describe('AcceptInvite', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: 'This invitation link does not work',
+        name: 'Invitation link doesn’t work',
       }),
     ).toBeInTheDocument();
   });
@@ -205,7 +201,7 @@ describe('AcceptInvite', () => {
     );
     expect(
       screen.queryByRole('heading', {
-        name: 'This invitation link does not work',
+        name: 'Invitation link doesn’t work',
       }),
     ).not.toBeInTheDocument();
 

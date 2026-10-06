@@ -12,7 +12,7 @@ export class InvalidStationJudgeError extends Error {
     readonly field: StationJudgeField,
     reason: string,
   ) {
-    super(`A judge's ${field} ${reason}`);
+    super(`Judge ${field} ${reason}.`);
     this.name = 'InvalidStationJudgeError';
   }
 }

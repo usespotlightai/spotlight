@@ -128,7 +128,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
       type: 'urn:spotlight:problem:not-entitled',
       status: 403,
       detail:
-        'catalog.web-search@1.1.0 needs the Team plan, and this workspace is on the Free plan',
+        'catalog.web-search@1.1.0 needs the Team plan. Workspace plan: Free',
     });
   });
 
@@ -164,7 +164,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
 
     expect(answer.status).toBe(404);
     expect(answer.body.detail).toBe(
-      'No version of the catalog tool web-search matches ~> 2.0; it has 1.0.0, 1.1.0',
+      'No version of catalog tool web-search matches ~> 2.0. Available versions: 1.0.0, 1.1.0',
     );
   });
 
@@ -299,7 +299,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
       expect.objectContaining({
         path: `stations[1].tools[${at}]`,
         message:
-          'catalog.web-search@1.1.0 needs the Team plan, and this workspace is on the Free plan',
+          'catalog.web-search@1.1.0 needs the Team plan. Workspace plan: Free',
       }),
     ]);
   });
@@ -446,7 +446,7 @@ describe('a catalog call (e2e)', () => {
             id: 'catalog.web-search@1.1.0',
             reason: 'lapsed',
             because:
-              'catalog.web-search@1.1.0 needs the Team plan, and this workspace’s Team plan lapsed at 2026-09-01T00:00:00.000Z',
+              'catalog.web-search@1.1.0 needs the Team plan. The workspace’s Team plan has lapsed. Lapsed at: 2026-09-01T00:00:00.000Z',
           }),
         ]),
       ),

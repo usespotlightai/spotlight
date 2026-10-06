@@ -37,7 +37,7 @@ export class HostImageRequestDto {
 
   @ApiPropertyOptional({
     example:
-      'Its runner reports release 20260801-01, older than the 20260925-01 this control plane needs',
+      'Runner is on release 20260801-01. Minimum version required: 20260925-01',
     description: 'Why the host will not run it, when it will not',
   })
   readonly refused?: string;

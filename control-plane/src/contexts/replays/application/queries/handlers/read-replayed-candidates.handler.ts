@@ -1,6 +1,8 @@
 import type { ReplayedCandidatesDto } from '@replays/application/dto/replayed-candidates.dto';
+import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
+import type { PossibleOrigins } from '@replays/application/services/possible-origins.service';
 import { replayedCandidatesView } from '@replays/application/services/replayed-candidate-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
@@ -9,6 +11,11 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import {
+  adoptionsOf,
+  boundsOf,
+  latestCredited,
+} from '@replays/domain/services/config-origins';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
 import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -36,9 +43,11 @@ export class ReadReplayedCandidatesHandler
     private readonly sets: ReplaySetRepository,
     private readonly candidates: CandidateRepository,
     private readonly pullRequests: ConfigPullRequestRepository,
+    private readonly outcomes: OutcomesPort,
     private readonly work: WorkPort,
     private readonly clock: ClockPort,
     private readonly healths: SetHealths,
+    private readonly origins: PossibleOrigins,
   ) {}
 
   async execute(
@@ -101,8 +110,37 @@ export class ReadReplayedCandidatesHandler
         ),
       ]);
 
-      const live = await this.healths.standardsAt(
-        seen.map((each) => each.station),
+      const shownOrigins = candidates
+        .filter((each) => clearance.sees(each.station))
+        .flatMap((each) => (each.possibleOrigin ? [each.possibleOrigin] : []));
+      const possible = await this.origins.seenAt(
+        clearance,
+        distinct(shownOrigins.map((each) => each.stationId)),
+      );
+      const creditable = new Set(possible.map((each) => each.stationId));
+      const starts = await this.outcomes.stretchStarts(
+        clearance.teamId,
+        boundsOf(shownOrigins.filter((each) => creditable.has(each.stationId))),
+      );
+      const shownIds = new Set(
+        shownOrigins.map((each) => each.candidate.id.value),
+      );
+      const credited = new Map(
+        [...latestCredited(starts, possible)].filter(([candidateId]) =>
+          shownIds.has(candidateId),
+        ),
+      );
+      const live = await this.healths.standardsAt([
+        ...seen.map((each) => each.station),
+        ...candidates
+          .filter((each) => credited.has(each.id.value))
+          .map((each) => each.station),
+      ]);
+      const adoptions = adoptionsOf(
+        credited,
+        starts,
+        possible,
+        (stationId) => live.get(stationId)?.fingerprint ?? null,
       );
       const healths = await this.healths.ofSets(seen, live);
       const standards = new Map(
@@ -128,6 +166,7 @@ export class ReadReplayedCandidatesHandler
         pullRequests,
         standing,
         standards,
+        adoptions,
       });
     } catch (error) {
       rethrowAsFault(error);

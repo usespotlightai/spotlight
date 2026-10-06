@@ -50,10 +50,10 @@ describe('ReflectionNoticeWording', () => {
     );
 
     expect(said.headline).toBe(
-      'The search for a better Build config stalled: nothing left the config can fix',
+      'The search for a better Build config ended with nothing the config can fix',
     );
     expect(said.points).toEqual([
-      'Two iterations in a row found nothing better, so its agent looked into the 2 tasks the best config so far still fails, and found none a change to the config could fix. The search ended, keeping what it did not spend.',
+      'No config change can fix the 2 tasks still failing. Unspent budget is kept.',
       'Fix the judge’s rubric, for “Drain the queue on restart”: Drop the test requirement.',
       'Take the task out of the replay set, or reword it, for one of the searched tasks: Evidence 2.',
     ]);
@@ -75,16 +75,16 @@ describe('ReflectionNoticeWording', () => {
       ).headline;
 
     expect(headline('went-on')).toBe(
-      'The search for a better station config goes on, but found failures outside the config',
+      'The search for a better station config goes on after finding failures outside the config',
     );
     expect(headline('no-failures')).toBe(
-      'The search for a better station config stalled: its best config already passes every task it searches, so there was nothing to look into',
+      'The search for a better station config ended with every searched task passing',
     );
     expect(headline('did-not-run')).toBe(
-      'The search for a better station config stalled, and looking into why could not run',
+      'The search for a better station config ended after its reflection failed',
     );
     expect(headline('out-of-budget')).toBe(
-      'The search for a better station config ran out of budget: it found what the config could fix, but could not try it',
+      'The search for a better station config ran out of budget',
     );
   });
 
@@ -102,7 +102,7 @@ describe('ReflectionNoticeWording', () => {
     );
 
     expect(points).toHaveLength(20);
-    expect(points[19]).toBe('7 more on the search’s page');
+    expect(points[19]).toBe('7 more on the search page.');
   });
 
   it('always says what happened first, even with nothing for a person to fix', () => {
@@ -120,9 +120,7 @@ describe('ReflectionNoticeWording', () => {
       );
 
       expect(points).toHaveLength(1);
-      expect(points[0]).toMatch(
-        /^Two iterations in a row found nothing better/,
-      );
+      expect(points[0]).toMatch(/^[A-Z].+\.$/);
     }
   });
 });
@@ -131,9 +129,9 @@ describe('UnreflectedStallWording', () => {
   it('says the search stalled with no budget left to look into why', () => {
     expect(UnreflectedStallWording.of('Build')).toEqual({
       headline:
-        'The search for a better Build config stalled, with no budget left to look into why',
+        'The search for a better Build config ended with no budget left to reflect',
       points: [
-        'Two iterations in a row found nothing better, and the search had no budget left for its agent to look into why the remaining tasks fail, so it ended. Start a new search with more budget to find out.',
+        'Two iterations in a row found nothing better. Please start a new search with more budget to find out why.',
       ],
     });
   });

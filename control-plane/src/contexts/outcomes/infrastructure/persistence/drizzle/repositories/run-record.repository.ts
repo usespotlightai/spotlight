@@ -8,10 +8,16 @@ import type {
   StationRecords,
   TeamWindow,
 } from '@outcomes/domain/repositories/run-record.repository';
+import {
+  earliestBounds,
+  type StretchBound,
+  type StretchStart,
+} from '@outcomes/domain/services/config-stretches';
 import type {
   Narrowing,
   RunFilter,
 } from '@outcomes/domain/services/run-filter';
+import { inEndOrder } from '@outcomes/domain/services/run-order';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import {
@@ -26,8 +32,10 @@ import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import {
+  ranAConfig,
   runRecord,
   type StoredTools,
+  startOrderColumns,
   taskDelivery,
   taskTouches,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
@@ -58,6 +66,7 @@ import {
   type SQLWrapper,
   sql,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 type RecordRow = typeof runRecord.$inferSelect;
 
@@ -378,6 +387,53 @@ const columnsOf = (record: RunRecord) => {
   };
 };
 
+const boundsOf = (earliest: readonly StretchBound[]): SQL => {
+  const stationIds = sql.join(
+    earliest.map(({ stationId }) => sql`${stationId}`),
+    sql`, `,
+  );
+  const froms = sql.join(
+    earliest.map(({ from }) => sql`${from.toISOString()}`),
+    sql`, `,
+  );
+  const fromRuns = sql.join(
+    earliest.map(({ fromRun }) => sql`${fromRun?.value ?? ''}`),
+    sql`, `,
+  );
+
+  return sql`unnest(array[${stationIds}]::text[], array[${froms}]::timestamp[], array[${fromRuns}]::text[]) as bound(station_id, from_at, from_run)`;
+};
+
+const beforeBound = (began: SQL, inRunOrder: SQL): SQL =>
+  sql`(${began} < bound.from_at or (${began} = bound.from_at and ${inRunOrder} < bound.from_run collate "C"))`;
+
+const lastConfigRunBefore = (teamId: TeamId): SQL => {
+  const seed = alias(runRecord, 'seed');
+  const [seedBegan, seedInRunOrder] = startOrderColumns(seed);
+
+  return sql`(
+    select ${seed.runId} as run_id, ${seed.fingerprint} as fingerprint
+    from ${runRecord} ${seed}
+    where ${seed.teamId} = ${teamId.value}
+      and ${seed.stationId} = bound.station_id
+      and ${ranAConfig(seed)}
+      and ${beforeBound(seedBegan, seedInRunOrder)}
+    order by ${seedBegan} desc, ${seedInRunOrder} desc
+    limit 1
+  )`;
+};
+
+const atStation = (criteria: StationRecords): SQL | undefined =>
+  and(
+    eq(runRecord.workspaceId, criteria.workspaceId.value),
+    eq(runRecord.teamId, criteria.teamId.value),
+    eq(runRecord.stationId, criteria.stationId),
+    criteria.lineId === null
+      ? undefined
+      : eq(runRecord.lineId, criteria.lineId),
+    isNotNull(runRecord.endedAt),
+  );
+
 @Injectable()
 export class DrizzleRunRecordRepository implements RunRecordRepository {
   constructor(
@@ -492,22 +548,108 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
     return row ? toRecord(row) : null;
   }
 
-  async lastAtStation(criteria: StationRecords): Promise<readonly RunRecord[]> {
+  async stretchStarts(
+    teamId: TeamId,
+    bounds: readonly StretchBound[],
+  ): Promise<readonly StretchStart[]> {
+    const earliest = [...earliestBounds(bounds).values()];
+
+    if (earliest.length === 0) {
+      return [];
+    }
+
+    const [began, inRunOrder] = startOrderColumns(runRecord);
+    const result = await this.context.db.execute<{
+      run_id: string;
+      station_id: string;
+      fingerprint: string;
+      began: string;
+    }>(sql`
+      with seeded as (
+        select bound.station_id, bound.from_at, bound.from_run, previous.fingerprint as seed
+        from ${boundsOf(earliest)}
+        left join lateral ${lastConfigRunBefore(teamId)} previous on true
+      ),
+      ran as (
+        select
+          ${runRecord.runId} as run_id,
+          ${runRecord.stationId} as station_id,
+          ${runRecord.fingerprint} as fingerprint,
+          ${began} as began,
+          coalesce(
+            lag(${runRecord.fingerprint}) over (
+              partition by ${runRecord.stationId} order by ${began}, ${inRunOrder}
+            ),
+            seeded.seed
+          ) as before
+        from seeded
+        join ${runRecord}
+          on ${runRecord.teamId} = ${teamId.value}
+          and ${runRecord.stationId} = seeded.station_id
+        where ${ranAConfig(runRecord)}
+          and (${began} > seeded.from_at or (${began} = seeded.from_at and ${inRunOrder} >= seeded.from_run collate "C"))
+      )
+      select
+        run_id,
+        station_id,
+        fingerprint,
+        to_char(began, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as began
+      from ran
+      where ran.before is distinct from ran.fingerprint
+      order by ran.station_id, ran.began, ran.run_id collate "C"
+    `);
+
+    return result.rows.map((row) => ({
+      runId: RunId.of(row.run_id),
+      stationId: row.station_id,
+      fingerprint: row.fingerprint,
+      changedAt: new Date(row.began),
+    }));
+  }
+
+  async lastConfigRunsBefore(
+    teamId: TeamId,
+    bounds: readonly StretchBound[],
+  ): Promise<readonly RunRecord[]> {
+    const earliest = [...earliestBounds(bounds).values()];
+
+    if (earliest.length === 0) {
+      return [];
+    }
+
     const rows = await this.context.db
       .select()
       .from(runRecord)
       .where(
-        and(
-          eq(runRecord.workspaceId, criteria.workspaceId.value),
-          eq(runRecord.teamId, criteria.teamId.value),
-          eq(runRecord.stationId, criteria.stationId),
-          criteria.lineId === null
-            ? undefined
-            : eq(runRecord.lineId, criteria.lineId),
-          isNotNull(runRecord.endedAt),
-        ),
-      )
+        sql`${runRecord.runId} in (
+          select previous.run_id
+          from ${boundsOf(earliest)}
+          join lateral ${lastConfigRunBefore(teamId)} previous on true
+        )`,
+      );
+
+    return rows.map(toRecord);
+  }
+
+  async lastAtStation(criteria: StationRecords): Promise<readonly RunRecord[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runRecord)
+      .where(atStation(criteria))
       .orderBy(desc(runRecord.endedAt))
+      .limit(criteria.last);
+
+    return rows.map(toRecord);
+  }
+
+  async latestStartedAtStation(
+    criteria: StationRecords,
+  ): Promise<readonly RunRecord[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runRecord)
+      .where(atStation(criteria))
+      .orderBy(...startOrderColumns(runRecord).map((each) => sql`${each} desc`))
       .limit(criteria.last);
 
     return rows.map(toRecord);
@@ -521,10 +663,10 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
       .select()
       .from(runRecord)
       .where(endedInWindow(window))
-      .orderBy(desc(runRecord.endedAt), desc(runRecord.runId))
+      .orderBy(...startOrderColumns(runRecord).map((each) => sql`${each} desc`))
       .limit(most);
 
-    return rows.reverse().map(toRecord);
+    return rows.map(toRecord).sort(inEndOrder);
   }
 
   async listedForTeam(listing: RunListing): Promise<RunPage> {

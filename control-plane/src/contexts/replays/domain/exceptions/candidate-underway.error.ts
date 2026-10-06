@@ -3,7 +3,7 @@ export class CandidateUnderwayError extends Error {
 
   constructor(candidateId: string) {
     super(
-      `The candidate ${candidateId} is being replayed; stop its replays first`,
+      `Candidate ${candidateId} is being replayed. Please stop its replays first.`,
     );
     this.name = 'CandidateUnderwayError';
   }

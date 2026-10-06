@@ -6,9 +6,9 @@ import { useLines } from '@/hooks/api/useLines';
 import { DEFAULT_PERIOD, stationNamesOf } from '@/lib/insights';
 import { insightsAt, loadInsights } from '@/stories/fixtures/insights';
 import {
+  EFFORT_CHANGE,
   failBeforeAfter,
   goneBeforeAfter,
-  OPUS_CHANGE,
   seedBeforeAfter,
 } from '@/stories/fixtures/insights-changes';
 import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
@@ -24,7 +24,7 @@ function Panel() {
         slug={SLUG}
         teamId={TEAM_ID}
         period={DEFAULT_PERIOD}
-        change={OPUS_CHANGE}
+        change={EFFORT_CHANGE}
         names={names}
         open
         onClose={() => {}}

@@ -45,8 +45,6 @@ vi.mock('@/hooks/api/useInviteToTeam', () => ({
     mutate: invite,
     reset: vi.fn(),
     isPending: false,
-    isError: false,
-    error: null,
   }),
 }));
 
@@ -58,8 +56,6 @@ vi.mock('@/hooks/api/useChangeMemberRole', () => ({
   useChangeMemberRole: () => ({
     mutate: changeRole,
     isPending: false,
-    isError: false,
-    error: null,
     variables: undefined,
   }),
 }));
@@ -138,7 +134,9 @@ describe('TeamGeneral', () => {
     members.mockReturnValue([]);
     showing();
 
-    expect(screen.getByText('No one is on this team yet.')).toBeInTheDocument();
+    expect(
+      screen.getByText('No members yet. Add one to get started.'),
+    ).toBeInTheDocument();
   });
 
   it('shows what each member is in the workspace', () => {
@@ -279,7 +277,7 @@ describe('TeamGeneral', () => {
 
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Unsend the invitation to ada@example.com',
+        name: 'Withdraw the invitation to ada@example.com',
       }),
     );
 
@@ -314,7 +312,7 @@ describe('TeamGeneral', () => {
       screen.getByRole('button', { name: 'Add a member' }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText('No one is on this team yet.'),
+      screen.queryByText('No members yet. Add one to get started.'),
     ).not.toBeInTheDocument();
   });
 
@@ -349,7 +347,7 @@ describe('TeamGeneral', () => {
       'Members could not be loaded.',
     );
     expect(
-      screen.queryByText('No one is on this team yet.'),
+      screen.queryByText('No members yet. Add one to get started.'),
     ).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
@@ -361,7 +359,9 @@ describe('TeamGeneral', () => {
     members.mockReturnValue([]);
     showing();
 
-    expect(screen.getByText('No one is on this team yet.')).toBeInTheDocument();
+    expect(
+      screen.getByText('No members yet. Add one to get started.'),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Invite the first member' }),
     ).not.toBeInTheDocument();
