@@ -164,7 +164,7 @@ const dispatch: TaskDispatching = {
   runIdFor: async () => RunId.of('run_2'),
 };
 
-const files = new FilesAtHand({
+const store = {
   grant: vi.fn(),
   received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
     given.map((id) =>
@@ -177,9 +177,12 @@ const files = new FilesAtHand({
     ),
   ),
   keep: vi.fn(),
+  taken: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
-} satisfies AttachmentStorePort);
+} satisfies AttachmentStorePort;
+
+const files = new FilesAtHand(store);
 
 const answer = (
   found: Task,
@@ -217,6 +220,10 @@ describe('AnswerInboxItem', () => {
     const last = saved?.notes[saved.notes.length - 1];
     expect(last?.body.value).toBe('Attached queue.png.');
     expect(last?.attachments.map((each) => each.id.value)).toEqual(['file_1']);
+    expect(store.taken).toHaveBeenCalledWith(
+      saved?.workspaceId,
+      last?.attachments,
+    );
   });
 
   it('stops the task waiting and puts it back to work', async () => {

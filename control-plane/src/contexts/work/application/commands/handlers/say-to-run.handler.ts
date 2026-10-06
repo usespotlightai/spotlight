@@ -92,6 +92,7 @@ export class SayToRunHandler
     await this.tasks.save(
       line && heard.wantsRun(line) ? await this.handedOn(heard, line) : heard,
     );
+    await this.files.takenIn(task.workspaceId, attachments);
   }
 
   private async handedOn(task: Task, line: Line): Promise<Task> {

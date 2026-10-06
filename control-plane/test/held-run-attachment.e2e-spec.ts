@@ -19,6 +19,7 @@ const POOL_TOKEN = `${'a'.repeat(8)}${randomUUID().replaceAll('-', '')}`;
 
 const attachmentStore = {
   received: async () => [],
+  taken: async () => undefined,
   open: async () => ({
     bytes: new Uint8Array([7, 7, 7]),
     contentType: 'image/png',

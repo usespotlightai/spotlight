@@ -21,6 +21,7 @@ const store = () =>
       ),
     ),
     keep: vi.fn(),
+    taken: vi.fn(),
     link: vi.fn(),
     open: vi.fn(),
   }) satisfies AttachmentStorePort;
@@ -55,6 +56,20 @@ describe('FilesAtHand', () => {
     ).rejects.toThrow('must say which file it is');
 
     expect(files.received).not.toHaveBeenCalled();
+  });
+
+  it('has the store take the files in', async () => {
+    const files = store();
+    const file = Attachment.of({
+      id: 'file_1',
+      name: 'queue.png',
+      contentType: 'image/png',
+      size: 4096,
+    });
+
+    await new FilesAtHand(files).takenIn(WORKSPACE, [file]);
+
+    expect(files.taken).toHaveBeenCalledWith(WORKSPACE, [file]);
   });
 
   it('asks for nothing where nothing was handed over', async () => {

@@ -1,4 +1,5 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -9,6 +10,7 @@ export class RaiseTask {
     private readonly tasks: TaskRepository,
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
+    private readonly files: FilesAtHand,
   ) {}
 
   async raise(input: { task: Task; line: Line }): Promise<Task> {
@@ -21,6 +23,7 @@ export class RaiseTask {
         : input.task;
 
       await this.tasks.add(handed);
+      await this.files.takenIn(handed.workspaceId, handed.attachments);
 
       return handed;
     });

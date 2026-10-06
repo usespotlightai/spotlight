@@ -360,9 +360,12 @@ Beyond `.env`:
 ### Attachments and workspace archives
 
 Browsers upload straight to S3 through presigned URLs (15 minutes) under
-`pending/<workspace>/<id>`; a file joins a task only once its id is sent with
-one, at which point it is copied under `workspaces/<workspace>/attachments/`.
-In development MinIO serves the bucket under its own hostname, so addressing
+`pending/<workspace>/<id>`. A file joins a task only once its id is sent with
+one; after the task or chat has accepted and saved the message, the object is
+copied under `workspaces/<workspace>/attachments/` and the pending copy
+dropped. If that save fails afterwards, the kept copy stays: nothing removes
+attachments under `workspaces/`, which is the cheaper side to err on. In
+development MinIO serves the bucket under its own hostname, so addressing
 matches AWS.
 
 A runner keeps its task's workspace, its checkout and the harness's conversation,
@@ -395,8 +398,9 @@ The bucket, not provisioned here, needs:
       "ExposeHeaders": [], "MaxAgeSeconds": 3000 }]
    ```
 3. A lifecycle rule expiring objects under `pending/` after a day. Nothing
-   under `workspaces/` should expire: Spotlight removes archives and kept
-   attachments itself, and expiring an archive loses a task's conversation.
+   under `workspaces/` should expire: Spotlight removes archives itself, kept
+   attachments are never removed, and expiring an archive loses a task's
+   conversation.
 
 The key pair needs only `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on
 `arn:aws:s3:::<bucket>/pending/*` and `arn:aws:s3:::<bucket>/workspaces/*`.

@@ -52,6 +52,7 @@ const files = {
   grant: vi.fn(),
   received: vi.fn(async () => []),
   keep: vi.fn(),
+  taken: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
 } satisfies AttachmentStorePort;

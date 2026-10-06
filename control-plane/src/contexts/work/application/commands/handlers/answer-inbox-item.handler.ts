@@ -81,5 +81,6 @@ export class AnswerInboxItemHandler
     await this.tasks.save(
       runId && line ? answered.handedTo(runId, line) : answered,
     );
+    await this.files.takenIn(task.workspaceId, attachments);
   }
 }

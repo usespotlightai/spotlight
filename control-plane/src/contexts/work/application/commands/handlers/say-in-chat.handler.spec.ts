@@ -42,7 +42,10 @@ const saying = async (model?: string | null, effort?: string | null) => {
         saved.push(chat);
       },
     } as unknown as ChatRepository,
-    { handedOver: async () => [] } as unknown as FilesAtHand,
+    {
+      handedOver: async () => [],
+      takenIn: async () => undefined,
+    } as unknown as FilesAtHand,
     { shared: async () => [] } as unknown as TracesAtHand,
     { takenUp: async (chat: Chat) => chat } as unknown as ChatDispatching,
     { now: () => NOW } as ClockPort,

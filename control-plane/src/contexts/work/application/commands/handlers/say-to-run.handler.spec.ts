@@ -146,7 +146,10 @@ const saying = (
     { run: (work) => work() } satisfies TransactionPort,
     dispatch,
     { now: () => NOW } as ClockPort,
-    { handedOver: async () => [] } as unknown as FilesAtHand,
+    {
+      handedOver: async () => [],
+      takenIn: async () => undefined,
+    } as unknown as FilesAtHand,
   ).execute(new SayToRunCommand(RUN.value, saidBy, body, []));
 };
 
