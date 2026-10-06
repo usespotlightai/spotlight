@@ -8,7 +8,6 @@ type InsightsCardProps = {
   title: string;
   description?: string;
   actions?: ReactNode;
-  toolbar?: ReactNode;
   table?: ReactNode;
   tableOnly?: boolean;
   children: ReactNode;
@@ -18,15 +17,13 @@ export function InsightsCard({
   title,
   description,
   actions,
-  toolbar,
   table,
   tableOnly = false,
   children,
 }: InsightsCardProps) {
   const titleId = useId();
   const [tabled, setTabled] = useState(false);
-  const showing = table && tabled ? table : children;
-  const merged = !toolbar && (tableOnly || Boolean(table && tabled));
+  const merged = tableOnly || Boolean(table && tabled);
 
   const controls = (actions || table) && (
     <>
@@ -55,7 +52,9 @@ export function InsightsCard({
       className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
       {merged ? (
-        <CardHeadingContext value={heading}>{showing}</CardHeadingContext>
+        <CardHeadingContext value={heading}>
+          {table && tabled ? table : children}
+        </CardHeadingContext>
       ) : (
         <>
           <header className="flex min-h-8 flex-wrap items-center gap-2 border-border border-b bg-muted/40 px-2.5 py-1">
@@ -65,17 +64,7 @@ export function InsightsCard({
             {controls}
           </header>
 
-          {toolbar && (
-            <div className="border-border border-b px-2.5 py-1.5">
-              {toolbar}
-            </div>
-          )}
-
-          {table && tabled ? (
-            table
-          ) : (
-            <div className="flex min-w-0 flex-col gap-2 p-2.5">{children}</div>
-          )}
+          <div className="flex min-w-0 flex-col gap-2 p-2.5">{children}</div>
         </>
       )}
     </section>

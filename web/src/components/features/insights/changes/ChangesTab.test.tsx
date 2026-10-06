@@ -216,10 +216,17 @@ const REPLAYED = {
   ],
 } as InsightsCandidates;
 
+const filter = async (name: string) => {
+  if (!screen.queryByRole('button', { name })) {
+    await userEvent.click(
+      screen.getByRole('button', { name: /^Filter the setups/ }),
+    );
+  }
+  await userEvent.click(await screen.findByRole('button', { name }));
+};
+
 const narrowingTo = async (station: string) => {
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Station: Every station' }),
-  );
+  await filter('Station: Every station');
   await userEvent.click(
     await screen.findByRole('menuitemradio', { name: station }),
   );
@@ -397,9 +404,7 @@ describe('the Changes tab', () => {
   it('narrows the comparison by task size', async () => {
     showing();
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Task size: Every size' }),
-    );
+    await filter('Task size: Every size');
     await userEvent.click(
       await screen.findByRole('menuitemradio', { name: 'Large' }),
     );
@@ -485,9 +490,7 @@ describe('the Changes tab', () => {
   it('hides replayed points while the chart shows an outcome where lower is better', async () => {
     showing();
     await narrowingTo('Implementation');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Outcome: Accepted' }),
-    );
+    await filter('Outcome: Accepted');
     await userEvent.click(
       await screen.findByRole('menuitemradio', { name: 'Sent back' }),
     );
@@ -593,5 +596,22 @@ describe('the Changes tab', () => {
       'href',
       '/w/acme/team/team_1/lines/line_1',
     );
+  });
+
+  it('keeps the setup filters behind one button that counts and clears them', async () => {
+    showing();
+
+    await narrowingTo('Implementation');
+
+    const button = screen.getByRole('button', {
+      name: 'Filter the setups, 1 applied',
+    });
+    expect(button).toHaveTextContent('1');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Clear filters' }),
+    );
+
+    expect(answer.asked.at(-1)).toEqual({ stationId: null, size: null });
   });
 });

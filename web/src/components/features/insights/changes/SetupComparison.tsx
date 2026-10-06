@@ -105,7 +105,7 @@ export function SetupComparison({
     <InsightsCard
       title="Harness, model, effort and profile"
       description={`${outcomeLabel(measure)} against cost per run.${drawn ? ' Replayed points show replay success on past tasks.' : ''} The frontier joins setups no other matches for less. Minimum runs per setup: ${setups.fewestRuns}. Task size, by a run’s changes: ${setups.sizes.map(sizeRuleShown).join('; ')}.`}
-      toolbar={filters}
+      actions={filters}
       table={
         <>
           <SetupTable
