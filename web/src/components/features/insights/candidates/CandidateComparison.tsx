@@ -44,7 +44,6 @@ export function CandidateComparison({ at, set }: CandidateComparisonProps) {
               key={candidate.candidateId}
               at={at}
               candidate={candidate}
-              adoption={candidate.adoption}
               heldOut={heldOut}
             />
           ))}

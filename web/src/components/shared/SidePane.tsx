@@ -79,7 +79,7 @@ export function SidePane({
         {...handleProps}
         edge="left"
         resizing={resizing}
-        className="inset-y-2 left-0"
+        className="inset-y-2"
       />
     </div>
   );

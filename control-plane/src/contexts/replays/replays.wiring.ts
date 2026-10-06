@@ -32,10 +32,6 @@ import {
   type ChangeJudgingPort,
 } from '@outcomes/application/ports/change-judging.port';
 import {
-  CONFIG_STRETCHES,
-  type ConfigStretchesPort,
-} from '@outcomes/application/ports/config-stretches.port';
-import {
   PAIR_JUDGING,
   type PairJudgingPort,
 } from '@outcomes/application/ports/pair-judging.port';
@@ -124,7 +120,6 @@ import { ListSetReplayChecksHandler } from '@replays/application/queries/handler
 import { ListTeamReplaySetsHandler } from '@replays/application/queries/handlers/list-team-replay-sets.handler';
 import { ListTeamSearchesHandler } from '@replays/application/queries/handlers/list-team-searches.handler';
 import { ReadCandidateHandler } from '@replays/application/queries/handlers/read-candidate.handler';
-import { ReadConfigOriginsHandler } from '@replays/application/queries/handlers/read-config-origins.handler';
 import { ReadConfigPullRequestHandler } from '@replays/application/queries/handlers/read-config-pull-request.handler';
 import { ReadReplayHandler } from '@replays/application/queries/handlers/read-replay.handler';
 import { ReadReplayCheckHandler } from '@replays/application/queries/handlers/read-replay-check.handler';
@@ -142,7 +137,6 @@ import { ListSetReplayChecksQuery } from '@replays/application/queries/list-set-
 import { ListTeamReplaySetsQuery } from '@replays/application/queries/list-team-replay-sets.query';
 import { ListTeamSearchesQuery } from '@replays/application/queries/list-team-searches.query';
 import { ReadCandidateQuery } from '@replays/application/queries/read-candidate.query';
-import { ReadConfigOriginsQuery } from '@replays/application/queries/read-config-origins.query';
 import { ReadConfigPullRequestQuery } from '@replays/application/queries/read-config-pull-request.query';
 import { ReadReplayQuery } from '@replays/application/queries/read-replay.query';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
@@ -162,7 +156,6 @@ import { CheckReadings } from '@replays/application/services/check-readings.serv
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import { EnsureCheckBaselines } from '@replays/application/services/ensure-check-baselines.service';
-import { ForgetGoneStationOrigins } from '@replays/application/services/forget-gone-station-origins.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
 import { LetReplayRunsGo } from '@replays/application/services/let-replay-runs-go.service';
@@ -178,7 +171,6 @@ import { NoteSearchProgress } from '@replays/application/services/note-search-pr
 import { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
-import { PossibleOrigins } from '@replays/application/services/possible-origins.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { SearchSights } from '@replays/application/services/search-sights.service';
 import { SearchSummaries } from '@replays/application/services/search-summaries.service';
@@ -367,13 +359,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: OUTCOMES,
-    inject: [RUN_ACCEPTANCE, CHANGE_JUDGING, PAIR_JUDGING, CONFIG_STRETCHES],
+    inject: [RUN_ACCEPTANCE, CHANGE_JUDGING, PAIR_JUDGING],
     useFactory: (
       acceptance: RunAcceptancePort,
       judging: ChangeJudgingPort,
       pairs: PairJudgingPort,
-      stretches: ConfigStretchesPort,
-    ) => new Outcomes(acceptance, judging, pairs, stretches),
+    ) => new Outcomes(acceptance, judging, pairs),
   },
   {
     provide: PEOPLE,
@@ -737,12 +728,6 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     WORK,
     SetHealths,
   ]),
-  ...bindQueryHandler(ReadConfigOriginsQuery, ReadConfigOriginsHandler, [
-    ReplaysAccess,
-    OUTCOMES,
-    PossibleOrigins,
-    DrizzleReplayRepository,
-  ]),
   ...bindQueryHandler(
     ReadReplayedCandidatesQuery,
     ReadReplayedCandidatesHandler,
@@ -753,11 +738,9 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DrizzleReplaySetRepository,
       DrizzleCandidateRepository,
       DrizzleConfigPullRequestRepository,
-      OUTCOMES,
       WORK,
       CLOCK,
       SetHealths,
-      PossibleOrigins,
     ],
   ),
   ...bindQueryHandler(ReadReplayOfRunQuery, ReadReplayOfRunHandler, [
@@ -1130,18 +1113,6 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ) => new AbandonReplays(sets, replays, candidates, transaction),
   },
   {
-    provide: PossibleOrigins,
-    inject: [DrizzleCandidateRepository, WORK],
-    useFactory: (candidates: DrizzleCandidateRepository, work: WorkPort) =>
-      new PossibleOrigins(candidates, work),
-  },
-  {
-    provide: ForgetGoneStationOrigins,
-    inject: [DrizzleCandidateRepository, WORK],
-    useFactory: (candidates: DrizzleCandidateRepository, work: WorkPort) =>
-      new ForgetGoneStationOrigins(candidates, work),
-  },
-  {
     provide: StartWantedBaseline,
     inject: [
       DrizzleReplaySetRepository,
@@ -1236,7 +1207,6 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       AbandonReplayChecks,
       AbandonConfigPullRequests,
       NoticeSearchReflections,
-      ForgetGoneStationOrigins,
     ],
     useFactory: (
       types: EventTypes,
@@ -1264,7 +1234,6 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       abandoningChecks: AbandonReplayChecks,
       abandoningPullRequests: AbandonConfigPullRequests,
       noticingReflections: NoticeSearchReflections,
-      forgettingGoneStationOrigins: ForgetGoneStationOrigins,
     ) => {
       types.register('replays', REPLAYS_EVENT_TYPES);
       subscribers.register(
@@ -1292,7 +1261,6 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           abandoningChecks,
           abandoningPullRequests,
           noticingReflections,
-          forgettingGoneStationOrigins,
         }),
       );
       return true;

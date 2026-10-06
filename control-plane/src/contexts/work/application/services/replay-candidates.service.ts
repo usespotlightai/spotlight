@@ -11,7 +11,6 @@ import type {
   ReplayStation,
   ReplayThreshold,
 } from '@work/application/ports/replay-candidates.port';
-import type { StationsStandingPort } from '@work/application/ports/stations-standing.port';
 import type {
   CandidateLines,
   StandingStation,
@@ -73,7 +72,6 @@ export class ReplayCandidates implements ReplayCandidatesPort {
     private readonly candidates: CandidateLines,
     private readonly rendering: LineRenderingPort,
     private readonly digest: ContentDigestPort,
-    private readonly stations: StationsStandingPort,
   ) {}
 
   private digestsOf(
@@ -178,9 +176,5 @@ export class ReplayCandidates implements ReplayCandidatesPort {
           replayCheck: thresholdOf(standing.line.replayCheck),
         }
       : null;
-  }
-
-  standingAmong(stationIds: readonly string[]): Promise<readonly string[]> {
-    return this.stations.among(stationIds);
   }
 }

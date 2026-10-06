@@ -1,5 +1,4 @@
 import { ExternalLink } from 'lucide-react';
-import { AdoptedPill } from '@/components/features/insights/candidates/AdoptedPill';
 import { ComparisonCell } from '@/components/features/insights/candidates/ComparisonCell';
 import { GainSaid } from '@/components/features/insights/candidates/GainSaid';
 import { RateTrack } from '@/components/features/insights/candidates/RateTrack';
@@ -8,7 +7,6 @@ import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { countShown } from '@/lib/insights';
 import {
-  type Adoption,
   changeLinkOf,
   comparedCosts,
   comparedRates,
@@ -33,14 +31,12 @@ const INKS: Record<GainVerdictCode, string> = {
 type CandidateComparisonRowProps = {
   at: ReplayedStation;
   candidate: SetCandidate;
-  adoption: Adoption | null;
   heldOut: boolean;
 };
 
 export function CandidateComparisonRow({
   at,
   candidate,
-  adoption,
   heldOut,
 }: CandidateComparisonRowProps) {
   const rates = comparedRates(candidate);
@@ -58,7 +54,6 @@ export function CandidateComparisonRow({
           <span className="min-w-0 truncate font-medium text-foreground text-xs">
             {candidate.name}
           </span>
-          {adoption && <AdoptedPill adoption={adoption} />}
           {candidate.replayState && candidate.replayState !== 'finished' && (
             <ReplayStatePill
               state={candidate.replayState}

@@ -22720,116 +22720,6 @@
           "replays"
         ]
       }
-    },
-    "/teams/{teamId}/config-origins": {
-      "post": {
-        "description": "Origins are worked out when asked, from the runs the team has kept. Each change is named by its station and the run it took effect with, as the team's insights change markers name them. A station changes config when a run that ran a config began with another config than the run that began before it there, ties broken by run; a run asked about that did not change its station's config has no origin. Otherwise its origin is the newest-made candidate at the station with the config it changed to, found by a search or proposed by a person or Terraform, made no later than the run began, among those the caller can see at stations that still exist, including candidates withdrawn since, which come back with withdrawn set. Deleting a task's runs changes the answer. The live config, sanity replays and pull-request check candidates are never an origin. Changes with no origin are left out; a run asked about twice at a station is answered once. At most 100 changes.",
-        "operationId": "readConfigOrigins",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version it was answered in",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReadConfigOriginsRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConfigOriginsResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or asking for an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "A change with a blank station or run, or too many changes",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "The searched or proposed candidate each station config change came from, replayed or not; nothing is written",
-        "tags": [
-          "replays"
-        ]
-      }
     }
   },
   "info": {
@@ -43165,58 +43055,6 @@
           "seed"
         ]
       },
-      "CreditedToResponseDto": {
-        "type": "object",
-        "properties": {
-          "candidateId": {
-            "type": "string",
-            "example": "f2b8c0d4-5e6a-4b7c-8d9e-0f1a2b3c4d5e"
-          },
-          "name": {
-            "type": "string",
-            "example": "Shorter review prompt"
-          },
-          "withdrawn": {
-            "type": "boolean",
-            "description": "Whether the newer candidate has since been withdrawn; a withdrawn candidate keeps its credit but can no longer be opened"
-          }
-        },
-        "required": [
-          "candidateId",
-          "name",
-          "withdrawn"
-        ]
-      },
-      "ReplayedAdoptionResponseDto": {
-        "type": "object",
-        "properties": {
-          "at": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-09-30T10:00:00.000Z",
-            "description": "When the station last changed to the candidate’s config with a change credited to it, so a station that left the config and took it up again shows the return"
-          },
-          "live": {
-            "type": "boolean",
-            "description": "Whether the station’s latest config change is the one credited to the candidate and the station still runs that config, as Work fingerprints it; a later candidate credited with a return to the same config takes over"
-          },
-          "creditedTo": {
-            "nullable": true,
-            "description": "The newer candidate credited with the station’s latest config change, where that change went back to this candidate’s config; this candidate is then not live",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CreditedToResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "at",
-          "live",
-          "creditedTo"
-        ]
-      },
       "ReplayedCandidateResponseDto": {
         "type": "object",
         "properties": {
@@ -43392,16 +43230,6 @@
                 "$ref": "#/components/schemas/CandidatePullRequestResponseDto"
               }
             ]
-          },
-          "adoption": {
-            "nullable": true,
-            "description": "When the station last changed to its config with a change config-origins credits to it, whatever the period, and whether the station still runs it; null while no change is credited to it",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ReplayedAdoptionResponseDto"
-              }
-            ]
           }
         },
         "required": [
@@ -43431,8 +43259,7 @@
           "againstLive",
           "onFrontier",
           "search",
-          "pullRequest",
-          "adoption"
+          "pullRequest"
         ]
       },
       "ReplayedSetResponseDto": {
@@ -43533,132 +43360,6 @@
           "period",
           "truncated",
           "stations"
-        ]
-      },
-      "ConfigChangeRequestDto": {
-        "type": "object",
-        "properties": {
-          "stationId": {
-            "type": "string",
-            "description": "The station whose config changed"
-          },
-          "runId": {
-            "type": "string",
-            "example": "run_1",
-            "description": "The run the change took effect with: its first run with the config, as an insights change marker names it"
-          }
-        },
-        "required": [
-          "stationId",
-          "runId"
-        ]
-      },
-      "ReadConfigOriginsRequestDto": {
-        "type": "object",
-        "properties": {
-          "changes": {
-            "maxItems": 100,
-            "description": "The config changes to find origins for, each named by its station and first run; a run at a station asked about twice counts once. At most 100 changes.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ConfigChangeRequestDto"
-            }
-          }
-        },
-        "required": [
-          "changes"
-        ]
-      },
-      "ConfigOriginResponseDto": {
-        "type": "object",
-        "properties": {
-          "stationId": {
-            "type": "string",
-            "description": "The station of the change asked about"
-          },
-          "runId": {
-            "type": "string",
-            "example": "run_1",
-            "description": "The run of the change asked about, as asked"
-          },
-          "fingerprint": {
-            "type": "string",
-            "description": "The config the station changed to"
-          },
-          "changedAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-09-30T10:00:00.000Z",
-            "description": "When the change took effect: when its run began"
-          },
-          "candidateId": {
-            "type": "string",
-            "description": "The candidate the change came from"
-          },
-          "name": {
-            "type": "string",
-            "example": "one-comment-per-problem"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "searched",
-              "proposed"
-            ],
-            "description": "Found by a search, or proposed by a person or Terraform"
-          },
-          "lineId": {
-            "type": "string"
-          },
-          "searchId": {
-            "type": "string",
-            "nullable": true,
-            "description": "The search that found it, for information only: a withdrawn candidate’s search may be gone too; null unless searched"
-          },
-          "replayId": {
-            "type": "string",
-            "nullable": true,
-            "description": "Its newest replay, for a proposed candidate still standing; null when searched, withdrawn or never replayed"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-09-29T16:00:00.000Z",
-            "description": "When the candidate was made"
-          },
-          "withdrawn": {
-            "type": "boolean",
-            "description": "Whether the candidate has since been withdrawn; a withdrawn origin still names it, but it has no page to link to"
-          }
-        },
-        "required": [
-          "stationId",
-          "runId",
-          "fingerprint",
-          "changedAt",
-          "candidateId",
-          "name",
-          "kind",
-          "lineId",
-          "searchId",
-          "replayId",
-          "createdAt",
-          "withdrawn"
-        ]
-      },
-      "ConfigOriginsResponseDto": {
-        "type": "object",
-        "properties": {
-          "origins": {
-            "description": "For each change asked about that came from a candidate, that candidate, in the order asked; changes with no origin are left out",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ConfigOriginResponseDto"
-            }
-          }
-        },
-        "required": [
-          "origins"
         ]
       }
     }

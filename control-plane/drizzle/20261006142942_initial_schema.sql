@@ -1139,17 +1139,6 @@ CREATE TABLE "replay_set_entry" (
 	CONSTRAINT "replay_set_entry_set_id_run_id_pk" PRIMARY KEY("set_id","run_id")
 );
 --> statement-breakpoint
-CREATE TABLE "withdrawn_origin_candidate" (
-	"id" text PRIMARY KEY NOT NULL,
-	"workspace_id" text NOT NULL,
-	"team_id" text NOT NULL,
-	"line_id" text NOT NULL,
-	"station_id" text NOT NULL,
-	"fingerprint" text NOT NULL,
-	"name" text NOT NULL,
-	"created_at" timestamp NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "pool_token" (
 	"token_hash" text PRIMARY KEY NOT NULL,
 	"pool_id" text NOT NULL,
@@ -1817,8 +1806,6 @@ CREATE INDEX "replay_set_station_idx" ON "replay_set" USING btree ("station_id")
 CREATE INDEX "replay_set_team_idx" ON "replay_set" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "replay_set_line_idx" ON "replay_set" USING btree ("line_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "replay_set_guards_changes_idx" ON "replay_set" USING btree ("station_id") WHERE "replay_set"."guards_changes";--> statement-breakpoint
-CREATE INDEX "withdrawn_origin_candidate_station_idx" ON "withdrawn_origin_candidate" USING btree ("station_id");--> statement-breakpoint
-CREATE INDEX "withdrawn_origin_candidate_team_idx" ON "withdrawn_origin_candidate" USING btree ("team_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint

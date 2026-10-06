@@ -1,5 +1,4 @@
 import type {
-  ReplayedAdoptionDto,
   ReplayedBaselineDto,
   ReplayedCandidateDto,
   ReplayedCandidatesDto,
@@ -20,7 +19,6 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { baselineOf } from '@replays/domain/services/baseline';
-import type { Adoption } from '@replays/domain/services/config-origins';
 import { frontierOf } from '@replays/domain/services/frontier';
 import { gainBetween } from '@replays/domain/services/gain-reading';
 import { comparedWith } from '@replays/domain/services/replay-results';
@@ -44,7 +42,6 @@ export interface ReplayedCandidatesSeen {
   readonly pullRequests: readonly ConfigPullRequest[];
   readonly standing: readonly StandingRun[];
   readonly standards: ReadonlyMap<string, SetStandard>;
-  readonly adoptions: ReadonlyMap<string, Adoption>;
 }
 
 export interface SetStandard {
@@ -194,7 +191,6 @@ const searchedOf = (
   pullRequests: readonly ConfigPullRequest[],
   baseline: Replay | null,
   minGain: number,
-  adoptions: ReadonlyMap<string, Adoption>,
 ): readonly ReplayedCandidateDto[] => {
   const scores = scoresOf(search, searchReplays, minGain);
   const frontier = frontierOf(
@@ -270,29 +266,16 @@ const searchedOf = (
           },
         },
         pullRequest: pullRequestOf(each.candidateId),
-        adoption: adoptionView(adoptions.get(each.candidateId.value)),
       } satisfies ReplayedCandidateDto,
     ];
   });
 };
-
-const adoptionView = (
-  adoption: Adoption | undefined,
-): ReplayedAdoptionDto | null =>
-  adoption
-    ? {
-        at: adoption.at.toISOString(),
-        live: adoption.live,
-        creditedTo: adoption.creditedTo,
-      }
-    : null;
 
 const proposedOf = (
   replay: Replay,
   candidate: Candidate,
   baseline: Replay | null,
   minGain: number,
-  adoptions: ReadonlyMap<string, Adoption>,
 ): ReplayedCandidateDto => {
   const currency = replay.ceiling.currency;
   const scored = scoredOn(replay, null, currency);
@@ -319,7 +302,6 @@ const proposedOf = (
     onFrontier: null,
     search: null,
     pullRequest: null,
-    adoption: adoptionView(adoptions.get(candidate.id.value)),
   };
 };
 
@@ -372,7 +354,6 @@ export const replayedCandidatesView = (
         seen.pullRequests,
         baselineAt(search.setId.value),
         standardOf(search.setId.value).minGain,
-        seen.adoptions,
       ).map((candidate) => ({ setId: search.setId.value, candidate })),
     );
   const proposedReplays = grouped(
@@ -401,7 +382,6 @@ export const replayedCandidatesView = (
               candidate,
               baselineAt(replay.setId.value),
               standardOf(replay.setId.value).minGain,
-              seen.adoptions,
             ),
           },
         ]

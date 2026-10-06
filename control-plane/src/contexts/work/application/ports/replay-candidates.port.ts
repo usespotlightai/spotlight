@@ -79,6 +79,4 @@ export interface ReplayCandidatesPort {
   ): Promise<ExaminedCandidate | null>;
 
   live(lineId: string, stationId: string): Promise<LiveStation | null>;
-
-  standingAmong(stationIds: readonly string[]): Promise<readonly string[]>;
 }

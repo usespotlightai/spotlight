@@ -1,5 +1,5 @@
 {
-  "id": "dde6dfed-14e1-4915-af14-3372049a7c4c",
+  "id": "f43734b7-d5c4-49a1-8d2f-cbfc4ee3d2fd",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -9371,98 +9371,6 @@
           ]
         }
       },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.withdrawn_origin_candidate": {
-      "name": "withdrawn_origin_candidate",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "line_id": {
-          "name": "line_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "station_id": {
-          "name": "station_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fingerprint": {
-          "name": "fingerprint",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "withdrawn_origin_candidate_station_idx": {
-          "name": "withdrawn_origin_candidate_station_idx",
-          "columns": [
-            {
-              "expression": "station_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "withdrawn_origin_candidate_team_idx": {
-          "name": "withdrawn_origin_candidate_team_idx",
-          "columns": [
-            {
-              "expression": "team_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

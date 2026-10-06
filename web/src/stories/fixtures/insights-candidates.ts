@@ -20,7 +20,6 @@ const candidate = (
     Pick<SetCandidate, 'candidateId' | 'name' | 'kind' | 'replayId'>,
 ): SetCandidate => ({
   hypothesis: null,
-  adoption: null,
   fingerprint: 'e'.repeat(64),
   changes: [],
   replayState: 'finished',
@@ -334,7 +333,6 @@ const REVIEW_SET: CandidatesSet = {
       name: 'one-comment-per-problem',
       kind: 'proposed',
       replayId: 'replay_one_comment',
-      adoption: { at: daysAgo(4, 15), live: true, creditedTo: null },
       fingerprint: 'd'.repeat(64),
       replayedAt: daysAgo(6),
       tasks: 12,

@@ -405,31 +405,6 @@ export class DrizzleReplayRepository implements ReplayRepository {
     return this.withEntries(eq(replay.candidateId, candidateId.value));
   }
 
-  async newestOfCandidates(
-    candidateIds: readonly CandidateId[],
-  ): Promise<ReadonlyMap<string, ReplayId>> {
-    if (candidateIds.length === 0) {
-      return new Map();
-    }
-
-    const rows = await this.context.db
-      .selectDistinctOn([replay.candidateId], {
-        candidateId: replay.candidateId,
-        id: replay.id,
-      })
-      .from(replay)
-      .where(
-        inArray(replay.candidateId, [
-          ...new Set(candidateIds.map((each) => each.value)),
-        ]),
-      )
-      .orderBy(asc(replay.candidateId), desc(replay.startedAt), asc(replay.id));
-
-    return new Map(
-      rows.map((each) => [each.candidateId, ReplayId.of(each.id)]),
-    );
-  }
-
   async pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]> {
     const rows = await this.context.db
       .select({ id: replay.id })

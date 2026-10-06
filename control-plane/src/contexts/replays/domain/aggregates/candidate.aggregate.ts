@@ -8,13 +8,9 @@ import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-und
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import {
-  type CandidateKind,
-  isOriginKind,
-} from '@replays/domain/value-objects/candidate-kind';
+import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
-import type { PossibleOrigin } from '@replays/domain/value-objects/config-origin.vo';
 import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -33,8 +29,6 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const STRONGER_MODEL_PARTS: readonly string[] = ['model', 'effort'];
-
-type Departure = 'withdrawn' | 'abandoned';
 
 interface State {
   readonly id: CandidateId;
@@ -74,7 +68,7 @@ interface Proposal {
 export class Candidate extends EventRecorder {
   private constructor(
     private readonly state: State,
-    private readonly departure: Departure | null = null,
+    readonly isAbandoned = false,
   ) {
     super();
   }
@@ -281,41 +275,6 @@ export class Candidate extends EventRecorder {
     return this.state.kind === 'proposed';
   }
 
-  get possibleOrigin(): PossibleOrigin | null {
-    const { kind, station } = this.state;
-
-    return isOriginKind(kind)
-      ? {
-          workspaceId: station.workspaceId,
-          teamId: station.teamId,
-          lineId: station.lineId,
-          stationId: station.stationId,
-          fingerprint: this.state.fingerprint,
-          candidate: {
-            id: this.state.id,
-            name: this.state.name,
-            kind,
-            searchId: this.state.search?.searchId ?? null,
-            createdAt: this.state.createdAt,
-          },
-          withdrawn: false,
-        }
-      : null;
-  }
-
-  get isGone(): boolean {
-    return this.departure !== null;
-  }
-
-  get withdrawnOrigin(): PossibleOrigin | null {
-    const origin =
-      this.departure === 'withdrawn' && this.isProposed
-        ? this.possibleOrigin
-        : null;
-
-    return origin ? { ...origin, withdrawn: true } : null;
-  }
-
   get search(): CandidateSearch | null {
     return this.state.search;
   }
@@ -393,21 +352,21 @@ export class Candidate extends EventRecorder {
       throw new CandidateUnderwayError(this.id.value);
     }
 
-    return this.gone('withdrawn', by);
+    return this.gone(by);
   }
 
   abandoned(): Candidate {
     return this.isProposed
-      ? this.gone('abandoned', Attribution.spotlight(this.workspaceId))
-      : new Candidate(this.state, 'abandoned');
+      ? this.gone(Attribution.spotlight(this.workspaceId))
+      : new Candidate(this.state, true);
   }
 
   isFor(stationId: string): boolean {
     return this.state.station.stationId === stationId;
   }
 
-  private gone(departure: Departure, by: Attribution): Candidate {
-    const gone = new Candidate(this.state, departure);
+  private gone(by: Attribution): Candidate {
+    const gone = new Candidate(this.state, true);
 
     gone.record(
       new CandidateWithdrawn(

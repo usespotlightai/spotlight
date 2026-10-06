@@ -20,7 +20,6 @@ import {
   InMemoryReplays,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
-import { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abandonment-due.event';
 import { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-due.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
@@ -35,7 +34,6 @@ import {
   aSearch,
   aSet,
   BY,
-  candidateKindOf,
   candidateOf,
   endOf,
   FINGERPRINT,
@@ -391,43 +389,6 @@ describe('AbandonReplays', () => {
     expect(memory.replays.size).toBe(0);
     expect(memory.sets.size).toBe(0);
     expect(memory.candidates.size).toBe(0);
-    expect(memory.withdrawnOrigins.size).toBe(0);
-  });
-
-  it('forgets the withdrawn origins of a disbanded team', async () => {
-    const set = aSet(1);
-    const proposed = candidateKindOf({
-      kind: 'proposed',
-      id: 'candidate_proposed',
-    });
-    await memory.candidateRepository.add(proposed);
-    await memory.candidateRepository.save(proposed.withdrawn(false, BY));
-    expect(memory.withdrawnOrigins.size).toBe(1);
-
-    await abandoning().ofTeam(set.teamId, set.workspaceId);
-
-    expect(memory.withdrawnOrigins.size).toBe(0);
-  });
-
-  it('forgets the withdrawn origin of a candidate withdrawn while its team was being disbanded', async () => {
-    const set = aSet(1);
-    const proposed = candidateKindOf({
-      kind: 'proposed',
-      id: 'candidate_proposed',
-    });
-    await memory.candidateRepository.add(proposed);
-
-    const due = await abandoning().ofTeam(set.teamId, set.workspaceId);
-    await memory.candidateRepository.save(proposed.withdrawn(false, BY));
-    expect(memory.withdrawnOrigins.size).toBe(1);
-
-    for (const each of due) {
-      if (each instanceof CandidateAbandonmentDue) {
-        await abandoning().candidate(each.candidateId);
-      }
-    }
-
-    expect(memory.withdrawnOrigins.size).toBe(0);
   });
 
   it('asks for the replays of a deleted set to be abandoned', async () => {

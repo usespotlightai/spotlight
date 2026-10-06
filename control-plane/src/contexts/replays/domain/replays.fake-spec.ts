@@ -6,21 +6,16 @@ import {
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
-import type { StretchStart } from '@replays/domain/services/stretch-starts';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
-import type { PossibleOrigin } from '@replays/domain/value-objects/config-origin.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
-import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { RunOutcome } from '@replays/domain/value-objects/replay-ending';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
@@ -162,76 +157,6 @@ export const candidateOf = (
         ]),
         by: BY,
       });
-};
-
-export const candidateKindOf = (input: {
-  kind: CandidateKind;
-  id: string;
-  at?: Date;
-  stationId?: string;
-  workspaceId?: WorkspaceId;
-  fingerprint?: StationFingerprint;
-}): Candidate => {
-  const made = {
-    id: CandidateId.of(input.id),
-    station: {
-      ...STATION,
-      stationId: input.stationId ?? STATION.stationId,
-      workspaceId: input.workspaceId ?? STATION.workspaceId,
-    },
-    address: AT,
-    block: StationBlock.of({ key: 'build', name: 'Build', prompt: 'Go.' }),
-    fingerprint: input.fingerprint ?? FINGERPRINT,
-    digests: DIGESTS,
-    scoring: UNSCORED,
-    at: input.at ?? NOW,
-  };
-  const promptChanged = StationChanges.of(LIVE_FINGERPRINT, [
-    { part: 'prompt', name: null, kind: 'changed', was: null, now: null },
-  ]);
-
-  switch (input.kind) {
-    case 'live':
-      return Candidate.live(made);
-    case 'proposed':
-      return Candidate.proposed({
-        ...made,
-        name: CandidateName.of(`Proposed ${input.id}`),
-        changedFrom: promptChanged,
-        by: BY,
-      });
-    case 'searched':
-      return Candidate.searched({
-        ...made,
-        name: input.id.replaceAll('_', '-'),
-        changedFrom: promptChanged,
-        search: {
-          searchId: SEARCH_ID,
-          iteration: 1,
-          hypothesis: Hypothesis.of('A shorter prompt keeps it on task.'),
-        },
-      });
-    case 'planned':
-      return Candidate.planned({
-        ...made,
-        changedFrom: promptChanged,
-        reference: PlannedReference.of({ pullRequest: 42 }),
-        line: null,
-      });
-    case 'sanity':
-      return Candidate.sanity({
-        ...made,
-        changedFrom: StationChanges.of(LIVE_FINGERPRINT, [
-          {
-            part: 'model',
-            name: null,
-            kind: 'changed',
-            was: 'sonnet',
-            now: 'opus',
-          },
-        ]),
-      });
-  }
 };
 
 const entriesOf = (count: number): ReplaySetEntry[] =>
@@ -575,21 +500,3 @@ export const pairVerdictOf = (winner: 'run' | 'against' | 'tie'): PairVerdict =>
       },
     ],
   });
-
-export const startAt = (
-  at: Date,
-  change: Partial<StretchStart> = {},
-): StretchStart => ({
-  runId: RunId.of(`run_at_${at.getTime()}`),
-  stationId: STATION.stationId,
-  fingerprint: FINGERPRINT,
-  changedAt: at,
-  ...change,
-});
-
-export const possibleOf = (
-  ...candidates: readonly Candidate[]
-): PossibleOrigin[] =>
-  candidates.flatMap((each) =>
-    each.possibleOrigin ? [each.possibleOrigin] : [],
-  );

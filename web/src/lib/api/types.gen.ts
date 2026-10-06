@@ -8155,30 +8155,6 @@ export type ReplayedSearchResponseDto = {
   seed: ReplayedSeedResponseDto;
 };
 
-export type CreditedToResponseDto = {
-  candidateId: string;
-  name: string;
-  /**
-   * Whether the newer candidate has since been withdrawn; a withdrawn candidate keeps its credit but can no longer be opened
-   */
-  withdrawn: boolean;
-};
-
-export type ReplayedAdoptionResponseDto = {
-  /**
-   * When the station last changed to the candidate’s config with a change credited to it, so a station that left the config and took it up again shows the return
-   */
-  at: string;
-  /**
-   * Whether the station’s latest config change is the one credited to the candidate and the station still runs that config, as Work fingerprints it; a later candidate credited with a return to the same config takes over
-   */
-  live: boolean;
-  /**
-   * The newer candidate credited with the station’s latest config change, where that change went back to this candidate’s config; this candidate is then not live
-   */
-  creditedTo: CreditedToResponseDto | null;
-};
-
 export type ReplayedCandidateResponseDto = {
   candidateId: string;
   name: string;
@@ -8273,10 +8249,6 @@ export type ReplayedCandidateResponseDto = {
    * The pull request Spotlight opens once a person picks it from its search; null until then
    */
   pullRequest: CandidatePullRequestResponseDto | null;
-  /**
-   * When the station last changed to its config with a change config-origins credits to it, whatever the period, and whether the station still runs it; null while no change is credited to it
-   */
-  adoption: ReplayedAdoptionResponseDto | null;
 };
 
 export type ReplayedSetResponseDto = {
@@ -8320,76 +8292,6 @@ export type ReplayedCandidatesResponseDto = {
    * Stations with a candidate replayed in the period, newest first
    */
   stations: Array<ReplayedStationResponseDto>;
-};
-
-export type ConfigChangeRequestDto = {
-  /**
-   * The station whose config changed
-   */
-  stationId: string;
-  /**
-   * The run the change took effect with: its first run with the config, as an insights change marker names it
-   */
-  runId: string;
-};
-
-export type ReadConfigOriginsRequestDto = {
-  /**
-   * The config changes to find origins for, each named by its station and first run; a run at a station asked about twice counts once. At most 100 changes.
-   */
-  changes: Array<ConfigChangeRequestDto>;
-};
-
-export type ConfigOriginResponseDto = {
-  /**
-   * The station of the change asked about
-   */
-  stationId: string;
-  /**
-   * The run of the change asked about, as asked
-   */
-  runId: string;
-  /**
-   * The config the station changed to
-   */
-  fingerprint: string;
-  /**
-   * When the change took effect: when its run began
-   */
-  changedAt: string;
-  /**
-   * The candidate the change came from
-   */
-  candidateId: string;
-  name: string;
-  /**
-   * Found by a search, or proposed by a person or Terraform
-   */
-  kind: 'searched' | 'proposed';
-  lineId: string;
-  /**
-   * The search that found it, for information only: a withdrawn candidate’s search may be gone too; null unless searched
-   */
-  searchId: string | null;
-  /**
-   * Its newest replay, for a proposed candidate still standing; null when searched, withdrawn or never replayed
-   */
-  replayId: string | null;
-  /**
-   * When the candidate was made
-   */
-  createdAt: string;
-  /**
-   * Whether the candidate has since been withdrawn; a withdrawn origin still names it, but it has no page to link to
-   */
-  withdrawn: boolean;
-};
-
-export type ConfigOriginsResponseDto = {
-  /**
-   * For each change asked about that came from a candidate, that candidate, in the order asked; changes with no origin are left out
-   */
-  origins: Array<ConfigOriginResponseDto>;
 };
 
 export type HookSigningRequestDtoWritable = {
@@ -19231,49 +19133,3 @@ export type ReadReplayedCandidatesResponses = {
 };
 
 export type ReadReplayedCandidatesResponse = ReadReplayedCandidatesResponses[keyof ReadReplayedCandidatesResponses];
-
-export type ReadConfigOriginsData = {
-  body: ReadConfigOriginsRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/config-origins';
-};
-
-export type ReadConfigOriginsErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such team for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * A change with a blank station or run, or too many changes
-   */
-  422: ProblemResponseDto;
-};
-
-export type ReadConfigOriginsError = ReadConfigOriginsErrors[keyof ReadConfigOriginsErrors];
-
-export type ReadConfigOriginsResponses = {
-  200: ConfigOriginsResponseDto;
-};
-
-export type ReadConfigOriginsResponse = ReadConfigOriginsResponses[keyof ReadConfigOriginsResponses];

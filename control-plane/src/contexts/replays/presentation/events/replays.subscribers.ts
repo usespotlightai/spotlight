@@ -7,7 +7,6 @@ import type { AskForReplayJudging } from '@replays/application/services/ask-for-
 import type { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
 import type { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
-import type { ForgetGoneStationOrigins } from '@replays/application/services/forget-gone-station-origins.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import type { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
 import type { LetReplayRunsGo } from '@replays/application/services/let-replay-runs-go.service';
@@ -136,7 +135,6 @@ export interface ReplaysReactions {
   readonly abandoningChecks: AbandonReplayChecks;
   readonly abandoningPullRequests: AbandonConfigPullRequests;
   readonly noticingReflections: NoticeSearchReflections;
-  readonly forgettingGoneStationOrigins: ForgetGoneStationOrigins;
 }
 
 const spentOf = (event: {
@@ -391,15 +389,6 @@ export const replaysSubscribers = (
     'replays.note-sets-of-redefined-line',
     [LINE_REDEFINED],
     (event) => reactions.redefining.redefined(event.lineId),
-  ),
-  subscribing<LineRedefinedIntegrationEvent>(
-    'replays.forget-origins-at-gone-stations',
-    [LINE_REDEFINED],
-    (event) =>
-      reactions.forgettingGoneStationOrigins.lineRedefined({
-        lineId: event.lineId,
-        stationIds: event.stationIds,
-      }),
   ),
   subscribing<ReplayEnded>(
     'replays.note-search-replay-ended',

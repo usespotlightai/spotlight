@@ -49,13 +49,8 @@ import type { ReplaySetRepository } from '@replays/domain/repositories/replay-se
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
-import type {
-  StretchBound,
-  StretchStart,
-} from '@replays/domain/services/stretch-starts';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStanding } from '@replays/domain/value-objects/change-checks.vo';
-import type { PossibleOrigin } from '@replays/domain/value-objects/config-origin.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -63,7 +58,6 @@ import type { ReplayThreshold } from '@replays/domain/value-objects/replay-thres
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -74,7 +68,7 @@ import {
   type Principal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -98,7 +92,6 @@ export class InMemoryReplays {
   readonly candidates = new Map<string, Candidate>();
   readonly replays = new Map<string, Replay>();
   readonly searches = new Map<string, Search>();
-  readonly withdrawnOrigins = new Map<string, PossibleOrigin>();
   readonly events: DomainEvent[] = [];
 
   readonly setRepository: ReplaySetRepository = {
@@ -152,12 +145,8 @@ export class InMemoryReplays {
     },
     save: async (candidate) => {
       this.events.push(...candidate.pullEvents());
-      if (candidate.isGone) {
+      if (candidate.isAbandoned) {
         this.candidates.delete(candidate.id.value);
-      }
-      const withdrawn = candidate.withdrawnOrigin;
-      if (withdrawn) {
-        this.withdrawnOrigins.set(withdrawn.candidate.id.value, withdrawn);
       }
     },
     ofTeam: async (teamId) =>
@@ -168,33 +157,6 @@ export class InMemoryReplays {
       [...this.candidates.values()].filter((each) =>
         teamIds.some((teamId) => each.teamId.equals(teamId)),
       ),
-    possibleOriginsAt: async (teamId, stationIds) =>
-      [
-        ...[...this.candidates.values()].flatMap((each) =>
-          each.possibleOrigin ? [each.possibleOrigin] : [],
-        ),
-        ...this.withdrawnOrigins.values(),
-      ].filter(
-        (each) =>
-          each.teamId.equals(teamId) && stationIds.includes(each.stationId),
-      ),
-    removeWithdrawn: async (id) => {
-      this.withdrawnOrigins.delete(id.value);
-    },
-    removeWithdrawnOfTeam: async (teamId) => {
-      for (const [key, each] of this.withdrawnOrigins) {
-        if (each.teamId.equals(teamId)) {
-          this.withdrawnOrigins.delete(key);
-        }
-      }
-    },
-    removeWithdrawnAtStations: async (stationIds) => {
-      for (const [key, each] of this.withdrawnOrigins) {
-        if (stationIds.includes(each.stationId)) {
-          this.withdrawnOrigins.delete(key);
-        }
-      }
-    },
   };
 
   readonly replayRepository: ReplayRepository = {
@@ -207,24 +169,6 @@ export class InMemoryReplays {
       [...this.replays.values()].filter((each) =>
         each.candidateId.equals(candidateId),
       ),
-    newestOfCandidates: async (candidateIds) => {
-      const newest = new Map<string, Replay>();
-      for (const each of this.replays.values()) {
-        const held = newest.get(each.candidateId.value);
-        if (
-          candidateIds.some((id) => each.candidateId.equals(id)) &&
-          (!held ||
-            each.startedAt.getTime() > held.startedAt.getTime() ||
-            (each.startedAt.getTime() === held.startedAt.getTime() &&
-              each.id.value < held.id.value))
-        ) {
-          newest.set(each.candidateId.value, each);
-        }
-      }
-      return new Map(
-        [...newest].map(([candidateId, each]) => [candidateId, each.id]),
-      );
-    },
     pairingWith: async (replayId) =>
       [...this.replays.values()]
         .filter(
@@ -387,11 +331,6 @@ export class FakeWork implements WorkPort {
 
   keyed = async (lineId: string, key: string) =>
     lineId === AT_HAND.lineId && key === AT_HAND.key ? AT_HAND : null;
-
-  readonly gone = new Set<string>();
-
-  standingAmong = async (stationIds: readonly string[]) =>
-    stationIds.filter((each) => !this.gone.has(each));
 
   replayable = async (_workspace: unknown, runs: readonly RunId[]) =>
     runs.flatMap((run) => {
@@ -597,7 +536,6 @@ export class FakeOutcomes implements OutcomesPort {
   answer: JudgingOrdered = 'asked';
   pairAnswer: JudgingOrdered = 'asked';
   againAnswer: JudgingAgainOrdered = 'asked';
-  readonly stretches: StretchStart[] = [];
 
   async judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
     this.askedAgain.push(run.value);
@@ -620,41 +558,6 @@ export class FakeOutcomes implements OutcomesPort {
   async judgePair(order: PairJudgingOrder): Promise<JudgingOrdered> {
     this.pairsAsked.push(order);
     return this.pairAnswer;
-  }
-
-  readonly askedBounds: StretchBound[][] = [];
-  readonly askedTeams: TeamId[] = [];
-
-  async stretchStarts(
-    teamId: TeamId,
-    bounds: readonly StretchBound[],
-  ): Promise<readonly StretchStart[]> {
-    this.askedTeams.push(teamId);
-    this.askedBounds.push([...bounds]);
-
-    return this.stretches.filter((each) =>
-      bounds.some(
-        (bound) =>
-          bound.stationId === each.stationId &&
-          each.changedAt.getTime() >= bound.from.getTime(),
-      ),
-    );
-  }
-
-  ranFrom(
-    changedAt: Date,
-    fingerprint: StationFingerprint,
-    stationId: string = STATION.stationId,
-    runId = `run_${stationId}_${changedAt.getTime()}`,
-  ): string {
-    this.stretches.push({
-      runId: RunId.of(runId),
-      stationId,
-      fingerprint,
-      changedAt,
-    });
-
-    return runId;
   }
 }
 

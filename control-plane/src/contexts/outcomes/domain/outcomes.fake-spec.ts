@@ -11,10 +11,8 @@ import type {
 } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import {
-  configChangesAlong,
   earliestBounds,
   type StretchBound,
-  type StretchStart,
 } from '@outcomes/domain/services/config-stretches';
 import {
   inEndOrder,
@@ -134,34 +132,6 @@ export const costedRecord = (
 const endedTime = (record: RunRecord): number =>
   record.end?.endedAt.getTime() ?? 0;
 
-const stretchStartsAlong = (
-  records: readonly RunRecord[],
-): readonly StretchStart[] =>
-  configChangesAlong(records).map(({ run }) => ({
-    runId: run.runId,
-    stationId: run.stationId,
-    fingerprint: run.fingerprint,
-    changedAt: run.beganAt,
-  }));
-
-export const stretchStartsFrom = (
-  records: readonly RunRecord[],
-  bounds: readonly StretchBound[],
-): readonly StretchStart[] => {
-  const earliest = earliestBounds(bounds);
-
-  return stretchStartsAlong(
-    records.filter((each) => earliest.has(each.end?.place.stationId ?? '')),
-  ).filter((each) => {
-    const bound = earliest.get(each.stationId);
-
-    return (
-      bound !== undefined &&
-      fromBound({ runId: each.runId, beganAt: each.changedAt }, bound)
-    );
-  });
-};
-
 export const lastConfigRunsFrom = (
   records: readonly RunRecord[],
   bounds: readonly StretchBound[],
@@ -248,16 +218,6 @@ export class RunRecordsInMemory implements RunRecordRepository {
           (a, b) =>
             (b.end?.endedAt.getTime() ?? 0) - (a.end?.endedAt.getTime() ?? 0),
         )[0] ?? null
-    );
-  }
-
-  async stretchStarts(
-    teamId: TeamId,
-    bounds: readonly StretchBound[],
-  ): Promise<readonly StretchStart[]> {
-    return stretchStartsFrom(
-      this.ended().filter((each) => each.end?.place.teamId.equals(teamId)),
-      bounds,
     );
   }
 

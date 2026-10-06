@@ -5,10 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { stationNamesOf } from '@/lib/insights';
-import type {
-  ConfigOrigin,
-  InsightsCandidates,
-} from '@/lib/insights-candidates';
+import type { InsightsCandidates } from '@/lib/insights-candidates';
 import type { InsightsChanges, InsightsSetups } from '@/lib/insights-changes';
 import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
 
@@ -28,12 +25,6 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
   refetch: vi.fn(),
 });
 
-const origins = {
-  origins: [] as ConfigOrigin[],
-  failed: false,
-  retry: vi.fn(),
-};
-
 const answer: {
   changes: Held;
   setups: Held;
@@ -48,9 +39,6 @@ const answer: {
 
 vi.mock('@/hooks/api/useInsightsChanges', () => ({
   useInsightsChanges: () => answer.changes,
-}));
-vi.mock('@/hooks/api/useConfigOrigins', () => ({
-  useConfigOrigins: () => origins,
 }));
 vi.mock('@/hooks/api/useInsightsSetups', () => ({
   useInsightsSetups: (_teamId: string, _period: string, narrowed: unknown) => {
@@ -273,8 +261,6 @@ beforeEach(() => {
   answer.setups = held(SETUPS);
   answer.candidates = held(REPLAYED);
   answer.asked = [];
-  origins.origins = [];
-  origins.failed = false;
 });
 
 describe('the Changes tab', () => {
@@ -550,76 +536,6 @@ describe('the Changes tab', () => {
     expect(answer.candidates.refetch).toHaveBeenCalled();
   });
 
-  it('names the candidate a config change came from', () => {
-    const [marker] = CHANGES.markers;
-    origins.origins = [
-      {
-        stationId: 'station_impl',
-        runId: marker?.runId ?? '',
-        fingerprint: marker?.fingerprint ?? '',
-        changedAt: marker?.firstRunAt ?? '',
-        candidateId: 'candidate_opus_skill',
-        name: 'opus-with-migrations-skill',
-        kind: 'searched',
-        lineId: 'line_1',
-        searchId: 'search_1',
-        replayId: null,
-        createdAt: '2026-09-01T09:00:00.000Z',
-        withdrawn: false,
-      },
-    ];
-
-    showing();
-
-    expect(
-      screen.getByRole('link', { name: 'opus-with-migrations-skill' }),
-    ).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_impl/searches/search_1#candidate-candidate_opus_skill',
-    );
-  });
-
-  it('says where the candidates the changes came from could not be loaded, and tries again', async () => {
-    origins.failed = true;
-
-    showing();
-
-    expect(screen.getByRole('note')).toHaveTextContent(
-      'Sorry, which candidate each change came from could not be loaded.',
-    );
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
-
-    expect(origins.retry).toHaveBeenCalled();
-  });
-
-  it('names a withdrawn candidate a change came from, without a link', () => {
-    const [marker] = CHANGES.markers;
-    origins.origins = [
-      {
-        stationId: 'station_impl',
-        runId: marker?.runId ?? '',
-        fingerprint: marker?.fingerprint ?? '',
-        changedAt: marker?.firstRunAt ?? '',
-        candidateId: 'candidate_gone',
-        name: 'withdrawn-idea',
-        kind: 'proposed',
-        lineId: 'line_1',
-        searchId: null,
-        replayId: null,
-        createdAt: '2026-09-01T09:00:00.000Z',
-        withdrawn: true,
-      },
-    ];
-
-    showing();
-
-    const from = screen.getByText('withdrawn-idea').closest('p');
-    expect(from).toHaveTextContent('From withdrawn-idea (withdrawn)');
-    expect(
-      screen.queryByRole('link', { name: 'withdrawn-idea' }),
-    ).not.toBeInTheDocument();
-  });
-
   it('opens the before and after of a config the station returned to, not its first adoption', async () => {
     const [first] = CHANGES.markers;
     const returned = (runId: string, firstRunAt: string, runs: number) => ({
@@ -664,5 +580,18 @@ describe('the Changes tab', () => {
         name: 'Before and after the change',
       }),
     ).toHaveTextContent('Runs1313');
+  });
+
+  it('names the line each config change was on, leading to it', () => {
+    showing();
+
+    const row = within(screen.getByRole('list', { name: 'Config changes' }))
+      .getByRole('link', { name: 'Implementation' })
+      .closest('[data-slot="change-marker"]') as HTMLElement;
+
+    expect(within(row).getByRole('link', { name: 'Delivery' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1',
+    );
   });
 });

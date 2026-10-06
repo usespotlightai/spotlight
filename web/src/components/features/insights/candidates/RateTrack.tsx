@@ -56,16 +56,7 @@ export function RateTrack({
           strokeLinecap="round"
         />
       )}
-      {rate !== null && (
-        <circle
-          cx={at(rate)}
-          cy={MID}
-          r="4.5"
-          fill={ink}
-          stroke="var(--card)"
-          strokeWidth="1.5"
-        />
-      )}
+      {rate !== null && <circle cx={at(rate)} cy={MID} r="4.5" fill={ink} />}
     </svg>
   );
 }

@@ -42,7 +42,6 @@ import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ChangesGuardDetail } from '@replays/domain/value-objects/changes-guard-detail.vo';
-import { ConfigOrigin } from '@replays/domain/value-objects/config-origin.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
@@ -163,7 +162,6 @@ export const REPLAYS_EVENT_TYPES = [
   PlannedLine,
   ChangesGuardDetail,
   ReplaySetGuardChanged,
-  ConfigOrigin,
   ConfigPullRequestId,
   ConfigPullRequestDetail,
   ConfigPullRequestReason,

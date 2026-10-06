@@ -28,7 +28,6 @@ export class AbandonReplays {
       this.sets.ofTeam(teamId),
       this.candidates.ofTeam(teamId),
     ]);
-    await this.candidates.removeWithdrawnOfTeam(teamId);
 
     return [
       ...sets.map((each) => new ReplaySetAbandonmentDue(each.id, workspaceId)),
@@ -74,8 +73,6 @@ export class AbandonReplays {
       if (candidate) {
         await this.candidates.save(candidate.abandoned());
       }
-
-      await this.candidates.removeWithdrawn(id);
     });
   }
 }

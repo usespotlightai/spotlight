@@ -98,9 +98,6 @@ const row = (name: string) =>
     .getByText(name, { selector: 'span' })
     .closest('[data-slot="replayed-candidate"]') as HTMLElement;
 
-const adoptedNote = (name: string) =>
-  within(row(name)).getByText('Adopted').closest('[aria-describedby]');
-
 beforeEach(() => {
   answer.candidates = held(CANDIDATES);
   answer.lines = LINES;
@@ -284,71 +281,5 @@ describe('the Candidates tab', () => {
     expect(
       screen.getByRole('link', { name: 'Open the team’s lines' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1');
-  });
-
-  it('marks a candidate adopted, live while its station still runs its config', () => {
-    showing();
-
-    expect(adoptedNote('one-comment-per-problem')).toHaveAccessibleDescription(
-      /Live now\./,
-    );
-    expect(row('review-against-spec')).not.toHaveTextContent('Adopted');
-  });
-
-  it('says an adopted candidate was since replaced', () => {
-    answer.candidates = held({
-      ...CANDIDATES,
-      stations: CANDIDATES.stations.map((station) => ({
-        ...station,
-        sets: station.sets.map((set) => ({
-          ...set,
-          candidates: set.candidates.map((each) =>
-            each.adoption
-              ? { ...each, adoption: { ...each.adoption, live: false } }
-              : each,
-          ),
-        })),
-      })),
-    });
-
-    showing();
-
-    expect(adoptedNote('one-comment-per-problem')).toHaveAccessibleDescription(
-      /since replaced\./,
-    );
-  });
-
-  it('names the newer candidate the same config was later credited to', () => {
-    answer.candidates = held({
-      ...CANDIDATES,
-      stations: CANDIDATES.stations.map((station) => ({
-        ...station,
-        sets: station.sets.map((set) => ({
-          ...set,
-          candidates: set.candidates.map((each) =>
-            each.adoption
-              ? {
-                  ...each,
-                  adoption: {
-                    ...each.adoption,
-                    live: false,
-                    creditedTo: {
-                      candidateId: 'candidate_again',
-                      name: 'one-comment-again',
-                      withdrawn: true,
-                    },
-                  },
-                }
-              : each,
-          ),
-        })),
-      })),
-    });
-
-    showing();
-
-    expect(adoptedNote('one-comment-per-problem')).toHaveAccessibleDescription(
-      /later credited to one-comment-again \(withdrawn\)\./,
-    );
   });
 });

@@ -3,7 +3,6 @@ import {
   ReadReplayedCandidatesHandler,
 } from '@replays/application/queries/handlers/read-replayed-candidates.handler';
 import { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
-import { PossibleOrigins } from '@replays/application/services/possible-origins.service';
 import {
   made,
   replayedWorld,
@@ -11,7 +10,6 @@ import {
 } from '@replays/application/services/replayed-candidates.fake-spec';
 import {
   accessFor,
-  FakeOutcomes,
   FakeWork,
   InMemoryConfigPullRequests,
   InMemoryReplays,
@@ -25,7 +23,6 @@ import {
   aSet,
   BY,
   candidateOf,
-  FINGERPRINT,
   LIVE_FINGERPRINT,
   NOW,
   SEARCH_ID,
@@ -38,12 +35,10 @@ import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -54,13 +49,10 @@ const daysAfter = (days: number): Date =>
 let memory: InMemoryReplays;
 let now: Date;
 let pullRequests: InMemoryConfigPullRequests;
-let outcomes: FakeOutcomes;
 
-const read = (
-  period = '30d',
-  mayPlan: boolean | null = false,
-  work = new FakeWork(),
-) => {
+const read = (period = '30d', mayPlan: boolean | null = false) => {
+  const work = new FakeWork();
+
   return new ReadReplayedCandidatesHandler(
     accessFor(memory, work, mayPlan),
     memory.replayRepository,
@@ -68,11 +60,9 @@ const read = (
     memory.setRepository,
     memory.candidateRepository,
     pullRequests,
-    outcomes,
     work,
     { now: () => now, sleep: async () => {} },
     new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-    new PossibleOrigins(memory.candidateRepository, work),
   ).execute(
     new ReadReplayedCandidatesQuery(STATION.teamId.value, PERSON, period),
   );
@@ -87,7 +77,6 @@ const namesIn = async (period = '30d') =>
 beforeEach(async () => {
   memory = new InMemoryReplays();
   pullRequests = new InMemoryConfigPullRequests();
-  outcomes = new FakeOutcomes();
   now = NOW;
   const world = replayedWorld();
 
@@ -252,101 +241,6 @@ describe('ReadReplayedCandidatesHandler', () => {
     expect(
       candidates.find((each) => each.name === 'wordy')?.pullRequest,
     ).toBeNull();
-  });
-
-  it('says when the station last took up a candidate’s config, from origins the reader may see, and whether it still runs it', async () => {
-    const shorter = [...memory.candidates.values()].find(
-      (each) => each.name.value === 'Shorter prompt',
-    ) as Candidate;
-    const terse = [...memory.candidates.values()].find(
-      (each) => each.name.value === 'terse',
-    ) as Candidate;
-    const hidden = terse.possibleOrigin;
-    if (hidden) {
-      memory.withdrawnOrigins.set('hidden', {
-        ...hidden,
-        workspaceId: WorkspaceId.of('ws_2'),
-        fingerprint: shorter.fingerprint,
-        candidate: { ...hidden.candidate, createdAt: daysAfter(1) },
-        withdrawn: true,
-      });
-    }
-
-    outcomes.ranFrom(shorter.createdAt, shorter.fingerprint);
-    outcomes.ranFrom(daysAfter(1), StationFingerprint.of('f'.repeat(64)));
-    outcomes.ranFrom(daysAfter(2), shorter.fingerprint);
-    const moved = new FakeWork();
-    moved.live = async () => ({
-      ...(await new FakeWork().live()),
-      fingerprint: LIVE_FINGERPRINT,
-    });
-    const adopted = async (work = new FakeWork()) =>
-      Object.fromEntries(
-        (await read('30d', false, work)).stations
-          .flatMap((station) => station.sets)
-          .flatMap((set) => set.candidates)
-          .map((each) => [each.name, each.adoption]),
-      );
-
-    expect(shorter.fingerprint).toEqual(FINGERPRINT);
-    expect(await adopted()).toEqual({
-      'Shorter prompt': {
-        at: daysAfter(2).toISOString(),
-        live: true,
-        creditedTo: null,
-      },
-      terse: null,
-      wordy: null,
-    });
-    expect(await adopted(moved)).toEqual({
-      'Shorter prompt': {
-        at: daysAfter(2).toISOString(),
-        live: false,
-        creditedTo: null,
-      },
-      terse: null,
-      wordy: null,
-    });
-  });
-
-  it('reads the station’s config changes only from when each candidate shown there was made', async () => {
-    const made = [...memory.candidates.values()]
-      .filter((each) => each.possibleOrigin !== null)
-      .map((each) => each.createdAt.getTime())
-      .sort((one, other) => one - other);
-
-    await read();
-
-    expect(
-      outcomes.askedBounds.map((bounds) =>
-        bounds
-          .map((each) => {
-            expect(each.stationId).toBe(STATION.stationId);
-            return each.from.getTime();
-          })
-          .sort((one, other) => one - other),
-      ),
-    ).toEqual([made]);
-    expect(outcomes.askedTeams.map((each) => each.value)).toEqual([
-      STATION.teamId.value,
-    ]);
-  });
-
-  it('credits no candidate at a station that is gone, and reads no config changes there', async () => {
-    const shorter = [...memory.candidates.values()].find(
-      (each) => each.name.value === 'Shorter prompt',
-    ) as Candidate;
-    outcomes.ranFrom(shorter.createdAt, shorter.fingerprint);
-    const work = new FakeWork();
-    work.gone.add(STATION.stationId);
-
-    const shown = (await read('30d', false, work)).stations
-      .flatMap((station) => station.sets)
-      .flatMap((set) => set.candidates);
-
-    expect(shown.length).toBeGreaterThan(0);
-    expect(shown.every((each) => each.adoption === null)).toBe(true);
-    expect(outcomes.askedBounds).toEqual([[]]);
   });
 
   it('refuses a period it does not take', async () => {

@@ -1,7 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
-  CreditedToDto,
-  ReplayedAdoptionDto,
   ReplayedBaselineDto,
   ReplayedCandidateDto,
   ReplayedCandidatesDto,
@@ -14,10 +12,6 @@ import type {
   ReplayedStationDto,
   ReplaySetHealthDto,
 } from '@replays/application/dto/replayed-candidates.dto';
-import {
-  ORIGIN_KINDS,
-  type OriginKind,
-} from '@replays/domain/value-objects/candidate-kind';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { REPLAYED_PERIODS } from '@replays/domain/value-objects/replayed-period.vo';
 import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
@@ -297,58 +291,6 @@ export class ReplayedSearchResponseDto {
   }
 }
 
-export class CreditedToResponseDto {
-  @ApiProperty({ example: 'f2b8c0d4-5e6a-4b7c-8d9e-0f1a2b3c4d5e' })
-  readonly candidateId: string;
-
-  @ApiProperty({ example: 'Shorter review prompt' })
-  readonly name: string;
-
-  @ApiProperty({
-    description:
-      'Whether the newer candidate has since been withdrawn; a withdrawn candidate keeps its credit but can no longer be opened',
-  })
-  readonly withdrawn: boolean;
-
-  constructor(credited: CreditedToDto) {
-    this.candidateId = credited.candidateId;
-    this.name = credited.name;
-    this.withdrawn = credited.withdrawn;
-  }
-}
-
-export class ReplayedAdoptionResponseDto {
-  @ApiProperty({
-    format: 'date-time',
-    example: '2026-09-30T10:00:00.000Z',
-    description:
-      'When the station last changed to the candidate’s config with a change credited to it, so a station that left the config and took it up again shows the return',
-  })
-  readonly at: string;
-
-  @ApiProperty({
-    description:
-      'Whether the station’s latest config change is the one credited to the candidate and the station still runs that config, as Work fingerprints it; a later candidate credited with a return to the same config takes over',
-  })
-  readonly live: boolean;
-
-  @ApiProperty({
-    type: CreditedToResponseDto,
-    nullable: true,
-    description:
-      'The newer candidate credited with the station’s latest config change, where that change went back to this candidate’s config; this candidate is then not live',
-  })
-  readonly creditedTo: CreditedToResponseDto | null;
-
-  constructor(adoption: ReplayedAdoptionDto) {
-    this.at = adoption.at;
-    this.live = adoption.live;
-    this.creditedTo = adoption.creditedTo
-      ? new CreditedToResponseDto(adoption.creditedTo)
-      : null;
-  }
-}
-
 export class ReplayedCandidateResponseDto {
   @ApiProperty()
   readonly candidateId: string;
@@ -357,11 +299,11 @@ export class ReplayedCandidateResponseDto {
   readonly name: string;
 
   @ApiProperty({
-    enum: ORIGIN_KINDS,
+    enum: ['searched', 'proposed'],
     description:
       'Found by a search, or proposed by a person or Terraform; pull-request checks are left out',
   })
-  readonly kind: OriginKind;
+  readonly kind: 'searched' | 'proposed';
 
   @ApiProperty({
     nullable: true,
@@ -520,14 +462,6 @@ export class ReplayedCandidateResponseDto {
   })
   readonly pullRequest: CandidatePullRequestResponseDto | null;
 
-  @ApiProperty({
-    type: ReplayedAdoptionResponseDto,
-    nullable: true,
-    description:
-      'When the station last changed to its config with a change config-origins credits to it, whatever the period, and whether the station still runs it; null while no change is credited to it',
-  })
-  readonly adoption: ReplayedAdoptionResponseDto | null;
-
   constructor(candidate: ReplayedCandidateDto) {
     this.candidateId = candidate.candidateId;
     this.name = candidate.name;
@@ -565,9 +499,6 @@ export class ReplayedCandidateResponseDto {
       : null;
     this.pullRequest = candidate.pullRequest
       ? new CandidatePullRequestResponseDto(candidate.pullRequest)
-      : null;
-    this.adoption = candidate.adoption
-      ? new ReplayedAdoptionResponseDto(candidate.adoption)
       : null;
   }
 }

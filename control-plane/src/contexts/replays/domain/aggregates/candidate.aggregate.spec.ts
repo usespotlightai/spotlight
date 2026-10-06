@@ -107,13 +107,7 @@ describe('Candidate', () => {
 
     const withdrawn = proposed.withdrawn(false, BY);
 
-    expect(withdrawn.isGone).toBe(true);
-    expect(withdrawn.withdrawnOrigin).toEqual({
-      ...proposed.possibleOrigin,
-      withdrawn: true,
-    });
-    expect(proposed.possibleOrigin?.withdrawn).toBe(false);
-    expect(withdrawn.withdrawnOrigin?.candidate.id).toEqual(proposed.id);
+    expect(withdrawn.isAbandoned).toBe(true);
     expect(changeOf(withdrawn)).toMatchObject({
       resource: 'replay-candidate',
       action: 'deleted',
@@ -127,19 +121,16 @@ describe('Candidate', () => {
     );
   });
 
-  it('is abandoned by Spotlight, recording the withdrawal only of a proposal, and leaves no origin behind', () => {
+  it('is abandoned by Spotlight, recording the withdrawal only of a proposal', () => {
     const proposed = candidateOf('proposed');
     proposed.pullEvents();
     const live = candidateOf('live').abandoned();
 
-    expect(live.isGone).toBe(true);
+    expect(live.isAbandoned).toBe(true);
     expect(live.pullEvents()).toEqual([]);
 
     const abandoned = proposed.abandoned();
     const [event] = abandoned.pullEvents();
-
-    expect(abandoned.isGone).toBe(true);
-    expect(abandoned.withdrawnOrigin).toBeNull();
 
     expect(event).toBeInstanceOf(CandidateWithdrawn);
     expect((event as CandidateWithdrawn).change.by).toEqual(
@@ -304,7 +295,7 @@ describe('Candidate', () => {
 
         const abandoned = candidate.abandoned();
 
-        expect(abandoned.isGone).toBe(true);
+        expect(abandoned.isAbandoned).toBe(true);
         expect(abandoned.pullEvents()).toEqual([]);
       }
     });

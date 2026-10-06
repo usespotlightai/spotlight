@@ -105,12 +105,6 @@ export class Work implements WorkPort {
     return station ? stationOf(station) : null;
   }
 
-  standingAmong(stationIds: readonly string[]): Promise<readonly string[]> {
-    return stationIds.length === 0
-      ? Promise.resolve([])
-      : this.candidates.standingAmong(stationIds);
-  }
-
   async keyed(lineId: string, key: string): Promise<StationAtHand | null> {
     const station = await this.candidates.keyed(lineId, key);
 

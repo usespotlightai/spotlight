@@ -3,16 +3,15 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
 import { countShown, type StationNames, stationShown } from '@/lib/insights';
-import type { AdoptedCandidate } from '@/lib/insights-candidates';
 import { type ChangeMarker, changeKey } from '@/lib/insights-changes';
 import { dayShown } from '@/lib/judge';
 import { stationPath } from '@/lib/station';
+import { linePath } from '@/lib/team';
 
 type ChangeMarkerRowProps = {
   slug: string;
   teamId: string;
   marker: ChangeMarker;
-  adopted: AdoptedCandidate | null;
   names: StationNames;
 };
 
@@ -25,7 +24,6 @@ export function ChangeMarkerRow({
   slug,
   teamId,
   marker,
-  adopted,
   names,
 }: ChangeMarkerRowProps) {
   const panel = useBeforeAfterPanel();
@@ -41,30 +39,19 @@ export function ChangeMarkerRow({
         {dayShown(marker.firstRunAt.slice(0, 10))}
       </span>
 
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <TrailLink
-          to={stationPath(slug, teamId, marker.lineId, marker.stationId)}
-          className="truncate font-medium text-foreground text-sm hover:underline"
-        >
-          {stationShown(names, marker.stationId)}
-        </TrailLink>
-        {adopted && (
-          <p className="truncate text-muted-foreground text-xs">
-            From{' '}
-            {adopted.to ? (
-              <TrailLink
-                to={adopted.to}
-                className="text-foreground underline-offset-2 hover:underline"
-              >
-                {adopted.name}
-              </TrailLink>
-            ) : (
-              <span className="text-foreground">{adopted.name}</span>
-            )}
-            {adopted.withdrawn && <span className="italic"> (withdrawn)</span>}
-          </p>
-        )}
-      </div>
+      <TrailLink
+        to={linePath(slug, teamId, marker.lineId)}
+        className="min-w-0 truncate text-muted-foreground text-sm hover:text-foreground hover:underline"
+      >
+        {names.get(marker.stationId)?.lineName ?? 'Removed line'}
+      </TrailLink>
+
+      <TrailLink
+        to={stationPath(slug, teamId, marker.lineId, marker.stationId)}
+        className="min-w-0 truncate font-medium text-foreground text-sm hover:underline"
+      >
+        {stationShown(names, marker.stationId)}
+      </TrailLink>
 
       <div className="col-span-full min-w-0 @3xl:col-span-1">
         {marker.changes.length > 0 ? (

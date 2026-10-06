@@ -10,13 +10,6 @@ export interface ConfigRun {
   readonly beganAt: Date;
 }
 
-export interface StretchStart {
-  readonly runId: RunId;
-  readonly stationId: string;
-  readonly fingerprint: string;
-  readonly changedAt: Date;
-}
-
 const configRunOf = (record: RunRecord): ConfigRun | null => {
   const end = record.end;
 

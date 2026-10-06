@@ -28,10 +28,7 @@ import { RecordJudgeScore } from '@outcomes/application/services/record-judge-sc
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
-import {
-  lastConfigRunsFrom,
-  stretchStartsFrom,
-} from '@outcomes/domain/outcomes.fake-spec';
+import { lastConfigRunsFrom } from '@outcomes/domain/outcomes.fake-spec';
 import type { StretchBound } from '@outcomes/domain/services/config-stretches';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
@@ -732,7 +729,7 @@ describe('how a station’s runs turned out', () => {
   });
 });
 
-describe('the config stretches a station’s runs make', () => {
+describe('the config runs a station’s runs make', () => {
   let stretches: DrizzleRunRecordRepository;
   const plannedRuns: string[] = [];
 
@@ -791,54 +788,6 @@ describe('the config stretches a station’s runs make', () => {
     }
   };
 
-  const EVER = new Date(0);
-
-  const startsFrom = async (
-    bounds: readonly StretchBound[],
-    teamId = 'team_1',
-  ) => {
-    const named = (
-      starts: readonly {
-        runId: RunId;
-        stationId: string;
-        fingerprint: string;
-        changedAt: Date;
-      }[],
-    ) =>
-      starts.map(
-        (each) =>
-          `${each.stationId} ${each.runId.value} ${each.fingerprint.slice(0, 1)}@${each.changedAt.getUTCMinutes()}`,
-      );
-    const fromSql = named(
-      await context.run(() =>
-        stretches.stretchStarts(TeamId.of(teamId), bounds),
-      ),
-    );
-    const records = await stretches.ofRuns(
-      plannedRuns.map((each) => RunId.of(each)),
-    );
-    const fromDomain = named(
-      stretchStartsFrom(
-        records.filter((each) => each.end?.place.teamId.value === teamId),
-        bounds,
-      ),
-    );
-
-    expect([...fromSql].sort()).toEqual([...fromDomain].sort());
-
-    return fromSql;
-  };
-
-  const startsAt = (
-    stationIds: readonly string[],
-    from = EVER,
-    teamId = 'team_1',
-  ) =>
-    startsFrom(
-      stationIds.map((stationId) => ({ stationId, from })),
-      teamId,
-    );
-
   beforeAll(async () => {
     stretches = new DrizzleRunRecordRepository(context, {
       dispatch: async () => {},
@@ -876,102 +825,6 @@ describe('the config stretches a station’s runs make', () => {
       planned('unconfigured_2', SONNET, 4),
       planned('unconfigured_late', OPUS, 0, { endedAt: 50 }),
     ]);
-  });
-
-  it('starts a stretch at each run that began after a run of another config or none, going from A to B and back to A', async () => {
-    expect(await startsAt(['station_aba'])).toEqual([
-      'station_aba aba_1 a@1',
-      'station_aba aba_2 b@2',
-      'station_aba aba_3 a@3',
-    ]);
-  });
-
-  it('reads only the team’s runs, though another team ran a station of the same id', async () => {
-    expect(await startsAt(['station_aba'], EVER, 'team_2')).toEqual([
-      'station_aba aba_elsewhere b@3',
-    ]);
-  });
-
-  it('orders runs that began at the same instant by run', async () => {
-    expect(await startsAt(['station_tie'])).toEqual([
-      'station_tie tie_a a@5',
-      'station_tie tie_b b@5',
-      'station_tie tie_c a@6',
-    ]);
-  });
-
-  it('passes over a run that never started, withdrawn or failed before starting, so a provisioning failure on B between two A runs makes no change', async () => {
-    expect(await startsAt(['station_unstarted'])).toEqual([
-      'station_unstarted unstarted_1 a@1',
-    ]);
-  });
-
-  it('passes over runs that ran no config as if they were not there, and orders a run that ended late by when it began', async () => {
-    expect(await startsAt(['station_unconfigured'])).toEqual([
-      'station_unconfigured unconfigured_late b@0',
-      'station_unconfigured unconfigured_1 a@1',
-    ]);
-  });
-
-  it('reads from a run on, telling runs that began at the same instant apart by run', async () => {
-    expect(
-      await startsFrom([
-        {
-          stationId: 'station_tie',
-          from: minute(5),
-          fromRun: RunId.of('tie_b'),
-        },
-      ]),
-    ).toEqual(['station_tie tie_b b@5', 'station_tie tie_c a@6']);
-    expect(
-      await startsFrom([
-        {
-          stationId: 'station_tie',
-          from: minute(5),
-          fromRun: RunId.of('tie_c'),
-        },
-      ]),
-    ).toEqual(['station_tie tie_c a@6']);
-  });
-
-  it('reads several stations at once, only those asked', async () => {
-    expect(await startsAt(['station_aba', 'station_tie'])).toEqual([
-      'station_aba aba_1 a@1',
-      'station_aba aba_2 b@2',
-      'station_aba aba_3 a@3',
-      'station_tie tie_a a@5',
-      'station_tie tie_b b@5',
-      'station_tie tie_c a@6',
-    ]);
-    expect(await startsAt([])).toEqual([]);
-  });
-
-  it('reads from a time on, telling a run there that changed config from one that kept it by the run before the time, A to B and back to A across it', async () => {
-    expect(await startsAt(['station_aba'], minute(2))).toEqual([
-      'station_aba aba_2 b@2',
-      'station_aba aba_3 a@3',
-    ]);
-    expect(
-      await startsAt(['station_aba'], new Date(minute(2).getTime() + 30_000)),
-    ).toEqual(['station_aba aba_3 a@3']);
-    expect(await startsAt(['station_aba'], minute(4))).toEqual([]);
-    expect(await startsAt(['station_tie'], minute(6))).toEqual([
-      'station_tie tie_c a@6',
-    ]);
-    expect(await startsAt(['station_unconfigured'], minute(1))).toEqual([
-      'station_unconfigured unconfigured_1 a@1',
-    ]);
-    expect(await startsAt(['station_unconfigured'], minute(2))).toEqual([]);
-  });
-
-  it('reads each station from its own time, taking the earliest when one is asked twice', async () => {
-    expect(
-      await startsFrom([
-        { stationId: 'station_aba', from: minute(4) },
-        { stationId: 'station_tie', from: minute(6) },
-        { stationId: 'station_aba', from: minute(3) },
-      ]),
-    ).toEqual(['station_aba aba_3 a@3', 'station_tie tie_c a@6']);
   });
 
   it('reads the last run that ran a config before each station’s time, passing over runs that never started and other teams’ runs', async () => {
@@ -1091,9 +944,6 @@ describe('the config stretches a station’s runs make', () => {
         runs: ['never_a1'],
         failed: 0,
       },
-    ]);
-    expect(await startsAt(['station_never'])).toEqual([
-      'station_never never_a1 a@1',
     ]);
   });
 

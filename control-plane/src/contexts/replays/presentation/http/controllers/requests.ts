@@ -4,10 +4,6 @@ import type {
   SearchBudgetAsked,
   SearchObjectiveAsked,
 } from '@replays/application/commands/start-search.command';
-import {
-  atChange,
-  type RawChange,
-} from '@replays/domain/services/changes-asked-about';
 import { isSearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -15,10 +11,7 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const REQUEST = 'request';
 
-const refusedAt = (
-  field: readonly (string | number)[],
-  reason: string,
-): never => {
+const refusedAt = (field: readonly string[], reason: string): never => {
   throw ProblemException.invalid(REQUEST, [
     ConfigurationProblem.of({ path: '', at: FieldPath.of(field), reason }),
   ]);
@@ -216,30 +209,4 @@ export const allowed = <T>(kind: string, outcome: T | Forbidden): T => {
   }
 
   return outcome;
-};
-
-const changeAt = (held: unknown, position: number): RawChange => {
-  const change = fieldsOf(held);
-  const text = (field: keyof RawChange): string => {
-    const value = change[field];
-
-    return typeof value === 'string'
-      ? value
-      : refusedAt([], atChange(position, `${field} must be text`));
-  };
-
-  return {
-    stationId: text('stationId'),
-    runId: text('runId'),
-  };
-};
-
-export const changesIn = (body: unknown): readonly RawChange[] => {
-  const held = fieldsOf(body).changes;
-
-  if (!Array.isArray(held)) {
-    return refusedAt(['changes'], 'must be a list of changes');
-  }
-
-  return held.map((each, at) => changeAt(each, at + 1));
 };

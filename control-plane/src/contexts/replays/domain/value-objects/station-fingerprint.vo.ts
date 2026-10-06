@@ -2,14 +2,11 @@ import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candid
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
-export const isStationFingerprint = (raw: string): boolean =>
-  SHA256_HEX.test(raw);
-
 export class StationFingerprint {
   private constructor(readonly value: string) {}
 
   static of(raw: string): StationFingerprint {
-    if (!isStationFingerprint(raw)) {
+    if (!SHA256_HEX.test(raw)) {
       throw new InvalidCandidateError(
         'fingerprint must be a lowercase hex SHA-256',
       );

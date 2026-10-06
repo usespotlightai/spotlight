@@ -1,7 +1,4 @@
 import type {
-  ConfigChangeRequestDto,
-  ConfigOriginResponseDto,
-  ReplayedAdoptionResponseDto,
   ReplayedCandidateResponseDto,
   ReplayedCandidatesResponseDto,
   ReplayedSetResponseDto,
@@ -10,7 +7,6 @@ import type {
 } from '@/lib/api';
 import { spentIn } from '@/lib/inbox';
 import { countShown } from '@/lib/insights';
-import { type ChangeAt, changeKey } from '@/lib/insights-changes';
 import { dayShown, percentShown } from '@/lib/judge';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
 import {
@@ -479,81 +475,3 @@ export const originNote = (candidate: SetCandidate): string => {
     ? `${found} Best value: no other config from the same search, nor the live config it started from, succeeded as often for less. Not the same as beating live; see Against live.`
     : `${found} Another config from the same search did at least as well for less.`;
 };
-
-export type ChangeAskedAbout = ConfigChangeRequestDto;
-
-export type ConfigOrigin = ConfigOriginResponseDto;
-
-export const MOST_CHANGES_ASKED = 100;
-
-export const changeBatches = (
-  changes: readonly ChangeAt[],
-): ChangeAskedAbout[][] => {
-  const asked = [
-    ...new Map(
-      changes
-        .map((each) => ({ stationId: each.stationId, runId: each.runId }))
-        .map((each) => [changeKey(each), each] as const),
-    ).entries(),
-  ]
-    .sort(([one], [other]) => one.localeCompare(other))
-    .map(([, each]) => each);
-  const batches: ChangeAskedAbout[][] = [];
-
-  for (let at = 0; at < asked.length; at += MOST_CHANGES_ASKED) {
-    batches.push(asked.slice(at, at + MOST_CHANGES_ASKED));
-  }
-
-  return batches;
-};
-
-export type AdoptedCandidate = {
-  readonly name: string;
-  readonly to: string | null;
-  readonly withdrawn: boolean;
-};
-
-const originPathOf = (
-  at: ReplayedStation,
-  origin: ConfigOrigin,
-): string | null => {
-  if (origin.withdrawn) {
-    return null;
-  }
-
-  if (origin.searchId) {
-    return searchCandidatePath(at, origin.searchId, origin.candidateId);
-  }
-
-  return origin.replayId ? replayPath(at, origin.replayId) : null;
-};
-
-export const adoptedFrom = (
-  origins: readonly ConfigOrigin[],
-  change: ChangeAt,
-  slug: string,
-  teamId: string,
-): AdoptedCandidate | null => {
-  const origin = origins.find(
-    (each) =>
-      each.stationId === change.stationId && each.runId === change.runId,
-  );
-
-  return origin
-    ? {
-        name: origin.name,
-        withdrawn: origin.withdrawn,
-        to: originPathOf(
-          {
-            slug,
-            teamId,
-            lineId: origin.lineId,
-            stationId: origin.stationId,
-          },
-          origin,
-        ),
-      }
-    : null;
-};
-
-export type Adoption = ReplayedAdoptionResponseDto;

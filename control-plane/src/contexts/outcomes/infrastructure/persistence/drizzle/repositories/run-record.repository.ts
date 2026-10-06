@@ -11,7 +11,6 @@ import type {
 import {
   earliestBounds,
   type StretchBound,
-  type StretchStart,
 } from '@outcomes/domain/services/config-stretches';
 import type {
   Narrowing,
@@ -546,65 +545,6 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
       .limit(1);
 
     return row ? toRecord(row) : null;
-  }
-
-  async stretchStarts(
-    teamId: TeamId,
-    bounds: readonly StretchBound[],
-  ): Promise<readonly StretchStart[]> {
-    const earliest = [...earliestBounds(bounds).values()];
-
-    if (earliest.length === 0) {
-      return [];
-    }
-
-    const [began, inRunOrder] = startOrderColumns(runRecord);
-    const result = await this.context.db.execute<{
-      run_id: string;
-      station_id: string;
-      fingerprint: string;
-      began: string;
-    }>(sql`
-      with seeded as (
-        select bound.station_id, bound.from_at, bound.from_run, previous.fingerprint as seed
-        from ${boundsOf(earliest)}
-        left join lateral ${lastConfigRunBefore(teamId)} previous on true
-      ),
-      ran as (
-        select
-          ${runRecord.runId} as run_id,
-          ${runRecord.stationId} as station_id,
-          ${runRecord.fingerprint} as fingerprint,
-          ${began} as began,
-          coalesce(
-            lag(${runRecord.fingerprint}) over (
-              partition by ${runRecord.stationId} order by ${began}, ${inRunOrder}
-            ),
-            seeded.seed
-          ) as before
-        from seeded
-        join ${runRecord}
-          on ${runRecord.teamId} = ${teamId.value}
-          and ${runRecord.stationId} = seeded.station_id
-        where ${ranAConfig(runRecord)}
-          and (${began} > seeded.from_at or (${began} = seeded.from_at and ${inRunOrder} >= seeded.from_run collate "C"))
-      )
-      select
-        run_id,
-        station_id,
-        fingerprint,
-        to_char(began, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as began
-      from ran
-      where ran.before is distinct from ran.fingerprint
-      order by ran.station_id, ran.began, ran.run_id collate "C"
-    `);
-
-    return result.rows.map((row) => ({
-      runId: RunId.of(row.run_id),
-      stationId: row.station_id,
-      fingerprint: row.fingerprint,
-      changedAt: new Date(row.began),
-    }));
   }
 
   async lastConfigRunsBefore(

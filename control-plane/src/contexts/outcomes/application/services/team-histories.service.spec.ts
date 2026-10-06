@@ -16,9 +16,9 @@ import {
   RunRecordsInMemory,
   SECOND_CONFIG,
   TaskDeliveriesInMemory,
-  TEAM,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
+import { configChangesAlong } from '@outcomes/domain/services/config-stretches';
 import { configMarkersOf } from '@outcomes/domain/services/daily-output';
 import { within } from '@outcomes/domain/value-objects/insights-period.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -175,15 +175,16 @@ describe('TeamHistories', () => {
       const held = await histories.of('team_1', ADA, '7d');
       const carried = await histories.carriedOn(held);
       const markers = configMarkersOf(held.history, held.period, carried);
-      const starts = await records.stretchStarts(TEAM, [
-        { stationId: 'station_x', from: carried.from },
-      ]);
+      const changes = configChangesAlong([...records.held.values()]).filter(
+        ({ run }) =>
+          run.stationId === 'station_x' &&
+          run.beganAt.getTime() >= carried.from.getTime() &&
+          within(held.period.current, run.beganAt),
+      );
 
       expect(held.truncated).toBe(true);
       expect(markers.map((each) => each.runId)).toEqual(
-        starts
-          .filter((each) => within(held.period.current, each.changedAt))
-          .map((each) => each.runId.value),
+        changes.map(({ run }) => run.runId.value),
       );
 
       return { held, carried, markers };

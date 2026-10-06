@@ -19,7 +19,6 @@ import {
   type AlertAsidesPort,
 } from '@outcomes/application/ports/alert-asides.port';
 import { CHANGE_JUDGING } from '@outcomes/application/ports/change-judging.port';
-import { CONFIG_STRETCHES } from '@outcomes/application/ports/config-stretches.port';
 import {
   EVIDENCE,
   type EvidencePort,
@@ -83,7 +82,6 @@ import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskChangeJudging } from '@outcomes/application/services/ask-change-judging.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { AskPairJudging } from '@outcomes/application/services/ask-pair-judging.service';
-import { ConfigStretches } from '@outcomes/application/services/config-stretches.service';
 import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
@@ -575,12 +573,6 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     inject: [DrizzleRunRecordRepository],
     useFactory: (records: DrizzleRunRecordRepository) =>
       new RunAcceptance(records),
-  },
-  {
-    provide: CONFIG_STRETCHES,
-    inject: [DrizzleRunRecordRepository],
-    useFactory: (records: DrizzleRunRecordRepository) =>
-      new ConfigStretches(records),
   },
   {
     provide: WorkChangeJudgings,

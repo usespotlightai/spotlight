@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  adoptedFrom,
   type CandidatesSet,
-  type ConfigOrigin,
-  changeBatches,
   changeLinkOf,
   comparedShown,
   costAgainstLiveShown,
   healthShown,
   heldOutShown,
-  MOST_CHANGES_ASKED,
   markShown,
   onTheSameShown,
   replayedChart,
@@ -384,109 +380,5 @@ describe('healthShown', () => {
         NOW,
       ),
     ).toBe('No tasks yet');
-  });
-});
-
-describe('adoptedFrom', () => {
-  const change = { stationId: 'station_review', runId: 'run_review_20' };
-  const origin: ConfigOrigin = {
-    stationId: change.stationId,
-    runId: change.runId,
-    fingerprint: 'd'.repeat(64),
-    changedAt: '2026-10-01T09:00:00.000Z',
-    candidateId: 'candidate_one_comment',
-    name: 'one-comment-per-problem',
-    kind: 'proposed',
-    lineId: 'line_delivery',
-    searchId: null,
-    replayId: 'replay_one_comment',
-    createdAt: '2026-09-29T09:00:00.000Z',
-    withdrawn: false,
-  };
-
-  it('links a config change to the candidate it came from', () => {
-    expect(adoptedFrom([origin], change, 'acme', 'team_platform')).toEqual({
-      name: 'one-comment-per-problem',
-      to: '/w/acme/team/team_platform/lines/line_delivery/stations/station_review/replays/replay_one_comment',
-      withdrawn: false,
-    });
-  });
-
-  it('links a searched candidate to its place in its search', () => {
-    expect(
-      adoptedFrom(
-        [{ ...origin, kind: 'searched', searchId: 'search_1', replayId: null }],
-        change,
-        'acme',
-        'team_platform',
-      )?.to,
-    ).toContain('/searches/search_1');
-  });
-
-  it('names a withdrawn candidate, without a link', () => {
-    expect(
-      adoptedFrom(
-        [
-          {
-            ...origin,
-            kind: 'searched',
-            searchId: 'search_1',
-            withdrawn: true,
-          },
-        ],
-        change,
-        'acme',
-        'team_platform',
-      ),
-    ).toEqual({ name: 'one-comment-per-problem', to: null, withdrawn: true });
-  });
-
-  it('names a candidate it cannot link to, without a link', () => {
-    expect(
-      adoptedFrom(
-        [{ ...origin, replayId: null }],
-        change,
-        'acme',
-        'team_platform',
-      ),
-    ).toEqual({ name: 'one-comment-per-problem', to: null, withdrawn: false });
-  });
-
-  it('links only the change the origin was found for', () => {
-    expect(
-      adoptedFrom(
-        [origin],
-        { ...change, runId: 'run_review_21' },
-        'acme',
-        'team_platform',
-      ),
-    ).toBeNull();
-  });
-});
-
-describe('changeBatches', () => {
-  const change = (at: number) => ({
-    stationId: 'station_review',
-    runId: `run_${at}`,
-  });
-
-  it('asks about each change once, in batches the server takes', () => {
-    const many = Array.from({ length: MOST_CHANGES_ASKED + 1 }, (_, at) =>
-      change(at),
-    );
-
-    expect(
-      changeBatches([...many, change(0)]).map((each) => each.length),
-    ).toEqual([MOST_CHANGES_ASKED, 1]);
-  });
-
-  it('asks by the run the change took effect in', () => {
-    expect(changeBatches([change(1)])).toEqual([
-      [{ stationId: 'station_review', runId: 'run_1' }],
-    ]);
-  });
-
-  it('asks nothing for no changes', () => {
-    expect(changeBatches([])).toEqual([]);
   });
 });

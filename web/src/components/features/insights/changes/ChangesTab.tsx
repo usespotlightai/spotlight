@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { ChangeMarkerList } from '@/components/features/insights/changes/ChangeMarkerList';
 import { ChangesSkeleton } from '@/components/features/insights/changes/ChangesSkeleton';
-import { OriginsFailedNote } from '@/components/features/insights/changes/OriginsFailedNote';
 import { SetupComparison } from '@/components/features/insights/changes/SetupComparison';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
-import { useConfigOrigins } from '@/hooks/api/useConfigOrigins';
 import { useInsightsCandidates } from '@/hooks/api/useInsightsCandidates';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
 import {
@@ -32,7 +30,6 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
   const changes = useInsightsChanges(teamId, period);
   const setups = useInsightsSetups(teamId, period, narrowed);
   const candidates = useInsightsCandidates(teamId, period);
-  const origins = useConfigOrigins(teamId, changes.data?.markers ?? []);
 
   if (loading(changes) || loading(setups)) {
     return <ChangesSkeleton />;
@@ -65,13 +62,10 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
     <div className="flex flex-col gap-3">
       {(changes.data.truncated || setups.data.truncated) && <TruncatedNote />}
 
-      {origins.failed && <OriginsFailedNote onRetry={origins.retry} />}
-
       <ChangeMarkerList
         slug={slug}
         teamId={teamId}
         markers={changes.data.markers}
-        origins={origins.origins}
         names={names}
       />
 

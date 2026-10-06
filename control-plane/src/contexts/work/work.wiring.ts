@@ -340,10 +340,6 @@ import {
   STATION_TALLIES,
   type StationTalliesPort,
 } from '@work/application/ports/station-tallies.port';
-import {
-  STATIONS_STANDING,
-  type StationsStandingPort,
-} from '@work/application/ports/stations-standing.port';
 import { TASK_ASIDES } from '@work/application/ports/task-asides.port';
 import {
   TASK_DECISIONS,
@@ -565,7 +561,6 @@ import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizz
 import { DrizzleSearchRunFacts } from '@work/infrastructure/persistence/drizzle/readers/search-run-facts.reader';
 import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzle/readers/station-run.reader';
 import { DrizzleStationTallies } from '@work/infrastructure/persistence/drizzle/readers/station-tallies.reader';
-import { DrizzleStationsStanding } from '@work/infrastructure/persistence/drizzle/readers/stations-standing.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/readers/task-placements.reader';
 import { DrizzleTeamTraceReader } from '@work/infrastructure/persistence/drizzle/readers/team-trace.reader';
@@ -1379,16 +1374,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: REPLAY_CANDIDATES,
-    inject: [CandidateLines, LINE_RENDERING, CONTENT_DIGEST, STATIONS_STANDING],
+    inject: [CandidateLines, LINE_RENDERING, CONTENT_DIGEST],
     useFactory: (
       candidates: CandidateLines,
       rendering: LineRenderingPort,
       digest: ContentDigestPort,
-      stations: StationsStandingPort,
-    ) => new ReplayCandidates(candidates, rendering, digest, stations),
+    ) => new ReplayCandidates(candidates, rendering, digest),
   },
-
-  { provide: STATIONS_STANDING, useClass: DrizzleStationsStanding },
 
   {
     provide: HARNESS_OFFERS,

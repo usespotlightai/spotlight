@@ -1,9 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { configOriginsKeys } from '@/hooks/api/useConfigOrigins';
 import { insightsChangesKeys } from '@/hooks/api/useInsightsChanges';
 import { insightsSetupsKeys } from '@/hooks/api/useInsightsSetups';
 import { DEFAULT_PERIOD } from '@/lib/insights';
-import { type ConfigOrigin, changeBatches } from '@/lib/insights-candidates';
 import type {
   ChangeMarker,
   InsightsChanges,
@@ -102,7 +100,7 @@ const REVIEW_PROMPT_NOW = [
   'Send the change back when a check fails or a test is missing.',
 ].join('\n');
 
-export const REVIEW_CHANGE: ChangeMarker = {
+const REVIEW_CHANGE: ChangeMarker = {
   lineId: LINE_ID,
   stationId: 'station_review',
   fingerprint: 'd'.repeat(64),
@@ -318,27 +316,6 @@ const EMPTY_SETUPS: InsightsSetups = { ...SETUPS, setups: [], judges: [] };
 
 const CHANGES_KEY = insightsChangesKeys.forTeam(TEAM_ID, DEFAULT_PERIOD);
 
-export const ORIGINS: readonly ConfigOrigin[] = [
-  {
-    stationId: 'station_review',
-    runId: REVIEW_CHANGE.runId,
-    fingerprint: REVIEW_CHANGE.fingerprint,
-    changedAt: REVIEW_CHANGE.firstRunAt,
-    candidateId: 'candidate_one_comment',
-    name: 'one-comment-per-problem',
-    kind: 'proposed',
-    lineId: LINE_ID,
-    searchId: null,
-    replayId: 'replay_one_comment',
-    createdAt: daysAgo(6),
-    withdrawn: false,
-  },
-];
-
-const ORIGINS_KEYS = changeBatches(CHANGES.markers).map((batch) =>
-  configOriginsKeys.forBatch(TEAM_ID, batch),
-);
-
 const SETUPS_KEY = insightsSetupsKeys.forTeam(TEAM_ID, DEFAULT_PERIOD, {
   stationId: null,
   size: null,
@@ -356,9 +333,6 @@ export const seedChanges = (client: QueryClient) => {
   client.setQueryData(SETUPS_KEY, SETUPS);
   client.setQueryData(SETUPS_AT_STATION_KEY, SETUPS_AT_STATION);
   client.setQueryData(CANDIDATES_KEY, CANDIDATES);
-  for (const key of ORIGINS_KEYS) {
-    client.setQueryData(key, ORIGINS);
-  }
 };
 
 export const emptyChanges = (client: QueryClient) => {
