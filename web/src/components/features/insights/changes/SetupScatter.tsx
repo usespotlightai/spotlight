@@ -1,5 +1,4 @@
 import {
-  LabelList,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -16,7 +15,7 @@ import {
 import { ReplayedPointSaid } from '@/components/features/insights/candidates/ReplayedPointSaid';
 import { RunsSizeLegend } from '@/components/features/insights/changes/RunsSizeLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
-import { PointLabel } from '@/components/shared/chart/PointLabel';
+import { PointLabels } from '@/components/shared/chart/PointLabels';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { useDotHover } from '@/hooks/useDotHover';
 import { AXIS_TITLE, costTick } from '@/lib/chart';
@@ -103,7 +102,7 @@ export function SetupScatter({
   const runs = runsScaleOf(points);
 
   return (
-    <figure data-slot="setup-scatter" className="flex flex-col gap-3">
+    <figure data-slot="setup-scatter" className="flex flex-col gap-1">
       <div
         {...hover.area}
         className="min-w-0 flex-1 [&_*:focus:not(:focus-visible)]:outline-none"
@@ -179,9 +178,7 @@ export function SetupScatter({
                 data={frontier}
                 fill="var(--chart-primary)"
                 isAnimationActive={false}
-              >
-                <LabelList dataKey="label" content={PointLabel} />
-              </Scatter>
+              />
               {replayed.length > 0 && (
                 <Scatter
                   name="Replayed"
@@ -190,11 +187,19 @@ export function SetupScatter({
                   isAnimationActive={false}
                 />
               )}
+              <PointLabels
+                labels={frontier.map((point) => ({
+                  key: point.key,
+                  text: point.label,
+                  cost: point.cost,
+                  value: point.value,
+                }))}
+              />
             </ScatterChart>
           </ResponsiveContainer>
         </div>
       </div>
-      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-14 text-muted-foreground text-xs">
+      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-14 text-muted-foreground text-[0.7rem]">
         <RunsSizeLegend scale={runs} />
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="size-2 rounded-full bg-chart-primary" />

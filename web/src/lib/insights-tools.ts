@@ -8,6 +8,7 @@ import type {
 } from '@/lib/api';
 import { took } from '@/lib/inbox';
 import { NO_SERVER_FILTER, type RunFilter } from '@/lib/insights';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 
 export type InsightsTools = InsightsToolsResponseDto;
 export type SkillReport = SkillReportResponseDto;
@@ -65,3 +66,29 @@ export const usedNothing = (tools: InsightsTools): boolean =>
   tools.servers.length === 0 &&
   tools.refusals.length === 0 &&
   tools.unused.length === 0;
+
+export const skillHeadings = (rule: TrendRule): readonly NestedHeading[] => [
+  { label: 'Skill', indent: 'outer', size: 'minmax(12rem,2fr)' },
+  { label: 'Read per week', size: 'max-content' },
+  { label: 'Runs', numeric: true, size: SPREAD },
+  { label: 'Given', numeric: true, size: SPREAD },
+  { label: 'Read', numeric: true, size: SPREAD },
+  { label: 'Trend', note: trendRuleShown(rule), size: SPREAD },
+];
+
+export const SERVER_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Server', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  { label: 'Runs', numeric: true, size: SPREAD },
+  { label: 'Calls per run', numeric: true, size: SPREAD },
+  { label: 'p50', numeric: true, size: SPREAD },
+  { label: 'p95', numeric: true, size: SPREAD },
+  { label: 'Error rate', numeric: true, size: SPREAD },
+  { label: 'Failing runs', numeric: true, size: SPREAD },
+  { label: 'Refused', numeric: true, size: SPREAD },
+];
+
+export const REFUSAL_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Tool', indent: 'edge', size: 'minmax(12rem,2fr)' },
+  { label: 'Server', size: SPREAD },
+  { label: 'Refused', numeric: true, size: SPREAD },
+];

@@ -1,3 +1,4 @@
+import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import type {
   ConfigMarkerResponseDto,
   CostFlowLinkResponseDto,
@@ -18,6 +19,7 @@ import type {
   LineResponseDto,
   PersonNameResponseDto,
   RunFailureSummaryResponseDto,
+  RunTallyResponseDto,
   SignalReadingResponseDto,
   SpendResponseDto,
   SpreadResponseDto,
@@ -660,10 +662,10 @@ export const signalShown = (reading: SignalReading): string => {
 };
 
 export const taskFailureShown = (failure: TaskFailureSummary): string =>
-  `${failure.source} · ${failure.code} × ${failure.occurrences}`;
+  `${failure.source} · ${failure.code}`;
 
 export const runFailureShown = (failure: RunFailureSummary): string =>
-  `${failure.failure ?? 'No reason given'} × ${failure.runs}`;
+  failure.failure ?? 'No reason given';
 
 export type TrendPoint = {
   readonly day: string;
@@ -918,3 +920,124 @@ export const filterValueShown = (key: RunFilterKey, value: string): string => {
 
 export const cacheShown = (share: number | null): string =>
   share === null ? 'not reported' : shareShown(share);
+
+export const teamTrendOf = (
+  reports: readonly StationReport[],
+): TrendPoint[] => {
+  const days = new Map<string, { runs: number; failed: number }>();
+
+  for (const report of reports) {
+    for (const point of trendOf(report.trend)) {
+      const day = days.get(point.day) ?? { runs: 0, failed: 0 };
+      days.set(point.day, {
+        runs: day.runs + point.runs,
+        failed: day.failed + point.failed,
+      });
+    }
+  }
+
+  return [...days]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([day, counts]) => ({ day, ...counts }));
+};
+
+export type TallyTile = HeadlineTile & { readonly trend?: readonly number[] };
+
+const counted = (
+  id: string,
+  label: string,
+  now: number,
+  before: number,
+  better: Better,
+  drill: TileDrill = undefined,
+): TallyTile[] =>
+  now > 0 || before > 0
+    ? [
+        {
+          id,
+          label,
+          value: countShown(now),
+          delta: deltaOf(now, before, better),
+          drill,
+        },
+      ]
+    : [];
+
+export const tallyTiles = (
+  now: RunTallyResponseDto,
+  before: RunTallyResponseDto,
+  trend: readonly TrendPoint[],
+  filter: RunFilter = {},
+): TallyTile[] => [
+  {
+    id: 'runs',
+    label: 'Runs',
+    value: countShown(now.runs),
+    delta: deltaOf(now.runs, before.runs, 'neither'),
+    drill: { tab: 'runs', filter },
+    trend: trend.map((day) => day.runs),
+  },
+  {
+    id: 'failed',
+    label: 'Failed',
+    value: countShown(now.failed),
+    detail:
+      now.runs > 0 ? `${shareShown(now.failed / now.runs)} of runs` : undefined,
+    delta: deltaOf(now.failed, before.failed, 'down'),
+    drill: { tab: 'runs', filter: { ...filter, outcome: 'failed' } },
+    trend: trend.map((day) => day.failed),
+  },
+  ...counted('accepted', 'Accepted', now.accepted, before.accepted, 'up', {
+    tab: 'runs',
+    filter: { ...filter, outcome: 'accepted' },
+  }),
+  ...counted('sent-back', 'Sent back', now.sentBack, before.sentBack, 'down'),
+  ...counted('merged', 'Merged', now.merged, before.merged, 'up'),
+  {
+    id: 'cost',
+    label: 'Cost',
+    value: spendShown(now.cost),
+    delta: deltaOf(
+      spendAmount(now.cost, before.cost),
+      spendAmount(before.cost, now.cost),
+      'neither',
+    ),
+    drill: { tab: 'cost' },
+  },
+  {
+    id: 'median',
+    label: 'Median run',
+    value: lastedOrNone(now.medianMs),
+    detail: now.p90Ms === null ? undefined : `p90 ${lasted(now.p90Ms)}`,
+    delta: deltaOf(now.medianMs, before.medianMs, 'down'),
+    drill: undefined,
+  },
+];
+
+export const failedAny = (report: StationReport): boolean =>
+  report.taskFailures.length > 0 || report.runFailures.length > 0;
+
+export const insightsCrumbs = (
+  slug: string,
+  teamId: string,
+  view: InsightsView,
+  names: StationNames,
+): BreadcrumbSegment[] => {
+  const tab = INSIGHTS_TABS.find((each) => each.id === view.tab)?.label ?? '';
+  const stationId = view.tab === 'stations' ? view.filter.stationId : undefined;
+
+  return stationId
+    ? [
+        {
+          label: tab,
+          to: insightsPath(slug, teamId, {
+            tab: view.tab,
+            period: view.period,
+            filter: {},
+            page: 1,
+          }),
+        },
+        { label: stationShown(names, stationId) },
+      ]
+    : [{ label: tab }];
+};

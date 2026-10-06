@@ -152,12 +152,12 @@ describe('memory in Insights', () => {
     expect(standing).toHaveTextContent('12');
     expect(within(tiles).getByText('to 30 runs')).toBeInTheDocument();
 
-    const compared = screen.getByRole('table', {
+    const compared = screen.getByRole('list', {
       name: 'Runs without memories against runs with them',
     });
     expect(
-      within(compared).getByRole('row', { name: /Accepted/ }),
-    ).toHaveTextContent('50%80%Too few runs');
+      within(compared).getByText('Accepted rate').closest('li'),
+    ).toHaveTextContent('Accepted rateWithout50%With80%ChangeToo few runs');
 
     const flagged = screen.getByRole('list', {
       name: 'Memories flagged wrong',
@@ -167,6 +167,6 @@ describe('memory in Insights', () => {
       '/w/acme/team/team_1/memory?memory=memory_1',
     );
     expect(flagged).toHaveTextContent('Ada Lovelace');
-    expect(screen.getByText('No benchmark yet.')).toBeInTheDocument();
+    expect(screen.getByText('No benchmark yet')).toBeInTheDocument();
   });
 });

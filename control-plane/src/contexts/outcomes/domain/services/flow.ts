@@ -1,6 +1,7 @@
 import type { InboxWait } from '@outcomes/domain/aggregates/task-touches.aggregate';
 import {
   between,
+  known,
   type Spread,
   spreadOf,
 } from '@outcomes/domain/services/measures';
@@ -45,9 +46,6 @@ export interface Flow {
   readonly stations: readonly StationFlow[];
   readonly delivery: DeliveryFlow;
 }
-
-const known = (values: readonly (number | null)[]): number[] =>
-  values.flatMap((each) => (each === null ? [] : [each]));
 
 export const inboxWaitsWithin = (
   history: TeamHistory,

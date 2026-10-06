@@ -1,14 +1,17 @@
 import { GraduationCap } from 'lucide-react';
+import { useState } from 'react';
+import { InsightsTile } from '@/components/features/insights/InsightsTile';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
-import { JudgeCoverageFigures } from '@/components/features/stations/judge/JudgeCoverageFigures';
-import { JudgeStandingNote } from '@/components/features/stations/judge/JudgeStandingNote';
 import { RubricVersionCard } from '@/components/features/stations/judge/RubricVersionCard';
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
 import { notFound } from '@/lib/error';
+import { judgeTiles, rubricShown } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 
 const BOX = 'flex justify-center rounded-xl border border-border py-10';
@@ -27,6 +30,7 @@ export function JudgeAgreement({
   stationId,
 }: JudgeAgreementProps) {
   const query = useStationJudge(teamId, lineId, stationId);
+  const [picked, setPicked] = useState<string | null>(null);
 
   if (loading(query)) {
     return <JudgeAgreementSkeleton />;
@@ -53,8 +57,12 @@ export function JudgeAgreement({
   }
 
   const { standing, versions, coverage, judge } = query.data;
+  const shown =
+    versions.find((version) => version.rubricVersion === picked) ??
+    versions.find((version) => version.current) ??
+    versions[0];
 
-  if (versions.length === 0) {
+  if (!shown) {
     return (
       <div className={BOX}>
         <EmptyState
@@ -71,18 +79,43 @@ export function JudgeAgreement({
 
   return (
     <div data-slot="judge-agreement" className="flex flex-col gap-3">
-      <JudgeStandingNote standing={standing} />
-      <JudgeCoverageFigures coverage={coverage} />
-
-      <ol aria-label="Agreement by rubric" className="flex flex-col gap-3">
-        {versions.map((version) => (
-          <RubricVersionCard
-            key={version.rubricVersion}
-            version={version}
-            claims={version.current && judge ? judge.claims : []}
+      <InsightsTiles label="How far to trust the judge">
+        {judgeTiles(standing, coverage).map((tile) => (
+          <InsightsTile
+            key={tile.id}
+            label={tile.label}
+            value={tile.value}
+            detail={tile.detail}
           />
         ))}
-      </ol>
+      </InsightsTiles>
+
+      {versions.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span aria-hidden className="text-muted-foreground text-xs">
+            Rubric
+          </span>
+          <ChoiceSelect
+            label="Rubric"
+            compact
+            clearable={false}
+            choices={versions.map((version) => ({
+              value: version.rubricVersion,
+              label: rubricShown(version),
+            }))}
+            value={shown.rubricVersion}
+            placeholder="Current version"
+            onChange={setPicked}
+          />
+        </div>
+      )}
+
+      <RubricVersionCard
+        key={shown.rubricVersion}
+        version={shown}
+        claims={shown.current && judge ? judge.claims : []}
+        trust={standing.trust}
+      />
     </div>
   );
 }

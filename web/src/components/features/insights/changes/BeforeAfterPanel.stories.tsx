@@ -42,7 +42,7 @@ function Showing({ seed }: { seed: (client: QueryClient) => void }) {
 }
 
 const meta = {
-  title: 'Team/Insights/Before and after',
+  title: 'Team/Insights/Impact',
 } satisfies Meta;
 
 export default meta;

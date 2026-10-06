@@ -1,3 +1,5 @@
+import type { BotActivity } from '@github/domain/value-objects/bot-activity.vo';
+import type { DraftSpell } from '@github/domain/value-objects/draft-spell.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -18,10 +20,16 @@ export interface RecordedPullRequest {
   readonly state: RecordedState;
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
+  readonly readyForReviewAt: Date | null;
+  readonly draftSpells: readonly DraftSpell[];
   readonly firstReviewAt: Date | null;
+  readonly firstUnblockingReviewAt: Date | null;
+  readonly firstApprovedAt: Date | null;
+  readonly humanReviewedAt: readonly Date[];
   readonly reviews: number;
   readonly reviewRounds: number;
   readonly reviewComments: number;
+  readonly botActivity: readonly BotActivity[];
   readonly isRevert: boolean;
   readonly revertedBy: string | null;
   readonly version: number;

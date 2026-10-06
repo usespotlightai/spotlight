@@ -5,9 +5,12 @@ import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
+import { useFolds } from '@/hooks/useFolds';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
+import { OUTCOME_HEADINGS } from '@/lib/station-outcomes';
 
 const BOX = 'flex justify-center rounded-xl border border-border py-10';
 
@@ -26,6 +29,7 @@ export function StationOutcomes({
 }: StationOutcomesProps) {
   const outcomes = useStationOutcomes(teamId, lineId, stationId);
   const groups = outcomes.data?.groups ?? [];
+  const folds = useFolds();
 
   return (
     <>
@@ -54,16 +58,22 @@ export function StationOutcomes({
           </EmptyState>
         </div>
       ) : (
-        <ol aria-label="Runs by config" className="flex flex-col gap-3">
+        <NestedTable
+          label="Runs by config"
+          headings={OUTCOME_HEADINGS}
+          trailing
+        >
           {groups.map((group) => (
             <OutcomeGroup
               key={group.firstRunId}
               slug={slug}
               teamId={teamId}
+              stationId={stationId}
               group={group}
+              folds={folds}
             />
           ))}
-        </ol>
+        </NestedTable>
       )}
     </>
   );

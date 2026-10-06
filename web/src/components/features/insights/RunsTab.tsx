@@ -1,3 +1,4 @@
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsPager } from '@/components/features/insights/InsightsPager';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
@@ -38,26 +39,41 @@ export function RunsTab({
   const harnesses = useHarnesses().data;
   const narrowed = narrowedBy(view.filter).length > 0;
 
-  return (
-    <div className="flex flex-col gap-3">
-      <RunsFilters
-        filter={view.filter}
-        names={names}
-        lines={lines}
-        people={runs.data?.people ?? []}
-        onChange={(filter) => onView({ ...view, filter, page: 1 })}
-      />
+  const filters = (
+    <RunsFilters
+      filter={view.filter}
+      names={names}
+      lines={lines}
+      people={runs.data?.people ?? []}
+      onChange={(filter) => onView({ ...view, filter, page: 1 })}
+    />
+  );
 
-      {loading(runs) ? (
-        <RunsSkeleton />
-      ) : failed(runs) || !runs.data ? (
-        <InsightsFailed what="The runs" query={runs} />
-      ) : runs.data.total === 0 && !narrowed ? (
-        <NoRunsInPeriod slug={slug} teamId={teamId}>
-          Runs that end in this period show here, newest first.
-        </NoRunsInPeriod>
-      ) : runs.data.total === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-border py-10">
+  if (loading(runs)) {
+    return <RunsSkeleton />;
+  }
+
+  if (failed(runs) || !runs.data) {
+    return <InsightsFailed what="The runs" query={runs} />;
+  }
+
+  if (runs.data.total === 0 && !narrowed) {
+    return (
+      <NoRunsInPeriod slug={slug} teamId={teamId}>
+        Runs that end in this period show here, newest first.
+      </NoRunsInPeriod>
+    );
+  }
+
+  return (
+    <InsightsCard
+      tableOnly
+      title="Runs"
+      description="Every run that ended in this period, newest first."
+      actions={filters}
+    >
+      {runs.data.total === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-10">
           <p className="text-muted-foreground text-sm">No runs match.</p>
           <Button
             type="button"
@@ -70,17 +86,15 @@ export function RunsTab({
           </Button>
         </div>
       ) : (
-        <>
-          <div className="rounded-xl border border-border bg-card p-1">
-            <RunsTable
-              slug={slug}
-              teamId={teamId}
-              runs={runs.data.runs}
-              people={runs.data.people}
-              names={names}
-              harnesses={harnesses}
-            />
-          </div>
+        <div className="flex flex-col gap-3">
+          <RunsTable
+            slug={slug}
+            teamId={teamId}
+            runs={runs.data.runs}
+            people={runs.data.people}
+            names={names}
+            harnesses={harnesses}
+          />
           <InsightsPager
             label="Pages of runs"
             shown={runsShownOf(runs.data)}
@@ -88,8 +102,8 @@ export function RunsTab({
             lastPage={lastPageOf(runs.data)}
             onPage={(page) => onView({ ...view, page })}
           />
-        </>
+        </div>
       )}
-    </div>
+    </InsightsCard>
   );
 }

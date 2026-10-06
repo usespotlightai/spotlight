@@ -1,8 +1,12 @@
-import { ChangeHeadings } from '@/components/features/insights/changes/ChangeHeadings';
 import { ChangeMarkerRow } from '@/components/features/insights/changes/ChangeMarkerRow';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import type { StationNames } from '@/lib/insights';
-import { type ChangeMarker, changeKey } from '@/lib/insights-changes';
+import {
+  CHANGE_HEADINGS,
+  type ChangeMarker,
+  changeKey,
+} from '@/lib/insights-changes';
 
 type ChangeMarkerListProps = {
   slug: string;
@@ -27,26 +31,17 @@ export function ChangeMarkerList({
           No station changed its config in this period.
         </p>
       ) : (
-        <div className="@container">
-          <div className="grid gap-x-6 @3xl:grid-cols-[max-content_minmax(6rem,10rem)_minmax(8rem,14rem)_minmax(0,1fr)_repeat(3,max-content)]">
-            <ChangeHeadings />
-
-            <ul
-              aria-label="Config changes"
-              className="col-span-full grid grid-cols-subgrid divide-y divide-border"
-            >
-              {[...markers].reverse().map((marker) => (
-                <ChangeMarkerRow
-                  key={changeKey(marker)}
-                  slug={slug}
-                  teamId={teamId}
-                  marker={marker}
-                  names={names}
-                />
-              ))}
-            </ul>
-          </div>
-        </div>
+        <NestedTable label="Config changes" headings={CHANGE_HEADINGS} trailing>
+          {[...markers].reverse().map((marker) => (
+            <ChangeMarkerRow
+              key={changeKey(marker)}
+              slug={slug}
+              teamId={teamId}
+              marker={marker}
+              names={names}
+            />
+          ))}
+        </NestedTable>
       )}
     </InsightsCard>
   );

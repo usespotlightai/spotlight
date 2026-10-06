@@ -84,7 +84,7 @@ describe('OutputAgainstCost', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens the station’s before and after from a marker', async () => {
+  it('opens the impact of a station’s change from a marker', async () => {
     const show = vi.fn();
     render(
       <BeforeAfterPanelContext value={{ shown: null, show, close: vi.fn() }}>
@@ -114,7 +114,7 @@ describe('OutputAgainstCost', () => {
       }),
     );
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Before and after' }),
+      await screen.findByRole('button', { name: 'Impact' }),
     );
 
     expect(show).toHaveBeenCalledWith({

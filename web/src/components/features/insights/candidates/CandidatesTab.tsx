@@ -1,6 +1,6 @@
+import { CandidatesCard } from '@/components/features/insights/candidates/CandidatesCard';
 import { CandidatesSkeleton } from '@/components/features/insights/candidates/CandidatesSkeleton';
 import { NoCandidates } from '@/components/features/insights/candidates/NoCandidates';
-import { ReplayedStationCard } from '@/components/features/insights/candidates/ReplayedStationCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsCandidates } from '@/hooks/api/useInsightsCandidates';
@@ -47,15 +47,12 @@ export function CandidatesTab({
     <div className="flex flex-col gap-3">
       {read.truncated && <TruncatedNote said={CANDIDATES_TRUNCATED} />}
 
-      {read.stations.map((station) => (
-        <ReplayedStationCard
-          key={station.stationId}
-          slug={slug}
-          teamId={teamId}
-          station={station}
-          names={names}
-        />
-      ))}
+      <CandidatesCard
+        slug={slug}
+        teamId={teamId}
+        stations={read.stations}
+        names={names}
+      />
     </div>
   );
 }

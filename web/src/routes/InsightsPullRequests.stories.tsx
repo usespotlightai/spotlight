@@ -12,6 +12,7 @@ import {
   failPullRequests,
   seedPullRequests,
 } from '@/stories/fixtures/insights-pull-requests';
+import { seedShipping } from '@/stories/fixtures/insights-shipping';
 import { StoryPage } from '@/stories/StoryPage';
 
 const routes = (
@@ -23,6 +24,7 @@ const at = insightsAt('productivity');
 const alongside =
   (seed: (client: QueryClient) => void) => (client: QueryClient) => {
     seedFlow(client);
+    seedShipping(client);
     seed(client);
   };
 

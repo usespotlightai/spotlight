@@ -1,10 +1,14 @@
+import { Fragment } from 'react';
+import { ReplayedSetupRow } from '@/components/features/insights/changes/ReplayedSetupRow';
+import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
+import { useFolds } from '@/hooks/useFolds';
 import {
-  type InsightsColumn,
-  InsightsTable,
-} from '@/components/features/insights/InsightsTable';
-import { spentIn } from '@/lib/inbox';
-import { countShown, shareShown } from '@/lib/insights';
-import { markShown, type ReplayedPoint } from '@/lib/insights-candidates';
+  REPLAYED_HEADINGS,
+  type ReplayedPoint,
+  replayedSetsOf,
+} from '@/lib/insights-candidates';
 
 type ReplayedSetupTableProps = {
   points: readonly ReplayedPoint[];
@@ -15,53 +19,38 @@ export function ReplayedSetupTable({
   points,
   currency,
 }: ReplayedSetupTableProps) {
-  const columns: InsightsColumn<ReplayedPoint>[] = [
-    {
-      id: 'candidate',
-      header: 'Replayed',
-      cell: (point) => point.label,
-    },
-    {
-      id: 'kind',
-      header: 'Kind',
-      cell: (point) => markShown(point.mark),
-    },
-    { id: 'set', header: 'Replay set', cell: (point) => point.setName },
-    {
-      id: 'scored',
-      header: 'Runs scored',
-      numeric: true,
-      cell: (point) => countShown(point.scored),
-    },
-    {
-      id: 'cost',
-      header: 'Cost per run',
-      numeric: true,
-      cell: (point) => spentIn(point.cost, currency),
-    },
-    {
-      id: 'success',
-      header: 'Replay success',
-      numeric: true,
-      cell: (point) => shareShown(point.value),
-    },
-    {
-      id: 'held-out',
-      header: 'Held out',
-      numeric: true,
-      cell: (point) => point.heldOut ?? '–',
-    },
-  ];
+  const folds = useFolds();
 
   return (
-    <div className="flex flex-col gap-1">
-      <p className="font-medium text-foreground text-xs">Replayed</p>
-      <InsightsTable
-        label="Replayed candidates"
-        columns={columns}
-        rows={points}
-        rowKey={(point) => point.key}
-      />
+    <div className="mt-4">
+      <NestedTable label="Replayed configs" headings={REPLAYED_HEADINGS}>
+        {replayedSetsOf(points).map((set) => {
+          const open = folds.isOpen(set.name);
+
+          return (
+            <Fragment key={set.name}>
+              <NestedGroupRow
+                label={set.name}
+                open={open}
+                depth={0}
+                onToggle={() => folds.toggle(set.name)}
+              >
+                <span className="font-medium text-foreground">{set.name}</span>
+                <span className="ml-1.5 text-muted-foreground">replayed</span>
+              </NestedGroupRow>
+              <FoldingRows open={open}>
+                {set.points.map((point) => (
+                  <ReplayedSetupRow
+                    key={point.key}
+                    point={point}
+                    currency={currency}
+                  />
+                ))}
+              </FoldingRows>
+            </Fragment>
+          );
+        })}
+      </NestedTable>
     </div>
   );
 }

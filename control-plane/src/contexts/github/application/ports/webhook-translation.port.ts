@@ -1,6 +1,7 @@
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { PullRequestFacts } from '@github/domain/aggregates/pull-request.aggregate';
+import type { HeardThread } from '@github/domain/value-objects/bot-activity.vo';
 
 export const WEBHOOK_TRANSLATION = Symbol('WEBHOOK_TRANSLATION');
 
@@ -33,6 +34,22 @@ export type Heard =
       readonly action: ReviewCommentAction;
       readonly pullRequest: string;
       readonly comment: HeardReviewComment;
+      readonly facts: PullRequestFacts | null;
+    }
+  | {
+      readonly kind: 'conversation-comment';
+      readonly action: ReviewCommentAction;
+      readonly pullRequest: string;
+      readonly comment: {
+        readonly id: number;
+        readonly login: string | null;
+        readonly byBot: boolean;
+      };
+    }
+  | {
+      readonly kind: 'review-thread';
+      readonly pullRequest: string;
+      readonly thread: HeardThread;
       readonly facts: PullRequestFacts | null;
     }
   | { readonly kind: 'pull-request'; readonly facts: PullRequestFacts }

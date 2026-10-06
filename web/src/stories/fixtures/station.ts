@@ -315,7 +315,7 @@ const EARLIER_RUBRIC =
 const daysAgo = (days: number): string =>
   new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 
-const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
+export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
   stationId: STATION_ID,
   judge: {
     rubricVersion: RUBRIC,

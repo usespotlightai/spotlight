@@ -194,44 +194,44 @@ describe('the skills and tools of the Tools and skills tab', () => {
     ).toHaveAttribute('href', '/w/acme/settings/team/team_1/skills');
   });
 
-  it('shows each skill’s use as its own small chart, marking spreading and saying the rule', () => {
+  const skillRow = (key: string) =>
+    screen
+      .getByText(key, { selector: 'a, span' })
+      .closest('[data-slot="nested-group"]') as HTMLElement;
+
+  it('lists each skill in one table, marking spreading and explaining the rule on its column', () => {
     showing();
 
-    const multiples = screen.getByRole('list', { name: 'Skill use by week' });
-    const migrations = within(multiples)
-      .getByRole('link', { name: 'our-migrations' })
-      .closest('[data-slot="skill-multiple"]') as HTMLElement;
+    const table = screen.getByRole('list', { name: 'Skill use' });
 
     expect(
-      multiples.querySelectorAll('[data-slot="skill-multiple"]'),
-    ).toHaveLength(2);
+      within(table).getAllByRole('button', { name: /^Fold / }),
+    ).toHaveLength(1);
     expect(
-      migrations.querySelector('[data-slot="skill-trend"]'),
+      skillRow('our-migrations').querySelector('[data-slot="skill-trend"]'),
     ).toHaveAttribute('data-trend', 'spreading');
-    expect(
-      screen.getByText(/moved 20\+ points\. Compares the last 2 weeks/),
-    ).toBeInTheDocument();
+    expect(skillRow('our-migrations')).toHaveTextContent('Given8Read5Trend');
   });
 
   it('links a defined skill to its page under the team’s skills, and opens the runs behind its numbers', () => {
     showing();
 
-    const multiples = screen.getByRole('list', { name: 'Skill use by week' });
+    const migrations = skillRow('our-migrations');
 
     expect(
-      within(multiples).getByRole('link', { name: 'our-migrations' }),
+      within(migrations).getByRole('link', { name: 'our-migrations' }),
     ).toHaveAttribute(
       'href',
       '/w/acme/settings/team/team_1/skills#skill-our-migrations',
     );
     expect(
-      within(multiples).queryByRole('link', { name: 'borrowed' }),
+      within(skillRow('borrowed')).queryByRole('link', { name: 'borrowed' }),
     ).toBeNull();
-    expect(within(multiples).getByRole('link', { name: '5' })).toHaveAttribute(
+    expect(within(migrations).getByRole('link', { name: '5' })).toHaveAttribute(
       'href',
       `${RUNS}&skillUsed=our-migrations`,
     );
-    expect(within(multiples).getByRole('link', { name: '8' })).toHaveAttribute(
+    expect(within(migrations).getByRole('link', { name: '8' })).toHaveAttribute(
       'href',
       `${RUNS}&skillGiven=our-migrations`,
     );
@@ -249,9 +249,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
       'href',
       '/w/acme/team/team_1/insights?tab=runs&period=7d&stationId=station_impl&skillUsed=our-migrations',
     );
-    expect(
-      within(station.closest('li') as HTMLElement).getByText('5 of 10'),
-    ).toBeInTheDocument();
+    expect(station.closest('li')).toHaveTextContent('Runs10Given8Read5');
     expect(
       screen.queryByRole('list', { name: 'Stations using borrowed' }),
     ).toBeNull();
@@ -272,32 +270,15 @@ describe('the skills and tools of the Tools and skills tab', () => {
 
     showing();
 
-    expect(
-      screen.queryByRole('list', { name: 'Skill use by week' }),
-    ).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Skill use' })).toBeNull();
     expect(screen.queryByRole('list', { name: 'Unused skills' })).toBeNull();
     expect(
-      screen.queryByRole('table', { name: 'Refused approvals per tool' }),
+      screen.queryByRole('list', { name: 'Refused approvals per tool' }),
     ).toBeNull();
     expect(
-      screen.getByRole('table', { name: 'How each MCP server behaved' }),
+      screen.getByRole('list', { name: 'How each MCP server behaved' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('note')).toBeNull();
-  });
-
-  it('opens a skill’s runs for a week from its table', async () => {
-    showing();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
-
-    const table = screen.getByRole('table', {
-      name: 'Runs that read each skill, week by week',
-    });
-
-    expect(within(table).getByRole('link', { name: '4' })).toHaveAttribute(
-      'href',
-      `${RUNS}&week=2026-09-28&skillUsed=our-migrations`,
-    );
   });
 
   it('lists defined skills no run read', () => {
@@ -317,10 +298,10 @@ describe('the skills and tools of the Tools and skills tab', () => {
   it('shows each MCP server’s runs, calls per run, latency, error rate and failing runs, each opening its runs', () => {
     showing();
 
-    const table = screen.getByRole('table', {
+    const table = screen.getByRole('list', {
       name: 'How each MCP server behaved',
     });
-    const row = within(table).getByText('linear').closest('tr') as HTMLElement;
+    const row = within(table).getByText('linear').closest('li') as HTMLElement;
 
     expect(within(row).getByRole('link', { name: '4' })).toHaveAttribute(
       'href',
@@ -351,7 +332,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
   it('counts refused approvals per tool of each server, opening the runs they were refused for', () => {
     showing();
 
-    const table = screen.getByRole('table', {
+    const table = screen.getByRole('list', {
       name: 'Refused approvals per tool',
     });
 

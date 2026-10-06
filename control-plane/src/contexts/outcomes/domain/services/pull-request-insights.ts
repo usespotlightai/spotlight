@@ -1,4 +1,5 @@
 import {
+  known,
   rateOf,
   type Spread,
   spendingOf,
@@ -123,7 +124,7 @@ export const weeksOf = (window: Window): readonly string[] => {
 export const sameRepository = (one: string, other: string): boolean =>
   one.toLowerCase() === other.toLowerCase();
 
-const mergedWithin = (
+export const mergedWithin = (
   pullRequests: readonly TeamPullRequest[],
   window: Window,
 ): readonly TeamPullRequest[] =>
@@ -205,9 +206,6 @@ const meanOf = (values: readonly number[]): number | null =>
     ? values.reduce((sum, each) => sum + each, 0) / values.length
     : null;
 
-const known = (values: readonly (number | null)[]): number[] =>
-  values.flatMap((each) => (each === null ? [] : [each]));
-
 const measuresOf = (merged: readonly TeamPullRequest[]): GroupMeasures => {
   const reverts = merged.filter(reverted).length;
 
@@ -238,7 +236,7 @@ export const comparedRepositoriesOf = (
 ): readonly string[] =>
   comparedRepositories(mergedWithin(pullRequests, window));
 
-const inRepositories = (
+export const inRepositories = (
   pullRequests: readonly TeamPullRequest[],
   repositories: readonly string[],
 ): readonly TeamPullRequest[] =>

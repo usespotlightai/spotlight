@@ -31,7 +31,7 @@ export function ChangeDetail({
 
   return (
     <SidePane pane={CHANGE_PANE} open={open}>
-      <div className="flex items-center gap-2 border-border border-b-[0.5px] px-4 py-2">
+      <div className="flex items-center gap-2 px-4 py-2">
         <p className="min-w-0 flex-1 truncate text-foreground text-xs">
           {repoRelative(file.path)}
         </p>

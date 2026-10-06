@@ -9,19 +9,13 @@ export function CostSkeleton() {
       aria-label="Loading the cost"
       className="flex flex-col gap-3"
     >
-      <InsightsTilesSkeleton
-        labels={['Spend', 'Runs with no price', 'Cache share']}
-      />
+      <InsightsTilesSkeleton count={3} />
       <div className="grid gap-3 md:grid-cols-2">
         {COST_DIMENSIONS.map((dimension) => (
-          <InsightsCardSkeleton
-            key={dimension.id}
-            title={dimension.label}
-            rows={3}
-          />
+          <InsightsCardSkeleton key={dimension.id} rows={3} />
         ))}
       </div>
-      <InsightsCardSkeleton title="Read from cache" rows={3} />
+      <InsightsCardSkeleton rows={3} />
     </div>
   );
 }

@@ -101,7 +101,18 @@ export const GITHUB_PUBLICATIONS = [
       openedAt: recorded.openedAt.toISOString(),
       closedAt: recorded.closedAt?.toISOString() ?? null,
       updatedAt: recorded.updatedAt.toISOString(),
+      readyForReviewAt: recorded.readyForReviewAt?.toISOString() ?? null,
+      draftSpells: recorded.draftSpells.map((each) => ({
+        from: each.from.toISOString(),
+        to: each.to?.toISOString() ?? null,
+      })),
       firstReviewAt: recorded.firstReviewAt?.toISOString() ?? null,
+      firstUnblockingReviewAt:
+        recorded.firstUnblockingReviewAt?.toISOString() ?? null,
+      firstApprovedAt: recorded.firstApprovedAt?.toISOString() ?? null,
+      humanReviewedAt: recorded.humanReviewedAt.map((each) =>
+        each.toISOString(),
+      ),
     }),
   ),
   publishing<PullRequestForgotten>(

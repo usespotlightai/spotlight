@@ -52,14 +52,15 @@ export function PullRequestList({
       <InsightsCard
         title="Pull requests"
         description="Pull requests in the team’s repositories: opened or closed this period, or still open. Latest first."
-      >
-        <div className="flex flex-col gap-3">
+        actions={
           <PullRequestFilters
             filter={view.filter}
             repositories={repositories}
             onChange={(filter) => onView({ ...view, filter, page: 1 })}
           />
-
+        }
+      >
+        <div className="flex flex-col gap-3">
           {loading(list) ? (
             <PullRequestListSkeleton />
           ) : failed(list) || !list.data ? (

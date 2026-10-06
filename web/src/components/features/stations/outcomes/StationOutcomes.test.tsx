@@ -126,39 +126,39 @@ beforeEach(() => {
 });
 
 describe('StationOutcomes', () => {
-  it('groups the runs by the config they ran with, newest first', () => {
+  it('groups the runs by the config they ran with, newest first, named by what changed', () => {
     showing();
 
-    expect(
-      groups().map(
-        (group) =>
-          group.querySelector('[data-slot="fingerprint"]')?.textContent,
-      ),
-    ).toEqual(['b7d4a60c', '3f2a9c1e']);
+    expect(groups().map((group) => group.textContent)).toEqual([
+      'Effort high → xhigh',
+      'Config 3f2a9c1e',
+    ]);
   });
 
-  it('says what changed from the config before', () => {
+  it('offers the impact of each config that changed something', () => {
     showing();
 
-    const [newer, older] = groups() as HTMLElement[];
+    const [newer, older] = screen
+      .getAllByRole('button', { name: /^Fold / })
+      .map((fold) => fold.closest('li') as HTMLElement);
 
     expect(
-      within(newer as HTMLElement).getByRole('list', { name: 'What changed' }),
-    ).toHaveTextContent('Effort high → xhigh');
+      within(newer as HTMLElement).getByRole('button', { name: 'Impact' }),
+    ).toBeInTheDocument();
     expect(
-      within(older as HTMLElement).queryByRole('list', {
-        name: 'What changed',
-      }),
+      within(older as HTMLElement).queryByRole('button', { name: 'Impact' }),
     ).not.toBeInTheDocument();
   });
 
-  it('tallies how each config’s runs went', () => {
+  it('sums each config’s runs in the same columns as its runs', () => {
     showing();
 
-    expect(
-      groups()[0]?.querySelector('[data-slot="station-tally"]'),
-    ).toHaveTextContent(
-      'Runs2Failed1Checks passed1Accepted1Merged1Cost$1.20Median3m',
+    const [newer] = screen
+      .getAllByRole('button', { name: /^Fold / })
+      .map((fold) => fold.closest('li') as HTMLElement);
+
+    expect(newer).toHaveTextContent(
+      'Checks100% passedNext50% acceptedDelivery50% mergedTook3mCost$1.20',
     );
   });
 
@@ -166,14 +166,14 @@ describe('StationOutcomes', () => {
     showing();
 
     const [first, second] = within(
-      within(groups()[0] as HTMLElement).getByRole('list', { name: 'Runs' }),
+      screen.getAllByRole('list', { name: 'Runs' })[0] as HTMLElement,
     ).getAllByRole('listitem');
 
     expect(first).toHaveTextContent(
-      'CompletedRound 1Checks passedClosedMerged3m$0.60',
+      'CompletedRound1ChecksChecks passedNextClosedDeliveryMergedTook3mCost$0.60',
     );
     expect(second).toHaveTextContent(
-      'FailedThe agent ran out of turnsRound 2––––',
+      'FailedThe agent ran out of turnsRound2Checks–Next–Delivery–Took–',
     );
     expect(
       within(second as HTMLElement).getByRole('link', { name: 'Failed' }),

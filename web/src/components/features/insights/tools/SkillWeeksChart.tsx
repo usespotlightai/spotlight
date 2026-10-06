@@ -1,10 +1,12 @@
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import type { SkillWeek } from '@/lib/insights-tools';
 import { dayShown } from '@/lib/judge';
 
-const HEIGHT = 56;
+const HEIGHT = 16;
+
+type ReadWeek = SkillWeek & { readonly share: number };
 
 const Said = ({
   placement,
@@ -13,7 +15,7 @@ const Said = ({
 }: {
   placement: TipPlacement;
   active?: boolean;
-  payload?: { payload: SkillWeek }[];
+  payload?: { payload: ReadWeek }[];
 }) => {
   const week = payload?.[0]?.payload;
 
@@ -32,8 +34,18 @@ const Said = ({
   );
 };
 
-export function SkillWeeksChart({ weeks }: { weeks: readonly SkillWeek[] }) {
-  const cursor = useCursorTooltip();
+type SkillWeeksChartProps = {
+  weeks: readonly SkillWeek[];
+  onWeek: (week: string) => void;
+};
+
+export function SkillWeeksChart({ weeks, onWeek }: SkillWeeksChartProps) {
+  const cursor = useCursorTooltip({ floating: true });
+  const read: ReadWeek[] = weeks.map((week) => ({
+    ...week,
+    share: week.runs > 0 ? week.used / week.runs : 0,
+  }));
+
   return (
     <div
       data-slot="skill-weeks-chart"
@@ -41,30 +53,31 @@ export function SkillWeeksChart({ weeks }: { weeks: readonly SkillWeek[] }) {
     >
       <div {...cursor.area}>
         <ResponsiveContainer width="100%" height={HEIGHT}>
-          <BarChart
-            data={[...weeks]}
-            barGap={-8}
-            margin={{ top: 2, right: 0, bottom: 0, left: 0 }}
+          <LineChart
+            data={read}
+            margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
+            className="cursor-pointer"
+            onClick={(state) => {
+              const week = weeks[Number(state.activeIndex)];
+              if (week) {
+                onWeek(week.week);
+              }
+            }}
           >
-            <XAxis dataKey="week" hide />
+            <YAxis hide domain={[0, 'dataMax']} />
             <Tooltip
               {...cursor.tooltip}
               content={<Said placement={cursor.placement} />}
-              cursor={{ fill: 'var(--accent)' }}
+              cursor={{ stroke: 'var(--chart-grid)' }}
             />
-            <Bar
-              dataKey="runs"
-              fill="var(--chart-1)"
-              barSize={8}
+            <Line
+              dataKey="share"
+              stroke="var(--chart-primary)"
+              strokeWidth={1.5}
+              dot={false}
               isAnimationActive={false}
             />
-            <Bar
-              dataKey="used"
-              fill="var(--chart-primary)"
-              barSize={8}
-              isAnimationActive={false}
-            />
-          </BarChart>
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>

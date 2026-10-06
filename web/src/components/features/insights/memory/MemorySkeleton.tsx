@@ -8,12 +8,9 @@ export function MemorySkeleton() {
       aria-label="Loading the memory"
       className="flex flex-col gap-3"
     >
-      <InsightsTilesSkeleton
-        labels={['Standing memories', 'Briefed', 'Read', 'Flagged wrong']}
-      />
-      <InsightsCardSkeleton title="Runs with memories and without" rows={5} />
-      <InsightsCardSkeleton title="Flagged wrong" rows={2} />
-      <InsightsCardSkeleton title="Memory benchmark" rows={1} />
+      <InsightsTilesSkeleton count={5} />
+      <InsightsCardSkeleton rows={8} />
+      <InsightsCardSkeleton rows={3} />
     </div>
   );
 }

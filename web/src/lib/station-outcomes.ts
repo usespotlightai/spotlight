@@ -6,6 +6,9 @@ import type {
   StationRunOutcomeResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
+import { dayShown, percentShown } from '@/lib/judge';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import { changePhrase } from '@/lib/station-config';
 
 export type StationRunOutcome = StationRunOutcomeResponseDto;
 
@@ -107,7 +110,7 @@ export type TallyColumn = {
   readonly shown: (tally: StationTally) => string;
 };
 
-export const TALLY_COLUMNS: readonly TallyColumn[] = [
+const TALLY_COLUMNS: readonly TallyColumn[] = [
   { label: 'Runs', shown: (tally) => `${tally.runs}` },
   { label: 'Failed', shown: (tally) => `${tally.failed}` },
   { label: 'Stopped', shown: (tally) => `${tally.stopped}` },
@@ -134,6 +137,15 @@ const columnsNamed = (labels: readonly string[]): TallyColumn[] =>
     return column;
   });
 
+export const countedColumnsOf = (
+  tallies: readonly StationTally[],
+): TallyColumn[] =>
+  TALLY_COLUMNS.filter(
+    (column) =>
+      column.label === 'Runs' ||
+      tallies.some((tally) => column.shown(tally) !== '0'),
+  );
+
 export const GLANCE_COLUMNS = columnsNamed([
   'Runs',
   'Accepted',
@@ -143,17 +155,74 @@ export const GLANCE_COLUMNS = columnsNamed([
   'Median',
 ]);
 
-export const PERIOD_COLUMNS = columnsNamed([
-  'Runs',
-  'Failed',
-  'Accepted',
-  'Sent back',
-  'Merged',
-  'Cost',
-  'Median',
-]);
-
 export const recentRuns = (
   groups: readonly FingerprintGroup[],
   count: number,
 ): StationRunOutcome[] => groups.flatMap((group) => group.runs).slice(0, count);
+
+export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Run', indent: 'outer', size: 'minmax(12rem,3fr)' },
+  { label: 'Round', size: SPREAD },
+  { label: 'Checks', size: SPREAD },
+  { label: 'Next', size: SPREAD },
+  { label: 'Delivery', size: SPREAD },
+  { label: 'Took', numeric: true, size: SPREAD },
+  { label: 'Cost', numeric: true, size: SPREAD },
+  { label: 'Ended', numeric: true, size: SPREAD },
+];
+
+export type GroupSummary = {
+  readonly name: string;
+  readonly more: readonly string[];
+  readonly note: string | null;
+  readonly days: string | null;
+  readonly checks: string;
+  readonly next: string;
+  readonly delivery: string;
+  readonly took: string;
+  readonly cost: string;
+};
+
+const shareOf = (part: number, whole: number, said: string): string =>
+  whole > 0 ? `${percentShown(part / whole)} ${said}` : '–';
+
+const daysOf = (runs: readonly StationRunOutcome[]): string | null => {
+  const days = runs.map((run) => run.endedAt.slice(0, 10)).sort();
+  const [first] = days;
+  const last = days[days.length - 1];
+
+  if (!first || !last) {
+    return null;
+  }
+
+  return first === last
+    ? dayShown(first)
+    : `${dayShown(first)}–${dayShown(last)}`;
+};
+
+export const groupSummary = (group: FingerprintGroup): GroupSummary => {
+  const phrases = group.changes.map(changePhrase);
+  const [first, ...more] = phrases;
+  const hash = group.fingerprint
+    ? `Config ${group.fingerprint.slice(0, 8)}`
+    : null;
+  const { tally } = group;
+
+  return {
+    name: !group.fingerprint
+      ? 'Before the first run with a config'
+      : (first ?? hash ?? ''),
+    more,
+    note: hash && phrases.length > 0 ? [...phrases, hash].join(' · ') : null,
+    days: daysOf(group.runs),
+    checks: shareOf(
+      tally.checksPassed,
+      tally.checksPassed + tally.checksFailed,
+      'passed',
+    ),
+    next: shareOf(tally.accepted, tally.runs, 'accepted'),
+    delivery: shareOf(tally.merged, tally.runs, 'merged'),
+    took: tookShown(tally.medianMs),
+    cost: costShown(tally.cost),
+  };
+};

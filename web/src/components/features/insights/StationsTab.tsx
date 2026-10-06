@@ -1,19 +1,19 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
+import { InsightsTile } from '@/components/features/insights/InsightsTile';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
-import { StationReportRow } from '@/components/features/insights/StationReportRow';
 import { StationsSkeleton } from '@/components/features/insights/StationsSkeleton';
 import { StationsTable } from '@/components/features/insights/StationsTable';
 import { StationInsights } from '@/components/features/insights/station/StationInsights';
 import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
-import { StationTallyFigures } from '@/components/features/stations/outcomes/StationTallyFigures';
 import { useInsightsStations } from '@/hooks/api/useInsightsStations';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import {
-  deltaOf,
   type InsightsPeriod,
   type StationNames,
+  tallyTiles,
+  teamTrendOf,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 
@@ -65,45 +65,29 @@ export function StationsTab({
     );
   }
 
-  const delta = deltaOf(team.runs, teamBefore.runs, 'neither');
-
   return (
     <div className="flex flex-col gap-3">
       {truncated && <TruncatedNote />}
 
-      <InsightsCard
-        title="The whole team"
-        actions={delta && <DeltaShown delta={delta} />}
-      >
-        <StationTallyFigures tally={team} />
-      </InsightsCard>
+      <InsightsTiles label="The whole team">
+        {tallyTiles(team, teamBefore, teamTrendOf(reports)).map((tile) => (
+          <InsightsTile
+            key={tile.id}
+            label={tile.label}
+            value={tile.value}
+            detail={tile.detail}
+            delta={tile.delta}
+            drill={tile.drill}
+            trend={tile.trend}
+          />
+        ))}
+      </InsightsTiles>
 
       <InsightsCard
         title="By station"
-        description="Same counts as each station’s page. The line shows runs per day, failures in red."
-        table={
-          <StationsTable
-            slug={slug}
-            teamId={teamId}
-            stations={reports}
-            names={names}
-          />
-        }
+        description="Same counts as each station’s page. The line shows runs per day, failures in red, beside the change in runs from the previous period."
       >
-        <ul
-          aria-label="Stations"
-          className="flex flex-col divide-y divide-border"
-        >
-          {reports.map((report) => (
-            <StationReportRow
-              key={report.stationId}
-              slug={slug}
-              teamId={teamId}
-              report={report}
-              names={names}
-            />
-          ))}
-        </ul>
+        <StationsTable stations={reports} names={names} />
       </InsightsCard>
     </div>
   );

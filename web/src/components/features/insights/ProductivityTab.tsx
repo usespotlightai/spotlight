@@ -1,6 +1,7 @@
 import { FlowTab } from '@/components/features/insights/FlowTab';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { PullRequestsTab } from '@/components/features/insights/pull-requests/PullRequestsTab';
+import { ShippingTab } from '@/components/features/insights/shipping/ShippingTab';
 import type { InsightsView, StationNames } from '@/lib/insights';
 
 type ProductivityTabProps = {
@@ -28,6 +29,13 @@ export function ProductivityTab({
           names={names}
         />
       </InsightsSection>
+
+      <ShippingTab
+        slug={slug}
+        teamId={teamId}
+        period={view.period}
+        names={names}
+      />
 
       <InsightsSection title="Pull requests">
         <PullRequestsTab

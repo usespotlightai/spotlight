@@ -1,4 +1,10 @@
 import { SignalDumbbell } from '@/components/features/insights/SignalDumbbell';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import {
+  OUTER_DIVIDER,
+  OUTER_GUIDE,
+  OUTER_INDENT,
+} from '@/components/shared/nested-table/nested-rows';
 import {
   type SignalReading,
   signalLabel,
@@ -19,34 +25,30 @@ export function SignalRow({ reading }: { reading: SignalReading }) {
     <li
       role="img"
       aria-label={signalShown(reading)}
-      className="col-span-full grid grid-cols-2 items-center sm:grid-cols-4 gap-x-6 gap-y-1 text-xs leading-4 md:grid-cols-subgrid"
+      data-slot="signal-reading"
+      className={cn(
+        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-xs @4xl:grid-cols-subgrid',
+        OUTER_GUIDE,
+        OUTER_DIVIDER,
+      )}
     >
-      <span className="col-span-full text-muted-foreground md:col-span-1 md:whitespace-nowrap">
+      <span
+        className={cn(
+          'col-span-full min-w-0 truncate text-foreground @4xl:col-span-1',
+          OUTER_INDENT,
+        )}
+      >
         {signalLabel(reading.signal)}
       </span>
 
-      <div className="col-span-full min-w-0 md:col-span-1">
+      <div className="col-span-full min-w-0 @4xl:col-span-1">
         <SignalDumbbell reading={reading} />
       </div>
 
       {COMPARED.map(({ id, heading }) => (
-        <span
-          key={id}
-          className="flex flex-col tabular-nums md:block md:text-right"
-        >
-          <span className="text-[0.7rem] text-muted-foreground md:hidden">
-            {heading}
-          </span>
-          <span
-            className={cn(
-              id === 'now'
-                ? 'font-medium text-foreground'
-                : 'text-muted-foreground',
-            )}
-          >
-            {signalValue(reading, reading[id])}
-          </span>
-        </span>
+        <NestedCell key={id} heading={heading} strong={id === 'now'}>
+          {signalValue(reading, reading[id])}
+        </NestedCell>
       ))}
     </li>
   );

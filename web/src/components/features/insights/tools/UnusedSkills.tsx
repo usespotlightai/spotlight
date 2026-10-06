@@ -19,7 +19,7 @@ export function UnusedSkills({ slug, teamId, unused }: UnusedSkillsProps) {
           <li key={key}>
             <TrailLink
               to={skillPath(slug, teamId, key)}
-              className="rounded-full border border-border px-2 py-0.5 font-mono text-muted-foreground text-xs hover:text-foreground hover:underline"
+              className="rounded-full border border-border px-2 py-0.5 text-muted-foreground text-xs hover:text-foreground hover:underline"
             >
               {key}
             </TrailLink>

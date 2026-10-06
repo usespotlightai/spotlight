@@ -28,6 +28,7 @@ import type {
   InsightsPullRequestListDto,
   InsightsPullRequestsDto,
 } from '@outcomes/application/dto/insights-pull-requests.dto';
+import type { InsightsShippingDto } from '@outcomes/application/dto/insights-shipping.dto';
 import type { InsightsToolsDto } from '@outcomes/application/dto/insights-tools.dto';
 import type { StationAlertDto } from '@outcomes/application/dto/station-alert.dto';
 import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
@@ -40,6 +41,7 @@ import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-in
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import { ReadInsightsSetupsQuery } from '@outcomes/application/queries/read-insights-setups.query';
+import { ReadInsightsShippingQuery } from '@outcomes/application/queries/read-insights-shipping.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { ReadStationAlertQuery } from '@outcomes/application/queries/read-station-alert.query';
@@ -75,6 +77,7 @@ import {
   InsightsPullRequestsResponseDto,
 } from '@outcomes/presentation/http/dto/insights-pull-requests.response.dto';
 import { InsightsRunsResponseDto } from '@outcomes/presentation/http/dto/insights-runs.response.dto';
+import { InsightsShippingResponseDto } from '@outcomes/presentation/http/dto/insights-shipping.response.dto';
 import { InsightsStationsResponseDto } from '@outcomes/presentation/http/dto/insights-stations.response.dto';
 import { InsightsToolsResponseDto } from '@outcomes/presentation/http/dto/insights-tools.response.dto';
 import { StationAlertCrossingResponseDto } from '@outcomes/presentation/http/dto/station-alert-crossing.response.dto';
@@ -375,6 +378,27 @@ export class TeamInsightsController {
         ReadInsightsPullRequestsQuery,
         InsightsPullRequestsDto
       >(new ReadInsightsPullRequestsQuery(teamId, principal, periodOf(period))),
+    );
+  }
+
+  @Get('shipping')
+  @ApiOperation({
+    operationId: 'readInsightsShipping',
+    summary:
+      'How fast what Spotlight makes ships against what people make alone: time to merge by day and kind, review depth by week, time to first review, review bots, and how long merged pull requests spent at each stage',
+  })
+  @PeriodQuery()
+  @ApiOkResponse({ type: InsightsShippingResponseDto })
+  async shipping(
+    @Param('teamId') teamId: string,
+    @Query('period') period: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<InsightsShippingResponseDto> {
+    return new InsightsShippingResponseDto(
+      await this.queryBus.execute<
+        ReadInsightsShippingQuery,
+        InsightsShippingDto
+      >(new ReadInsightsShippingQuery(teamId, principal, periodOf(period))),
     );
   }
 

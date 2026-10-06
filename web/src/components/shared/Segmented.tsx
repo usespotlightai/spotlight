@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
 import { useRef } from 'react';
-import { Noted } from '@/components/shared/Noted';
 import { useTabIndicator } from '@/hooks/useTabIndicator';
 import { cn } from '@/lib/utils';
 
@@ -27,16 +26,12 @@ export function Segmented<T extends string>({
 }: SegmentedProps<T>) {
   const group = useRef<HTMLFieldSetElement>(null);
   const indicator = useTabIndicator(group, value);
-  const iconic = segments.every((segment) => segment.icon);
 
   return (
     <fieldset
       ref={group}
       aria-label={label}
-      className={cn(
-        'relative m-0 flex min-w-0 items-center rounded-md border border-border bg-background p-0.5',
-        iconic ? 'h-5' : 'h-6',
-      )}
+      className="relative m-0 flex h-6 min-w-0 items-center rounded-md border border-border bg-background p-0.5"
     >
       {indicator && (
         <span
@@ -55,30 +50,22 @@ export function Segmented<T extends string>({
 
       {segments.map((segment) => {
         const Icon = segment.icon;
-        const button = (
+
+        return (
           <button
             key={segment.id}
             type="button"
             data-tab={segment.id}
-            aria-label={Icon ? segment.label : undefined}
             aria-pressed={segment.id === value}
             onClick={() => onChange(segment.id)}
             className={cn(
-              'relative flex h-full items-center rounded-sm text-[0.7rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-              Icon ? 'px-0.5' : 'px-1.5',
+              'relative flex h-full items-center gap-1 rounded-sm px-1.5 text-[0.7rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
               segment.id === value && 'text-foreground',
             )}
           >
-            {Icon ? <Icon aria-hidden className="size-3" /> : segment.label}
+            {Icon && <Icon aria-hidden className="size-3" />}
+            {segment.label}
           </button>
-        );
-
-        return Icon ? (
-          <Noted key={segment.id} note={segment.label}>
-            {button}
-          </Noted>
-        ) : (
-          button
         );
       })}
     </fieldset>

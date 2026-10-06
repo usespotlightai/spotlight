@@ -1,7 +1,6 @@
 import { type ReactNode, useId, useState } from 'react';
 import { CardTitle } from '@/components/features/insights/CardHeading';
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
-import { CardHeadingContext, type CardHeadingParts } from '@/lib/card-heading';
 
 type InsightsCardProps = {
   title: string;
@@ -22,16 +21,7 @@ export function InsightsCard({
 }: InsightsCardProps) {
   const titleId = useId();
   const [tabled, setTabled] = useState(false);
-  const merged = tableOnly || Boolean(table && tabled);
-
-  const controls = (actions || table) && (
-    <>
-      {actions}
-      {table && <ChartTableSwitch tabled={tabled} onTabled={setTabled} />}
-    </>
-  );
-
-  const heading: CardHeadingParts = { titleId, title, description, controls };
+  const tabling = Boolean(table && tabled);
 
   return (
     <section
@@ -39,21 +29,24 @@ export function InsightsCard({
       data-slot="insights-card"
       className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      {merged ? (
-        <CardHeadingContext value={heading}>
-          {table && tabled ? table : children}
-        </CardHeadingContext>
-      ) : (
-        <>
-          <header className="flex min-h-8 flex-wrap items-center gap-2 border-border border-b bg-muted/40 px-2.5 py-1">
-            <div className="flex min-w-0 flex-1 items-center">
-              <CardTitle heading={heading} as="h2" />
-            </div>
-            {controls}
-          </header>
+      <header className="flex min-h-6 flex-wrap items-center gap-2 px-3 pt-3 pb-4">
+        <div className="flex min-w-0 flex-1 items-center">
+          <CardTitle
+            titleId={titleId}
+            title={title}
+            description={description}
+          />
+        </div>
+        {actions}
+        {table && <ChartTableSwitch tabled={tabled} onTabled={setTabled} />}
+      </header>
 
-          <div className="flex min-w-0 flex-col gap-2 p-2.5">{children}</div>
-        </>
+      {tabling || tableOnly ? (
+        <div className="min-w-0 px-3 pb-3">{tabling ? table : children}</div>
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col gap-2 px-3 pb-3">
+          {children}
+        </div>
       )}
     </section>
   );

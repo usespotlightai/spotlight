@@ -12,7 +12,7 @@ export function ConfigPlan({ changes }: { changes: readonly ConfigChange[] }) {
     <ul
       aria-label="What changed"
       data-slot="config-plan"
-      className="min-w-0 font-mono text-foreground text-xs leading-5"
+      className="min-w-0 font-mono text-[0.65rem] text-foreground leading-4"
     >
       {entries.map((entry) => {
         if (entry.kind === 'leaf') {

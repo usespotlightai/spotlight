@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
+import { DeltaMark } from '@/components/features/insights/DeltaMark';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
@@ -64,11 +64,18 @@ export function TimeToMerge({ now, before, days }: TimeToMergeProps) {
                 />
                 {author.label}
               </dt>
-              <dd className="flex flex-col gap-1">
+              <dd className="flex items-baseline gap-2">
                 <span className="text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
                   {lastedOrNone(now[author.key][percentile])}
                 </span>
-                {delta && <DeltaShown delta={delta} />}
+                {delta && (
+                  <span className="text-xs">
+                    <DeltaMark
+                      delta={delta}
+                      note="Against the previous period"
+                    />
+                  </span>
+                )}
               </dd>
             </div>
           );

@@ -53,7 +53,6 @@ export function ToolsTab({ slug, teamId, period, names }: ToolsTabProps) {
           slug={slug}
           teamId={teamId}
           skills={insights.skills}
-          weeks={insights.weeks}
           rule={insights.trendRule}
           names={names}
         />

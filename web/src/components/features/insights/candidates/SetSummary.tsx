@@ -20,7 +20,7 @@ export function SetSummary({ at, set }: SetSummaryProps) {
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <TrailLink
           to={replaySetPath(at, set.setId)}
-          className="min-w-0 truncate font-medium text-foreground text-sm underline-offset-2 hover:underline"
+          className="min-w-0 truncate font-medium text-foreground text-xs underline-offset-2 hover:underline"
         >
           {set.name}
         </TrailLink>

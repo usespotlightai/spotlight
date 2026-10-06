@@ -42,6 +42,25 @@ export const spreadOf = (values: readonly number[]): Spread => ({
   count: values.length,
 });
 
+export interface Percentiles {
+  readonly p50: number | null;
+  readonly p75: number | null;
+  readonly p90: number | null;
+  readonly p95: number | null;
+  readonly count: number;
+}
+
+export const known = (values: readonly (number | null)[]): number[] =>
+  values.flatMap((each) => (each === null ? [] : [each]));
+
+export const percentilesOf = (values: readonly number[]): Percentiles => ({
+  p50: medianOf(values),
+  p75: percentileOf(values, 75),
+  p90: percentileOf(values, 90),
+  p95: percentileOf(values, 95),
+  count: values.length,
+});
+
 export const rateOf = (part: number, whole: number): number | null =>
   whole > 0 ? part / whole : null;
 

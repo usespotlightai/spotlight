@@ -84,7 +84,7 @@ export function ConfigMarkers({
                         }
                         className="w-fit rounded-sm text-left text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
                       >
-                        Before and after
+                        Impact
                       </button>
                       <InsightsLink
                         tab="runs"

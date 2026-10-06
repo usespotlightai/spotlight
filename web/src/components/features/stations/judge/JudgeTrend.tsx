@@ -18,8 +18,6 @@ import {
   trendCaptionShown,
 } from '@/lib/judge';
 
-const HEIGHT = 140;
-
 const scoreOf = (kind: ScoreKind, value: number | null): string =>
   sharesOn(kind) ? percentShown(value) : statShown(value);
 
@@ -70,7 +68,7 @@ export function JudgeTrend({
   const judgeShown = trend.some((each) => each.judge !== null);
 
   return (
-    <figure data-slot="judge-trend" className="flex flex-col gap-1">
+    <figure data-slot="judge-trend" className="flex flex-1 flex-col gap-1">
       <figcaption className="flex items-center gap-3 text-muted-foreground text-xs">
         <span data-slot="judge-trend-judge" className="flex items-center gap-1">
           <span aria-hidden className="size-2 rounded-full bg-chart-primary" />
@@ -86,9 +84,9 @@ export function JudgeTrend({
         <span>{trendCaptionShown(kind)}</span>
       </figcaption>
 
-      <div className="[&_*:focus:not(:focus-visible)]:outline-none">
-        <div {...cursor.area}>
-          <ResponsiveContainer width="100%" height={HEIGHT}>
+      <div className="flex min-h-35 flex-1 flex-col [&_*:focus:not(:focus-visible)]:outline-none">
+        <div {...cursor.area} className="flex-1">
+          <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={[...trend]}
               margin={{ top: 8, right: 8, bottom: 0, left: 8 }}

@@ -146,14 +146,14 @@ describe('the runs tab', () => {
   it('lists every run, each leading to its Run page', () => {
     showing('?tab=runs');
 
-    const [, first, second] = within(
-      screen.getByRole('table', { name: 'Runs' }),
-    ).getAllByRole('row');
+    const [first, second] = within(
+      screen.getByRole('list', { name: 'Runs' }),
+    ).getAllByRole('listitem');
 
     expect(first).toHaveTextContent(
-      'Completed–ImplementationSam RiveraClaude CodeHarness default5m 12s$1.84just now',
+      'CompletedFailure–StationImplementationPersonSam RiveraSetupClaude Code · Harness defaultTook5m 12sCost$1.84Endedjust now',
     );
-    expect(second).toHaveTextContent('FailedThe agent ran out of turns');
+    expect(second).toHaveTextContent('FailedFailureThe agent ran out of turns');
     expect(second).toHaveTextContent('No one');
     expect(
       within(second as HTMLElement).getByRole('link', { name: 'Failed' }),

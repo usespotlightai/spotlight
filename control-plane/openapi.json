@@ -18015,6 +18015,65 @@
         ]
       }
     },
+    "/teams/{teamId}/insights/shipping": {
+      "get": {
+        "operationId": "readInsightsShipping",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "description": "How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long",
+            "schema": {
+              "enum": [
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsShippingResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session or token"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "How fast what Spotlight makes ships against what people make alone: time to merge by day and kind, review depth by week, time to first review, review bots, and how long merged pull requests spent at each stage",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
     "/teams/{teamId}/insights/pull-requests/list": {
       "get": {
         "operationId": "listInsightsPullRequests",
@@ -37344,6 +37403,536 @@
           "comparison",
           "types",
           "depth"
+        ]
+      },
+      "PercentilesResponseDto": {
+        "type": "object",
+        "properties": {
+          "p50Ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 3600000,
+            "description": "The median, in milliseconds; none when nothing was measured"
+          },
+          "p75Ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 7200000,
+            "description": "What three in four stayed within, in milliseconds"
+          },
+          "p90Ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 14400000,
+            "description": "What nine in ten stayed within, in milliseconds"
+          },
+          "p95Ms": {
+            "type": "number",
+            "nullable": true,
+            "example": 21600000,
+            "description": "What nineteen in twenty stayed within, in milliseconds"
+          },
+          "count": {
+            "type": "number",
+            "example": 14,
+            "description": "How many were measured"
+          }
+        },
+        "required": [
+          "p50Ms",
+          "p75Ms",
+          "p90Ms",
+          "p95Ms",
+          "count"
+        ]
+      },
+      "ByAuthorResponseDto": {
+        "type": "object",
+        "properties": {
+          "spotlight": {
+            "description": "Pull requests Spotlight made",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PercentilesResponseDto"
+              }
+            ]
+          },
+          "people": {
+            "description": "Pull requests people made alone, in the repositories Spotlight merged into",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PercentilesResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spotlight",
+          "people"
+        ]
+      },
+      "MergeDayResponseDto": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "example": "2026-10-01",
+            "description": "The UTC day"
+          },
+          "daily": {
+            "description": "Opened to merged, for pull requests merged that day",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByAuthorResponseDto"
+              }
+            ]
+          },
+          "rolling": {
+            "description": "Opened to merged, for pull requests merged in the 7 days ending that day",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByAuthorResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "day",
+          "daily",
+          "rolling"
+        ]
+      },
+      "TypeMergeResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "feature",
+              "fix",
+              "refactor",
+              "tests",
+              "chore",
+              "other"
+            ],
+            "example": "feature"
+          },
+          "merged": {
+            "type": "number",
+            "example": 31,
+            "description": "Merged in the period, Spotlight’s and people’s alone"
+          },
+          "toMerge": {
+            "description": "Opened to merged",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByAuthorResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "merged",
+          "toMerge"
+        ]
+      },
+      "RoundsCountResponseDto": {
+        "type": "object",
+        "properties": {
+          "rounds": {
+            "type": "string",
+            "enum": [
+              "0",
+              "1",
+              "2",
+              "3+"
+            ],
+            "example": "1"
+          },
+          "merged": {
+            "type": "number",
+            "example": 15,
+            "description": "Merged with that many rounds"
+          }
+        },
+        "required": [
+          "rounds",
+          "merged"
+        ]
+      },
+      "DepthWeekResponseDto": {
+        "type": "object",
+        "properties": {
+          "week": {
+            "type": "string",
+            "example": "2026-09-28",
+            "description": "The Monday, UTC, the week starts on"
+          },
+          "merged": {
+            "type": "number",
+            "example": 29,
+            "description": "Merged that week"
+          },
+          "rounds": {
+            "description": "How many of them took each number of review rounds",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoundsCountResponseDto"
+            }
+          }
+        },
+        "required": [
+          "week",
+          "merged",
+          "rounds"
+        ]
+      },
+      "ReviewDayResponseDto": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "example": "2026-10-01",
+            "description": "The UTC day"
+          },
+          "toFirstReviewDaily": {
+            "description": "Ready for review to the first review by anyone but the author, bots’ included, for pull requests first reviewed that day",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PercentilesResponseDto"
+              }
+            ]
+          },
+          "toFirstReviewRolling": {
+            "description": "The same over the 7 days ending that day",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PercentilesResponseDto"
+              }
+            ]
+          },
+          "awaiting": {
+            "type": "number",
+            "example": 6,
+            "description": "Pull requests ready and not yet reviewed at the end of the day"
+          },
+          "humanReviews": {
+            "type": "number",
+            "example": 11,
+            "description": "Reviews people submitted that day"
+          }
+        },
+        "required": [
+          "day",
+          "toFirstReviewDaily",
+          "toFirstReviewRolling",
+          "awaiting",
+          "humanReviews"
+        ]
+      },
+      "ReviewBotResponseDto": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "coderabbitai[bot]"
+          },
+          "comments": {
+            "type": "number",
+            "example": 120,
+            "description": "Comments it left on pull requests active in the period, inline and in the conversation"
+          },
+          "reviews": {
+            "type": "number",
+            "example": 40,
+            "description": "Reviews it submitted"
+          },
+          "resolvedShare": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.42,
+            "description": "Of the review threads it started, the share now resolved, from 0 to 1; none where it started none"
+          }
+        },
+        "required": [
+          "login",
+          "comments",
+          "reviews",
+          "resolvedShare"
+        ]
+      },
+      "PipelineTypeResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "feature",
+              "fix",
+              "refactor",
+              "tests",
+              "chore",
+              "other"
+            ],
+            "example": "feature"
+          },
+          "merged": {
+            "type": "number",
+            "example": 12
+          }
+        },
+        "required": [
+          "type",
+          "merged"
+        ]
+      },
+      "StagePartsResponseDto": {
+        "type": "object",
+        "properties": {
+          "queued": {
+            "$ref": "#/components/schemas/PercentilesResponseDto"
+          },
+          "running": {
+            "$ref": "#/components/schemas/PercentilesResponseDto"
+          },
+          "inbox": {
+            "$ref": "#/components/schemas/PercentilesResponseDto"
+          }
+        },
+        "required": [
+          "queued",
+          "running",
+          "inbox"
+        ]
+      },
+      "StageTimesResponseDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "$ref": "#/components/schemas/PercentilesResponseDto"
+          },
+          "parts": {
+            "nullable": true,
+            "description": "At a station, the time queued, running and in the inbox",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StagePartsResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "total",
+          "parts"
+        ]
+      },
+      "TypedStageTimesResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "feature",
+              "fix",
+              "refactor",
+              "tests",
+              "chore",
+              "other"
+            ],
+            "example": "fix"
+          },
+          "times": {
+            "$ref": "#/components/schemas/StageTimesResponseDto"
+          }
+        },
+        "required": [
+          "type",
+          "times"
+        ]
+      },
+      "ByTypeResponseDto": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "$ref": "#/components/schemas/StageTimesResponseDto"
+          },
+          "types": {
+            "description": "The same, for each kind of pull request that went through it",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TypedStageTimesResponseDto"
+            }
+          }
+        },
+        "required": [
+          "all",
+          "types"
+        ]
+      },
+      "StationStageResponseDto": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "example": "line_delivery"
+          },
+          "stationId": {
+            "type": "string",
+            "example": "station_implementation"
+          },
+          "times": {
+            "description": "Time a merged pull request’s task spent at the station",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByTypeResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "lineId",
+          "stationId",
+          "times"
+        ]
+      },
+      "PipelineFlowResponseDto": {
+        "type": "object",
+        "properties": {
+          "merged": {
+            "type": "number",
+            "example": 95,
+            "description": "Spotlight’s pull requests merged in the period"
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineTypeResponseDto"
+            }
+          },
+          "coding": {
+            "description": "Task opened to pull request opened",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByTypeResponseDto"
+              }
+            ]
+          },
+          "stations": {
+            "description": "Each station the tasks went through, in order of first use",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StationStageResponseDto"
+            }
+          },
+          "awaitingReview": {
+            "description": "Ready for review to the first review by anyone but the author, bots’ included",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByTypeResponseDto"
+              }
+            ]
+          },
+          "inReview": {
+            "description": "First review to approval, or to merge where none approved",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByTypeResponseDto"
+              }
+            ]
+          },
+          "awaitingMerge": {
+            "description": "Approval to merge",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByTypeResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "merged",
+          "types",
+          "coding",
+          "stations",
+          "awaitingReview",
+          "inReview",
+          "awaitingMerge"
+        ]
+      },
+      "InsightsShippingResponseDto": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "$ref": "#/components/schemas/InsightsPeriodResponseDto"
+          },
+          "truncated": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether only the latest pull requests or runs were counted"
+          },
+          "toMerge": {
+            "description": "Opened to merged, for pull requests merged in the period",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByAuthorResponseDto"
+              }
+            ]
+          },
+          "toMergeBefore": {
+            "description": "The same, in the period before it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ByAuthorResponseDto"
+              }
+            ]
+          },
+          "mergeDays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeDayResponseDto"
+            }
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TypeMergeResponseDto"
+            }
+          },
+          "depth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepthWeekResponseDto"
+            }
+          },
+          "reviewDays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDayResponseDto"
+            }
+          },
+          "bots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewBotResponseDto"
+            }
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/PipelineFlowResponseDto"
+          }
+        },
+        "required": [
+          "period",
+          "truncated",
+          "toMerge",
+          "toMergeBefore",
+          "mergeDays",
+          "types",
+          "depth",
+          "reviewDays",
+          "bots",
+          "pipeline"
         ]
       },
       "InsightsPullRequestResponseDto": {

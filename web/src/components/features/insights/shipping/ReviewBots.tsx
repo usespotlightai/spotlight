@@ -10,7 +10,7 @@ const COLUMNS: readonly InsightsColumn<ReviewBot>[] = [
   {
     id: 'login',
     header: 'Agent',
-    cell: (bot) => <span className="font-mono text-[0.8rem]">{bot.login}</span>,
+    cell: (bot) => bot.login,
   },
   {
     id: 'comments',

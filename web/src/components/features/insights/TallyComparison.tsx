@@ -1,7 +1,10 @@
-import { CardTitle } from '@/components/features/insights/CardHeading';
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
-import { useCardHeading } from '@/lib/card-heading';
-import { comparedRows, type MeasureVerdict } from '@/lib/tally-comparison';
+import { ComparedLabel } from '@/components/features/insights/ComparedLabel';
+import { DeltaMark } from '@/components/features/insights/DeltaMark';
+import {
+  type ComparedRow,
+  comparedRows,
+  type MeasureVerdict,
+} from '@/lib/tally-comparison';
 import { cn } from '@/lib/utils';
 
 type TallyComparisonProps = {
@@ -10,6 +13,7 @@ type TallyComparisonProps = {
   otherLabel: string;
   runs: { readonly one: number; readonly other: number };
   verdicts: readonly MeasureVerdict[];
+  extra?: readonly ComparedRow[];
 };
 
 export function TallyComparison({
@@ -18,10 +22,8 @@ export function TallyComparison({
   otherLabel,
   runs,
   verdicts,
+  extra = [],
 }: TallyComparisonProps) {
-  const heading = useCardHeading();
-  const cell = heading ? 'px-2.5' : '';
-
   return (
     <table
       aria-label={label}
@@ -29,69 +31,45 @@ export function TallyComparison({
       className="w-full text-xs"
     >
       <thead>
-        <tr
-          className={cn(
-            'text-left text-muted-foreground',
-            heading && 'h-8 border-border border-b bg-muted/40 text-[0.7rem]',
-          )}
-        >
-          <th scope="col" className={cn('py-1 font-normal', cell)}>
-            {heading && <CardTitle heading={heading} />}
+        <tr className="text-left text-muted-foreground">
+          <th scope="col" className={cn('py-1 font-normal')}>
             <span className="sr-only">Measure</span>
           </th>
-          <th scope="col" className={cn('py-1 text-right font-normal', cell)}>
+          <th scope="col" className={cn('py-1 text-right font-normal')}>
             {oneLabel}
           </th>
-          <th scope="col" className={cn('py-1 text-right font-normal', cell)}>
+          <th scope="col" className={cn('py-1 text-right font-normal')}>
             {otherLabel}
           </th>
-          <th
-            scope="col"
-            className={cn('py-1 pl-3 text-right font-normal', cell)}
-          >
+          <th scope="col" className={cn('py-1 pl-3 text-right font-normal')}>
             Change
           </th>
         </tr>
       </thead>
       <tbody>
-        {comparedRows(runs, verdicts).map((row) => (
-          <tr
-            key={row.id}
-            className={cn(
-              heading ? 'even:bg-muted/30' : 'border-border border-t-[0.5px]',
-            )}
-          >
+        {[...comparedRows(runs, verdicts), ...extra].map((row) => (
+          <tr key={row.id} className={cn('border-border border-t-[0.5px]')}>
             <th
               scope="row"
               className={cn(
                 'py-1.5 text-left font-normal text-muted-foreground',
-                cell,
               )}
             >
-              {row.label}
+              <ComparedLabel row={row} />
             </th>
             <td
-              className={cn(
-                'py-1.5 text-right text-foreground tabular-nums',
-                cell,
-              )}
+              className={cn('py-1.5 text-right text-foreground tabular-nums')}
             >
               {row.one}
             </td>
             <td
-              className={cn(
-                'py-1.5 text-right text-foreground tabular-nums',
-                cell,
-              )}
+              className={cn('py-1.5 text-right text-foreground tabular-nums')}
             >
               {row.other}
             </td>
-            <td
-              data-slot="verdict"
-              className={cn('py-1.5 pl-3 text-right', cell)}
-            >
+            <td data-slot="verdict" className={cn('py-1.5 pl-3 text-right')}>
               {row.delta ? (
-                <DeltaShown delta={row.delta} against={null} />
+                <DeltaMark delta={row.delta} />
               ) : (
                 <span className="text-muted-foreground">–</span>
               )}

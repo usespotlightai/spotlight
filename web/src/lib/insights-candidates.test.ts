@@ -6,11 +6,13 @@ import {
   costAgainstLiveShown,
   healthShown,
   heldOutShown,
-  markShown,
   onTheSameShown,
+  type ReplayedPoint,
   replayedChart,
   replayedFrontiersOf,
+  replayedSetsOf,
   type SetCandidate,
+  sourceShown,
   stationReplayedChart,
 } from '@/lib/insights-candidates';
 import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
@@ -31,11 +33,29 @@ const NOW = new Date('2026-10-02T12:00:00.000Z');
 const ago = (days: number) =>
   new Date(NOW.getTime() - days * 86_400_000).toISOString();
 
-describe('markShown', () => {
+describe('sourceShown', () => {
   it('names each kind of replayed point', () => {
-    expect(markShown('searched')).toBe('Searched');
-    expect(markShown('proposed')).toBe('Proposed');
-    expect(markShown('baseline')).toBe('Live config');
+    expect(sourceShown('searched')).toBe('Search');
+    expect(sourceShown('proposed')).toBe('Proposed');
+    expect(sourceShown('baseline')).toBe('Live');
+  });
+});
+
+describe('replayedSetsOf', () => {
+  it('groups replayed points by their set in the order they come', () => {
+    const point = (key: string, setName: string) =>
+      ({ key, setName }) as ReplayedPoint;
+
+    expect(
+      replayedSetsOf([
+        point('a', 'Billing'),
+        point('b', 'Reviews'),
+        point('c', 'Billing'),
+      ]).map((set) => [set.name, set.points.map((each) => each.key)]),
+    ).toEqual([
+      ['Billing', ['a', 'c']],
+      ['Reviews', ['b']],
+    ]);
   });
 });
 
@@ -225,7 +245,6 @@ describe('heldOutShown', () => {
 describe('changeLinkOf', () => {
   it('leads to the pull request once it opened', () => {
     expect(changeLinkOf(at, picked as SetCandidate)).toEqual({
-      label: 'Pull request',
       to: 'https://github.com/acme/spotlight-config/pull/42',
       external: true,
     });
@@ -233,7 +252,6 @@ describe('changeLinkOf', () => {
 
   it('leads a searched candidate without one to its place on the search', () => {
     expect(changeLinkOf(at, terse as SetCandidate)).toEqual({
-      label: 'Pick on the search',
       to: '/w/acme/team/team_1/lines/line_1/stations/station_impl/searches/search_1#candidate-candidate_terse',
       external: false,
     });
@@ -241,7 +259,6 @@ describe('changeLinkOf', () => {
 
   it('leads a proposed candidate to its replay', () => {
     expect(changeLinkOf(at, proposed)).toEqual({
-      label: 'View changes',
       to: '/w/acme/team/team_1/lines/line_1/stations/station_impl/replays/replay_spec_review',
       external: false,
     });
@@ -257,8 +274,10 @@ describe('changeLinkOf', () => {
           url: null,
           reason: null,
         },
-      }).label,
-    ).toBe('Pick on the search');
+      }).to,
+    ).toBe(
+      `/w/acme/team/team_1/lines/line_1/stations/station_impl/searches/search_1#candidate-${picked?.candidateId}`,
+    );
   });
 });
 

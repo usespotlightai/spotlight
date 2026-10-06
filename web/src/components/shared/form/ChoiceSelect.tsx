@@ -20,6 +20,7 @@ type ChoiceSelectProps = {
   placeholder: string;
   onChange: (value: string | null) => void;
   disabled?: boolean;
+  clearable?: boolean;
   compact?: boolean;
   className?: string;
 };
@@ -35,6 +36,7 @@ export function ChoiceSelect({
   placeholder,
   onChange,
   disabled = false,
+  clearable = true,
   compact = false,
   className,
 }: ChoiceSelectProps) {
@@ -72,7 +74,7 @@ export function ChoiceSelect({
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className={compact ? 'min-w-36' : 'min-w-48'}
+        className={compact ? 'w-max min-w-36 max-w-72' : 'min-w-48'}
       >
         <DropdownMenuRadioGroup
           value={value ?? NONE}
@@ -80,9 +82,11 @@ export function ChoiceSelect({
             onChange(String(next) === NONE ? null : String(next))
           }
         >
-          <DropdownMenuRadioItem value={NONE} className={item}>
-            {placeholder}
-          </DropdownMenuRadioItem>
+          {clearable && (
+            <DropdownMenuRadioItem value={NONE} className={item}>
+              {placeholder}
+            </DropdownMenuRadioItem>
+          )}
           {choices.map((choice) => (
             <DropdownMenuRadioItem
               key={choice.value}

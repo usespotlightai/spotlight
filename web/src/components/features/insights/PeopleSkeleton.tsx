@@ -8,23 +8,9 @@ export function PeopleSkeleton() {
       aria-label="Loading the people"
       className="flex flex-col gap-3"
     >
-      <InsightsTilesSkeleton
-        labels={[
-          'Inbox asks per task',
-          'Time to answer',
-          'Sent-back rate',
-          'Refused approvals',
-        ]}
-      />
-      <InsightsTilesSkeleton
-        labels={[
-          'Active people',
-          'New adopters',
-          'Weekly active',
-          'Monthly active',
-        ]}
-      />
-      <InsightsCardSkeleton title="What each person did" rows={4} />
+      <InsightsTilesSkeleton count={4} />
+      <InsightsTilesSkeleton count={4} />
+      <InsightsCardSkeleton rows={4} />
     </div>
   );
 }

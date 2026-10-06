@@ -1,3 +1,4 @@
+import type { BotActivity } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import {
   ALERT_MEASURES,
   ALERT_THRESHOLDS,
@@ -324,10 +325,25 @@ export const pullRequestRecord = pgTable(
     state: pullRequestRecordState('state'),
     closedAt: timestamp('closed_at'),
     updatedAt: timestamp('updated_at'),
+    readyForReviewAt: timestamp('ready_for_review_at'),
+    draftSpells: jsonb('draft_spells')
+      .$type<{ from: string; to: string | null }[]>()
+      .notNull()
+      .default([]),
     firstReviewAt: timestamp('first_review_at'),
+    firstUnblockingReviewAt: timestamp('first_unblocking_review_at'),
+    firstApprovedAt: timestamp('first_approved_at'),
+    humanReviewedAt: timestamp('human_reviewed_at')
+      .array()
+      .notNull()
+      .default([]),
     reviews: integer('reviews').notNull().default(0),
     reviewRounds: integer('review_rounds').notNull().default(0),
     reviewComments: integer('review_comments').notNull().default(0),
+    botActivity: jsonb('bot_activity')
+      .$type<BotActivity[]>()
+      .notNull()
+      .default([]),
     isRevert: boolean('is_revert').notNull().default(false),
     revertedBy: text('reverted_by'),
     seenVersion: integer('seen_version'),

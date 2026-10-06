@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   frontierOf,
+  harnessGroupsOf,
   type InsightsChanges,
   markerOf,
   type SetupOutcome,
   setupPoints,
   setupShown,
+  setupWithinShown,
   sizeRuleShown,
 } from '@/lib/insights-changes';
 
@@ -49,6 +51,26 @@ describe('setupShown', () => {
         HARNESSES,
       ),
     ).toBe('Claude Code · Harness default · high effort · careful profile');
+  });
+});
+
+describe('harnessGroupsOf and setupWithinShown', () => {
+  it('groups setups by harness in the order they come, naming each within its harness', () => {
+    const groups = harnessGroupsOf([
+      setup({ model: 'sonnet' }),
+      setup({ harness: 'cursor', model: null, profileKey: 'careful' }),
+      setup({ model: 'opus', effort: 'high' }),
+    ]);
+
+    expect(
+      groups.map((group) => [
+        group.harness,
+        group.setups.map(setupWithinShown),
+      ]),
+    ).toEqual([
+      ['claude-code', ['sonnet', 'opus · high effort']],
+      ['cursor', ['Harness default · careful profile']],
+    ]);
   });
 });
 

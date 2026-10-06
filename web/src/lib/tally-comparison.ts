@@ -11,6 +11,8 @@ export type ComparedRow = {
   readonly one: string;
   readonly other: string;
   readonly delta: Delta | null;
+  readonly note?: string;
+  readonly to?: string;
 };
 
 const TONES: Record<MeasureVerdict['verdict'], Delta['tone']> = {

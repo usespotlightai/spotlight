@@ -300,7 +300,7 @@ describe('the Changes tab', () => {
     expect(screen.getByText('No runs in this period')).toBeInTheDocument();
   });
 
-  it('lists each config change with what changed, and opens its before and after', async () => {
+  it('lists each config change with what changed, and opens its impact', async () => {
     showing();
 
     const changes = screen.getByRole('list', { name: 'Config changes' });
@@ -308,18 +308,16 @@ describe('the Changes tab', () => {
       .getByRole('link', { name: 'Implementation' })
       .closest('[data-slot="change-marker"]') as HTMLElement;
 
-    expect(row).toHaveTextContent('Runs before 10');
-    expect(row).toHaveTextContent('Runs after 10');
+    expect(row).toHaveTextContent('Runs before10');
+    expect(row).toHaveTextContent('Runs after10');
     expect(
       within(row).getByRole('list', { name: 'What changed' }),
     ).toBeInTheDocument();
 
-    await userEvent.click(
-      within(row).getByRole('button', { name: 'Before and after' }),
-    );
+    await userEvent.click(within(row).getByRole('button', { name: 'Impact' }));
 
     const panel = screen.getByRole('complementary', {
-      name: 'Before and after the change',
+      name: 'Impact of the change',
     });
     const table = within(panel).getByRole('table', {
       name: 'Runs before and after the change',
@@ -329,7 +327,14 @@ describe('the Changes tab', () => {
     expect(
       accepted.querySelector('[data-slot="delta"]')?.getAttribute('data-tone'),
     ).toBe('good');
-    expect(within(panel).getByText('75% over 4 judged')).toBeInTheDocument();
+    const judge = within(table).getByRole('row', { name: /Judge score/ });
+    expect(judge).toHaveTextContent(/75%/);
+    expect(
+      within(judge).getByRole('link', { name: 'Judge score' }),
+    ).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
+    );
     expect(
       within(panel).getByRole('link', { name: 'Open the station' }),
     ).toHaveAttribute(
@@ -339,14 +344,6 @@ describe('the Changes tab', () => {
     expect(
       within(panel).getByRole('link', { name: /Improve this station/ }),
     ).toBeInTheDocument();
-    expect(
-      within(panel).getByRole('link', {
-        name: 'How often the judge agrees with people',
-      }),
-    ).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
-    );
   });
 
   it('compares setups in a table, marking the frontier and keeping judge scores to trusted stations', async () => {
@@ -354,17 +351,18 @@ describe('the Changes tab', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
-    const table = screen.getByRole('table', {
+    const table = screen.getByRole('list', {
       name: 'Harness, model, effort and profile',
     });
-    const opus = within(table).getByRole('row', {
-      name: /Claude Code · opus · high effort/,
-    });
-
-    expect(opus).toHaveTextContent('frontier');
     expect(
-      within(table).getByRole('columnheader', { name: 'Judge score' }),
+      within(table).getByRole('button', { name: 'Fold Claude Code' }),
     ).toBeInTheDocument();
+    const opus = within(table)
+      .getByText('opus · high effort')
+      .closest('[data-slot="setup-row"]') as HTMLElement;
+
+    expect(within(opus).getByLabelText('Best value')).toBeInTheDocument();
+    expect(opus).toHaveTextContent('Judge score75%');
     const standings = document.querySelector(
       '[data-slot="judge-standings"]',
     ) as HTMLElement;
@@ -449,18 +447,18 @@ describe('the Changes tab', () => {
     await narrowingTo('Implementation');
     await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
-    const replayed = screen.getByRole('table', { name: 'Replayed candidates' });
+    const replayed = screen.getByRole('list', { name: 'Replayed configs' });
+    const rowOf = (name: string | RegExp) =>
+      within(replayed)
+        .queryByText(name)
+        ?.closest('[data-slot="replayed-setup-row"]');
+    expect(rowOf('Live config')).toHaveTextContent('SourceLive');
+    expect(rowOf('opus-with-migrations-skill')).toHaveTextContent(
+      '67% of 7 held-out runs',
+    );
+    expect(rowOf('cursor-careful-profile')).toBeFalsy();
     expect(
-      within(replayed).getByRole('row', { name: /Live config, replayed/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(replayed).getByRole('row', { name: /opus-with-migrations-skill/ }),
-    ).toHaveTextContent('67% of 7 held-out runs');
-    expect(
-      within(replayed).queryByRole('row', { name: /cursor-careful-profile/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('table', { name: 'Harness, model, effort and profile' }),
+      screen.getByRole('list', { name: 'Harness, model, effort and profile' }),
     ).toBeInTheDocument();
   });
 
@@ -539,7 +537,7 @@ describe('the Changes tab', () => {
     expect(answer.candidates.refetch).toHaveBeenCalled();
   });
 
-  it('opens the before and after of a config the station returned to, not its first adoption', async () => {
+  it('opens the impact of a config the station returned to, not its first adoption', async () => {
     const [first] = CHANGES.markers;
     const returned = (runId: string, firstRunAt: string, runs: number) => ({
       ...first,
@@ -568,19 +566,19 @@ describe('the Changes tab', () => {
     ] as HTMLElement[];
     const newest = rows[0] as HTMLElement;
     await userEvent.click(
-      within(newest).getByRole('button', { name: 'Before and after' }),
+      within(newest).getByRole('button', { name: 'Impact' }),
     );
 
     expect(
       rows.map((row) =>
         within(row)
-          .getByRole('button', { name: 'Before and after' })
+          .getByRole('button', { name: 'Impact' })
           .getAttribute('aria-pressed'),
       ),
     ).toEqual(['true', 'false', 'false']);
     expect(
       screen.getByRole('complementary', {
-        name: 'Before and after the change',
+        name: 'Impact of the change',
       }),
     ).toHaveTextContent('Runs1313');
   });

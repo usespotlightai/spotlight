@@ -1,5 +1,4 @@
 import {
-  LabelList,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -13,7 +12,7 @@ import {
   type ReplayedPointMarkProps,
 } from '@/components/features/insights/candidates/ReplayedPointMark';
 import { ReplayedPointSaid } from '@/components/features/insights/candidates/ReplayedPointSaid';
-import { PointLabel } from '@/components/shared/chart/PointLabel';
+import { PointLabels } from '@/components/shared/chart/PointLabels';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { useDotHover } from '@/hooks/useDotHover';
 import { AXIS_TITLE, costTick } from '@/lib/chart';
@@ -55,10 +54,12 @@ const mark = (props: unknown) => (
   <ReplayedPointMark {...(props as ReplayedPointMarkProps)} />
 );
 
-const named = (entry: { payload?: ReplayedPoint }): string =>
-  entry.payload?.mark === 'baseline'
-    ? LIVE_CONFIG
-    : (entry.payload?.label ?? '');
+const labelOf = (point: ReplayedPoint) => ({
+  key: point.key,
+  text: point.mark === 'baseline' ? LIVE_CONFIG : point.label,
+  cost: point.cost,
+  value: point.value,
+});
 
 type ReplayedScatterProps = {
   points: readonly ReplayedPoint[];
@@ -73,7 +74,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
   const rest = points.filter((each) => !onFrontier.has(each));
 
   return (
-    <figure data-slot="replayed-scatter" className="flex flex-col gap-3">
+    <figure data-slot="replayed-scatter" className="flex flex-col gap-1">
       <div
         {...hover.area}
         className="min-w-0 flex-1 [&_*:focus:not(:focus-visible)]:outline-none"
@@ -130,9 +131,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                 data={rest}
                 shape={mark}
                 isAnimationActive={false}
-              >
-                <LabelList valueAccessor={named} content={PointLabel} />
-              </Scatter>
+              />
               {frontiers.map((frontier) => (
                 <Scatter
                   key={frontier[0]?.searchId}
@@ -140,10 +139,17 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                   data={frontier}
                   shape={mark}
                   isAnimationActive={false}
-                >
-                  <LabelList valueAccessor={named} content={PointLabel} />
-                </Scatter>
+                />
               ))}
+              <PointLabels
+                labels={[...points]
+                  .sort(
+                    (a, b) =>
+                      Number(b.mark === 'baseline') -
+                      Number(a.mark === 'baseline'),
+                  )
+                  .map(labelOf)}
+              />
             </ScatterChart>
           </ResponsiveContainer>
         </div>

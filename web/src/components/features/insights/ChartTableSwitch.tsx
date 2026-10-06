@@ -1,22 +1,17 @@
-import { ChartNoAxesColumn, type LucideIcon, Table2 } from 'lucide-react';
+import { ChartNoAxesColumn, Table2 } from 'lucide-react';
 import { Segmented } from '@/components/shared/Segmented';
 
 type ChartTableSwitchProps = {
   tabled: boolean;
-  chartIcon?: LucideIcon;
   onTabled: (tabled: boolean) => void;
 };
 
-export function ChartTableSwitch({
-  tabled,
-  chartIcon = ChartNoAxesColumn,
-  onTabled,
-}: ChartTableSwitchProps) {
+export function ChartTableSwitch({ tabled, onTabled }: ChartTableSwitchProps) {
   return (
     <Segmented
       label="Show as"
       segments={[
-        { id: 'chart', label: 'Chart', icon: chartIcon },
+        { id: 'chart', label: 'Chart', icon: ChartNoAxesColumn },
         { id: 'table', label: 'Table', icon: Table2 },
       ]}
       value={tabled ? 'table' : 'chart'}

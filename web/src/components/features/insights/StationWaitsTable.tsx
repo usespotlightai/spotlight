@@ -1,4 +1,4 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
+import { DeltaMark } from '@/components/features/insights/DeltaMark';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,
@@ -60,11 +60,11 @@ export function StationWaitsTable({
         );
 
         return (
-          <span className="flex flex-col items-end">
+          <span className="inline-flex items-center gap-2">
             <InsightsLink tab="runs" filter={{ stationId: station.stationId }}>
               {countShown(station.tasks)}
             </InsightsLink>
-            {delta && <DeltaShown delta={delta} />}
+            {delta && <DeltaMark delta={delta} />}
           </span>
         );
       },

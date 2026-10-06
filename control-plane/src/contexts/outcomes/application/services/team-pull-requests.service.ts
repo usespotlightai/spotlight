@@ -38,6 +38,7 @@ export class TeamPullRequests {
     teamId: string,
     principal: Principal,
     period: string,
+    reach: 'current' | 'previous' = 'current',
   ): Promise<TeamPullRequestsInPeriod> {
     const scope = await this.histories.scope(teamId, principal, period);
     const repositories = await this.work.teamRepositories(
@@ -48,7 +49,10 @@ export class TeamPullRequests {
         workspaceId: scope.clearance.workspaceId,
         teamId: scope.clearance.teamId,
         repositories,
-        from: scope.period.current.from,
+        from:
+          reach === 'previous'
+            ? scope.period.previous.from
+            : scope.period.current.from,
         to: scope.period.current.to,
       },
       MOST_PULL_REQUESTS + 1,

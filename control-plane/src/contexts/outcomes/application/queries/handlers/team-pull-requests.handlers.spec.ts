@@ -1,8 +1,10 @@
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import { ListInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/list-insights-pull-requests.handler';
 import { ReadInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/read-insights-pull-requests.handler';
+import { ReadInsightsShippingHandler } from '@outcomes/application/queries/handlers/read-insights-shipping.handler';
 import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
+import { ReadInsightsShippingQuery } from '@outcomes/application/queries/read-insights-shipping.query';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
@@ -12,6 +14,7 @@ import {
   ChatRecordsInMemory,
   TaskFailuresInMemory,
   TaskTouchesInMemory,
+  touchesOf,
 } from '@outcomes/domain/insights.fake-spec';
 import {
   costedRecord,
@@ -74,6 +77,7 @@ const team = async () => {
   const records = new RunRecordsInMemory();
   const pullRequests = new PullRequestRecordsInMemory();
   const shapes = new TaskChangeShapesInMemory();
+  const touches = new TaskTouchesInMemory(records);
   const people: PeoplePort = {
     clearedOnTeam: async (_teamId, principal) =>
       principal.kind === 'token' ||
@@ -87,7 +91,7 @@ const team = async () => {
     {
       records,
       deliveries: new TaskDeliveriesInMemory(),
-      touches: new TaskTouchesInMemory(records),
+      touches,
       failures: new TaskFailuresInMemory(),
       chats: new ChatRecordsInMemory(),
     },
@@ -152,7 +156,7 @@ const team = async () => {
     }),
   );
 
-  return { service, pullRequests };
+  return { service, histories, pullRequests, touches };
 };
 
 describe('the team’s pull requests', () => {
@@ -322,6 +326,47 @@ describe('the team’s pull requests', () => {
           null,
           null,
         ),
+      ),
+    ).rejects.toBeInstanceOf(UseCaseFault);
+  });
+});
+
+describe('what the agents ship', () => {
+  it('reaches back into the previous period for the rolling days and the comparison, keeping the period’s numbers to the period', async () => {
+    const { service, histories, pullRequests, touches } = await team();
+    await touches.add(
+      touchesOf('task_1', { openedAt: new Date('2026-09-28T09:00:00.000Z') }),
+    );
+    await pullRequests.add(
+      PullRequestRecord.noted(WORKSPACE, pull('acme/api', 7))
+        .seenAs(seenOf({ number: 7, ...mergedOn('2026-09-20') }))
+        .ownedBy({ taskId: TaskId.of('task_7'), teamId: TEAM }),
+    );
+
+    const shipping = await new ReadInsightsShippingHandler(
+      service,
+      histories,
+    ).execute(new ReadInsightsShippingQuery(TEAM.value, READ_TOKEN, '7d'));
+    const [first] = shipping.mergeDays;
+
+    expect(shipping.truncated).toBe(false);
+    expect(shipping.toMerge.spotlight).toMatchObject({
+      p50Ms: 4 * 60 * 60 * 1000,
+      count: 1,
+    });
+    expect(shipping.toMerge.people.count).toBe(1);
+    expect(shipping.toMergeBefore.spotlight.count).toBe(1);
+    expect(first?.daily.spotlight.count).toBe(0);
+    expect(first?.rolling.spotlight.count).toBe(1);
+    expect(shipping.pipeline.merged).toBe(1);
+  });
+
+  it('refuses a person off the team', async () => {
+    const { service, histories } = await team();
+
+    await expect(
+      new ReadInsightsShippingHandler(service, histories).execute(
+        new ReadInsightsShippingQuery(TEAM.value, STRANGER, '7d'),
       ),
     ).rejects.toBeInstanceOf(UseCaseFault);
   });

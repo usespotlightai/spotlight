@@ -55,7 +55,7 @@ export function PenetrationChart({ bars }: { bars: readonly WeekBar[] }) {
   const cursor = useCursorTooltip();
   return (
     <figure data-slot="penetration-chart" className="flex flex-col gap-1">
-      <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+      <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-[0.7rem]">
         {SERIES.map((series) => (
           <span key={series.key} className="flex items-center gap-1">
             <span

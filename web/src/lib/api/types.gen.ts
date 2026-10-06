@@ -5929,6 +5929,220 @@ export type InsightsPullRequestsResponseDto = {
   depth: Array<RoundsShareResponseDto>;
 };
 
+export type PercentilesResponseDto = {
+  /**
+   * The median, in milliseconds; none when nothing was measured
+   */
+  p50Ms: number | null;
+  /**
+   * What three in four stayed within, in milliseconds
+   */
+  p75Ms: number | null;
+  /**
+   * What nine in ten stayed within, in milliseconds
+   */
+  p90Ms: number | null;
+  /**
+   * What nineteen in twenty stayed within, in milliseconds
+   */
+  p95Ms: number | null;
+  /**
+   * How many were measured
+   */
+  count: number;
+};
+
+export type ByAuthorResponseDto = {
+  /**
+   * Pull requests Spotlight made
+   */
+  spotlight: PercentilesResponseDto;
+  /**
+   * Pull requests people made alone, in the repositories Spotlight merged into
+   */
+  people: PercentilesResponseDto;
+};
+
+export type MergeDayResponseDto = {
+  /**
+   * The UTC day
+   */
+  day: string;
+  /**
+   * Opened to merged, for pull requests merged that day
+   */
+  daily: ByAuthorResponseDto;
+  /**
+   * Opened to merged, for pull requests merged in the 7 days ending that day
+   */
+  rolling: ByAuthorResponseDto;
+};
+
+export type TypeMergeResponseDto = {
+  type: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+  /**
+   * Merged in the period, Spotlight’s and people’s alone
+   */
+  merged: number;
+  /**
+   * Opened to merged
+   */
+  toMerge: ByAuthorResponseDto;
+};
+
+export type RoundsCountResponseDto = {
+  rounds: '0' | '1' | '2' | '3+';
+  /**
+   * Merged with that many rounds
+   */
+  merged: number;
+};
+
+export type DepthWeekResponseDto = {
+  /**
+   * The Monday, UTC, the week starts on
+   */
+  week: string;
+  /**
+   * Merged that week
+   */
+  merged: number;
+  /**
+   * How many of them took each number of review rounds
+   */
+  rounds: Array<RoundsCountResponseDto>;
+};
+
+export type ReviewDayResponseDto = {
+  /**
+   * The UTC day
+   */
+  day: string;
+  /**
+   * Ready for review to the first review by anyone but the author, bots’ included, for pull requests first reviewed that day
+   */
+  toFirstReviewDaily: PercentilesResponseDto;
+  /**
+   * The same over the 7 days ending that day
+   */
+  toFirstReviewRolling: PercentilesResponseDto;
+  /**
+   * Pull requests ready and not yet reviewed at the end of the day
+   */
+  awaiting: number;
+  /**
+   * Reviews people submitted that day
+   */
+  humanReviews: number;
+};
+
+export type ReviewBotResponseDto = {
+  login: string;
+  /**
+   * Comments it left on pull requests active in the period, inline and in the conversation
+   */
+  comments: number;
+  /**
+   * Reviews it submitted
+   */
+  reviews: number;
+  /**
+   * Of the review threads it started, the share now resolved, from 0 to 1; none where it started none
+   */
+  resolvedShare: number | null;
+};
+
+export type PipelineTypeResponseDto = {
+  type: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+  merged: number;
+};
+
+export type StagePartsResponseDto = {
+  queued: PercentilesResponseDto;
+  running: PercentilesResponseDto;
+  inbox: PercentilesResponseDto;
+};
+
+export type StageTimesResponseDto = {
+  total: PercentilesResponseDto;
+  /**
+   * At a station, the time queued, running and in the inbox
+   */
+  parts: StagePartsResponseDto | null;
+};
+
+export type TypedStageTimesResponseDto = {
+  type: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+  times: StageTimesResponseDto;
+};
+
+export type ByTypeResponseDto = {
+  all: StageTimesResponseDto;
+  /**
+   * The same, for each kind of pull request that went through it
+   */
+  types: Array<TypedStageTimesResponseDto>;
+};
+
+export type StationStageResponseDto = {
+  lineId: string;
+  stationId: string;
+  /**
+   * Time a merged pull request’s task spent at the station
+   */
+  times: ByTypeResponseDto;
+};
+
+export type PipelineFlowResponseDto = {
+  /**
+   * Spotlight’s pull requests merged in the period
+   */
+  merged: number;
+  types: Array<PipelineTypeResponseDto>;
+  /**
+   * Task opened to pull request opened
+   */
+  coding: ByTypeResponseDto;
+  /**
+   * Each station the tasks went through, in order of first use
+   */
+  stations: Array<StationStageResponseDto>;
+  /**
+   * Ready for review to the first review by anyone but the author, bots’ included
+   */
+  awaitingReview: ByTypeResponseDto;
+  /**
+   * First review to approval, or to merge where none approved
+   */
+  inReview: ByTypeResponseDto;
+  /**
+   * Approval to merge
+   */
+  awaitingMerge: ByTypeResponseDto;
+};
+
+export type InsightsShippingResponseDto = {
+  period: InsightsPeriodResponseDto;
+  /**
+   * Whether only the latest pull requests or runs were counted
+   */
+  truncated: boolean;
+  /**
+   * Opened to merged, for pull requests merged in the period
+   */
+  toMerge: ByAuthorResponseDto;
+  /**
+   * The same, in the period before it
+   */
+  toMergeBefore: ByAuthorResponseDto;
+  mergeDays: Array<MergeDayResponseDto>;
+  types: Array<TypeMergeResponseDto>;
+  depth: Array<DepthWeekResponseDto>;
+  reviewDays: Array<ReviewDayResponseDto>;
+  bots: Array<ReviewBotResponseDto>;
+  pipeline: PipelineFlowResponseDto;
+};
+
 export type InsightsPullRequestResponseDto = {
   pullRequest: string;
   repository: string;
@@ -17072,6 +17286,41 @@ export type ReadInsightsPullRequestsResponses = {
 };
 
 export type ReadInsightsPullRequestsResponse = ReadInsightsPullRequestsResponses[keyof ReadInsightsPullRequestsResponses];
+
+export type ReadInsightsShippingData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/insights/shipping';
+};
+
+export type ReadInsightsShippingErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ReadInsightsShippingResponses = {
+  200: InsightsShippingResponseDto;
+};
+
+export type ReadInsightsShippingResponse = ReadInsightsShippingResponses[keyof ReadInsightsShippingResponses];
 
 export type ListInsightsPullRequestsData = {
   body?: never;

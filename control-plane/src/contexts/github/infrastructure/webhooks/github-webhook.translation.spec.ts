@@ -506,12 +506,49 @@ describe('GitHubWebhookTranslation', () => {
             branch: 'fix/uploads',
             size: { additions: 40, deletions: 3, changedFiles: 2 },
             openedAt: new Date('2026-09-20T08:00:00Z'),
+            draft: false,
+            markedReadyAt: null,
+            markedDraftAt: null,
             state: 'open',
             closedAt: null,
             updatedAt: new Date('2026-09-20T09:00:00Z'),
           },
         ]);
       }
+    });
+
+    it('reads a draft, and when GitHub marked it ready for review or turned it back into a draft', () => {
+      expect(
+        described({ action: 'opened', pull_request: { ...OPEN, draft: true } }),
+      ).toMatchObject([{ draft: true, markedReadyAt: null }]);
+      expect(
+        described({
+          action: 'ready_for_review',
+          pull_request: {
+            ...OPEN,
+            draft: false,
+            updated_at: '2026-09-20T11:00:00Z',
+          },
+        }),
+      ).toMatchObject([
+        { draft: false, markedReadyAt: new Date('2026-09-20T11:00:00Z') },
+      ]);
+      expect(
+        described({
+          action: 'converted_to_draft',
+          pull_request: {
+            ...OPEN,
+            draft: true,
+            updated_at: '2026-09-20T12:00:00Z',
+          },
+        }),
+      ).toMatchObject([
+        {
+          draft: true,
+          markedReadyAt: null,
+          markedDraftAt: new Date('2026-09-20T12:00:00Z'),
+        },
+      ]);
     });
 
     it('reads a merge as merged, when it merged', () => {
@@ -625,7 +662,12 @@ describe('GitHubWebhookTranslation', () => {
             submitted_at: '2026-09-21T09:30:00Z',
           },
         }).find((each) => each.kind === 'pull-request-reviewed'),
-      ).toMatchObject({ id: 900, facts: { number: 7, state: 'open' } });
+      ).toMatchObject({
+        id: 900,
+        login: 'bob',
+        byBot: false,
+        facts: { number: 7, state: 'open' },
+      });
     });
 
     it('tells a bot’s review comment from a person’s', () => {
@@ -756,6 +798,86 @@ describe('GitHubWebhookTranslation', () => {
           (each) => each.kind,
         ),
       ).toEqual(['pull-request-activity']);
+    });
+  });
+
+  describe('hearing a conversation comment', () => {
+    const conversed = (action: string, body: Record<string, unknown> = {}) =>
+      heard('issue_comment', {
+        action,
+        issue: {
+          title: 'Retry failed uploads',
+          pull_request: { html_url: 'https://github.com/acme/api/pull/7' },
+        },
+        comment: {
+          id: 500,
+          body: 'Summary of changes',
+          user: { login: 'coderabbitai[bot]', type: 'Bot' },
+        },
+        ...body,
+      }).filter((each) => each.kind === 'conversation-comment');
+
+    it('hears a comment made, changed or deleted on a pull request’s conversation', () => {
+      expect(conversed('created')).toEqual([
+        {
+          kind: 'conversation-comment',
+          action: 'created',
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          comment: { id: 500, login: 'coderabbitai[bot]', byBot: true },
+        },
+      ]);
+      expect(conversed('deleted')[0]).toMatchObject({ action: 'deleted' });
+      expect(conversed('pinned')).toEqual([]);
+    });
+
+    it('hears nothing of a comment on an issue that is not a pull request', () => {
+      expect(conversed('created', { issue: { title: 'Bug' } })).toEqual([]);
+    });
+  });
+
+  describe('hearing a review thread', () => {
+    const threaded = (action: string, thread: Record<string, unknown>) =>
+      heard('pull_request_review_thread', {
+        action,
+        repository: { full_name: 'acme/api' },
+        pull_request: pull(),
+        thread,
+      }).filter((each) => each.kind === 'review-thread');
+
+    const THREAD = {
+      node_id: 'PRRT_kwDOA',
+      comments: [
+        { id: 300, user: { login: 'coderabbitai[bot]', type: 'Bot' } },
+        { id: 301, user: { login: 'ada', type: 'User' } },
+      ],
+    };
+
+    it('hears a thread resolved or unresolved, and who opened it', () => {
+      expect(threaded('resolved', THREAD)).toEqual([
+        {
+          kind: 'review-thread',
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          thread: {
+            id: 'PRRT_kwDOA',
+            opener: 300,
+            login: 'coderabbitai[bot]',
+            byBot: true,
+            resolved: true,
+          },
+          facts: null,
+        },
+      ]);
+      expect(threaded('unresolved', THREAD)[0]).toMatchObject({
+        thread: { resolved: false },
+      });
+    });
+
+    it('hears a thread whose comments GitHub left out, and nothing of one it cannot name', () => {
+      expect(threaded('resolved', { node_id: 'PRRT_kwDOB' })[0]).toMatchObject({
+        thread: { opener: null, login: null, byBot: false },
+      });
+      expect(threaded('resolved', { comments: THREAD.comments })).toEqual([]);
+      expect(threaded('created', THREAD)).toEqual([]);
     });
   });
 

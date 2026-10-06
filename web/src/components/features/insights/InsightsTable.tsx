@@ -1,6 +1,16 @@
-import type { ReactNode } from 'react';
-import { CardTitle } from '@/components/features/insights/CardHeading';
-import { useCardHeading } from '@/lib/card-heading';
+import { type ReactNode, useRef } from 'react';
+import { ColumnResizer } from '@/components/shared/ColumnResizer';
+import {
+  EDGE_INDENT,
+  ROW_DIVIDER,
+} from '@/components/shared/nested-table/nested-rows';
+import { useColumnWidths } from '@/hooks/useColumnWidths';
+import {
+  columnTemplate,
+  filled,
+  type NestedHeading,
+  SPREAD,
+} from '@/lib/nested-table';
 import { cn } from '@/lib/utils';
 
 export type InsightsColumn<T> = {
@@ -8,6 +18,7 @@ export type InsightsColumn<T> = {
   readonly header: string;
   readonly cell: (row: T) => ReactNode;
   readonly numeric?: boolean;
+  readonly size?: string;
 };
 
 type InsightsTableProps<T> = {
@@ -18,7 +29,7 @@ type InsightsTableProps<T> = {
   picked?: string | null;
 };
 
-const HEADER = 'whitespace-nowrap px-2.5 py-1.5 font-normal';
+const ROW = 'col-span-full grid grid-cols-subgrid items-center pr-2';
 
 export function InsightsTable<T>({
   label,
@@ -27,78 +38,91 @@ export function InsightsTable<T>({
   rowKey,
   picked = null,
 }: InsightsTableProps<T>) {
-  const heading = useCardHeading();
-  const controlled = Boolean(heading?.controls);
+  const widths = useColumnWidths(columns.length);
+  const head = useRef<HTMLTableRowElement>(null);
+  const headings: NestedHeading[] = columns.map((column, at) => ({
+    label: column.header,
+    size: column.size ?? (at === 0 ? 'minmax(8rem,2fr)' : SPREAD),
+  }));
+  const filling = filled(headings, widths.widths, false);
+  const pin = () =>
+    widths.pin(
+      [...(head.current?.children ?? [])]
+        .slice(0, columns.length)
+        .map((cell) => cell.getBoundingClientRect().width),
+    );
 
   return (
     <div className="overflow-x-auto">
       <table
         aria-label={label}
         data-slot="insights-table"
-        className="w-full min-w-max border-collapse text-xs"
+        className="grid min-w-min gap-x-6 text-xs"
+        style={{
+          gridTemplateColumns: columnTemplate(headings, widths.widths, false),
+        }}
       >
-        <thead>
+        <thead className="contents">
           <tr
+            ref={head}
             className={cn(
-              'border-border border-b bg-muted/40',
-              heading && 'h-8',
+              ROW,
+              'border-border border-y bg-surface py-1.5 text-[0.7rem] text-muted-foreground',
             )}
           >
-            {columns.map((column, place) => (
+            {columns.map((column, at) => (
               <th
                 key={column.id}
                 scope="col"
                 className={cn(
-                  HEADER,
-                  'text-[0.7rem] text-muted-foreground',
+                  'relative min-w-0 font-normal',
+                  at === 0 && EDGE_INDENT,
                   column.numeric ? 'text-right' : 'text-left',
                 )}
               >
-                {heading && place === 0 ? (
-                  <>
-                    <CardTitle heading={heading} />
-                    <span className="sr-only">{column.header}</span>
-                  </>
-                ) : (
-                  column.header
+                <span className="block truncate">{column.header}</span>
+                {(at < columns.length - 1 || filling) && (
+                  <ColumnResizer
+                    label={column.header}
+                    onStart={pin}
+                    onResize={(width) => widths.resize(at, width)}
+                    onReset={() => widths.reset(at)}
+                  />
                 )}
               </th>
             ))}
-            {controlled && (
-              <th scope="col" className={cn(HEADER, 'w-0 py-0 text-right')}>
-                <span className="flex items-center justify-end gap-1.5">
-                  {heading?.controls}
-                </span>
-              </th>
-            )}
           </tr>
         </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={rowKey(row)}
-              aria-selected={
-                picked === null ? undefined : picked === rowKey(row)
-              }
-              className={cn(
-                'even:bg-muted/30',
-                picked === rowKey(row) && 'bg-selected even:bg-selected',
-              )}
-            >
-              {columns.map((column) => (
-                <td
-                  key={column.id}
-                  className={cn(
-                    'whitespace-nowrap px-2.5 py-1.5 text-foreground',
-                    column.numeric && 'text-right tabular-nums',
-                  )}
-                >
-                  {column.cell(row)}
-                </td>
-              ))}
-              {controlled && <td aria-hidden />}
-            </tr>
-          ))}
+        <tbody className="contents">
+          {rows.map((row) => {
+            const key = rowKey(row);
+
+            return (
+              <tr
+                key={key}
+                aria-selected={picked === null ? undefined : picked === key}
+                className={cn(
+                  ROW,
+                  'py-2',
+                  ROW_DIVIDER,
+                  picked === key && 'bg-selected',
+                )}
+              >
+                {columns.map((column, at) => (
+                  <td
+                    key={column.id}
+                    className={cn(
+                      'min-w-0 whitespace-nowrap text-foreground',
+                      at === 0 && EDGE_INDENT,
+                      column.numeric && 'text-right tabular-nums',
+                    )}
+                  >
+                    {column.cell(row)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

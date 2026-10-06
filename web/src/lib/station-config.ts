@@ -92,13 +92,3 @@ export const changePhrase = (change: ConfigChange): string => {
     ? namedPhrase(change, label, change.name)
     : valuePhrase(change, label);
 };
-
-const MOST_BRIEF = 32;
-
-const brief = (value: string | null): boolean =>
-  value === null || (value.length <= MOST_BRIEF && !value.includes('\n'));
-
-export const changeBrief = (change: ConfigChange): string =>
-  brief(change.was) && brief(change.now)
-    ? changePhrase(change)
-    : `${PART_LABELS[change.part]}${change.name ? ` ${change.name}` : ''} ${change.kind === 'changed' ? 'edited' : change.kind}`;

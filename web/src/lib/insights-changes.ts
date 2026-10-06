@@ -8,7 +8,9 @@ import type {
   SizeBoundResponseDto,
   StationStandingResponseDto,
 } from '@/lib/api';
-import { harnessShown, modelShown, shareShown } from '@/lib/insights';
+import { deltaOf, harnessShown, modelShown, shareShown } from '@/lib/insights';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import type { ComparedRow } from '@/lib/tally-comparison';
 
 export type InsightsChanges = InsightsChangesResponseDto;
 export type ChangeMarker = ChangeMarkerResponseDto;
@@ -16,7 +18,7 @@ export type InsightsSetups = InsightsSetupsResponseDto;
 export type SetupOutcome = SetupOutcomeResponseDto;
 export type StationStanding = StationStandingResponseDto;
 export type SizeBound = SizeBoundResponseDto;
-export type JudgeShare = JudgeShareResponseDto;
+type JudgeShare = JudgeShareResponseDto;
 export type RunSize = SizeBound['size'];
 export type OutcomeMeasure = SetupOutcome['frontier'][number];
 
@@ -79,18 +81,51 @@ export const sizeRuleShown = (bound: SizeBound): string =>
 export const setupKey = (setup: SetupOutcome): string =>
   JSON.stringify([setup.harness, setup.model, setup.effort, setup.profileKey]);
 
-export const setupShown = (
-  setup: SetupOutcome,
-  harnesses: readonly HarnessResponseDto[] | undefined,
-): string =>
+export const setupWithinShown = (setup: SetupOutcome): string =>
   [
-    harnessShown(harnesses, setup.harness),
     modelShown(setup.model),
     setup.effort ? `${setup.effort} effort` : null,
     setup.profileKey ? `${setup.profileKey} profile` : null,
   ]
     .filter(Boolean)
     .join(' · ');
+
+export const setupShown = (
+  setup: SetupOutcome,
+  harnesses: readonly HarnessResponseDto[] | undefined,
+): string =>
+  `${harnessShown(harnesses, setup.harness)} · ${setupWithinShown(setup)}`;
+
+export type HarnessGroup = {
+  readonly harness: string;
+  readonly setups: readonly SetupOutcome[];
+};
+
+export const harnessGroupsOf = (
+  setups: readonly SetupOutcome[],
+): HarnessGroup[] => {
+  const grouped = new Map<string, SetupOutcome[]>();
+
+  for (const setup of setups) {
+    grouped.set(setup.harness, [...(grouped.get(setup.harness) ?? []), setup]);
+  }
+
+  return [...grouped].map(([harness, each]) => ({ harness, setups: each }));
+};
+
+export const shownMeasures = (judged: boolean) =>
+  OUTCOME_MEASURES.filter((each) => each.id !== 'judge' || judged);
+
+export const setupHeadings = (judged: boolean): readonly NestedHeading[] => [
+  { label: 'Setup', indent: 'outer', size: 'minmax(12rem,2fr)' },
+  { label: 'Runs', numeric: true, size: SPREAD },
+  { label: 'Cost per run', numeric: true, size: SPREAD },
+  ...shownMeasures(judged).map((each) => ({
+    label: each.label,
+    numeric: true,
+    size: SPREAD,
+  })),
+];
 
 export type SetupPoint = {
   readonly key: string;
@@ -162,7 +197,27 @@ export const frontierOf = (points: readonly SetupPoint[]): SetupPoint[] =>
 
 export const outcomeShown = (value: number | null): string => shareShown(value);
 
-export const judgeShown = (share: JudgeShare | null): string =>
-  share && share.mean !== null
-    ? `${shareShown(share.mean)} over ${share.judged} judged`
-    : 'Not judged';
+const judgeCount = (share: JudgeShare | null): number => share?.judged ?? 0;
+
+export const judgeRow = (marker: ChangeMarker, to: string): ComparedRow => ({
+  id: 'judge',
+  label: 'Judge score',
+  one: shareShown(marker.judgeBefore?.mean ?? null),
+  other: shareShown(marker.judgeAfter?.mean ?? null),
+  delta: deltaOf(
+    marker.judgeAfter?.mean ?? null,
+    marker.judgeBefore?.mean ?? null,
+    'up',
+  ),
+  note: `Over ${judgeCount(marker.judgeBefore)} judged runs before and ${judgeCount(marker.judgeAfter)} after. Opens how often the judge agrees with people.`,
+  to,
+});
+
+export const CHANGE_HEADINGS: readonly NestedHeading[] = [
+  { label: 'First run', indent: 'edge' },
+  { label: 'Line', size: 'minmax(6rem,10rem)' },
+  { label: 'Station', size: 'minmax(8rem,14rem)' },
+  { label: 'What changed', size: 'minmax(16rem,3fr)' },
+  { label: 'Runs before', numeric: true, size: SPREAD },
+  { label: 'Runs after', numeric: true, size: SPREAD },
+];

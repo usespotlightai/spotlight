@@ -1,21 +1,18 @@
 import { InfoNote } from '@/components/features/insights/InfoNote';
-import type { CardHeadingParts } from '@/lib/card-heading';
 
 type CardTitleProps = {
-  heading: CardHeadingParts;
-  as?: 'h2' | 'span';
+  titleId: string;
+  title: string;
+  description?: string;
 };
 
-export function CardTitle({ heading, as: Title = 'span' }: CardTitleProps) {
+export function CardTitle({ titleId, title, description }: CardTitleProps) {
   return (
     <span className="flex min-w-0 items-center gap-1.5">
-      <Title
-        id={heading.titleId}
-        className="font-medium text-foreground text-xs"
-      >
-        {heading.title}
-      </Title>
-      {heading.description && <InfoNote note={heading.description} />}
+      <h2 id={titleId} className="font-medium text-foreground text-xs">
+        {title}
+      </h2>
+      {description && <InfoNote note={description} />}
     </span>
   );
 }

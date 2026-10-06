@@ -21,8 +21,8 @@ const LOOKS = {
     clear: 'sm',
   },
   compact: {
-    trigger: 'h-5 rounded-md',
-    empty: cn(buttonVariants({ variant: 'outline', size: 'icon-xs' }), 'w-5'),
+    trigger: 'h-6 rounded-full',
+    empty: cn(buttonVariants({ variant: 'outline', size: 'icon-xs' }), 'w-6'),
     filled: cn(
       buttonVariants({ variant: 'outline', size: 'xs' }),
       'px-1.5 text-[0.7rem]',

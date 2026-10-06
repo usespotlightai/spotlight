@@ -361,3 +361,32 @@ export const failBeforeAfter = (client: QueryClient) => {
   loadInsights(client);
   failQuery(client, CHANGES_KEY);
 };
+
+const STATION_CHANGE: ChangeMarker = {
+  ...EFFORT_CHANGE,
+  runId: 'run_docs_1',
+  firstRunAt: daysAgo(1, 9),
+  fingerprint:
+    'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
+  previousFingerprint:
+    '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
+  changes: [
+    { part: 'prompt', name: null, kind: 'changed', was: null, now: null },
+    { part: 'effort', name: null, kind: 'changed', was: 'medium', now: 'high' },
+    {
+      part: 'skill',
+      name: 'grafana-dashboards',
+      kind: 'added',
+      was: null,
+      now: null,
+    },
+    { part: 'judge', name: 'sample', kind: 'changed', was: '0.1', now: '0.2' },
+  ],
+};
+
+export const seedStationChanges = (client: QueryClient) => {
+  client.setQueryData(CHANGES_KEY, {
+    ...CHANGES,
+    markers: [...CHANGES.markers, STATION_CHANGE],
+  });
+};

@@ -50,7 +50,7 @@ export function PullRequestTypesChart({
   const cursor = useCursorTooltip();
   return (
     <figure data-slot="types-chart" className="flex flex-col gap-1">
-      <figcaption className="flex items-center gap-3 text-muted-foreground text-xs">
+      <figcaption className="flex items-center gap-3 text-muted-foreground text-[0.7rem]">
         <span className="flex items-center gap-1">
           <span aria-hidden className="size-2 rounded-sm bg-chart-primary" />
           Spotlight

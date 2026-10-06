@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
@@ -10,10 +11,16 @@ import { TimeToMergeByType } from '@/components/features/insights/shipping/TimeT
 import { countShown } from '@/lib/insights';
 import type { InsightsShipping } from '@/lib/insights-shipping';
 
-export function ShippingPanels({ shipping }: { shipping: InsightsShipping }) {
+type ShippingPanelsProps = {
+  shipping: InsightsShipping;
+  note?: ReactNode;
+};
+
+export function ShippingPanels({ shipping, note }: ShippingPanelsProps) {
   return (
     <>
       <InsightsSection title="What the agents ship">
+        {note}
         <PipelineFlow flow={shipping.pipeline} />
         <div className="grid gap-3 lg:grid-cols-2">
           <TimeToMerge

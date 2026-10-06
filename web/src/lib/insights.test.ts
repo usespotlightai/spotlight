@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { LineResponseDto } from '@/lib/api';
+import type {
+  LineResponseDto,
+  RunTallyResponseDto,
+  StationReportResponseDto,
+} from '@/lib/api';
 import {
   deltaOf,
   filterValueShown,
@@ -19,7 +23,9 @@ import {
   spreadShown,
   stationNamesOf,
   stationShown,
+  tallyTiles,
   taskFailureShown,
+  teamTrendOf,
   viewOf,
 } from '@/lib/insights';
 
@@ -391,7 +397,7 @@ describe('outputDays', () => {
 });
 
 describe('what to show for failures and signals', () => {
-  it('shows a task failure by source and code, with how often', () => {
+  it('names a task failure by source and code, and a run failure by its reason', () => {
     expect(
       taskFailureShown({
         source: 'hook:notify',
@@ -400,9 +406,9 @@ describe('what to show for failures and signals', () => {
         mostInARow: 3,
         taskIds: [],
       }),
-    ).toBe('hook:notify · loop × 3');
+    ).toBe('hook:notify · loop');
     expect(runFailureShown({ failure: null, runs: 2, runIds: [] })).toBe(
-      'No reason given × 2',
+      'No reason given',
     );
   });
 
@@ -510,5 +516,71 @@ describe('pages of runs', () => {
     expect(runsShownOf(page(0, 1))).toBe('No runs');
     expect(lastPageOf(page(120, 1))).toBe(3);
     expect(lastPageOf(page(0, 1))).toBe(1);
+  });
+});
+
+const teamTally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto =>
+  ({
+    runs: 10,
+    withdrawn: 0,
+    failed: 2,
+    stopped: 0,
+    checksPassed: 0,
+    checksFailed: 0,
+    accepted: 4,
+    sentBack: 0,
+    handedOn: 0,
+    merged: 0,
+    cost: { amount: 5, currency: 'USD' },
+    unpriced: 0,
+    mixedCurrencies: false,
+    medianMs: 60_000,
+    p90Ms: 120_000,
+    ...over,
+  }) as RunTallyResponseDto;
+
+describe('tallyTiles and teamTrendOf', () => {
+  it('sums the stations’ runs per day, day by day', () => {
+    const report = (days: [string, number, number][]) =>
+      ({
+        trend: days.map(([day, runs, failed]) => ({
+          day,
+          tally: teamTally({ runs, failed }),
+        })),
+      }) as unknown as StationReportResponseDto;
+
+    expect(
+      teamTrendOf([
+        report([
+          ['2026-10-02', 3, 1],
+          ['2026-10-01', 1, 0],
+        ]),
+        report([['2026-10-02', 2, 0]]),
+      ]),
+    ).toEqual([
+      { day: '2026-10-01', runs: 1, failed: 0 },
+      { day: '2026-10-02', runs: 5, failed: 1 },
+    ]);
+  });
+
+  it('shows each count with its own change, leaving out counts that are zero in both periods', () => {
+    const tiles = tallyTiles(
+      teamTally({}),
+      teamTally({ runs: 8, failed: 4 }),
+      [],
+    );
+
+    expect(tiles.map((tile) => tile.label)).toEqual([
+      'Runs',
+      'Failed',
+      'Accepted',
+      'Cost',
+      'Median run',
+    ]);
+    expect(tiles[1]).toMatchObject({
+      value: '2',
+      detail: '20% of runs',
+      delta: { tone: 'good' },
+    });
   });
 });

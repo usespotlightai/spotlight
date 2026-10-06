@@ -3,7 +3,7 @@ import type { TrendPoint } from '@/lib/insights';
 import { dayShown } from '@/lib/judge';
 
 const WIDTH = 120;
-const HEIGHT = 32;
+const HEIGHT = 16;
 
 const summaryOf = (trend: readonly TrendPoint[]): string => {
   const first = trend[0];

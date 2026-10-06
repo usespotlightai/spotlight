@@ -55,6 +55,10 @@ vi.mock('@/hooks/api/useInsightsPullRequests', () => ({
   useInsightsPullRequests: (teamId: string, period: InsightsPeriod) =>
     answering('pull-requests')(teamId, period),
 }));
+vi.mock('@/hooks/api/useInsightsShipping', () => ({
+  useInsightsShipping: (teamId: string, period: InsightsPeriod) =>
+    answering('shipping')(teamId, period),
+}));
 vi.mock('@/hooks/api/useInsightsStations', () => ({
   useInsightsStations: (teamId: string, period: InsightsPeriod) =>
     answering('stations')(teamId, period),
@@ -322,16 +326,24 @@ describe('TeamInsights', () => {
     expect(tabsAsked()).toEqual(['stations']);
   });
 
-  it('shows where work waits and the pull requests on the Productivity tab', () => {
+  it('shows where work waits, what the agents ship and the pull requests on the Productivity tab', () => {
     showing('?tab=productivity&period=7d');
 
-    expect(sections()).toEqual(['Where work waits', 'Pull requests']);
+    expect(sections()).toEqual([
+      'Where work waits',
+      'What the agents ship',
+      'Pull requests',
+    ]);
     expect(asked).toEqual(
       expect.arrayContaining([
         { tab: 'flow', period: '7d' },
+        { tab: 'shipping', period: '7d' },
         { tab: 'pull-requests', period: '7d' },
       ]),
     );
+    expect(
+      screen.getByRole('status', { name: 'Loading what the agents ship' }),
+    ).toBeInTheDocument();
   });
 
   it('shows skills, tools and memory on the Tools and skills tab', () => {
@@ -412,9 +424,9 @@ describe('TeamInsights', () => {
       .closest('[data-slot="insights-tile"]') as HTMLElement;
 
     expect(merged).toHaveTextContent('8');
-    expect(merged.querySelector('[data-slot="delta"]')).toHaveTextContent(
-      '+100% vs. previous period',
-    );
+    const delta = merged.querySelector('[data-slot="delta"]');
+    expect(delta).toHaveTextContent('+100%');
+    expect(delta).toHaveAttribute('data-tone', 'good');
   });
 
   it('drills from each headline number into the tab behind it, keeping the period', () => {
@@ -567,9 +579,11 @@ describe('TeamInsights', () => {
     expect(tile).toHaveTextContent('not reported');
     expect(
       within(
-        screen.getByRole('table', { name: 'Cache share by station' }),
-      ).getAllByRole('row')[1],
-    ).toHaveTextContent('Implementation75%300not reported100');
+        screen.getByRole('list', { name: 'Cache share by station' }),
+      ).getAllByRole('listitem')[0],
+    ).toHaveTextContent(
+      'ImplementationCache share75%Cache read300Cache writenot reportedInput100',
+    );
   });
 
   it('notes when only the latest runs were counted', () => {

@@ -8,6 +8,7 @@ import type {
 import { spentIn } from '@/lib/inbox';
 import { countShown } from '@/lib/insights';
 import { dayShown, percentShown } from '@/lib/judge';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
 import {
   heldOutRunsShown,
@@ -34,13 +35,30 @@ const liveOverSearch = (startedAt: string, searches: number): string =>
 
 export type ReplayedMark = 'baseline' | CandidateKind;
 
-const MARKS: Record<ReplayedMark, string> = {
-  baseline: 'Live config',
-  searched: 'Searched',
+const SOURCES: Record<ReplayedMark, string> = {
+  baseline: 'Live',
+  searched: 'Search',
   proposed: 'Proposed',
 };
 
-export const markShown = (mark: ReplayedMark): string => MARKS[mark];
+export const sourceShown = (mark: ReplayedMark): string => SOURCES[mark];
+
+export type ReplayedSet = {
+  readonly name: string;
+  readonly points: readonly ReplayedPoint[];
+};
+
+export const replayedSetsOf = (
+  points: readonly ReplayedPoint[],
+): ReplayedSet[] => {
+  const grouped = new Map<string, ReplayedPoint[]>();
+
+  for (const point of points) {
+    grouped.set(point.setName, [...(grouped.get(point.setName) ?? []), point]);
+  }
+
+  return [...grouped].map(([name, each]) => ({ name, points: each }));
+};
 
 export type ReplayedPoint = {
   readonly key: string;
@@ -275,7 +293,6 @@ export const candidatesAt = (
 });
 
 type ChangeLink = {
-  readonly label: string;
   readonly to: string;
   readonly external: boolean;
 };
@@ -287,12 +304,11 @@ export const changeLinkOf = (
   const pullRequest = candidate.pullRequest;
 
   if (pullRequest?.state === 'opened' && pullRequest.url) {
-    return { label: 'Pull request', to: pullRequest.url, external: true };
+    return { to: pullRequest.url, external: true };
   }
 
   if (candidate.kind === 'searched' && candidate.search) {
     return {
-      label: 'Pick on the search',
       to: searchCandidatePath(
         at,
         candidate.search.searchId,
@@ -303,7 +319,6 @@ export const changeLinkOf = (
   }
 
   return {
-    label: 'View changes',
     to: replayPath(at, candidate.replayId),
     external: false,
   };
@@ -455,23 +470,33 @@ export const heldOutBrief = (candidate: SetCandidate): string => {
     : '–';
 };
 
-export const originShown = (candidate: SetCandidate): string => {
-  if (candidate.kind === 'proposed') {
-    return 'Proposed';
-  }
+export const originShown = (candidate: SetCandidate): string =>
+  candidate.kind === 'proposed' ? 'Proposed' : 'Search';
 
-  return candidate.onFrontier ? 'Search · best value' : 'Search';
-};
+const SOURCES_NOTE =
+  'Search: a search agent proposed it and replayed it on this set. Proposed: put forward by a person or Terraform, then replayed. Live: the station’s current config, replayed to compare with. Trophy, best value: no other config from the same search, nor the live config it started from, succeeded as often for less. Not the same as beating live; see Against live.';
 
-export const originNote = (candidate: SetCandidate): string => {
-  if (candidate.kind === 'proposed') {
-    return 'Put forward by a person or Terraform, then replayed on this set.';
-  }
+export const candidateHeadings = (
+  heldOut: boolean,
+): readonly NestedHeading[] => [
+  { label: 'Config', indent: 'inner' },
+  { label: 'What changed', size: 'minmax(12rem,1.5fr)' },
+  { label: 'Source', note: SOURCES_NOTE },
+  { label: 'Replay success', size: 'minmax(8rem,1fr)' },
+  { label: 'Candidate', numeric: true },
+  { label: 'Live', numeric: true },
+  { label: 'Against live' },
+  { label: 'Cost per run', numeric: true },
+  { label: 'Live cost', numeric: true },
+  ...(heldOut ? [{ label: 'Held out', numeric: true }] : []),
+  { label: 'Runs', numeric: true },
+];
 
-  const found =
-    'A search agent proposed configs for the station and replayed each on this set.';
-
-  return candidate.onFrontier
-    ? `${found} Best value: no other config from the same search, nor the live config it started from, succeeded as often for less. Not the same as beating live; see Against live.`
-    : `${found} Another config from the same search did at least as well for less.`;
-};
+export const REPLAYED_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Config', indent: 'outer', size: 'minmax(12rem,2fr)' },
+  { label: 'Source', note: SOURCES_NOTE, size: SPREAD },
+  { label: 'Runs scored', numeric: true, size: SPREAD },
+  { label: 'Cost per run', numeric: true, size: SPREAD },
+  { label: 'Replay success', numeric: true, size: SPREAD },
+  { label: 'Held out', numeric: true, size: SPREAD },
+];

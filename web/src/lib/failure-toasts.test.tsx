@@ -30,7 +30,7 @@ const shown = () => {
     title: string;
     description: ReactNode;
   };
-  render(<>{toast.description}</>);
+  render(<div>{toast.description}</div>);
   return toast;
 };
 

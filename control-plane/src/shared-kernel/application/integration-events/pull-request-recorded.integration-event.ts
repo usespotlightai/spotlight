@@ -17,10 +17,25 @@ export type PullRequestRecordedIntegrationEvent = {
   readonly state: 'open' | 'merged' | 'closed';
   readonly closedAt: string | null;
   readonly updatedAt: string;
+  readonly readyForReviewAt: string | null;
+  readonly draftSpells: readonly {
+    readonly from: string;
+    readonly to: string | null;
+  }[];
   readonly firstReviewAt: string | null;
+  readonly firstUnblockingReviewAt: string | null;
+  readonly firstApprovedAt: string | null;
+  readonly humanReviewedAt: readonly string[];
   readonly reviews: number;
   readonly reviewRounds: number;
   readonly reviewComments: number;
+  readonly botActivity: readonly {
+    readonly login: string;
+    readonly reviews: number;
+    readonly comments: number;
+    readonly threads: number;
+    readonly resolvedThreads: number;
+  }[];
   readonly isRevert: boolean;
   readonly revertedBy: string | null;
   readonly version: number;

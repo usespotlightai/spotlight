@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { InfoNote } from '@/components/features/insights/InfoNote';
+import { Noted } from '@/components/shared/Noted';
 
 type SpreadShownProps = {
   tail: string | null;
@@ -7,10 +7,11 @@ type SpreadShownProps = {
 };
 
 export function SpreadShown({ tail, children }: SpreadShownProps) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      {children}
-      {tail && <InfoNote note={tail} />}
-    </span>
+  return tail ? (
+    <Noted note={tail}>
+      <span className="cursor-default">{children}</span>
+    </Noted>
+  ) : (
+    children
   );
 }

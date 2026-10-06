@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  countedColumnsOf,
   type FingerprintGroup,
   recentRuns,
   runSpent,
@@ -89,5 +90,19 @@ describe('recentRuns', () => {
         (run) => run.runId,
       ),
     ).toEqual(['run_4', 'run_3', 'run_2']);
+  });
+});
+
+describe('countedColumnsOf', () => {
+  it('leaves out the counts that are zero for every station, but always keeps runs', () => {
+    const labels = countedColumnsOf([
+      tally({ runs: 0, failed: 2 }),
+      tally({ runs: 0, accepted: 3 }),
+    ]).map((column) => column.label);
+
+    expect(labels).toEqual(
+      expect.arrayContaining(['Runs', 'Failed', 'Accepted']),
+    );
+    expect(labels).not.toContain('Withdrawn');
   });
 });

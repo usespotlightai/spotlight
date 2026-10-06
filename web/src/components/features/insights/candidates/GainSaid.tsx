@@ -1,3 +1,4 @@
+import { Minus, Triangle } from 'lucide-react';
 import { Noted } from '@/components/shared/Noted';
 import type { GainReading } from '@/lib/replay';
 import {
@@ -19,16 +20,33 @@ export function GainSaid({ gain }: { gain: GainReading | null }) {
     return <span className="text-muted-foreground">Not compared</span>;
   }
 
+  const points = Math.round(gain.gain * 100);
+  const noise = gain.verdict === 'within-noise';
+  const icon = cn('size-2.5 shrink-0', TONES[gain.verdict]);
+
   return (
     <Noted note={gainVerdictNote(gain)}>
       <span
         data-slot="gain-said"
         data-verdict={gain.verdict}
-        className="inline-flex items-baseline gap-1.5 whitespace-nowrap"
+        className="inline-flex items-center gap-1.5 whitespace-nowrap"
       >
-        <span className="font-medium text-foreground">{gainShown(gain)}</span>
-        <span className={cn(TONES[gain.verdict])}>
-          {gainVerdictShown(gain.verdict)}
+        {points === 0 ? (
+          <Minus aria-hidden className={icon} />
+        ) : (
+          <Triangle
+            aria-hidden
+            className={cn(icon, 'fill-current', points < 0 && 'rotate-180')}
+          />
+        )}
+        <span className="sr-only">{gainVerdictShown(gain.verdict)}</span>
+        <span
+          className={cn(
+            'font-medium',
+            noise ? 'text-muted-foreground' : 'text-foreground',
+          )}
+        >
+          {gainShown(gain)}
         </span>
       </span>
     </Noted>

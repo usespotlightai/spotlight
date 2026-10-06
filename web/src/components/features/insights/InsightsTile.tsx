@@ -1,8 +1,10 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
+import { DeltaMark } from '@/components/features/insights/DeltaMark';
 import { InfoNote } from '@/components/features/insights/InfoNote';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
 import type { Delta, TileDrill } from '@/lib/insights';
+
+const AGAINST = 'Against the previous period';
 
 type InsightsTileProps = {
   label: string;
@@ -28,21 +30,27 @@ export function InsightsTile({
       data-slot="insights-tile"
       className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      <dt className="flex min-h-7 items-center gap-1.5 border-border border-b bg-muted/40 px-2.5 py-1 text-foreground text-xs">
+      <dt className="flex min-h-6 items-center gap-1.5 px-3 pt-3 pb-2 text-foreground text-xs">
         <span className="truncate">{label}</span>
         {note && <InfoNote note={note} />}
       </dt>
-      <dd className="@container flex flex-1 flex-col gap-1 px-2.5 pt-2 pb-2">
-        <span className="font-normal text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
-          {drill ? (
-            <InsightsLink tab={drill.tab} filter={drill.filter}>
-              {value}
-            </InsightsLink>
-          ) : (
-            value
+      <dd className="@container flex flex-1 flex-col gap-1 px-3 pb-3">
+        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="font-normal text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
+            {drill ? (
+              <InsightsLink tab={drill.tab} filter={drill.filter}>
+                {value}
+              </InsightsLink>
+            ) : (
+              value
+            )}
+          </span>
+          {delta && (
+            <span className="text-xs">
+              <DeltaMark delta={delta} note={AGAINST} />
+            </span>
           )}
         </span>
-        {delta && <DeltaShown delta={delta} compact />}
         {detail && (
           <span className="text-[0.7rem] text-muted-foreground">{detail}</span>
         )}

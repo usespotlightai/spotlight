@@ -1,5 +1,9 @@
 import type { HeardReview } from '@github/domain/aggregates/pull-request.aggregate';
 import type { RevertTarget } from '@github/domain/services/revert-convention';
+import type {
+  BotComment,
+  HeardThread,
+} from '@github/domain/value-objects/bot-activity.vo';
 import {
   boolean,
   index,
@@ -14,6 +18,11 @@ import {
 
 export interface StoredReview extends Omit<HeardReview, 'at'> {
   readonly at: string | null;
+}
+
+export interface StoredDraftSpell {
+  readonly from: string;
+  readonly to: string | null;
 }
 
 export const githubPullRequestState = pgEnum('github_pull_request_state', [
@@ -37,6 +46,12 @@ export const githubPullRequest = pgTable(
     deletions: integer('deletions'),
     changedFiles: integer('changed_files'),
     openedAt: timestamp('opened_at').notNull(),
+    draft: boolean('draft').notNull().default(false),
+    readyForReviewAt: timestamp('ready_for_review_at'),
+    draftSpells: jsonb('draft_spells')
+      .$type<StoredDraftSpell[]>()
+      .notNull()
+      .default([]),
     state: githubPullRequestState('state').notNull(),
     closedAt: timestamp('closed_at'),
     updatedAt: timestamp('updated_at').notNull(),
@@ -51,6 +66,11 @@ export const githubPullRequest = pgTable(
       .$type<number[]>()
       .notNull()
       .default([]),
+    botComments: jsonb('bot_comments')
+      .$type<BotComment[]>()
+      .notNull()
+      .default([]),
+    threads: jsonb('threads').$type<HeardThread[]>().notNull().default([]),
     revertedBy: text('reverted_by'),
     version: integer('version').notNull().default(0),
   },

@@ -103,7 +103,7 @@ export function OutputAgainstCost({
       }
     >
       <figure data-slot="output-chart" className="flex flex-col gap-1">
-        <figcaption className="flex items-center gap-3 text-muted-foreground text-xs">
+        <figcaption className="flex items-center gap-3 text-muted-foreground text-[0.7rem]">
           {priced && (
             <span className="flex items-center gap-1">
               <span aria-hidden className="h-0.5 w-3 bg-chart-primary" />

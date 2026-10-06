@@ -10,7 +10,10 @@ import {
   seedStations,
 } from '@/stories/fixtures/insights';
 import { seedCandidates } from '@/stories/fixtures/insights-candidates';
-import { seedChanges } from '@/stories/fixtures/insights-changes';
+import {
+  seedChanges,
+  seedStationChanges,
+} from '@/stories/fixtures/insights-changes';
 import {
   failStationJudge,
   failStationOutcomes,
@@ -41,6 +44,7 @@ const stationAt = `${at}&stationId=${STATION_ID}`;
 const withStations =
   (seed: (client: QueryClient) => void) => (client: QueryClient) => {
     seedStations(client);
+    seedStationChanges(client);
     seed(client);
   };
 

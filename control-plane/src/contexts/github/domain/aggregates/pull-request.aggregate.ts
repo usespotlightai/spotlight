@@ -6,12 +6,22 @@ import {
 } from '@github/domain/events/pull-request-recorded.event';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import type { ReviewState } from '@github/domain/events/pull-request-reviewed.event';
+import { botActivityOf } from '@github/domain/services/bot-activity';
 import { pastRetention } from '@github/domain/services/pull-request-retention';
 import {
   type RevertTarget,
   revertTargetOf,
   sameRevertTarget,
 } from '@github/domain/services/revert-convention';
+import type {
+  BotComment,
+  HeardThread,
+} from '@github/domain/value-objects/bot-activity.vo';
+import {
+  type DraftSpell,
+  openSpellOf,
+  sameSpells,
+} from '@github/domain/value-objects/draft-spell.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -37,6 +47,9 @@ export interface PullRequestFacts {
   readonly branch: string | null;
   readonly size: PullRequestSize | null;
   readonly openedAt: Date;
+  readonly draft: boolean;
+  readonly markedReadyAt: Date | null;
+  readonly markedDraftAt: Date | null;
   readonly state: PullRequestState;
   readonly closedAt: Date | null;
   readonly updatedAt: Date | null;
@@ -45,13 +58,17 @@ export interface PullRequestFacts {
 export interface HeardReview {
   readonly id: number;
   readonly state: ReviewState;
+  readonly login: string | null;
   readonly byBot: boolean;
   readonly at: Date | null;
 }
 
-export interface HeardReviewComment {
+export interface HeardComment {
   readonly id: number;
+  readonly on: 'line' | 'conversation';
   readonly action: 'created' | 'edited' | 'deleted';
+  readonly login: string | null;
+  readonly answers: number | null;
   readonly byBot: boolean;
 }
 
@@ -62,6 +79,9 @@ interface Kept {
   readonly branch: string | null;
   readonly size: PullRequestSize | null;
   readonly openedAt: Date;
+  readonly draft: boolean;
+  readonly readyForReviewAt: Date | null;
+  readonly draftSpells: readonly DraftSpell[];
   readonly state: PullRequestState;
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
@@ -70,6 +90,8 @@ interface Kept {
   readonly dismissedReviews: readonly number[];
   readonly comments: readonly number[];
   readonly deletedComments: readonly number[];
+  readonly botComments: readonly BotComment[];
+  readonly threads: readonly HeardThread[];
   readonly revertedBy: PullRequestUrl | null;
 }
 
@@ -81,6 +103,14 @@ const notRecorded = (event: DomainEvent): boolean => event.kind !== RECORDED;
 
 const atOf = (review: HeardReview): number =>
   review.at?.getTime() ?? Number.POSITIVE_INFINITY;
+
+const earliestOf = (reviews: readonly HeardReview[]): Date | null => {
+  const [first] = reviews
+    .filter((each) => each.at !== null)
+    .sort((a, b) => atOf(a) - atOf(b));
+
+  return first?.at ?? null;
+};
 
 const sameSize = (
   one: PullRequestSize | null,
@@ -139,6 +169,14 @@ export class PullRequest extends EventRecorder {
         branch: facts.branch,
         size: facts.size,
         openedAt: facts.openedAt,
+        draft: facts.draft,
+        readyForReviewAt: facts.draft
+          ? null
+          : (facts.markedReadyAt ?? facts.openedAt),
+        draftSpells:
+          facts.draft && facts.markedDraftAt
+            ? [{ from: facts.markedDraftAt, to: null }]
+            : [],
         state: facts.state,
         closedAt,
         updatedAt,
@@ -147,6 +185,8 @@ export class PullRequest extends EventRecorder {
         dismissedReviews: [],
         comments: [],
         deletedComments: [],
+        botComments: [],
+        threads: [],
         revertedBy: null,
       },
       0,
@@ -181,6 +221,9 @@ export class PullRequest extends EventRecorder {
         branch: input.branch,
         size: input.size,
         openedAt: input.openedAt,
+        draft: input.draft,
+        readyForReviewAt: input.readyForReviewAt,
+        draftSpells: input.draftSpells,
         state: input.state,
         closedAt: input.closedAt,
         updatedAt: input.updatedAt,
@@ -189,6 +232,8 @@ export class PullRequest extends EventRecorder {
         dismissedReviews: input.dismissedReviews,
         comments: input.comments,
         deletedComments: input.deletedComments,
+        botComments: input.botComments,
+        threads: input.threads,
         revertedBy: input.revertedBy,
       },
       input.version,
@@ -217,6 +262,18 @@ export class PullRequest extends EventRecorder {
 
   get openedAt(): Date {
     return this.kept.openedAt;
+  }
+
+  get draft(): boolean {
+    return this.kept.draft;
+  }
+
+  get readyForReviewAt(): Date | null {
+    return this.kept.readyForReviewAt;
+  }
+
+  get draftSpells(): readonly DraftSpell[] {
+    return this.kept.draftSpells;
   }
 
   get state(): PullRequestState {
@@ -251,6 +308,14 @@ export class PullRequest extends EventRecorder {
     return this.kept.deletedComments;
   }
 
+  get botComments(): readonly BotComment[] {
+    return this.kept.botComments;
+  }
+
+  get threads(): readonly HeardThread[] {
+    return this.kept.threads;
+  }
+
   get revertedBy(): PullRequestUrl | null {
     return this.kept.revertedBy;
   }
@@ -260,11 +325,31 @@ export class PullRequest extends EventRecorder {
   }
 
   get firstReviewAt(): Date | null {
-    const [first] = this.byPeople()
-      .filter((each) => each.at !== null)
-      .sort((a, b) => atOf(a) - atOf(b));
+    return earliestOf(this.byPeople());
+  }
 
-    return first?.at ?? null;
+  get firstUnblockingReviewAt(): Date | null {
+    return earliestOf(
+      this.kept.reviews.filter(
+        (each) => this.kept.author === null || each.login !== this.kept.author,
+      ),
+    );
+  }
+
+  get firstApprovedAt(): Date | null {
+    return earliestOf(
+      this.kept.reviews.filter(
+        (each) =>
+          each.state === 'approved' &&
+          !this.kept.dismissedReviews.includes(each.id),
+      ),
+    );
+  }
+
+  get humanReviewedAt(): readonly Date[] {
+    return this.byPeople()
+      .flatMap((each) => (each.at ? [each.at] : []))
+      .sort((a, b) => a.getTime() - b.getTime());
   }
 
   get reviewRounds(): number {
@@ -281,12 +366,23 @@ export class PullRequest extends EventRecorder {
   }
 
   described(facts: PullRequestFacts): PullRequest {
-    if (
-      !facts.url.equals(this.url) ||
-      (facts.updatedAt !== null &&
-        facts.updatedAt.getTime() < this.kept.updatedAt.getTime())
-    ) {
+    if (!facts.url.equals(this.url)) {
       return this;
+    }
+
+    const readiedEarlier =
+      !facts.draft &&
+      facts.markedReadyAt !== null &&
+      (this.kept.readyForReviewAt === null ||
+        facts.markedReadyAt.getTime() < this.kept.readyForReviewAt.getTime());
+
+    if (
+      facts.updatedAt !== null &&
+      facts.updatedAt.getTime() < this.kept.updatedAt.getTime()
+    ) {
+      return readiedEarlier
+        ? this.changed({ ...this.kept, readyForReviewAt: facts.markedReadyAt })
+        : this;
     }
 
     const state: PullRequestState =
@@ -311,6 +407,15 @@ export class PullRequest extends EventRecorder {
       branch: facts.branch ?? this.kept.branch,
       size: facts.size ?? this.kept.size,
       openedAt: facts.openedAt,
+      draft: facts.draft,
+      readyForReviewAt: readiedEarlier
+        ? facts.markedReadyAt
+        : (this.kept.readyForReviewAt ??
+          (facts.draft
+            ? null
+            : (facts.markedReadyAt ??
+              laterOf(this.kept.updatedAt, facts.updatedAt)))),
+      draftSpells: this.respelled(facts),
       state,
       closedAt,
       updatedAt: laterOf(this.kept.updatedAt, facts.updatedAt),
@@ -341,11 +446,10 @@ export class PullRequest extends EventRecorder {
       return this;
     }
 
-    const next = { ...this.kept, reviews: [...this.kept.reviews, review] };
-
-    return this.kept.dismissedReviews.includes(review.id)
-      ? this.quietly(next)
-      : this.changed(next);
+    return this.changed({
+      ...this.kept,
+      reviews: [...this.kept.reviews, review],
+    });
   }
 
   reviewDismissed(id: number): PullRequest {
@@ -363,7 +467,15 @@ export class PullRequest extends EventRecorder {
       : this.quietly(next);
   }
 
-  commentedOn(comment: HeardReviewComment): PullRequest {
+  commentedOn(comment: HeardComment): PullRequest {
+    if (comment.byBot) {
+      return this.botCommented(comment);
+    }
+
+    if (comment.on === 'conversation') {
+      return this;
+    }
+
     const held = this.kept.comments.includes(comment.id);
     const deleted = this.kept.deletedComments.includes(comment.id);
 
@@ -377,7 +489,7 @@ export class PullRequest extends EventRecorder {
       return held ? this.changed(next) : this.quietly(next);
     }
 
-    if (comment.action === 'created' && !comment.byBot && !held && !deleted) {
+    if (comment.action === 'created' && !held && !deleted) {
       return this.changed({
         ...this.kept,
         comments: [...this.kept.comments, comment.id],
@@ -385,6 +497,22 @@ export class PullRequest extends EventRecorder {
     }
 
     return this;
+  }
+
+  threadResolved(thread: HeardThread): PullRequest {
+    const held = this.kept.threads.find((each) => each.id === thread.id);
+
+    if (!thread.byBot || (held && held.resolved === thread.resolved)) {
+      return this;
+    }
+
+    return this.changed({
+      ...this.kept,
+      threads: [
+        ...this.kept.threads.filter((each) => each.id !== thread.id),
+        thread,
+      ],
+    });
   }
 
   revertedWith(revert: PullRequestUrl): PullRequest {
@@ -418,6 +546,60 @@ export class PullRequest extends EventRecorder {
     );
   }
 
+  private botCommented(comment: HeardComment): PullRequest {
+    const held = this.kept.botComments.find(
+      (each) => each.id === comment.id && each.on === comment.on,
+    );
+    const deleted = comment.action === 'deleted';
+
+    if (
+      !comment.login ||
+      comment.action === 'edited' ||
+      held?.deleted ||
+      (held && !deleted)
+    ) {
+      return this;
+    }
+
+    const next = {
+      ...this.kept,
+      botComments: [
+        ...this.kept.botComments.filter((each) => each !== held),
+        {
+          id: comment.id,
+          on: comment.on,
+          login: comment.login,
+          opensThread: comment.on === 'line' && comment.answers === null,
+          deleted,
+        },
+      ],
+    };
+
+    return deleted && !held ? this.quietly(next) : this.changed(next);
+  }
+
+  private respelled(facts: PullRequestFacts): readonly DraftSpell[] {
+    const spells = this.kept.draftSpells;
+    const open = openSpellOf(spells);
+    const heardAt = facts.updatedAt ?? this.kept.updatedAt;
+
+    const wasReady =
+      this.kept.readyForReviewAt !== null || facts.markedDraftAt !== null;
+
+    if (facts.draft && !open && wasReady) {
+      return [...spells, { from: facts.markedDraftAt ?? heardAt, to: null }];
+    }
+
+    if (!facts.draft && open) {
+      return [
+        ...spells.slice(0, -1),
+        { from: open.from, to: facts.markedReadyAt ?? heardAt },
+      ];
+    }
+
+    return spells;
+  }
+
   private byPeople(): readonly HeardReview[] {
     return this.kept.reviews.filter(
       (each) => !each.byBot && !this.kept.dismissedReviews.includes(each.id),
@@ -432,6 +614,9 @@ export class PullRequest extends EventRecorder {
       next.branch === this.kept.branch &&
       sameSize(next.size, this.kept.size) &&
       sameTime(next.openedAt, this.kept.openedAt) &&
+      next.draft === this.kept.draft &&
+      sameTime(next.readyForReviewAt, this.kept.readyForReviewAt) &&
+      sameSpells(next.draftSpells, this.kept.draftSpells) &&
       next.state === this.kept.state &&
       sameTime(next.closedAt, this.kept.closedAt) &&
       sameRevertTarget(next.reverts, this.kept.reverts)
@@ -500,10 +685,16 @@ export class PullRequest extends EventRecorder {
       state: this.kept.state,
       closedAt: this.kept.closedAt,
       updatedAt: this.kept.updatedAt,
+      readyForReviewAt: this.kept.readyForReviewAt,
+      draftSpells: this.kept.draftSpells,
       firstReviewAt: this.firstReviewAt,
+      firstUnblockingReviewAt: this.firstUnblockingReviewAt,
+      firstApprovedAt: this.firstApprovedAt,
+      humanReviewedAt: this.humanReviewedAt,
       reviews: this.byPeople().length,
       reviewRounds: this.reviewRounds,
       reviewComments: this.kept.comments.length,
+      botActivity: botActivityOf(this.kept),
       isRevert: this.kept.reverts !== null,
       revertedBy: this.kept.revertedBy?.value ?? null,
       version: this.version + 1,

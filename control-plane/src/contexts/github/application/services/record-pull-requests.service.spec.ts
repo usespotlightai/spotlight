@@ -39,6 +39,9 @@ const factsOf = (
   branch: null,
   size: null,
   openedAt: new Date('2026-09-20T08:00:00Z'),
+  draft: false,
+  markedReadyAt: null,
+  markedDraftAt: null,
   state: 'open',
   closedAt: null,
   updatedAt: new Date(NOW.getTime() - DAY),
@@ -155,6 +158,9 @@ class PullRequestsInMemory implements PullRequestRepository {
         branch: pullRequest.branch,
         size: pullRequest.size,
         openedAt: pullRequest.openedAt,
+        draft: pullRequest.draft,
+        readyForReviewAt: pullRequest.readyForReviewAt,
+        draftSpells: pullRequest.draftSpells,
         state: pullRequest.state,
         closedAt: pullRequest.closedAt,
         updatedAt: pullRequest.updatedAt,
@@ -163,6 +169,8 @@ class PullRequestsInMemory implements PullRequestRepository {
         dismissedReviews: pullRequest.dismissedReviews,
         comments: pullRequest.comments,
         deletedComments: pullRequest.deletedComments,
+        botComments: pullRequest.botComments,
+        threads: pullRequest.threads,
         revertedBy: pullRequest.revertedBy,
         version: pullRequest.version + 1,
       }),
@@ -244,6 +252,7 @@ describe('RecordPullRequests', () => {
     await service.reviewed(FROM, urlOf(7).value, factsOf(7), {
       id: 1,
       state: 'approved',
+      login: 'grace',
       byBot: false,
       at: new Date('2026-09-20T09:00:00Z'),
     });
@@ -256,7 +265,10 @@ describe('RecordPullRequests', () => {
 
     await service.commented(FROM, urlOf(7).value, null, {
       id: 1,
+      on: 'line',
       action: 'created',
+      login: 'grace',
+      answers: null,
       byBot: false,
     });
 
@@ -270,11 +282,37 @@ describe('RecordPullRequests', () => {
 
     await service.commented(FROM, urlOf(7).value, null, {
       id: 1,
+      on: 'line',
       action: 'created',
+      login: 'grace',
+      answers: null,
       byBot: false,
     });
 
     expect(pullRequests.held.get(urlOf(7).value)?.comments).toEqual([1]);
+  });
+
+  it('records a review thread resolved on a pull request it holds', async () => {
+    const { service, pullRequests } = recording();
+    await service.described(FROM, factsOf(7));
+
+    await service.threadResolved(FROM, urlOf(7).value, factsOf(7), {
+      id: 'PRRT_1',
+      opener: 10,
+      login: 'coderabbitai[bot]',
+      byBot: true,
+      resolved: true,
+    });
+
+    expect(pullRequests.held.get(urlOf(7).value)?.threads).toEqual([
+      {
+        id: 'PRRT_1',
+        opener: 10,
+        login: 'coderabbitai[bot]',
+        byBot: true,
+        resolved: true,
+      },
+    ]);
   });
 
   it('marks the pull request a merged revert names by number reverted', async () => {
@@ -417,7 +455,7 @@ describe('RecordPullRequests', () => {
       FROM,
       urlOf(7).value,
       factsOf(7, { title: 'Renamed', updatedAt: NOW }),
-      { id: 1, state: 'approved', byBot: false, at: NOW },
+      { id: 1, state: 'approved', login: 'grace', byBot: false, at: NOW },
     );
 
     expect(pullRequests.held.get(urlOf(7).value)).toMatchObject({
@@ -431,6 +469,7 @@ describe('RecordPullRequests', () => {
     await service.reviewed(FROM, urlOf(7).value, factsOf(7), {
       id: 1,
       state: 'changes-requested',
+      login: 'grace',
       byBot: false,
       at: NOW,
     });

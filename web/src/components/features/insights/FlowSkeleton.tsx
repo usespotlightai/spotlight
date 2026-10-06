@@ -8,10 +8,8 @@ export function FlowSkeleton() {
       aria-label="Loading the flow"
       className="flex flex-col gap-3"
     >
-      <InsightsCardSkeleton title="Where tasks wait" rows={5} />
-      <InsightsTilesSkeleton
-        labels={['PRs opened', 'First reviews', 'PRs merged']}
-      />
+      <InsightsCardSkeleton rows={5} />
+      <InsightsTilesSkeleton count={3} />
     </div>
   );
 }

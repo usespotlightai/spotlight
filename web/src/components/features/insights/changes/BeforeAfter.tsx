@@ -1,5 +1,4 @@
 import { BeforeAfterSkeleton } from '@/components/features/insights/changes/BeforeAfterSkeleton';
-import { ChangeJudge } from '@/components/features/insights/changes/ChangeJudge';
 import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
 import { TallyComparison } from '@/components/features/insights/TallyComparison';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
@@ -11,9 +10,9 @@ import {
   improvingOf,
   type StationNames,
 } from '@/lib/insights';
-import { type ChangeAt, markerOf } from '@/lib/insights-changes';
+import { type ChangeAt, judgeRow, markerOf } from '@/lib/insights-changes';
 import { failed, loading } from '@/lib/query';
-import { stationPath } from '@/lib/station';
+import { judgeAgreementPath, stationPath } from '@/lib/station';
 
 type BeforeAfterProps = {
   slug: string;
@@ -67,6 +66,10 @@ export function BeforeAfter({
     );
   }
 
+  const trusted = changes.data.judges.some(
+    (each) => each.stationId === marker.stationId && each.trusted,
+  );
+
   return (
     <div data-slot="before-after" className="flex flex-col gap-5">
       <section className="flex flex-col gap-1">
@@ -88,19 +91,13 @@ export function BeforeAfter({
           otherLabel="After"
           runs={{ one: marker.before.runs, other: marker.after.runs }}
           verdicts={marker.verdicts}
+          extra={
+            trusted
+              ? [judgeRow(marker, judgeAgreementPath(slug, teamId, marker))]
+              : []
+          }
         />
       </section>
-
-      <ChangeJudge
-        slug={slug}
-        teamId={teamId}
-        marker={marker}
-        standing={
-          changes.data.judges.find(
-            (each) => each.stationId === marker.stationId,
-          ) ?? null
-        }
-      />
 
       <div className="flex flex-wrap gap-2">
         <PillLink

@@ -1154,10 +1154,16 @@ describe('outcomesSubscribers', () => {
       state: 'open',
       closedAt: null,
       updatedAt: '2026-09-30T08:30:00.000Z',
+      readyForReviewAt: '2026-09-30T08:00:00.000Z',
+      draftSpells: [],
       firstReviewAt: null,
+      firstUnblockingReviewAt: null,
+      firstApprovedAt: null,
+      humanReviewedAt: [],
       reviews: 0,
       reviewRounds: 0,
       reviewComments: 0,
+      botActivity: [],
       isRevert: false,
       revertedBy: null,
       version: 1,
@@ -1175,6 +1181,58 @@ describe('outcomesSubscribers', () => {
       const record = await held(heard);
       expect(record?.seen?.title).toBe('Retry failed uploads');
       expect(record?.owner).toBeNull();
+    });
+
+    it('records when it was ready for review, reviewed, approved, and what bots did on it', async () => {
+      const heard = subscribed();
+      const botActivity = [
+        {
+          login: 'coderabbitai[bot]',
+          reviews: 1,
+          comments: 4,
+          threads: 2,
+          resolvedThreads: 1,
+        },
+      ];
+
+      await heard.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent({
+          readyForReviewAt: '2026-09-30T09:00:00.000Z',
+          draftSpells: [
+            {
+              from: '2026-09-30T09:20:00.000Z',
+              to: '2026-09-30T09:25:00.000Z',
+            },
+            { from: '2026-09-30T11:00:00.000Z', to: null },
+          ],
+          firstUnblockingReviewAt: '2026-09-30T09:10:00.000Z',
+          firstApprovedAt: '2026-09-30T10:00:00.000Z',
+          humanReviewedAt: [
+            '2026-09-30T09:30:00.000Z',
+            '2026-09-30T10:00:00.000Z',
+          ],
+          botActivity,
+        }),
+      );
+
+      expect((await held(heard))?.seen).toMatchObject({
+        readyForReviewAt: new Date('2026-09-30T09:00:00.000Z'),
+        draftSpells: [
+          {
+            from: new Date('2026-09-30T09:20:00.000Z'),
+            to: new Date('2026-09-30T09:25:00.000Z'),
+          },
+          { from: new Date('2026-09-30T11:00:00.000Z'), to: null },
+        ],
+        firstUnblockingReviewAt: new Date('2026-09-30T09:10:00.000Z'),
+        firstApprovedAt: new Date('2026-09-30T10:00:00.000Z'),
+        humanReviewedAt: [
+          new Date('2026-09-30T09:30:00.000Z'),
+          new Date('2026-09-30T10:00:00.000Z'),
+        ],
+        botActivity,
+      });
     });
 
     it('makes it Spotlight’s whichever it hears first, the pull request or the task opening it', async () => {

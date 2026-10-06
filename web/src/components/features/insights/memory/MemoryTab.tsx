@@ -3,10 +3,9 @@ import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { FlaggedMemories } from '@/components/features/insights/memory/FlaggedMemories';
-import { MemoryBenchmarkCard } from '@/components/features/insights/memory/MemoryBenchmarkCard';
+import { MemoryComparison } from '@/components/features/insights/memory/MemoryComparison';
 import { MemorySkeleton } from '@/components/features/insights/memory/MemorySkeleton';
 import { NoMemories } from '@/components/features/insights/memory/NoMemories';
-import { TallyComparison } from '@/components/features/insights/TallyComparison';
 import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsMemory } from '@/hooks/api/useInsightsMemory';
 import type { InsightsPeriod } from '@/lib/insights';
@@ -56,21 +55,16 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
         title="Runs with memories and without"
         description="Outcomes of runs briefed or reading a memory, against the period’s other runs."
       >
-        <TallyComparison
-          label="Runs without memories against runs with them"
-          oneLabel="Without"
-          otherLabel="With"
+        <MemoryComparison
           runs={{
-            one: read.withoutMemories.runs,
-            other: read.withMemories.runs,
+            without: read.withoutMemories.runs,
+            with: read.withMemories.runs,
           }}
           verdicts={read.verdicts}
         />
       </InsightsCard>
 
       <FlaggedMemories slug={slug} teamId={teamId} flagged={read.flagged} />
-
-      <MemoryBenchmarkCard benchmark={read.benchmark} />
     </div>
   );
 }

@@ -1,9 +1,11 @@
 import {
+  type HeardComment,
   type HeardReview,
   PullRequest,
   type PullRequestFacts,
 } from '@github/domain/aggregates/pull-request.aggregate';
 import type { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
+import type { HeardThread } from '@github/domain/value-objects/bot-activity.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -27,6 +29,9 @@ const factsOf = (over: Partial<PullRequestFacts> = {}): PullRequestFacts => ({
   branch: 'fix/uploads',
   size: { additions: 40, deletions: 3, changedFiles: 2 },
   openedAt: OPENED,
+  draft: false,
+  markedReadyAt: null,
+  markedDraftAt: null,
   state: 'open',
   closedAt: null,
   updatedAt: null,
@@ -41,7 +46,35 @@ const review = (
   state: HeardReview['state'],
   hour: number,
   byBot = false,
-): HeardReview => ({ id, state, byBot, at: at(hour) });
+  login = byBot ? 'coderabbitai[bot]' : 'grace',
+): HeardReview => ({ id, state, login, byBot, at: at(hour) });
+
+const comment = (
+  id: number,
+  action: HeardComment['action'],
+  over: Partial<HeardComment> = {},
+): HeardComment => ({
+  id,
+  on: 'line',
+  action,
+  login: over.byBot ? 'coderabbitai[bot]' : 'grace',
+  answers: null,
+  byBot: false,
+  ...over,
+});
+
+const thread = (
+  id: string,
+  resolved: boolean,
+  over: Partial<HeardThread> = {},
+): HeardThread => ({
+  id,
+  opener: null,
+  login: 'coderabbitai[bot]',
+  byBot: true,
+  resolved,
+  ...over,
+});
 
 const stored = (pullRequest: PullRequest) =>
   PullRequest.rehydrate({
@@ -55,6 +88,9 @@ const stored = (pullRequest: PullRequest) =>
     branch: pullRequest.branch,
     size: pullRequest.size,
     openedAt: pullRequest.openedAt,
+    draft: pullRequest.draft,
+    readyForReviewAt: pullRequest.readyForReviewAt,
+    draftSpells: pullRequest.draftSpells,
     state: pullRequest.state,
     closedAt: pullRequest.closedAt,
     updatedAt: pullRequest.updatedAt,
@@ -63,6 +99,8 @@ const stored = (pullRequest: PullRequest) =>
     dismissedReviews: pullRequest.dismissedReviews,
     comments: pullRequest.comments,
     deletedComments: pullRequest.deletedComments,
+    botComments: pullRequest.botComments,
+    threads: pullRequest.threads,
     revertedBy: pullRequest.revertedBy,
     version: pullRequest.version + 1,
   });
@@ -252,7 +290,10 @@ describe('PullRequest', () => {
       expect(recorded(dismissedAfter)).toMatchObject({ reviews: 1 });
       expect(dismissedBefore.reviewRounds).toBe(0);
       expect(dismissedBefore.firstReviewAt).toBeNull();
-      expect(dismissedBefore.hasEvents).toBe(false);
+      expect(recorded(dismissedBefore)).toMatchObject({
+        reviews: 0,
+        firstUnblockingReviewAt: at(9),
+      });
     });
 
     it('takes the earliest review by a person as the first, however late it is heard', () => {
@@ -267,12 +308,13 @@ describe('PullRequest', () => {
   describe('review comments', () => {
     it('counts each comment a person made once, and forgets a deleted one', () => {
       const commented = opened()
-        .commentedOn({ id: 1, action: 'created', byBot: false })
-        .commentedOn({ id: 1, action: 'created', byBot: false })
-        .commentedOn({ id: 2, action: 'created', byBot: false })
-        .commentedOn({ id: 3, action: 'created', byBot: true })
-        .commentedOn({ id: 2, action: 'deleted', byBot: false })
-        .commentedOn({ id: 1, action: 'edited', byBot: false });
+        .commentedOn(comment(1, 'created'))
+        .commentedOn(comment(1, 'created'))
+        .commentedOn(comment(2, 'created'))
+        .commentedOn(comment(3, 'created', { byBot: true }))
+        .commentedOn(comment(4, 'created', { on: 'conversation' }))
+        .commentedOn(comment(2, 'deleted'))
+        .commentedOn(comment(1, 'edited'));
 
       expect(commented.comments).toEqual([1]);
     });
@@ -280,20 +322,329 @@ describe('PullRequest', () => {
     it('does not count a deleted comment again when its creation is heard after', () => {
       const deleted = stored(
         opened()
-          .commentedOn({ id: 1, action: 'created', byBot: false })
-          .commentedOn({ id: 1, action: 'deleted', byBot: false }),
+          .commentedOn(comment(1, 'created'))
+          .commentedOn(comment(1, 'deleted')),
       );
-      const deletedFirst = stored(
-        opened().commentedOn({ id: 2, action: 'deleted', byBot: false }),
+      const deletedFirst = stored(opened().commentedOn(comment(2, 'deleted')));
+
+      expect(deleted.commentedOn(comment(1, 'created'))).toBe(deleted);
+      expect(deletedFirst.commentedOn(comment(2, 'created'))).toBe(
+        deletedFirst,
+      );
+      expect(deletedFirst.comments).toEqual([]);
+    });
+  });
+
+  describe('readiness for review', () => {
+    it('is ready for review when it opened, unless it opened as a draft', () => {
+      expect(recorded(heard())).toMatchObject({ readyForReviewAt: OPENED });
+      expect(recorded(heard({ draft: true }))).toMatchObject({
+        readyForReviewAt: null,
+      });
+    });
+
+    it('becomes ready for review when GitHub marks the draft ready', () => {
+      const ready = opened({ draft: true }).described(
+        factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+      );
+
+      expect(ready.readyForReviewAt).toEqual(at(11));
+      expect(recorded(ready)).toMatchObject({ readyForReviewAt: at(11) });
+    });
+
+    it('takes the time GitHub last changed it where it missed the draft being marked ready', () => {
+      expect(
+        opened({ draft: true }).described(factsOf({ updatedAt: at(12) }))
+          .readyForReviewAt,
+      ).toEqual(at(12));
+    });
+
+    it('was first ready for review even after it turns back into a draft', () => {
+      const ready = stored(
+        opened({ draft: true }).described(
+          factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+        ),
+      );
+      const draftAgain = stored(
+        ready.described(factsOf({ draft: true, updatedAt: at(12) })),
+      );
+      const readyAgain = draftAgain.described(
+        factsOf({ markedReadyAt: at(13), updatedAt: at(13) }),
+      );
+
+      expect(draftAgain.draft).toBe(true);
+      expect(draftAgain.readyForReviewAt).toEqual(at(11));
+      expect(readyAgain.readyForReviewAt).toEqual(at(11));
+    });
+
+    it('keeps each spell back as a draft after it was first ready', () => {
+      const ready = stored(
+        opened({ draft: true }).described(
+          factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+        ),
+      );
+      const draftAgain = stored(
+        ready.described(
+          factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
+        ),
+      );
+      const readyAgain = draftAgain.described(
+        factsOf({ markedReadyAt: at(13), updatedAt: at(13) }),
+      );
+
+      expect(ready.draftSpells).toEqual([]);
+      expect(draftAgain.draftSpells).toEqual([{ from: at(12), to: null }]);
+      expect(readyAgain.draftSpells).toEqual([{ from: at(12), to: at(13) }]);
+      expect(recorded(readyAgain)).toMatchObject({
+        draftSpells: [{ from: at(12), to: at(13) }],
+      });
+      expect(
+        stored(readyAgain).described(factsOf({ updatedAt: at(14) }))
+          .draftSpells,
+      ).toEqual([{ from: at(12), to: at(13) }]);
+    });
+
+    it('opens a spell when GitHub turns it back into a draft before the word that it was ready arrives', () => {
+      const draftAgain = stored(
+        opened({ draft: true }).described(
+          factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
+        ),
+      );
+      const lateReady = draftAgain.described(
+        factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+      );
+
+      expect(draftAgain.draftSpells).toEqual([{ from: at(12), to: null }]);
+      expect(lateReady.readyForReviewAt).toEqual(at(11));
+      expect(lateReady.draft).toBe(true);
+      expect(lateReady.draftSpells).toEqual([{ from: at(12), to: null }]);
+    });
+
+    it('opens a spell when the first it hears is GitHub turning it back into a draft', () => {
+      const draft = heard({
+        draft: true,
+        markedDraftAt: at(12),
+        updatedAt: at(12),
+      });
+
+      expect(draft.readyForReviewAt).toBeNull();
+      expect(draft.draftSpells).toEqual([{ from: at(12), to: null }]);
+      expect(
+        stored(draft).described(
+          factsOf({ markedReadyAt: at(14), updatedAt: at(14) }),
+        ).draftSpells,
+      ).toEqual([{ from: at(12), to: at(14) }]);
+    });
+
+    it('closes a spell at the time GitHub last changed it where it missed the draft being marked ready', () => {
+      const draftAgain = stored(
+        opened().described(
+          factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
+        ),
       );
 
       expect(
-        deleted.commentedOn({ id: 1, action: 'created', byBot: false }),
-      ).toBe(deleted);
+        draftAgain.described(factsOf({ updatedAt: at(13) })).draftSpells,
+      ).toEqual([{ from: at(10), to: at(13) }]);
+    });
+
+    it('keeps one spell open however often it hears the pull request is a draft', () => {
+      const draftAgain = stored(
+        opened().described(
+          factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
+        ),
+      );
+
       expect(
-        deletedFirst.commentedOn({ id: 2, action: 'created', byBot: false }),
-      ).toBe(deletedFirst);
-      expect(deletedFirst.comments).toEqual([]);
+        draftAgain.described(
+          factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
+        ),
+      ).toBe(draftAgain);
+      expect(
+        draftAgain.described(factsOf({ draft: true, updatedAt: at(11) }))
+          .draftSpells,
+      ).toEqual([{ from: at(10), to: null }]);
+    });
+
+    it('misses a spell whose turn back into a draft arrives after a later word', () => {
+      const later = stored(opened().described(factsOf({ updatedAt: at(13) })));
+
+      expect(
+        later.described(
+          factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
+        ),
+      ).toBe(later);
+    });
+
+    it('keeps its spells when an earlier mark of ready arrives late', () => {
+      const guessed = stored(
+        opened({ draft: true }).described(factsOf({ updatedAt: at(10) })),
+      );
+      const drafted = stored(
+        guessed.described(
+          factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
+        ),
+      );
+      const marked = drafted.described(
+        factsOf({ markedReadyAt: at(9), updatedAt: at(9) }),
+      );
+
+      expect(marked.readyForReviewAt).toEqual(at(9));
+      expect(marked.draftSpells).toEqual([{ from: at(12), to: null }]);
+    });
+
+    it('takes the time GitHub marked the draft ready even when it arrives after a later change', () => {
+      const guessed = stored(
+        opened({ draft: true }).described(factsOf({ updatedAt: at(12) })),
+      );
+      const marked = guessed.described(
+        factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+      );
+
+      expect(guessed.readyForReviewAt).toEqual(at(12));
+      expect(marked.readyForReviewAt).toEqual(at(11));
+      expect(marked.updatedAt).toEqual(at(12));
+      expect(recorded(marked)).toMatchObject({ readyForReviewAt: at(11) });
+    });
+  });
+
+  describe('review times', () => {
+    it('is first unblocked by the earliest review of anyone but its author, bots and dismissed reviews included', () => {
+      const reviewed = opened()
+        .reviewedBy(review(1, 'commented', 8, false, 'ada'))
+        .reviewedBy(review(2, 'commented', 9, true))
+        .reviewedBy(review(3, 'approved', 10))
+        .reviewDismissed(2);
+
+      expect(recorded(reviewed)).toMatchObject({
+        firstUnblockingReviewAt: at(9),
+        firstReviewAt: at(8),
+      });
+    });
+
+    it('is not unblocked by its author reviewing it', () => {
+      expect(
+        opened().reviewedBy(review(1, 'commented', 9, false, 'ada'))
+          .firstUnblockingReviewAt,
+      ).toBeNull();
+    });
+
+    it('was first approved at the earliest approval still standing', () => {
+      const reviewed = opened()
+        .reviewedBy(review(1, 'approved', 9))
+        .reviewedBy(review(2, 'changes-requested', 10))
+        .reviewedBy(review(3, 'approved', 11, true))
+        .reviewedBy(review(4, 'approved', 12))
+        .reviewDismissed(1);
+
+      expect(reviewed.firstApprovedAt).toEqual(at(11));
+      expect(opened().firstApprovedAt).toBeNull();
+    });
+
+    it('says when each person reviewed it, in order, leaving out bots and dismissed reviews', () => {
+      const reviewed = opened()
+        .reviewedBy(review(1, 'approved', 12))
+        .reviewedBy(review(2, 'commented', 9))
+        .reviewedBy(review(3, 'commented', 10, true))
+        .reviewedBy(review(4, 'changes-requested', 11))
+        .reviewDismissed(4);
+
+      expect(recorded(reviewed)).toMatchObject({
+        humanReviewedAt: [at(9), at(12)],
+      });
+    });
+  });
+
+  describe('bot activity', () => {
+    const bot = { byBot: true } as const;
+
+    it('counts what each bot did on it, by login', () => {
+      const busy = opened()
+        .reviewedBy(review(1, 'commented', 9, true))
+        .reviewedBy(review(2, 'approved', 10, true, 'renovate[bot]'))
+        .reviewedBy(review(3, 'approved', 11))
+        .commentedOn(comment(10, 'created', bot))
+        .commentedOn(comment(11, 'created', { ...bot, answers: 10 }))
+        .commentedOn(comment(12, 'created', { ...bot, on: 'conversation' }))
+        .commentedOn(
+          comment(13, 'created', { ...bot, login: 'renovate[bot]' }),
+        );
+
+      expect(recorded(busy)?.botActivity).toEqual([
+        {
+          login: 'coderabbitai[bot]',
+          reviews: 1,
+          comments: 3,
+          threads: 1,
+          resolvedThreads: 0,
+        },
+        {
+          login: 'renovate[bot]',
+          reviews: 1,
+          comments: 1,
+          threads: 1,
+          resolvedThreads: 0,
+        },
+      ]);
+      expect(busy.comments).toEqual([]);
+    });
+
+    it('counts a bot comment once, and forgets a deleted one however late its creation is heard', () => {
+      const commented = stored(
+        opened()
+          .commentedOn(comment(10, 'created', bot))
+          .commentedOn(comment(10, 'created', bot))
+          .commentedOn(comment(10, 'edited', bot))
+          .commentedOn(comment(10, 'created', { ...bot, on: 'conversation' })),
+      );
+      const deleted = stored(
+        commented.commentedOn(comment(10, 'deleted', bot)),
+      );
+      const deletedFirst = stored(
+        opened().commentedOn(comment(11, 'deleted', bot)),
+      );
+
+      expect(recorded(commented)?.botActivity).toBeUndefined();
+      expect(commented.botComments).toHaveLength(2);
+      expect(recorded(deleted)?.botActivity).toBeUndefined();
+      expect(deleted.botComments.filter((each) => !each.deleted)).toHaveLength(
+        1,
+      );
+      expect(deleted.commentedOn(comment(10, 'created', bot))).toBe(deleted);
+      expect(deletedFirst.hasEvents).toBe(false);
+      expect(deletedFirst.commentedOn(comment(11, 'created', bot))).toBe(
+        deletedFirst,
+      );
+    });
+
+    it('counts the threads a bot opened and how many of them are resolved now', () => {
+      const threaded = opened()
+        .commentedOn(comment(10, 'created', bot))
+        .threadResolved(thread('PRRT_1', true, { opener: 10 }))
+        .threadResolved(thread('PRRT_2', true))
+        .threadResolved(thread('PRRT_2', false))
+        .threadResolved(thread('PRRT_3', true));
+
+      expect(recorded(threaded)?.botActivity).toEqual([
+        {
+          login: 'coderabbitai[bot]',
+          reviews: 0,
+          comments: 1,
+          threads: 3,
+          resolvedThreads: 2,
+        },
+      ]);
+    });
+
+    it('hears a thread resolved again as nothing new, and leaves a person’s thread out', () => {
+      const resolved = stored(opened().threadResolved(thread('PRRT_1', true)));
+      const byPerson = opened().threadResolved(
+        thread('PRRT_2', true, { login: 'grace', byBot: false }),
+      );
+
+      expect(resolved.threadResolved(thread('PRRT_1', true))).toBe(resolved);
+      expect(byPerson.threads).toHaveLength(0);
+      expect(byPerson.hasEvents).toBe(false);
     });
   });
 
