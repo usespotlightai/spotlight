@@ -9,6 +9,32 @@ import {
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
+const LOOKS = {
+  regular: {
+    trigger: 'rounded-full',
+    empty: buttonVariants({ variant: 'outline', size: 'icon-sm' }),
+    filled: buttonVariants({ variant: 'outline', size: 'sm' }),
+    icon: 'size-3.5',
+    popover: 'w-80 rounded-xl',
+    rows: 'gap-1.5 px-4 py-3',
+    footer: 'px-2 py-1.5',
+    clear: 'sm',
+  },
+  compact: {
+    trigger: 'h-5 rounded-md',
+    empty: cn(buttonVariants({ variant: 'outline', size: 'icon-xs' }), 'w-5'),
+    filled: cn(
+      buttonVariants({ variant: 'outline', size: 'xs' }),
+      'px-1.5 text-[0.7rem]',
+    ),
+    icon: 'size-3',
+    popover: 'w-64 rounded-lg',
+    rows: 'gap-0.5 px-2.5 py-1.5',
+    footer: 'px-1.5 py-1',
+    clear: 'xs',
+  },
+} as const;
+
 type FilterMenuProps = {
   label: string;
   applied: number;
@@ -24,6 +50,7 @@ export function FilterMenu({
   compact = false,
   children,
 }: FilterMenuProps) {
+  const look = LOOKS[compact ? 'compact' : 'regular'];
   const filled = applied > 0;
 
   return (
@@ -31,50 +58,32 @@ export function FilterMenu({
       <PopoverTrigger
         aria-label={filled ? `${label}, ${applied} applied` : label}
         className={cn(
-          buttonVariants({
-            variant: 'outline',
-            size: compact
-              ? filled
-                ? 'xs'
-                : 'icon-xs'
-              : filled
-                ? 'sm'
-                : 'icon-sm',
-          }),
+          filled ? look.filled : look.empty,
           'bg-card shadow-none data-[popup-open]:bg-muted',
-          compact
-            ? cn('h-5 rounded-md', filled ? 'px-1.5 text-[0.7rem]' : 'w-5')
-            : 'rounded-full',
+          look.trigger,
         )}
       >
-        <ListFilter aria-hidden className={compact ? 'size-3' : 'size-3.5'} />
+        <ListFilter aria-hidden className={look.icon} />
         {filled && <span className="tabular-nums">{applied}</span>}
       </PopoverTrigger>
 
       <PopoverContent
         align="end"
         sideOffset={6}
-        className={cn('p-0', compact ? 'w-64 rounded-lg' : 'w-80 rounded-xl')}
+        className={cn('p-0', look.popover)}
       >
-        <div
-          className={cn(
-            'flex flex-col',
-            compact ? 'gap-0.5 px-2.5 py-1.5' : 'gap-1.5 px-4 py-3',
-          )}
-        >
-          {children}
-        </div>
+        <div className={cn('flex flex-col', look.rows)}>{children}</div>
 
         {filled && (
           <div
             className={cn(
               'flex justify-end border-border border-t-[0.5px]',
-              compact ? 'px-1.5 py-1' : 'px-2 py-1.5',
+              look.footer,
             )}
           >
             <Button
               variant="ghost"
-              size={compact ? 'xs' : 'sm'}
+              size={look.clear}
               className="text-muted-foreground"
               onClick={onClear}
             >
