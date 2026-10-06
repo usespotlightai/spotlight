@@ -42,6 +42,7 @@ export function SetupFilters({
   return (
     <FilterMenu
       label="Filter the setups"
+      compact
       applied={applied}
       onClear={() => {
         onMeasure(DEFAULT_OUTCOME);
