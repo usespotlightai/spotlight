@@ -2,7 +2,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamInsights } from '@/components/features/insights/TeamInsights';
+import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
+import { stationNamesOf } from '@/lib/insights';
 import type { InsightsTools } from '@/lib/insights-tools';
 
 type Held = {
@@ -26,7 +27,20 @@ const answer: { tools: Held } = { tools: held(undefined) };
 vi.mock('@/hooks/api/useInsightsTools', () => ({
   useInsightsTools: () => answer.tools,
 }));
-vi.mock('@/hooks/api/useLines', () => ({ useLines: () => ({ data: [] }) }));
+const lines: { data: unknown[] } = { data: [] };
+
+vi.mock('@/hooks/api/useLines', () => ({ useLines: () => lines }));
+
+const LINES = [
+  {
+    id: 'line_1',
+    key: 'delivery',
+    name: 'Delivery',
+    repositories: [],
+    reactions: [],
+    stations: [{ id: 'station_impl', key: 'implement', name: 'Implement' }],
+  },
+];
 
 const TOOLS = {
   period: { name: '30d' },
@@ -104,7 +118,16 @@ const showing = (search = '?tab=tools') =>
       <Routes>
         <Route
           path="/w/:slug/team/:teamId/insights"
-          element={<TeamInsights slug="acme" teamId="team_1" />}
+          element={
+            <ToolsTab
+              slug="acme"
+              teamId="team_1"
+              period="30d"
+              names={stationNamesOf(
+                LINES as unknown as Parameters<typeof stationNamesOf>[0],
+              )}
+            />
+          }
         />
       </Routes>
     </MemoryRouter>,
@@ -114,18 +137,10 @@ const RUNS = '/w/acme/team/team_1/insights?tab=runs';
 
 beforeEach(() => {
   answer.tools = held(TOOLS);
+  lines.data = LINES;
 });
 
-describe('the Tools tab', () => {
-  it('is a tab of Insights', () => {
-    showing();
-
-    expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/insights?tab=tools',
-    );
-  });
-
+describe('the skills and tools of the Tools and skills tab', () => {
   it('shows a faithful skeleton while it loads', () => {
     answer.tools = held(undefined);
 
@@ -152,6 +167,21 @@ describe('the Tools tab', () => {
     showing();
 
     expect(screen.getByText('No runs in this period')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create a task' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1',
+    );
+  });
+
+  it('cannot create a task where the team has no line', () => {
+    answer.tools = held({ ...EMPTY, runs: 0 });
+    lines.data = [];
+
+    showing();
+
+    expect(
+      screen.getByRole('button', { name: 'Create a task' }),
+    ).toBeDisabled();
   });
 
   it('leads to the team’s skills where runs used no skill or server', () => {
@@ -205,6 +235,54 @@ describe('the Tools tab', () => {
       'href',
       `${RUNS}&skillGiven=our-migrations`,
     );
+  });
+
+  it('names the stations that read a skill, each opening its runs there', () => {
+    showing('?tab=tools&period=7d');
+
+    const stations = screen.getByRole('list', {
+      name: 'Stations using our-migrations',
+    });
+    const station = within(stations).getByRole('link', { name: 'Implement' });
+
+    expect(station).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/insights?tab=runs&period=7d&stationId=station_impl&skillUsed=our-migrations',
+    );
+    expect(
+      within(station.closest('li') as HTMLElement).getByText('5 of 10'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('list', { name: 'Stations using borrowed' }),
+    ).toBeNull();
+  });
+
+  it('says when only the latest runs were counted', () => {
+    answer.tools = held({ ...TOOLS, truncated: true });
+
+    showing();
+
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Only the latest 20,000 runs',
+    );
+  });
+
+  it('leaves out skills, unused skills and refusals where there are none', () => {
+    answer.tools = held({ ...EMPTY, servers: TOOLS.servers });
+
+    showing();
+
+    expect(
+      screen.queryByRole('list', { name: 'Skill use by week' }),
+    ).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Unused skills' })).toBeNull();
+    expect(
+      screen.queryByRole('table', { name: 'Refused approvals per tool' }),
+    ).toBeNull();
+    expect(
+      screen.getByRole('table', { name: 'How each MCP server behaved' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('note')).toBeNull();
   });
 
   it('opens a skill’s runs for a week from its table', async () => {

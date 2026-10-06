@@ -39,29 +39,58 @@ vi.mock('@/hooks/api/useInsightsOverview', () => ({
   useInsightsOverview: (teamId: string, period: InsightsPeriod) =>
     answering('overview')(teamId, period),
 }));
-vi.mock('@/hooks/api/useInsightsFlow', () => ({
-  useInsightsFlow: (teamId: string, period: InsightsPeriod) =>
-    answering('flow')(teamId, period),
-}));
-vi.mock('@/hooks/api/useInsightsStations', () => ({
-  useInsightsStations: (teamId: string, period: InsightsPeriod) =>
-    answering('stations')(teamId, period),
+vi.mock('@/hooks/api/useInsightsCost', () => ({
+  useInsightsCost: (teamId: string, period: InsightsPeriod) =>
+    answering('cost')(teamId, period),
 }));
 vi.mock('@/hooks/api/useInsightsPeople', () => ({
   useInsightsPeople: (teamId: string, period: InsightsPeriod) =>
     answering('people')(teamId, period),
 }));
-vi.mock('@/hooks/api/useInsightsCost', () => ({
-  useInsightsCost: (teamId: string, period: InsightsPeriod) =>
-    answering('cost')(teamId, period),
+vi.mock('@/hooks/api/useInsightsFlow', () => ({
+  useInsightsFlow: (teamId: string, period: InsightsPeriod) =>
+    answering('flow')(teamId, period),
+}));
+vi.mock('@/hooks/api/useInsightsPullRequests', () => ({
+  useInsightsPullRequests: (teamId: string, period: InsightsPeriod) =>
+    answering('pull-requests')(teamId, period),
+}));
+vi.mock('@/hooks/api/useInsightsStations', () => ({
+  useInsightsStations: (teamId: string, period: InsightsPeriod) =>
+    answering('stations')(teamId, period),
+}));
+vi.mock('@/hooks/api/useInsightsChanges', () => ({
+  useInsightsChanges: (teamId: string, period: InsightsPeriod) =>
+    answering('changes')(teamId, period),
+}));
+vi.mock('@/hooks/api/useInsightsSetups', () => ({
+  useInsightsSetups: (teamId: string, period: InsightsPeriod) =>
+    answering('setups')(teamId, period),
+}));
+vi.mock('@/hooks/api/useInsightsCandidates', () => ({
+  useInsightsCandidates: (teamId: string, period: InsightsPeriod) =>
+    answering('candidates')(teamId, period),
+}));
+vi.mock('@/hooks/api/useInsightsTools', () => ({
+  useInsightsTools: (teamId: string, period: InsightsPeriod) =>
+    answering('tools')(teamId, period),
+}));
+vi.mock('@/hooks/api/useInsightsMemory', () => ({
+  useInsightsMemory: (teamId: string, period: InsightsPeriod) =>
+    answering('memory')(teamId, period),
 }));
 vi.mock('@/hooks/api/useInsightsRuns', () => ({
   useInsightsRuns: (teamId: string, period: InsightsPeriod) =>
     answering('runs')(teamId, period),
 }));
-vi.mock('@/hooks/api/useInsightsCandidates', () => ({
-  useInsightsCandidates: (teamId: string, period: InsightsPeriod) =>
-    answering('candidates')(teamId, period),
+vi.mock('@/hooks/api/useInsightsPullRequestList', () => ({
+  useInsightsPullRequestList: () => held(undefined),
+}));
+vi.mock('@/hooks/api/useConfigOrigins', () => ({
+  useConfigOrigins: () => ({ origins: [], failed: false, retry: vi.fn() }),
+}));
+vi.mock('@/hooks/api/useStation', () => ({
+  useStation: () => ({ station: undefined }),
 }));
 vi.mock('@/components/features/trace/list/TraceList', () => ({
   TraceList: ({ range }: { range: string }) => <p>Traces over {range}</p>,
@@ -198,6 +227,15 @@ const showing = (search = '') =>
 
 const address = () => screen.getByRole('status', { name: 'Address' });
 
+const tabs = () => screen.getByRole('navigation', { name: 'Insights' });
+
+const tabsAsked = () => asked.map((each) => each.tab);
+
+const sections = () =>
+  screen
+    .queryAllByRole('heading', { level: 2 })
+    .map((heading) => heading.textContent);
+
 beforeEach(() => {
   asked.length = 0;
   for (const tab of Object.keys(answers)) {
@@ -217,16 +255,118 @@ describe('TeamInsights', () => {
     expect(asked.some((each) => each.tab === 'overview')).toBe(false);
   });
 
-  it('opens the Candidates tab the address names, for its period alone', () => {
+  it('lists the eight tabs, Overview first', () => {
+    showing();
+
+    expect(
+      within(tabs())
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual([
+      'Overview',
+      'Cost',
+      'People',
+      'Productivity',
+      'Stations',
+      'Tools and skills',
+      'Runs',
+      'Traces',
+    ]);
+    expect(
+      within(tabs()).getByRole('link', { name: 'Overview', current: 'page' }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens the overview where the address names a tab Insights no longer has', () => {
     showing('?tab=candidates&period=90d');
 
     expect(
-      screen.getByRole('link', { name: 'Candidates', current: 'page' }),
+      within(tabs()).getByRole('link', { name: 'Overview', current: 'page' }),
     ).toBeInTheDocument();
-    expect(asked).toContainEqual({ tab: 'candidates', period: '90d' });
-    expect(asked.some((each) => each.tab === 'overview')).toBe(false);
+    expect(asked).toEqual([{ tab: 'overview', period: '90d' }]);
+  });
+
+  it('shows runs at each station, config changes and candidates on the Stations tab, all over the period', () => {
+    showing('?tab=stations&period=90d');
+
+    expect(sections()).toEqual([
+      'Runs at each station',
+      'Config changes',
+      'Candidates',
+    ]);
+    expect(asked).toEqual(
+      expect.arrayContaining([
+        { tab: 'stations', period: '90d' },
+        { tab: 'changes', period: '90d' },
+        { tab: 'candidates', period: '90d' },
+      ]),
+    );
+    expect(
+      screen.getByRole('status', { name: 'Loading the stations' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading the changes' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('status', { name: 'Loading the candidates' }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens one station alone where the address names it', () => {
+    showing('?tab=stations&stationId=station_build');
+
+    expect(
+      within(tabs()).getByRole('link', { name: 'Stations', current: 'page' }),
+    ).toBeInTheDocument();
+    expect(sections()).toEqual([]);
+    expect(tabsAsked()).toEqual(['stations']);
+  });
+
+  it('shows where work waits and the pull requests on the Productivity tab', () => {
+    showing('?tab=productivity&period=7d');
+
+    expect(sections()).toEqual(['Where work waits', 'Pull requests']);
+    expect(asked).toEqual(
+      expect.arrayContaining([
+        { tab: 'flow', period: '7d' },
+        { tab: 'pull-requests', period: '7d' },
+      ]),
+    );
+  });
+
+  it('shows skills, tools and memory on the Tools and skills tab', () => {
+    showing('?tab=tools&period=7d');
+
+    expect(sections()).toEqual(['Skills and tools', 'Memory']);
+    expect(asked).toEqual(
+      expect.arrayContaining([
+        { tab: 'tools', period: '7d' },
+        { tab: 'memory', period: '7d' },
+      ]),
+    );
+    expect(
+      screen.getByRole('status', { name: 'Loading the tools' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading the memory' }),
+    ).toBeInTheDocument();
+  });
+
+  it('folds a section away and back', async () => {
+    showing('?tab=tools');
+
+    const memory = screen.getByRole('button', { name: 'Memory' });
+    await userEvent.click(memory);
+
+    expect(memory).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('status', { name: 'Loading the memory' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(memory);
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the memory' }),
     ).toBeInTheDocument();
   });
 
@@ -243,10 +383,24 @@ describe('TeamInsights', () => {
   it('keeps the period when moving between tabs', async () => {
     showing('?period=7d');
 
-    await userEvent.click(screen.getByRole('link', { name: 'Flow' }));
+    await userEvent.click(
+      within(tabs()).getByRole('link', { name: 'Stations' }),
+    );
 
-    expect(address()).toHaveTextContent('?tab=flow&period=7d');
-    expect(asked.at(-1)).toEqual({ tab: 'flow', period: '7d' });
+    expect(address()).toHaveTextContent('?tab=stations&period=7d');
+    expect(asked).toContainEqual({ tab: 'stations', period: '7d' });
+  });
+
+  it('keeps the period but drops the filters and page when moving to another tab', () => {
+    showing('?tab=runs&period=90d&outcome=failed&page=2');
+
+    expect(within(tabs()).getByRole('link', { name: 'Runs' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/insights?tab=runs&period=90d',
+    );
+    expect(
+      within(tabs()).getByRole('link', { name: 'Overview' }),
+    ).toHaveAttribute('href', '/w/acme/team/team_1/insights?period=90d');
   });
 
   it('sets this period’s headline against the last', () => {
@@ -259,7 +413,7 @@ describe('TeamInsights', () => {
 
     expect(merged).toHaveTextContent('8');
     expect(merged.querySelector('[data-slot="delta"]')).toHaveTextContent(
-      '+100% vs last period',
+      '+100% vs. previous period',
     );
   });
 
@@ -407,8 +561,8 @@ describe('TeamInsights', () => {
 
     showing('?tab=cost');
 
-    const tile = screen
-      .getByText('Cache share', { selector: 'dt' })
+    const tile = within(screen.getByLabelText('Spend'))
+      .getByText('Cache share')
       .closest('[data-slot="insights-tile"]');
     expect(tile).toHaveTextContent('not reported');
     expect(

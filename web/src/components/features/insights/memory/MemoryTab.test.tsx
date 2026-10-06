@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamInsights } from '@/components/features/insights/TeamInsights';
+import { MemoryTab } from '@/components/features/insights/memory/MemoryTab';
 import type { InsightsMemory } from '@/lib/insights-memory';
 
 type Held = {
@@ -21,12 +21,17 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
   refetch: vi.fn(),
 });
 
-const answer: { memory: Held } = { memory: held(undefined) };
+const answer: { memory: Held; asked: unknown[] } = {
+  memory: held(undefined),
+  asked: [],
+};
 
 vi.mock('@/hooks/api/useInsightsMemory', () => ({
-  useInsightsMemory: () => answer.memory,
+  useInsightsMemory: (teamId: string, period: string) => {
+    answer.asked.push({ teamId, period });
+    return answer.memory;
+  },
 }));
-vi.mock('@/hooks/api/useLines', () => ({ useLines: () => ({ data: [] }) }));
 
 const tally = (over: Record<string, unknown> = {}) => ({
   runs: 10,
@@ -84,28 +89,21 @@ const MEMORY = {
 
 const showing = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?tab=memory']}>
-      <Routes>
-        <Route
-          path="/w/:slug/team/:teamId/insights"
-          element={<TeamInsights slug="acme" teamId="team_1" />}
-        />
-      </Routes>
+    <MemoryRouter>
+      <MemoryTab slug="acme" teamId="team_1" period="7d" />
     </MemoryRouter>,
   );
 
 beforeEach(() => {
   answer.memory = held(MEMORY);
+  answer.asked = [];
 });
 
-describe('the Memory tab', () => {
-  it('is a tab of Insights', () => {
+describe('memory in Insights', () => {
+  it('reads the team’s memory over the period', () => {
     showing();
 
-    expect(screen.getByRole('link', { name: 'Memory' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/insights?tab=memory',
-    );
+    expect(answer.asked).toContainEqual({ teamId: 'team_1', period: '7d' });
   });
 
   it('shows a faithful skeleton while it loads', () => {

@@ -123,18 +123,40 @@ describe('the insights view in the address', () => {
     ).toEqual({});
   });
 
-  it('reads the Candidates tab with the period alone, no filters or page', () => {
+  it('opens the overview for tabs Insights no longer has, keeping the period', () => {
+    for (const gone of ['candidates', 'changes', 'flow', 'memory']) {
+      const view = viewOf(
+        new URLSearchParams(`tab=${gone}&period=7d&stationId=s&page=3`),
+      );
+
+      expect(view).toEqual({
+        tab: 'overview',
+        period: '7d',
+        filter: {},
+        page: 1,
+      });
+      expect(paramsOf(view)).toEqual({ period: '7d' });
+    }
+  });
+
+  it('reads the station the Stations tab opens, and nothing else', () => {
     const view = viewOf(
-      new URLSearchParams('tab=candidates&period=7d&stationId=s&page=3'),
+      new URLSearchParams(
+        'tab=stations&period=90d&stationId=station_build&outcome=failed&page=3',
+      ),
     );
 
     expect(view).toEqual({
-      tab: 'candidates',
-      period: '7d',
-      filter: {},
+      tab: 'stations',
+      period: '90d',
+      filter: { stationId: 'station_build' },
       page: 1,
     });
-    expect(paramsOf(view)).toEqual({ tab: 'candidates', period: '7d' });
+    expect(paramsOf(view)).toEqual({
+      tab: 'stations',
+      period: '90d',
+      stationId: 'station_build',
+    });
   });
 
   it('writes only what differs from the defaults', () => {
