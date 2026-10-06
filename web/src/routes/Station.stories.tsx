@@ -54,6 +54,16 @@ export const Loading: Story = {
   render: () => <StoryPage at={at}>{routes}</StoryPage>,
 };
 
+export const ImproveLoading: Story = {
+  name: 'Improve loading',
+  render: () => <StoryPage at={improve}>{routes}</StoryPage>,
+};
+
+export const ConfigLoading: Story = {
+  name: 'Config loading',
+  render: () => <StoryPage at={config}>{routes}</StoryPage>,
+};
+
 export const Failed: Story = {
   name: 'Error',
   render: () => (

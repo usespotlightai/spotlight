@@ -385,6 +385,23 @@ describe('Station', () => {
     expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
   });
 
+  it('holds the shape of the tab its address opens while the line loads', () => {
+    lines.mockReturnValue(undefined);
+
+    const { unmount } = renderAt('station_2');
+    const overview = screen.getByRole('status', {
+      name: 'Loading the station',
+    });
+    expect(overview).toHaveTextContent('Latest runs on this config');
+    expect(overview).toHaveTextContent('Recent runs');
+    unmount();
+
+    renderAt('station_2', 'improve');
+    expect(
+      screen.getByRole('status', { name: 'Loading the station' }),
+    ).toHaveTextContent('Pick past runs to replay');
+  });
+
   it('says the station could not be loaded, and tries again when asked', async () => {
     const user = userEvent.setup();
     lines.mockReturnValue(undefined);

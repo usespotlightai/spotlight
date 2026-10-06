@@ -44,7 +44,7 @@ export function Station() {
   useScrollToHash(Boolean(station));
 
   if (loading(lines)) {
-    return <StationSkeleton />;
+    return <StationSkeleton tab={tab ?? 'overview'} />;
   }
 
   if (failed(lines)) {
