@@ -51,12 +51,12 @@ export function FilterMenu({
       <PopoverContent
         align="end"
         sideOffset={6}
-        className={cn('rounded-xl p-0', compact ? 'w-72' : 'w-80')}
+        className={cn('p-0', compact ? 'w-64 rounded-lg' : 'w-80 rounded-xl')}
       >
         <div
           className={cn(
             'flex flex-col',
-            compact ? 'gap-0.5 px-3 py-1.5' : 'gap-1.5 px-4 py-3',
+            compact ? 'gap-0.5 px-2.5 py-1.5' : 'gap-1.5 px-4 py-3',
           )}
         >
           {children}

@@ -14,7 +14,7 @@ import {
   sizeShown,
 } from '@/lib/insights-changes';
 
-const CONTROL = 'h-7 w-44 rounded-lg text-sm';
+const CONTROL = 'w-32';
 
 type SetupFiltersProps = {
   narrowed: SetupsNarrowed;
@@ -49,8 +49,9 @@ export function SetupFilters({
         onNarrow({ stationId: null, size: null });
       }}
     >
-      <FilterRow label="Outcome">
+      <FilterRow compact label="Outcome">
         <ChoiceSelect
+          compact
           label="Outcome"
           choices={OUTCOME_MEASURES.filter(
             (each) =>
@@ -65,8 +66,9 @@ export function SetupFilters({
         />
       </FilterRow>
 
-      <FilterRow label="Station">
+      <FilterRow compact label="Station">
         <ChoiceSelect
+          compact
           label="Station"
           choices={[...names.values()]
             .filter((station) => station.kind === 'work')
@@ -81,8 +83,9 @@ export function SetupFilters({
         />
       </FilterRow>
 
-      <FilterRow label="Task size">
+      <FilterRow compact label="Task size">
         <ChoiceSelect
+          compact
           label="Task size"
           choices={RUN_SIZES.map((size) => ({
             value: size,
