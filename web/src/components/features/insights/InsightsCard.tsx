@@ -1,7 +1,6 @@
-import { ChartNoAxesColumn, Table2 } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { CardTitle } from '@/components/features/insights/CardHeading';
-import { Button } from '@/components/ui/button';
+import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
 import { CardHeadingContext, type CardHeadingParts } from '@/lib/card-heading';
 
 type InsightsCardProps = {
@@ -28,18 +27,7 @@ export function InsightsCard({
   const controls = (actions || table) && (
     <>
       {actions}
-      {table && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          aria-pressed={tabled}
-          onClick={() => setTabled((was) => !was)}
-        >
-          {tabled ? <ChartNoAxesColumn aria-hidden /> : <Table2 aria-hidden />}
-          {tabled ? 'Show chart' : 'Show table'}
-        </Button>
-      )}
+      {table && <ChartTableSwitch tabled={tabled} onTabled={setTabled} />}
     </>
   );
 

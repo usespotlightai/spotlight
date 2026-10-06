@@ -352,7 +352,7 @@ describe('the Changes tab', () => {
   it('compares setups in a table, marking the frontier and keeping judge scores to trusted stations', async () => {
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const table = screen.getByRole('table', {
       name: 'Harness, model, effort and profile',
@@ -394,7 +394,7 @@ describe('the Changes tab', () => {
     });
 
     showing();
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     expect(
       screen.queryByRole('columnheader', { name: 'Judge score' }),
@@ -447,7 +447,7 @@ describe('the Changes tab', () => {
     showing();
 
     await narrowingTo('Implementation');
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const replayed = screen.getByRole('table', { name: 'Replayed candidates' });
     expect(

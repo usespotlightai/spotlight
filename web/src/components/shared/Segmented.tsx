@@ -1,4 +1,6 @@
+import type { LucideIcon } from 'lucide-react';
 import { useRef } from 'react';
+import { Noted } from '@/components/shared/Noted';
 import { useTabIndicator } from '@/hooks/useTabIndicator';
 import { cn } from '@/lib/utils';
 
@@ -7,6 +9,7 @@ const PILL_REACH = 2;
 type Segment<T extends string> = {
   readonly id: T;
   readonly label: string;
+  readonly icon?: LucideIcon;
 };
 
 type SegmentedProps<T extends string> = {
@@ -46,21 +49,34 @@ export function Segmented<T extends string>({
         />
       )}
 
-      {segments.map((segment) => (
-        <button
-          key={segment.id}
-          type="button"
-          data-tab={segment.id}
-          aria-pressed={segment.id === value}
-          onClick={() => onChange(segment.id)}
-          className={cn(
-            'relative h-full rounded-sm px-1.5 text-[0.7rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-            segment.id === value && 'text-foreground',
-          )}
-        >
-          {segment.label}
-        </button>
-      ))}
+      {segments.map((segment) => {
+        const Icon = segment.icon;
+        const button = (
+          <button
+            key={segment.id}
+            type="button"
+            data-tab={segment.id}
+            aria-label={Icon ? segment.label : undefined}
+            aria-pressed={segment.id === value}
+            onClick={() => onChange(segment.id)}
+            className={cn(
+              'relative flex h-full items-center rounded-sm text-[0.7rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+              Icon ? 'px-1' : 'px-1.5',
+              segment.id === value && 'text-foreground',
+            )}
+          >
+            {Icon ? <Icon aria-hidden className="size-3" /> : segment.label}
+          </button>
+        );
+
+        return Icon ? (
+          <Noted key={segment.id} note={segment.label}>
+            {button}
+          </Noted>
+        ) : (
+          button
+        );
+      })}
     </fieldset>
   );
 }

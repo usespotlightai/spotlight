@@ -288,7 +288,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
   it('opens a skill’s runs for a week from its table', async () => {
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const table = screen.getByRole('table', {
       name: 'Runs that read each skill, week by week',

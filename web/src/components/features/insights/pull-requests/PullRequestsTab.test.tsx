@@ -314,7 +314,7 @@ describe('the pull requests of the Productivity tab', () => {
     await userEvent.click(
       within(
         screen.getByRole('region', { name: 'What Spotlight ships' }),
-      ).getByRole('button', { name: 'Show table' }),
+      ).getByRole('button', { name: 'Table' }),
     );
 
     const types = screen.getByRole('table', {

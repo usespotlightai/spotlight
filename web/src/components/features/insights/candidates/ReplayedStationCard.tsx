@@ -1,10 +1,10 @@
-import { ChartScatter, Table2 } from 'lucide-react';
+import { ChartScatter } from 'lucide-react';
 import { useState } from 'react';
+import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
 import { CandidateComparison } from '@/components/features/insights/candidates/CandidateComparison';
 import { ReplayedSetChart } from '@/components/features/insights/candidates/ReplayedSetChart';
 import { SetSummary } from '@/components/features/insights/candidates/SetSummary';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
-import { Button } from '@/components/ui/button';
 import { type StationNames, stationShown } from '@/lib/insights';
 import {
   type CandidatesStation,
@@ -33,16 +33,11 @@ export function ReplayedStationCard({
       title={stationShown(names, station.stationId)}
       description={`${line ? `${line} · ` : ''}Each candidate config replayed on past tasks, beside the live config on the same runs. Success is by the candidate’s own checks and judge. None of it is applied to the station.`}
       actions={
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          aria-pressed={charted}
-          onClick={() => setCharted((was) => !was)}
-        >
-          {charted ? <Table2 aria-hidden /> : <ChartScatter aria-hidden />}
-          {charted ? 'Show table' : 'Show chart'}
-        </Button>
+        <ChartTableSwitch
+          tabled={!charted}
+          chartIcon={ChartScatter}
+          onTabled={(tabled) => setCharted(!tabled)}
+        />
       }
     >
       <div className="flex flex-col gap-4">

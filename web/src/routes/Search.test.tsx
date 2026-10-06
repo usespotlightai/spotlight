@@ -395,7 +395,7 @@ describe('Search', () => {
 
     renderSearch();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const table = screen.getByRole('table', {
       name: 'Candidates by success and cost',
@@ -442,7 +442,7 @@ describe('Search', () => {
     );
     expect(within(first).getByRole('button', { name: 'Pick' })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const table = screen.getByRole('table', {
       name: 'Candidates by success and cost',

@@ -126,7 +126,7 @@ describe('OutputAgainstCost', () => {
   it('puts a table behind the chart, each day leading to its runs', async () => {
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const table = screen.getByRole('table', {
       name: 'Output against cost, by day',
@@ -147,7 +147,7 @@ describe('OutputAgainstCost', () => {
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_build',
     );
-    expect(screen.getByRole('button', { name: 'Show chart' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
