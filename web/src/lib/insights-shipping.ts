@@ -191,15 +191,11 @@ export type ByType = {
   readonly types: Readonly<Partial<Record<PullRequestType, StageTimes>>>;
 };
 
-export const REVIEW_STAGES = [
-  'awaitingReview',
-  'inReview',
-  'awaitingMerge',
-] as const;
+const REVIEW_STAGES = ['awaitingReview', 'inReview', 'awaitingMerge'] as const;
 
-export type ReviewStage = (typeof REVIEW_STAGES)[number];
+type ReviewStage = (typeof REVIEW_STAGES)[number];
 
-export type StationStage = {
+type StationStage = {
   readonly stationId: string;
   readonly name: string;
   readonly times: ByType;

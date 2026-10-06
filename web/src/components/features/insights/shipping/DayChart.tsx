@@ -14,7 +14,7 @@ import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { durationTicks, tickLasted } from '@/lib/insights-shipping';
 import { dayShown } from '@/lib/judge';
 
-export type DaySeries = {
+type DaySeries = {
   readonly key: string;
   readonly label: string;
   readonly color: string;

@@ -76,7 +76,7 @@ export const halfAt = (geometry: FlowGeometry, x: number): number => {
   return halves[halves.length - 1];
 };
 
-export const stageAt = (geometry: FlowGeometry, x: number): number => {
+const stageAt = (geometry: FlowGeometry, x: number): number => {
   const { bounds } = geometry;
 
   for (let at = 0; at < bounds.length - 2; at++) {
@@ -88,7 +88,7 @@ export const stageAt = (geometry: FlowGeometry, x: number): number => {
   return Math.max(0, bounds.length - 2);
 };
 
-export const speedAt = (geometry: FlowGeometry, x: number): number => {
+const speedAt = (geometry: FlowGeometry, x: number): number => {
   const at = stageAt(geometry, x);
   const length = geometry.bounds[at + 1] - geometry.bounds[at];
 
@@ -135,7 +135,7 @@ const typeFrom = (shares: readonly TypeShare[], roll: number) => {
   return shares[shares.length - 1]?.type ?? 'other';
 };
 
-export const freshDot = (
+const freshDot = (
   shares: readonly TypeShare[],
   x: number,
   random: () => number = Math.random,

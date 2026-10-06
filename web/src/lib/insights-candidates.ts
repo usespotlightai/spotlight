@@ -29,7 +29,7 @@ type CandidateKind = SetCandidate['kind'];
 
 export const LIVE_REPLAYED = 'Live config, replayed';
 
-export const LIVE_OVER_SET = `${LIVE_REPLAYED} (whole set)`;
+const LIVE_OVER_SET = `${LIVE_REPLAYED} (whole set)`;
 
 const liveOverSearch = (startedAt: string, searches: number): string =>
   searches === 1
@@ -315,8 +315,6 @@ export const changeLinkOf = (
 
 const runsShown = (runs: number): string =>
   `${countShown(runs)} ${runs === 1 ? 'run' : 'runs'}`;
-
-export const VERSUS_LIVE = 'vs live';
 
 export const onTheSameShown = (compared: number): string =>
   `on the same ${runsShown(compared)}`;

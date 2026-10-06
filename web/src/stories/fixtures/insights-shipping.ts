@@ -123,7 +123,7 @@ const byType = (
   ),
 });
 
-export const PIPELINE: PipelineFlow = {
+const PIPELINE: PipelineFlow = {
   merged: TYPES.reduce((sum, each) => sum + each.merged, 0),
   types: TYPES.map(({ type, merged }) => ({ type, merged })),
   coding: byType(7.5),

@@ -10,7 +10,7 @@ declare module '@tanstack/react-query' {
   }
 }
 
-export const toastFailure = (thrown: unknown) => {
+const toastFailure = (thrown: unknown) => {
   const said = messageOf(thrown, '');
 
   toast.add({
