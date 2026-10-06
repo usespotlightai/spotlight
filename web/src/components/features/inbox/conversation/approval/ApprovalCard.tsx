@@ -1,37 +1,46 @@
 import { useState } from 'react';
 import { ApprovalAction } from '@/components/features/inbox/conversation/approval/ApprovalAction';
-import { ApprovalDecision } from '@/components/features/inbox/conversation/approval/ApprovalDecision';
-import { ApprovalEditControls } from '@/components/features/inbox/conversation/approval/ApprovalEditControls';
+import { ApprovalControls } from '@/components/features/inbox/conversation/approval/ApprovalControls';
 import { ApprovalFields } from '@/components/features/inbox/conversation/approval/ApprovalFields';
 import { ApprovalHeader } from '@/components/features/inbox/conversation/approval/ApprovalHeader';
-import { ApprovalRefusal } from '@/components/features/inbox/conversation/approval/ApprovalRefusal';
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import {
   type Approval,
   type ApprovalAnswer,
+  type ApprovalMode,
+  approvedOnlyBy,
   askedFor,
   blanked,
   differs,
 } from '@/lib/approval';
 
-type Mode = 'viewing' | 'editing' | 'refusing';
-
 type ApprovalCardProps = {
   approval: Approval;
+  viewerId?: string | null;
   pending: boolean;
   onDecide?: (answer: ApprovalAnswer) => void;
 };
 
 export function ApprovalCard({
   approval,
+  viewerId = null,
   pending,
   onDecide,
 }: ApprovalCardProps) {
-  const [mode, setMode] = useState<Mode>('viewing');
+  const [mode, setMode] = useState<ApprovalMode>('viewing');
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [reason, setReason] = useState('');
   const deciding = approval.standing === 'asked' ? onDecide : undefined;
   const changed = differs(approval.inputs, edits);
+  const onlyFor = approvedOnlyBy(approval, viewerId);
+
+  const toMode = (next: ApprovalMode) => {
+    if (next === 'viewing') {
+      setEdits({});
+      setReason('');
+    }
+    setMode(next);
+  };
 
   const approveEdited = () =>
     deciding?.({
@@ -54,7 +63,7 @@ export function ApprovalCard({
           approval={approval}
           pending={pending}
           acting={!deciding || mode === 'viewing'}
-          onEdit={deciding && (() => setMode('editing'))}
+          onEdit={deciding && !onlyFor ? () => setMode('editing') : undefined}
         />
 
         {deciding && mode === 'editing' ? (
@@ -70,39 +79,18 @@ export function ApprovalCard({
           <ApprovalAction approval={approval} />
         )}
 
-        {!deciding ? (
-          <ApprovalDecision approval={approval} pending={false} />
-        ) : mode === 'editing' ? (
-          <ApprovalEditControls
-            approval={approval}
-            pending={pending}
-            blank={blanked(approval.inputs, edits)}
-            onApprove={approveEdited}
-            onCancel={() => {
-              setEdits({});
-              setMode('viewing');
-            }}
-          />
-        ) : mode === 'refusing' ? (
-          <ApprovalRefusal
-            approval={approval}
-            pending={pending}
-            reason={reason}
-            onReason={setReason}
-            onRefuse={() => deciding({ approve: false, said: reason })}
-            onCancel={() => {
-              setReason('');
-              setMode('viewing');
-            }}
-          />
-        ) : (
-          <ApprovalDecision
-            approval={approval}
-            pending={pending}
-            onApprove={() => deciding({ approve: true, said: '' })}
-            onDismiss={() => setMode('refusing')}
-          />
-        )}
+        <ApprovalControls
+          approval={approval}
+          mode={mode}
+          pending={pending}
+          onlyFor={onlyFor}
+          blank={blanked(approval.inputs, edits)}
+          reason={reason}
+          onReason={setReason}
+          onMode={toMode}
+          onApproveEdited={approveEdited}
+          onDecide={deciding}
+        />
       </DecisionCard>
     </div>
   );

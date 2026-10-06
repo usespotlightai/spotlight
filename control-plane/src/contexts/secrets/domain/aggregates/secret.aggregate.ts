@@ -10,7 +10,7 @@ import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound
 import { SecretUnwearableError } from '@secrets/domain/exceptions/secret-unwearable.error';
 import type {
   SecretBinding,
-  WornHeader,
+  WornSecret,
 } from '@secrets/domain/value-objects/secret-binding.vo';
 import type { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
@@ -254,7 +254,7 @@ export class Secret extends EventRecorder {
     return binding;
   }
 
-  wornToward(url: string, value: SecretValue): WornHeader {
+  wornToward(url: string, value: SecretValue): WornSecret {
     return this.bindingToward(url).wear(this.wearable(value));
   }
 

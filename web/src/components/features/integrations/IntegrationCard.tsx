@@ -1,9 +1,13 @@
 import { IntegrationConnect } from '@/components/features/integrations/IntegrationConnect';
+import { IntegrationDescribedSource } from '@/components/features/integrations/IntegrationDescribedSource';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
+import { PillLink } from '@/components/shared/PillLink';
 import type { ConfiguredIntegrationResponseDto } from '@/lib/api';
+import { teamSettingsPath } from '@/lib/settings';
 
 type IntegrationCardProps = {
   integration: ConfiguredIntegrationResponseDto;
+  slug: string;
   teamId: string;
 };
 
@@ -22,7 +26,13 @@ const said = ({
   return handle ? `Connected as ${handle}.` : 'Connected.';
 };
 
-export function IntegrationCard({ integration, teamId }: IntegrationCardProps) {
+export function IntegrationCard({
+  integration,
+  slug,
+  teamId,
+}: IntegrationCardProps) {
+  const personal = integration.holding === 'requester';
+
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-1 flex-col gap-3">
@@ -36,10 +46,23 @@ export function IntegrationCard({ integration, teamId }: IntegrationCardProps) {
             <p className="text-muted-foreground text-xs leading-5">
               {said(integration)}
             </p>
+            {integration.described && (
+              <IntegrationDescribedSource described={integration.described} />
+            )}
+            {personal && (
+              <p className="text-muted-foreground text-xs leading-5">
+                Its tools act as each person who starts a task.
+              </p>
+            )}
           </div>
         </div>
 
         <div className="mt-auto flex h-7 items-center justify-end gap-2">
+          {personal && (
+            <PillLink to={teamSettingsPath(slug, teamId, 'connections')}>
+              Your connection
+            </PillLink>
+          )}
           {integration.standing !== 'listens' && (
             <IntegrationConnect integration={integration} teamId={teamId} />
           )}

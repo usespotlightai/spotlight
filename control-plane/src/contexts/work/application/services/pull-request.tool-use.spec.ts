@@ -22,6 +22,7 @@ const CONTEXT: TaskToolContext = {
   workspaceId: WorkspaceId.of('ws_1'),
   taskId: TaskId.of('task_1'),
   stationId: StationId.of('station_1'),
+  requester: null,
 };
 
 const using = () => {
@@ -55,7 +56,7 @@ describe('PullRequestToolUse', () => {
           repository: ' api ',
         }),
       ),
-    ).resolves.toBe('https://github.com/acme/widgets/pull/7');
+    ).resolves.toEqual({ url: 'https://github.com/acme/widgets/pull/7' });
 
     expect(asked).toEqual([
       {

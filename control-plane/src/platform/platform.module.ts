@@ -29,6 +29,7 @@ import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
+import { IDEMPOTENT_RECALLS } from '@shared-kernel/application/ports/idempotent-recalls.port';
 import { ISOLATION } from '@shared-kernel/application/ports/isolation.port';
 import {
   LOGGER,
@@ -77,6 +78,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     TokenMint,
     { provide: TOKEN_MINT, useClass: TokenMint },
     { provide: IDEMPOTENT_CREATES, useClass: DrizzleIdempotentCreates },
+    { provide: IDEMPOTENT_RECALLS, useExisting: IDEMPOTENT_CREATES },
     { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
   ],
   exports: [
@@ -101,6 +103,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     TokenMint,
     TOKEN_MINT,
     IDEMPOTENT_CREATES,
+    IDEMPOTENT_RECALLS,
     WORKLOAD_TOKENS,
   ],
 })

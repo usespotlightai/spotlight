@@ -12,8 +12,8 @@ spotlight pull-request --title "<what it does>" --body "<the detail>"
 ```
 
 Spotlight opens it for the branch this task was worked on, and answers with
-its address. You cannot reach the host yourself, and do not need to: what it
-takes to open one never leaves Spotlight.
+its address, as `{"url": "…"}`. You cannot reach the host yourself, and do
+not need to: what it takes to open one never leaves Spotlight.
 
 A long body is easier piped in, as `spotlight pull-request --title "…" < body.md`.
 

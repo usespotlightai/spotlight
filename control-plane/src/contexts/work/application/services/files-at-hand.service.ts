@@ -15,4 +15,11 @@ export class FilesAtHand {
       ids.map((each) => AttachmentId.of(each)),
     );
   }
+
+  async takenIn(
+    workspaceId: WorkspaceId,
+    files: readonly Attachment[],
+  ): Promise<void> {
+    await this.files.taken(workspaceId, files);
+  }
 }

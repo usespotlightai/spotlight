@@ -3,7 +3,7 @@ export class SecretUnwearableError extends Error {
 
   constructor(secretName: string) {
     super(
-      `Secret ${secretName} holds more than one line. It cannot be sent in a request header.`,
+      `Secret ${secretName} holds more than one line. It cannot be sent in a request.`,
     );
     this.name = 'SecretUnwearableError';
   }

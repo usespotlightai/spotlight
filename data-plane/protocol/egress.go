@@ -29,6 +29,11 @@ type HeldByTheHost struct {
 
 const StandInPrefix = "spotlight-egress:"
 
+const (
+	CarriedInHeader = "header"
+	CarriedInQuery  = "query"
+)
+
 type EgressRedeem struct {
 	Recipient string `json:"recipient"`
 }
@@ -43,7 +48,8 @@ type EgressRedemption struct {
 type RedeemedSecret struct {
 	Secret        string         `json:"secret"`
 	Host          string         `json:"host"`
-	Header        string         `json:"header"`
+	Carrier       string         `json:"carrier"`
+	Name          string         `json:"name"`
 	Prefix        string         `json:"prefix"`
 	Sealed        string         `json:"sealed,omitempty"`
 	ReadInNetwork *ReadInNetwork `json:"readInNetwork,omitempty"`

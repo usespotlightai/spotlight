@@ -22,6 +22,6 @@ export class PullRequestToolUse implements BuiltInToolUse<TaskToolContext> {
       },
     );
 
-    return opened.url;
+    return { url: opened.url };
   }
 }

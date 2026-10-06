@@ -1,10 +1,15 @@
 import type {
+  JsonObject,
+  JsonValue,
+} from '@shared-kernel/domain/services/json-value';
+import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
 import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
 import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -28,7 +33,8 @@ export type ApprovalSubjectRow =
   | {
       readonly kind: 'tool-call';
       readonly tool: string;
-      readonly inputs: Readonly<Record<string, string | number | boolean>>;
+      readonly inputs: Readonly<Record<string, JsonValue>>;
+      readonly shapes: Readonly<Record<string, JsonObject>>;
     }
   | {
       readonly kind: 'harness-permission';
@@ -51,13 +57,22 @@ export interface ApprovalRow {
   readonly decidedAt: string | null;
   readonly reason: string | null;
   readonly spent: boolean;
-  readonly edited?: Readonly<Record<string, string | number | boolean>> | null;
+  readonly edited?: Readonly<Record<string, JsonValue>> | null;
   readonly intent?: string | null;
+  readonly askedOf?: string | null;
 }
 
 export type HeldBackRow =
   | { readonly kind: 'moves'; readonly to: string }
   | { readonly kind: 'cleared' };
+
+export interface ConnectionAskRow {
+  readonly teamId: string;
+  readonly source: string;
+  readonly integration: string;
+  readonly personId: string;
+  readonly met: boolean;
+}
 
 export interface FailureRow {
   readonly source: string;
@@ -123,6 +138,7 @@ export const taskNote = pgTable(
     approval: jsonb('approval').$type<ApprovalRow>(),
     failure: jsonb('failure').$type<FailureRow>(),
     heldBack: jsonb('held_back').$type<HeldBackRow>(),
+    connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
     answeredAt: timestamp('answered_at'),
     readAt: timestamp('read_at'),
     deliveredAt: timestamp('delivered_at'),
@@ -130,6 +146,14 @@ export const taskNote = pgTable(
   (table) => [
     primaryKey({ columns: [table.taskId, table.position] }),
     index('task_note_task_idx').on(table.taskId, table.position),
+    index('task_note_connection_ask_idx')
+      .on(
+        sql`(${table.connectionAsk}->>'personId')`,
+        sql`(${table.connectionAsk}->>'source')`,
+      )
+      .where(
+        sql`${table.connectionAsk} is not null and (${table.connectionAsk}->>'met')::boolean = false`,
+      ),
   ],
 );
 

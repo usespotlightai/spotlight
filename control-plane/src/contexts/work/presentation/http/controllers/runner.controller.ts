@@ -84,6 +84,7 @@ import {
   RenewLeaseResponseDto,
   RunCompletionResponseDto,
   RunParkingResponseDto,
+  ToolActingAsResponseDto,
   ToolAnswerResponseDto,
   TurnAsksAPersonResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
@@ -522,7 +523,10 @@ export class RunnerController {
       ToolAnswerDto
     >(new UseToolCommand(runId, runnerId, tool, input ?? {}));
 
-    return new ToolAnswerResponseDto(answered.output);
+    return new ToolAnswerResponseDto(
+      answered.output,
+      answered.actingAs ? new ToolActingAsResponseDto(answered.actingAs) : null,
+    );
   }
 
   @Post('runs/:runId/permissions')

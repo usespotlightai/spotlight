@@ -1,6 +1,11 @@
+import type {
+  JsonObject,
+  JsonValue,
+} from '@shared-kernel/domain/services/json-value';
+
 interface CatalogToolInputShape {
   readonly name: string;
-  readonly type: 'string' | 'number' | 'boolean';
+  readonly schema: JsonObject;
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;
@@ -43,9 +48,7 @@ export interface CatalogGiving {
   readonly refused: readonly CatalogRefusal[];
 }
 
-export type CatalogInputValues = Readonly<
-  Record<string, string | number | boolean>
->;
+export type CatalogInputValues = Readonly<Record<string, JsonValue>>;
 
 export type CatalogCallAnswer =
   | { readonly kind: 'answered'; readonly output: unknown }

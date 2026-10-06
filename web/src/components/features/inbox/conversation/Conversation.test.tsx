@@ -45,6 +45,7 @@ const note = (
   attachments: [],
   approval: null,
   failure: null,
+  connection: null,
 });
 
 const APPROVAL = {
@@ -58,6 +59,7 @@ const APPROVAL = {
   standing: 'asked' as const,
   edited: null,
   intent: null,
+  askedOf: null,
 };
 
 const showing = (

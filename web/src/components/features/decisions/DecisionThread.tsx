@@ -7,7 +7,7 @@ import { Logo } from '@/components/shared/icons';
 import { Pill } from '@/components/shared/Pill';
 import type { Decision } from '@/lib/decision';
 import type { Disputing } from '@/lib/decisions-context';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type DecisionThreadProps = {
   decision: Decision;

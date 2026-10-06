@@ -7807,9 +7807,18 @@
                           "type": "string",
                           "example": "api.linear.app"
                         },
-                        "header": {
+                        "carrier": {
                           "type": "string",
-                          "default": "authorization"
+                          "enum": [
+                            "header",
+                            "query"
+                          ],
+                          "default": "header"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "The header or query parameter it is worn in; authorization when a header is not named",
+                          "example": "authorization"
                         },
                         "prefix": {
                           "type": "string",
@@ -8228,9 +8237,18 @@
                           "type": "string",
                           "example": "api.linear.app"
                         },
-                        "header": {
+                        "carrier": {
                           "type": "string",
-                          "default": "authorization"
+                          "enum": [
+                            "header",
+                            "query"
+                          ],
+                          "default": "header"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "The header or query parameter it is worn in; authorization when a header is not named",
+                          "example": "authorization"
                         },
                         "prefix": {
                           "type": "string",
@@ -14331,6 +14349,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectIntegrationRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -14342,6 +14370,9 @@
               }
             }
           },
+          "400": {
+            "description": "It asks to connect for someone other than the team or me"
+          },
           "401": {
             "description": "No valid session"
           },
@@ -14349,7 +14380,148 @@
             "description": "No such team, not yours to link, or the host does not link so"
           }
         },
-        "summary": "Begin linking this team to a host over OAuth2",
+        "summary": "Begin connecting the team, or the caller, to a host over OAuth2",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/teams/{teamId}/connections": {
+      "get": {
+        "operationId": "listConnections",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostConnectionsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "List the connections the caller made in this team, and for admins who else has connected what",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/teams/{teamId}/integrations/{source}/connections/mine": {
+      "delete": {
+        "operationId": "disconnectMine",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "linear",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The caller’s connection is gone"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller"
+          }
+        },
+        "summary": "Remove the connection the caller made to this integration",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/teams/{teamId}/integrations/{source}/connections/mine/tools/{tool}": {
+      "put": {
+        "description": "The stricter of the team’s rule and the caller’s wins, so this can ask first or block where the team allows, but never lets through a call the team asks about.",
+        "operationId": "setMyToolRule",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "team_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "linear",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tool",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "linear.comment",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetToolRuleRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The rule is set"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team for this caller, or the integration offers no such tool"
+          },
+          "422": {
+            "description": "No such rule"
+          }
+        },
+        "summary": "Set what the caller asks of calls a tool makes with their own connection: allowed, needs-approval or blocked",
         "tags": [
           "integrations"
         ]
@@ -24571,6 +24743,37 @@
           "events"
         ]
       },
+      "ToolActingAsResponseDto": {
+        "type": "object",
+        "properties": {
+          "holder": {
+            "type": "string",
+            "description": "Whose connection the call used: the team’s, or the person’s who started the task",
+            "enum": [
+              "team",
+              "person"
+            ],
+            "example": "person"
+          },
+          "personId": {
+            "type": "string",
+            "description": "The person whose connection it was, where it was a person’s",
+            "example": "user_1",
+            "nullable": true
+          },
+          "handle": {
+            "type": "string",
+            "description": "What the host calls whoever the call acted as, where it says",
+            "example": "@alice",
+            "nullable": true
+          }
+        },
+        "required": [
+          "holder",
+          "personId",
+          "handle"
+        ]
+      },
       "ToolAnswerResponseDto": {
         "type": "object",
         "properties": {
@@ -24596,10 +24799,21 @@
                 "items": {}
               }
             ]
+          },
+          "actingAs": {
+            "nullable": true,
+            "description": "Whose connection the call acted with, where its integration connects",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ToolActingAsResponseDto"
+              }
+            ]
           }
         },
         "required": [
-          "output"
+          "output",
+          "actingAs"
         ]
       },
       "AskPermissionRequestDto": {
@@ -25143,9 +25357,19 @@
             "example": "mcp.linear.app",
             "description": "The one host egress wears it toward"
           },
-          "header": {
+          "carrier": {
             "type": "string",
-            "example": "authorization"
+            "enum": [
+              "header",
+              "query"
+            ],
+            "example": "header",
+            "description": "Whether egress wears it in a request header or a query parameter"
+          },
+          "name": {
+            "type": "string",
+            "example": "authorization",
+            "description": "The header or query parameter that holds its stand-in"
           },
           "prefix": {
             "type": "string",
@@ -25170,7 +25394,8 @@
         "required": [
           "secret",
           "host",
-          "header",
+          "carrier",
+          "name",
           "prefix",
           "sealed",
           "readInNetwork"
@@ -25500,6 +25725,23 @@
           "value"
         ]
       },
+      "InboxApprovalAskedOfResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "user_1"
+          },
+          "name": {
+            "type": "string",
+            "example": "Alice Martin"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
       "InboxApprovalResponseDto": {
         "type": "object",
         "properties": {
@@ -25551,6 +25793,16 @@
             "nullable": true,
             "example": "post the drain summary on ENG-412, publicly under the team’s name",
             "description": "What the agent said it wants to do, completing “Spotlight would like to …”; absent where it said nothing, as a harness asking permission never does"
+          },
+          "askedOf": {
+            "nullable": true,
+            "description": "The one person who can approve it, where it asks first because of their own rule for their connection; anyone can still dismiss it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxApprovalAskedOfResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -25560,7 +25812,41 @@
           "inputs",
           "standing",
           "edited",
-          "intent"
+          "intent",
+          "askedOf"
+        ]
+      },
+      "InboxConnectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "linear"
+          },
+          "integration": {
+            "type": "string",
+            "example": "Linear"
+          },
+          "personId": {
+            "type": "string",
+            "example": "user_1",
+            "description": "The person asked to connect, whose connection the tool acts with"
+          },
+          "personName": {
+            "type": "string",
+            "example": "Alice Martin"
+          },
+          "met": {
+            "type": "boolean",
+            "description": "Whether they have connected since"
+          }
+        },
+        "required": [
+          "source",
+          "integration",
+          "personId",
+          "personName",
+          "met"
         ]
       },
       "InboxMessageResponseDto": {
@@ -25588,7 +25874,8 @@
               "setup",
               "settled",
               "approval",
-              "failure"
+              "failure",
+              "connection"
             ],
             "description": "What it shows, which is not what it did"
           },
@@ -25664,6 +25951,16 @@
                 "$ref": "#/components/schemas/InboxFailureResponseDto"
               }
             ]
+          },
+          "connection": {
+            "nullable": true,
+            "description": "The connection this asks a person to make, where a tool acts as them and they have not connected",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxConnectionResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -25680,7 +25977,8 @@
           "at",
           "author",
           "approval",
-          "failure"
+          "failure",
+          "connection"
         ]
       },
       "InboxItemResponseDto": {
@@ -28742,20 +29040,30 @@
             "example": "api.linear.app",
             "description": "A host the secret may be sent to, over HTTPS only"
           },
-          "header": {
+          "carrier": {
+            "type": "string",
+            "enum": [
+              "header",
+              "query"
+            ],
+            "example": "header",
+            "description": "Whether it is worn in a request header or a query parameter"
+          },
+          "name": {
             "type": "string",
             "example": "authorization",
-            "description": "The request header it is worn in"
+            "description": "The header or query parameter it is worn in"
           },
           "prefix": {
             "type": "string",
             "example": "Bearer ",
-            "description": "Written before the value in that header"
+            "description": "Written before the value it is worn with"
           }
         },
         "required": [
           "host",
-          "header",
+          "carrier",
+          "name",
           "prefix"
         ]
       },
@@ -29616,6 +29924,44 @@
           "items"
         ]
       },
+      "ConfiguredDescriptionResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "openapi",
+              "graphql",
+              "mcp"
+            ],
+            "example": "openapi",
+            "description": "The kind of API description, or the MCP server, its tools are generated from"
+          },
+          "tools": {
+            "type": "integer",
+            "example": 19,
+            "description": "How many tools were generated from it"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-05T12:00:00.000Z",
+            "description": "When it was last read"
+          },
+          "problem": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Why it could not be read when it was last asked for; the tools from the last good read stay offered"
+          }
+        },
+        "required": [
+          "kind",
+          "tools",
+          "readAt",
+          "problem"
+        ]
+      },
       "ConfiguredIntegrationResponseDto": {
         "type": "object",
         "properties": {
@@ -29642,11 +29988,30 @@
             ],
             "example": "linked"
           },
+          "holding": {
+            "type": "string",
+            "description": "Whose connection its tools act with: the team’s, or that of the person who started the task",
+            "enum": [
+              "team",
+              "requester"
+            ],
+            "example": "team"
+          },
           "handle": {
             "type": "string",
             "description": "What the host calls the team once linked, where it says",
             "example": "Acme",
             "nullable": true
+          },
+          "described": {
+            "description": "The API description its tools are generated from, as last read; null where it names none",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredDescriptionResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -29654,7 +30019,9 @@
           "name",
           "path",
           "standing",
-          "handle"
+          "holding",
+          "handle",
+          "described"
         ]
       },
       "ConfigurationResponseDto": {
@@ -31045,6 +31412,25 @@
           "verdict"
         ]
       },
+      "ConnectIntegrationRequestDto": {
+        "type": "object",
+        "properties": {
+          "for": {
+            "type": "string",
+            "description": "Whose connection to make: the team’s, which only an admin makes, or the caller’s own",
+            "enum": [
+              "team",
+              "me"
+            ],
+            "default": "team"
+          },
+          "back": {
+            "type": "string",
+            "description": "Where in the app to land once connected, as a path in a workspace’s inbox or settings; anything else lands on the team’s integrations",
+            "example": "/w/acme/inbox/task_1"
+          }
+        }
+      },
       "OAuth2StartResponseDto": {
         "type": "object",
         "properties": {
@@ -31056,6 +31442,182 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "ConnectionToolRuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "example": "linear.comment"
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "allowed",
+              "needs-approval",
+              "blocked"
+            ],
+            "example": "needs-approval",
+            "description": "What the caller asks of calls made with their connection: allowed follows the team, needs-approval asks them first, blocked never sends"
+          }
+        },
+        "required": [
+          "tool",
+          "rule"
+        ]
+      },
+      "MyConnectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "linear"
+          },
+          "handle": {
+            "type": "string",
+            "description": "What the host calls the person, where it says",
+            "example": "@alice",
+            "nullable": true
+          },
+          "connectedAt": {
+            "type": "string",
+            "example": "2026-10-05T10:00:00.000Z"
+          },
+          "tools": {
+            "description": "Each tool the integration offers, with the caller’s rule for calls made with this connection",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionToolRuleResponseDto"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "handle",
+          "connectedAt",
+          "tools"
+        ]
+      },
+      "PersonConnectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "linear"
+          },
+          "handle": {
+            "type": "string",
+            "description": "What the host calls the person, where it says",
+            "example": "@alice",
+            "nullable": true
+          },
+          "connectedAt": {
+            "type": "string",
+            "example": "2026-10-05T10:00:00.000Z"
+          },
+          "personId": {
+            "type": "string",
+            "example": "user_1"
+          },
+          "name": {
+            "type": "string",
+            "example": "Alice Martin"
+          }
+        },
+        "required": [
+          "source",
+          "handle",
+          "connectedAt",
+          "personId",
+          "name"
+        ]
+      },
+      "HostConnectionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "mine": {
+            "description": "The connections the caller made themselves",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyConnectionResponseDto"
+            }
+          },
+          "people": {
+            "nullable": true,
+            "description": "Who in the team has connected what, shown to admins only; it never holds a token",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonConnectionResponseDto"
+            }
+          }
+        },
+        "required": [
+          "mine",
+          "people"
+        ]
+      },
+      "SetToolRuleRequestDto": {
+        "type": "object",
+        "properties": {
+          "rule": {
+            "type": "string",
+            "enum": [
+              "allowed",
+              "needs-approval",
+              "blocked"
+            ],
+            "description": "What to ask of calls made with the caller’s connection; it can only make the team’s rule stricter",
+            "example": "needs-approval"
+          }
+        },
+        "required": [
+          "rule"
+        ]
+      },
+      "DescribedSourceResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "openapi",
+              "graphql",
+              "mcp"
+            ],
+            "example": "openapi",
+            "description": "The kind of API description, or the MCP server, its tools are generated from"
+          },
+          "hash": {
+            "type": "string",
+            "nullable": true,
+            "example": "9f2c4e1a7b3d5f6081a2c3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f607182",
+            "description": "The sha256 of what was last read, kept while a later read fails; null when it has never been read"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-05T12:00:00.000Z",
+            "description": "When the description was last read"
+          },
+          "problem": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected, and lists an MCP server’s tools again every MCP_RELIST_SECONDS"
+          },
+          "tools": {
+            "type": "integer",
+            "example": 19,
+            "description": "How many of its tools were generated from the description"
+          }
+        },
+        "required": [
+          "kind",
+          "hash",
+          "readAt",
+          "problem",
+          "tools"
         ]
       },
       "IntegrationResourceResponseDto": {
@@ -31106,7 +31668,17 @@
             "example": {
               "search": "grafana.search"
             },
-            "description": "Each tool the integration offers, by its name within the integration, to the name a station or hook gives it by; not settable"
+            "description": "Each tool the integration offers, hand-written or generated from its API description, by its name within the integration, to the name a station or hook gives it by; not settable"
+          },
+          "described": {
+            "nullable": true,
+            "description": "The API description its tools are generated from, as last read; null when it names none; not settable",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DescribedSourceResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -31117,7 +31689,8 @@
           "teamId",
           "source",
           "definition",
-          "tools"
+          "tools",
+          "described"
         ]
       },
       "IntegrationResourceListResponseDto": {

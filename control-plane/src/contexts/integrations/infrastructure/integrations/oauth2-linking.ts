@@ -2,18 +2,25 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type {
+  OAuth2Asked,
   OAuth2Authorized,
   OAuth2Begun,
   OAuth2LinkingPort,
   OAuth2Returned,
 } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
+import { landingBack } from '@integrations/application/services/landing-back';
+import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import type { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import { oauth2Of } from '@integrations/infrastructure/integrations/oauth2-config';
+import {
+  authorizationServerOf,
+  type OAuth2Discovery,
+} from '@integrations/infrastructure/integrations/oauth2-discovery';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
-import type { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
+import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -30,7 +37,8 @@ export class OAuth2Linking implements OAuth2LinkingPort {
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly reader: IntegrationReader,
-    private readonly clients: OAuth2Clients,
+    private readonly discovery: OAuth2Discovery,
+    private readonly clients: OAuth2ClientsPort,
     private readonly exchange: OAuth2Exchange,
     private readonly teams: TeamDirectoryPort,
     private readonly workspaces: WorkspaceReaderPort,
@@ -41,32 +49,53 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     private readonly callback: string,
   ) {}
 
-  async begin(
-    teamId: string,
-    source: string,
-    by: string,
-  ): Promise<OAuth2Begun | null> {
+  async begin(asked: OAuth2Asked): Promise<OAuth2Begun | null> {
+    const teamId = TeamId.of(asked.teamId);
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
-      TeamId.of(teamId),
-      source,
+      this.discovery,
+      teamId,
+      asked.source,
     );
-    const client = this.clients.of(source);
+    const client = oauth2
+      ? await this.clients.clientFor(
+          teamId,
+          SourceKey.of(asked.source),
+          oauth2.registration,
+          authorizationServerOf(oauth2),
+        )
+      : null;
 
     if (!oauth2 || !client) {
       return null;
     }
+
+    const nonce = randomBytes(NONCE_BYTES).toString('base64url');
+    const signed = this.state.sign({
+      teamId: asked.teamId,
+      source: asked.source,
+      by: asked.by,
+      holder: asked.holder,
+      back: landingBack(asked.back),
+      nonce,
+    });
 
     const authorize = new URL(oauth2.authorize);
     authorize.searchParams.set('client_id', client.id);
     authorize.searchParams.set('redirect_uri', this.callback);
     authorize.searchParams.set('response_type', 'code');
     authorize.searchParams.set('scope', oauth2.scopes.join(' '));
-
-    const nonce = randomBytes(NONCE_BYTES).toString('base64url');
-    const signed = this.state.sign({ teamId, source, by, nonce });
     authorize.searchParams.set('state', signed.token);
+    authorize.searchParams.set(
+      'code_challenge',
+      OAuth2State.challengeOf(this.state.verifierFor(nonce)),
+    );
+    authorize.searchParams.set('code_challenge_method', 'S256');
+
+    if (oauth2.resource) {
+      authorize.searchParams.set('resource', oauth2.resource);
+    }
 
     return { url: authorize.toString(), nonce, expiresAt: signed.expiresAt };
   }
@@ -93,13 +122,21 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       return null;
     }
 
+    const teamId = TeamId.of(intent.teamId);
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
-      TeamId.of(intent.teamId),
+      this.discovery,
+      teamId,
       intent.source,
     );
-    const client = this.clients.of(intent.source);
+    const client = oauth2
+      ? await this.clients.heldFor(
+          teamId,
+          SourceKey.of(intent.source),
+          authorizationServerOf(oauth2),
+        )
+      : null;
 
     if (!oauth2 || !client) {
       return null;
@@ -110,6 +147,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       client,
       returned.code,
       this.callback,
+      this.state.verifierFor(intent.nonce),
     );
 
     if (!grant) {
@@ -120,11 +158,23 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       teamId: intent.teamId,
       source: intent.source,
       by: intent.by,
+      holder: intent.holder,
+      back: intent.back,
       grant,
     };
   }
 
-  async landingFor(teamId: string, source: string): Promise<string> {
+  async landingFor(
+    teamId: string,
+    source: string,
+    back: string | null,
+  ): Promise<string> {
+    const landing = landingBack(back);
+
+    if (landing) {
+      return `${this.base}${landing}?connected=${encodeURIComponent(source)}`;
+    }
+
     const team = await this.teams.find(TeamId.of(teamId));
     const slug = team
       ? await this.workspaces.slugOf(team.workspaceId.value)

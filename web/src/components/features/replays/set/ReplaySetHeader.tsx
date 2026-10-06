@@ -2,8 +2,8 @@ import { DeleteReplaySetButton } from '@/components/features/replays/set/DeleteR
 import { GuardsChangesToggle } from '@/components/features/replays/set/GuardsChangesToggle';
 import { RenameReplaySetButton } from '@/components/features/replays/set/RenameReplaySetButton';
 import { anyUnderway, type Replay, type ReplaySet } from '@/lib/replay';
-import { since } from '@/lib/runner';
 import type { LineReplayCheck } from '@/lib/search';
+import { since } from '@/lib/since';
 
 const UNDELETABLE =
   'A replay or search of this set is running. Delete it once that ends or is stopped.';

@@ -57,12 +57,36 @@ func command(name string) string {
 	return "spotlight " + strings.Replace(name, ".", " ", 1)
 }
 
+const whole = "json"
+
+func placeholder(input protocol.ToolInputManifest) string {
+	switch {
+	case input.Kind() == "number" || input.Kind() == "integer":
+		return "<number>"
+	case input.Scalar():
+		return "<string>"
+	}
+
+	return "<json>"
+}
+
+func flagged(tool protocol.ToolManifest) []protocol.ToolInputManifest {
+	var inputs []protocol.ToolInputManifest
+	for _, input := range tool.Inputs {
+		if input.Name != whole {
+			inputs = append(inputs, input)
+		}
+	}
+
+	return inputs
+}
+
 func signature(tool protocol.ToolManifest) string {
 	parts := []string{command(tool.Name)}
 
-	for _, input := range tool.Inputs {
-		written := fmt.Sprintf("--%s <%s>", input.Name, input.Type)
-		if input.Type == "boolean" {
+	for _, input := range flagged(tool) {
+		written := fmt.Sprintf("--%s %s", input.Name, placeholder(input))
+		if input.Kind() == "boolean" {
 			written = "--" + input.Name
 		}
 		if input.Piped {
@@ -73,13 +97,21 @@ func signature(tool protocol.ToolManifest) string {
 		}
 		parts = append(parts, written)
 	}
+	if len(tool.Inputs) > 0 {
+		parts = append(parts, "[--json <object> | --json -]")
+	}
 
 	return strings.Join(parts, " ")
 }
 
+const toolsListedAtMost = 30
+
 func listing(tools []protocol.ToolManifest) string {
 	if len(tools) == 0 {
 		return "This run was given no tools."
+	}
+	if len(tools) > toolsListedAtMost {
+		return summary(tools)
 	}
 
 	var written strings.Builder
@@ -98,7 +130,42 @@ func listing(tools []protocol.ToolManifest) string {
 	return strings.TrimRight(written.String(), "\n")
 }
 
-func listTools(out io.Writer) error {
+func summary(tools []protocol.ToolManifest) string {
+	var order []string
+	counted := map[string]int{}
+	for _, tool := range tools {
+		from := tool.Integration
+		if from == "" {
+			from = "Spotlight"
+		}
+		if counted[from] == 0 {
+			order = append(order, from)
+		}
+		counted[from]++
+	}
+
+	var written strings.Builder
+	fmt.Fprintf(&written, "This run was given %d tools, too many to list:\n", len(tools))
+	for _, from := range order {
+		fmt.Fprintf(&written, "  %s  %d\n", from, counted[from])
+	}
+	written.WriteString("\nFind one with: spotlight tools search \"<words>\"\nRead one with: spotlight tools describe <tool>")
+
+	return written.String()
+}
+
+func toolsCmd(args []string, out io.Writer) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "search":
+			return searchTools(args[1:], out)
+		case "describe":
+			return describeTool(args[1:], out)
+		default:
+			return fmt.Errorf("no such command %q\n%s", "tools "+args[0], usage)
+		}
+	}
+
 	tools, err := manifest()
 	if err != nil {
 		return err
@@ -147,10 +214,11 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 	flags := flag.NewFlagSet(tool.Name, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
+	object := flags.String(whole, "", "the whole input as one JSON object, or - to read it from stdin")
 	texts := map[string]*string{}
 	switches := map[string]*bool{}
-	for _, input := range tool.Inputs {
-		if input.Type == "boolean" {
+	for _, input := range flagged(tool) {
+		if input.Kind() == "boolean" {
 			switches[input.Name] = flags.Bool(input.Name, false, input.Description)
 		} else {
 			texts[input.Name] = flags.String(input.Name, "", input.Description)
@@ -160,20 +228,73 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 	if err := flags.Parse(rest); err != nil {
 		return fmt.Errorf("%s: %v\nusage: %s", command(tool.Name), err, signature(tool))
 	}
+	if flags.NArg() > 0 {
+		stray := flags.Arg(0)
+		if at := len(rest) - flags.NArg(); at > 0 {
+			before := strings.TrimLeft(rest[at-1], "-")
+			if _, ok := switches[before]; ok {
+				return fmt.Errorf("%s: %q follows --%s, which takes no value; write --%s=%s\nusage: %s",
+					command(tool.Name), stray, before, before, stray, signature(tool))
+			}
+		}
+		return fmt.Errorf("%s: %q is not a flag\nusage: %s", command(tool.Name), stray, signature(tool))
+	}
 
-	given := map[string]any{}
+	wholeGiven := false
+	byFlag := map[string]bool{}
 	flags.Visit(func(set *flag.Flag) {
-		if value, ok := switches[set.Name]; ok {
-			given[set.Name] = *value
+		if set.Name == whole {
+			wholeGiven = true
 			return
 		}
-		given[set.Name] = *texts[set.Name]
+		byFlag[set.Name] = true
 	})
 
+	given := map[string]any{}
+	stdinTaken := false
+	if wholeGiven {
+		text := *object
+		if text == "-" || text == "/dev/stdin" {
+			read, err := io.ReadAll(in)
+			if err != nil {
+				return fmt.Errorf("read the --json piped in: %w", err)
+			}
+			text, stdinTaken = string(read), true
+		}
+
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(text), &fields); err != nil || fields == nil {
+			return fmt.Errorf("--json takes one JSON object, as --json '{\"name\": \"value\"}'\nusage: %s", signature(tool))
+		}
+		for name, value := range fields {
+			given[name] = value
+		}
+	}
+
+	for name := range byFlag {
+		if value, ok := switches[name]; ok {
+			given[name] = *value
+			continue
+		}
+		given[name] = *texts[name]
+	}
+
 	for _, input := range tool.Inputs {
+		if !input.Piped {
+			continue
+		}
 		value, set := given[input.Name]
-		named := set && (value == "-" || value == "/dev/stdin")
-		if !input.Piped || (set && !named) || (!set && !piping(in)) {
+		named := byFlag[input.Name] && (value == "-" || value == "/dev/stdin")
+		if set && !named {
+			continue
+		}
+		if stdinTaken {
+			if named {
+				return fmt.Errorf("--%s cannot be read from stdin when --json is\nusage: %s", input.Name, signature(tool))
+			}
+			continue
+		}
+		if !set && !piping(in) {
 			continue
 		}
 
@@ -223,11 +344,6 @@ func readable(answered string) string {
 	}
 	if shaped.Output == nil {
 		return answered
-	}
-
-	var text string
-	if json.Unmarshal(shaped.Output, &text) == nil {
-		return text
 	}
 
 	var indented bytes.Buffer

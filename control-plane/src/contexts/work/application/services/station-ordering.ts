@@ -21,6 +21,8 @@ import type { StationCatalog } from '@work/application/services/station-catalog.
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
+import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
+import { skillsForTools } from '@work/domain/services/given-to-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import {
   type OrderedAt,
@@ -216,7 +218,7 @@ export class StationOrdering {
             order,
             folders: folders.filter(
               (each) =>
-                !order.given.builtInSkills.some(
+                !BUILT_IN_SKILL_KEYS.some(
                   (key) => key.value === each.skill.key,
                 ),
             ),
@@ -224,6 +226,21 @@ export class StationOrdering {
           this.digest,
         )
       : null;
+  }
+
+  equipped(ordered: Ordered, described: readonly DeclaredTool[]): Ordered {
+    const added = skillsForTools(described).flatMap((key) => {
+      const folder = ordered.folders.some(
+        (each) => each.skill.key === key.value,
+      )
+        ? null
+        : this.builtInSkills.named(key.value);
+      return folder ? [folder] : [];
+    });
+
+    return added.length > 0
+      ? { ...ordered, folders: [...ordered.folders, ...added] }
+      : ordered;
   }
 
   laid(

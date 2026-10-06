@@ -39,6 +39,7 @@ import {
   InboxApprovalResponseDto,
   InboxAsideResponseDto,
   InboxAuthorResponseDto,
+  InboxConnectionResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
   InboxMessageResponseDto,
@@ -105,6 +106,9 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
             : null,
           note.approval ? new InboxApprovalResponseDto(note.approval) : null,
           note.failure ? new InboxFailureResponseDto(note.failure) : null,
+          note.connection
+            ? new InboxConnectionResponseDto(note.connection)
+            : null,
         ),
     ),
   );

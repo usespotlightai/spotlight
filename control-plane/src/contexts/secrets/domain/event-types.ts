@@ -6,6 +6,7 @@ import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-re
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import { SecretBinding } from '@secrets/domain/value-objects/secret-binding.vo';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
+import { SecretCarrier } from '@secrets/domain/value-objects/secret-carrier.vo';
 import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
@@ -17,6 +18,7 @@ export const SECRETS_EVENT_TYPES = [
   RunHold,
   SecretBinding,
   SecretBindings,
+  SecretCarrier,
   SecretChangeDetail,
   SecretGrant,
   SecretId,

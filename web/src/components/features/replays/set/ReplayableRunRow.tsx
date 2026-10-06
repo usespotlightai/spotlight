@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { type ReplayableRun, titleShown } from '@/lib/replay';
 import { refusalShown, runStateShown } from '@/lib/replay-words';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type ReplayableRunRowProps = {
   run: ReplayableRun;

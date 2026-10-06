@@ -11,6 +11,8 @@ export type Approval = InboxApprovalResponseDto;
 
 export type ApprovalInput = InboxApprovalInputResponseDto;
 
+export type ApprovalMode = 'viewing' | 'editing' | 'refusing';
+
 export type ApprovalAnswer = {
   readonly approve: boolean;
   readonly said: string;
@@ -21,13 +23,37 @@ const CODE_INPUTS = new Set(['command', 'cmd', 'script', 'query', 'sql']);
 
 const HARNESS_TITLE = 'title';
 
+const isStructured = (value: string): boolean => {
+  const written = value.trim();
+
+  if (!written.startsWith('{') && !written.startsWith('[')) {
+    return false;
+  }
+
+  try {
+    const read: unknown = JSON.parse(written);
+
+    return typeof read === 'object' && read !== null;
+  } catch {
+    return false;
+  }
+};
+
+export const approvedOnlyBy = (
+  approval: Approval,
+  viewerId: string | null,
+): string | null =>
+  approval.askedOf && approval.askedOf.id !== viewerId
+    ? approval.askedOf.name || 'the person it was asked of'
+    : null;
+
 export const editable = (approval: Approval): boolean =>
   approval.kind === 'tool-call' && approval.inputs.length > 0;
 
 export const readsAsCode = (approval: Approval, input: ApprovalInput) =>
   approval.kind === 'harness-permission'
     ? input.name !== HARNESS_TITLE || approval.name.endsWith(' execute')
-    : CODE_INPUTS.has(input.name.toLowerCase());
+    : CODE_INPUTS.has(input.name.toLowerCase()) || isStructured(input.value);
 
 export const labelOf = (approval: Approval, input: ApprovalInput) =>
   approval.kind === 'harness-permission' && input.name === HARNESS_TITLE

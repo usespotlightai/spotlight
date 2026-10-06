@@ -1,6 +1,6 @@
+import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import type { ConnectionIR } from '@integrations/infrastructure/integrations/integration.compile';
-import type { OAuth2Client } from '@integrations/infrastructure/integrations/oauth2-clients';
+import type { OAuth2Endpoints } from '@integrations/infrastructure/integrations/integration.compile';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { bound } from '@platform/expressions/bindings';
 import type { Expression } from '@platform/expressions/expression-engine.port';
@@ -8,6 +8,8 @@ import { value } from '@platform/expressions/readings';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
 type Fetch = typeof globalThis.fetch;
+
+const ANSWERS_WITHIN_MS = 15_000;
 
 interface TokenResponse {
   access_token?: string;
@@ -24,20 +26,22 @@ export class OAuth2Exchange {
   ) {}
 
   async exchange(
-    oauth2: NonNullable<ConnectionIR['oauth2']>,
+    oauth2: OAuth2Endpoints,
     client: OAuth2Client,
     code: string,
     redirectUri: string,
+    verifier: string,
   ): Promise<HostGrant | null> {
     return this.post(oauth2, client, oauth2.identity, {
       grant_type: 'authorization_code',
       code,
       redirect_uri: redirectUri,
+      code_verifier: verifier,
     });
   }
 
   async refresh(
-    oauth2: NonNullable<ConnectionIR['oauth2']>,
+    oauth2: OAuth2Endpoints,
     client: OAuth2Client,
     refreshToken: string,
   ): Promise<HostGrant | null> {
@@ -48,18 +52,22 @@ export class OAuth2Exchange {
   }
 
   private async post(
-    oauth2: NonNullable<ConnectionIR['oauth2']>,
+    oauth2: OAuth2Endpoints,
     client: OAuth2Client,
     identity: Expression | null,
     grant: Record<string, string>,
   ): Promise<HostGrant | null> {
     this.policy.allow(oauth2.token);
 
-    const form = new URLSearchParams({
-      ...grant,
-      client_id: client.id,
-      client_secret: client.secret,
-    });
+    const form = new URLSearchParams({ ...grant, client_id: client.id });
+
+    if (client.secret) {
+      form.set('client_secret', client.secret);
+    }
+
+    if (oauth2.resource) {
+      form.set('resource', oauth2.resource);
+    }
 
     const reply = await this.fetch(oauth2.token, {
       method: 'POST',
@@ -68,9 +76,11 @@ export class OAuth2Exchange {
         accept: 'application/json',
       },
       body: form.toString(),
+      signal: AbortSignal.timeout(ANSWERS_WITHIN_MS),
+      redirect: 'manual',
     });
 
-    if (!reply.ok) {
+    if (!reply.ok || reply.type === 'opaqueredirect') {
       return null;
     }
 

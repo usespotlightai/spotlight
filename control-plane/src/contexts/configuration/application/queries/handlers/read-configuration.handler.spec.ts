@@ -23,6 +23,7 @@ const asking = (
     applied?: boolean;
     handle?: string | null;
     connects?: boolean;
+    described?: boolean;
   } = {},
 ) =>
   new ConfigurationHandler(
@@ -41,8 +42,17 @@ const asking = (
                     name: 'Linear',
                     path: 'integrations/linear',
                     connectable: over.connects ?? false,
+                    holding: 'team',
                     linked: over.handle !== undefined,
                     handle: over.handle ?? null,
+                    described: over.described
+                      ? {
+                          kind: 'openapi',
+                          tools: 19,
+                          readAt: new Date('2026-10-05T12:00:00.000Z'),
+                          problem: null,
+                        }
+                      : null,
                   },
                 ],
         }),
@@ -57,6 +67,20 @@ describe('ConfigurationHandler', () => {
     const read = await asking().execute(query());
 
     expect(read?.integrations.map((each) => each.source)).toEqual(['linear']);
+  });
+
+  it('says how many tools the API description it names gave, and when it was read', async () => {
+    const read = await asking({ described: true }).execute(query());
+
+    expect(read?.integrations[0]?.described).toEqual({
+      kind: 'openapi',
+      tools: 19,
+      readAt: '2026-10-05T12:00:00.000Z',
+      problem: null,
+    });
+    expect(
+      (await asking().execute(query()))?.integrations[0]?.described,
+    ).toBeNull();
   });
 
   it('says which resource defines each host', async () => {

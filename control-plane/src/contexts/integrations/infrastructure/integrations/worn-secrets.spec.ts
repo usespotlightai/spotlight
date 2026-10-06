@@ -97,6 +97,18 @@ describe('secretsWornBy', () => {
     ]);
   });
 
+  it('finds the secrets an API description is read and called with', () => {
+    expect(
+      secretsWornBy({
+        integration: 'petstore',
+        openapi: {
+          url: 'https://petstore.example/openapi.json',
+          auth: { secrets: ['secret.PETSTORE_KEY'] },
+        },
+      }).map(({ path, name }) => ({ path: path.rendered, name })),
+    ).toEqual([{ path: 'openapi.auth.secrets[0]', name: 'PETSTORE_KEY' }]);
+  });
+
   it('finds nothing in a definition that wears no secret', () => {
     expect(secretsWornBy({ integration: 'plain' })).toEqual([]);
   });

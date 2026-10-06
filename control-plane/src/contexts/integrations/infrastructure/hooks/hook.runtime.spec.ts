@@ -8,8 +8,10 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
+import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
+import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
@@ -17,6 +19,7 @@ import type { HookFailure } from '@integrations/domain/value-objects/hook-failur
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
 import type { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
@@ -79,14 +82,19 @@ const MOMENT: HookMoment = {
 const tool = (
   call: ReachableTool['call'],
   approval: { because: string } | null = null,
+  holding: ConnectionHolding = ConnectionHolding.team(),
 ): ReachableTool =>
   ({
-    integration: {},
+    integration: Integration.of({
+      source: SourceKey.of('slack'),
+      connects: holding.byRequester,
+      holding,
+    }),
     offered: OfferedTool.of({
       source: SourceKey.of('slack'),
       name: 'post-message',
       description: 'Post',
-      does: 'post',
+      backing: ToolBacking.action('post'),
       approval: approval ? ApprovalNeeded.of(approval, 'post-message') : null,
     }),
     declared: {
@@ -264,6 +272,20 @@ describe('CompiledHookRuntime', () => {
       status: 'failed',
       code: 'not-allowed',
       reason: expect.stringMatching(/approval/),
+    });
+  });
+
+  it('refuses to call a tool that acts as the person who started a task', async () => {
+    const call = vi.fn();
+    const { hooked } = setUp(tool(call, null, ConnectionHolding.requester()));
+
+    const taken = await hooked.step(await asking(hooked, 'notify'));
+
+    expect(call).not.toHaveBeenCalled();
+    expect(taken.outcome).toMatchObject({
+      status: 'failed',
+      code: 'not-allowed',
+      reason: expect.stringMatching(/a hook acts as nobody/),
     });
   });
 

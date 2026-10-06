@@ -2,6 +2,7 @@ import type { TeamDirectoryPort } from '@identity/application/ports/team-directo
 import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
+import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -49,7 +50,7 @@ describe('IntegrationSecretUses', () => {
       ofTeam: async () => [defined(LINEAR), defined(SENTRY)],
       everywhere: vi.fn(),
     },
-    new IntegrationReader(new CelExpressionEngine()),
+    new IntegrationReader(new CelExpressionEngine(), operationsHolding()),
   );
 
   it('names each integration of the workspace that wears the secret', async () => {

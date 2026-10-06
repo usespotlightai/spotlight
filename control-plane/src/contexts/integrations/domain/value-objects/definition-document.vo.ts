@@ -1,5 +1,9 @@
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import {
+  type JsonValue,
+  sameJson,
+} from '@shared-kernel/domain/services/json-value';
 
 type Fields = Readonly<Record<string, unknown>>;
 
@@ -24,6 +28,6 @@ export class DefinitionDocument {
   }
 
   equals(other: DefinitionDocument): boolean {
-    return JSON.stringify(this.fields) === JSON.stringify(other.fields);
+    return sameJson(this.fields as JsonValue, other.fields as JsonValue);
   }
 }

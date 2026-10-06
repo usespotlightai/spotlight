@@ -52,7 +52,7 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     valid: LINEAR,
     changed: {
       ...LINEAR,
-      bindings: [{ host: 'api.linear.app', header: 'x-api-key' }],
+      bindings: [{ host: 'api.linear.app', name: 'x-api-key' }],
     },
     changedAgain: {
       ...LINEAR,
@@ -130,7 +130,7 @@ describe('a secret, set through the resource API (e2e)', () => {
         secrets: ['LINEAR_API_KEY'],
         url,
       })
-    ).applyTo(headers);
+    ).applyTo({ url: new URL(url), headers });
 
     return headers;
   };
@@ -176,7 +176,12 @@ describe('a secret, set through the resource API (e2e)', () => {
       name: 'LINEAR_API_KEY',
       source: { kind: 'built-in', secretId: null, field: null },
       bindings: [
-        { host: 'api.linear.app', header: 'authorization', prefix: 'Bearer ' },
+        {
+          host: 'api.linear.app',
+          carrier: 'header',
+          name: 'authorization',
+          prefix: 'Bearer ',
+        },
       ],
       valueWoVersion: 1,
     });

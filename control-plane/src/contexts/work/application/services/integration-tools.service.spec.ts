@@ -25,6 +25,7 @@ const CONTEXT: TaskToolContext = {
   workspaceId: WorkspaceId.of('ws_1'),
   taskId: TaskId.of('task_1'),
   stationId: StationId.of('station_1'),
+  requester: null,
 };
 
 const reaching = (given: { movedOn?: boolean } = {}) => {
@@ -39,10 +40,15 @@ const reaching = (given: { movedOn?: boolean } = {}) => {
     reach: async () => ({
       declared: {
         tool: 'linear.comment',
+        integrationName: 'Linear',
         description: 'Comment on an issue',
         inputs: [],
         approval: null,
+        learnedOutput: null,
       },
+      actingAs: null,
+      wants: null,
+      personRule: null,
       defaultFor: () => undefined,
       call: async () => {
         steps.push('called with its secrets worn');

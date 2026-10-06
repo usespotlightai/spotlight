@@ -120,7 +120,12 @@ export const definition = (
   over: Partial<{
     name: string;
     source: SecretSource;
-    bindings: { host: string; header?: string; prefix?: string }[];
+    bindings: {
+      host: string;
+      carrier?: string;
+      name?: string;
+      prefix?: string;
+    }[];
     value: string | null;
     valueVersion: number | null;
   }> = {},

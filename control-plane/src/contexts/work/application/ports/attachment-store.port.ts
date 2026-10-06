@@ -29,6 +29,8 @@ export interface AttachmentStorePort {
     ids: readonly AttachmentId[],
   ): Promise<Attachment[]>;
 
+  taken(workspaceId: WorkspaceId, files: readonly Attachment[]): Promise<void>;
+
   keep(
     workspaceId: WorkspaceId,
     file: Attachment,

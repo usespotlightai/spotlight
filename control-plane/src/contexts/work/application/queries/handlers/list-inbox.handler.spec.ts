@@ -29,6 +29,7 @@ const note = (failure: InboxNote['failure']): InboxNote => ({
   readAt: null,
   approval: null,
   failure,
+  connection: null,
 });
 
 const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({

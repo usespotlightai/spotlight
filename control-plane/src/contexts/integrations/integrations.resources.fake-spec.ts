@@ -4,6 +4,8 @@ import type {
   CompiledIntegration,
   IntegrationCompilerPort,
 } from '@integrations/application/ports/integration-compiler.port';
+import type { HostReach } from '@integrations/application/services/host-reach.service';
+import { IntegrationSources } from '@integrations/application/services/integration-sources.service';
 import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
@@ -13,10 +15,15 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
+import { documentsHolding } from '@integrations/integrations.documents.fake-spec';
 import type {
   IdempotentClaim,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
+import type {
+  IdempotentRecall,
+  IdempotentRecallsPort,
+} from '@shared-kernel/application/ports/idempotent-recalls.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -37,10 +44,12 @@ const compiledFor = (source: string, held: object): CompiledIntegration => ({
     actions: DefinedActions.of(['comment']),
   }),
   document: DefinitionDocument.of(held),
+  source: null,
+  passedOver: [],
   warnings: [],
 });
 
-export const compiler: IntegrationCompilerPort = {
+const compiler: IntegrationCompilerPort = {
   compile: (held): CompiledIntegration =>
     held === LINEAR
       ? compiledFor('linear', held)
@@ -68,6 +77,7 @@ export const standingAt = (
     source: SourceKey.of('linear'),
     document: DefinitionDocument.of({ integration: 'linear' }),
     offers,
+    reading: null,
     version,
   });
 
@@ -84,11 +94,26 @@ export const teams = (): TeamDirectoryPort => ({
   inWorkspace: vi.fn(async () => []),
 });
 
+export const sources = new IntegrationSources(
+  compiler,
+  documentsHolding(),
+  {
+    read: vi.fn(async () => ({ kind: 'unread' as const, problem: 'unread' })),
+  },
+  {} as HostReach,
+  { now: () => new Date('2026-10-05T12:00:00.000Z'), sleep: async () => {} },
+);
+
 export const creates = (claim: IdempotentClaim = { kind: 'fresh' }) =>
   ({
     claim: vi.fn(async () => claim),
     created: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
+
+export const recalls = (recall: IdempotentRecall = { kind: 'unseen' }) =>
+  ({
+    recall: vi.fn(async () => recall),
+  }) satisfies IdempotentRecallsPort;
 
 export const toolsGiven = (given = ToolUses.none()): ToolsGiven =>
   ({ onTeam: vi.fn(async () => given) }) as unknown as ToolsGiven;

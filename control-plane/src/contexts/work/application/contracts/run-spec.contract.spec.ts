@@ -42,7 +42,7 @@ const representative = {
       inputs: [
         {
           name: 'query',
-          type: 'string',
+          schema: { type: 'string' },
           description: 'What to look for',
           required: true,
           defaulted: false,
@@ -50,12 +50,39 @@ const representative = {
         },
         {
           name: 'limit',
-          type: 'number',
+          schema: { type: 'integer', minimum: 1 },
+          required: false,
+          defaulted: true,
+          piped: false,
+        },
+        {
+          name: 'filter',
+          schema: {
+            type: 'object',
+            properties: { team: { type: ['string', 'null'] } },
+          },
           required: false,
           defaulted: true,
           piped: false,
         },
       ],
+      approval: { because: 'It reads private dashboards.' },
+      integration: 'Grafana',
+      output: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { title: { type: 'string' } },
+          required: ['title'],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      name: 'pull-request',
+      description: 'Open a pull request',
+      inputs: [],
+      approval: null,
     },
   ],
   attachments: [
@@ -111,6 +138,31 @@ describe('RunSpecContract wire', () => {
       parts({ handover: { noteLimit: 10 } }),
       parts({
         manifest: [{ name: 'x', description: 'x', inputs: [{ type: 'date' }] }],
+      }),
+      parts({
+        manifest: [{ name: 'x', description: 'x', inputs: [] }],
+      }),
+      parts({
+        manifest: [
+          { name: 'x', description: 'x', inputs: [], approval: { why: 'x' } },
+        ],
+      }),
+      parts({
+        manifest: [
+          {
+            name: 'x',
+            description: 'x',
+            inputs: [
+              {
+                name: 'x',
+                schema: 'string',
+                required: true,
+                defaulted: false,
+                piped: false,
+              },
+            ],
+          },
+        ],
       }),
       parts({ briefing: '  ' }),
     ]) {

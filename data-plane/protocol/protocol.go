@@ -124,15 +124,95 @@ type ToolManifest struct {
 	Name        string              `json:"name"`
 	Description string              `json:"description"`
 	Inputs      []ToolInputManifest `json:"inputs,omitempty"`
+	Approval    *ToolApproval       `json:"approval"`
+	Integration string              `json:"integration,omitempty"`
+	Output      json.RawMessage     `json:"output,omitempty"`
 }
 
+type ToolApproval struct {
+	Because string `json:"because"`
+}
+
+const ToolIntentInput = "intent"
+
 type ToolInputManifest struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Description string `json:"description,omitempty"`
-	Required    bool   `json:"required,omitempty"`
-	Defaulted   bool   `json:"defaulted,omitempty"`
-	Piped       bool   `json:"piped,omitempty"`
+	Name        string          `json:"name"`
+	Schema      json.RawMessage `json:"schema"`
+	Description string          `json:"description,omitempty"`
+	Required    bool            `json:"required,omitempty"`
+	Defaulted   bool            `json:"defaulted,omitempty"`
+	Piped       bool            `json:"piped,omitempty"`
+}
+
+type inputSchema struct {
+	Type  json.RawMessage `json:"type"`
+	Enum  []any           `json:"enum"`
+	Const json.RawMessage `json:"const"`
+}
+
+func (i ToolInputManifest) Kind() string {
+	var shape inputSchema
+	if json.Unmarshal(i.Schema, &shape) != nil {
+		return ""
+	}
+
+	if shape.Type == nil {
+		values := shape.Enum
+		var constant any
+		if shape.Const != nil && json.Unmarshal(shape.Const, &constant) == nil {
+			values = []any{constant}
+		}
+		return kindOfValues(values)
+	}
+
+	var single string
+	if json.Unmarshal(shape.Type, &single) == nil {
+		return single
+	}
+
+	var several []string
+	if json.Unmarshal(shape.Type, &several) != nil {
+		return ""
+	}
+	for _, kind := range several {
+		if kind != "null" {
+			return kind
+		}
+	}
+
+	return ""
+}
+
+func kindOfValues(values []any) string {
+	kind := ""
+	for _, value := range values {
+		var each string
+		switch value.(type) {
+		case string:
+			each = "string"
+		case float64:
+			each = "number"
+		case bool:
+			each = "boolean"
+		default:
+			return ""
+		}
+		if kind != "" && kind != each {
+			return ""
+		}
+		kind = each
+	}
+
+	return kind
+}
+
+func (i ToolInputManifest) Scalar() bool {
+	switch i.Kind() {
+	case "string", "number", "integer", "boolean":
+		return true
+	}
+
+	return false
 }
 
 type SkillFile struct {

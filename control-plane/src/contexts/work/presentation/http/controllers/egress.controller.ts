@@ -73,7 +73,8 @@ export class EgressController {
           new RedeemedSecretResponseDto(
             each.secret,
             each.host,
-            each.header,
+            each.carrier,
+            each.name,
             each.prefix,
             each.sealed,
             each.readInNetwork

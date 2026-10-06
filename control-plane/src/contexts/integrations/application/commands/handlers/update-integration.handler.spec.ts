@@ -5,10 +5,10 @@ import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptio
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import {
   access,
-  compiler,
   definitions,
   LINEAR,
   SLACK,
+  sources,
   standingAt,
   toolsGiven,
   transaction,
@@ -27,7 +27,7 @@ const updating = (
   const kept = definitions({ standing: standingAt(3), ...over });
   const handler = new UpdateIntegrationHandler(
     access(over.administers),
-    compiler,
+    sources,
     kept,
     toolsGiven(over.given),
     transaction,

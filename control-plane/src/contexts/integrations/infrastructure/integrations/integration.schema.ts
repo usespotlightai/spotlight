@@ -1,7 +1,5 @@
-import {
-  TOOL_INPUT_NAME,
-  TOOL_INPUT_TYPES,
-} from '@integrations/domain/value-objects/offered-tool.vo';
+import { CONNECTION_HOLDINGS } from '@integrations/domain/value-objects/connection-holding.vo';
+import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/offered-tool.vo';
 import {
   CATALOG_SOURCE,
   DOTTED_NAME,
@@ -150,13 +148,21 @@ const actionSchema = z.object({
   request: requestSchema,
 });
 
-const toolInputSchema = z.object({
-  type: z.enum(TOOL_INPUT_TYPES).default('string'),
-  description: z.string().optional(),
-  required: z.boolean().default(false),
-  default: templated.optional(),
-  piped: z.boolean().default(false),
-});
+const SCALAR_INPUT_TYPES = ['string', 'number', 'integer', 'boolean'] as const;
+
+const toolInputSchema = z
+  .object({
+    type: z.enum(SCALAR_INPUT_TYPES).optional(),
+    schema: z.record(z.string(), z.unknown()).optional(),
+    description: z.string().optional(),
+    required: z.boolean().default(false),
+    default: templated.optional(),
+    piped: z.boolean().default(false),
+  })
+  .refine(
+    (input) => input.type === undefined || input.schema === undefined,
+    'takes a type, or a JSON Schema as its schema, but not both',
+  );
 
 const approvalSchema = z.object({
   because: z
@@ -179,12 +185,51 @@ const toolSchema = z.object({
         .string()
         .regex(
           TOOL_INPUT_NAME,
-          'is lowercase words joined by dashes, as in issue',
+          'is letters, digits, dashes and underscores, as in issue or team_id',
         ),
       toolInputSchema,
     )
     .default({}),
   output: expression.optional(),
+});
+
+const approvalOverrideSchema = z.union([approvalSchema, z.literal(false)]);
+
+const describedToolsSchema = z
+  .object({
+    include: z.array(z.string().min(1)).default([]),
+    exclude: z.array(z.string().min(1)).default([]),
+    approval: z.record(key('delete-pet'), approvalOverrideSchema).default({}),
+  })
+  .default({ include: [], exclude: [], approval: {} });
+
+const openapiSchema = z
+  .object({
+    url: z.string().url().optional(),
+    document: z.record(z.string(), z.unknown()).optional(),
+    baseUrl: z.string().url().optional(),
+    revision: z.string().min(1).optional(),
+    auth: requestAuthSchema.optional(),
+    tools: describedToolsSchema,
+  })
+  .refine(
+    (source) => (source.url === undefined) !== (source.document === undefined),
+    'is read from a url, or written out in full as its document, but not both',
+  );
+
+const graphqlSchema = z.object({
+  url: z.string().url(),
+  document: z.string().min(1).optional(),
+  revision: z.string().min(1).optional(),
+  depth: z.number().int().min(1).max(5).optional(),
+  auth: requestAuthSchema.optional(),
+  tools: describedToolsSchema,
+});
+
+const mcpSchema = z.object({
+  url: z.string().url(),
+  auth: requestAuthSchema.optional(),
+  tools: describedToolsSchema,
 });
 
 const markSchema = z.object({
@@ -259,13 +304,27 @@ const scheduleSchema = z.object({
 });
 
 const connectionSchema = z.object({
+  holder: z.enum(CONNECTION_HOLDINGS).default('team'),
   oauth2: z
-    .object({
-      authorize: z.string().url(),
-      token: z.string().url(),
-      scopes: z.array(z.string()).default([]),
-      identity: expression.optional(),
-    })
+    .discriminatedUnion('discover', [
+      z
+        .object({
+          discover: z.literal(true),
+          scopes: z.array(z.string()).default([]),
+          identity: expression.optional(),
+          resource: z.string().url().optional(),
+        })
+        .strict(),
+      z.object({
+        discover: z.literal(false).default(false),
+        authorize: z.string().url(),
+        token: z.string().url(),
+        scopes: z.array(z.string()).default([]),
+        identity: expression.optional(),
+        registration: z.string().url().optional(),
+        resource: z.string().url().optional(),
+      }),
+    ])
     .optional(),
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),
 });
@@ -292,6 +351,9 @@ export const integrationSchema = z
     webhook: webhookSchema.optional(),
     poll: pollSchema.optional(),
     schedule: scheduleSchema.optional(),
+    openapi: openapiSchema.optional(),
+    graphql: graphqlSchema.optional(),
+    mcp: mcpSchema.optional(),
     actions: z.record(key('post-message'), actionSchema).default({}),
     tools: z.record(key('comment'), toolSchema).default({}),
     on: z
@@ -312,8 +374,15 @@ export const integrationSchema = z
       file.poll ||
       file.schedule ||
       Object.keys(file.actions).length > 0 ||
-      Object.keys(file.on).length > 0,
-    'must do something: a webhook, a poll, a schedule, or an action to run',
+      Object.keys(file.on).length > 0 ||
+      file.openapi ||
+      file.graphql ||
+      file.mcp,
+    'must do something: a webhook, a poll, a schedule, an action to run, or an API description or MCP server to offer tools from',
+  )
+  .refine(
+    (file) => [file.openapi, file.graphql, file.mcp].filter(Boolean).length < 2,
+    'offers tools from one source: an openapi, a graphql or an mcp, not two',
   );
 
 export type IntegrationFile = z.infer<typeof integrationSchema>;
@@ -321,6 +390,10 @@ export type EventFile = z.infer<typeof eventSchema>;
 export type AuthFile = AuthOptions;
 export type RequestFile = z.infer<typeof requestSchema>;
 export type RaiseFile = z.infer<typeof raiseSchema>;
+export type OpenApiFile = z.infer<typeof openapiSchema>;
+export type GraphQlFile = z.infer<typeof graphqlSchema>;
+export type McpFile = z.infer<typeof mcpSchema>;
+export type ToolInputFile = z.infer<typeof toolInputSchema>;
 
 export const written = (held: string): string => {
   const [, inside] = EXPRESSION.exec(held) ?? [];

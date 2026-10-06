@@ -2,6 +2,8 @@ import { HostConnection } from '@integrations/domain/aggregates/host-connection.
 import { HostConnectionMovedOnError } from '@integrations/domain/exceptions/host-connection-moved-on.error';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
+import { RenewalClaim } from '@integrations/domain/value-objects/renewal-claim.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { hostConnection } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -20,8 +22,19 @@ type Row = typeof hostConnection.$inferSelect;
 
 type Held = 'access' | 'refresh';
 
-const labelFor = (teamId: string, source: string, held: Held): string =>
-  ['host-connection', teamId, source, held].join(':');
+const labelFor = (
+  teamId: string,
+  source: string,
+  holder: string,
+  held: Held,
+): string => ['host-connection', teamId, source, holder, held].join(':');
+
+const keyOf = (connection: HostConnection) =>
+  and(
+    eq(hostConnection.teamId, connection.teamId.value),
+    eq(hostConnection.source, connection.source.value),
+    eq(hostConnection.holder, connection.holder.key),
+  );
 
 @Injectable()
 export class DrizzleHostConnections implements HostConnectionRepository {
@@ -32,7 +45,11 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     private readonly sealing: CredentialSealingPort,
   ) {}
 
-  async of(teamId: TeamId, source: SourceKey): Promise<HostConnection | null> {
+  async of(
+    teamId: TeamId,
+    source: SourceKey,
+    holder: ConnectionHolder,
+  ): Promise<HostConnection | null> {
     const [found] = await this.context.db
       .select()
       .from(hostConnection)
@@ -40,6 +57,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
         and(
           eq(hostConnection.teamId, teamId.value),
           eq(hostConnection.source, source.value),
+          eq(hostConnection.holder, holder.key),
         ),
       )
       .limit(1);
@@ -50,6 +68,13 @@ export class DrizzleHostConnections implements HostConnectionRepository {
   async save(connection: HostConnection): Promise<void> {
     await this.context.run(async () => {
       await this.stored(connection);
+      await this.events.dispatch(connection.pullEvents());
+    });
+  }
+
+  async remove(connection: HostConnection): Promise<void> {
+    await this.context.run(async () => {
+      await this.context.db.delete(hostConnection).where(keyOf(connection));
       await this.events.dispatch(connection.pullEvents());
     });
   }
@@ -67,6 +92,12 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       );
 
     return Promise.all(rows.map((row) => this.rehydrate(row)));
+  }
+
+  async forgetTeam(teamId: TeamId): Promise<void> {
+    await this.context.db
+      .delete(hostConnection)
+      .where(eq(hostConnection.teamId, teamId.value));
   }
 
   private async stored(connection: HostConnection): Promise<void> {
@@ -87,6 +118,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       scopes: connection.scopes.join(' '),
       handle: connection.handle,
       renewalRefusedAt: connection.renewalRefusedAt,
+      renewalClaimedUntil: connection.renewalClaim?.until ?? null,
     };
 
     if (connection.isNew) {
@@ -96,11 +128,20 @@ export class DrizzleHostConnections implements HostConnectionRepository {
           workspaceId: connection.workspaceId.value,
           teamId: connection.teamId.value,
           source: connection.source.value,
+          holder: connection.holder.key,
           ...written,
         })
         .onConflictDoUpdate({
-          target: [hostConnection.teamId, hostConnection.source],
-          set: { ...written, version: sql`${hostConnection.version} + 1` },
+          target: [
+            hostConnection.teamId,
+            hostConnection.source,
+            hostConnection.holder,
+          ],
+          set: {
+            ...written,
+            version: sql`${hostConnection.version} + 1`,
+            connectedAt: sql`now()`,
+          },
         });
 
       return;
@@ -110,11 +151,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       .update(hostConnection)
       .set({ ...written, version: connection.version + 1 })
       .where(
-        and(
-          eq(hostConnection.teamId, connection.teamId.value),
-          eq(hostConnection.source, connection.source.value),
-          eq(hostConnection.version, connection.version),
-        ),
+        and(keyOf(connection), eq(hostConnection.version, connection.version)),
       )
       .returning({ source: hostConnection.source });
 
@@ -130,7 +167,12 @@ export class DrizzleHostConnections implements HostConnectionRepository {
   ): Promise<string> {
     return this.sealing.seal(
       connection.workspaceId.value,
-      labelFor(connection.teamId.value, connection.source.value, held),
+      labelFor(
+        connection.teamId.value,
+        connection.source.value,
+        connection.holder.key,
+        held,
+      ),
       Credential.of(plain),
     );
   }
@@ -139,7 +181,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     return (
       await this.sealing.open(
         row.workspaceId,
-        labelFor(row.teamId, row.source, held),
+        labelFor(row.teamId, row.source, row.holder, held),
         sealed,
       )
     ).revealed();
@@ -150,6 +192,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
       source: SourceKey.of(row.source),
+      holder: ConnectionHolder.fromKey(row.holder),
       accessToken: AccessToken.of(
         await this.opened(row, 'access', row.accessToken),
       ),
@@ -160,6 +203,9 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       scopes: row.scopes ? row.scopes.split(' ') : [],
       handle: row.handle,
       renewalRefusedAt: row.renewalRefusedAt,
+      renewalClaim: row.renewalClaimedUntil
+        ? RenewalClaim.until(row.renewalClaimedUntil)
+        : null,
       version: row.version,
     });
   }

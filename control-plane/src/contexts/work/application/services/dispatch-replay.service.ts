@@ -119,6 +119,7 @@ export class DispatchReplay {
       listedIn: home.readByHarness ? null : home.directory,
       memories: memories.briefed,
       memoryFolder: memories.folder,
+      tools: [],
     });
 
     const queued = Run.enqueue({

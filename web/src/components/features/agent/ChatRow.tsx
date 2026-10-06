@@ -2,7 +2,7 @@ import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import { InProgress } from '@/components/shared/InProgress';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { ChatSummary } from '@/lib/chat';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type ChatRowProps = {
   chat: ChatSummary;

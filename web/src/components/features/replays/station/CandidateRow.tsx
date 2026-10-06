@@ -1,7 +1,7 @@
 import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
 import { Fingerprint } from '@/components/shared/Fingerprint';
 import { changesOf, type ReplayCandidate } from '@/lib/replay';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type CandidateRowProps = {
   candidate: ReplayCandidate;

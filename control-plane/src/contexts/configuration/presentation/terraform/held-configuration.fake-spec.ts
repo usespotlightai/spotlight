@@ -225,7 +225,12 @@ export const HELD: HeldConfigurationDto = {
       name: 'LINEAR_API_KEY',
       source: { kind: 'built-in', secretId: null, field: null },
       bindings: [
-        { host: 'api.linear.app', header: 'authorization', prefix: 'Bearer ' },
+        {
+          host: 'api.linear.app',
+          carrier: 'header',
+          name: 'authorization',
+          prefix: 'Bearer ',
+        },
       ],
       keepsValue: true,
       valueVersion: 3,
@@ -238,7 +243,12 @@ export const HELD: HeldConfigurationDto = {
       name: 'SENTRY_TOKEN',
       source: { kind: 'built-in', secretId: null, field: null },
       bindings: [
-        { host: 'sentry.io', header: 'authorization', prefix: 'Bearer ' },
+        {
+          host: 'sentry.io',
+          carrier: 'header',
+          name: 'authorization',
+          prefix: 'Bearer ',
+        },
       ],
       keepsValue: true,
       valueVersion: null,

@@ -1,11 +1,15 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
+import { ConnectionAsked as ConnectionAskedText } from '@work/application/rendering/connection-asked';
 import { PermissionAsked } from '@work/application/rendering/permission-asked';
 import type {
   Cleared,
+  ConnectionAsked,
   PermissionCleared,
   RunWork,
 } from '@work/application/services/run-work';
@@ -20,6 +24,7 @@ import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -106,6 +111,55 @@ export class TaskRunWork implements RunWork {
         };
   }
 
+  async askToConnect(
+    declared: DeclaredTool,
+    wanted: ConnectionWantedDto,
+  ): Promise<ConnectionAsked> {
+    const askable =
+      wanted.because === 'not-connected' ||
+      wanted.because === 'renewal-refused';
+
+    if (!wanted.personId || !askable) {
+      return { kind: 'refused', reason: ConnectionAskedText.refusal(wanted) };
+    }
+
+    const line = await this.lines.holding(this.task.stationId);
+
+    if (!line) {
+      throw new UnknownStationError(this.task.stationId.value);
+    }
+
+    const { task, asked } = this.task.askToConnect(
+      this.run.id,
+      {
+        station:
+          line.stationAt(this.task.stationId)?.name ?? StationName.unknown(),
+        body: TaskNoteBody.of(ConnectionAskedText.body(declared, wanted)),
+        at: this.clock.now(),
+        voice: Voice.station(this.run.id),
+      },
+      ConnectionAsk.of({
+        teamId: line.teamId,
+        source: wanted.source,
+        integration: wanted.integration,
+        personId: UserId.of(wanted.personId),
+      }),
+    );
+
+    if (!asked) {
+      return {
+        kind: 'refused',
+        reason: ConnectionAskedText.busy(wanted),
+      };
+    }
+
+    if (task !== this.task) {
+      await this.tasks.save(task);
+    }
+
+    return { kind: 'asked' };
+  }
+
   async clearPermission(
     permission: HarnessPermission,
     session: HarnessSession | null,
@@ -165,6 +219,7 @@ export class TaskRunWork implements RunWork {
       workspaceId: this.task.workspaceId,
       taskId: this.task.id,
       stationId,
+      requester: this.task.raisedBy,
     };
   }
 }

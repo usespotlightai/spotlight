@@ -38,6 +38,8 @@ export const APPROVAL_ITEM_ID = 'task_release_note:0';
 
 export const FAILING_ITEM_ID = 'task_nightly_build:0';
 
+export const CONNECTION_ITEM_ID = 'task_linear_update:0';
+
 export const NOTICE_ID = 'notice_search_stalled';
 
 export { MEMORIES_ITEM_ID };
@@ -71,6 +73,7 @@ const said = (
     author: null,
     approval: null,
     failure: null,
+    connection: null,
     ...rest,
   };
 };
@@ -215,6 +218,7 @@ const INBOX: InboxItemResponseDto[] = [
           edited: null,
           intent:
             'post the drain summary on the issue, publicly under the team’s name',
+          askedOf: null,
         },
       }),
     ],
@@ -564,6 +568,58 @@ export const seedDismissed = (client: QueryClient) => {
     ),
   ]);
 };
+
+const CONNECTION_ASKED_AT = '2026-09-15T11:40:00.000Z';
+
+const askedToConnect = (met: boolean): InboxItemResponseDto =>
+  waiting({
+    taskId: 'task_linear_update',
+    title: 'Post the drain summary on ENG-412',
+    at: STATIONS.implementation,
+    resolved: met,
+    notes: [
+      said({
+        position: 0,
+        runId: 'run_linear_update_1',
+        form: 'connection',
+        at: CONNECTION_ASKED_AT,
+        body: 'I need to use `linear.comment`, which acts as you in Linear, and you haven’t connected Linear yet.\n\nConnect Linear and I will carry on. Nothing has been sent yet.',
+        connection: {
+          source: 'linear',
+          integration: 'Linear',
+          personId: 'user_2',
+          personName: 'Maya Chen',
+          met,
+        },
+      }),
+      ...(met
+        ? [
+            said({
+              position: 1,
+              kind: 'answered',
+              voice: 'person',
+              author: { id: 'user_2', name: 'Maya Chen', image: null },
+              at: '2026-09-15T11:52:00.000Z',
+              body: 'Connected Linear.',
+            }),
+          ]
+        : []),
+    ],
+  });
+
+const seedConnection = (met: boolean) => (client: QueryClient) => {
+  seedInbox(client);
+  client.setQueryData(inboxKeys.forWorkspace(SLUG), [
+    NOTICE,
+    askedToConnect(met),
+    ...INBOX,
+  ]);
+  client.setQueryData(journalKeys.forTask('task_linear_update'), []);
+};
+
+export const seedConnectionAsked = seedConnection(false);
+
+export const seedConnectionMet = seedConnection(true);
 
 export const seedSettledNotice = (client: QueryClient) => {
   seedInbox(client);

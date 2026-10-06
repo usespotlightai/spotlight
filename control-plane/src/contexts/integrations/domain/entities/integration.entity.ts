@@ -1,5 +1,8 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { Binding } from '@integrations/domain/value-objects/binding.vo';
+import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
+import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
@@ -20,6 +23,7 @@ export class Integration {
     readonly bindings: readonly Binding[],
     readonly credentials: readonly SecretName[],
     readonly connects: boolean,
+    readonly holding: ConnectionHolding,
     readonly offers: readonly OfferedTool[],
   ) {}
 
@@ -33,6 +37,7 @@ export class Integration {
     bindings?: readonly Binding[];
     credentials?: readonly SecretName[];
     connects?: boolean;
+    holding?: ConnectionHolding;
     offers?: readonly OfferedTool[];
   }): Integration {
     const source = input.source;
@@ -73,6 +78,19 @@ export class Integration {
       );
     }
 
+    const read = new Set(
+      offers.flatMap((each) =>
+        each.backing.described ? [each.backing.described.hash.value] : [],
+      ),
+    );
+
+    if (read.size > 1) {
+      throw new InvalidIntegrationError(
+        source.value,
+        'offers tools from two readings of its description',
+      );
+    }
+
     const bindings = input.bindings ?? [];
     const events = bindings.map((each) => each.event);
 
@@ -95,7 +113,19 @@ export class Integration {
     }
 
     for (const offered of offers) {
-      actions.named(offered.does, `tool ${offered.tool}`);
+      if (offered.backing.action !== null) {
+        actions.named(offered.backing.action, `tool ${offered.tool}`);
+      }
+    }
+
+    const connects = input.connects ?? false;
+    const holding = input.holding ?? ConnectionHolding.team();
+
+    if (holding.byRequester && !connects) {
+      throw new InvalidIntegrationError(
+        source.value,
+        'takes each person’s connection, and a person can only connect over oauth2',
+      );
     }
 
     return new Integration(
@@ -107,7 +137,8 @@ export class Integration {
       actions,
       bindings,
       input.credentials ?? [],
-      input.connects ?? false,
+      connects,
+      holding,
       offers,
     );
   }
@@ -128,6 +159,17 @@ export class Integration {
 
   bindingFor(event: string): Binding | null {
     return this.bindings.find((each) => each.isFor(event)) ?? null;
+  }
+
+  get generatedFrom(): ContentHash | null {
+    return (
+      this.offers.find((each) => each.backing.described)?.backing.described
+        ?.hash ?? null
+    );
+  }
+
+  takesConnectionFrom(holder: ConnectionHolder): boolean {
+    return this.connects && (!holder.isPerson || this.holding.byRequester);
   }
 
   offered(tool: string): OfferedTool | null {

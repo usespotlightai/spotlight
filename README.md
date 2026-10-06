@@ -115,11 +115,17 @@ that ignores the proxy has no route out at all.
   (`secret.LINEAR_API_KEY`) reaches the server as the stand-in
   `spotlight-egress:LINEAR_API_KEY`. The run records which secrets it wears;
   egress redeems them with a credential the host was handed for egress alone,
-  and wears each one only on requests to the hosts it is bound to, in place of
-  whatever that header held. A request to any other host carries nothing
-  egress added. The host bounds this: egress wears nothing toward a host
+  and wears each one only on requests to the hosts it is bound to whose bound
+  header, or query parameter, holds its stand-in, alone or after the binding's
+  prefix. The rest of the query keeps its order and encoding. A header or query
+  parameter holding a stand-in egress doesn't hold is taken off, and a request
+  egress could not pass on is answered without its address. Where the host
+  echoes a secret back, in a redirect, a link or a text answer, egress hands the
+  sandbox the stand-in instead. A request to any other
+  host carries nothing egress added. The host bounds this: egress wears nothing toward a host
   `SPOTLIGHT_EGRESS_ALLOW` leaves out, reads only the Secrets Manager secrets
-  `SPOTLIGHT_EGRESS_READS` lists, and never wears two secrets in one header.
+  `SPOTLIGHT_EGRESS_READS` lists, and never wears two secrets in one header or
+  query parameter.
 - **Values Spotlight keeps** come sealed to a key egress made for the run
   (X25519, HKDF-SHA256, AES-256-GCM, bound to the run and the secret). **Values
   in AWS Secrets Manager** are read by egress itself, with the host's identity
@@ -353,9 +359,14 @@ Beyond `.env`:
 
 ### Attachments and workspace archives
 
-Browsers upload straight to S3 through presigned URLs (15 minutes); a file
-joins a task only once its id is sent with one. In development MinIO serves the
-bucket under its own hostname, so addressing matches AWS.
+Browsers upload straight to S3 through presigned URLs (15 minutes) under
+`pending/<workspace>/<id>`. A file joins a task only once its id is sent with
+one; after the task or chat has accepted and saved the message, the object is
+copied under `workspaces/<workspace>/attachments/` and the pending copy
+dropped. If that save fails afterwards, the kept copy stays: nothing removes
+attachments under `workspaces/`, which is the cheaper side to err on. In
+development MinIO serves the bucket under its own hostname, so addressing
+matches AWS.
 
 A runner keeps its task's workspace, its checkout and the harness's conversation,
 in the same bucket, under `workspaces/<id>/archives/`, so a later run of the
@@ -386,12 +397,13 @@ The bucket, not provisioned here, needs:
       "AllowedHeaders": ["content-type", "x-amz-meta-uploader", "x-amz-meta-name"],
       "ExposeHeaders": [], "MaxAgeSeconds": 3000 }]
    ```
-3. A lifecycle rule expiring unclaimed objects under `workspaces/`. Whatever
-   it matches on, it must not match workspace archives: Spotlight removes
-   those itself, and expiring one loses a task's conversation.
+3. A lifecycle rule expiring objects under `pending/` after a day. Nothing
+   under `workspaces/` should expire: Spotlight removes archives itself, kept
+   attachments are never removed, and expiring an archive loses a task's
+   conversation.
 
 The key pair needs only `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on
-`arn:aws:s3:::<bucket>/workspaces/*`.
+`arn:aws:s3:::<bucket>/pending/*` and `arn:aws:s3:::<bucket>/workspaces/*`.
 
 ### Mail
 

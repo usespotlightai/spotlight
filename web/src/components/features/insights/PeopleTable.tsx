@@ -5,7 +5,7 @@ import {
 } from '@/components/features/insights/InsightsTable';
 import { countShown, dayOf, type InsightsPeople } from '@/lib/insights';
 import { dayShown } from '@/lib/judge';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type PersonUse = InsightsPeople['adoption']['people'][number];
 

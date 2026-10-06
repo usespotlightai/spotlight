@@ -3,6 +3,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
 import type {
   Cleared,
+  ConnectionAsked,
   PermissionCleared,
   RunWork,
 } from '@work/application/services/run-work';
@@ -42,6 +43,10 @@ export class SearchRunWork implements RunWork {
   }
 
   async clearFor(): Promise<Cleared> {
+    return { kind: 'refused', reason: NO_TOOLS };
+  }
+
+  async askToConnect(): Promise<ConnectionAsked> {
     return { kind: 'refused', reason: NO_TOOLS };
   }
 

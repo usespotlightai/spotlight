@@ -2,7 +2,7 @@ import { Inbox } from 'lucide-react';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { inboxItemPath } from '@/lib/inbox';
 import type { Review } from '@/lib/run';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
 type ReviewMarkerProps = {

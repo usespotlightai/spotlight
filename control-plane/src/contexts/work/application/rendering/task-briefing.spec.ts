@@ -18,8 +18,10 @@ import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
 } from '@work/domain/services/built-in-skills';
+import { builtInTool } from '@work/domain/services/built-in-tools';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -34,6 +36,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
@@ -159,6 +162,7 @@ const brief = (
   decisions: readonly BriefedDecision[] = [],
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
+  tools: readonly DeclaredTool[] = [],
 ) =>
   TaskBriefing.brief({
     task: (worked ?? task(station.id.value)).briefed.withDecisions(decisions),
@@ -167,6 +171,7 @@ const brief = (
     listedIn: null,
     memories,
     memoryFolder,
+    tools,
   });
 
 describe('TaskBriefing', () => {
@@ -341,6 +346,45 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain('put the question in the note');
   });
 
+  describe('the tools a run is given', () => {
+    const given = (tool: string, offeredBy: string) =>
+      DeclaredTool.of({
+        tool: Tool.of(tool),
+        description: 'Does it.',
+        offeredBy,
+      });
+
+    it('names the integrations its tools come from, and how to find and call one', () => {
+      const briefing = brief(triage(), undefined, [], [], null, [
+        given('linear.issue-create', 'Linear'),
+        given('linear.comment', 'Linear'),
+        given('petstore.pet-add', 'Petstore'),
+      ]);
+
+      expect(briefing).toContain(
+        '## Tools\n\nYou were given tools from Linear (2) and Petstore (1).',
+      );
+      expect(briefing).toContain('`spotlight tools search "<words>"`');
+      expect(briefing).toContain('`spotlight tools describe <tool>`');
+    });
+
+    it('says nothing of tools where it was given only Spotlight’s own', () => {
+      const pullRequest = builtInTool(Tool.of('pull-request'))?.declared;
+
+      expect(
+        brief(
+          triage(),
+          undefined,
+          [],
+          [],
+          null,
+          pullRequest ? [pullRequest] : [],
+        ),
+      ).not.toContain('## Tools');
+      expect(brief(triage())).not.toContain('spotlight tools');
+    });
+  });
+
   it('says that saying nothing puts the task in front of a person', () => {
     expect(brief(triage())).toContain('puts the task in front of a person');
   });
@@ -354,6 +398,7 @@ describe('TaskBriefing', () => {
         listedIn: '.spotlight/skills',
         memories: [],
         memoryFolder: null,
+        tools: [],
       });
 
     it('pastes no skill in, and lists none, where the harness reads them itself', () => {
@@ -530,6 +575,7 @@ describe('TaskBriefing', () => {
         listedIn: null,
         memories: [],
         memoryFolder: null,
+        tools: [],
       });
 
     it('lists every repository the line works in, side by side', () => {

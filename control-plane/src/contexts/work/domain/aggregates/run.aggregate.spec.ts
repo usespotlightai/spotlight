@@ -364,6 +364,7 @@ describe('Run', () => {
             name,
             description: name,
             inputs: [],
+            approval: null,
           })),
         }),
       });

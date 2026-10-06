@@ -247,7 +247,25 @@ describe('Secret', () => {
     it('is worn in its header, after its prefix, toward a host it is bound to', () => {
       expect(
         kept().wornToward('https://api.linear.app/graphql?x=1', value),
-      ).toEqual({ name: 'authorization', value: 'Bearer lin_api_1' });
+      ).toEqual({
+        carrier: 'header',
+        name: 'authorization',
+        value: 'Bearer lin_api_1',
+        bare: 'lin_api_1',
+      });
+    });
+
+    it('is worn in its query parameter when bound to one', () => {
+      expect(
+        kept({
+          bindings: [{ host: 'api.linear.app', carrier: 'query', name: 'key' }],
+        }).wornToward('https://api.linear.app/graphql', value),
+      ).toEqual({
+        carrier: 'query',
+        name: 'key',
+        value: 'lin_api_1',
+        bare: 'lin_api_1',
+      });
     });
 
     it('is never worn toward a host it is not bound to', () => {
@@ -317,14 +335,14 @@ describe('Secret', () => {
       const secret = kept({
         bindings: [
           { host: 'api.linear.app', prefix: 'Bearer ' },
-          { host: 'uploads.linear.app', header: 'x-api-key' },
+          { host: 'uploads.linear.app', name: 'x-api-key' },
         ],
       });
       const [, uploads] = secret.grantedTo(RunId.of('run_1'));
 
       expect(uploads && secret.bindingFor(uploads)).toMatchObject({
         host: 'uploads.linear.app',
-        header: 'x-api-key',
+        carrier: { kind: 'header', name: 'x-api-key' },
         prefix: '',
       });
     });

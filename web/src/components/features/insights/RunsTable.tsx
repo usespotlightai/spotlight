@@ -16,7 +16,7 @@ import {
   stationShown,
 } from '@/lib/insights';
 import { runPath } from '@/lib/run';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 import { endedBadly, endingShown } from '@/lib/station-outcomes';
 import { cn } from '@/lib/utils';
 

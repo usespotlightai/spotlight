@@ -1,3 +1,4 @@
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { InvalidToolError } from '@work/domain/exceptions/invalid-tool.error';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -10,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 const input = (over: Partial<ToolInput> = {}): ToolInput => ({
   name: 'body',
-  type: 'string',
+  schema: InputSchema.ofType('string'),
   description: null,
   required: true,
   defaulted: false,
@@ -40,16 +41,22 @@ describe('DeclaredTool', () => {
 
   it('refuses an input named twice, or named unlike a flag', () => {
     expect(() => declared([input(), input()])).toThrow(/names an input twice/);
-    expect(() => declared([input({ name: 'Body' })])).toThrow(/dashes/);
+    expect(() => declared([input({ name: '$top' })])).toThrow(/underscores/);
+    expect(() => declared([input({ name: 'json' })])).toThrow(
+      /every input at once/,
+    );
+    expect(
+      declared([input({ name: 'teamId' })]).inputs.map((each) => each.name),
+    ).toEqual(["teamId"]);
   });
 
   it('refuses more than one piped input, and one that is not text', () => {
     expect(() =>
       declared([input({ piped: true }), input({ name: 'note', piped: true })]),
     ).toThrow(/can pipe in only one input/);
-    expect(() => declared([input({ type: 'number', piped: true })])).toThrow(
-      /text/,
-    );
+    expect(() =>
+      declared([input({ schema: InputSchema.ofType('number'), piped: true })]),
+    ).toThrow(/text/);
   });
 
   describe('what the agent says it wants to do', () => {
@@ -92,8 +99,28 @@ describe('DeclaredTool', () => {
     const commenting = declared([
       input({ name: 'issue', defaulted: true }),
       input({ piped: true }),
-      input({ name: 'count', type: 'number', required: false }),
-      input({ name: 'urgent', type: 'boolean', required: false }),
+      input({
+        name: 'count',
+        schema: InputSchema.ofType('number'),
+        required: false,
+      }),
+      input({
+        name: 'urgent',
+        schema: InputSchema.ofType('boolean'),
+        required: false,
+      }),
+      input({
+        name: 'filter',
+        schema: InputSchema.of({
+          type: 'object',
+          required: ['team'],
+          properties: {
+            team: { type: 'string' },
+            labels: { type: 'array', items: { type: 'string' } },
+          },
+        }),
+        required: false,
+      }),
     ]);
 
     it('takes what it takes, as the type it takes it as', () => {
@@ -115,7 +142,7 @@ describe('DeclaredTool', () => {
 
     it('refuses an input it does not take, saying what it does', () => {
       expect(() => commenting.accept({ body: 'x', isue: 'ENG-1' })).toThrow(
-        'linear.comment takes no isue; it takes issue, body, count, urgent',
+        'linear.comment takes no isue; it takes issue, body, count, urgent, filter',
       );
     });
 
@@ -134,7 +161,37 @@ describe('DeclaredTool', () => {
     it('refuses an input that is not the type it takes', () => {
       expect(() =>
         commenting.accept({ issue: 'ENG-1', body: 'x', count: 'many' }),
-      ).toThrow('takes count as a number, and "many" is not one');
+      ).toThrow('linear.comment takes count, and "many" is not a number');
+    });
+
+    it('takes a structured input as JSON, or as JSON text from a flag', () => {
+      const filter = { team: 'ENG', labels: ['bug'] };
+
+      expect(
+        commenting.accept({ issue: 'ENG-1', body: 'x', filter }).values.filter,
+      ).toEqual(filter);
+      expect(
+        commenting.accept({
+          issue: 'ENG-1',
+          body: 'x',
+          filter: JSON.stringify(filter),
+        }).values.filter,
+      ).toEqual(filter);
+    });
+
+    it('says where a structured input is not of its shape', () => {
+      expect(() =>
+        commenting.accept({
+          issue: 'ENG-1',
+          body: 'x',
+          filter: { team: 'ENG', labels: ['bug', 7] },
+        }),
+      ).toThrow(
+        'linear.comment takes filter, and filter.labels[1] is not text',
+      );
+      expect(() =>
+        commenting.accept({ issue: 'ENG-1', body: 'x', filter: {} }),
+      ).toThrow('linear.comment takes filter, and {} needs team');
     });
   });
 });

@@ -7,6 +7,7 @@ import type {
 import { Attached } from '@work/application/rendering/attached';
 import { Learned } from '@work/application/rendering/learned';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
+import { givenIntegrations } from '@work/domain/services/given-integrations';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import type {
@@ -14,6 +15,7 @@ import type {
   BriefedTask,
   DecisionOnRecord,
 } from '@work/domain/value-objects/briefed-task.vo';
+import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
 import { RemarkHandle } from '@work/domain/value-objects/remark-handle.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -92,6 +94,19 @@ const listing = (
       ].join('\n\n')
     : null;
 
+const NAMED = new Intl.ListFormat('en', { type: 'conjunction' });
+
+const toolsOf = (described: readonly DeclaredTool[]): string | null => {
+  const integrations = givenIntegrations(described);
+
+  return integrations.length > 0
+    ? [
+        '## Tools',
+        `You were given tools from ${NAMED.format(integrations.map((each) => `${each.name} (${each.tools})`))}. Find the one you need with \`spotlight tools search "<words>"\`, read what it takes with \`spotlight tools describe <tool>\`, then call it. Every tool answers in JSON.`,
+      ].join('\n\n')
+    : null;
+};
+
 const labelled = (kind: string): string => {
   const words = kind.replaceAll('-', ' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -164,6 +179,7 @@ export const TaskBriefing = {
     listedIn: string | null;
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
+    tools: readonly DeclaredTool[];
   }): string {
     const station = input.line.stationAt(input.task.stationId);
     const notes = input.task.notes.map(
@@ -186,6 +202,7 @@ export const TaskBriefing = {
       Learned.remembering(),
       station?.decisions ? SAYING_DECISIONS : null,
       workspaceOf(input.task, input.line),
+      toolsOf(input.tools),
       listing(input.skills, input.listedIn),
       answering(input.task),
       closing(input.line, input.task.stationId),

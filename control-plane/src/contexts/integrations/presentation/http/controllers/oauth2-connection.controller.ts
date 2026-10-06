@@ -4,12 +4,18 @@ import {
   OAUTH2_CALLBACK_ROUTE,
   type OAuth2Begun,
 } from '@integrations/application/ports/oauth2-linking.port';
+import {
+  CONNECTING_FOR,
+  ConnectIntegrationRequestDto,
+} from '@integrations/presentation/http/dto/connect-integration.request.dto';
 import { OAuth2StartResponseDto } from '@integrations/presentation/http/dto/oauth2-start.response.dto';
 import {
   type CookieJar,
   OAuth2NonceCookie,
 } from '@integrations/presentation/http/oauth2-nonce-cookie';
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
   Inject,
@@ -22,6 +28,8 @@ import {
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
+  ApiBadRequestResponse,
+  ApiBody,
   ApiExcludeEndpoint,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -57,11 +65,15 @@ export class OAuth2ConnectionController {
   @Post('teams/:teamId/integrations/:source/connect')
   @ApiOperation({
     operationId: 'connectIntegration',
-    summary: 'Begin linking this team to a host over OAuth2',
+    summary: 'Begin connecting the team, or the caller, to a host over OAuth2',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
   @ApiParam({ name: 'source', example: 'slack' })
+  @ApiBody({ type: ConnectIntegrationRequestDto, required: false })
   @ApiOkResponse({ type: OAuth2StartResponseDto })
+  @ApiBadRequestResponse({
+    description: 'It asks to connect for someone other than the team or me',
+  })
   @ApiUnauthorizedResponse({ description: 'No valid session' })
   @ApiNotFoundResponse({
     description:
@@ -72,11 +84,28 @@ export class OAuth2ConnectionController {
     @Param('source') source: string,
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) response: CookieJar,
+    @Body() body: ConnectIntegrationRequestDto = {},
   ): Promise<OAuth2StartResponseDto> {
+    const connecting = body?.for ?? 'team';
+
+    if (!CONNECTING_FOR.includes(connecting)) {
+      throw new BadRequestException(
+        `Connect for ${CONNECTING_FOR.join(' or ')}`,
+      );
+    }
+
     const begun = await this.commandBus.execute<
       BeginOAuth2ConnectionCommand,
       OAuth2Begun | null
-    >(new BeginOAuth2ConnectionCommand(teamId, source, user.id));
+    >(
+      new BeginOAuth2ConnectionCommand(
+        teamId,
+        source,
+        user.id,
+        connecting === 'me' ? 'person' : 'team',
+        typeof body?.back === 'string' ? body.back : null,
+      ),
+    );
 
     if (!begun) {
       throw new NotFoundException();

@@ -67,6 +67,7 @@ const WITHIN = 60_000;
 
 const attachmentStore = {
   received: async () => [],
+  taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 

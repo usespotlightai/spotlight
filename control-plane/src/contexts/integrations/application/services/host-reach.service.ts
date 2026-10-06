@@ -1,15 +1,23 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type {
   Credentials,
+  HeldConnection,
   Reach,
 } from '@integrations/application/ports/integration-runtime.port';
+import type { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
 import { RunCredentials } from '@integrations/application/services/run-credentials';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
+import type { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import { ConnectionChoice } from '@integrations/domain/services/connection-choice';
+import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
+import type { ConnectionWanted } from '@integrations/domain/value-objects/connection-wanted.vo';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export interface RunReaching {
   readonly teamId: TeamId;
@@ -19,22 +27,81 @@ export interface RunReaching {
   readonly wears: readonly string[];
 }
 
+export type ConnectionFound =
+  | {
+      readonly kind: 'held';
+      readonly holder: ConnectionHolder;
+      readonly connection: HostConnection | null;
+    }
+  | { readonly kind: 'wanted'; readonly wanted: ConnectionWanted };
+
 export class HostReach {
   constructor(
     private readonly connections: HostConnectionRepository,
     private readonly teams: TeamDirectoryPort,
+    private readonly access: WorkspaceAccessPort,
     private readonly injection: SecretInjectionPort,
+    private readonly renewal: ConnectionRenewal,
   ) {}
 
-  of(teamId: TeamId, integration: Integration): Promise<Reach> {
-    return this.reaching(
-      teamId,
-      integration,
-      new SpotlightCredentials(this.injection, () => this.workspaceOf(teamId)),
-    );
+  async of(teamId: TeamId, integration: Integration): Promise<Reach> {
+    const connection = integration.connects
+      ? await this.connections.of(
+          teamId,
+          integration.source,
+          ConnectionHolder.team(),
+        )
+      : null;
+
+    return {
+      connection: connection ? this.held(connection) : null,
+      credentials: new SpotlightCredentials(this.injection, () =>
+        this.workspaceOf(teamId),
+      ),
+    };
   }
 
-  async forRun(run: RunReaching, integration: Integration): Promise<Reach> {
+  async connectionFor(
+    teamId: TeamId,
+    integration: Integration,
+    requester: UserId | null,
+  ): Promise<ConnectionFound> {
+    if (!integration.connects) {
+      return {
+        kind: 'held',
+        holder: ConnectionHolder.team(),
+        connection: null,
+      };
+    }
+
+    const chosen = ConnectionChoice.choose(integration, {
+      personId: requester,
+      member:
+        requester !== null && integration.holding.byRequester
+          ? (await this.access.onTeam(teamId.value, requester)) !== null
+          : false,
+    });
+
+    if (chosen.kind === 'wanted') {
+      return chosen;
+    }
+
+    const found = await this.connections.of(
+      teamId,
+      integration.source,
+      chosen.holder,
+    );
+    const wanted = ConnectionChoice.usable(integration, chosen.holder, found);
+
+    return wanted
+      ? { kind: 'wanted', wanted }
+      : { kind: 'held', holder: chosen.holder, connection: found };
+  }
+
+  async forRun(
+    run: RunReaching,
+    connection: HostConnection | null,
+  ): Promise<Reach> {
     if (run.wears.length > 0) {
       await this.injection.grant({
         workspaceId: run.workspaceId,
@@ -44,23 +111,27 @@ export class HostReach {
       });
     }
 
-    return this.reaching(
-      run.teamId,
-      integration,
-      new RunCredentials(this.injection, run),
-    );
+    const credentials: Credentials = new RunCredentials(this.injection, run);
+
+    return {
+      connection: connection ? this.held(connection) : null,
+      credentials,
+    };
   }
 
-  private async reaching(
-    teamId: TeamId,
-    integration: Integration,
-    credentials: Credentials,
-  ): Promise<Reach> {
-    const connection = integration.connects
-      ? await this.connections.of(teamId, integration.source)
-      : null;
-
-    return { connection: connection?.accessToken ?? null, credentials };
+  private held(connection: HostConnection): HeldConnection {
+    return {
+      token: connection.accessToken,
+      holder: connection.holder,
+      handle: connection.handle,
+      refused: (token) =>
+        this.renewal.afterRefusal(
+          connection.teamId,
+          connection.source,
+          connection.holder,
+          token,
+        ),
+    };
   }
 
   private async workspaceOf(teamId: TeamId): Promise<string> {

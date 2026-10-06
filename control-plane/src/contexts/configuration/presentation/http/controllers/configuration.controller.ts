@@ -19,16 +19,7 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 
 const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
   new ConfigurationResponseDto(
-    read.integrations.map(
-      (each) =>
-        new ConfiguredIntegrationResponseDto(
-          each.source,
-          each.name,
-          each.path,
-          each.standing,
-          each.handle,
-        ),
-    ),
+    read.integrations.map((each) => new ConfiguredIntegrationResponseDto(each)),
   );
 
 @ApiTags('configuration')

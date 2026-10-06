@@ -13,7 +13,6 @@ import {
   spendOfCeiling,
 } from '@/lib/replay';
 import { minGainSentence, repeatsShown } from '@/lib/replay-words';
-import { since } from '@/lib/runner';
 import {
   iterationsShown,
   ongoing,
@@ -27,6 +26,7 @@ import {
   objectiveNote,
   objectiveShown,
 } from '@/lib/search-words';
+import { since } from '@/lib/since';
 
 type SearchHeaderProps = {
   at: ReplayedStation;

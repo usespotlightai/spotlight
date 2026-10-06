@@ -2,7 +2,7 @@ import { PersonNote } from '@/components/features/memory/PersonNote';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { ChatBubble } from '@/components/shared/ChatBubble';
 import type { TeamMemory } from '@/lib/memory';
-import { since } from '@/lib/runner';
+import { since } from '@/lib/since';
 
 type RetirementNoteProps = {
   retirement: NonNullable<TeamMemory['retirement']>;

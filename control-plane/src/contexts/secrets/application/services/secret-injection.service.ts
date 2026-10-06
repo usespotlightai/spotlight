@@ -12,10 +12,11 @@ import type { SecretSources } from '@secrets/application/services/secret-sources
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-granted.error';
+import { SecretSlotTakenError } from '@secrets/domain/exceptions/secret-slot-taken.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
-import type { WornHeader } from '@secrets/domain/value-objects/secret-binding.vo';
+import type { WornSecret } from '@secrets/domain/value-objects/secret-binding.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -70,20 +71,37 @@ export class SecretInjection implements SecretInjectionPort {
     request: SpotlightRequest,
     allowed: (secret: Secret) => void,
   ): Promise<WornSecrets> {
-    const worn: WornHeader[] = [];
+    const worn: { readonly secret: string; readonly worn: WornSecret }[] = [];
 
     for (const secret of await this.held(
       request.workspaceId,
       request.secrets,
     )) {
-      secret.bindingToward(request.url);
-      allowed(secret);
-      worn.push(
-        secret.wornToward(request.url, await this.sources.read(secret)),
+      const binding = secret.bindingToward(request.url);
+      const taken = worn.find(
+        (each) =>
+          each.worn.carrier === binding.carrier.kind &&
+          each.worn.name === binding.carrier.name,
       );
+
+      if (taken) {
+        throw new SecretSlotTakenError(
+          secret.name.value,
+          taken.secret,
+          binding.carrier.kind === 'query'
+            ? `?${binding.carrier.name}`
+            : binding.carrier.name,
+        );
+      }
+
+      allowed(secret);
+      worn.push({
+        secret: secret.name.value,
+        worn: secret.wornToward(request.url, await this.sources.read(secret)),
+      });
     }
 
-    return WornSecrets.of(worn);
+    return WornSecrets.of(worn.map((each) => each.worn));
   }
 
   private async held(

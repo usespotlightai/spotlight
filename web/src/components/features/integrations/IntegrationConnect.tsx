@@ -17,7 +17,7 @@ export function IntegrationConnect({
     <Button
       variant="outline"
       size="sm"
-      onClick={() => connect.mutate(integration.source)}
+      onClick={() => connect.mutate({ source: integration.source })}
       disabled={connect.isPending}
       className="pointer-events-auto rounded-full bg-card shadow-none"
     >

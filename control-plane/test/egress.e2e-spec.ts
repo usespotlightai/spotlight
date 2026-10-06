@@ -191,7 +191,7 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
         secretId: 'sentry-token',
         field: 'token',
       },
-      bindings: [{ host: 'sentry.io', header: 'x-sentry-token' }],
+      bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
     });
   });
 
@@ -245,7 +245,8 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
     expect(linear).toMatchObject({
       secret: 'LINEAR_API_KEY',
       host: 'mcp.linear.app',
-      header: 'authorization',
+      carrier: 'header',
+      name: 'authorization',
       prefix: 'Bearer ',
       readInNetwork: null,
     });
@@ -254,7 +255,8 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
     expect(sentry).toMatchObject({
       secret: 'SENTRY_TOKEN',
       host: 'sentry.io',
-      header: 'x-sentry-token',
+      carrier: 'header',
+      name: 'x-sentry-token',
       sealed: null,
       readInNetwork: {
         kind: 'aws-secrets-manager',

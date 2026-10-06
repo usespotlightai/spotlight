@@ -3,8 +3,13 @@ import { Station } from '@work/domain/entities/station.entity';
 import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
+  USING_TOOLS,
 } from '@work/domain/services/built-in-skills';
-import { describedTools, givenAt } from '@work/domain/services/given-to-run';
+import {
+  describedTools,
+  givenAt,
+  skillsForTools,
+} from '@work/domain/services/given-to-run';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
@@ -152,5 +157,22 @@ describe('describedTools', () => {
       'pull-request',
       'linear.comment',
     ]);
+  });
+});
+
+describe('skillsForTools', () => {
+  const declared = (tool: string) =>
+    DeclaredTool.of({ tool: Tool.of(tool), description: 'Does it.' });
+
+  it('gives the skill of finding and calling tools with an integration’s tool or the catalog’s', () => {
+    expect(skillsForTools([declared('linear.comment')])).toEqual([USING_TOOLS]);
+    expect(skillsForTools([declared('catalog.web-search@1.1.0')])).toEqual([
+      USING_TOOLS,
+    ]);
+  });
+
+  it('gives nothing for Spotlight’s own tools, or for none', () => {
+    expect(skillsForTools([declared('pull-request')])).toEqual([]);
+    expect(skillsForTools([])).toEqual([]);
   });
 });

@@ -14,7 +14,8 @@ const readSkill = (folder: string, text: string) =>
 
 const HANDING_OVER = 'spotlight-handover';
 const OPENING_PULL_REQUESTS = 'spotlight-pull-request';
-const BUILT_IN_SKILL_KEYS = [HANDING_OVER, OPENING_PULL_REQUESTS];
+const USING_TOOLS = 'spotlight-tools';
+const BUILT_IN_SKILL_KEYS = [HANDING_OVER, OPENING_PULL_REQUESTS, USING_TOOLS];
 
 describe('BuiltInSkillFiles', () => {
   const shipped = new BuiltInSkillFiles(BUILT_IN_SKILL_KEYS);
@@ -50,6 +51,17 @@ describe('BuiltInSkillFiles', () => {
     expect(instructions).toContain('`--note` is what the next station');
     expect(instructions).toContain('spotlight handover --next');
     expect(instructions).not.toContain('Nobody is watching this terminal');
+  });
+
+  it('says how to find, read and call a tool, and that each answers in JSON', () => {
+    const instructions = instructionsOf(USING_TOOLS);
+
+    expect(instructions).toContain('spotlight tools search "');
+    expect(instructions).toContain('spotlight tools describe ');
+    expect(instructions).toContain('--json -');
+    expect(instructions).toContain('Every tool answers in JSON');
+    expect(instructions).toContain('--intent');
+    expect(instructions).toContain('end your turn');
   });
 
   it('will not start without a skill it ships', () => {

@@ -54,6 +54,7 @@ export class SayInChatHandler
         await this.chats.save(
           said.wantsFollowUp ? await this.dispatch.takenUp(said) : said,
         );
+        await this.files.takenIn(chat.workspaceId, attachments);
       });
     } catch (error) {
       rethrowAsFault(error);

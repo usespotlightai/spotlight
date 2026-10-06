@@ -1,8 +1,10 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import type {
   Cleared,
+  ConnectionAsked,
   PermissionCleared,
   RunWork,
 } from '@work/application/services/run-work';
@@ -50,6 +52,16 @@ export class ChatRunWork implements RunWork {
       : { kind: 'given', edited: null, returned: async () => {} };
   }
 
+  async askToConnect(
+    _declared: DeclaredTool,
+    wanted: ConnectionWantedDto,
+  ): Promise<ConnectionAsked> {
+    return {
+      kind: 'refused',
+      reason: `${wanted.integration} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`,
+    };
+  }
+
   async clearPermission(): Promise<PermissionCleared> {
     return 'refused';
   }
@@ -61,6 +73,7 @@ export class ChatRunWork implements RunWork {
       workspaceId: this.chat.workspaceId,
       chatId: this.chat.id,
       teamId: this.chat.teamId,
+      requester: this.chat.startedBy,
     };
   }
 }

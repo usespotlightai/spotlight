@@ -60,6 +60,7 @@ const kept: Attachment[] = [];
 const files = {
   grant: vi.fn(),
   received: vi.fn(async () => []),
+  taken: vi.fn(),
   keep: vi.fn(async (_at, file: Attachment) => {
     kept.push(file);
   }),
@@ -151,6 +152,7 @@ const tasks = (found: Task | null) =>
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>
@@ -855,6 +857,7 @@ describe('ReactToHappenings', () => {
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
@@ -935,6 +938,7 @@ describe('ReactToHappenings', () => {
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
@@ -1014,6 +1018,7 @@ describe('ReactToHappenings', () => {
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
@@ -1100,6 +1105,7 @@ describe('ReactToHappenings', () => {
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {

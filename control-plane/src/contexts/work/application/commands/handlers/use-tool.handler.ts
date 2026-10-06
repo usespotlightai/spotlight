@@ -4,6 +4,7 @@ import type { DomainEventDispatcher } from '@shared-kernel/application/ports/dom
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
+import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
 import type {
   HookedTaskDto,
   HookedTasksPort,
@@ -19,12 +20,16 @@ import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { ToolApprovalRefusedError } from '@work/domain/exceptions/tool-approval-refused.error';
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
+import { ToolAwaitsConnectionError } from '@work/domain/exceptions/tool-awaits-connection.error';
+import { ToolBlockedByPersonError } from '@work/domain/exceptions/tool-blocked-by-person.error';
+import { ToolConnectionRefusedError } from '@work/domain/exceptions/tool-connection-refused.error';
 import { ToolHookRefusedError } from '@work/domain/exceptions/tool-hook-refused.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
 import { ToolNotGivenError } from '@work/domain/exceptions/tool-not-given.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
+import { StricterRule } from '@work/domain/services/stricter-rule';
 import { Tool } from '@work/domain/value-objects/tool.vo';
-import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
+import type { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
 
@@ -68,13 +73,39 @@ export class UseToolHandler
         throw new UnknownToolError(tool.value);
       }
 
-      const { intent, rest } = reachable.declared.intentIn(command.input);
-      const asked = reachable.declared.accept(rest, (input) =>
+      if (reachable.wants) {
+        const asked = await work.askToConnect(
+          reachable.declared,
+          reachable.wants,
+        );
+
+        if (asked.kind === 'asked') {
+          throw new ToolAwaitsConnectionError(
+            tool.value,
+            reachable.wants.integration,
+          );
+        }
+
+        throw new ToolConnectionRefusedError(tool.value, asked.reason);
+      }
+
+      const ruled = StricterRule.of(reachable.declared, reachable.personRule);
+
+      if (ruled.kind === 'blocked') {
+        throw new ToolBlockedByPersonError(tool.value, ruled.by);
+      }
+
+      const declared =
+        ruled.kind === 'needs-approval'
+          ? reachable.declared.withApproval(ruled.needed)
+          : reachable.declared;
+      const { intent, rest } = declared.intentIn(command.input);
+      const asked = declared.accept(rest, (input) =>
         reachable.defaultFor(input),
       );
       const cleared = await work.clearFor(
-        reachable.declared,
-        ToolCall.of(tool, asked),
+        declared,
+        declared.callWith(asked),
         intent,
       );
 
@@ -90,7 +121,7 @@ export class UseToolHandler
 
       try {
         if (cleared.edited) {
-          inputs = reachable.declared.accept(cleared.edited.values, (input) =>
+          inputs = declared.accept(cleared.edited.values, (input) =>
             reachable.defaultFor(input),
           );
         }
@@ -131,13 +162,26 @@ export class UseToolHandler
           inputs,
           ToolOutput.answered(error instanceof Error ? error.message : null),
           true,
+          reachable.actingAs,
         );
         throw error;
       }
 
-      await this.used(run, tool, inputs, ToolOutput.answered(output), false);
+      await this.used(
+        run,
+        tool,
+        inputs,
+        ToolOutput.answered(output),
+        false,
+        reachable.actingAs,
+      );
 
-      return { output };
+      return {
+        output,
+        actingAs: reachable.actingAs
+          ? ToolActingAsMapper.toDto(reachable.actingAs)
+          : null,
+      };
     } catch (error) {
       rethrowAsFault(error);
     }
@@ -155,6 +199,7 @@ export class UseToolHandler
     inputs: ToolInputs,
     output: ToolOutput,
     failed: boolean,
+    actingAs: ToolActingAs | null,
   ): Promise<void> {
     if (!run.taskId) {
       return;
@@ -169,6 +214,7 @@ export class UseToolHandler
         output,
         failed,
         this.ids.generate(),
+        actingAs,
       ),
     ]);
   }
