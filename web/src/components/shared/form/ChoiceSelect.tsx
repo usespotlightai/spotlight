@@ -26,6 +26,8 @@ type ChoiceSelectProps = {
 
 const NONE = '';
 
+const COMPACT_ITEM = "py-0.5 pr-7 text-xs [&_svg:not([class*='size-'])]:size-3";
+
 export function ChoiceSelect({
   label,
   choices,
@@ -37,6 +39,7 @@ export function ChoiceSelect({
   className,
 }: ChoiceSelectProps) {
   const chosen = choices.find((each) => each.value === value);
+  const item = compact ? COMPACT_ITEM : undefined;
 
   return (
     <DropdownMenu>
@@ -66,18 +69,26 @@ export function ChoiceSelect({
         />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className={compact ? 'min-w-36' : 'min-w-48'}
+      >
         <DropdownMenuRadioGroup
           value={value ?? NONE}
           onValueChange={(next) =>
             onChange(String(next) === NONE ? null : String(next))
           }
         >
-          <DropdownMenuRadioItem value={NONE}>
+          <DropdownMenuRadioItem value={NONE} className={item}>
             {placeholder}
           </DropdownMenuRadioItem>
           {choices.map((choice) => (
-            <DropdownMenuRadioItem key={choice.value} value={choice.value}>
+            <DropdownMenuRadioItem
+              key={choice.value}
+              value={choice.value}
+              className={item}
+            >
               <span className="truncate">{choice.label}</span>
             </DropdownMenuRadioItem>
           ))}
