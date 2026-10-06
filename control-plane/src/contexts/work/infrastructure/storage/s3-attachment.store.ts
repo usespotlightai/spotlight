@@ -1,4 +1,6 @@
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   type HeadObjectCommandOutput,
@@ -24,6 +26,12 @@ const SIGNED_FOR = 15 * 60;
 
 const UPLOADER = 'uploader';
 const NAME = 'name';
+
+// An upload lands under pending/ and is copied under its workspace once a
+// task claims it. Buckets expire by prefix, so a rule on pending/ clears what
+// was never claimed without ever matching a kept attachment or an archive.
+const pendingKeyOf = (workspaceId: WorkspaceId, id: AttachmentId): string =>
+  `pending/${workspaceId.value}/${id.value}`;
 
 const keyOf = (workspaceId: WorkspaceId, id: AttachmentId): string =>
   `workspaces/${workspaceId.value}/attachments/${id.value}`;
@@ -68,7 +76,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       this.signer,
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: keyOf(workspaceId, file.id),
+        Key: pendingKeyOf(workspaceId, file.id),
         ContentType: file.contentType,
         ContentLength: file.size,
         Metadata: { [UPLOADER]: uploader.value, [NAME]: encoded(file.name) },
@@ -95,14 +103,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
 
     return Promise.all(
       [...new Set(ids)].map(async (id) => {
-        const held: HeadObjectCommandOutput | null = await this.store
-          .send(
-            new HeadObjectCommand({
-              Bucket: this.bucket,
-              Key: keyOf(workspaceId, id),
-            }),
-          )
-          .catch(missing);
+        const held = await this.claim(workspaceId, id);
 
         if (!held) {
           throw new InvalidAttachmentError('was never uploaded');
@@ -180,6 +181,50 @@ export class S3AttachmentStore implements AttachmentStorePort {
       bytes: await read.Body.transformToByteArray(),
       contentType: read.ContentType ?? file.contentType,
     };
+  }
+
+  // Moves a pending upload under its workspace. An attachment already there,
+  // say one sent with a second message, is simply read.
+  private async claim(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+  ): Promise<HeadObjectCommandOutput | null> {
+    const key = keyOf(workspaceId, id);
+    const kept = await this.head(key);
+
+    if (kept) {
+      return kept;
+    }
+
+    const pendingKey = pendingKeyOf(workspaceId, id);
+    const pending = await this.head(pendingKey);
+
+    if (!pending) {
+      return null;
+    }
+
+    await this.store.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        CopySource: `${this.bucket}/${pendingKey}`,
+        Key: key,
+        MetadataDirective: 'COPY',
+      }),
+    );
+
+    // The bucket's rule would expire the original anyway; this just saves it
+    // the trouble.
+    await this.store
+      .send(new DeleteObjectCommand({ Bucket: this.bucket, Key: pendingKey }))
+      .catch(() => undefined);
+
+    return pending;
+  }
+
+  private head(key: string): Promise<HeadObjectCommandOutput | null> {
+    return this.store
+      .send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }))
+      .catch(missing);
   }
 
   private refuseWithoutABucket(): void {
