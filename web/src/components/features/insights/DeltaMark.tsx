@@ -22,13 +22,13 @@ export function DeltaMark({ delta, note }: DeltaMarkProps) {
     <span
       data-slot="delta"
       data-tone={delta.tone}
-      className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap align-top leading-4 tabular-nums"
+      className="inline-flex items-center justify-end gap-[0.4em] whitespace-nowrap align-top leading-4 tabular-nums"
     >
       {(up || down) && (
         <Triangle
           aria-hidden
           className={cn(
-            'size-2.5 shrink-0 fill-current',
+            'size-[0.7em] shrink-0 fill-current',
             TONES[delta.tone],
             down && 'rotate-180',
           )}
