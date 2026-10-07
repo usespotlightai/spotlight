@@ -14,11 +14,15 @@ import {
   OUTER_GUIDE,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { countShown } from '@/lib/insights';
 import {
   changeLinkOf,
-  comparedCosts,
-  comparedRates,
+  costBasisNote,
   heldOutBrief,
   originShown,
   type SetCandidate,
@@ -48,10 +52,11 @@ export function CandidateComparisonRow({
   candidate,
   heldOut,
 }: CandidateComparisonRowProps) {
-  const rates = comparedRates(candidate);
-  const costs = comparedCosts(candidate);
+  const { shown } = candidate;
   const changes = configChangesOf(candidate.changes);
   const link = changeLinkOf(at, candidate);
+  const cost = costPerRunShown(shown.costPerRun, candidate.currency);
+  const costNote = costBasisNote(candidate);
   return (
     <ExpandingRow
       slot="replayed-candidate"
@@ -90,9 +95,9 @@ export function CandidateComparisonRow({
 
           <div className="col-span-full min-w-0 @4xl:col-span-1">
             <RateTrack
-              rate={rates.own}
-              interval={rates.interval}
-              live={rates.live}
+              rate={shown.successRate}
+              interval={shown.interval}
+              live={shown.liveSuccessRate}
               ink={
                 candidate.againstLive
                   ? INKS[candidate.againstLive.verdict]
@@ -102,26 +107,39 @@ export function CandidateComparisonRow({
           </div>
 
           <NestedCell heading="Candidate" strong>
-            {percentShown(rates.own)}
+            {percentShown(shown.successRate)}
           </NestedCell>
-          <NestedCell heading="Live">{percentShown(rates.live)}</NestedCell>
+          <NestedCell heading="Live">
+            {percentShown(shown.liveSuccessRate)}
+          </NestedCell>
           <NestedCell heading="Against live" numeric={false}>
             <GainSaid gain={candidate.againstLive} />
           </NestedCell>
           <NestedCell heading="Cost per run" strong>
-            {costPerRunShown(costs.own, candidate.currency)}
+            {costNote ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={<button type="button" className="outline-none" />}
+                >
+                  {cost}
+                </TooltipTrigger>
+                <TooltipContent className="text-xs">{costNote}</TooltipContent>
+              </Tooltip>
+            ) : (
+              cost
+            )}
           </NestedCell>
           <NestedCell heading="Live cost">
-            {costs.live === null
+            {shown.liveCostPerRun === null
               ? '–'
-              : costPerRunShown(costs.live, candidate.currency)}
+              : costPerRunShown(shown.liveCostPerRun, candidate.currency)}
           </NestedCell>
           {heldOut && (
             <NestedCell heading="Held out">
               {heldOutBrief(candidate)}
             </NestedCell>
           )}
-          <NestedCell heading="Runs">{countShown(rates.runs)}</NestedCell>
+          <NestedCell heading="Runs">{countShown(shown.runs)}</NestedCell>
 
           {link.external ? (
             <a

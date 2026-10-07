@@ -1,3 +1,5 @@
+import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import {
   failuresWithin,
   type RunFailureSummary,
@@ -5,7 +7,14 @@ import {
   type TaskFailureSummary,
   taskFailureSummaries,
 } from '@outcomes/domain/services/failure-summaries';
-import { type RunTally, runTally } from '@outcomes/domain/services/run-tally';
+import {
+  type RunTally,
+  runTally,
+  type TallyChanges,
+  type TallySeen,
+  tallyChangesOf,
+  tallySeenOf,
+} from '@outcomes/domain/services/run-tally';
 import {
   atStation,
   endedWithin,
@@ -24,13 +33,51 @@ export interface DayTally {
   readonly tally: RunTally;
 }
 
-export interface StationReport extends StationPlace {
+export interface TallyReport {
   readonly tally: RunTally;
-  readonly before: RunTally;
+  readonly changes: TallyChanges;
+  readonly seen: TallySeen;
   readonly trend: readonly DayTally[];
+}
+
+export interface StationReport extends StationPlace, TallyReport {
   readonly taskFailures: readonly TaskFailureSummary[];
   readonly runFailures: readonly RunFailureSummary[];
 }
+
+const tallyReportOf = (
+  current: readonly RunRecord[],
+  previous: readonly RunRecord[],
+  days: readonly string[],
+  deliveries: readonly TaskDelivery[],
+): TallyReport => {
+  const tally = runTally(current, deliveries);
+  const before = runTally(previous, deliveries);
+
+  return {
+    tally,
+    changes: tallyChangesOf(tally, before),
+    seen: tallySeenOf(tally, before),
+    trend: days.map((day) => ({
+      day,
+      tally: runTally(
+        current.filter((each) => each.end && dayOf(each.end.endedAt) === day),
+        deliveries,
+      ),
+    })),
+  };
+};
+
+export const teamReportOf = (
+  history: TeamHistory,
+  period: InsightsPeriod,
+): TallyReport =>
+  tallyReportOf(
+    endedWithin(history.records, period.current),
+    endedWithin(history.records, period.previous),
+    period.days,
+    history.deliveries,
+  );
 
 export const stationReportsOf = (
   history: TeamHistory,
@@ -59,18 +106,12 @@ export const stationReportsOf = (
 
     return {
       ...place,
-      tally: runTally(here, history.deliveries),
-      before: runTally(
+      ...tallyReportOf(
+        here,
         atStation(previous, place.stationId),
+        period.days,
         history.deliveries,
       ),
-      trend: period.days.map((day) => ({
-        day,
-        tally: runTally(
-          here.filter((each) => each.end && dayOf(each.end.endedAt) === day),
-          history.deliveries,
-        ),
-      })),
       taskFailures: taskFailureSummaries(
         failing.filter((each) => each.occurrence.stationId === place.stationId),
       ),

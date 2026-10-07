@@ -34,6 +34,8 @@ export interface Share {
   readonly merged: number;
   readonly made: number;
   readonly touched: number;
+  readonly spotlight: number;
+  readonly people: number;
   readonly bots: number;
   readonly share: number | null;
 }
@@ -141,6 +143,8 @@ const shareOf = (merged: readonly TeamPullRequest[]): Share => {
     merged: merged.length,
     made,
     touched,
+    spotlight: made + touched,
+    people: merged.filter((each) => each.by === 'people').length,
     bots: merged.filter((each) => each.by === 'bots').length,
     share: rateOf(made + touched, merged.length),
   };

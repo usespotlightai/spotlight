@@ -4,6 +4,7 @@ import type {
   SpendResponseDto,
   StationOutcomesResponseDto,
   StationRunOutcomeResponseDto,
+  TallyCountedResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
 import { dayShown, percentShown } from '@/lib/judge';
@@ -72,55 +73,39 @@ export const runSpent = (cost: StationRunOutcome['cost']): string =>
 export const runTook = (cost: StationRunOutcome['cost']): string =>
   cost?.ms != null ? took(cost.ms) : '–';
 
-export type TallyFigure = {
-  readonly label: string;
-  readonly value: string;
-};
-
-const counted = (label: string, count: number): TallyFigure[] =>
-  count > 0 ? [{ label, value: `${count}` }] : [];
-
 const costShown = (cost: SpendResponseDto | null): string =>
   cost ? spentIn(cost.amount, cost.currency) : '–';
 
 const tookShown = (ms: number | null): string => (ms === null ? '–' : took(ms));
 
-const spend = (cost: SpendResponseDto | null): TallyFigure[] =>
-  cost ? [{ label: 'Cost', value: costShown(cost) }] : [];
-
-const median = (ms: number | null): TallyFigure[] =>
-  ms === null ? [] : [{ label: 'Median', value: tookShown(ms) }];
-
-export const tallyFigures = (tally: StationTally): TallyFigure[] => [
-  { label: tally.runs === 1 ? 'Run' : 'Runs', value: `${tally.runs}` },
-  ...counted('Failed', tally.failed),
-  ...counted('Stopped', tally.stopped),
-  ...counted('Checks passed', tally.checksPassed),
-  ...counted('Checks failed', tally.checksFailed),
-  ...counted('Accepted', tally.accepted),
-  ...counted('Sent back', tally.sentBack),
-  ...counted('Merged', tally.merged),
-  ...counted('Withdrawn', tally.withdrawn),
-  ...spend(tally.cost),
-  ...median(tally.medianMs),
-];
+type TallyCounted = TallyCountedResponseDto;
 
 export type TallyColumn = {
   readonly label: string;
+  readonly counted?: keyof TallyCounted;
   readonly shown: (tally: StationTally) => string;
 };
 
+const countColumn = (
+  label: string,
+  counted: keyof TallyCounted,
+): TallyColumn => ({
+  label,
+  counted,
+  shown: (tally) => `${tally[counted]}`,
+});
+
 const TALLY_COLUMNS: readonly TallyColumn[] = [
   { label: 'Runs', shown: (tally) => `${tally.runs}` },
-  { label: 'Failed', shown: (tally) => `${tally.failed}` },
-  { label: 'Stopped', shown: (tally) => `${tally.stopped}` },
-  { label: 'Checks passed', shown: (tally) => `${tally.checksPassed}` },
-  { label: 'Checks failed', shown: (tally) => `${tally.checksFailed}` },
-  { label: 'Accepted', shown: (tally) => `${tally.accepted}` },
-  { label: 'Sent back', shown: (tally) => `${tally.sentBack}` },
-  { label: 'Handed on', shown: (tally) => `${tally.handedOn}` },
-  { label: 'Merged', shown: (tally) => `${tally.merged}` },
-  { label: 'Withdrawn', shown: (tally) => `${tally.withdrawn}` },
+  countColumn('Failed', 'failed'),
+  countColumn('Stopped', 'stopped'),
+  countColumn('Checks passed', 'checksPassed'),
+  countColumn('Checks failed', 'checksFailed'),
+  countColumn('Accepted', 'accepted'),
+  countColumn('Sent back', 'sentBack'),
+  countColumn('Handed on', 'handedOn'),
+  countColumn('Merged', 'merged'),
+  countColumn('Withdrawn', 'withdrawn'),
   { label: 'Cost', shown: (tally) => costShown(tally.cost) },
   { label: 'Median', shown: (tally) => tookShown(tally.medianMs) },
   { label: 'p90', shown: (tally) => tookShown(tally.p90Ms) },
@@ -137,14 +122,8 @@ const columnsNamed = (labels: readonly string[]): TallyColumn[] =>
     return column;
   });
 
-export const countedColumnsOf = (
-  tallies: readonly StationTally[],
-): TallyColumn[] =>
-  TALLY_COLUMNS.filter(
-    (column) =>
-      column.label === 'Runs' ||
-      tallies.some((tally) => column.shown(tally) !== '0'),
-  );
+export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
+  TALLY_COLUMNS.filter((column) => !column.counted || counted[column.counted]);
 
 export const GLANCE_COLUMNS = columnsNamed([
   'Runs',
@@ -183,21 +162,19 @@ export type GroupSummary = {
   readonly cost: string;
 };
 
-const shareOf = (part: number, whole: number, said: string): string =>
-  whole > 0 ? `${percentShown(part / whole)} ${said}` : '–';
+const shareOf = (share: number | null, said: string): string =>
+  share === null ? '–' : `${percentShown(share)} ${said}`;
 
-const daysOf = (runs: readonly StationRunOutcome[]): string | null => {
-  const days = runs.map((run) => run.endedAt.slice(0, 10)).sort();
-  const [first] = days;
-  const last = days[days.length - 1];
+const daysOf = (group: FingerprintGroup): string | null => {
+  const { firstDay, lastDay } = group;
 
-  if (!first || !last) {
+  if (!firstDay || !lastDay) {
     return null;
   }
 
-  return first === last
-    ? dayShown(first)
-    : `${dayShown(first)}–${dayShown(last)}`;
+  return firstDay === lastDay
+    ? dayShown(firstDay)
+    : `${dayShown(firstDay)}–${dayShown(lastDay)}`;
 };
 
 export const groupSummary = (group: FingerprintGroup): GroupSummary => {
@@ -206,7 +183,7 @@ export const groupSummary = (group: FingerprintGroup): GroupSummary => {
   const hash = group.fingerprint
     ? `Config ${group.fingerprint.slice(0, 8)}`
     : null;
-  const { tally } = group;
+  const { tally, shares } = group;
 
   return {
     name: !group.fingerprint
@@ -214,14 +191,10 @@ export const groupSummary = (group: FingerprintGroup): GroupSummary => {
       : (first ?? hash ?? ''),
     more,
     note: hash && phrases.length > 0 ? [...phrases, hash].join(' · ') : null,
-    days: daysOf(group.runs),
-    checks: shareOf(
-      tally.checksPassed,
-      tally.checksPassed + tally.checksFailed,
-      'passed',
-    ),
-    next: shareOf(tally.accepted, tally.runs, 'accepted'),
-    delivery: shareOf(tally.merged, tally.runs, 'merged'),
+    days: daysOf(group),
+    checks: shareOf(shares.checksPassed, 'passed'),
+    next: shareOf(shares.accepted, 'accepted'),
+    delivery: shareOf(shares.merged, 'merged'),
     took: tookShown(tally.medianMs),
     cost: costShown(tally.cost),
   };

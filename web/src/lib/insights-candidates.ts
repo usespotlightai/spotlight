@@ -3,25 +3,18 @@ import type {
   ReplayedCandidatesResponseDto,
   ReplayedSetResponseDto,
   ReplayedStationResponseDto,
-  ReplaySetHealthResponseDto,
 } from '@/lib/api';
-import { spentIn } from '@/lib/inbox';
 import { countShown } from '@/lib/insights';
 import { dayShown, percentShown } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
-import {
-  heldOutRunsShown,
-  type ReplayState,
-  stateShown,
-} from '@/lib/replay-words';
-import { regressionsShown, searchCandidatePath } from '@/lib/search';
+import { heldOutRunsShown } from '@/lib/replay-words';
+import { searchCandidatePath } from '@/lib/search';
 
 export type InsightsCandidates = ReplayedCandidatesResponseDto;
 export type CandidatesStation = ReplayedStationResponseDto;
 export type CandidatesSet = ReplayedSetResponseDto;
 export type SetCandidate = ReplayedCandidateResponseDto;
-type SetHealth = ReplaySetHealthResponseDto;
 type CandidateKind = SetCandidate['kind'];
 
 export const LIVE_REPLAYED = 'Live config, replayed';
@@ -73,33 +66,6 @@ export type ReplayedPoint = {
   readonly heldOut: string | null;
 };
 
-type UnchartedCandidate = {
-  readonly key: string;
-  readonly label: string;
-  readonly note: string | null;
-};
-
-export type ReplayedChart = {
-  readonly priced: readonly ReplayedPoint[];
-  readonly unpriced: readonly UnchartedCandidate[];
-  readonly otherCurrency: readonly UnchartedCandidate[];
-  readonly unscored: readonly UnchartedCandidate[];
-  readonly unfinished: readonly UnchartedCandidate[];
-};
-
-export const setCurrency = (set: CandidatesSet): string | null =>
-  set.baseline?.currency ?? set.candidates[0]?.currency ?? null;
-
-export const heldOutShown = (candidate: SetCandidate): string | null => {
-  if (!candidate.heldOut) {
-    return candidate.kind === 'searched' ? 'Not held out' : null;
-  }
-
-  const { state } = candidate.heldOut;
-
-  return state === 'queued' || state === 'running' ? 'Replaying' : '–';
-};
-
 const heldOutScoreShown = (candidate: SetCandidate): string | null => {
   const heldOut = candidate.heldOut;
 
@@ -115,11 +81,10 @@ type Charted = {
   readonly mark: ReplayedMark;
   readonly success: number | null;
   readonly cost: number | null;
-  readonly currency: string;
   readonly scored: number;
   readonly frontier: boolean;
   readonly heldOut: string | null;
-  readonly state: ReplayState | null;
+  readonly charted: SetCandidate['charted'];
 };
 
 const searchesOf = (
@@ -142,13 +107,10 @@ const seedsOf = (set: CandidatesSet): Charted[] => {
     mark: 'baseline' as const,
     success: search.seed.successRate,
     cost: search.seed.costPerRun,
-    currency:
-      set.candidates.find((each) => each.search?.searchId === search.searchId)
-        ?.currency ?? '',
     scored: search.seed.scored,
     frontier: true,
     heldOut: null,
-    state: 'finished' as const,
+    charted: search.seed.charted,
   }));
 };
 
@@ -162,11 +124,10 @@ const chartedOf = (set: CandidatesSet): Charted[] => [
           mark: 'baseline' as const,
           success: set.baseline.successRate,
           cost: set.baseline.costPerRun,
-          currency: set.baseline.currency,
           scored: set.baseline.scored,
           frontier: false,
           heldOut: null,
-          state: 'finished' as const,
+          charted: set.baseline.charted,
         },
       ]
     : []),
@@ -178,62 +139,32 @@ const chartedOf = (set: CandidatesSet): Charted[] => [
     mark: candidate.kind,
     success: candidate.successRate,
     cost: candidate.costPerRun,
-    currency: candidate.currency,
     scored: candidate.scored,
     frontier: candidate.onFrontier === true,
     heldOut: heldOutScoreShown(candidate),
-    state: candidate.replayState,
+    charted: candidate.charted,
   })),
 ];
 
-export const replayedChart = (
-  set: CandidatesSet,
-  currency: string | null,
-): ReplayedChart => {
-  const all = chartedOf(set);
-  const charted = all.filter((each) => each.state === 'finished');
-  const scored = charted.flatMap((each) =>
-    each.success === null ? [] : [{ ...each, success: each.success }],
+export const replayedPoints = (set: CandidatesSet): ReplayedPoint[] =>
+  chartedOf(set).flatMap((each) =>
+    each.charted === 'priced' && each.cost !== null && each.success !== null
+      ? [
+          {
+            key: each.key,
+            label: each.label,
+            setName: set.name,
+            searchId: each.searchId,
+            mark: each.mark,
+            cost: each.cost,
+            value: each.success,
+            scored: each.scored,
+            frontier: each.frontier,
+            heldOut: each.heldOut,
+          },
+        ]
+      : [],
   );
-  const uncharted = (each: Charted): UnchartedCandidate => ({
-    key: each.key,
-    label: each.label,
-    note: each.success === null ? null : percentShown(each.success),
-  });
-
-  return {
-    priced: scored.flatMap((each) =>
-      each.cost !== null && each.currency === currency
-        ? [
-            {
-              key: each.key,
-              label: each.label,
-              setName: set.name,
-              searchId: each.searchId,
-              mark: each.mark,
-              cost: each.cost,
-              value: each.success,
-              scored: each.scored,
-              frontier: each.frontier,
-              heldOut: each.heldOut,
-            },
-          ]
-        : [],
-    ),
-    unpriced: scored.filter((each) => each.cost === null).map(uncharted),
-    otherCurrency: scored
-      .filter((each) => each.cost !== null && each.currency !== currency)
-      .map(uncharted),
-    unscored: charted.filter((each) => each.success === null).map(uncharted),
-    unfinished: all
-      .filter((each) => each.state !== 'finished')
-      .map((each) => ({
-        key: each.key,
-        label: each.label,
-        note: each.state ? stateShown(each.state).toLowerCase() : 'gone',
-      })),
-  };
-};
 
 export const replayedFrontiersOf = (
   points: readonly ReplayedPoint[],
@@ -254,32 +185,21 @@ export const replayedFrontiersOf = (
   );
 };
 
-export const stationReplayedChart = (
+export const stationReplayedPoints = (
   candidates: InsightsCandidates,
   stationId: string,
   currency: string | null,
-): ReplayedChart => {
-  const charts = candidates.stations
+): ReplayedPoint[] | null => {
+  const sets = candidates.stations
     .filter((each) => each.stationId === stationId)
-    .flatMap((station) =>
-      station.sets.map((set) => replayedChart(set, currency)),
-    );
+    .flatMap((station) => station.sets);
 
-  return {
-    priced: charts.flatMap((each) => each.priced),
-    unpriced: charts.flatMap((each) => each.unpriced),
-    otherCurrency: charts.flatMap((each) => each.otherCurrency),
-    unscored: charts.flatMap((each) => each.unscored),
-    unfinished: charts.flatMap((each) => each.unfinished),
-  };
+  return sets.length === 0
+    ? null
+    : sets
+        .filter((set) => currency !== null && set.chartCurrency === currency)
+        .flatMap(replayedPoints);
 };
-
-export const chartedNothing = (chart: ReplayedChart): boolean =>
-  chart.priced.length === 0 &&
-  chart.unpriced.length === 0 &&
-  chart.otherCurrency.length === 0 &&
-  chart.unscored.length === 0 &&
-  chart.unfinished.length === 0;
 
 export const candidatesAt = (
   slug: string,
@@ -327,82 +247,8 @@ export const changeLinkOf = (
 const runsShown = (runs: number): string =>
   `${countShown(runs)} ${runs === 1 ? 'run' : 'runs'}`;
 
-export const onTheSameShown = (compared: number): string =>
-  `on the same ${runsShown(compared)}`;
-
-export const costAgainstLiveShown = (
-  candidate: SetCandidate,
-): string | null => {
-  const live = candidate.live;
-  const own = candidate.costPerRunOnCompared;
-
-  return live &&
-    live.costPerRun !== null &&
-    own !== null &&
-    live.currency === candidate.currency
-    ? `cost ${spentIn(own, candidate.currency)} vs live ${spentIn(live.costPerRun, live.currency)} a run on the same ${runsShown(candidate.compared)}`
-    : null;
-};
-
-export const comparedShown = (candidate: SetCandidate): string => {
-  if (candidate.regressions === null) {
-    return 'No baseline to compare with';
-  }
-  if (candidate.compared === 0) {
-    return 'No runs compared yet';
-  }
-
-  return `${regressionsShown(candidate.regressions)} over ${runsShown(candidate.compared)} compared`;
-};
-
 export const tasksShown = (tasks: number, runs: number): string =>
   `${countShown(tasks)} ${tasks === 1 ? 'task' : 'tasks'}${runs === tasks ? '' : ` (${runsShown(runs)})`}`;
-
-const DAY_MS = 86_400_000;
-
-const utcDay = (at: number): number => Math.floor(at / DAY_MS);
-
-const daysSince = (at: string, now: Date): number =>
-  Math.max(0, utcDay(now.getTime()) - utcDay(new Date(at).getTime()));
-
-const agoShown = (days: number): string => {
-  if (days === 0) {
-    return 'today';
-  }
-
-  return days === 1 ? '1 day ago' : `${countShown(days)} days ago`;
-};
-
-const endedShown = (newest: number, oldest: number): string => {
-  if (newest === oldest) {
-    return `ended ${agoShown(newest)}`;
-  }
-
-  return newest === 0
-    ? `ended today to ${agoShown(oldest)}`
-    : `ended ${countShown(newest)}–${agoShown(oldest)}`;
-};
-
-export const healthShown = (health: SetHealth, now: Date): string => {
-  if (health.tasks === 0) {
-    return 'No tasks yet';
-  }
-
-  return [
-    tasksShown(health.tasks, health.runs),
-    ...(health.oldestRunEndedAt && health.newestRunEndedAt
-      ? [
-          endedShown(
-            daysSince(health.newestRunEndedAt, now),
-            daysSince(health.oldestRunEndedAt, now),
-          ),
-        ]
-      : []),
-    ...(health.lastAddedAt
-      ? [`last added ${agoShown(daysSince(health.lastAddedAt, now))}`]
-      : []),
-  ].join(' · ');
-};
 
 export const replayedNote = (points: readonly ReplayedPoint[]): string => {
   const scored = Math.max(0, ...points.map((each) => each.scored));
@@ -412,48 +258,6 @@ export const replayedNote = (points: readonly ReplayedPoint[]): string => {
 
 export const CANDIDATES_TRUNCATED =
   'Only the latest replays in this period are counted.';
-
-export const rankedCandidates = (set: CandidatesSet): SetCandidate[] =>
-  [...set.candidates].sort(
-    (a, b) =>
-      (b.againstLive?.gain ?? Number.NEGATIVE_INFINITY) -
-      (a.againstLive?.gain ?? Number.NEGATIVE_INFINITY),
-  );
-
-export type ComparedRates = {
-  readonly own: number | null;
-  readonly interval: SetCandidate['interval'];
-  readonly live: number | null;
-  readonly runs: number;
-};
-
-export const comparedRates = (candidate: SetCandidate): ComparedRates =>
-  candidate.live && candidate.compared > 0
-    ? {
-        own: candidate.successRateOnCompared,
-        interval: candidate.intervalOnCompared,
-        live: candidate.live.successRate,
-        runs: candidate.compared,
-      }
-    : {
-        own: candidate.successRate,
-        interval: candidate.interval,
-        live: null,
-        runs: candidate.scored,
-      };
-
-export type ComparedCosts = {
-  readonly own: number | null;
-  readonly live: number | null;
-};
-
-export const comparedCosts = (candidate: SetCandidate): ComparedCosts => {
-  const live = candidate.live;
-
-  return live && candidate.compared > 0 && live.currency === candidate.currency
-    ? { own: candidate.costPerRunOnCompared, live: live.costPerRun }
-    : { own: candidate.costPerRun, live: null };
-};
 
 export const heldOutBrief = (candidate: SetCandidate): string => {
   const heldOut = candidate.heldOut;
@@ -469,6 +273,11 @@ export const heldOutBrief = (candidate: SetCandidate): string => {
     ? 'Replaying'
     : '–';
 };
+
+export const costBasisNote = ({ shown }: SetCandidate): string | null =>
+  shown.costBasis === shown.basis
+    ? null
+    : 'Over all its scored runs: live is priced in another currency';
 
 export const originShown = (candidate: SetCandidate): string =>
   candidate.kind === 'proposed' ? 'Proposed' : 'Search';

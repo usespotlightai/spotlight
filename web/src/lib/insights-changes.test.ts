@@ -20,6 +20,7 @@ const setup = (over: Partial<SetupOutcome>): SetupOutcome =>
     tally: { runs: 5 },
     costPerRun: 1,
     currency: 'USD',
+    priced: true,
     outcomes: {
       accepted: 0.5,
       sent_back: 0.2,
@@ -79,8 +80,8 @@ describe('setupPoints', () => {
     const points = setupPoints(
       [
         setup({ frontier: ['accepted'] }),
-        setup({ model: 'opus', costPerRun: null }),
-        setup({ model: 'haiku', currency: 'EUR' }),
+        setup({ model: 'opus', costPerRun: null, priced: false }),
+        setup({ model: 'haiku', currency: 'EUR', priced: false }),
         setup({
           model: 'judged',
           outcomes: { ...setup({}).outcomes, accepted: null },
@@ -88,7 +89,6 @@ describe('setupPoints', () => {
       ],
       'accepted',
       HARNESSES,
-      'USD',
     );
 
     expect(points).toEqual([

@@ -2,7 +2,7 @@ import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
 
 type TileSparklineProps = {
   label: string;
-  values: readonly number[];
+  values: readonly (number | null)[];
 };
 
 export function TileSparkline({ label, values }: TileSparklineProps) {

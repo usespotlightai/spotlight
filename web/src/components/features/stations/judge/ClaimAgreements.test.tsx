@@ -9,8 +9,14 @@ describe('ClaimAgreements', () => {
         claims={['Leaves the tests passing']}
         trust={0.6}
         agreements={[
-          { index: 0, pairs: 12, observed: 0.75, kappa: 0.5 },
-          { index: 1, pairs: 0, observed: null, kappa: null },
+          {
+            index: 0,
+            pairs: 12,
+            observed: 0.75,
+            kappa: 0.5,
+            reading: 'moderate',
+          },
+          { index: 1, pairs: 0, observed: null, kappa: null, reading: null },
         ]}
       />,
     );

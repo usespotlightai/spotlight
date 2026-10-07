@@ -7,7 +7,7 @@ import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsShipping } from '@/hooks/api/useInsightsShipping';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
 import { PULL_REQUESTS_TRUNCATED } from '@/lib/insights-pull-requests';
-import { shippedNothing, shippingOf } from '@/lib/insights-shipping';
+import { shippingOf } from '@/lib/insights-shipping';
 import { failed, loading } from '@/lib/query';
 
 type ShippingTabProps = {
@@ -38,9 +38,7 @@ export function ShippingTab({ slug, teamId, period, names }: ShippingTabProps) {
     );
   }
 
-  const shipping = shippingOf(insights.data, names);
-
-  if (shippedNothing(shipping)) {
+  if (!insights.data.shippedAny) {
     return (
       <InsightsSection title={FIRST_SECTION}>
         <NoPullRequests slug={slug} teamId={teamId} />
@@ -50,7 +48,7 @@ export function ShippingTab({ slug, teamId, period, names }: ShippingTabProps) {
 
   return (
     <ShippingPanels
-      shipping={shipping}
+      shipping={shippingOf(insights.data, names)}
       note={
         insights.data.truncated && (
           <TruncatedNote said={PULL_REQUESTS_TRUNCATED} />

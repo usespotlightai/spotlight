@@ -70,9 +70,17 @@ const ALERT = {
   },
   value: 0.4,
   baseline: 0.2,
+  change: {
+    unit: 'points',
+    by: 0.2,
+    fromZero: false,
+    direction: 'up',
+    tone: 'bad',
+  },
   runId: 'run_2',
   taskId: 'task_1',
   raisedAt: '2026-09-30T10:00:00.000Z',
+  insightsPeriod: '7d',
   recoveredAt: null,
   currency: 'USD',
   series: [
@@ -162,11 +170,8 @@ describe('StationAlertCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('links to the station, to it on Insights over a period that holds the alert, and to improving it', () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-01T10:00:00.000Z'));
+  it('links to the station, to it on Insights over the period the alert says, and to improving it', () => {
     showing();
-    vi.useRealTimers();
 
     expect(
       screen.getByRole('link', { name: 'Open the station' }),

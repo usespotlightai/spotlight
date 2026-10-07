@@ -4,9 +4,10 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { Segmented } from '@/components/shared/Segmented';
-import { deltaOf, lasted, lastedOrNone } from '@/lib/insights';
+import { changeShown, lasted, lastedOrNone } from '@/lib/insights';
 import {
   type ByAuthor,
+  type ByAuthorChanges,
   DEFAULT_PERCENTILE,
   type MergeDay,
   mergePoints,
@@ -22,11 +23,11 @@ const AUTHORS = [
 
 type TimeToMergeProps = {
   now: ByAuthor;
-  before: ByAuthor;
+  changes: ByAuthorChanges;
   days: readonly MergeDay[];
 };
 
-export function TimeToMerge({ now, before, days }: TimeToMergeProps) {
+export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
   const [smoothing, setSmoothing] = useState<Smoothing>('rolling');
 
@@ -48,11 +49,7 @@ export function TimeToMerge({ now, before, days }: TimeToMergeProps) {
     >
       <dl className="flex flex-wrap gap-x-8 gap-y-3">
         {AUTHORS.map((author) => {
-          const delta = deltaOf(
-            now[author.key][percentile],
-            before[author.key][percentile],
-            'down',
-          );
+          const delta = changeShown(changes[author.key][percentile]);
 
           return (
             <div key={author.key} className="flex flex-col gap-1">

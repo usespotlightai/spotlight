@@ -43,7 +43,7 @@ describe('flowOf', () => {
       ],
     });
 
-    const [first, second] = flowOf(history, PERIOD.current).stations;
+    const [first, second] = flowOf(history, PERIOD).stations;
 
     expect(first).toMatchObject({
       stationId: 'station_1',
@@ -74,7 +74,7 @@ describe('flowOf', () => {
       ],
     });
 
-    expect(flowOf(history, PERIOD.current).stations[0]).toMatchObject({
+    expect(flowOf(history, PERIOD).stations[0]).toMatchObject({
       inbox: { p50: 30 * MINUTE, count: 1 },
       asks: 2,
       unanswered: 1,
@@ -97,7 +97,7 @@ describe('flowOf', () => {
       ],
     });
 
-    expect(flowOf(history, PERIOD.current).delivery).toEqual({
+    expect(flowOf(history, PERIOD).delivery).toEqual({
       toPullRequest: { p50: 150 * MINUTE, p90: 180 * MINUTE, count: 2 },
       toFirstReview: { p50: 60 * MINUTE, p90: 60 * MINUTE, count: 1 },
       toMerge: { p50: 75 * MINUTE, p90: 120 * MINUTE, count: 2 },
@@ -107,6 +107,74 @@ describe('flowOf', () => {
       openedTaskIds: ['task_1', 'task_2'],
       reviewedTaskIds: ['task_1'],
       mergedTaskIds: ['task_1', 'task_2'],
+      changes: {
+        opened: expect.objectContaining({ fromZero: true, tone: 'good' }),
+        reviewed: expect.objectContaining({ fromZero: true, tone: 'good' }),
+        merged: expect.objectContaining({ fromZero: true, tone: 'good' }),
+      },
+    });
+  });
+
+  it('changes each station’s tasks against the period before, from none where it ran no tasks then', () => {
+    const lastWeek = new Date('2026-09-22T09:00:00.000Z');
+    const history = historyOf({
+      records: [
+        endedRecord('run_1', { taskId: 'task_1', endedAt: at(9) }),
+        endedRecord('run_2', { taskId: 'task_2', endedAt: at(10) }),
+        endedRecord('run_3', {
+          taskId: 'task_3',
+          stationId: 'station_2',
+          endedAt: at(11),
+        }),
+        endedRecord('run_4', { taskId: 'task_4', endedAt: lastWeek }),
+        endedRecord('run_5', { taskId: 'task_5', endedAt: lastWeek }),
+        endedRecord('run_6', { taskId: 'task_6', endedAt: lastWeek }),
+        endedRecord('run_7', { taskId: 'task_7', endedAt: lastWeek }),
+      ],
+      deliveries: [
+        deliveredOf('task_4', { openedAt: lastWeek, closedAt: lastWeek }),
+        deliveredOf('task_1', { openedAt: at(10), closedAt: at(13) }),
+      ],
+    });
+
+    const flow = flowOf(history, PERIOD);
+
+    expect(
+      flow.stations.map(({ stationId, tasks, tasksBefore, tasksChange }) => ({
+        stationId,
+        tasks,
+        tasksBefore,
+        tasksChange,
+      })),
+    ).toEqual([
+      {
+        stationId: 'station_1',
+        tasks: 2,
+        tasksBefore: 4,
+        tasksChange: {
+          unit: 'percent',
+          by: -0.5,
+          fromZero: false,
+          direction: 'down',
+          tone: 'flat',
+        },
+      },
+      {
+        stationId: 'station_2',
+        tasks: 1,
+        tasksBefore: 0,
+        tasksChange: {
+          unit: 'percent',
+          by: null,
+          fromZero: true,
+          direction: 'up',
+          tone: 'flat',
+        },
+      },
+    ]);
+    expect(flow.delivery.changes.merged).toMatchObject({
+      direction: 'same',
+      tone: 'flat',
     });
   });
 });

@@ -7,8 +7,8 @@ import {
 import { SpreadShown } from '@/components/features/insights/SpreadShown';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
+  changeShown,
   countShown,
-  deltaOf,
   medianShown,
   type StationFlow,
   type StationNames,
@@ -21,7 +21,6 @@ type StationWaitsTableProps = {
   slug: string;
   teamId: string;
   stations: readonly StationFlow[];
-  before: readonly StationFlow[];
   names: StationNames;
 };
 
@@ -29,12 +28,8 @@ export function StationWaitsTable({
   slug,
   teamId,
   stations,
-  before,
   names,
 }: StationWaitsTableProps) {
-  const tasksBefore = (stationId: string) =>
-    before.find((each) => each.stationId === stationId)?.tasks ?? 0;
-
   const columns: InsightsColumn<StationFlow>[] = [
     {
       id: 'station',
@@ -53,11 +48,7 @@ export function StationWaitsTable({
       header: 'Tasks',
       numeric: true,
       cell: (station) => {
-        const delta = deltaOf(
-          station.tasks,
-          tasksBefore(station.stationId),
-          'neither',
-        );
+        const delta = changeShown(station.tasksChange);
 
         return (
           <span className="inline-flex items-center gap-2">

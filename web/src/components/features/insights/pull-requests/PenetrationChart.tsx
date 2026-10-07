@@ -9,7 +9,7 @@ import {
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { shareShown } from '@/lib/insights';
-import type { WeekBar } from '@/lib/insights-pull-requests';
+import type { WeekShare } from '@/lib/insights-pull-requests';
 import { dayShown } from '@/lib/judge';
 
 const HEIGHT = 180;
@@ -28,7 +28,7 @@ const Said = ({
 }: {
   placement: TipPlacement;
   active?: boolean;
-  payload?: { payload: WeekBar }[];
+  payload?: { payload: WeekShare }[];
 }) => {
   const bar = payload?.[0]?.payload;
 
@@ -51,7 +51,7 @@ const Said = ({
   );
 };
 
-export function PenetrationChart({ bars }: { bars: readonly WeekBar[] }) {
+export function PenetrationChart({ weeks }: { weeks: readonly WeekShare[] }) {
   const cursor = useCursorTooltip();
   return (
     <figure data-slot="penetration-chart" className="flex flex-col gap-1">
@@ -72,7 +72,7 @@ export function PenetrationChart({ bars }: { bars: readonly WeekBar[] }) {
         <div {...cursor.area}>
           <ResponsiveContainer width="100%" height={HEIGHT}>
             <BarChart
-              data={[...bars]}
+              data={[...weeks]}
               margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
             >
               <XAxis

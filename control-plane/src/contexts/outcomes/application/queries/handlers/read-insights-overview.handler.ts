@@ -1,5 +1,5 @@
 import {
-  configMarkerDtoOf,
+  dayOutputDtoOf,
   headlineDtoOf,
   type InsightsOverviewDto,
   namedOf,
@@ -13,7 +13,10 @@ import {
   dailyOutputOf,
   outputCurrencyOf,
 } from '@outcomes/domain/services/daily-output';
-import { headlineOf } from '@outcomes/domain/services/headline';
+import {
+  headlineChangesOf,
+  headlineOf,
+} from '@outcomes/domain/services/headline';
 import { stationsWorthImproving } from '@outcomes/domain/services/station-ranking';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -37,24 +40,25 @@ export class ReadInsightsOverviewHandler
       );
       const { period, history, truncated } = held;
       const headline = headlineOf(history, period.current);
-      const before = headlineOf(history, period.previous);
-      const ids = [...headline.peopleIds, ...before.peopleIds];
-      const output = dailyOutputOf(history, period);
+      const ids = headline.peopleIds;
+      const output = dailyOutputOf(
+        history,
+        period,
+        configMarkersOf(history, period, await this.histories.carriedOn(held)),
+      );
       const currency = outputCurrencyOf(output);
 
       return {
         period: periodOf(period),
         truncated,
         headline: headlineDtoOf(headline),
-        before: headlineDtoOf(before),
-        output,
+        changes: headlineChangesOf(
+          headline,
+          headlineOf(history, period.previous),
+        ),
+        output: output.map(dayOutputDtoOf),
         outputCurrency: currency.currency,
         outputMixedCurrencies: currency.mixedCurrencies,
-        configChanges: configMarkersOf(
-          history,
-          period,
-          await this.histories.carriedOn(held),
-        ).map(configMarkerDtoOf),
         worthImproving: stationsWorthImproving(history, period),
         people: namedOf(ids, await this.people.namesOf(ids)),
       };

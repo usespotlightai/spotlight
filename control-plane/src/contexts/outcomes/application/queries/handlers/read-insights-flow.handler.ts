@@ -25,8 +25,7 @@ export class ReadInsightsFlowHandler
       return {
         period: periodOf(period),
         truncated,
-        flow: flowDtoOf(flowOf(history, period.current)),
-        before: flowDtoOf(flowOf(history, period.previous)),
+        flow: flowDtoOf(flowOf(history, period)),
       };
     } catch (error) {
       rethrowAsFault(error);

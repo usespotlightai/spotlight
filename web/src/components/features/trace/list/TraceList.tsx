@@ -48,7 +48,7 @@ export function TraceList({
     );
   }
 
-  const worked = traces.data ?? [];
+  const worked = traces.data?.traces ?? [];
 
   if (worked.length === 0) {
     return (
@@ -83,7 +83,13 @@ export function TraceList({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <TraceVolume traces={worked} range={range} />
+      {traces.data && (
+        <TraceVolume
+          volume={traces.data.volume}
+          from={traces.data.from}
+          to={traces.data.to}
+        />
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
         <TraceHead />

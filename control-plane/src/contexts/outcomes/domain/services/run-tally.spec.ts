@@ -5,7 +5,13 @@ import {
   TEAM,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
-import { runTally } from '@outcomes/domain/services/run-tally';
+import {
+  runTally,
+  tallyChangesOf,
+  tallyCountedOf,
+  tallySeenOf,
+  tallySharesOf,
+} from '@outcomes/domain/services/run-tally';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -49,6 +55,7 @@ describe('runTally', () => {
       runs: 5,
       withdrawn: 0,
       failed: 1,
+      failedShare: 0.2,
       stopped: 1,
       checksPassed: 1,
       checksFailed: 1,
@@ -170,6 +177,7 @@ describe('runTally', () => {
       runs: 0,
       withdrawn: 0,
       failed: 0,
+      failedShare: null,
       stopped: 0,
       checksPassed: 0,
       checksFailed: 0,
@@ -182,6 +190,115 @@ describe('runTally', () => {
       mixedCurrencies: false,
       medianMs: null,
       p90Ms: null,
+    });
+  });
+});
+
+describe('tallyChangesOf', () => {
+  const tallied = (failures: number, others: number) =>
+    runTally(
+      [
+        ...Array.from({ length: failures }, (_, index) =>
+          endedRecord(`failed_${index}`, { ending: 'failed' }),
+        ),
+        ...Array.from({ length: others }, (_, index) =>
+          endedRecord(`done_${index}`),
+        ),
+      ],
+      [],
+    );
+
+  it('moves each count by a relative percent, with fewer failures good and more runs neither', () => {
+    const changes = tallyChangesOf(tallied(1, 5), tallied(2, 2));
+
+    expect(changes.runs).toMatchObject({
+      unit: 'percent',
+      by: 0.5,
+      direction: 'up',
+      tone: 'flat',
+    });
+    expect(changes.failed).toMatchObject({
+      by: -0.5,
+      direction: 'down',
+      tone: 'good',
+    });
+    expect(changes.merged?.direction).toBe('same');
+    expect(changes.median).toBeNull();
+    expect(changes.cost).toBeNull();
+  });
+});
+
+describe('tallySeenOf', () => {
+  it('sees a count above zero in either period, and none that stayed at zero in both', () => {
+    const now = runTally(
+      [endedRecord('run_1').actedOn(NextAct.of('closed', AT))],
+      [],
+    );
+    const before = runTally(
+      [endedRecord('run_2').actedOn(NextAct.of('sent-back', AT))],
+      [],
+    );
+
+    expect(tallySeenOf(now, before)).toEqual({
+      accepted: true,
+      sentBack: true,
+      merged: false,
+    });
+  });
+});
+
+describe('tallySharesOf', () => {
+  it('shares checks passed among runs checked, and acceptances and merges among runs', () => {
+    const tally = runTally(
+      [
+        endedRecord('run_1', { taskId: 'task_1' })
+          .checked('passed', AT)
+          .actedOn(NextAct.of('closed', AT)),
+        endedRecord('run_2').checked('failed', AT),
+        endedRecord('run_3'),
+        endedRecord('run_4'),
+      ],
+      [merged('task_1')],
+    );
+
+    expect(tallySharesOf(tally)).toEqual({
+      checksPassed: 0.5,
+      accepted: 0.25,
+      merged: 0.25,
+    });
+  });
+
+  it('has no shares where nothing ran or nothing was checked', () => {
+    expect(tallySharesOf(runTally([], []))).toEqual({
+      checksPassed: null,
+      accepted: null,
+      merged: null,
+    });
+  });
+});
+
+describe('tallyCountedOf', () => {
+  it('marks the counts above zero', () => {
+    expect(
+      tallyCountedOf(
+        runTally(
+          [
+            endedRecord('run_1', { ending: 'failed' }),
+            endedRecord('run_2').actedOn(NextAct.of('sent-back', AT)),
+          ],
+          [],
+        ),
+      ),
+    ).toEqual({
+      failed: true,
+      stopped: false,
+      checksPassed: false,
+      checksFailed: false,
+      accepted: false,
+      sentBack: true,
+      handedOn: false,
+      merged: false,
+      withdrawn: false,
     });
   });
 });

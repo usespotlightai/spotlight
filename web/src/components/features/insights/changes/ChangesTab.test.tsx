@@ -170,6 +170,7 @@ const SETUPS = {
       tally: tally(),
       costPerRun: 0.9,
       currency: 'USD',
+      priced: true,
       outcomes: {
         accepted: 0.6,
         sent_back: 0.1,
@@ -189,6 +190,7 @@ const SETUPS = {
       tally: tally({ runs: 30 }),
       costPerRun: 1.2,
       currency: 'USD',
+      priced: true,
       outcomes: {
         accepted: 0.4,
         sent_back: 0.3,

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import {
   Bar,
   BarChart,
@@ -10,9 +9,8 @@ import {
 import { TraceLegend } from '@/components/features/trace/list/TraceLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
-import { bucketMsOf, windowOf } from '@/lib/range';
-import type { Traced } from '@/lib/trace-list';
-import { type Bucket, bucketed, spanned } from '@/lib/trace-list';
+import type { TraceVolumeBucketResponseDto } from '@/lib/api';
+import { spanned } from '@/lib/trace-list';
 
 const HEIGHT = 180;
 
@@ -22,7 +20,7 @@ const TOP_ROOM = 8;
 
 const DAY_MS = 86_400_000;
 
-const tickOf = (at: number, spanMs: number): string =>
+const tickOf = (at: string, spanMs: number): string =>
   spanMs <= DAY_MS
     ? new Date(at).toLocaleTimeString(undefined, {
         hour: '2-digit',
@@ -36,7 +34,7 @@ const tickOf = (at: number, spanMs: number): string =>
 type DateTickProps = {
   x?: number | string;
   y?: number | string;
-  payload?: { value: number };
+  payload?: { value: string };
   index?: number;
   visibleTicksCount?: number;
   spanMs: number;
@@ -71,7 +69,7 @@ const Said = ({
 }: {
   placement: TipPlacement;
   active?: boolean;
-  payload?: { payload: Bucket }[];
+  payload?: { payload: TraceVolumeBucketResponseDto }[];
 }) => {
   const bucket = payload?.[0]?.payload;
 
@@ -95,20 +93,16 @@ const Said = ({
 };
 
 export function TraceVolume({
-  traces,
-  range,
+  volume,
+  from,
+  to,
 }: {
-  traces: readonly Traced[];
-  range: string;
+  volume: readonly TraceVolumeBucketResponseDto[];
+  from: string;
+  to: string;
 }) {
-  const { buckets, spanMs } = useMemo(() => {
-    const shown = windowOf(range);
-
-    return {
-      buckets: bucketed(traces, shown, bucketMsOf(range)),
-      spanMs: shown.to - shown.from,
-    };
-  }, [traces, range]);
+  const buckets = [...volume];
+  const spanMs = Date.parse(to) - Date.parse(from);
   const cursor = useCursorTooltip();
   const most = Math.max(
     ...buckets.map((each) => Math.max(each.faults, each.count)),
@@ -138,7 +132,7 @@ export function TraceVolume({
               tickLine={false}
               axisLine={{ stroke: 'var(--chart-grid)' }}
               minTickGap={32}
-              tickFormatter={(at: number) => tickOf(at, spanMs)}
+              tickFormatter={(at: string) => tickOf(at, spanMs)}
               tick={<DateTick spanMs={spanMs} />}
             />
 

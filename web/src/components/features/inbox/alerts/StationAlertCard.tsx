@@ -100,7 +100,7 @@ export function StationAlertCard({
         >
           Open the station
         </PillLink>
-        <PillLink to={alertOnInsightsPath(slug, teamId, crossed, new Date())}>
+        <PillLink to={alertOnInsightsPath(slug, teamId, crossed)}>
           Open in Insights
         </PillLink>
         {named && (

@@ -1,8 +1,11 @@
 import type {
+  ByAuthorChangesResponseDto,
   ByAuthorResponseDto,
   ByTypeResponseDto,
+  FlowStageResponseDto,
   InsightsShippingResponseDto,
   PercentilesResponseDto,
+  RoundsCountResponseDto,
   StageTimesResponseDto,
 } from '@/lib/api';
 import { type StationNames, stationShown } from '@/lib/insights';
@@ -28,6 +31,8 @@ export type ByAuthor = {
   readonly people: Spreads;
 };
 
+export type ByAuthorChanges = ByAuthorChangesResponseDto;
+
 export type MergeDay = {
   readonly day: string;
   readonly daily: ByAuthor;
@@ -47,8 +52,9 @@ export type Rounds = (typeof ROUNDS)[number];
 export type DepthWeek = {
   readonly week: string;
   readonly merged: number;
-  readonly rounds: Readonly<Record<Rounds, number>>;
-};
+} & Readonly<Record<Rounds, number | null>>;
+
+export type RoundsCount = RoundsCountResponseDto;
 
 export type ReviewDay = {
   readonly day: string;
@@ -69,10 +75,14 @@ export type ReviewBot = {
 
 export type InsightsShipping = {
   readonly toMerge: ByAuthor;
-  readonly toMergeBefore: ByAuthor;
+  readonly toMergeChanges: ByAuthorChanges;
   readonly mergeDays: readonly MergeDay[];
   readonly types: readonly TypeMerge[];
+  readonly slowestFirst: Readonly<
+    Record<Percentile, readonly PullRequestType[]>
+  >;
   readonly depth: readonly DepthWeek[];
+  readonly depthTotals: readonly RoundsCount[];
   readonly reviewDays: readonly ReviewDay[];
   readonly bots: readonly ReviewBot[];
   readonly pipeline: PipelineFlow;
@@ -96,35 +106,12 @@ export const mergePoints = (
   }));
 
 export const slowestFirst = (
-  types: readonly TypeMerge[],
+  shipping: Pick<InsightsShipping, 'types' | 'slowestFirst'>,
   percentile: Percentile,
 ): TypeMerge[] =>
-  [...types].sort(
-    (one, other) =>
-      (other.toMerge.spotlight[percentile] ?? 0) -
-      (one.toMerge.spotlight[percentile] ?? 0),
+  shipping.slowestFirst[percentile].flatMap(
+    (type) => shipping.types.find((each) => each.type === type) ?? [],
   );
-
-export type DepthBar = {
-  readonly week: string;
-  readonly merged: number;
-} & Readonly<Record<Rounds, number>>;
-
-export const depthBars = (weeks: readonly DepthWeek[]): DepthBar[] =>
-  weeks.map((each) => {
-    const total = ROUNDS.reduce((sum, rounds) => sum + each.rounds[rounds], 0);
-
-    return {
-      week: each.week,
-      merged: each.merged,
-      ...Object.fromEntries(
-        ROUNDS.map((rounds) => [
-          rounds,
-          total === 0 ? 0 : each.rounds[rounds] / total,
-        ]),
-      ),
-    } as DepthBar;
-  });
 
 const ROUNDS_SAID: Record<Rounds, string> = {
   '0': 'No review',
@@ -191,33 +178,22 @@ export const partShown = (part: StationPart): string => PARTS_SAID[part];
 
 type StageTimes = {
   readonly total: Spreads;
-  readonly parts?: Readonly<Record<StationPart, Spreads>>;
+  readonly parts: Readonly<Record<StationPart, Spreads>> | null;
+  readonly jam: Readonly<Record<Percentile, number>>;
+  readonly worst: Readonly<Record<Percentile, boolean>>;
+  readonly longestPart: Readonly<Record<Percentile, StationPart | null>> | null;
 };
 
-export type ByType = {
+type ByType = {
   readonly all: StageTimes;
   readonly types: Readonly<Partial<Record<PullRequestType, StageTimes>>>;
 };
 
-const REVIEW_STAGES = ['awaitingReview', 'inReview', 'awaitingMerge'] as const;
-
-type ReviewStage = (typeof REVIEW_STAGES)[number];
-
-type StationStage = {
-  readonly stationId: string;
-  readonly name: string;
+type PipelineStage = {
+  readonly id: string;
+  readonly label: string;
+  readonly station: boolean;
   readonly times: ByType;
-};
-
-export type PipelineFlow = {
-  readonly merged: number;
-  readonly types: readonly {
-    readonly type: PullRequestType;
-    readonly merged: number;
-  }[];
-  readonly coding: ByType;
-  readonly stations: readonly StationStage[];
-  readonly review: Readonly<Record<ReviewStage, ByType>>;
 };
 
 export type FlowLayout = 'stations' | 'stages';
@@ -227,7 +203,20 @@ export const FLOW_LAYOUTS: readonly { id: FlowLayout; label: string }[] = [
   { id: 'stages', label: 'Stages' },
 ];
 
-const REVIEW_SAID: Record<ReviewStage, string> = {
+export type PipelineFlow = {
+  readonly merged: number;
+  readonly types: readonly {
+    readonly type: PullRequestType;
+    readonly merged: number;
+  }[];
+  readonly layouts: Readonly<Record<FlowLayout, readonly PipelineStage[]>>;
+};
+
+type StageKind = FlowStageResponseDto['kind'];
+
+const STAGES_SAID: Record<StageKind, string> = {
+  coding: 'Coding',
+  station: 'Station',
   awaitingReview: 'Awaiting review',
   inReview: 'In review',
   awaitingMerge: 'Awaiting merge',
@@ -240,77 +229,35 @@ export type FlowStage = {
   readonly ms: number | null;
   readonly parts: Readonly<Record<StationPart, number | null>> | null;
   readonly jam: number;
+  readonly worst: boolean;
+  readonly longestPart: StationPart | null;
 };
-
-const timesFor = (
-  times: ByType,
-  type: PullRequestType | null,
-): StageTimes | null => (type ? (times.types[type] ?? null) : times.all);
 
 export const flowStages = (
   flow: PipelineFlow,
   layout: FlowLayout,
   percentile: Percentile,
   type: PullRequestType | null,
-): FlowStage[] => {
-  const before =
-    layout === 'stations'
-      ? flow.stations.map((each) => ({
-          id: each.stationId,
-          label: each.name,
-          station: true,
-          times: each.times,
-        }))
-      : [{ id: 'coding', label: 'Coding', station: false, times: flow.coding }];
-
-  const stages = [
-    ...before,
-    ...REVIEW_STAGES.map((stage) => ({
-      id: stage,
-      label: REVIEW_SAID[stage],
-      station: false,
-      times: flow.review[stage],
-    })),
-  ].map((each) => {
-    const times = timesFor(each.times, type);
+): FlowStage[] =>
+  flow.layouts[layout].map((stage) => {
+    const times = type ? (stage.times.types[type] ?? null) : stage.times.all;
     const parts = times?.parts;
 
     return {
-      id: each.id,
-      label: each.label,
-      station: each.station,
+      id: stage.id,
+      label: stage.label,
+      station: stage.station,
       ms: times?.total[percentile] ?? null,
       parts: parts
         ? (Object.fromEntries(
             STATION_PARTS.map((part) => [part, parts[part][percentile]]),
           ) as Record<StationPart, number | null>)
         : null,
+      jam: times?.jam[percentile] ?? 0,
+      worst: times?.worst[percentile] ?? false,
+      longestPart: times?.longestPart?.[percentile] ?? null,
     };
   });
-
-  const most = Math.max(0, ...stages.map((each) => each.ms ?? 0));
-
-  return stages.map((each) => ({
-    ...each,
-    jam: most === 0 ? 0 : (each.ms ?? 0) / most,
-  }));
-};
-
-export const worstJam = (stages: readonly FlowStage[]): FlowStage | null =>
-  stages.reduce<FlowStage | null>(
-    (worst, each) =>
-      each.ms !== null && (worst?.ms ?? -1) < each.ms ? each : worst,
-    null,
-  );
-
-export const longestPart = (stage: FlowStage): StationPart | null =>
-  stage.parts
-    ? STATION_PARTS.reduce((longest, part) =>
-        (stage.parts?.[part] ?? 0) > (stage.parts?.[longest] ?? 0)
-          ? part
-          : longest,
-      )
-    : null;
 
 const spreadsOf = (percentiles: PercentilesResponseDto): Spreads => ({
   p50: percentiles.p50Ms,
@@ -324,17 +271,19 @@ const byAuthorOf = (byAuthor: ByAuthorResponseDto): ByAuthor => ({
   people: spreadsOf(byAuthor.people),
 });
 
-const stageTimesOf = (times: StageTimesResponseDto): StageTimes =>
-  times.parts
+const stageTimesOf = (times: StageTimesResponseDto): StageTimes => ({
+  total: spreadsOf(times.total),
+  parts: times.parts
     ? {
-        total: spreadsOf(times.total),
-        parts: {
-          queued: spreadsOf(times.parts.queued),
-          running: spreadsOf(times.parts.running),
-          inbox: spreadsOf(times.parts.inbox),
-        },
+        queued: spreadsOf(times.parts.queued),
+        running: spreadsOf(times.parts.running),
+        inbox: spreadsOf(times.parts.inbox),
       }
-    : { total: spreadsOf(times.total) };
+    : null,
+  jam: times.jam,
+  worst: times.worst,
+  longestPart: times.longestPart,
+});
 
 const byTypeOf = (byType: ByTypeResponseDto): ByType => ({
   all: stageTimesOf(byType.all),
@@ -343,22 +292,33 @@ const byTypeOf = (byType: ByTypeResponseDto): ByType => ({
   ),
 });
 
-const roundsOf = (
-  rounds: InsightsShippingResponseDto['depth'][number]['rounds'],
-): Record<Rounds, number> =>
+const sharesOf = (
+  rounds: readonly RoundsCount[],
+): Record<Rounds, number | null> =>
   Object.fromEntries(
     ROUNDS.map((each) => [
       each,
-      rounds.find((counted) => counted.rounds === each)?.merged ?? 0,
+      rounds.find((counted) => counted.rounds === each)?.share ?? null,
     ]),
-  ) as Record<Rounds, number>;
+  ) as Record<Rounds, number | null>;
+
+const pipelineStageOf =
+  (names: StationNames) =>
+  (stage: FlowStageResponseDto): PipelineStage => ({
+    id: stage.stationId ?? stage.kind,
+    label: stage.stationId
+      ? stationShown(names, stage.stationId)
+      : STAGES_SAID[stage.kind],
+    station: stage.kind === 'station',
+    times: byTypeOf(stage.times),
+  });
 
 export const shippingOf = (
   response: InsightsShippingResponseDto,
   names: StationNames,
 ): InsightsShipping => ({
   toMerge: byAuthorOf(response.toMerge),
-  toMergeBefore: byAuthorOf(response.toMergeBefore),
+  toMergeChanges: response.toMergeChanges,
   mergeDays: response.mergeDays.map((each) => ({
     day: each.day,
     daily: byAuthorOf(each.daily),
@@ -369,11 +329,13 @@ export const shippingOf = (
     merged: each.merged,
     toMerge: byAuthorOf(each.toMerge),
   })),
+  slowestFirst: response.slowestFirst,
   depth: response.depth.map((each) => ({
     week: each.week,
     merged: each.merged,
-    rounds: roundsOf(each.rounds),
+    ...sharesOf(each.rounds),
   })),
+  depthTotals: response.depthTotals,
   reviewDays: response.reviewDays.map((each) => ({
     day: each.day,
     toFirstReview: {
@@ -387,23 +349,9 @@ export const shippingOf = (
   pipeline: {
     merged: response.pipeline.merged,
     types: response.pipeline.types,
-    coding: byTypeOf(response.pipeline.coding),
-    stations: response.pipeline.stations.map((each) => ({
-      stationId: each.stationId,
-      name: stationShown(names, each.stationId),
-      times: byTypeOf(each.times),
-    })),
-    review: {
-      awaitingReview: byTypeOf(response.pipeline.awaitingReview),
-      inReview: byTypeOf(response.pipeline.inReview),
-      awaitingMerge: byTypeOf(response.pipeline.awaitingMerge),
+    layouts: {
+      stations: response.pipeline.layouts.stations.map(pipelineStageOf(names)),
+      stages: response.pipeline.layouts.stages.map(pipelineStageOf(names)),
     },
   },
 });
-
-export const shippedNothing = (shipping: InsightsShipping): boolean =>
-  shipping.pipeline.merged === 0 &&
-  shipping.types.length === 0 &&
-  shipping.reviewDays.every(
-    (each) => each.awaiting === 0 && each.humanReviews === 0,
-  );

@@ -1,12 +1,20 @@
 import type { PeriodDto } from '@outcomes/application/dto/insights.dto';
-import type { Percentiles } from '@outcomes/domain/services/measures';
+import type {
+  ByPercentile,
+  Percentiles,
+} from '@outcomes/domain/services/measures';
 import type {
   ByAuthor,
+  ByAuthorChanges,
   ByType,
+  FlowLayout,
+  FlowStage,
+  FlowStageKind,
+  RoundsCount,
   Shipping,
   StageTimes,
+  StationPart,
 } from '@outcomes/domain/services/shipping';
-import type { RoundBucket } from '@outcomes/domain/services/team-pull-requests';
 import type { PullRequestType } from '@outcomes/domain/value-objects/pull-request-type';
 
 export interface PercentilesDto {
@@ -22,6 +30,8 @@ export interface ByAuthorDto {
   readonly people: PercentilesDto;
 }
 
+export type ByAuthorChangesDto = ByAuthorChanges;
+
 export interface StagePartsDto {
   readonly queued: PercentilesDto;
   readonly running: PercentilesDto;
@@ -31,6 +41,9 @@ export interface StagePartsDto {
 export interface StageTimesDto {
   readonly total: PercentilesDto;
   readonly parts: StagePartsDto | null;
+  readonly jam: ByPercentile<number>;
+  readonly worst: ByPercentile<boolean>;
+  readonly longestPart: ByPercentile<StationPart | null> | null;
 }
 
 export interface TypedStageTimesDto {
@@ -55,13 +68,12 @@ export interface TypeMergeDto {
   readonly toMerge: ByAuthorDto;
 }
 
+export type RoundsCountDto = RoundsCount;
+
 export interface DepthWeekDto {
   readonly week: string;
   readonly merged: number;
-  readonly rounds: readonly {
-    readonly rounds: RoundBucket;
-    readonly merged: number;
-  }[];
+  readonly rounds: readonly RoundsCountDto[];
 }
 
 export interface ReviewDayDto {
@@ -79,9 +91,10 @@ export interface ReviewBotDto {
   readonly resolvedShare: number | null;
 }
 
-export interface StationStageDto {
-  readonly lineId: string;
-  readonly stationId: string;
+export interface FlowStageDto {
+  readonly kind: FlowStageKind;
+  readonly lineId: string | null;
+  readonly stationId: string | null;
   readonly times: ByTypeDto;
 }
 
@@ -91,24 +104,23 @@ export interface PipelineFlowDto {
     readonly type: PullRequestType;
     readonly merged: number;
   }[];
-  readonly coding: ByTypeDto;
-  readonly stations: readonly StationStageDto[];
-  readonly awaitingReview: ByTypeDto;
-  readonly inReview: ByTypeDto;
-  readonly awaitingMerge: ByTypeDto;
+  readonly layouts: Readonly<Record<FlowLayout, readonly FlowStageDto[]>>;
 }
 
 export interface InsightsShippingDto {
   readonly period: PeriodDto;
   readonly truncated: boolean;
   readonly toMerge: ByAuthorDto;
-  readonly toMergeBefore: ByAuthorDto;
+  readonly toMergeChanges: ByAuthorChangesDto;
   readonly mergeDays: readonly MergeDayDto[];
   readonly types: readonly TypeMergeDto[];
+  readonly slowestFirst: ByPercentile<readonly PullRequestType[]>;
   readonly depth: readonly DepthWeekDto[];
+  readonly depthTotals: readonly RoundsCountDto[];
   readonly reviewDays: readonly ReviewDayDto[];
   readonly bots: readonly ReviewBotDto[];
   readonly pipeline: PipelineFlowDto;
+  readonly shippedAny: boolean;
 }
 
 const percentilesDtoOf = (percentiles: Percentiles): PercentilesDto => ({
@@ -133,6 +145,9 @@ const stageTimesDtoOf = (times: StageTimes): StageTimesDto => ({
         inbox: percentilesDtoOf(times.parts.inbox),
       }
     : null,
+  jam: times.jam,
+  worst: times.worst,
+  longestPart: times.longestPart,
 });
 
 const byTypeDtoOf = (byType: ByType): ByTypeDto => ({
@@ -143,11 +158,18 @@ const byTypeDtoOf = (byType: ByType): ByTypeDto => ({
   })),
 });
 
+const flowStageDtoOf = (stage: FlowStage): FlowStageDto => ({
+  kind: stage.kind,
+  lineId: stage.place?.lineId ?? null,
+  stationId: stage.place?.stationId ?? null,
+  times: byTypeDtoOf(stage.times),
+});
+
 export const shippingDtoOf = (
   shipping: Shipping,
 ): Omit<InsightsShippingDto, 'period' | 'truncated'> => ({
   toMerge: byAuthorDtoOf(shipping.toMerge),
-  toMergeBefore: byAuthorDtoOf(shipping.toMergeBefore),
+  toMergeChanges: shipping.toMergeChanges,
   mergeDays: shipping.mergeDays.map((each) => ({
     day: each.day,
     daily: byAuthorDtoOf(each.daily),
@@ -158,14 +180,9 @@ export const shippingDtoOf = (
     merged: each.merged,
     toMerge: byAuthorDtoOf(each.toMerge),
   })),
-  depth: shipping.depth.map((each) => ({
-    week: each.week,
-    merged: each.merged,
-    rounds: Object.entries(each.rounds).map(([rounds, merged]) => ({
-      rounds: rounds as RoundBucket,
-      merged,
-    })),
-  })),
+  slowestFirst: shipping.slowestFirst,
+  depth: shipping.depth,
+  depthTotals: shipping.depthTotals,
   reviewDays: shipping.reviewDays.map((each) => ({
     day: each.day,
     toFirstReviewDaily: percentilesDtoOf(each.toFirstReview.daily),
@@ -177,14 +194,10 @@ export const shippingDtoOf = (
   pipeline: {
     merged: shipping.pipeline.merged,
     types: shipping.pipeline.types,
-    coding: byTypeDtoOf(shipping.pipeline.coding),
-    stations: shipping.pipeline.stations.map((each) => ({
-      lineId: each.lineId,
-      stationId: each.stationId,
-      times: byTypeDtoOf(each.times),
-    })),
-    awaitingReview: byTypeDtoOf(shipping.pipeline.review.awaitingReview),
-    inReview: byTypeDtoOf(shipping.pipeline.review.inReview),
-    awaitingMerge: byTypeDtoOf(shipping.pipeline.review.awaitingMerge),
+    layouts: {
+      stations: shipping.pipeline.layouts.stations.map(flowStageDtoOf),
+      stages: shipping.pipeline.layouts.stages.map(flowStageDtoOf),
+    },
   },
+  shippedAny: shipping.shippedAny,
 });

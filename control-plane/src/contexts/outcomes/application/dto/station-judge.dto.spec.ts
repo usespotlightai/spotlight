@@ -57,3 +57,25 @@ describe('rubricVersionOf', () => {
     ).toEqual([null]);
   });
 });
+
+describe('rubricVersionOf distribution', () => {
+  it('labels each score’s counts the way the confusion is labelled', () => {
+    const version = rubricVersionOf(
+      {
+        ...reportOf(CURRENT),
+        agreement: agreementOf(ScoreScale.yesNo(), [
+          { judge: 1, human: 1 },
+          { judge: 1, human: 0 },
+          { judge: 0, human: 0 },
+        ]),
+      },
+      CURRENT,
+      TRUSTED,
+    );
+
+    expect(version.distribution).toEqual([
+      { label: 'no', judge: 1, people: 2 },
+      { label: 'yes', judge: 2, people: 1 },
+    ]);
+  });
+});

@@ -67,3 +67,26 @@ describe('InsightsPeriod', () => {
     expect(within(current, null)).toBe(false);
   });
 });
+
+describe('InsightsPeriod.covering', () => {
+  it('picks the shortest period whose days hold the moment', () => {
+    expect(
+      InsightsPeriod.covering(new Date('2026-10-01T09:00:00.000Z'), NOW),
+    ).toBe('7d');
+    expect(
+      InsightsPeriod.covering(new Date('2026-09-25T00:00:00.000Z'), NOW),
+    ).toBe('7d');
+    expect(
+      InsightsPeriod.covering(new Date('2026-09-24T23:59:00.000Z'), NOW),
+    ).toBe('30d');
+    expect(
+      InsightsPeriod.covering(new Date('2026-08-01T12:00:00.000Z'), NOW),
+    ).toBe('90d');
+  });
+
+  it('falls back to the longest period for a moment before them all', () => {
+    expect(
+      InsightsPeriod.covering(new Date('2025-01-01T00:00:00.000Z'), NOW),
+    ).toBe('90d');
+  });
+});

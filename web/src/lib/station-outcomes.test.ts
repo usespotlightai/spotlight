@@ -4,60 +4,7 @@ import {
   type FingerprintGroup,
   recentRuns,
   runSpent,
-  type StationTally,
-  tallyFigures,
 } from '@/lib/station-outcomes';
-
-const tally = (over: Partial<StationTally>): StationTally => ({
-  runs: 0,
-  failed: 0,
-  stopped: 0,
-  checksPassed: 0,
-  checksFailed: 0,
-  accepted: 0,
-  sentBack: 0,
-  withdrawn: 0,
-  handedOn: 0,
-  merged: 0,
-  cost: null,
-  medianMs: null,
-  p90Ms: null,
-  unpriced: 0,
-  mixedCurrencies: false,
-  ...over,
-});
-
-describe('tallyFigures', () => {
-  it('always counts the runs, and only what happened among them', () => {
-    expect(tallyFigures(tally({ runs: 4, failed: 1, merged: 2 }))).toEqual([
-      { label: 'Runs', value: '4' },
-      { label: 'Failed', value: '1' },
-      { label: 'Merged', value: '2' },
-    ]);
-  });
-
-  it('counts a single run as one', () => {
-    expect(tallyFigures(tally({ runs: 1 }))[0]).toEqual({
-      label: 'Run',
-      value: '1',
-    });
-  });
-
-  it('adds what the runs cost and how long they took', () => {
-    expect(
-      tallyFigures(
-        tally({
-          runs: 2,
-          cost: { amount: 1.5, currency: 'USD' },
-          medianMs: 252_000,
-        }),
-      ).slice(1),
-    ).toEqual([
-      { label: 'Cost', value: '$1.50' },
-      { label: 'Median', value: '4m 12s' },
-    ]);
-  });
-});
 
 describe('runSpent', () => {
   it('shows a dash where a run cost nothing known', () => {
@@ -94,15 +41,26 @@ describe('recentRuns', () => {
 });
 
 describe('countedColumnsOf', () => {
-  it('leaves out the counts that are zero for every station, but always keeps runs', () => {
-    const labels = countedColumnsOf([
-      tally({ runs: 0, failed: 2 }),
-      tally({ runs: 0, accepted: 3 }),
-    ]).map((column) => column.label);
+  it('keeps the counts the server marks counted, and always runs, cost and times', () => {
+    const labels = countedColumnsOf({
+      failed: true,
+      stopped: false,
+      checksPassed: false,
+      checksFailed: false,
+      accepted: true,
+      sentBack: false,
+      handedOn: false,
+      merged: false,
+      withdrawn: false,
+    }).map((column) => column.label);
 
-    expect(labels).toEqual(
-      expect.arrayContaining(['Runs', 'Failed', 'Accepted']),
-    );
-    expect(labels).not.toContain('Withdrawn');
+    expect(labels).toEqual([
+      'Runs',
+      'Failed',
+      'Accepted',
+      'Cost',
+      'Median',
+      'p90',
+    ]);
   });
 });

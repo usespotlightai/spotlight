@@ -128,6 +128,7 @@ const UNHEALTHY: ReplaySet = {
       spread: 0.2,
       flippedTasks: ['task_b'],
       measuredAt: '2026-10-02T09:00:00.000Z',
+      noisyInOneCopy: true,
     },
     saturation: {
       replayId: 'replay_probe',

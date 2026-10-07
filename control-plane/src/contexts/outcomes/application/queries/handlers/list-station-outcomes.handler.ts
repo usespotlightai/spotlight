@@ -14,9 +14,10 @@ import type { RunRecordRepository } from '@outcomes/domain/repositories/run-reco
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import {
   configInForce,
+  daySpanOf,
   fingerprintGroupsNewestFirst,
 } from '@outcomes/domain/services/fingerprint-groups';
-import { runTally } from '@outcomes/domain/services/run-tally';
+import { runTally, tallySharesOf } from '@outcomes/domain/services/run-tally';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -73,18 +74,24 @@ export class ListStationOutcomesHandler
         await this.work.configsInOrder(fingerprintsAsked([...pairs].reverse())),
       );
 
-      const groups: FingerprintGroupDto[] = newestFirst.map((group, at) => ({
-        firstRunId: group.firstRunId.value,
-        fingerprint: group.fingerprint,
-        ran: group.ran,
-        config: configs.configOf(group.fingerprint),
-        changes: configs.between(pairs[at]),
-        runs: group.records.flatMap((each) => {
-          const outcome = runOutcomeOf(each, deliveries);
-          return outcome ? [outcome] : [];
-        }),
-        tally: runTally(group.records, deliveries),
-      }));
+      const groups: FingerprintGroupDto[] = newestFirst.map((group, at) => {
+        const tally = runTally(group.records, deliveries);
+
+        return {
+          firstRunId: group.firstRunId.value,
+          fingerprint: group.fingerprint,
+          ran: group.ran,
+          config: configs.configOf(group.fingerprint),
+          changes: configs.between(pairs[at]),
+          runs: group.records.flatMap((each) => {
+            const outcome = runOutcomeOf(each, deliveries);
+            return outcome ? [outcome] : [];
+          }),
+          tally,
+          shares: tallySharesOf(tally),
+          ...daySpanOf(group.records),
+        };
+      });
 
       const inForce = configInForce(newestFirst);
 

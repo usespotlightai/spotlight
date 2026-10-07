@@ -150,6 +150,8 @@ const REPOSITORIES: RepositoryResponseDto[] = [
 const hoursAgo = (hours: number): string =>
   new Date(Date.now() - hours * 3_600_000).toISOString();
 
+const dayOf = (hours: number): string => hoursAgo(hours).slice(0, 10);
+
 const outcome = (
   over: Partial<StationRunOutcomeResponseDto> & { runId: string },
 ): StationRunOutcomeResponseDto => ({
@@ -215,6 +217,7 @@ const LISTED = {
       tally: {
         runs: 3,
         failed: 0,
+        failedShare: 0,
         stopped: 0,
         checksPassed: 3,
         checksFailed: 0,
@@ -229,6 +232,9 @@ const LISTED = {
         unpriced: 0,
         mixedCurrencies: false,
       },
+      shares: { checksPassed: 1, accepted: 2 / 3, merged: 2 / 3 },
+      firstDay: dayOf(26),
+      lastDay: dayOf(0.3),
       runs: [
         outcome({ runId: 'run_retries_3', endedAt: hoursAgo(0.3) }),
         outcome({
@@ -251,6 +257,7 @@ const LISTED = {
       tally: {
         runs: 3,
         failed: 1,
+        failedShare: 1 / 3,
         stopped: 1,
         checksPassed: 1,
         checksFailed: 1,
@@ -265,6 +272,9 @@ const LISTED = {
         unpriced: 0,
         mixedCurrencies: false,
       },
+      shares: { checksPassed: 0.5, accepted: 0, merged: 0 },
+      firstDay: dayOf(98),
+      lastDay: dayOf(50),
       runs: [
         outcome({
           runId: 'run_retries_2',
@@ -333,7 +343,14 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
     trust: 0.6,
     hiddenBecause: null,
   },
-  coverage: { runs: 50, both: 24, judgeOnly: 6, peopleOnly: 14, neither: 6 },
+  coverage: {
+    runs: 50,
+    both: 24,
+    judgeOnly: 6,
+    peopleOnly: 14,
+    neither: 6,
+    shares: { both: 0.48, judgeOnly: 0.12, peopleOnly: 0.28, neither: 0.12 },
+  },
   versions: [
     {
       rubricVersion: RUBRIC,
@@ -345,7 +362,11 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
         observed: 0.875,
         kappa: 0.71,
         spearman: null,
+        pearson: null,
         mae: null,
+        rmse: null,
+        f1: 30 / 33,
+        readings: { kappa: 'substantial', pearson: null, spearman: null },
         claims: [],
       },
       confusion: {
@@ -355,6 +376,10 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
           [1, 15],
         ],
       },
+      distribution: [
+        { label: 'no', judge: 8, people: 7 },
+        { label: 'yes', judge: 16, people: 17 },
+      ],
       trend: [
         { day: daysAgo(6), judged: 4, judge: 0.75, labelled: 3, people: 0.67 },
         { day: daysAgo(5), judged: 6, judge: 0.67, labelled: 5, people: 0.6 },
@@ -375,7 +400,11 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
         observed: 0.33,
         kappa: null,
         spearman: 0.42,
+        pearson: 0.77,
         mae: 1.1,
+        rmse: 0.82,
+        f1: null,
+        readings: { kappa: null, pearson: 'strong', spearman: 'weak' },
         claims: [],
       },
       confusion: {
@@ -388,6 +417,11 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
           [0, 0, 0, 1, 0],
         ],
       },
+      distribution: ['1', '2', '3', '4', '5'].map((label, at) => ({
+        label,
+        judge: [1, 2, 2, 3, 1][at] ?? 0,
+        people: [1, 2, 2, 3, 1][at] ?? 0,
+      })),
       trend: [
         { day: daysAgo(12), judged: 5, judge: null, labelled: 4, people: 3 },
         { day: daysAgo(9), judged: 7, judge: null, labelled: 5, people: 3.6 },
@@ -423,7 +457,14 @@ export const seedStationJudgeEmpty = (client: QueryClient) => {
       pairs: 0,
       hiddenBecause: 'too-few-pairs',
     },
-    coverage: { runs: 6, both: 0, judgeOnly: 0, peopleOnly: 4, neither: 2 },
+    coverage: {
+      runs: 6,
+      both: 0,
+      judgeOnly: 0,
+      peopleOnly: 4,
+      neither: 2,
+      shares: { both: 0, judgeOnly: 0, peopleOnly: 4 / 6, neither: 2 / 6 },
+    },
     versions: [],
   } satisfies StationJudgeAgreementResponseDto);
 };
@@ -524,10 +565,30 @@ const CLAIMS_AGREEMENT: StationJudgeAgreementResponseDto = {
             ...version.agreement,
             observed: 0.82,
             kappa: 0.64,
+            f1: 82 / 95,
+            readings: { kappa: 'substantial', pearson: null, spearman: null },
             claims: [
-              { index: 0, pairs: 24, observed: 0.92, kappa: 0.81 },
-              { index: 1, pairs: 24, observed: 0.88, kappa: 0.72 },
-              { index: 2, pairs: 20, observed: 0.65, kappa: 0.31 },
+              {
+                index: 0,
+                pairs: 24,
+                observed: 0.92,
+                kappa: 0.81,
+                reading: 'almost-perfect',
+              },
+              {
+                index: 1,
+                pairs: 24,
+                observed: 0.88,
+                kappa: 0.72,
+                reading: 'substantial',
+              },
+              {
+                index: 2,
+                pairs: 20,
+                observed: 0.65,
+                kappa: 0.31,
+                reading: 'fair-to-slight',
+              },
             ],
           },
           confusion: {
@@ -537,6 +598,10 @@ const CLAIMS_AGREEMENT: StationJudgeAgreementResponseDto = {
               [7, 41],
             ],
           },
+          distribution: [
+            { label: 'not met', judge: 20, people: 21 },
+            { label: 'met', judge: 48, people: 47 },
+          ],
         }
       : version,
   ),

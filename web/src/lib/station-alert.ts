@@ -1,11 +1,6 @@
 import type { StationAlertCrossingResponseDto } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
-import {
-  insightsPath,
-  periodCovering,
-  shareShown,
-  stationAnchor,
-} from '@/lib/insights';
+import { insightsPath, shareShown, stationAnchor } from '@/lib/insights';
 import { alertPhrase } from '@/lib/station-watch';
 
 export type StationAlertCrossing = StationAlertCrossingResponseDto;
@@ -42,12 +37,13 @@ const DID: Record<Exclude<Measure, 'cost_per_run'>, [string, string]> = {
   checks_failed_rate: ['failed their checks', 'failed its checks'],
 };
 
-const movedFrom = (now: number | null, before: number): string => {
-  if (now === null || now === before) {
-    return 'the same as';
-  }
-
-  return now > before ? 'up from' : 'down from';
+const MOVED_FROM: Record<
+  NonNullable<StationAlertCrossing['change']>['direction'],
+  string
+> = {
+  up: 'up from',
+  down: 'down from',
+  same: 'the same as',
 };
 
 export const thresholdShown = (alert: StationAlertCrossing): string =>
@@ -60,7 +56,7 @@ export const crossingShown = (alert: StationAlertCrossing): string => {
   const before =
     alert.baseline === null
       ? ''
-      : `, ${movedFrom(alert.value, alert.baseline)} ${shown(alert.baseline)} in ${runsBefore(over)}`;
+      : `, ${MOVED_FROM[alert.change?.direction ?? 'same']} ${shown(alert.baseline)} in ${runsBefore(over)}`;
 
   if (measure === 'cost_per_run') {
     const each = over === 1 ? '' : ' each on average';
@@ -126,11 +122,10 @@ export const alertOnInsightsPath = (
   slug: string,
   teamId: string,
   alert: StationAlertCrossing,
-  now: Date,
 ): string =>
   `${insightsPath(slug, teamId, {
     tab: 'stations',
-    period: periodCovering(alert.raisedAt, now),
+    period: alert.insightsPeriod,
     filter: {},
     page: 1,
   })}#${stationAnchor(alert.stationId)}`;

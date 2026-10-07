@@ -8,7 +8,12 @@ import type {
   SizeBoundResponseDto,
   StationStandingResponseDto,
 } from '@/lib/api';
-import { deltaOf, harnessShown, modelShown, shareShown } from '@/lib/insights';
+import {
+  changeShown,
+  harnessShown,
+  modelShown,
+  shareShown,
+} from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import type { ComparedRow } from '@/lib/tally-comparison';
 
@@ -169,14 +174,11 @@ export const setupPoints = (
   setups: readonly SetupOutcome[],
   measure: OutcomeMeasure,
   harnesses: readonly HarnessResponseDto[] | undefined,
-  currency: string | null,
 ): SetupPoint[] =>
   setups.flatMap((setup) => {
     const value = setup.outcomes[measure];
 
-    return setup.costPerRun === null ||
-      value === null ||
-      setup.currency !== currency
+    return !setup.priced || setup.costPerRun === null || value === null
       ? []
       : [
           {
@@ -204,11 +206,7 @@ export const judgeRow = (marker: ChangeMarker, to: string): ComparedRow => ({
   label: 'Judge score',
   one: shareShown(marker.judgeBefore?.mean ?? null),
   other: shareShown(marker.judgeAfter?.mean ?? null),
-  delta: deltaOf(
-    marker.judgeAfter?.mean ?? null,
-    marker.judgeBefore?.mean ?? null,
-    'up',
-  ),
+  delta: changeShown(marker.judgeChange),
   note: `Over ${judgeCount(marker.judgeBefore)} judged runs before and ${judgeCount(marker.judgeAfter)} after. Opens how often the judge agrees with people.`,
   to,
 });

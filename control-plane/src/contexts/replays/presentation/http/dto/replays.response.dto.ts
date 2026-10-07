@@ -169,6 +169,12 @@ export class SetNoiseResponseDto {
   @ApiProperty()
   readonly measuredAt: string;
 
+  @ApiProperty({
+    description:
+      'Whether the spread is too wide for a single copy of each run to tell a gain of the line’s min_gain from chance, by the same rule the search warnings use',
+  })
+  readonly noisyInOneCopy: boolean;
+
   constructor(noise: SetNoiseDto) {
     this.replayId = noise.replayId;
     this.fingerprint = noise.fingerprint;
@@ -177,6 +183,7 @@ export class SetNoiseResponseDto {
     this.spread = noise.spread;
     this.flippedTasks = [...noise.flippedTasks];
     this.measuredAt = noise.measuredAt;
+    this.noisyInOneCopy = noise.noisyInOneCopy;
   }
 }
 

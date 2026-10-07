@@ -15,7 +15,7 @@ import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
 import {
-  type OutputDay,
+  type DayOutput,
   type StationNames,
   stationShown,
 } from '@/lib/insights';
@@ -23,6 +23,8 @@ import { changeKey } from '@/lib/insights-changes';
 import { dayShown } from '@/lib/judge';
 
 const HEIGHT = 200;
+
+const spendOf = (day: DayOutput): number | null => day.spend?.amount ?? null;
 
 const INSET = 8;
 
@@ -35,7 +37,7 @@ const Said = ({
 }: {
   placement: TipPlacement;
   active?: boolean;
-  payload?: { payload: OutputDay }[];
+  payload?: { payload: DayOutput }[];
   currency: string | null;
   names: StationNames;
 }) => {
@@ -49,7 +51,7 @@ const Said = ({
     <ChartTip placement={placement}>
       <p className="text-muted-foreground">{dayShown(day.day)}</p>
       <p className="pt-0.5 text-foreground">
-        {day.spend !== null && currency ? spentIn(day.spend, currency) : '–'}{' '}
+        {day.spend && currency ? spentIn(day.spend.amount, currency) : '–'}{' '}
         spent over {day.runs} {day.runs === 1 ? 'run' : 'runs'}
       </p>
       <p className="text-muted-foreground">
@@ -67,7 +69,7 @@ const Said = ({
 type OutputAgainstCostProps = {
   slug: string;
   teamId: string;
-  days: readonly OutputDay[];
+  days: readonly DayOutput[];
   currency: string | null;
   noSpend: string;
   names: StationNames;
@@ -165,7 +167,7 @@ export function OutputAgainstCost({
                 {priced && (
                   <Line
                     yAxisId="spend"
-                    dataKey="spend"
+                    dataKey={spendOf}
                     name="Spend"
                     stroke="var(--chart-primary)"
                     strokeWidth={1.5}

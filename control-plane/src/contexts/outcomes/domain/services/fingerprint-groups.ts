@@ -1,6 +1,7 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { lastConfigsOf } from '@outcomes/domain/services/config-stretches';
 import { inStartOrder, startOf } from '@outcomes/domain/services/run-order';
+import { dayOf } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface FingerprintGroup {
@@ -105,4 +106,17 @@ export const configInForce = (
     firstRunId: oldest.firstRunId,
     records,
   };
+};
+
+export interface DaySpan {
+  readonly firstDay: string | null;
+  readonly lastDay: string | null;
+}
+
+export const daySpanOf = (records: readonly RunRecord[]): DaySpan => {
+  const days = records
+    .flatMap((each) => (each.end ? [dayOf(each.end.endedAt)] : []))
+    .sort();
+
+  return { firstDay: days[0] ?? null, lastDay: days[days.length - 1] ?? null };
 };

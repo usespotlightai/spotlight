@@ -51,9 +51,13 @@ export function StationInsights({
       {report ? (
         <>
           <InsightsTiles label="Over this period">
-            {tallyTiles(report.tally, report.before, trendOf(report.trend), {
-              stationId,
-            }).map((tile) => (
+            {tallyTiles(
+              report.tally,
+              report.seen,
+              report.changes,
+              trendOf(report.trend),
+              { stationId },
+            ).map((tile) => (
               <InsightsTile
                 key={tile.id}
                 label={tile.label}

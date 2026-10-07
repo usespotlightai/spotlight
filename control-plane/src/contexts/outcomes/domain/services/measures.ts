@@ -50,6 +50,21 @@ export interface Percentiles {
   readonly count: number;
 }
 
+const PERCENTILES = ['p50', 'p75', 'p90', 'p95'] as const;
+
+export type Percentile = (typeof PERCENTILES)[number];
+
+export type ByPercentile<T> = Readonly<Record<Percentile, T>>;
+
+export const byPercentile = <T>(
+  of: (percentile: Percentile) => T,
+): ByPercentile<T> => ({
+  p50: of('p50'),
+  p75: of('p75'),
+  p90: of('p90'),
+  p95: of('p95'),
+});
+
 export const known = (values: readonly (number | null)[]): number[] =>
   values.flatMap((each) => (each === null ? [] : [each]));
 

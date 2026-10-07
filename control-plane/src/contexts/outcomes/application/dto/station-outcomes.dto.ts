@@ -3,9 +3,13 @@ import type {
   ConfigPart,
   StationConfigView,
 } from '@outcomes/application/ports/work.port';
-import type { RunTally } from '@outcomes/domain/services/run-tally';
+import type { DaySpan } from '@outcomes/domain/services/fingerprint-groups';
+import type {
+  RunTally,
+  TallyShares,
+} from '@outcomes/domain/services/run-tally';
 
-export interface FingerprintGroupDto {
+export interface FingerprintGroupDto extends DaySpan {
   readonly firstRunId: string;
   readonly fingerprint: string | null;
   readonly ran: boolean;
@@ -13,6 +17,7 @@ export interface FingerprintGroupDto {
   readonly changes: readonly ConfigPart[];
   readonly runs: readonly RunOutcomeDto[];
   readonly tally: RunTally;
+  readonly shares: TallyShares;
 }
 
 export interface ConfigInForceDto {

@@ -21,6 +21,7 @@ const alert = (over: Partial<StationAlertCrossing>): StationAlertCrossing =>
     },
     value: 2.5,
     baseline: null,
+    change: null,
     currency: 'USD',
     ...over,
   }) as StationAlertCrossing;
@@ -44,9 +45,41 @@ describe('crossingShown', () => {
           },
           value: 0.4,
           baseline: 0.2,
+          change: {
+            unit: 'points',
+            by: 0.2,
+            fromZero: false,
+            direction: 'up',
+            tone: 'bad',
+          },
         }),
       ),
     ).toBe('40% of the last 5 runs failed, up from 20% in the 5 before.');
+  });
+
+  it('says the runs held level with the ones before when the server reads no move', () => {
+    expect(
+      crossingShown(
+        alert({
+          threshold: {
+            measure: 'cost_per_run',
+            risesBy: 0.5,
+            fallsBy: null,
+            above: null,
+            below: null,
+            over: 1,
+          },
+          baseline: 2.5,
+          change: {
+            unit: 'percent',
+            by: 0,
+            fromZero: false,
+            direction: 'same',
+            tone: 'flat',
+          },
+        }),
+      ),
+    ).toBe('The last run cost $2.50, the same as $2.50 in the one before.');
   });
 });
 
@@ -139,18 +172,12 @@ describe('thresholdLine', () => {
 });
 
 describe('alertOnInsightsPath', () => {
-  it('opens the station on the Stations tab, over the shortest period that holds the alert', () => {
-    const raised = alert({
-      stationId: 'station_1',
-      raisedAt: '2026-09-01T10:00:00.000Z',
-    });
-
+  it('opens the station on the Stations tab, over the period the server says holds the alert', () => {
     expect(
       alertOnInsightsPath(
         'acme',
         'team_1',
-        raised,
-        new Date('2026-09-03T10:00:00.000Z'),
+        alert({ stationId: 'station_1', insightsPeriod: '7d' }),
       ),
     ).toBe(
       '/w/acme/team/team_1/insights?tab=stations&period=7d#station-station_1',
@@ -159,19 +186,8 @@ describe('alertOnInsightsPath', () => {
       alertOnInsightsPath(
         'acme',
         'team_1',
-        raised,
-        new Date('2026-09-20T10:00:00.000Z'),
+        alert({ stationId: 'station_1', insightsPeriod: '30d' }),
       ),
     ).toBe('/w/acme/team/team_1/insights?tab=stations#station-station_1');
-    expect(
-      alertOnInsightsPath(
-        'acme',
-        'team_1',
-        raised,
-        new Date('2027-03-01T10:00:00.000Z'),
-      ),
-    ).toBe(
-      '/w/acme/team/team_1/insights?tab=stations&period=90d#station-station_1',
-    );
   });
 });

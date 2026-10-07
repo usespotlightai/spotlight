@@ -12,6 +12,10 @@ import {
   tasksOf,
 } from '@outcomes/domain/services/team-history';
 import {
+  type Change,
+  changeOf,
+} from '@outcomes/domain/value-objects/change.vo';
+import {
   type Window,
   within,
 } from '@outcomes/domain/value-objects/insights-period.vo';
@@ -60,3 +64,32 @@ export const humanLoadOf = (
     refusedTaskIds: refusedIn.map((each) => each.taskId.value),
   };
 };
+
+export interface HumanLoadChanges {
+  readonly asksPerTask: Change | null;
+  readonly toAnswer: Change | null;
+  readonly sentBackRate: Change | null;
+  readonly refused: Change | null;
+}
+
+export const humanLoadChangesOf = (
+  now: HumanLoad,
+  before: HumanLoad,
+): HumanLoadChanges => ({
+  asksPerTask: changeOf(now.asksPerTask, before.asksPerTask, {
+    better: 'down',
+    unit: 'percent',
+  }),
+  toAnswer: changeOf(now.toAnswer.p50, before.toAnswer.p50, {
+    better: 'down',
+    unit: 'percent',
+  }),
+  sentBackRate: changeOf(now.sentBackRate, before.sentBackRate, {
+    better: 'down',
+    unit: 'points',
+  }),
+  refused: changeOf(now.refused, before.refused, {
+    better: 'down',
+    unit: 'percent',
+  }),
+});

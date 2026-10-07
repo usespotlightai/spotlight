@@ -4,11 +4,7 @@ import { ConfusionMatrix } from '@/components/features/stations/judge/ConfusionM
 import { JudgeStatistics } from '@/components/features/stations/judge/JudgeStatistics';
 import { JudgeTrend } from '@/components/features/stations/judge/JudgeTrend';
 import { ScoreDistribution } from '@/components/features/stations/judge/ScoreDistribution';
-import {
-  comparisonStats,
-  type RubricVersion,
-  scoreDistribution,
-} from '@/lib/judge';
+import { comparisonStats, type RubricVersion } from '@/lib/judge';
 
 const CENTERED = 'flex flex-1 items-center justify-center pb-8';
 
@@ -47,7 +43,7 @@ export function RubricVersionCard({
             title="Distribution"
             description="How often each score was given, on runs with both scores."
           >
-            <ScoreDistribution counts={scoreDistribution(version.confusion)} />
+            <ScoreDistribution counts={version.distribution} />
           </InsightsCard>
         )}
 

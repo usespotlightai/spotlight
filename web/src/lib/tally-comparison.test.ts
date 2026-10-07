@@ -9,6 +9,7 @@ const verdict = (over: Partial<MeasureVerdict>): MeasureVerdict => ({
   settledAfter: 10,
   currency: null,
   verdict: 'better',
+  change: null,
   ...over,
 });
 
@@ -24,6 +25,13 @@ describe('comparedRows', () => {
         before: 0.2,
         after: 0.4,
         verdict: 'worse',
+        change: {
+          unit: 'points',
+          by: 0.2,
+          fromZero: false,
+          direction: 'up',
+          tone: 'flat',
+        },
       }),
     ]);
 
@@ -39,7 +47,7 @@ describe('comparedRows', () => {
       delta: { tone: 'good' },
     });
     expect(row(rows, 'sent_back_rate')).toMatchObject({
-      delta: { shown: '+100%', tone: 'bad' },
+      delta: { shown: '+20 pts', tone: 'bad' },
     });
   });
 

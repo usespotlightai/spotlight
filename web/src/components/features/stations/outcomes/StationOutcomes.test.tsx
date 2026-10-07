@@ -32,6 +32,7 @@ vi.mock('@/hooks/api/useLines', () => ({
 const TALLY: StationTally = {
   runs: 2,
   failed: 1,
+  failedShare: 0.5,
   stopped: 0,
   checksPassed: 1,
   checksFailed: 0,
@@ -46,6 +47,8 @@ const TALLY: StationTally = {
   unpriced: 0,
   mixedCurrencies: false,
 };
+
+const TODAY = new Date().toISOString().slice(0, 10);
 
 const run = (over: Partial<StationRunOutcome>): StationRunOutcome => ({
   runId: 'run_1',
@@ -78,6 +81,9 @@ const NEWER: FingerprintGroup = {
     { part: 'effort', name: null, kind: 'changed', was: 'high', now: 'xhigh' },
   ],
   tally: TALLY,
+  shares: { checksPassed: 1, accepted: 0.5, merged: 0.5 },
+  firstDay: TODAY,
+  lastDay: TODAY,
   runs: [
     run({}),
     run({
@@ -100,6 +106,9 @@ const OLDER: FingerprintGroup = {
   config: null,
   changes: [],
   tally: { ...TALLY, runs: 1, failed: 0 },
+  shares: { checksPassed: 1, accepted: 1, merged: 1 },
+  firstDay: TODAY,
+  lastDay: TODAY,
   runs: [run({ runId: 'run_0' })],
 };
 

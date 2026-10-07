@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
 import type { LineResponseDto } from '@/lib/api';
 import { BeforeAfterPanelContext } from '@/lib/before-after-panel';
-import { type OutputDay, stationNamesOf } from '@/lib/insights';
+import { type DayOutput, stationNamesOf } from '@/lib/insights';
 
 const NAMES = stationNamesOf([
   {
@@ -27,13 +27,25 @@ const NAMES = stationNamesOf([
   },
 ] as unknown as LineResponseDto[]);
 
-const DAYS: OutputDay[] = [
-  { day: '2026-09-29', runs: 0, spend: null, merged: 0, changes: [] },
+const DAYS: DayOutput[] = [
+  {
+    day: '2026-09-29',
+    runs: 0,
+    spend: null,
+    unpriced: 0,
+    mixedCurrencies: false,
+    merged: 0,
+    mergedTaskIds: [],
+    changes: [],
+  },
   {
     day: '2026-09-30',
     runs: 5,
-    spend: 4.2,
+    spend: { amount: 4.2, currency: 'USD' },
+    unpriced: 0,
+    mixedCurrencies: false,
     merged: 1,
+    mergedTaskIds: [],
     changes: [
       {
         lineId: 'line_1',

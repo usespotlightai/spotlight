@@ -10,10 +10,7 @@ import {
   INNER_INDENT,
   OUTER_GUIDE,
 } from '@/components/shared/nested-table/nested-rows';
-import {
-  type CandidatesSet,
-  rankedCandidates,
-} from '@/lib/insights-candidates';
+import type { CandidatesSet } from '@/lib/insights-candidates';
 import type { ReplayedStation } from '@/lib/replay';
 import { cn } from '@/lib/utils';
 
@@ -34,7 +31,7 @@ export function CandidateSetRows({
   open,
   onToggle,
 }: CandidateSetRowsProps) {
-  const candidates = charted ? [] : rankedCandidates(set);
+  const candidates = charted ? [] : set.candidates;
 
   return (
     <>

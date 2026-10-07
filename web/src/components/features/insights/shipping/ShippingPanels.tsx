@@ -25,12 +25,15 @@ export function ShippingPanels({ shipping, note }: ShippingPanelsProps) {
         <div className="grid gap-3 lg:grid-cols-2">
           <TimeToMerge
             now={shipping.toMerge}
-            before={shipping.toMergeBefore}
+            changes={shipping.toMergeChanges}
             days={shipping.mergeDays}
           />
-          <TimeToMergeByType types={shipping.types} />
+          <TimeToMergeByType merges={shipping} />
         </div>
-        <ReviewDepthOverTime weeks={shipping.depth} />
+        <ReviewDepthOverTime
+          weeks={shipping.depth}
+          totals={shipping.depthTotals}
+        />
       </InsightsSection>
 
       <InsightsSection title="Review and approval">

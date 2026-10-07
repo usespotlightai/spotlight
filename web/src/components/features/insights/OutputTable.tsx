@@ -7,7 +7,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { spentIn } from '@/lib/inbox';
 import {
   countShown,
-  type OutputDay,
+  type DayOutput,
   type StationNames,
   stationShown,
 } from '@/lib/insights';
@@ -18,7 +18,7 @@ import { stationPath } from '@/lib/station';
 type OutputTableProps = {
   slug: string;
   teamId: string;
-  days: readonly OutputDay[];
+  days: readonly DayOutput[];
   currency: string | null;
   names: StationNames;
 };
@@ -30,7 +30,7 @@ export function OutputTable({
   currency,
   names,
 }: OutputTableProps) {
-  const columns: InsightsColumn<OutputDay>[] = [
+  const columns: InsightsColumn<DayOutput>[] = [
     {
       id: 'day',
       header: 'Day',
@@ -54,7 +54,7 @@ export function OutputTable({
       header: 'Spend',
       numeric: true,
       cell: (day) =>
-        day.spend !== null && currency ? spentIn(day.spend, currency) : '–',
+        day.spend && currency ? spentIn(day.spend.amount, currency) : '–',
     },
     {
       id: 'merged',

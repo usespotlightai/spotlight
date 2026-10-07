@@ -227,25 +227,6 @@ export const typeFilter = (
   author: PullRequestAuthor,
 ): PullRequestFilter => mergedPullRequestsFilter({ type, author });
 
-export type WeekBar = {
-  readonly week: string;
-  readonly made: number;
-  readonly touched: number;
-  readonly people: number;
-  readonly bots: number;
-  readonly share: number | null;
-};
-
-export const weekBars = (weeks: readonly WeekShare[]): WeekBar[] =>
-  weeks.map((each) => ({
-    week: each.week,
-    made: each.made,
-    touched: each.touched,
-    people: each.merged - each.made - each.touched - each.bots,
-    bots: each.bots,
-    share: each.share,
-  }));
-
 export const meanShown = (mean: number | null): string =>
   mean === null ? '–' : mean.toFixed(1);
 

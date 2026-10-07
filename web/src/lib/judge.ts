@@ -8,6 +8,7 @@ import type {
   JudgeStandingResponseDto,
   RubricVersionResponseDto,
   RunScoresResponseDto,
+  ScoreCountResponseDto,
   StationJudgeAgreementResponseDto,
   TrendPointResponseDto,
 } from '@/lib/api';
@@ -34,6 +35,8 @@ export type CitedHunk = CitedHunkResponseDto;
 export type Grade = GradeResponseDto;
 
 export type ClaimAgreement = ClaimAgreementResponseDto;
+
+export type ScoreCount = ScoreCountResponseDto;
 
 export type ScoreKind = RunScores['kind'];
 
@@ -191,14 +194,12 @@ export const hunkShown = (hunk: CitedHunk): string =>
 export const stepShown = (citation: Citation): string =>
   `Step ${citation.step?.index ?? ''}`.trim();
 
-const coverageParts = (
-  coverage: JudgeCoverage,
-): readonly { readonly label: string; readonly value: number }[] => [
-  { label: 'Both scores', value: coverage.both },
-  { label: 'Judge only', value: coverage.judgeOnly },
-  { label: 'People only', value: coverage.peopleOnly },
-  { label: 'Neither', value: coverage.neither },
-];
+const COVERAGE_PARTS = [
+  { key: 'both', label: 'Both scores' },
+  { key: 'judgeOnly', label: 'Judge only' },
+  { key: 'peopleOnly', label: 'People only' },
+  { key: 'neither', label: 'Neither' },
+] as const;
 
 export type JudgeTile = {
   readonly id: string;
@@ -219,107 +220,34 @@ export const judgeTiles = (
       ? `Trusted, needs ${statShown(standing.trust)}`
       : standingShown(standing),
   },
-  ...coverageParts(coverage).map((part) => ({
+  ...COVERAGE_PARTS.map((part) => ({
     id: part.label,
     label: part.label,
-    value: `${part.value}`,
-    detail: `${percentShown(coverage.runs > 0 ? part.value / coverage.runs : null)} of the last ${coverage.runs}`,
+    value: `${coverage[part.key]}`,
+    detail: `${percentShown(coverage.shares[part.key])} of the last ${coverage.runs}`,
   })),
 ];
 
-const KAPPA_READINGS: readonly [number, string][] = [
-  [0.81, 'Almost perfect agreement'],
-  [0.61, 'Substantial agreement'],
-  [0.41, 'Moderate agreement'],
-];
+type Readings = RubricVersion['agreement']['readings'];
 
-const CORRELATION_READINGS: readonly [number, string][] = [
-  [0.9, 'Very strong correlation'],
-  [0.7, 'Strong correlation'],
-  [0.5, 'Moderate correlation'],
-];
+type KappaReading = NonNullable<Readings['kappa']>;
 
-const readingOf = (
-  value: number | null,
-  readings: readonly [number, string][],
-  below: string,
-): string | null =>
-  value === null
-    ? null
-    : (readings.find(([from]) => value >= from)?.[1] ?? below);
+type CorrelationReading = NonNullable<Readings['pearson']>;
 
-type Pair = { readonly judge: number; readonly people: number; count: number };
-
-const pairsOf = (confusion: RubricVersion['confusion']): Pair[] =>
-  confusion.cells.flatMap((row, judge) =>
-    row.map((count, people) => ({
-      judge: Number(confusion.labels[judge]),
-      people: Number(confusion.labels[people]),
-      count,
-    })),
-  );
-
-const pearsonOf = (confusion: RubricVersion['confusion']): number | null => {
-  const pairs = pairsOf(confusion).filter((pair) => pair.count > 0);
-  const total = pairs.reduce((sum, pair) => sum + pair.count, 0);
-
-  if (
-    total < 2 ||
-    pairs.some((pair) => Number.isNaN(pair.judge + pair.people))
-  ) {
-    return null;
-  }
-
-  const mean = (side: 'judge' | 'people') =>
-    pairs.reduce((sum, pair) => sum + pair[side] * pair.count, 0) / total;
-  const judged = mean('judge');
-  const labelled = mean('people');
-  const sum = (of: (pair: Pair) => number) =>
-    pairs.reduce((total, pair) => total + of(pair) * pair.count, 0);
-  const covariance = sum(
-    (pair) => (pair.judge - judged) * (pair.people - labelled),
-  );
-  const spread =
-    Math.sqrt(sum((pair) => (pair.judge - judged) ** 2)) *
-    Math.sqrt(sum((pair) => (pair.people - labelled) ** 2));
-
-  return spread === 0 ? null : covariance / spread;
+const KAPPA_READINGS: Record<KappaReading, string> = {
+  'almost-perfect': 'Almost perfect agreement',
+  substantial: 'Substantial agreement',
+  moderate: 'Moderate agreement',
+  'fair-to-slight': 'Fair to slight agreement',
+  poor: 'Less agreement than chance',
 };
 
-const rmseOf = (confusion: RubricVersion['confusion']): number | null => {
-  const pairs = pairsOf(confusion);
-  const total = pairs.reduce((sum, pair) => sum + pair.count, 0);
-
-  if (
-    total === 0 ||
-    pairs.some((pair) => Number.isNaN(pair.judge + pair.people))
-  ) {
-    return null;
-  }
-
-  return Math.sqrt(
-    pairs.reduce(
-      (sum, pair) => sum + (pair.judge - pair.people) ** 2 * pair.count,
-      0,
-    ) / total,
-  );
-};
-
-const f1Of = (confusion: RubricVersion['confusion']): number | null => {
-  const yes = confusion.labels.indexOf('yes');
-  const at = yes === -1 ? confusion.labels.length - 1 : yes;
-  const cell = (judge: number, people: number) =>
-    confusion.cells[judge]?.[people] ?? 0;
-  const both = cell(at, at);
-  const judgeSaid = (confusion.cells[at] ?? []).reduce((sum, n) => sum + n, 0);
-  const peopleSaid = confusion.cells.reduce(
-    (sum, row) => sum + (row[at] ?? 0),
-    0,
-  );
-
-  return judgeSaid + peopleSaid === 0
-    ? null
-    : (2 * both) / (judgeSaid + peopleSaid);
+const CORRELATION_READINGS: Record<CorrelationReading, string> = {
+  'very-strong': 'Very strong correlation',
+  strong: 'Strong correlation',
+  moderate: 'Moderate correlation',
+  weak: 'Weak correlation',
+  inverse: 'Inverse correlation',
 };
 
 export type ComparisonStat = {
@@ -329,40 +257,38 @@ export type ComparisonStat = {
 };
 
 const KAPPA_NOTE =
-  'How often the judge and people agree, beyond what chance would give: 1 is perfect, 0 is chance. 0.81 and up is almost perfect, 0.61 to 0.80 substantial, 0.41 to 0.60 moderate.';
+  'How often the judge and people agree, beyond what chance would give: 1 is perfect, 0 is chance. 0.81 and up is almost perfect, 0.61 to 0.80 substantial, 0.41 to 0.60 moderate, below 0 less than chance.';
 
 const correlationNote = (ranked: boolean): string =>
-  `How closely the judge’s scores ${ranked ? 'rank runs the way' : 'rise and fall with'} people’s do: 1 is in step, 0 is no relation. 0.9 and up is very strong, 0.7 to 0.9 strong, 0.5 to 0.7 moderate.`;
+  `How closely the judge’s scores ${ranked ? 'rank runs the way' : 'rise and fall with'} people’s do: 1 is in step, 0 is no relation. 0.9 and up is very strong, 0.7 to 0.9 strong, 0.5 to 0.7 moderate, below 0 inverse.`;
 
 const read = (reading: string | null, note: string): string =>
   reading ? `${reading}. ${note}` : note;
 
+const correlationRead = (
+  reading: CorrelationReading | null,
+  ranked: boolean,
+): string =>
+  read(reading && CORRELATION_READINGS[reading], correlationNote(ranked));
+
+const kappaRead = (reading: KappaReading | null, note: string): string =>
+  read(reading && KAPPA_READINGS[reading], note);
+
 export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
-  const { agreement, confusion } = version;
+  const { agreement } = version;
+  const { readings } = agreement;
 
   if (version.kind === 'number') {
-    const pearson = pearsonOf(confusion);
-
     return [
       {
         label: 'Pearson correlation',
-        value: statShown(pearson),
-        note: read(
-          readingOf(pearson, CORRELATION_READINGS, 'Weak correlation'),
-          correlationNote(false),
-        ),
+        value: statShown(agreement.pearson),
+        note: correlationRead(readings.pearson, false),
       },
       {
         label: 'Spearman correlation',
         value: statShown(agreement.spearman),
-        note: read(
-          readingOf(
-            agreement.spearman,
-            CORRELATION_READINGS,
-            'Weak correlation',
-          ),
-          correlationNote(true),
-        ),
+        note: correlationRead(readings.spearman, true),
       },
       {
         label: 'Mean absolute error',
@@ -371,7 +297,7 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
       },
       {
         label: 'Root mean square error',
-        value: statShown(rmseOf(confusion)),
+        value: statShown(agreement.rmse),
         note: 'Like mean absolute error, but large misses count for more. Lower is better.',
       },
     ];
@@ -381,8 +307,8 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     {
       label: 'Cohen’s kappa',
       value: statShown(agreement.kappa),
-      note: read(
-        readingOf(agreement.kappa, KAPPA_READINGS, 'Fair to slight agreement'),
+      note: kappaRead(
+        readings.kappa,
         version.kind === 'claims'
           ? `Across every claim together. ${KAPPA_NOTE}`
           : KAPPA_NOTE,
@@ -390,7 +316,7 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     },
     {
       label: 'F1 score',
-      value: statShown(f1Of(confusion)),
+      value: statShown(agreement.f1),
       note: 'How well the judge’s yes matches people’s yes, missing none and adding none: 1 is a perfect match. Higher is better.',
     },
     {
@@ -400,21 +326,6 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     },
   ];
 };
-
-export type ScoreCount = {
-  readonly label: string;
-  readonly judge: number;
-  readonly people: number;
-};
-
-export const scoreDistribution = (
-  confusion: RubricVersion['confusion'],
-): ScoreCount[] =>
-  confusion.labels.map((label, at) => ({
-    label,
-    judge: (confusion.cells[at] ?? []).reduce((sum, n) => sum + n, 0),
-    people: confusion.cells.reduce((sum, row) => sum + (row[at] ?? 0), 0),
-  }));
 
 export const rubricShown = (version: RubricVersion): string =>
   version.current
@@ -428,8 +339,5 @@ export const CLAIM_HEADINGS: readonly NestedHeading[] = [
   { label: RUNS_COLUMN, numeric: true, size: SPREAD },
 ];
 
-export const kappaNote = (kappa: number | null): string =>
-  read(
-    readingOf(kappa, KAPPA_READINGS, 'Fair to slight agreement'),
-    KAPPA_NOTE,
-  );
+export const kappaNote = (reading: ClaimAgreement['reading']): string =>
+  kappaRead(reading, KAPPA_NOTE);

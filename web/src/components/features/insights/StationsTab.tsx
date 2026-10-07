@@ -13,7 +13,7 @@ import {
   type InsightsPeriod,
   type StationNames,
   tallyTiles,
-  teamTrendOf,
+  trendOf,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 
@@ -43,7 +43,15 @@ export function StationsTab({
     return <InsightsFailed what="The stations" query={stations} />;
   }
 
-  const { team, teamBefore, stations: reports, truncated } = stations.data;
+  const {
+    team,
+    teamSeen,
+    teamCounted,
+    teamChanges,
+    teamTrend,
+    stations: reports,
+    truncated,
+  } = stations.data;
 
   if (stationId) {
     return (
@@ -70,24 +78,26 @@ export function StationsTab({
       {truncated && <TruncatedNote />}
 
       <InsightsTiles label="The whole team">
-        {tallyTiles(team, teamBefore, teamTrendOf(reports)).map((tile) => (
-          <InsightsTile
-            key={tile.id}
-            label={tile.label}
-            value={tile.value}
-            detail={tile.detail}
-            delta={tile.delta}
-            drill={tile.drill}
-            trend={tile.trend}
-          />
-        ))}
+        {tallyTiles(team, teamSeen, teamChanges, trendOf(teamTrend)).map(
+          (tile) => (
+            <InsightsTile
+              key={tile.id}
+              label={tile.label}
+              value={tile.value}
+              detail={tile.detail}
+              delta={tile.delta}
+              drill={tile.drill}
+              trend={tile.trend}
+            />
+          ),
+        )}
       </InsightsTiles>
 
       <InsightsCard
         title="By station"
         description="Same counts as each station’s page. The line shows runs per day, failures in red, beside the change in runs from the previous period."
       >
-        <StationsTable stations={reports} names={names} />
+        <StationsTable stations={reports} counted={teamCounted} names={names} />
       </InsightsCard>
     </div>
   );

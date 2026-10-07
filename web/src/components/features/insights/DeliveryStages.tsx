@@ -1,8 +1,8 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TileGroup } from '@/components/features/insights/TileGroup';
 import {
+  changeShown,
   countShown,
-  deltaOf,
   type Flow,
   mergedFilter,
   spreadShown,
@@ -11,10 +11,9 @@ import {
 
 type DeliveryStagesProps = {
   delivery: Flow['delivery'];
-  before: Flow['delivery'];
 };
 
-export function DeliveryStages({ delivery, before }: DeliveryStagesProps) {
+export function DeliveryStages({ delivery }: DeliveryStagesProps) {
   const opened = tasksFilter(delivery.openedTaskIds);
   const reviewed = tasksFilter(delivery.reviewedTaskIds);
 
@@ -27,21 +26,21 @@ export function DeliveryStages({ delivery, before }: DeliveryStagesProps) {
         label="PRs opened"
         value={countShown(delivery.opened)}
         detail={`Task to PR ${spreadShown(delivery.toPullRequest)}`}
-        delta={deltaOf(delivery.opened, before.opened, 'up')}
+        delta={changeShown(delivery.changes.opened)}
         drill={opened ? { tab: 'runs', filter: opened } : undefined}
       />
       <InsightsTile
         label="First reviews"
         value={countShown(delivery.reviewed)}
         detail={`PR to review ${spreadShown(delivery.toFirstReview)}`}
-        delta={deltaOf(delivery.reviewed, before.reviewed, 'up')}
+        delta={changeShown(delivery.changes.reviewed)}
         drill={reviewed ? { tab: 'runs', filter: reviewed } : undefined}
       />
       <InsightsTile
         label="PRs merged"
         value={countShown(delivery.merged)}
         detail={`Review to merge ${spreadShown(delivery.toMerge)}`}
-        delta={deltaOf(delivery.merged, before.merged, 'up')}
+        delta={changeShown(delivery.changes.merged)}
         drill={{ tab: 'runs', filter: mergedFilter(delivery.mergedTaskIds) }}
       />
     </TileGroup>

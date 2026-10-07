@@ -5,6 +5,10 @@ import {
   VERDICTS,
 } from '@outcomes/domain/services/change-verdict';
 import { ALERT_MEASURES } from '@outcomes/domain/value-objects/alert-rule.vo';
+import {
+  ChangeResponseDto,
+  changeResponseOf,
+} from '@outcomes/presentation/http/dto/insights-common.response.dto';
 
 export class MeasureVerdictResponseDto {
   @ApiProperty({ enum: ALERT_MEASURES })
@@ -54,6 +58,14 @@ export class MeasureVerdictResponseDto {
   })
   readonly verdict: string;
 
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description:
+      'How far the measure moved: a share in points, a cost per run in percent; none where either side is unknown or the costs are in different currencies',
+  })
+  readonly change: ChangeResponseDto | null;
+
   constructor(verdict: MeasureVerdict) {
     this.measure = verdict.measure;
     this.before = verdict.before;
@@ -62,5 +74,6 @@ export class MeasureVerdictResponseDto {
     this.settledAfter = verdict.settledAfter;
     this.currency = verdict.currency;
     this.verdict = verdict.verdict;
+    this.change = changeResponseOf(verdict.change);
   }
 }

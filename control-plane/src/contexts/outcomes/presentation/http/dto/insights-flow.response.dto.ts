@@ -6,6 +6,8 @@ import type {
   StationFlowDto,
 } from '@outcomes/application/dto/insights.dto';
 import {
+  ChangeResponseDto,
+  changeResponseOf,
   InsightsPeriodResponseDto,
   SpreadResponseDto,
 } from '@outcomes/presentation/http/dto/insights-common.response.dto';
@@ -19,6 +21,19 @@ export class StationFlowResponseDto {
 
   @ApiProperty({ example: 8, description: 'Tasks it ran for' })
   readonly tasks: number;
+
+  @ApiProperty({
+    example: 6,
+    description: 'Tasks it ran for the period before; 0 where it ran none',
+  })
+  readonly tasksBefore: number;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Its tasks against the period before',
+  })
+  readonly tasksChange: ChangeResponseDto | null;
 
   @ApiProperty({ type: String, isArray: true })
   readonly taskIds: readonly string[];
@@ -55,6 +70,8 @@ export class StationFlowResponseDto {
     this.lineId = station.lineId;
     this.stationId = station.stationId;
     this.tasks = station.tasks;
+    this.tasksBefore = station.tasksBefore;
+    this.tasksChange = changeResponseOf(station.tasksChange);
     this.taskIds = station.taskIds;
     this.runs = station.runs;
     this.queued = new SpreadResponseDto(station.queued);
@@ -62,6 +79,35 @@ export class StationFlowResponseDto {
     this.inbox = new SpreadResponseDto(station.inbox);
     this.asks = station.asks;
     this.unanswered = station.unanswered;
+  }
+}
+
+export class DeliveryChangesResponseDto {
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Pull requests opened against the period before',
+  })
+  readonly opened: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'First reviews against the period before',
+  })
+  readonly reviewed: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Pull requests merged against the period before',
+  })
+  readonly merged: ChangeResponseDto | null;
+
+  constructor(changes: DeliveryFlowDto['changes']) {
+    this.opened = changeResponseOf(changes.opened);
+    this.reviewed = changeResponseOf(changes.reviewed);
+    this.merged = changeResponseOf(changes.merged);
   }
 }
 
@@ -110,6 +156,12 @@ export class DeliveryFlowResponseDto {
   @ApiProperty({ type: String, isArray: true })
   readonly mergedTaskIds: readonly string[];
 
+  @ApiProperty({
+    type: DeliveryChangesResponseDto,
+    description: 'How each count moved against the period before, as long',
+  })
+  readonly changes: DeliveryChangesResponseDto;
+
   constructor(delivery: DeliveryFlowDto) {
     this.toPullRequest = new SpreadResponseDto(delivery.toPullRequest);
     this.toFirstReview = new SpreadResponseDto(delivery.toFirstReview);
@@ -120,6 +172,7 @@ export class DeliveryFlowResponseDto {
     this.openedTaskIds = delivery.openedTaskIds;
     this.reviewedTaskIds = delivery.reviewedTaskIds;
     this.mergedTaskIds = delivery.mergedTaskIds;
+    this.changes = new DeliveryChangesResponseDto(delivery.changes);
   }
 }
 
@@ -160,16 +213,9 @@ export class InsightsFlowResponseDto {
   @ApiProperty({ type: FlowResponseDto, description: 'This period' })
   readonly flow: FlowResponseDto;
 
-  @ApiProperty({
-    type: FlowResponseDto,
-    description: 'The period before, as long',
-  })
-  readonly before: FlowResponseDto;
-
   constructor(flow: InsightsFlowDto) {
     this.period = new InsightsPeriodResponseDto(flow.period);
     this.truncated = flow.truncated;
     this.flow = new FlowResponseDto(flow.flow);
-    this.before = new FlowResponseDto(flow.before);
   }
 }

@@ -1,7 +1,11 @@
 import { day, historyOf, touchesOf } from '@outcomes/domain/insights.fake-spec';
 import { endedRecord } from '@outcomes/domain/outcomes.fake-spec';
 import { teamPullRequestOf } from '@outcomes/domain/pull-requests.fake-spec';
-import { shippingOf } from '@outcomes/domain/services/shipping';
+import {
+  type FlowStageKind,
+  type Shipping,
+  shippingOf,
+} from '@outcomes/domain/services/shipping';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -29,6 +33,9 @@ const merged = (
 
 const NOTHING = historyOf({});
 
+const timesAt = (pipeline: Shipping['pipeline'], kind: FlowStageKind) =>
+  pipeline.layouts.stages.find((each) => each.kind === kind)?.times;
+
 describe('shippingOf', () => {
   it('times opened to merged for Spotlight and for people in the repositories Spotlight merged into', () => {
     const shipping = shippingOf(
@@ -47,10 +54,14 @@ describe('shippingOf', () => {
       count: 1,
     });
     expect(shipping.toMerge.people).toMatchObject({ p50: 10 * HOUR, count: 1 });
-    expect(shipping.toMergeBefore.spotlight).toMatchObject({
-      p50: 2 * HOUR,
-      count: 1,
+    expect(shipping.toMergeChanges.spotlight.p50).toEqual({
+      unit: 'percent',
+      by: 1,
+      fromZero: false,
+      direction: 'up',
+      tone: 'bad',
     });
+    expect(shipping.toMergeChanges.people.p50).toBeNull();
   });
 
   it('goes day by day, each day on its own and over the 7 days ending it', () => {
@@ -74,10 +85,10 @@ describe('shippingOf', () => {
     expect(on('2026-09-30')?.rolling.spotlight.count).toBe(2);
   });
 
-  it('times each type and buckets review rounds week by week', () => {
+  it('times each type, slowest first at each percentile, and buckets review rounds week by week and over the period', () => {
     const shipping = shippingOf(
       [
-        merged(1, '2026-09-29', 4, {
+        merged(1, '2026-09-29', 9, {
           by: 'spotlight',
           type: 'fix',
           seen: { reviewRounds: 1 },
@@ -95,11 +106,30 @@ describe('shippingOf', () => {
       ['feature', 1],
       ['fix', 1],
     ]);
-    expect(shipping.depth[shipping.depth.length - 1]).toMatchObject({
+    expect(shipping.slowestFirst).toEqual({
+      p50: ['fix', 'feature'],
+      p75: ['fix', 'feature'],
+      p90: ['fix', 'feature'],
+      p95: ['fix', 'feature'],
+    });
+    const counted = [
+      { rounds: '0', merged: 0, share: 0 },
+      { rounds: '1', merged: 1, share: 0.5 },
+      { rounds: '2', merged: 0, share: 0 },
+      { rounds: '3+', merged: 1, share: 0.5 },
+    ];
+    expect(shipping.depth[shipping.depth.length - 1]).toEqual({
       week: '2026-09-28',
       merged: 2,
-      rounds: { '0': 0, '1': 1, '2': 0, '3+': 1 },
+      rounds: counted,
     });
+    expect(shipping.depth[0]?.rounds.map((each) => each.share)).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
+    expect(shipping.depthTotals).toEqual(counted);
   });
 
   it('times ready for review to the first review, counts who still waits and human reviews, leaving drafts and bots’ pull requests out', () => {
@@ -212,6 +242,47 @@ describe('shippingOf', () => {
     ]);
   });
 
+  it('puts a type only people merged after the types Spotlight merged', () => {
+    const shipping = shippingOf(
+      [
+        merged(1, '2026-09-29', 2, { type: 'chore' }),
+        merged(2, '2026-09-29', 4, { by: 'spotlight', type: 'feature' }),
+        merged(3, '2026-09-30', 9, { by: 'spotlight', type: 'fix' }),
+      ],
+      NOTHING,
+      PERIOD,
+    );
+
+    expect(shipping.slowestFirst.p50).toEqual(['fix', 'feature', 'chore']);
+  });
+
+  it('names no longest part at a station where no part took any time', () => {
+    const history = historyOf({
+      records: [
+        endedRecord('run_1', {
+          taskId: 'task_1',
+          queuedAt: day('2026-09-28', 9),
+          startedAt: day('2026-09-28', 9),
+          endedAt: day('2026-09-28', 9),
+        }),
+      ],
+      touches: [touchesOf('task_1', { openedAt: day('2026-09-28', 8) })],
+    });
+
+    const { pipeline } = shippingOf(
+      [merged(1, '2026-09-29', 4, { by: 'spotlight', taskId: 'task_1' })],
+      history,
+      PERIOD,
+    );
+
+    expect(pipeline.layouts.stations[0]?.times.all.longestPart).toEqual({
+      p50: null,
+      p75: null,
+      p90: null,
+      p95: null,
+    });
+  });
+
   it('follows Spotlight’s merged pull requests from the task opening through stations and review', () => {
     const history = historyOf({
       records: [
@@ -247,10 +318,15 @@ describe('shippingOf', () => {
 
     expect(pipeline.merged).toBe(1);
     expect(pipeline.types).toEqual([{ type: 'feature', merged: 1 }]);
-    expect(pipeline.coding.all.total.p50).toBe(2 * HOUR);
-    expect(pipeline.stations).toHaveLength(1);
-    expect(pipeline.stations[0]).toMatchObject({
-      stationId: 'station_1',
+    expect(timesAt(pipeline, 'coding')?.all.total.p50).toBe(2 * HOUR);
+    expect(pipeline.layouts.stations.map((each) => each.kind)).toEqual([
+      'station',
+      'awaitingReview',
+      'inReview',
+      'awaitingMerge',
+    ]);
+    expect(pipeline.layouts.stations[0]).toMatchObject({
+      place: { stationId: 'station_1' },
       times: {
         all: {
           total: { p50: 35 * MINUTE },
@@ -259,15 +335,132 @@ describe('shippingOf', () => {
             running: { p50: 30 * MINUTE },
             inbox: { p50: 0 },
           },
+          longestPart: { p50: 'running', p95: 'running' },
         },
       },
     });
-    expect(pipeline.review.awaitingReview.all.total.p50).toBe(3 * HOUR);
-    expect(pipeline.review.inReview.all.total.p50).toBe(19 * HOUR);
-    expect(pipeline.review.awaitingMerge.all.total.p50).toBe(3 * HOUR);
-    expect(pipeline.review.awaitingMerge.types).toEqual([
+    expect(timesAt(pipeline, 'inReview')?.all.longestPart).toBeNull();
+    expect(timesAt(pipeline, 'awaitingReview')?.all.total.p50).toBe(3 * HOUR);
+    expect(timesAt(pipeline, 'inReview')?.all.total.p50).toBe(19 * HOUR);
+    expect(timesAt(pipeline, 'awaitingMerge')?.all.total.p50).toBe(3 * HOUR);
+    expect(timesAt(pipeline, 'awaitingMerge')?.types).toEqual([
       { type: 'feature', times: expect.objectContaining({ parts: null }) },
     ]);
+  });
+
+  it('weighs each stage against the longest in its layout, for all pull requests and for each type, and marks the longest', () => {
+    const shipped = (
+      number: number,
+      type: 'feature' | 'fix',
+      on: string,
+      hours: {
+        opened: number;
+        reviewed: number;
+        approved: number;
+        closed: number;
+      },
+    ) =>
+      teamPullRequestOf(number, {
+        by: 'spotlight',
+        taskId: `task_${number}`,
+        type,
+        seen: {
+          state: 'merged',
+          openedAt: day(on, hours.opened),
+          readyForReviewAt: day(on, hours.opened),
+          firstUnblockingReviewAt: day(on, hours.reviewed),
+          firstApprovedAt: day(on, hours.approved),
+          closedAt: day(on, hours.closed),
+        },
+      });
+    const { pipeline } = shippingOf(
+      [
+        shipped(1, 'feature', '2026-09-28', {
+          opened: 10,
+          reviewed: 14,
+          approved: 15,
+          closed: 16,
+        }),
+        shipped(2, 'fix', '2026-09-29', {
+          opened: 9,
+          reviewed: 10,
+          approved: 16,
+          closed: 17,
+        }),
+      ],
+      historyOf({
+        touches: [
+          touchesOf('task_1', { openedAt: day('2026-09-28', 8) }),
+          touchesOf('task_2', { openedAt: day('2026-09-29', 8) }),
+        ],
+      }),
+      PERIOD,
+    );
+    const jams = (
+      layout: 'stations' | 'stages',
+      type: 'feature' | 'fix' | null,
+    ) =>
+      pipeline.layouts[layout].map((stage) => {
+        const times = type
+          ? stage.times.types.find((each) => each.type === type)?.times
+          : stage.times.all;
+
+        return [stage.kind, times?.jam.p50, times?.worst.p50];
+      });
+
+    expect(jams('stages', null)).toEqual([
+      ['coding', 1.5 / 3.5, false],
+      ['awaitingReview', 2.5 / 3.5, false],
+      ['inReview', 1, true],
+      ['awaitingMerge', 1 / 3.5, false],
+    ]);
+    expect(jams('stations', null)).toEqual([
+      ['awaitingReview', 2.5 / 3.5, false],
+      ['inReview', 1, true],
+      ['awaitingMerge', 1 / 3.5, false],
+    ]);
+    expect(jams('stages', 'feature')).toEqual([
+      ['coding', 0.5, false],
+      ['awaitingReview', 1, true],
+      ['inReview', 0.25, false],
+      ['awaitingMerge', 0.25, false],
+    ]);
+    expect(jams('stages', 'fix')).toEqual([
+      ['coding', 1 / 6, false],
+      ['awaitingReview', 1 / 6, false],
+      ['inReview', 1, true],
+      ['awaitingMerge', 1 / 6, false],
+    ]);
+  });
+
+  it('marks the first of equally long stages as the longest, and none where nothing was measured', () => {
+    const { pipeline } = shippingOf(
+      [
+        teamPullRequestOf(1, {
+          by: 'spotlight',
+          taskId: 'task_1',
+          seen: {
+            state: 'merged',
+            openedAt: day('2026-09-29', 9),
+            readyForReviewAt: day('2026-09-29', 9),
+            firstUnblockingReviewAt: day('2026-09-29', 11),
+            firstApprovedAt: day('2026-09-29', 13),
+            closedAt: day('2026-09-29', 13),
+          },
+        }),
+      ],
+      historyOf({
+        touches: [touchesOf('task_1', { openedAt: day('2026-09-29', 7) })],
+      }),
+      PERIOD,
+    );
+    const worst = (stages: typeof pipeline.layouts.stages) =>
+      stages.map((stage) => stage.times.all.worst.p50);
+
+    expect(worst(pipeline.layouts.stages)).toEqual([true, false, false, false]);
+    expect(
+      worst(shippingOf([], NOTHING, PERIOD).pipeline.layouts.stages),
+    ).toEqual([false, false, false, false]);
   });
 
   it('counts a review before the pull request was ready, or an approval after the merge, as no wait', () => {
@@ -295,9 +488,27 @@ describe('shippingOf', () => {
     expect(
       reviewDays.find((each) => each.day === '2026-09-29')?.toFirstReview.daily,
     ).toMatchObject({ p50: 0, count: 1 });
-    expect(pipeline.review.awaitingReview.all.total.p50).toBe(0);
-    expect(pipeline.review.inReview.all.total.p50).toBe(6 * HOUR);
-    expect(pipeline.review.awaitingMerge.all.total.p50).toBe(0);
+    expect(timesAt(pipeline, 'awaitingReview')?.all.total.p50).toBe(0);
+    expect(timesAt(pipeline, 'inReview')?.all.total.p50).toBe(6 * HOUR);
+    expect(timesAt(pipeline, 'awaitingMerge')?.all.total.p50).toBe(0);
+  });
+
+  it('tells a period with nothing merged, waiting or reviewed apart', () => {
+    expect(shippingOf([], NOTHING, PERIOD).shippedAny).toBe(false);
+    expect(
+      shippingOf(
+        [merged(1, '2026-09-30', 2, { by: 'spotlight' })],
+        NOTHING,
+        PERIOD,
+      ).shippedAny,
+    ).toBe(true);
+    expect(
+      shippingOf(
+        [merged(1, '2026-08-01', 2, { by: 'spotlight' })],
+        NOTHING,
+        PERIOD,
+      ).shippedAny,
+    ).toBe(false);
   });
 
   it('counts only the period’s merges in the week it starts in', () => {
@@ -333,7 +544,7 @@ describe('shippingOf', () => {
     );
 
     expect(pipeline.merged).toBe(1);
-    expect(pipeline.coding.all.total.count).toBe(1);
+    expect(timesAt(pipeline, 'coding')?.all.total.count).toBe(1);
   });
 
   it('leaves a pull request out of who waits while it is back as a draft, and takes that time off its wait', () => {
@@ -375,7 +586,7 @@ describe('shippingOf', () => {
       p50: 3 * HOUR,
       count: 1,
     });
-    expect(pipeline.review.awaitingReview.all.total.p50).toBe(3 * HOUR);
+    expect(timesAt(pipeline, 'awaitingReview')?.all.total.p50).toBe(3 * HOUR);
   });
 
   it('takes every spell back as a draft off the wait, only where it fell between ready and the first review', () => {

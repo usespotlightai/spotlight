@@ -6,6 +6,7 @@ import {
 import { configChangesAlong } from '@outcomes/domain/services/config-stretches';
 import {
   configInForce,
+  daySpanOf,
   fingerprintGroupsNewestFirst,
 } from '@outcomes/domain/services/fingerprint-groups';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
@@ -320,5 +321,21 @@ describe('configInForce', () => {
       ]),
     ).toBeNull();
     expect(inForceOf([])).toBeNull();
+  });
+});
+
+describe('daySpanOf', () => {
+  it('spans the days its runs ended on, whatever order they come in', () => {
+    expect(
+      daySpanOf([
+        endedRecord('run_2', { endedAt: new Date('2026-09-30T08:00:00Z') }),
+        endedRecord('run_1', { endedAt: new Date('2026-09-28T23:00:00Z') }),
+        endedRecord('run_3', { endedAt: new Date('2026-09-29T10:00:00Z') }),
+      ]),
+    ).toEqual({ firstDay: '2026-09-28', lastDay: '2026-09-30' });
+  });
+
+  it('spans no days without runs', () => {
+    expect(daySpanOf([])).toEqual({ firstDay: null, lastDay: null });
   });
 });

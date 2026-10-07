@@ -47,8 +47,15 @@ describe('changeVerdictOf', () => {
       settledAfter: 5,
       verdict: 'better',
     });
+    expect(of(verdicts, 'accepted_rate')?.change).toMatchObject({
+      unit: 'points',
+      direction: 'up',
+      tone: 'flat',
+    });
+    expect(of(verdicts, 'accepted_rate')?.change?.by).toBeCloseTo(0.6);
     expect(of(verdicts, 'sent_back_rate')?.verdict).toBe('better');
     expect(of(verdicts, 'failed_rate')?.verdict).toBe('unchanged');
+    expect(of(verdicts, 'failed_rate')?.change?.direction).toBe('same');
   });
 
   it('says too few runs settled rather than guess, leaving out runs nobody answered yet', () => {
@@ -150,12 +157,19 @@ describe('changeVerdictOf', () => {
       after: 1,
       currency: 'USD',
       verdict: 'better',
+      change: {
+        unit: 'percent',
+        by: -0.5,
+        fromZero: false,
+        direction: 'down',
+        tone: 'flat',
+      },
     });
     expect(
       of(
         changeVerdictOf(priced('b', 2, 'USD'), priced('a', 1, 'EUR'), []),
         'cost_per_run',
-      )?.verdict,
-    ).toBe('insufficient');
+      ),
+    ).toMatchObject({ verdict: 'insufficient', change: null });
   });
 });

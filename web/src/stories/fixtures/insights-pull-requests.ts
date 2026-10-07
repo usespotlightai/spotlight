@@ -38,6 +38,8 @@ const week = (
   merged,
   made,
   touched,
+  spotlight: made + touched,
+  people: merged - made - touched - bots,
   bots,
   share: merged > 0 ? (made + touched) / merged : null,
 });

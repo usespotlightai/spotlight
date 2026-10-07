@@ -7,7 +7,6 @@ import { countShown, shareShown } from '@/lib/insights';
 import {
   type InsightsPullRequests,
   mergedPullRequestsFilter,
-  weekBars,
 } from '@/lib/insights-pull-requests';
 
 type PenetrationProps = {
@@ -52,7 +51,7 @@ export function Penetration({ penetration }: PenetrationProps) {
         description="Merged pull requests each week: made by Spotlight, others’ with a Spotlight review task, people alone, bots alone."
         table={<PenetrationTable weeks={penetration.weeks} repository={null} />}
       >
-        <PenetrationChart bars={weekBars(penetration.weeks)} />
+        <PenetrationChart weeks={penetration.weeks} />
       </InsightsCard>
     </div>
   );

@@ -69,10 +69,10 @@ describe('toolInsightsOf', () => {
         given: 2,
         used: 2,
         weeks: [
-          { week: '2026-09-07', runs: 2, given: 2, used: 1 },
-          { week: '2026-09-14', runs: 0, given: 0, used: 0 },
-          { week: '2026-09-21', runs: 0, given: 0, used: 0 },
-          { week: '2026-09-28', runs: 1, given: 0, used: 1 },
+          { week: '2026-09-07', runs: 2, given: 2, used: 1, usedShare: 0.5 },
+          { week: '2026-09-14', runs: 0, given: 0, used: 0, usedShare: null },
+          { week: '2026-09-21', runs: 0, given: 0, used: 0, usedShare: null },
+          { week: '2026-09-28', runs: 1, given: 0, used: 1, usedShare: 1 },
         ],
       }),
     ]);

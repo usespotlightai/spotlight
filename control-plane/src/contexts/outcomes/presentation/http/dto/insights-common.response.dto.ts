@@ -1,9 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
+  ChangeDto,
   PeriodDto,
   PersonNameDto,
   SpreadDto,
 } from '@outcomes/application/dto/insights.dto';
+import {
+  CHANGE_DIRECTIONS,
+  CHANGE_TONES,
+  CHANGE_UNITS,
+} from '@outcomes/domain/value-objects/change.vo';
 import { INSIGHTS_PERIODS } from '@outcomes/domain/value-objects/insights-period.vo';
 
 export class InsightsPeriodResponseDto {
@@ -97,3 +103,51 @@ export class SpreadResponseDto {
     this.count = spread.count;
   }
 }
+
+export class ChangeResponseDto {
+  @ApiProperty({
+    enum: CHANGE_UNITS,
+    example: 'percent',
+    description:
+      'percent: moved by a share of what it was; points: a rate or share that moved by percentage points',
+  })
+  readonly unit: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.2,
+    description:
+      'How far it moved, as a fraction: 0.2 is 20% for percent and 20 points for points; none when it rose from 0',
+  })
+  readonly by: number | null;
+
+  @ApiProperty({
+    example: false,
+    description: 'Whether it rose from 0, so no percent can be given',
+  })
+  readonly fromZero: boolean;
+
+  @ApiProperty({ enum: CHANGE_DIRECTIONS, example: 'up' })
+  readonly direction: string;
+
+  @ApiProperty({
+    enum: CHANGE_TONES,
+    example: 'good',
+    description:
+      'Whether the move is good or bad for the team; flat where neither way is better or nothing moved',
+  })
+  readonly tone: string;
+
+  constructor(change: ChangeDto) {
+    this.unit = change.unit;
+    this.by = change.by;
+    this.fromZero = change.fromZero;
+    this.direction = change.direction;
+    this.tone = change.tone;
+  }
+}
+
+export const changeResponseOf = (
+  change: ChangeDto | null,
+): ChangeResponseDto | null => (change ? new ChangeResponseDto(change) : null);

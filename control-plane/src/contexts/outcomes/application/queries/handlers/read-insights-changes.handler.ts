@@ -18,7 +18,10 @@ import {
   changeSplitsOf,
 } from '@outcomes/domain/services/before-after';
 import { changeVerdictOf } from '@outcomes/domain/services/change-verdict';
-import { judgeShareOf } from '@outcomes/domain/services/judge-shares';
+import {
+  judgeChangeOf,
+  judgeShareOf,
+} from '@outcomes/domain/services/judge-shares';
 import { runTally } from '@outcomes/domain/services/run-tally';
 import {
   type StationPlace,
@@ -90,6 +93,12 @@ export class ReadInsightsChangesHandler
       const markers: ChangeMarkerDto[] = splits.map((split) => {
         const { marker } = split;
         const judged = trusted.has(marker.stationId);
+        const judgeBefore = judged
+          ? judgeShareOf(sharesOf(split.before, judging.shares))
+          : null;
+        const judgeAfter = judged
+          ? judgeShareOf(sharesOf(split.after, judging.shares))
+          : null;
 
         return {
           lineId: marker.lineId,
@@ -105,12 +114,9 @@ export class ReadInsightsChangesHandler
             split.after,
             history.deliveries,
           ),
-          judgeBefore: judged
-            ? judgeShareOf(sharesOf(split.before, judging.shares))
-            : null,
-          judgeAfter: judged
-            ? judgeShareOf(sharesOf(split.after, judging.shares))
-            : null,
+          judgeBefore,
+          judgeAfter,
+          judgeChange: judgeChangeOf(judgeBefore, judgeAfter),
           changes: configs.between(pairOfSplit(split)),
         };
       });

@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/popover';
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
 import {
-  type OutputDay,
+  type DayOutput,
   type StationNames,
   stationShown,
 } from '@/lib/insights';
@@ -18,7 +18,7 @@ import { stationPath } from '@/lib/station';
 type ConfigMarkersProps = {
   slug: string;
   teamId: string;
-  days: readonly OutputDay[];
+  days: readonly DayOutput[];
   names: StationNames;
   inset: number;
 };

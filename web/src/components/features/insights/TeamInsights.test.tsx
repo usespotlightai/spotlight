@@ -150,7 +150,21 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
 const OVERVIEW = {
   period: { name: '7d' },
   headline: headline(),
-  before: headline({ mergedPullRequests: 4 }),
+  changes: {
+    spend: null,
+    mergedPullRequests: {
+      unit: 'percent',
+      by: 1,
+      fromZero: false,
+      direction: 'up',
+      tone: 'good',
+    },
+    mergeRate: null,
+    costPerMerge: null,
+    taskToMerge: null,
+    touchesPerTask: null,
+    activePeople: null,
+  },
   output: [
     {
       day: '2026-09-30',
@@ -158,11 +172,11 @@ const OVERVIEW = {
       spend: { amount: 4.2, currency: 'USD' },
       merged: 1,
       mergedTaskIds: [],
+      changes: [],
     },
   ],
   outputCurrency: 'USD',
   outputMixedCurrencies: false,
-  configChanges: [],
   worthImproving: [
     {
       lineId: 'line_1',
@@ -202,8 +216,7 @@ const MIXED_COST = {
     cache: { input: null, cacheRead: null, cacheWrite: null, cacheShare: null },
     cacheByStation: [],
   },
-  spendBefore: null,
-  mixedCurrenciesBefore: false,
+  spendChange: null,
   truncated: false,
 } as unknown as InsightsCost;
 
@@ -612,28 +625,21 @@ describe('TeamInsights', () => {
         askedTaskIds: [],
         refusedTaskIds: ['task_9'],
       },
-      loadBefore: {
-        asks: 0,
-        tasks: 0,
+      loadChanges: {
         asksPerTask: null,
-        toAnswer: { p50Ms: null, p90Ms: null, count: 0 },
-        unanswered: 0,
-        sentBack: 0,
+        toAnswer: null,
         sentBackRate: null,
-        refused: 0,
-        askedTaskIds: [],
-        refusedTaskIds: [],
+        refused: null,
       },
       adoption: {
-        active: ['user_1'],
-        activeBefore: [],
-        newAdopters: [],
-        weekly: [],
-        monthly: [],
+        activeCount: 1,
+        activeChange: null,
+        newAdopterCount: 0,
+        weeklyCount: 0,
+        monthlyCount: 0,
         stickiness: null,
         people: [],
       },
-      people: [],
     });
 
     showing('?tab=people');

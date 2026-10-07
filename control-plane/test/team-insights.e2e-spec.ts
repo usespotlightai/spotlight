@@ -752,6 +752,12 @@ describe('the team’s insights (e2e)', () => {
       runFailures: [],
     });
     expect(answer.body.stations[0].trend).toHaveLength(7);
+    expect(answer.body.stations[0].seen).toEqual({
+      accepted: false,
+      sentBack: false,
+      merged: true,
+    });
+    expect(answer.body.teamTrend).toHaveLength(7);
   });
 
   it('shows where the task waited, on to its merge', async () => {
@@ -783,10 +789,10 @@ describe('the team’s insights (e2e)', () => {
       toAnswer: { p50Ms: 30 * MINUTE, count: 1 },
     });
     expect(answer.body.adoption).toMatchObject({
-      active: [team.owner.value],
-      newAdopters: [],
-      weekly: [team.owner.value],
-      monthly: [team.owner.value],
+      activeCount: 1,
+      newAdopterCount: 0,
+      weeklyCount: 1,
+      monthlyCount: 1,
       stickiness: 1,
     });
     expect(answer.body.adoption.people[0]).toMatchObject({

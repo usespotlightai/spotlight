@@ -15,7 +15,6 @@ import {
   type FlowStage,
   partShown,
   STATION_PARTS,
-  worstJam,
 } from '@/lib/insights-shipping';
 import { SPREAD } from '@/lib/nested-table';
 import { cn } from '@/lib/utils';
@@ -34,7 +33,6 @@ export function PipelineFlowTable({
   stages: readonly FlowStage[];
 }) {
   const folds = useFolds();
-  const worst = worstJam(stages);
   const broken = stages.some((stage) => stage.parts);
   const headings = [
     { label: 'Stage', indent: 'outer' as const, size: 'minmax(10rem,2fr)' },
@@ -84,7 +82,7 @@ export function PipelineFlowTable({
                     )}
                   >
                     {stage.label}
-                    {stage === worst && (
+                    {stage.worst && (
                       <Noted note="Worst jam: the stage with the longest wait">
                         <span className="inline-flex shrink-0">
                           <span

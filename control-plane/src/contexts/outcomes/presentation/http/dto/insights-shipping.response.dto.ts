@@ -1,23 +1,34 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
+  ByAuthorChangesDto,
   ByAuthorDto,
   ByTypeDto,
   DepthWeekDto,
+  FlowStageDto,
   InsightsShippingDto,
   MergeDayDto,
   PercentilesDto,
   PipelineFlowDto,
   ReviewBotDto,
   ReviewDayDto,
+  RoundsCountDto,
   StagePartsDto,
   StageTimesDto,
-  StationStageDto,
   TypedStageTimesDto,
   TypeMergeDto,
 } from '@outcomes/application/dto/insights-shipping.dto';
+import type { ByPercentile } from '@outcomes/domain/services/measures';
+import {
+  FLOW_STAGE_KINDS,
+  STATION_PARTS,
+} from '@outcomes/domain/services/shipping';
 import { ROUND_BUCKETS } from '@outcomes/domain/services/team-pull-requests';
 import { PULL_REQUEST_TYPES } from '@outcomes/domain/value-objects/pull-request-type';
-import { InsightsPeriodResponseDto } from '@outcomes/presentation/http/dto/insights-common.response.dto';
+import {
+  ChangeResponseDto,
+  changeResponseOf,
+  InsightsPeriodResponseDto,
+} from '@outcomes/presentation/http/dto/insights-common.response.dto';
 
 const millis = (description: string, example: number) =>
   ApiProperty({ nullable: true, type: Number, example, description });
@@ -121,9 +132,19 @@ export class RoundsCountResponseDto {
   @ApiProperty({ example: 15, description: 'Merged with that many rounds' })
   readonly merged: number;
 
-  constructor(rounds: DepthWeekDto['rounds'][number]) {
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.52,
+    description:
+      'Those over everything merged across the buckets, from 0 to 1; none where nothing merged',
+  })
+  readonly share: number | null;
+
+  constructor(rounds: RoundsCountDto) {
     this.rounds = rounds.rounds;
     this.merged = rounds.merged;
+    this.share = rounds.share;
   }
 }
 
@@ -242,6 +263,85 @@ export class StagePartsResponseDto {
   }
 }
 
+export class PercentileJamsResponseDto {
+  @ApiProperty({ example: 0.4 })
+  readonly p50: number;
+
+  @ApiProperty({ example: 0.6 })
+  readonly p75: number;
+
+  @ApiProperty({ example: 1 })
+  readonly p90: number;
+
+  @ApiProperty({ example: 0.8 })
+  readonly p95: number;
+
+  constructor(jams: ByPercentile<number>) {
+    this.p50 = jams.p50;
+    this.p75 = jams.p75;
+    this.p90 = jams.p90;
+    this.p95 = jams.p95;
+  }
+}
+
+export class PercentileWorstResponseDto {
+  @ApiProperty({ example: false })
+  readonly p50: boolean;
+
+  @ApiProperty({ example: true })
+  readonly p75: boolean;
+
+  @ApiProperty({ example: true })
+  readonly p90: boolean;
+
+  @ApiProperty({ example: false })
+  readonly p95: boolean;
+
+  constructor(worst: ByPercentile<boolean>) {
+    this.p50 = worst.p50;
+    this.p75 = worst.p75;
+    this.p90 = worst.p90;
+    this.p95 = worst.p95;
+  }
+}
+
+export class PercentilePartsResponseDto {
+  @ApiProperty({
+    enum: [...STATION_PARTS, null],
+    nullable: true,
+    example: 'running',
+  })
+  readonly p50: string | null;
+
+  @ApiProperty({
+    enum: [...STATION_PARTS, null],
+    nullable: true,
+    example: 'running',
+  })
+  readonly p75: string | null;
+
+  @ApiProperty({
+    enum: [...STATION_PARTS, null],
+    nullable: true,
+    example: 'inbox',
+  })
+  readonly p90: string | null;
+
+  @ApiProperty({
+    enum: [...STATION_PARTS, null],
+    nullable: true,
+    example: 'inbox',
+  })
+  readonly p95: string | null;
+
+  constructor(parts: ByPercentile<string | null>) {
+    this.p50 = parts.p50;
+    this.p75 = parts.p75;
+    this.p90 = parts.p90;
+    this.p95 = parts.p95;
+  }
+}
+
 export class StageTimesResponseDto {
   @ApiProperty({ type: PercentilesResponseDto })
   readonly total: PercentilesResponseDto;
@@ -253,9 +353,36 @@ export class StageTimesResponseDto {
   })
   readonly parts: StagePartsResponseDto | null;
 
+  @ApiProperty({
+    type: PercentileJamsResponseDto,
+    description:
+      'At each percentile, the stage’s time over the longest stage’s in the same layout and for the same kind of pull request, from 0 to 1',
+  })
+  readonly jam: PercentileJamsResponseDto;
+
+  @ApiProperty({
+    type: PercentileWorstResponseDto,
+    description:
+      'At each percentile, whether this is the longest stage in the layout for the same kind of pull request; the first one on a tie',
+  })
+  readonly worst: PercentileWorstResponseDto;
+
+  @ApiProperty({
+    type: PercentilePartsResponseDto,
+    nullable: true,
+    description:
+      'At a station, the part that took longest at each percentile; queued first on a tie, none where no part took any time',
+  })
+  readonly longestPart: PercentilePartsResponseDto | null;
+
   constructor(times: StageTimesDto) {
     this.total = new PercentilesResponseDto(times.total);
     this.parts = times.parts ? new StagePartsResponseDto(times.parts) : null;
+    this.jam = new PercentileJamsResponseDto(times.jam);
+    this.worst = new PercentileWorstResponseDto(times.worst);
+    this.longestPart = times.longestPart
+      ? new PercentilePartsResponseDto(times.longestPart)
+      : null;
   }
 }
 
@@ -291,23 +418,63 @@ export class ByTypeResponseDto {
   }
 }
 
-export class StationStageResponseDto {
-  @ApiProperty({ example: 'line_delivery' })
-  readonly lineId: string;
-
-  @ApiProperty({ example: 'station_implementation' })
-  readonly stationId: string;
+export class FlowStageResponseDto {
+  @ApiProperty({
+    enum: FLOW_STAGE_KINDS,
+    example: 'station',
+    description:
+      'Coding: task opened to pull request opened. Station: time the task spent at one station. Awaiting review: ready for review to the first review by anyone but the author, bots’ included. In review: first review to approval, or to merge where none approved. Awaiting merge: approval to merge',
+  })
+  readonly kind: string;
 
   @ApiProperty({
-    type: ByTypeResponseDto,
-    description: 'Time a merged pull request’s task spent at the station',
+    nullable: true,
+    type: String,
+    example: 'line_delivery',
+    description: 'The station’s line; none for other stages',
   })
+  readonly lineId: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'station_implementation',
+    description: 'The station; none for other stages',
+  })
+  readonly stationId: string | null;
+
+  @ApiProperty({ type: ByTypeResponseDto })
   readonly times: ByTypeResponseDto;
 
-  constructor(station: StationStageDto) {
-    this.lineId = station.lineId;
-    this.stationId = station.stationId;
-    this.times = new ByTypeResponseDto(station.times);
+  constructor(stage: FlowStageDto) {
+    this.kind = stage.kind;
+    this.lineId = stage.lineId;
+    this.stationId = stage.stationId;
+    this.times = new ByTypeResponseDto(stage.times);
+  }
+}
+
+export class FlowLayoutsResponseDto {
+  @ApiProperty({
+    type: FlowStageResponseDto,
+    isArray: true,
+    description:
+      'Coding as each station the tasks went through, in order of first use, then the review stages',
+  })
+  readonly stations: readonly FlowStageResponseDto[];
+
+  @ApiProperty({
+    type: FlowStageResponseDto,
+    isArray: true,
+    description: 'Coding as one stage, then the review stages',
+  })
+  readonly stages: readonly FlowStageResponseDto[];
+
+  constructor(layouts: PipelineFlowDto['layouts']) {
+    this.stations = layouts.stations.map(
+      (each) => new FlowStageResponseDto(each),
+    );
+    this.stages = layouts.stages.map((each) => new FlowStageResponseDto(each));
   }
 }
 
@@ -335,49 +502,96 @@ export class PipelineFlowResponseDto {
   readonly types: readonly PipelineTypeResponseDto[];
 
   @ApiProperty({
-    type: ByTypeResponseDto,
-    description: 'Task opened to pull request opened',
-  })
-  readonly coding: ByTypeResponseDto;
-
-  @ApiProperty({
-    type: StationStageResponseDto,
-    isArray: true,
-    description: 'Each station the tasks went through, in order of first use',
-  })
-  readonly stations: readonly StationStageResponseDto[];
-
-  @ApiProperty({
-    type: ByTypeResponseDto,
+    type: FlowLayoutsResponseDto,
     description:
-      'Ready for review to the first review by anyone but the author, bots’ included',
+      'The stages in order, with coding shown by station or as one stage',
   })
-  readonly awaitingReview: ByTypeResponseDto;
-
-  @ApiProperty({
-    type: ByTypeResponseDto,
-    description: 'First review to approval, or to merge where none approved',
-  })
-  readonly inReview: ByTypeResponseDto;
-
-  @ApiProperty({
-    type: ByTypeResponseDto,
-    description: 'Approval to merge',
-  })
-  readonly awaitingMerge: ByTypeResponseDto;
+  readonly layouts: FlowLayoutsResponseDto;
 
   constructor(pipeline: PipelineFlowDto) {
     this.merged = pipeline.merged;
     this.types = pipeline.types.map(
       (each) => new PipelineTypeResponseDto(each),
     );
-    this.coding = new ByTypeResponseDto(pipeline.coding);
-    this.stations = pipeline.stations.map(
-      (each) => new StationStageResponseDto(each),
-    );
-    this.awaitingReview = new ByTypeResponseDto(pipeline.awaitingReview);
-    this.inReview = new ByTypeResponseDto(pipeline.inReview);
-    this.awaitingMerge = new ByTypeResponseDto(pipeline.awaitingMerge);
+    this.layouts = new FlowLayoutsResponseDto(pipeline.layouts);
+  }
+}
+
+export class PercentileChangesResponseDto {
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The median against the period before',
+  })
+  readonly p50: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The 75th percentile against the period before',
+  })
+  readonly p75: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The 90th percentile against the period before',
+  })
+  readonly p90: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The 95th percentile against the period before',
+  })
+  readonly p95: ChangeResponseDto | null;
+
+  constructor(changes: ByAuthorChangesDto['spotlight']) {
+    this.p50 = changeResponseOf(changes.p50);
+    this.p75 = changeResponseOf(changes.p75);
+    this.p90 = changeResponseOf(changes.p90);
+    this.p95 = changeResponseOf(changes.p95);
+  }
+}
+
+export class ByAuthorChangesResponseDto {
+  @ApiProperty({
+    type: PercentileChangesResponseDto,
+    description: 'Pull requests Spotlight made',
+  })
+  readonly spotlight: PercentileChangesResponseDto;
+
+  @ApiProperty({
+    type: PercentileChangesResponseDto,
+    description:
+      'Pull requests people made alone, in the repositories Spotlight merged into',
+  })
+  readonly people: PercentileChangesResponseDto;
+
+  constructor(changes: ByAuthorChangesDto) {
+    this.spotlight = new PercentileChangesResponseDto(changes.spotlight);
+    this.people = new PercentileChangesResponseDto(changes.people);
+  }
+}
+
+export class PercentileTypesResponseDto {
+  @ApiProperty({ enum: PULL_REQUEST_TYPES, isArray: true })
+  readonly p50: readonly string[];
+
+  @ApiProperty({ enum: PULL_REQUEST_TYPES, isArray: true })
+  readonly p75: readonly string[];
+
+  @ApiProperty({ enum: PULL_REQUEST_TYPES, isArray: true })
+  readonly p90: readonly string[];
+
+  @ApiProperty({ enum: PULL_REQUEST_TYPES, isArray: true })
+  readonly p95: readonly string[];
+
+  constructor(types: ByPercentile<readonly string[]>) {
+    this.p50 = types.p50;
+    this.p75 = types.p75;
+    this.p90 = types.p90;
+    this.p95 = types.p95;
   }
 }
 
@@ -398,10 +612,11 @@ export class InsightsShippingResponseDto {
   readonly toMerge: ByAuthorResponseDto;
 
   @ApiProperty({
-    type: ByAuthorResponseDto,
-    description: 'The same, in the period before it',
+    type: ByAuthorChangesResponseDto,
+    description:
+      'Opened to merged at each percentile against the period before, as long',
   })
-  readonly toMergeBefore: ByAuthorResponseDto;
+  readonly toMergeChanges: ByAuthorChangesResponseDto;
 
   @ApiProperty({ type: MergeDayResponseDto, isArray: true })
   readonly mergeDays: readonly MergeDayResponseDto[];
@@ -409,32 +624,64 @@ export class InsightsShippingResponseDto {
   @ApiProperty({ type: TypeMergeResponseDto, isArray: true })
   readonly types: readonly TypeMergeResponseDto[];
 
+  @ApiProperty({
+    type: PercentileTypesResponseDto,
+    description:
+      'At each percentile, the kinds in types by Spotlight’s opened to merged, slowest first; unmeasured last',
+  })
+  readonly slowestFirst: PercentileTypesResponseDto;
+
   @ApiProperty({ type: DepthWeekResponseDto, isArray: true })
   readonly depth: readonly DepthWeekResponseDto[];
+
+  @ApiProperty({
+    type: RoundsCountResponseDto,
+    isArray: true,
+    description: 'The weeks in depth summed, for each number of review rounds',
+  })
+  readonly depthTotals: readonly RoundsCountResponseDto[];
 
   @ApiProperty({ type: ReviewDayResponseDto, isArray: true })
   readonly reviewDays: readonly ReviewDayResponseDto[];
 
-  @ApiProperty({ type: ReviewBotResponseDto, isArray: true })
+  @ApiProperty({
+    type: ReviewBotResponseDto,
+    isArray: true,
+    description: 'The most comments first',
+  })
   readonly bots: readonly ReviewBotResponseDto[];
 
   @ApiProperty({ type: PipelineFlowResponseDto })
   readonly pipeline: PipelineFlowResponseDto;
 
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether anything merged, waited on a review or was reviewed by a person over the period',
+  })
+  readonly shippedAny: boolean;
+
   constructor(shipping: InsightsShippingDto) {
     this.period = new InsightsPeriodResponseDto(shipping.period);
     this.truncated = shipping.truncated;
     this.toMerge = new ByAuthorResponseDto(shipping.toMerge);
-    this.toMergeBefore = new ByAuthorResponseDto(shipping.toMergeBefore);
+    this.toMergeChanges = new ByAuthorChangesResponseDto(
+      shipping.toMergeChanges,
+    );
     this.mergeDays = shipping.mergeDays.map(
       (each) => new MergeDayResponseDto(each),
     );
     this.types = shipping.types.map((each) => new TypeMergeResponseDto(each));
+    this.slowestFirst = new PercentileTypesResponseDto(shipping.slowestFirst);
     this.depth = shipping.depth.map((each) => new DepthWeekResponseDto(each));
+    this.depthTotals = shipping.depthTotals.map(
+      (each) => new RoundsCountResponseDto(each),
+    );
     this.reviewDays = shipping.reviewDays.map(
       (each) => new ReviewDayResponseDto(each),
     );
     this.bots = shipping.bots.map((each) => new ReviewBotResponseDto(each));
     this.pipeline = new PipelineFlowResponseDto(shipping.pipeline);
+    this.shippedAny = shipping.shippedAny;
   }
 }

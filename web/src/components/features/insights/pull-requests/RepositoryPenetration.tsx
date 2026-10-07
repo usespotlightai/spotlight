@@ -25,7 +25,7 @@ const weekCell = (repository: Repository, week: WeekShare | undefined) =>
       filter={weekFilter(week.week, repository.repository)}
     >
       <span
-        title={`${week.made + week.touched} of ${week.merged} made or reviewed by Spotlight`}
+        title={`${week.spotlight} of ${week.merged} made or reviewed by Spotlight`}
       >
         {shareShown(week.share)}
       </span>

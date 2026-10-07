@@ -6,6 +6,7 @@ import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import type { TallyCountedResponseDto } from '@/lib/api';
 import {
   type StationNames,
   type StationReport,
@@ -18,11 +19,16 @@ import { cn } from '@/lib/utils';
 
 type StationsTableProps = {
   stations: readonly StationReport[];
+  counted: TallyCountedResponseDto;
   names: StationNames;
 };
 
-export function StationsTable({ stations, names }: StationsTableProps) {
-  const columns = countedColumnsOf(stations.map((report) => report.tally));
+export function StationsTable({
+  stations,
+  counted,
+  names,
+}: StationsTableProps) {
+  const columns = countedColumnsOf(counted);
   const headings: NestedHeading[] = [
     { label: 'Station', indent: 'edge', size: 'minmax(10rem,2fr)' },
     { label: 'Runs per day', size: 'max-content' },

@@ -5,11 +5,14 @@ import { UnknownAlertError } from '@outcomes/domain/exceptions/unknown-alert.err
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { StationWatchRepository } from '@outcomes/domain/repositories/station-watch.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
+import { alertChangeOf } from '@outcomes/domain/services/alert-change';
 import { spendingOf } from '@outcomes/domain/services/measures';
 import { measureAround } from '@outcomes/domain/services/station-measures';
 import { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
 import type { AlertRule } from '@outcomes/domain/value-objects/alert-rule.vo';
+import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 const MOST_AROUND = 500;
@@ -36,6 +39,7 @@ export class ReadStationAlertHandler
     private readonly watches: StationWatchRepository,
     private readonly records: RunRecordRepository,
     private readonly deliveries: TaskDeliveryRepository,
+    private readonly clock: ClockPort,
   ) {}
 
   async execute(query: ReadStationAlertQuery): Promise<StationAlertDto> {
@@ -76,9 +80,14 @@ export class ReadStationAlertHandler
         threshold: thresholdOf(crossing.rule),
         value: crossing.reading.value,
         baseline: crossing.reading.baseline,
+        change: alertChangeOf(crossing.rule.measure, crossing.reading),
         runId: crossing.runId.value,
         taskId: crossing.taskId.value,
         raisedAt: crossing.raisedAt.toISOString(),
+        insightsPeriod: InsightsPeriod.covering(
+          crossing.raisedAt,
+          this.clock.now(),
+        ),
         recoveredAt: crossing.recoveredAt?.toISOString() ?? null,
         currency:
           spendingOf(records.map((each) => each.cost?.spend ?? null)).spend

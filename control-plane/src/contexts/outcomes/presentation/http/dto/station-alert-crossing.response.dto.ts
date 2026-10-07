@@ -5,6 +5,11 @@ import type {
   StationAlertDto,
 } from '@outcomes/application/dto/station-alert.dto';
 import { ALERT_MEASURES } from '@outcomes/domain/value-objects/alert-rule.vo';
+import { INSIGHTS_PERIODS } from '@outcomes/domain/value-objects/insights-period.vo';
+import {
+  ChangeResponseDto,
+  changeResponseOf,
+} from '@outcomes/presentation/http/dto/insights-common.response.dto';
 
 export class AlertThresholdResponseDto {
   @ApiProperty({ enum: ALERT_MEASURES })
@@ -89,6 +94,14 @@ export class StationAlertCrossingResponseDto {
   })
   readonly baseline: number | null;
 
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description:
+      'The measure against the baseline: points for a rate, percent for cost per run; none without a baseline',
+  })
+  readonly change: ChangeResponseDto | null;
+
   @ApiProperty({ example: 'run_1', description: 'The run that crossed it' })
   readonly runId: string;
 
@@ -97,6 +110,14 @@ export class StationAlertCrossingResponseDto {
 
   @ApiProperty({ example: '2026-09-30T10:00:00.000Z' })
   readonly raisedAt: string;
+
+  @ApiProperty({
+    enum: INSIGHTS_PERIODS,
+    example: '7d',
+    description:
+      'The shortest Insights period whose days hold the moment the alert went off',
+  })
+  readonly insightsPeriod: string;
 
   @ApiProperty({
     nullable: true,
@@ -127,9 +148,11 @@ export class StationAlertCrossingResponseDto {
     this.threshold = new AlertThresholdResponseDto(alert.threshold);
     this.value = alert.value;
     this.baseline = alert.baseline;
+    this.change = changeResponseOf(alert.change);
     this.runId = alert.runId;
     this.taskId = alert.taskId;
     this.raisedAt = alert.raisedAt;
+    this.insightsPeriod = alert.insightsPeriod;
     this.recoveredAt = alert.recoveredAt;
     this.currency = alert.currency;
     this.series = alert.series.map(

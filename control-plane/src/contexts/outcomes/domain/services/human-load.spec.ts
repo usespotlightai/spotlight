@@ -1,6 +1,10 @@
 import { day, historyOf, touchesOf } from '@outcomes/domain/insights.fake-spec';
 import { endedRecord } from '@outcomes/domain/outcomes.fake-spec';
-import { humanLoadOf } from '@outcomes/domain/services/human-load';
+import {
+  type HumanLoad,
+  humanLoadChangesOf,
+  humanLoadOf,
+} from '@outcomes/domain/services/human-load';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { describe, expect, it } from 'vitest';
@@ -49,5 +53,43 @@ describe('humanLoadOf', () => {
       askedTaskIds: ['task_1'],
       refusedTaskIds: ['task_1'],
     });
+  });
+});
+
+const load = (over: Partial<HumanLoad> = {}): HumanLoad => ({
+  asks: 4,
+  tasks: 4,
+  asksPerTask: 1,
+  toAnswer: { p50: 600_000, p90: 900_000, count: 4 },
+  unanswered: 0,
+  sentBack: 2,
+  sentBackRate: 0.25,
+  refused: 0,
+  askedTaskIds: [],
+  refusedTaskIds: [],
+  ...over,
+});
+
+describe('humanLoadChangesOf', () => {
+  it('moves the sent-back rate by points and the rest by percent, fewer being better', () => {
+    const changes = humanLoadChangesOf(
+      load({
+        asksPerTask: 0.5,
+        toAnswer: { p50: 1_200_000, p90: null, count: 2 },
+        sentBackRate: 0.1,
+        refused: 2,
+      }),
+      load(),
+    );
+
+    expect(changes.asksPerTask).toMatchObject({ by: -0.5, tone: 'good' });
+    expect(changes.toAnswer).toMatchObject({ by: 1, tone: 'bad' });
+    expect(changes.sentBackRate).toMatchObject({
+      unit: 'points',
+      direction: 'down',
+      tone: 'good',
+    });
+    expect(changes.sentBackRate?.by).toBeCloseTo(-0.15);
+    expect(changes.refused).toMatchObject({ fromZero: true, tone: 'bad' });
   });
 });

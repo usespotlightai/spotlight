@@ -42,6 +42,7 @@ describe('dailyOutputOf', () => {
         ],
       }),
       PERIOD,
+      [],
     );
 
     expect(output).toHaveLength(7);
@@ -53,6 +54,7 @@ describe('dailyOutputOf', () => {
       mixedCurrencies: false,
       merged: 0,
       mergedTaskIds: [],
+      changes: [],
     });
     expect(output[2]).toMatchObject({
       day: '2026-09-27',
@@ -61,6 +63,26 @@ describe('dailyOutputOf', () => {
       merged: 1,
       mergedTaskIds: ['task_1'],
     });
+  });
+});
+
+describe('dailyOutputOf, with config changes', () => {
+  it('puts each config change on the UTC day its first run started', () => {
+    const marker = {
+      lineId: 'line_1',
+      stationId: 'station_1',
+      fingerprint: SECOND_CONFIG,
+      previousFingerprint: FIRST_CONFIG,
+      firstRunAt: new Date('2026-09-27T23:30:00.000Z'),
+      runId: 'run_2',
+    };
+
+    const output = dailyOutputOf(historyOf({}), PERIOD, [marker]);
+
+    expect(
+      output.map((each) => [each.day, each.changes.length]),
+    ).toContainEqual(['2026-09-27', 1]);
+    expect(output.flatMap((each) => each.changes)).toEqual([marker]);
   });
 });
 
@@ -78,6 +100,7 @@ describe('dailyOutputOf, priced in several currencies', () => {
         ],
       }),
       PERIOD,
+      [],
     );
 
     expect(mixed).toMatchObject({
@@ -103,6 +126,7 @@ describe('outputCurrencyOf', () => {
         ),
       }),
       PERIOD,
+      [],
     );
 
   it('names the one currency the period’s days were priced in', () => {

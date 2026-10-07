@@ -44,7 +44,7 @@ export function ClaimAgreements({
             {claimShown(claims, each.index)}
           </span>
           <span className="col-span-full min-w-0 @4xl:col-span-1">
-            <KappaBar kappa={each.kappa} trust={trust} />
+            <KappaBar kappa={each.kappa} reading={each.reading} trust={trust} />
           </span>
           <NestedCell heading="Agreed">
             {percentShown(each.observed)}

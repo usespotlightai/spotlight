@@ -8,7 +8,10 @@ import type {
   FingerprintGroupDto,
   StationOutcomesDto,
 } from '@outcomes/application/dto/station-outcomes.dto';
-import type { RunTally } from '@outcomes/domain/services/run-tally';
+import type {
+  RunTally,
+  TallyShares,
+} from '@outcomes/domain/services/run-tally';
 import { CHECK_VERDICTS } from '@outcomes/domain/value-objects/check-verdict';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { NEXT_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
@@ -186,6 +189,14 @@ export class RunTallyResponseDto {
   @ApiProperty({ example: 2 })
   readonly failed: number;
 
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.17,
+    description: 'Failed runs as a share of the runs; none where none ran',
+  })
+  readonly failedShare: number | null;
+
   @ApiProperty({ example: 1, description: 'Runs a person stopped' })
   readonly stopped: number;
 
@@ -259,6 +270,7 @@ export class RunTallyResponseDto {
     this.runs = tally.runs;
     this.withdrawn = tally.withdrawn;
     this.failed = tally.failed;
+    this.failedShare = tally.failedShare;
     this.stopped = tally.stopped;
     this.checksPassed = tally.checksPassed;
     this.checksFailed = tally.checksFailed;
@@ -271,6 +283,39 @@ export class RunTallyResponseDto {
     this.mixedCurrencies = tally.mixedCurrencies;
     this.medianMs = tally.medianMs;
     this.p90Ms = tally.p90Ms;
+  }
+}
+
+export class TallySharesResponseDto {
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.89,
+    description:
+      'Runs whose checks passed as a share of the runs checked; none where none were',
+  })
+  readonly checksPassed: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.5,
+    description: 'Runs a person accepted as a share of the runs that ran',
+  })
+  readonly accepted: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.33,
+    description: 'Merged tasks as a share of the runs that ran',
+  })
+  readonly merged: number | null;
+
+  constructor(shares: TallyShares) {
+    this.checksPassed = shares.checksPassed;
+    this.accepted = shares.accepted;
+    this.merged = shares.merged;
   }
 }
 
@@ -311,12 +356,32 @@ export class FingerprintGroupResponseDto {
   @ApiProperty({
     type: StationRunOutcomeResponseDto,
     isArray: true,
-    description: 'Its runs, the newest first',
+    description:
+      'Its runs that ended, the latest-started first, so the groups’ runs read in turn are the station’s latest-started runs',
   })
   readonly runs: readonly StationRunOutcomeResponseDto[];
 
   @ApiProperty({ type: RunTallyResponseDto })
   readonly tally: RunTallyResponseDto;
+
+  @ApiProperty({ type: TallySharesResponseDto })
+  readonly shares: TallySharesResponseDto;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: '2026-09-28',
+    description: 'The day its earliest-ended run ended; none where none ended',
+  })
+  readonly firstDay: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: '2026-09-30',
+    description: 'The day its latest-ended run ended; none where none ended',
+  })
+  readonly lastDay: string | null;
 
   constructor(group: FingerprintGroupDto) {
     this.firstRunId = group.firstRunId;
@@ -332,6 +397,9 @@ export class FingerprintGroupResponseDto {
       (each) => new StationRunOutcomeResponseDto(each),
     );
     this.tally = new RunTallyResponseDto(group.tally);
+    this.shares = new TallySharesResponseDto(group.shares);
+    this.firstDay = group.firstDay;
+    this.lastDay = group.lastDay;
   }
 }
 

@@ -4,10 +4,16 @@ import type {
   ClaimAgreementDto,
   ConfusionDto,
   RubricVersionDto,
+  ScoreCountDto,
   StationJudgeDto,
   StationJudgeSettingsDto,
 } from '@outcomes/application/dto/station-judge.dto';
+import {
+  CORRELATION_READINGS,
+  KAPPA_READINGS,
+} from '@outcomes/domain/services/agreement-reading';
 import type {
+  AgreementReadings,
   Coverage,
   TrendPoint,
 } from '@outcomes/domain/services/judge-agreement';
@@ -121,11 +127,52 @@ export class ClaimAgreementResponseDto {
   @ApiProperty({ nullable: true, type: Number, example: 0.74 })
   readonly kappa: number | null;
 
+  @ApiProperty({
+    enum: [...KAPPA_READINGS, null],
+    nullable: true,
+    description:
+      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa',
+  })
+  readonly reading: string | null;
+
   constructor(agreement: ClaimAgreementDto) {
     this.index = agreement.index;
     this.pairs = agreement.pairs;
     this.observed = agreement.observed;
     this.kappa = agreement.kappa;
+    this.reading = agreement.reading;
+  }
+}
+
+export class AgreementReadingsResponseDto {
+  @ApiProperty({
+    enum: [...KAPPA_READINGS, null],
+    nullable: true,
+    description:
+      'How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa',
+  })
+  readonly kappa: string | null;
+
+  @ApiProperty({
+    enum: [...CORRELATION_READINGS, null],
+    nullable: true,
+    description:
+      'How strong Pearson’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one',
+  })
+  readonly pearson: string | null;
+
+  @ApiProperty({
+    enum: [...CORRELATION_READINGS, null],
+    nullable: true,
+    description:
+      'How strong Spearman’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one',
+  })
+  readonly spearman: string | null;
+
+  constructor(readings: AgreementReadings) {
+    this.kappa = readings.kappa;
+    this.pearson = readings.pearson;
+    this.spearman = readings.spearman;
   }
 }
 
@@ -151,10 +198,40 @@ export class AgreementResponseDto {
   @ApiProperty({
     nullable: true,
     type: Number,
+    example: 0.61,
+    description:
+      'Pearson’s correlation between the two scores, for a judge of numbers; none otherwise or where either side never changes',
+  })
+  readonly pearson: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
     example: 0.7,
     description: 'The mean absolute difference between the two scores',
   })
   readonly mae: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.9,
+    description:
+      'The root mean square difference between the two scores, for a judge of numbers',
+  })
+  readonly rmse: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.8,
+    description:
+      'The F1 score of the judge’s yes, or met, against people’s, for a judge of yes or no or of claims; none where neither said yes',
+  })
+  readonly f1: number | null;
+
+  @ApiProperty({ type: AgreementReadingsResponseDto })
+  readonly readings: AgreementReadingsResponseDto;
 
   @ApiProperty({
     type: ClaimAgreementResponseDto,
@@ -169,7 +246,11 @@ export class AgreementResponseDto {
     this.observed = agreement.observed;
     this.kappa = agreement.kappa;
     this.spearman = agreement.spearman;
+    this.pearson = agreement.pearson;
     this.mae = agreement.mae;
+    this.rmse = agreement.rmse;
+    this.f1 = agreement.f1;
+    this.readings = new AgreementReadingsResponseDto(agreement.readings);
     this.claims = agreement.claims.map(
       (each) => new ClaimAgreementResponseDto(each),
     );
@@ -195,6 +276,29 @@ export class ConfusionResponseDto {
   constructor(confusion: ConfusionDto) {
     this.labels = [...confusion.labels];
     this.cells = confusion.cells.map((row) => [...row]);
+  }
+}
+
+export class ScoreCountResponseDto {
+  @ApiProperty({ example: 'yes' })
+  readonly label: string;
+
+  @ApiProperty({
+    example: 18,
+    description: 'Runs the judge gave this score, among runs with both scores',
+  })
+  readonly judge: number;
+
+  @ApiProperty({
+    example: 15,
+    description: 'Runs people gave this score, among runs with both scores',
+  })
+  readonly people: number;
+
+  constructor(count: ScoreCountDto) {
+    this.label = count.label;
+    this.judge = count.judge;
+    this.people = count.people;
   }
 }
 
@@ -253,6 +357,13 @@ export class RubricVersionResponseDto {
   @ApiProperty({ type: ConfusionResponseDto })
   readonly confusion: ConfusionResponseDto;
 
+  @ApiProperty({
+    type: ScoreCountResponseDto,
+    isArray: true,
+    description: 'How often each score was given, in the confusion’s order',
+  })
+  readonly distribution: readonly ScoreCountResponseDto[];
+
   @ApiProperty({ type: TrendPointResponseDto, isArray: true })
   readonly trend: readonly TrendPointResponseDto[];
 
@@ -269,9 +380,33 @@ export class RubricVersionResponseDto {
     this.judged = version.judged;
     this.agreement = new AgreementResponseDto(version.agreement);
     this.confusion = new ConfusionResponseDto(version.confusion);
+    this.distribution = version.distribution.map(
+      (each) => new ScoreCountResponseDto(each),
+    );
     this.trend = version.trend.map((each) => new TrendPointResponseDto(each));
     this.firstAt = version.firstAt;
     this.lastAt = version.lastAt;
+  }
+}
+
+export class JudgeCoverageSharesResponseDto {
+  @ApiProperty({ nullable: true, type: Number, example: 0.24 })
+  readonly both: number | null;
+
+  @ApiProperty({ nullable: true, type: Number, example: 0.12 })
+  readonly judgeOnly: number | null;
+
+  @ApiProperty({ nullable: true, type: Number, example: 0.4 })
+  readonly peopleOnly: number | null;
+
+  @ApiProperty({ nullable: true, type: Number, example: 0.24 })
+  readonly neither: number | null;
+
+  constructor(shares: Coverage['shares']) {
+    this.both = shares.both;
+    this.judgeOnly = shares.judgeOnly;
+    this.peopleOnly = shares.peopleOnly;
+    this.neither = shares.neither;
   }
 }
 
@@ -294,12 +429,19 @@ export class JudgeCoverageResponseDto {
   @ApiProperty({ example: 12 })
   readonly neither: number;
 
+  @ApiProperty({
+    type: JudgeCoverageSharesResponseDto,
+    description: 'Each count as a share of the runs',
+  })
+  readonly shares: JudgeCoverageSharesResponseDto;
+
   constructor(coverage: Coverage) {
     this.runs = coverage.runs;
     this.both = coverage.both;
     this.judgeOnly = coverage.judgeOnly;
     this.peopleOnly = coverage.peopleOnly;
     this.neither = coverage.neither;
+    this.shares = new JudgeCoverageSharesResponseDto(coverage.shares);
   }
 }
 

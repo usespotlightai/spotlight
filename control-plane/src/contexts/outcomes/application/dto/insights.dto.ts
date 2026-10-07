@@ -14,12 +14,27 @@ import type {
   DayOutput,
 } from '@outcomes/domain/services/daily-output';
 import type { Flow } from '@outcomes/domain/services/flow';
-import type { Headline } from '@outcomes/domain/services/headline';
-import type { HumanLoad } from '@outcomes/domain/services/human-load';
+import type {
+  Headline,
+  HeadlineChanges,
+} from '@outcomes/domain/services/headline';
+import type {
+  HumanLoad,
+  HumanLoadChanges,
+} from '@outcomes/domain/services/human-load';
 import type { Spread } from '@outcomes/domain/services/measures';
-import type { RunTally } from '@outcomes/domain/services/run-tally';
+import type {
+  RunTally,
+  TallyChanges,
+  TallyCounted,
+  TallySeen,
+} from '@outcomes/domain/services/run-tally';
 import type { StationWorthImproving } from '@outcomes/domain/services/station-ranking';
-import type { StationReport } from '@outcomes/domain/services/station-reports';
+import type {
+  DayTally,
+  StationReport,
+} from '@outcomes/domain/services/station-reports';
+import type { Change } from '@outcomes/domain/value-objects/change.vo';
 import type { CheckVerdict } from '@outcomes/domain/value-objects/check-verdict';
 import type { DeliveryState } from '@outcomes/domain/value-objects/delivery-state';
 import type {
@@ -31,6 +46,14 @@ import type {
   TokenCounts,
 } from '@outcomes/domain/value-objects/run-cost.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
+
+export type ChangeDto = Change;
+
+export type HeadlineChangesDto = HeadlineChanges;
+
+export type TallyChangesDto = TallyChanges;
+
+export type HumanLoadChangesDto = HumanLoadChanges;
 
 export interface PeriodDto {
   readonly name: InsightsPeriodName;
@@ -56,7 +79,9 @@ export type HeadlineDto = Omit<Headline, 'taskToMerge'> & {
   readonly taskToMerge: SpreadDto;
 };
 
-export type DayOutputDto = DayOutput;
+export type DayOutputDto = Omit<DayOutput, 'changes'> & {
+  readonly changes: readonly ConfigMarkerDto[];
+};
 
 export type ConfigMarkerDto = Omit<ConfigMarker, 'firstRunAt'> & {
   readonly firstRunAt: string;
@@ -68,11 +93,10 @@ export interface InsightsOverviewDto {
   readonly period: PeriodDto;
   readonly truncated: boolean;
   readonly headline: HeadlineDto;
-  readonly before: HeadlineDto;
+  readonly changes: HeadlineChangesDto;
   readonly output: readonly DayOutputDto[];
   readonly outputCurrency: string | null;
   readonly outputMixedCurrencies: boolean;
-  readonly configChanges: readonly ConfigMarkerDto[];
   readonly worthImproving: readonly StationWorthImprovingDto[];
   readonly people: readonly PersonNameDto[];
 }
@@ -81,6 +105,8 @@ export interface StationFlowDto {
   readonly lineId: string;
   readonly stationId: string;
   readonly tasks: number;
+  readonly tasksBefore: number;
+  readonly tasksChange: ChangeDto | null;
   readonly taskIds: readonly string[];
   readonly runs: number;
   readonly queued: SpreadDto;
@@ -100,6 +126,11 @@ export interface DeliveryFlowDto {
   readonly openedTaskIds: readonly string[];
   readonly reviewedTaskIds: readonly string[];
   readonly mergedTaskIds: readonly string[];
+  readonly changes: {
+    readonly opened: ChangeDto | null;
+    readonly reviewed: ChangeDto | null;
+    readonly merged: ChangeDto | null;
+  };
 }
 
 export interface FlowDto {
@@ -111,7 +142,6 @@ export interface InsightsFlowDto {
   readonly period: PeriodDto;
   readonly truncated: boolean;
   readonly flow: FlowDto;
-  readonly before: FlowDto;
 }
 
 export type StationReportDto = StationReport;
@@ -120,7 +150,10 @@ export interface InsightsStationsDto {
   readonly period: PeriodDto;
   readonly truncated: boolean;
   readonly team: RunTally;
-  readonly teamBefore: RunTally;
+  readonly teamChanges: TallyChangesDto;
+  readonly teamSeen: TallySeen;
+  readonly teamCounted: TallyCounted;
+  readonly teamTrend: readonly DayTally[];
   readonly stations: readonly StationReportDto[];
 }
 
@@ -140,11 +173,11 @@ export interface PersonUseDto {
 }
 
 export interface AdoptionDto {
-  readonly active: readonly string[];
-  readonly activeBefore: readonly string[];
-  readonly newAdopters: readonly string[];
-  readonly weekly: readonly string[];
-  readonly monthly: readonly string[];
+  readonly activeCount: number;
+  readonly activeChange: ChangeDto | null;
+  readonly newAdopterCount: number;
+  readonly weeklyCount: number;
+  readonly monthlyCount: number;
   readonly stickiness: number | null;
   readonly people: readonly PersonUseDto[];
 }
@@ -153,9 +186,8 @@ export interface InsightsPeopleDto {
   readonly period: PeriodDto;
   readonly truncated: boolean;
   readonly load: HumanLoadDto;
-  readonly loadBefore: HumanLoadDto;
+  readonly loadChanges: HumanLoadChangesDto;
   readonly adoption: AdoptionDto;
-  readonly people: readonly PersonNameDto[];
 }
 
 export type CostBreakdownDto = CostBreakdown;
@@ -176,8 +208,7 @@ export interface InsightsCostDto {
   readonly period: PeriodDto;
   readonly truncated: boolean;
   readonly cost: CostBreakdownDto;
-  readonly spendBefore: Spend | null;
-  readonly mixedCurrenciesBefore: boolean;
+  readonly spendChange: ChangeDto | null;
 }
 
 export interface InsightsRunDto {
@@ -237,9 +268,14 @@ export const headlineDtoOf = (headline: Headline): HeadlineDto => ({
   taskToMerge: spreadDtoOf(headline.taskToMerge),
 });
 
-export const configMarkerDtoOf = (marker: ConfigMarker): ConfigMarkerDto => ({
+const configMarkerDtoOf = (marker: ConfigMarker): ConfigMarkerDto => ({
   ...marker,
   firstRunAt: marker.firstRunAt.toISOString(),
+});
+
+export const dayOutputDtoOf = (day: DayOutput): DayOutputDto => ({
+  ...day,
+  changes: day.changes.map(configMarkerDtoOf),
 });
 
 export const flowDtoOf = (flow: Flow): FlowDto => ({

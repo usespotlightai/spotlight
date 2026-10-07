@@ -42,7 +42,7 @@ export function ReviewBots({ bots }: { bots: readonly ReviewBot[] }) {
       <InsightsTable
         label="AI review agents"
         columns={COLUMNS}
-        rows={[...bots].sort((one, other) => other.comments - one.comments)}
+        rows={bots}
         rowKey={(bot) => bot.login}
       />
     </InsightsCard>

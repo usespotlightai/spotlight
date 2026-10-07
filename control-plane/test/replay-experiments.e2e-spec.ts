@@ -1279,6 +1279,7 @@ describe('a replay', () => {
           perRepeat: number[];
           spread: number;
           flippedTasks: string[];
+          noisyInOneCopy: boolean;
         } | null;
       };
     }[];
@@ -1292,6 +1293,7 @@ describe('a replay', () => {
           perRepeat: [0, 0],
           spread: 0,
           flippedTasks: [],
+          noisyInOneCopy: false,
         },
       },
     });

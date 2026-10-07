@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type {
   ByTypeResponseDto,
+  FlowStageResponseDto,
   InsightsShippingResponseDto,
   PercentilesResponseDto,
+  StageTimesResponseDto,
 } from '@/lib/api';
 import { stationNamesOf } from '@/lib/insights';
-import { shippedNothing, shippingOf } from '@/lib/insights-shipping';
+import { flowStages, shippingOf, slowestFirst } from '@/lib/insights-shipping';
 
 const HOUR = 3_600_000;
 
@@ -17,15 +19,39 @@ const spread = (hours: number | null): PercentilesResponseDto => ({
   count: hours === null ? 0 : 1,
 });
 
+const UNJUDGED = { p50: 0, p75: 0, p90: 0, p95: 0 };
+const NOT_WORST = { p50: false, p75: false, p90: false, p95: false };
+
+const times = (
+  hours: number | null,
+  over: Partial<StageTimesResponseDto> = {},
+): StageTimesResponseDto => ({
+  total: spread(hours),
+  parts: null,
+  jam: UNJUDGED,
+  worst: NOT_WORST,
+  longestPart: null,
+  ...over,
+});
+
 const byType = (hours: number | null): ByTypeResponseDto => ({
-  all: { total: spread(hours), parts: null },
-  types:
-    hours === null
-      ? []
-      : [{ type: 'fix', times: { total: spread(hours), parts: null } }],
+  all: times(hours),
+  types: hours === null ? [] : [{ type: 'fix', times: times(hours) }],
+});
+
+const stage = (
+  kind: FlowStageResponseDto['kind'],
+  byTyped: ByTypeResponseDto,
+  stationId: string | null = null,
+): FlowStageResponseDto => ({
+  kind,
+  lineId: stationId ? 'line_1' : null,
+  stationId,
+  times: byTyped,
 });
 
 const NOTHING: InsightsShippingResponseDto = {
+  shippedAny: false,
   period: {
     name: '7d',
     from: '2026-09-24T00:00:00.000Z',
@@ -36,20 +62,21 @@ const NOTHING: InsightsShippingResponseDto = {
   },
   truncated: false,
   toMerge: { spotlight: spread(null), people: spread(null) },
-  toMergeBefore: { spotlight: spread(null), people: spread(null) },
+  toMergeChanges: {
+    spotlight: { p50: null, p75: null, p90: null, p95: null },
+    people: { p50: null, p75: null, p90: null, p95: null },
+  },
   mergeDays: [],
   types: [],
+  slowestFirst: { p50: [], p75: [], p90: [], p95: [] },
   depth: [],
+  depthTotals: [],
   reviewDays: [],
   bots: [],
   pipeline: {
     merged: 0,
     types: [],
-    coding: byType(null),
-    stations: [],
-    awaitingReview: byType(null),
-    inReview: byType(null),
-    awaitingMerge: byType(null),
+    layouts: { stations: [], stages: [] },
   },
 };
 
@@ -93,8 +120,8 @@ describe('shippingOf', () => {
           week: '2026-09-28',
           merged: 3,
           rounds: [
-            { rounds: '1', merged: 2 },
-            { rounds: '3+', merged: 1 },
+            { rounds: '1', merged: 2, share: 2 / 3 },
+            { rounds: '3+', merged: 1, share: 1 / 3 },
           ],
         },
       ],
@@ -110,25 +137,40 @@ describe('shippingOf', () => {
       pipeline: {
         ...NOTHING.pipeline,
         merged: 1,
-        stations: [
-          {
-            lineId: 'line_1',
-            stationId: 'station_build',
-            times: {
-              all: {
-                total: spread(1),
-                parts: {
-                  queued: spread(0.25),
-                  running: spread(0.5),
-                  inbox: spread(0.25),
-                },
+        layouts: {
+          stations: [
+            stage(
+              'station',
+              {
+                all: times(1, {
+                  parts: {
+                    queued: spread(0.25),
+                    running: spread(0.5),
+                    inbox: spread(0.25),
+                  },
+                  jam: { p50: 1 / 6, p75: 1 / 6, p90: 1 / 6, p95: 1 / 6 },
+                  longestPart: {
+                    p50: 'running',
+                    p75: 'running',
+                    p90: 'queued',
+                    p95: 'inbox',
+                  },
+                }),
+                types: [],
               },
-              types: [],
-            },
-          },
-          { lineId: 'line_1', stationId: 'station_gone', times: byType(2) },
-        ],
-        inReview: byType(6),
+              'station_build',
+            ),
+            stage('station', byType(2), 'station_gone'),
+            stage('inReview', {
+              all: times(6, {
+                jam: { p50: 1, p75: 1, p90: 1, p95: 1 },
+                worst: { p50: true, p75: true, p90: false, p95: true },
+              }),
+              types: [{ type: 'fix', times: times(6) }],
+            }),
+          ],
+          stages: [stage('coding', byType(3)), stage('inReview', byType(6))],
+        },
       },
     },
     NAMES,
@@ -146,12 +188,14 @@ describe('shippingOf', () => {
     });
   });
 
-  it('counts every round bucket, naming the missing ones none', () => {
-    expect(shipping.depth[0]?.rounds).toEqual({
-      '0': 0,
-      '1': 2,
-      '2': 0,
-      '3+': 1,
+  it('takes each round bucket’s share, naming the missing ones none', () => {
+    expect(shipping.depth[0]).toEqual({
+      week: '2026-09-28',
+      merged: 3,
+      '0': null,
+      '1': 2 / 3,
+      '2': null,
+      '3+': 1 / 3,
     });
   });
 
@@ -166,46 +210,88 @@ describe('shippingOf', () => {
     });
   });
 
-  it('names stations from the lines and keeps their parts', () => {
-    expect(shipping.pipeline.stations.map((each) => each.name)).toEqual([
-      'Implementation',
-      'A removed station',
+  it('names stations from the lines and the other stages in words', () => {
+    expect(
+      flowStages(shipping.pipeline, 'stations', 'p50', null).map((each) => [
+        each.id,
+        each.label,
+        each.station,
+      ]),
+    ).toEqual([
+      ['station_build', 'Implementation', true],
+      ['station_gone', 'A removed station', true],
+      ['inReview', 'In review', false],
     ]);
-    expect(shipping.pipeline.stations[0]?.times.all.parts?.queued.p50).toBe(
-      0.25 * HOUR,
-    );
-    expect(shipping.pipeline.stations[1]?.times.all.parts).toBeUndefined();
+    expect(
+      flowStages(shipping.pipeline, 'stages', 'p50', null).map(
+        (each) => each.label,
+      ),
+    ).toEqual(['Coding', 'In review']);
   });
 
-  it('keys stage times by type and gathers the review stages', () => {
-    expect(shipping.pipeline.review.inReview.types.fix?.total.p50).toBe(
-      6 * HOUR,
+  it('picks the times, jam, worst stage and longest part at the percentile', () => {
+    const [build, gone, inReview] = flowStages(
+      shipping.pipeline,
+      'stations',
+      'p90',
+      null,
     );
-    expect(shipping.pipeline.review.awaitingMerge.types).toEqual({});
+
+    expect(build).toMatchObject({
+      ms: 3 * HOUR,
+      parts: { queued: 0.75 * HOUR, running: 1.5 * HOUR, inbox: 0.75 * HOUR },
+      jam: 1 / 6,
+      worst: false,
+      longestPart: 'queued',
+    });
+    expect(gone?.parts).toBeNull();
+    expect(inReview).toMatchObject({ ms: 18 * HOUR, jam: 1, worst: false });
+    expect(
+      flowStages(shipping.pipeline, 'stations', 'p50', null)[2]?.worst,
+    ).toBe(true);
+  });
+
+  it('reads a type’s own times, and none where the type never passed', () => {
+    const [build, , inReview] = flowStages(
+      shipping.pipeline,
+      'stations',
+      'p50',
+      'fix',
+    );
+
+    expect(build).toMatchObject({
+      ms: null,
+      parts: null,
+      jam: 0,
+      worst: false,
+      longestPart: null,
+    });
+    expect(inReview?.ms).toBe(6 * HOUR);
   });
 });
 
-describe('shippedNothing', () => {
-  it('tells a period with nothing merged or reviewed apart', () => {
-    expect(shippedNothing(shippingOf(NOTHING, NAMES))).toBe(true);
-    expect(
-      shippedNothing(
-        shippingOf(
-          {
-            ...NOTHING,
-            reviewDays: [
-              {
-                day: '2026-09-30',
-                toFirstReviewDaily: spread(null),
-                toFirstReviewRolling: spread(null),
-                awaiting: 1,
-                humanReviews: 0,
-              },
-            ],
-          },
-          NAMES,
-        ),
-      ),
-    ).toBe(false);
+describe('slowestFirst', () => {
+  it('orders the types as the server ranked them at the percentile', () => {
+    const merges = {
+      types: [
+        { type: 'feature', merged: 3 },
+        { type: 'fix', merged: 1 },
+      ],
+      slowestFirst: {
+        p50: ['fix', 'feature'],
+        p75: ['feature', 'fix'],
+        p90: [],
+        p95: [],
+      },
+    } as never;
+
+    expect(slowestFirst(merges, 'p50').map((each) => each.type)).toEqual([
+      'fix',
+      'feature',
+    ]);
+    expect(slowestFirst(merges, 'p75').map((each) => each.type)).toEqual([
+      'feature',
+      'fix',
+    ]);
   });
 });

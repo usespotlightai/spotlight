@@ -10,7 +10,6 @@ import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {
   headlineTiles,
   type InsightsPeriod,
-  outputDays,
   type StationNames,
   whyNoSpend,
 } from '@/lib/insights';
@@ -36,11 +35,10 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
 
   const {
     headline,
-    before,
+    changes,
     output,
     outputCurrency,
     outputMixedCurrencies,
-    configChanges,
     worthImproving,
     truncated,
   } = overview.data;
@@ -53,8 +51,8 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
     );
   }
 
-  const trends: Record<string, number[]> = {
-    spend: output.map((day) => day.spend?.amount ?? 0),
+  const trends: Record<string, (number | null)[]> = {
+    spend: output.map((day) => day.spend?.amount ?? null),
     merged: output.map((day) => day.merged),
   };
 
@@ -63,7 +61,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
       {truncated && <TruncatedNote />}
 
       <InsightsTiles label="Headline numbers">
-        {headlineTiles(headline, before).map((tile) => (
+        {headlineTiles(headline, changes).map((tile) => (
           <InsightsTile
             key={tile.id}
             label={tile.label}
@@ -79,7 +77,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
       <OutputAgainstCost
         slug={slug}
         teamId={teamId}
-        days={outputDays(output, configChanges)}
+        days={output}
         currency={outputCurrency}
         noSpend={whyNoSpend(outputMixedCurrencies)}
         names={names}

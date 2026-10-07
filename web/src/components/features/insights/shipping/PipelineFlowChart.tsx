@@ -4,12 +4,7 @@ import { useElementWidth } from '@/hooks/useElementWidth';
 import { usePipelineParticles } from '@/hooks/usePipelineParticles';
 import { lastedOrNone } from '@/lib/insights';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
-import {
-  type FlowStage,
-  longestPart,
-  partShown,
-  worstJam,
-} from '@/lib/insights-shipping';
+import { type FlowStage, partShown } from '@/lib/insights-shipping';
 import {
   bandEdge,
   geometryOf,
@@ -43,7 +38,8 @@ export function PipelineFlowChart({
   const canvas = useRef<HTMLCanvasElement>(null);
   const width = useElementWidth(frame);
   const geometry = useMemo(() => geometryOf(stages, width), [stages, width]);
-  const worst = worstJam(stages);
+  const worstAt = stages.findIndex((stage) => stage.worst);
+  const worst = stages[worstAt];
   const stations = stages.filter((stage) => stage.station);
 
   usePipelineParticles({
@@ -56,8 +52,7 @@ export function PipelineFlowChart({
     playing,
   });
 
-  const worstAt = worst ? stages.indexOf(worst) : -1;
-  const worstPart = worst ? longestPart(worst) : null;
+  const worstPart = worst?.longestPart ?? null;
 
   return (
     <div className="overflow-x-auto">

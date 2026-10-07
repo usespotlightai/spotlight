@@ -79,6 +79,7 @@ describe('StationJudgeReports', () => {
       judgeOnly: 0,
       peopleOnly: 1,
       neither: 0,
+      shares: { both: 12 / 13, judgeOnly: 0, peopleOnly: 1 / 13, neither: 0 },
     });
     expect(standing.trusted).toBe(true);
   });

@@ -4,7 +4,11 @@ import {
   cohensKappa,
   confusionOf,
   coverageOf,
+  distributionOf,
+  f1Of,
   meanAbsoluteError,
+  pearsonOf,
+  rootMeanSquareError,
   type ScorePair,
   spearman,
   trendOf,
@@ -56,6 +60,36 @@ describe('judge agreement', () => {
     expect(meanAbsoluteError(numbered([3, 5, 1], [4, 5, 3]))).toBe(1);
   });
 
+  it('works out Pearson’s correlation on the scores themselves', () => {
+    expect(pearsonOf(numbered([1, 2, 3], [2, 4, 6]))).toBeCloseTo(1, 10);
+    expect(pearsonOf(numbered([1, 2, 3, 4], [1, 3, 2, 5]))).toBeCloseTo(
+      0.8315,
+      4,
+    );
+    expect(pearsonOf(numbered([4], [4]))).toBeNull();
+    expect(pearsonOf(numbered([3, 3], [1, 5]))).toBeNull();
+  });
+
+  it('works out the root mean square error, large misses counting for more', () => {
+    expect(rootMeanSquareError(numbered([3, 5, 1], [4, 5, 3]))).toBeCloseTo(
+      Math.sqrt(5 / 3),
+      10,
+    );
+    expect(rootMeanSquareError([])).toBeNull();
+  });
+
+  it('works out the F1 score of yes against people’s yes', () => {
+    expect(f1Of(1, TEXTBOOK)).toBeCloseTo(40 / 55, 10);
+    expect(f1Of(1, repeated(0, 0, 3))).toBeNull();
+  });
+
+  it('counts how often each score was given by each side', () => {
+    expect(distributionOf(confusionOf([0, 1], TEXTBOOK))).toEqual([
+      { value: 0, judge: 25, people: 20 },
+      { value: 1, judge: 25, people: 30 },
+    ]);
+  });
+
   it('counts pairs into a confusion matrix, judge by row and people by column', () => {
     expect(confusionOf([0, 1], TEXTBOOK).cells).toEqual([
       [15, 10],
@@ -72,11 +106,30 @@ describe('judge agreement', () => {
 
     expect(yesNo.kappa).toBeCloseTo(0.4);
     expect(yesNo.spearman).toBeNull();
+    expect(yesNo.pearson).toBeNull();
+    expect(yesNo.rmse).toBeNull();
+    expect(yesNo.f1).toBeCloseTo(40 / 55);
     expect(yesNo.observed).toBeCloseTo(0.7);
+    expect(yesNo.readings).toEqual({
+      kappa: 'fair-to-slight',
+      pearson: null,
+      spearman: null,
+    });
     expect(numbers.kappa).toBeNull();
+    expect(numbers.f1).toBeNull();
     expect(numbers.spearman).toBeGreaterThan(0.9);
+    expect(numbers.pearson).toBeGreaterThan(0.9);
     expect(numbers.mae).toBeCloseTo(0.4);
+    expect(numbers.rmse).toBeCloseTo(Math.sqrt(0.4));
+    expect(numbers.readings).toEqual({
+      kappa: null,
+      pearson: 'very-strong',
+      spearman: 'very-strong',
+    });
     expect(numbers.confusion.cells).toHaveLength(5);
+    expect(numbers.distribution.map((each) => each.judge)).toEqual([
+      1, 1, 1, 1, 1,
+    ]);
   });
 
   it('follows both scores day by day', () => {
@@ -101,7 +154,23 @@ describe('judge agreement', () => {
         { judged: false, labelled: false },
         { judged: false, labelled: true },
       ]),
-    ).toEqual({ runs: 5, both: 1, judgeOnly: 1, peopleOnly: 2, neither: 1 });
+    ).toEqual({
+      runs: 5,
+      both: 1,
+      judgeOnly: 1,
+      peopleOnly: 2,
+      neither: 1,
+      shares: { both: 0.2, judgeOnly: 0.2, peopleOnly: 0.4, neither: 0.2 },
+    });
+  });
+
+  it('has no coverage shares without runs', () => {
+    expect(coverageOf([]).shares).toEqual({
+      both: null,
+      judgeOnly: null,
+      peopleOnly: null,
+      neither: null,
+    });
   });
 });
 
@@ -116,9 +185,23 @@ describe('claimsAgreementOf', () => {
 
     expect(agreement.pairs).toBe(4);
     expect(agreement.claims).toEqual([
-      { index: 0, pairs: 4, observed: 1, kappa: 1 },
-      { index: 1, pairs: 4, observed: 0.5, kappa: 0 },
+      {
+        index: 0,
+        pairs: 4,
+        observed: 1,
+        kappa: 1,
+        reading: 'almost-perfect',
+      },
+      {
+        index: 1,
+        pairs: 4,
+        observed: 0.5,
+        kappa: 0,
+        reading: 'fair-to-slight',
+      },
     ]);
+    expect(agreement.f1).toBeCloseTo(0.75);
+    expect(agreement.readings.kappa).toBe('moderate');
     expect(agreement.observed).toBe(0.75);
     expect(agreement.kappa).toBeCloseTo(0.5);
     expect(agreement.confusion).toEqual({

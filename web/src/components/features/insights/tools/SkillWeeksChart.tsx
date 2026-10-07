@@ -6,8 +6,6 @@ import { dayShown } from '@/lib/judge';
 
 const HEIGHT = 16;
 
-type ReadWeek = SkillWeek & { readonly share: number };
-
 const Said = ({
   placement,
   active,
@@ -15,7 +13,7 @@ const Said = ({
 }: {
   placement: TipPlacement;
   active?: boolean;
-  payload?: { payload: ReadWeek }[];
+  payload?: { payload: SkillWeek }[];
 }) => {
   const week = payload?.[0]?.payload;
 
@@ -41,10 +39,6 @@ type SkillWeeksChartProps = {
 
 export function SkillWeeksChart({ weeks, onWeek }: SkillWeeksChartProps) {
   const cursor = useCursorTooltip({ floating: true });
-  const read: ReadWeek[] = weeks.map((week) => ({
-    ...week,
-    share: week.runs > 0 ? week.used / week.runs : 0,
-  }));
 
   return (
     <div
@@ -54,7 +48,7 @@ export function SkillWeeksChart({ weeks, onWeek }: SkillWeeksChartProps) {
       <div {...cursor.area}>
         <ResponsiveContainer width="100%" height={HEIGHT}>
           <LineChart
-            data={read}
+            data={[...weeks]}
             margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
             className="cursor-pointer"
             onClick={(state) => {
@@ -71,7 +65,7 @@ export function SkillWeeksChart({ weeks, onWeek }: SkillWeeksChartProps) {
               cursor={{ stroke: 'var(--chart-grid)' }}
             />
             <Line
-              dataKey="share"
+              dataKey="usedShare"
               stroke="var(--chart-primary)"
               strokeWidth={1.5}
               dot={false}

@@ -175,6 +175,9 @@ describe('the team’s pull requests', () => {
       touched: 0,
       share: 0.5,
     });
+    expect(
+      insights.penetration.weeks.reduce((sum, each) => sum + each.people, 0),
+    ).toBe(1);
     expect(insights.comparison.spotlight.toMerge).toEqual({
       p50Ms: 4 * 60 * 60 * 1000,
       p90Ms: 4 * 60 * 60 * 1000,
@@ -355,10 +358,31 @@ describe('what the agents ship', () => {
       count: 1,
     });
     expect(shipping.toMerge.people.count).toBe(1);
-    expect(shipping.toMergeBefore.spotlight.count).toBe(1);
+    expect(shipping.toMergeChanges.spotlight.p50).toMatchObject({
+      direction: 'same',
+      tone: 'flat',
+    });
     expect(first?.daily.spotlight.count).toBe(0);
     expect(first?.rolling.spotlight.count).toBe(1);
     expect(shipping.pipeline.merged).toBe(1);
+    expect(shipping.pipeline.layouts.stages.map((each) => each.kind)).toEqual([
+      'coding',
+      'awaitingReview',
+      'inReview',
+      'awaitingMerge',
+    ]);
+    expect(shipping.pipeline.layouts.stages[0]).toMatchObject({
+      lineId: null,
+      stationId: null,
+      times: { all: { jam: { p50: expect.any(Number) }, longestPart: null } },
+    });
+    expect(shipping.slowestFirst.p50).toEqual(['refactor', 'fix']);
+    expect(shipping.depthTotals.map((each) => each.rounds)).toEqual([
+      '0',
+      '1',
+      '2',
+      '3+',
+    ]);
   });
 
   it('refuses a person off the team', async () => {

@@ -11,7 +11,7 @@ import type { SetupsNarrowed } from '@/hooks/api/useInsightsSetups';
 import type { StationNames } from '@/lib/insights';
 import {
   type InsightsCandidates,
-  stationReplayedChart,
+  stationReplayedPoints,
 } from '@/lib/insights-candidates';
 import {
   type InsightsSetups,
@@ -47,22 +47,17 @@ export function SetupComparison({
 }: SetupComparisonProps) {
   const harnesses = useHarnesses().data;
   const judged = setups.setups.some((each) => (each.judge?.judged ?? 0) > 0);
-  const points = setupPoints(
-    setups.setups,
-    measure,
-    harnesses,
-    setups.currency,
-  );
-  const chart =
+  const points = setupPoints(setups.setups, measure, harnesses);
+  const stationReplayed =
     narrowed.stationId && candidates.data
-      ? stationReplayedChart(
+      ? stationReplayedPoints(
           candidates.data,
           narrowed.stationId,
           setups.currency,
         )
       : null;
   const hiddenFor = lowerIsBetter(measure) ? outcomeLabel(measure) : null;
-  const replayed = hiddenFor ? [] : (chart?.priced ?? []);
+  const replayed = hiddenFor ? [] : (stationReplayed ?? []);
   const scattered =
     setups.setups.length > 0 && points.length > 0 && Boolean(setups.currency);
   const drawn = scattered && replayed.length > 0;
@@ -85,7 +80,7 @@ export function SetupComparison({
     >
       <ReplayedOverlayNote
         stationId={narrowed.stationId}
-        chart={chart}
+        replayed={stationReplayed}
         drawn={chartShown && drawn}
         scattered={scattered}
         hiddenFor={hiddenFor}

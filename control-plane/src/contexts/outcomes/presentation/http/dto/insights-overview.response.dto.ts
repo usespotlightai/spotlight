@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import type {
   ConfigMarkerDto,
   DayOutputDto,
+  HeadlineChangesDto,
   HeadlineDto,
   InsightsOverviewDto,
   StationWorthImprovingDto,
@@ -9,6 +10,8 @@ import type {
 import type { SignalReading } from '@outcomes/domain/services/station-ranking';
 import { STATION_SIGNALS } from '@outcomes/domain/services/station-ranking';
 import {
+  ChangeResponseDto,
+  changeResponseOf,
   InsightsPeriodResponseDto,
   PersonNameResponseDto,
   SpreadResponseDto,
@@ -131,46 +134,66 @@ export class HeadlineResponseDto {
   }
 }
 
-export class DayOutputResponseDto {
-  @ApiProperty({ example: '2026-09-30', description: 'A UTC day' })
-  readonly day: string;
-
+export class HeadlineChangesResponseDto {
   @ApiProperty({
-    example: 6,
-    description: 'Runs that ended that day; the Runs tab lists them by day',
-  })
-  readonly runs: number;
-
-  @ApiProperty({ type: SpendResponseDto, nullable: true })
-  readonly spend: SpendResponseDto | null;
-
-  @ApiProperty({
-    example: 1,
-    description: 'Runs that ran with no price',
-  })
-  readonly unpriced: number;
-
-  @ApiProperty({
-    example: false,
+    type: ChangeResponseDto,
+    nullable: true,
     description:
-      'Whether the priced runs came in more than one currency, so nothing was summed',
+      'Spend against the period before, where both were in one currency',
   })
-  readonly mixedCurrencies: boolean;
+  readonly spend: ChangeResponseDto | null;
 
-  @ApiProperty({ example: 2, description: 'Pull requests merged that day' })
-  readonly merged: number;
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Pull requests merged against the period before',
+  })
+  readonly mergedPullRequests: ChangeResponseDto | null;
 
-  @ApiProperty({ type: String, isArray: true })
-  readonly mergedTaskIds: readonly string[];
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The merge rate against the period before, in points',
+  })
+  readonly mergeRate: ChangeResponseDto | null;
 
-  constructor(day: DayOutputDto) {
-    this.day = day.day;
-    this.runs = day.runs;
-    this.spend = day.spend ? new SpendResponseDto(day.spend) : null;
-    this.unpriced = day.unpriced;
-    this.mixedCurrencies = day.mixedCurrencies;
-    this.merged = day.merged;
-    this.mergedTaskIds = day.mergedTaskIds;
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description:
+      'Cost per merged pull request against the period before, where both were in one currency',
+  })
+  readonly costPerMerge: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The median task to merge against the period before',
+  })
+  readonly taskToMerge: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Human touches per task against the period before',
+  })
+  readonly touchesPerTask: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Active people against the period before',
+  })
+  readonly activePeople: ChangeResponseDto | null;
+
+  constructor(changes: HeadlineChangesDto) {
+    this.spend = changeResponseOf(changes.spend);
+    this.mergedPullRequests = changeResponseOf(changes.mergedPullRequests);
+    this.mergeRate = changeResponseOf(changes.mergeRate);
+    this.costPerMerge = changeResponseOf(changes.costPerMerge);
+    this.taskToMerge = changeResponseOf(changes.taskToMerge);
+    this.touchesPerTask = changeResponseOf(changes.touchesPerTask);
+    this.activePeople = changeResponseOf(changes.activePeople);
   }
 }
 
@@ -211,6 +234,58 @@ export class ConfigMarkerResponseDto {
     this.previousFingerprint = marker.previousFingerprint;
     this.firstRunAt = marker.firstRunAt;
     this.runId = marker.runId;
+  }
+}
+
+export class DayOutputResponseDto {
+  @ApiProperty({ example: '2026-09-30', description: 'A UTC day' })
+  readonly day: string;
+
+  @ApiProperty({
+    example: 6,
+    description: 'Runs that ended that day; the Runs tab lists them by day',
+  })
+  readonly runs: number;
+
+  @ApiProperty({ type: SpendResponseDto, nullable: true })
+  readonly spend: SpendResponseDto | null;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Runs that ran with no price',
+  })
+  readonly unpriced: number;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the priced runs came in more than one currency, so nothing was summed',
+  })
+  readonly mixedCurrencies: boolean;
+
+  @ApiProperty({ example: 2, description: 'Pull requests merged that day' })
+  readonly merged: number;
+
+  @ApiProperty({ type: String, isArray: true })
+  readonly mergedTaskIds: readonly string[];
+
+  @ApiProperty({
+    type: ConfigMarkerResponseDto,
+    isArray: true,
+    description:
+      'Each time a station ran with a new config whose first run started that UTC day',
+  })
+  readonly changes: readonly ConfigMarkerResponseDto[];
+
+  constructor(day: DayOutputDto) {
+    this.day = day.day;
+    this.runs = day.runs;
+    this.spend = day.spend ? new SpendResponseDto(day.spend) : null;
+    this.unpriced = day.unpriced;
+    this.mixedCurrencies = day.mixedCurrencies;
+    this.merged = day.merged;
+    this.mergedTaskIds = day.mergedTaskIds;
+    this.changes = day.changes.map((each) => new ConfigMarkerResponseDto(each));
   }
 }
 
@@ -333,15 +408,16 @@ export class InsightsOverviewResponseDto {
   readonly headline: HeadlineResponseDto;
 
   @ApiProperty({
-    type: HeadlineResponseDto,
-    description: 'The period before, as long',
+    type: HeadlineChangesResponseDto,
+    description: 'How the headline moved against the period before, as long',
   })
-  readonly before: HeadlineResponseDto;
+  readonly changes: HeadlineChangesResponseDto;
 
   @ApiProperty({
     type: DayOutputResponseDto,
     isArray: true,
-    description: 'Spend and merged pull requests per day, oldest first',
+    description:
+      'Spend, merged pull requests and config changes per day, oldest first',
   })
   readonly output: readonly DayOutputResponseDto[];
 
@@ -361,13 +437,6 @@ export class InsightsOverviewResponseDto {
   readonly outputMixedCurrencies: boolean;
 
   @ApiProperty({
-    type: ConfigMarkerResponseDto,
-    isArray: true,
-    description: 'Each time a station ran with a new config this period',
-  })
-  readonly configChanges: readonly ConfigMarkerResponseDto[];
-
-  @ApiProperty({
     type: StationWorthImprovingResponseDto,
     isArray: true,
     description:
@@ -382,13 +451,10 @@ export class InsightsOverviewResponseDto {
     this.period = new InsightsPeriodResponseDto(overview.period);
     this.truncated = overview.truncated;
     this.headline = new HeadlineResponseDto(overview.headline);
-    this.before = new HeadlineResponseDto(overview.before);
+    this.changes = new HeadlineChangesResponseDto(overview.changes);
     this.output = overview.output.map((each) => new DayOutputResponseDto(each));
     this.outputCurrency = overview.outputCurrency;
     this.outputMixedCurrencies = overview.outputMixedCurrencies;
-    this.configChanges = overview.configChanges.map(
-      (each) => new ConfigMarkerResponseDto(each),
-    );
     this.worthImproving = overview.worthImproving.map(
       (each) => new StationWorthImprovingResponseDto(each),
     );

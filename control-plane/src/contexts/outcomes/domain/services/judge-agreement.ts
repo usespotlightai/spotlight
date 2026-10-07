@@ -1,3 +1,11 @@
+import {
+  type CorrelationReading,
+  correlationReadingOf,
+  type KappaReading,
+  kappaReadingOf,
+} from '@outcomes/domain/services/agreement-reading';
+import { rateOf } from '@outcomes/domain/services/measures';
+import { dayOf } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 
 export interface ScorePair {
@@ -10,11 +18,24 @@ export interface Confusion {
   readonly cells: readonly (readonly number[])[];
 }
 
+export interface ScoreCount {
+  readonly value: number;
+  readonly judge: number;
+  readonly people: number;
+}
+
 interface ClaimAgreement {
   readonly index: number;
   readonly pairs: number;
   readonly observed: number | null;
   readonly kappa: number | null;
+  readonly reading: KappaReading | null;
+}
+
+export interface AgreementReadings {
+  readonly kappa: KappaReading | null;
+  readonly pearson: CorrelationReading | null;
+  readonly spearman: CorrelationReading | null;
 }
 
 export interface Agreement {
@@ -22,8 +43,13 @@ export interface Agreement {
   readonly observed: number | null;
   readonly kappa: number | null;
   readonly spearman: number | null;
+  readonly pearson: number | null;
   readonly mae: number | null;
+  readonly rmse: number | null;
+  readonly f1: number | null;
+  readonly readings: AgreementReadings;
   readonly confusion: Confusion;
+  readonly distribution: readonly ScoreCount[];
   readonly claims: readonly ClaimAgreement[];
 }
 
@@ -149,6 +175,14 @@ const pearson = (
     : shared / Math.sqrt(spreadX * spreadY);
 };
 
+export const pearsonOf = (pairs: readonly ScorePair[]): number | null =>
+  pairs.length < 2
+    ? null
+    : pearson(
+        pairs.map((each) => each.judge),
+        pairs.map((each) => each.human),
+      );
+
 export const spearman = (pairs: readonly ScorePair[]): number | null =>
   pairs.length < 2
     ? null
@@ -164,18 +198,66 @@ export const meanAbsoluteError = (
     ? null
     : meanOf(pairs.map((each) => Math.abs(each.judge - each.human)));
 
+export const rootMeanSquareError = (
+  pairs: readonly ScorePair[],
+): number | null =>
+  pairs.length === 0
+    ? null
+    : Math.sqrt(meanOf(pairs.map((each) => (each.judge - each.human) ** 2)));
+
+export const f1Of = (
+  positive: number,
+  pairs: readonly ScorePair[],
+): number | null => {
+  const both = pairs.filter(
+    (each) => each.judge === positive && each.human === positive,
+  ).length;
+  const said =
+    pairs.filter((each) => each.judge === positive).length +
+    pairs.filter((each) => each.human === positive).length;
+
+  return said === 0 ? null : (2 * both) / said;
+};
+
+export const distributionOf = (confusion: Confusion): ScoreCount[] =>
+  confusion.values.map((value, at) => ({
+    value,
+    judge: (confusion.cells[at] ?? []).reduce((sum, each) => sum + each, 0),
+    people: confusion.cells.reduce((sum, row) => sum + (row[at] ?? 0), 0),
+  }));
+
+const readingsOf = (
+  figures: Pick<Agreement, 'kappa' | 'pearson' | 'spearman'>,
+): AgreementReadings => ({
+  kappa: kappaReadingOf(figures.kappa),
+  pearson: correlationReadingOf(figures.pearson),
+  spearman: correlationReadingOf(figures.spearman),
+});
+
 export const agreementOf = (
   scale: ScoreScale,
   pairs: readonly ScorePair[],
-): Agreement => ({
-  pairs: pairs.length,
-  observed: observedAgreement(pairs),
-  kappa: scale.categorical ? cohensKappa(scale.values, pairs) : null,
-  spearman: scale.categorical ? null : spearman(pairs),
-  mae: scale.categorical ? null : meanAbsoluteError(pairs),
-  confusion: confusionOf(scale.values, pairs),
-  claims: [],
-});
+): Agreement => {
+  const figures = {
+    kappa: scale.categorical ? cohensKappa(scale.values, pairs) : null,
+    pearson: scale.categorical ? null : pearsonOf(pairs),
+    spearman: scale.categorical ? null : spearman(pairs),
+  };
+  const confusion = confusionOf(scale.values, pairs);
+
+  return {
+    pairs: pairs.length,
+    observed: observedAgreement(pairs),
+    ...figures,
+    mae: scale.categorical ? null : meanAbsoluteError(pairs),
+    rmse: scale.categorical ? null : rootMeanSquareError(pairs),
+    f1: scale.categorical ? f1Of(scale.yes, pairs) : null,
+    readings: readingsOf(figures),
+    confusion,
+    distribution: distributionOf(confusion),
+    claims: [],
+  };
+};
 
 const MET = [0, 1] as const;
 
@@ -198,22 +280,33 @@ export const claimsAgreementOf = (pairs: readonly ClaimsPair[]): Agreement => {
   const pooled = Array.from({ length: count }, (_, at) =>
     decisionsAt(at),
   ).flat();
+  const figures = {
+    kappa: cohensKappa(MET, pooled),
+    pearson: null,
+    spearman: null,
+  };
+  const confusion = confusionOf(MET, pooled);
 
   return {
     pairs: compared.length,
     observed: observedAgreement(pooled),
-    kappa: cohensKappa(MET, pooled),
-    spearman: null,
+    ...figures,
     mae: null,
-    confusion: confusionOf(MET, pooled),
+    rmse: null,
+    f1: f1Of(decisionOf(true), pooled),
+    readings: readingsOf(figures),
+    confusion,
+    distribution: distributionOf(confusion),
     claims: Array.from({ length: count }, (_, index) => {
       const decisions = decisionsAt(index);
+      const kappa = cohensKappa(MET, decisions);
 
       return {
         index,
         pairs: decisions.length,
         observed: observedAgreement(decisions),
-        kappa: cohensKappa(MET, decisions),
+        kappa,
+        reading: kappaReadingOf(kappa),
       };
     }),
   };
@@ -224,8 +317,6 @@ export const headlineOf = (
   agreement: Agreement,
 ): number | null =>
   scale.categorical || scale.byClaims ? agreement.kappa : agreement.spearman;
-
-const dayOf = (at: Date): string => at.toISOString().slice(0, 10);
 
 export const trendOf = (entries: readonly TrendEntry[]): TrendPoint[] => {
   const days = new Map<string, TrendEntry[]>();
@@ -252,20 +343,36 @@ export const trendOf = (entries: readonly TrendEntry[]): TrendPoint[] => {
   });
 };
 
-export interface Coverage {
+interface CoverageCounts<T> {
+  readonly both: T;
+  readonly judgeOnly: T;
+  readonly peopleOnly: T;
+  readonly neither: T;
+}
+
+export interface Coverage extends CoverageCounts<number> {
   readonly runs: number;
-  readonly both: number;
-  readonly judgeOnly: number;
-  readonly peopleOnly: number;
-  readonly neither: number;
+  readonly shares: CoverageCounts<number | null>;
 }
 
 export const coverageOf = (
   runs: readonly { readonly judged: boolean; readonly labelled: boolean }[],
-): Coverage => ({
-  runs: runs.length,
-  both: runs.filter((each) => each.judged && each.labelled).length,
-  judgeOnly: runs.filter((each) => each.judged && !each.labelled).length,
-  peopleOnly: runs.filter((each) => !each.judged && each.labelled).length,
-  neither: runs.filter((each) => !each.judged && !each.labelled).length,
-});
+): Coverage => {
+  const counts = {
+    both: runs.filter((each) => each.judged && each.labelled).length,
+    judgeOnly: runs.filter((each) => each.judged && !each.labelled).length,
+    peopleOnly: runs.filter((each) => !each.judged && each.labelled).length,
+    neither: runs.filter((each) => !each.judged && !each.labelled).length,
+  };
+
+  return {
+    runs: runs.length,
+    ...counts,
+    shares: {
+      both: rateOf(counts.both, runs.length),
+      judgeOnly: rateOf(counts.judgeOnly, runs.length),
+      peopleOnly: rateOf(counts.peopleOnly, runs.length),
+      neither: rateOf(counts.neither, runs.length),
+    },
+  };
+};

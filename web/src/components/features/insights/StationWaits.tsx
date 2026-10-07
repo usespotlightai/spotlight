@@ -57,7 +57,6 @@ type StationWaitsProps = {
   slug: string;
   teamId: string;
   stations: readonly StationFlow[];
-  before: readonly StationFlow[];
   names: StationNames;
 };
 
@@ -65,7 +64,6 @@ export function StationWaits({
   slug,
   teamId,
   stations,
-  before,
   names,
 }: StationWaitsProps) {
   const cursor = useCursorTooltip();
@@ -80,7 +78,6 @@ export function StationWaits({
           slug={slug}
           teamId={teamId}
           stations={stations}
-          before={before}
           names={names}
         />
       }

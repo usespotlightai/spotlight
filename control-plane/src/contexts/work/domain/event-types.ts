@@ -146,6 +146,7 @@ import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
 import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
+import { TraceRange } from '@work/domain/value-objects/trace-range.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -207,6 +208,7 @@ export const WORK_EVENT_TYPES = [
   Money,
   ReplayRunClaim,
   Tokens,
+  TraceRange,
   ToolUse,
   CalledTool,
   NetworkAnswer,

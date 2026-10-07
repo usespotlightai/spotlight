@@ -1,18 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  LineResponseDto,
-  RunTallyResponseDto,
-  StationReportResponseDto,
-} from '@/lib/api';
+import type { LineResponseDto, RunTallyResponseDto } from '@/lib/api';
 import {
-  deltaOf,
+  type Change,
+  changeShown,
   filterValueShown,
   type Headline,
+  type HeadlineChanges,
   headlineTiles,
   insightsPath,
   lasted,
   lastPageOf,
-  outputDays,
   paramsOf,
   runFailureShown,
   runsShownOf,
@@ -25,7 +22,6 @@ import {
   stationShown,
   tallyTiles,
   taskFailureShown,
-  teamTrendOf,
   viewOf,
 } from '@/lib/insights';
 
@@ -49,6 +45,28 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
   peopleIds: [],
   ...over,
 });
+
+const change = (
+  by: number | null,
+  tone: Change['tone'] = 'flat',
+  unit: Change['unit'] = 'percent',
+): Change => ({
+  unit,
+  by,
+  fromZero: by === null,
+  direction: by === null || by > 0 ? 'up' : by < 0 ? 'down' : 'same',
+  tone,
+});
+
+const UNCHANGED: HeadlineChanges = {
+  spend: change(0),
+  mergedPullRequests: change(0),
+  mergeRate: change(0, 'flat', 'points'),
+  costPerMerge: change(0),
+  taskToMerge: change(0),
+  touchesPerTask: change(0),
+  activePeople: change(0),
+};
 
 const LINES = [
   {
@@ -234,17 +252,34 @@ describe('the insights view in the address', () => {
   });
 });
 
-describe('deltaOf', () => {
-  it('says how much a number moved, and whether that is good', () => {
-    expect(deltaOf(12, 10, 'up')).toEqual({ shown: '+20%', tone: 'good' });
-    expect(deltaOf(12, 10, 'down')).toEqual({ shown: '+20%', tone: 'bad' });
-    expect(deltaOf(5, 10, 'neither')).toEqual({ shown: '-50%', tone: 'flat' });
+describe('changeShown', () => {
+  it('shows a relative change as a signed percent, in the server’s tone', () => {
+    expect(changeShown(change(0.2, 'good'))).toEqual({
+      shown: '+20%',
+      tone: 'good',
+    });
+    expect(changeShown(change(-0.5))).toEqual({ shown: '-50%', tone: 'flat' });
+  });
+
+  it('shows a rate’s change in points, to one decimal below a point', () => {
+    expect(changeShown(change(0.05, 'good', 'points'))?.shown).toBe('+5 pts');
+    expect(changeShown(change(-0.03, 'bad', 'points'))?.shown).toBe('−3 pts');
+    expect(changeShown(change(0.004, 'good', 'points'))?.shown).toBe(
+      '+0.4 pts',
+    );
   });
 
   it('says no change, up from nothing, or nothing to compare', () => {
-    expect(deltaOf(3, 3, 'up')).toEqual({ shown: 'No change', tone: 'flat' });
-    expect(deltaOf(3, 0, 'up')).toEqual({ shown: 'Up from 0', tone: 'good' });
-    expect(deltaOf(3, null, 'up')).toBeNull();
+    expect(changeShown(change(0))).toEqual({
+      shown: 'No change',
+      tone: 'flat',
+    });
+    expect(changeShown(change(0, 'flat', 'points'))?.shown).toBe('No change');
+    expect(changeShown(change(null, 'good'))).toEqual({
+      shown: 'Up from 0',
+      tone: 'good',
+    });
+    expect(changeShown(null)).toBeNull();
   });
 });
 
@@ -265,13 +300,12 @@ describe('durations', () => {
 
 describe('headlineTiles', () => {
   it('sets this period against the last and says where each number leads', () => {
-    const tiles = headlineTiles(
-      headline(),
-      headline({
-        mergedPullRequests: 4,
-        spend: { amount: 100, currency: 'USD' },
-      }),
-    );
+    const tiles = headlineTiles(headline(), {
+      ...UNCHANGED,
+      spend: change(0.2),
+      mergedPullRequests: change(1, 'good'),
+      mergeRate: change(0.05, 'good', 'points'),
+    });
 
     expect(tiles.map((tile) => [tile.label, tile.value])).toEqual([
       ['Spend', '$120.00'],
@@ -284,12 +318,16 @@ describe('headlineTiles', () => {
     ]);
     expect(tiles[0]?.delta).toEqual({ shown: '+20%', tone: 'flat' });
     expect(tiles[1]?.delta).toEqual({ shown: '+100%', tone: 'good' });
+    expect(tiles[2]?.delta).toEqual({ shown: '+5 pts', tone: 'good' });
     expect(tiles[0]?.drill).toEqual({ tab: 'runs' });
     expect(tiles[6]?.drill).toEqual({ tab: 'people' });
   });
 
   it('says plainly when spend cannot be summed', () => {
-    const [spend] = headlineTiles(headline({ spend: null }), headline());
+    const [spend] = headlineTiles(headline({ spend: null }), {
+      ...UNCHANGED,
+      spend: null,
+    });
 
     expect(spend?.value).toBe('–');
     expect(spend?.detail).toBe('No priced runs');
@@ -299,7 +337,7 @@ describe('headlineTiles', () => {
   it('says when spend could not be summed across currencies', () => {
     const [spend] = headlineTiles(
       headline({ spend: null, mixedCurrencies: true }),
-      headline(),
+      UNCHANGED,
     );
 
     expect(spend?.detail).toBe('Prices in more than one currency');
@@ -308,7 +346,7 @@ describe('headlineTiles', () => {
   it('drills from merged pull requests into the runs of the tasks that merged', () => {
     const tiles = headlineTiles(
       headline({ mergedTaskIds: ['task_1', 'task_2'] }),
-      headline(),
+      UNCHANGED,
     );
 
     expect(tiles[1]?.drill).toEqual({
@@ -323,21 +361,12 @@ describe('headlineTiles', () => {
 
   it('drills by delivery where there are too many merged tasks to name', () => {
     const many = Array.from({ length: 201 }, (_, at) => `task_${at}`);
-    const tiles = headlineTiles(headline({ mergedTaskIds: many }), headline());
+    const tiles = headlineTiles(headline({ mergedTaskIds: many }), UNCHANGED);
 
     expect(tiles[1]?.drill).toEqual({
       tab: 'runs',
       filter: { delivery: 'merged' },
     });
-  });
-
-  it('does not compare spend across currencies', () => {
-    const [spend] = headlineTiles(
-      headline(),
-      headline({ spend: { amount: 90, currency: 'EUR' } }),
-    );
-
-    expect(spend?.delta).toBeNull();
   });
 });
 
@@ -348,51 +377,6 @@ describe('station names', () => {
     expect(stationShown(names, 'station_build')).toBe('Implementation');
     expect(names.get('station_build')?.lineName).toBe('Delivery');
     expect(stationShown(names, 'station_gone')).toBe('A removed station');
-  });
-});
-
-describe('outputDays', () => {
-  it('marks each day a station started a new config', () => {
-    const days = outputDays(
-      [
-        {
-          day: '2026-09-29',
-          runs: 3,
-          spend: null,
-          merged: 0,
-          mergedTaskIds: [],
-          unpriced: 0,
-          mixedCurrencies: false,
-        },
-        {
-          day: '2026-09-30',
-          runs: 5,
-          spend: { amount: 4.2, currency: 'USD' },
-          merged: 1,
-          mergedTaskIds: [],
-          unpriced: 0,
-          mixedCurrencies: false,
-        },
-      ],
-      [
-        {
-          lineId: 'line_1',
-          stationId: 'station_build',
-          fingerprint: 'abc',
-          previousFingerprint:
-            '0000000000000000000000000000000000000000000000000000000000000000',
-          firstRunAt: '2026-09-30T10:00:00.000Z',
-          runId: 'run_1',
-        },
-      ],
-    );
-
-    expect(days.map((day) => [day.day, day.spend, day.changes.length])).toEqual(
-      [
-        ['2026-09-29', null, 0],
-        ['2026-09-30', 4.2, 1],
-      ],
-    );
   });
 });
 
@@ -524,6 +508,7 @@ const teamTally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto =>
     runs: 10,
     withdrawn: 0,
     failed: 2,
+    failedShare: 0.2,
     stopped: 0,
     checksPassed: 0,
     checksFailed: 0,
@@ -539,34 +524,20 @@ const teamTally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto =>
     ...over,
   }) as RunTallyResponseDto;
 
-describe('tallyTiles and teamTrendOf', () => {
-  it('sums the stations’ runs per day, day by day', () => {
-    const report = (days: [string, number, number][]) =>
-      ({
-        trend: days.map(([day, runs, failed]) => ({
-          day,
-          tally: teamTally({ runs, failed }),
-        })),
-      }) as unknown as StationReportResponseDto;
-
-    expect(
-      teamTrendOf([
-        report([
-          ['2026-10-02', 3, 1],
-          ['2026-10-01', 1, 0],
-        ]),
-        report([['2026-10-02', 2, 0]]),
-      ]),
-    ).toEqual([
-      { day: '2026-10-01', runs: 1, failed: 0 },
-      { day: '2026-10-02', runs: 5, failed: 1 },
-    ]);
-  });
-
-  it('shows each count with its own change, leaving out counts that are zero in both periods', () => {
+describe('tallyTiles', () => {
+  it('shows each count with its own change, leaving out counts the server saw at zero in both periods', () => {
     const tiles = tallyTiles(
       teamTally({}),
-      teamTally({ runs: 8, failed: 4 }),
+      { accepted: true, sentBack: false, merged: false },
+      {
+        runs: change(0.25),
+        failed: change(-0.5, 'good'),
+        accepted: change(0),
+        sentBack: change(0),
+        merged: change(0),
+        cost: change(0),
+        median: change(0),
+      },
       [],
     );
 

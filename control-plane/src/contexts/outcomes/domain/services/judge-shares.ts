@@ -1,3 +1,7 @@
+import {
+  type Change,
+  changeOf,
+} from '@outcomes/domain/value-objects/change.vo';
 import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 
 export interface JudgeShare {
@@ -19,3 +23,12 @@ export const judgeShareOf = (shares: readonly number[]): JudgeShare => ({
       : shares.reduce((sum, each) => sum + each, 0) / shares.length,
   judged: shares.length,
 });
+
+export const judgeChangeOf = (
+  before: JudgeShare | null,
+  after: JudgeShare | null,
+): Change | null =>
+  changeOf(after?.mean ?? null, before?.mean ?? null, {
+    better: 'up',
+    unit: 'points',
+  });

@@ -17,6 +17,7 @@ export interface SkillWeek {
   readonly runs: number;
   readonly given: number;
   readonly used: number;
+  readonly usedShare: number | null;
 }
 
 export interface SkillAtStation {
@@ -86,11 +87,14 @@ const weekly = (
       within(weekWindowOf(week), each.end?.endedAt ?? null),
     );
 
+    const used = count(inWeek, (each) => usedBy(each, skill));
+
     return {
       week,
       runs: inWeek.length,
       given: count(inWeek, (each) => givenTo(each, skill)),
-      used: count(inWeek, (each) => usedBy(each, skill)),
+      used,
+      usedShare: rateOf(used, inWeek.length),
     };
   });
 

@@ -414,6 +414,7 @@ describe('ReadStationAlertHandler', () => {
       watches,
       records,
       deliveries,
+      { now: () => NOW, sleep: async () => {} },
     );
   };
 
@@ -433,6 +434,7 @@ describe('ReadStationAlertHandler', () => {
       over: 2,
     });
     expect(alert.taskId).toBe('task_run_2');
+    expect(alert.insightsPeriod).toBe('7d');
     expect(alert.series.map((each) => [each.runId, each.value])).toEqual([
       ['run_1', null],
       ['run_2', 0.6],

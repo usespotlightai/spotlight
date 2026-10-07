@@ -1,10 +1,7 @@
 import { FINGERPRINT, NOW } from '@replays/domain/replays.fake-spec';
-import {
-  searchWarningsOf,
-  suggestedRepeatsFor,
-} from '@replays/domain/services/search-warnings';
+import { searchWarningsOf } from '@replays/domain/services/search-warnings';
 import type { SetHealth } from '@replays/domain/services/set-health';
-import type { SetNoise } from '@replays/domain/services/set-noise';
+import type { SetNoiseReading } from '@replays/domain/services/set-noise';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -13,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 const PROBE = ReplayId.of('replay_probe');
 
-const noiseOf = (spread: number): SetNoise => ({
+const noiseOf = (spread: number): SetNoiseReading => ({
   replayId: ReplayId.of('replay_noise'),
   fingerprint: FINGERPRINT,
   repeats: 3,
@@ -21,6 +18,7 @@ const noiseOf = (spread: number): SetNoise => ({
   spread,
   flippedTasks: [],
   measuredAt: NOW,
+  noisyInOneCopy: spread > 0.05,
 });
 
 const healthOf = (part: Partial<SetHealth> = {}): SetHealth => ({
@@ -30,16 +28,6 @@ const healthOf = (part: Partial<SetHealth> = {}): SetHealth => ({
   checks: null,
   sanity: null,
   ...part,
-});
-
-describe('suggestedRepeatsFor', () => {
-  it('asks for enough copies to bring the noise under the min gain, from 1 to 5', () => {
-    expect(suggestedRepeatsFor(0, 0.05)).toBe(1);
-    expect(suggestedRepeatsFor(0.05, 0.05)).toBe(1);
-    expect(suggestedRepeatsFor(0.1, 0.05)).toBe(4);
-    expect(suggestedRepeatsFor(0.08, 0.05)).toBe(3);
-    expect(suggestedRepeatsFor(0.5, 0.05)).toBe(5);
-  });
 });
 
 describe('searchWarningsOf', () => {

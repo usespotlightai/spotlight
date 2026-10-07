@@ -448,14 +448,13 @@ const noiseReading = (
     };
   }
 
-  const noisy = noise.spread > minGain;
   const minimum = `Minimum real gain: ${minGainShown(minGain)}`;
 
   return {
     ...base,
     said: noiseShown(noise),
-    tone: noisy ? 'bad' : 'good',
-    advice: noisy
+    tone: noise.noisyInOneCopy ? 'bad' : 'good',
+    advice: noise.noisyInOneCopy
       ? `One copy can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. ${minimum}`
       : `Noise is within the line’s minimum real gain. A gain that size is unlikely to be chance. ${minimum}`,
   };

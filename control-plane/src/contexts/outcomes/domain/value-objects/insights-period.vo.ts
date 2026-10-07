@@ -12,6 +12,8 @@ const DAYS: Readonly<Record<InsightsPeriodName, number>> = {
   '90d': 90,
 };
 
+const LONGEST_PERIOD: InsightsPeriodName = '90d';
+
 const WEEK_DAYS = 7;
 
 const MONTH_DAYS = 30;
@@ -60,6 +62,14 @@ export class InsightsPeriod {
       name,
       { from, to },
       { from: daysBefore(from, DAYS[name]), to: from },
+    );
+  }
+
+  static covering(at: Date, now: Date): InsightsPeriodName {
+    return (
+      INSIGHTS_PERIODS.find((name) =>
+        within(InsightsPeriod.of(name, now).current, at),
+      ) ?? LONGEST_PERIOD
     );
   }
 

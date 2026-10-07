@@ -26,7 +26,7 @@ export function FlowTab({ slug, teamId, period, names }: FlowTabProps) {
     return <InsightsFailed what="The flow" query={flow} />;
   }
 
-  const { flow: now, before, truncated } = flow.data;
+  const { flow: now, truncated } = flow.data;
 
   if (
     now.stations.length === 0 &&
@@ -49,12 +49,11 @@ export function FlowTab({ slug, teamId, period, names }: FlowTabProps) {
           slug={slug}
           teamId={teamId}
           stations={now.stations}
-          before={before.stations}
           names={names}
         />
       )}
 
-      <DeliveryStages delivery={now.delivery} before={before.delivery} />
+      <DeliveryStages delivery={now.delivery} />
     </div>
   );
 }

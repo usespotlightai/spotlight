@@ -2,10 +2,14 @@ import type { BotActivity } from '@outcomes/domain/aggregates/pull-request-recor
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { inboxWaitsWithin } from '@outcomes/domain/services/flow';
 import {
+  type ByPercentile,
   between,
+  byPercentile,
   known,
+  type Percentile,
   type Percentiles,
   percentilesOf,
+  rateOf,
 } from '@outcomes/domain/services/measures';
 import {
   comparedRepositoriesOf,
@@ -28,6 +32,10 @@ import {
   toMergeMs,
 } from '@outcomes/domain/services/team-pull-requests';
 import {
+  type Change,
+  changeOf,
+} from '@outcomes/domain/value-objects/change.vo';
+import {
   type InsightsPeriod,
   type Window,
   within,
@@ -46,6 +54,18 @@ export interface ByAuthor {
   readonly people: Percentiles;
 }
 
+interface PercentileChanges {
+  readonly p50: Change | null;
+  readonly p75: Change | null;
+  readonly p90: Change | null;
+  readonly p95: Change | null;
+}
+
+export interface ByAuthorChanges {
+  readonly spotlight: PercentileChanges;
+  readonly people: PercentileChanges;
+}
+
 interface MergeDay {
   readonly day: string;
   readonly daily: ByAuthor;
@@ -58,10 +78,16 @@ interface TypeMerge {
   readonly toMerge: ByAuthor;
 }
 
+export interface RoundsCount {
+  readonly rounds: RoundBucket;
+  readonly merged: number;
+  readonly share: number | null;
+}
+
 interface DepthWeek {
   readonly week: string;
   readonly merged: number;
-  readonly rounds: Readonly<Record<RoundBucket, number>>;
+  readonly rounds: readonly RoundsCount[];
 }
 
 interface ReviewDay {
@@ -81,28 +107,54 @@ interface ReviewBot {
   readonly resolvedShare: number | null;
 }
 
-interface StageParts {
-  readonly queued: Percentiles;
-  readonly running: Percentiles;
-  readonly inbox: Percentiles;
-}
+export const STATION_PARTS = ['queued', 'running', 'inbox'] as const;
 
-export interface StageTimes {
+export type StationPart = (typeof STATION_PARTS)[number];
+
+type StageParts = Readonly<Record<StationPart, Percentiles>>;
+
+interface Timed {
   readonly total: Percentiles;
   readonly parts: StageParts | null;
 }
 
-export interface ByType {
-  readonly all: StageTimes;
+export interface StageTimes extends Timed {
+  readonly jam: ByPercentile<number>;
+  readonly worst: ByPercentile<boolean>;
+  readonly longestPart: ByPercentile<StationPart | null> | null;
+}
+
+interface Typed<T> {
+  readonly all: T;
   readonly types: readonly {
     readonly type: PullRequestType;
-    readonly times: StageTimes;
+    readonly times: T;
   }[];
 }
 
-interface StationStage extends StationPlace {
-  readonly times: ByType;
+export type ByType = Typed<StageTimes>;
+
+export const FLOW_STAGE_KINDS = [
+  'coding',
+  'station',
+  'awaitingReview',
+  'inReview',
+  'awaitingMerge',
+] as const;
+
+export type FlowStageKind = (typeof FLOW_STAGE_KINDS)[number];
+
+interface Stage<T> {
+  readonly kind: FlowStageKind;
+  readonly place: StationPlace | null;
+  readonly times: Typed<T>;
 }
+
+export type FlowStage = Stage<StageTimes>;
+
+const FLOW_LAYOUTS = ['stations', 'stages'] as const;
+
+export type FlowLayout = (typeof FLOW_LAYOUTS)[number];
 
 interface PipelineFlow {
   readonly merged: number;
@@ -110,24 +162,21 @@ interface PipelineFlow {
     readonly type: PullRequestType;
     readonly merged: number;
   }[];
-  readonly coding: ByType;
-  readonly stations: readonly StationStage[];
-  readonly review: {
-    readonly awaitingReview: ByType;
-    readonly inReview: ByType;
-    readonly awaitingMerge: ByType;
-  };
+  readonly layouts: Readonly<Record<FlowLayout, readonly FlowStage[]>>;
 }
 
 export interface Shipping {
   readonly toMerge: ByAuthor;
-  readonly toMergeBefore: ByAuthor;
+  readonly toMergeChanges: ByAuthorChanges;
   readonly mergeDays: readonly MergeDay[];
   readonly types: readonly TypeMerge[];
+  readonly slowestFirst: ByPercentile<readonly PullRequestType[]>;
   readonly depth: readonly DepthWeek[];
+  readonly depthTotals: readonly RoundsCount[];
   readonly reviewDays: readonly ReviewDay[];
   readonly bots: readonly ReviewBot[];
   readonly pipeline: PipelineFlow;
+  readonly shippedAny: boolean;
 }
 
 const dayWindowOf = (day: string): Window => {
@@ -160,6 +209,26 @@ const byAuthorOf = (merged: readonly TeamPullRequest[]): ByAuthor => ({
   people: percentilesOf(
     known(merged.filter((each) => each.by === 'people').map(toMergeMs)),
   ),
+});
+
+const fallingIsBetter = { better: 'down', unit: 'percent' } as const;
+
+const percentileChangesOf = (
+  now: Percentiles,
+  before: Percentiles,
+): PercentileChanges => ({
+  p50: changeOf(now.p50, before.p50, fallingIsBetter),
+  p75: changeOf(now.p75, before.p75, fallingIsBetter),
+  p90: changeOf(now.p90, before.p90, fallingIsBetter),
+  p95: changeOf(now.p95, before.p95, fallingIsBetter),
+});
+
+const byAuthorChangesOf = (
+  now: ByAuthor,
+  before: ByAuthor,
+): ByAuthorChanges => ({
+  spotlight: percentileChangesOf(now.spotlight, before.spotlight),
+  people: percentileChangesOf(now.people, before.people),
 });
 
 const lasted = (from: Date | null, to: Date | null): number | null =>
@@ -236,6 +305,38 @@ const typeMergesOf = (
       : [];
   });
 
+const slowerFirst = (one: number | null, other: number | null): number =>
+  one === null || other === null
+    ? Number(one === null) - Number(other === null)
+    : other - one;
+
+const slowestFirstOf = (
+  types: readonly TypeMerge[],
+): ByPercentile<readonly PullRequestType[]> =>
+  byPercentile((percentile) =>
+    [...types]
+      .sort((one, other) =>
+        slowerFirst(
+          one.toMerge.spotlight[percentile],
+          other.toMerge.spotlight[percentile],
+        ),
+      )
+      .map((each) => each.type),
+  );
+
+const roundsCountsOf = (
+  counted: (rounds: RoundBucket) => number,
+): readonly RoundsCount[] => {
+  const merged = ROUND_BUCKETS.map(counted);
+  const all = merged.reduce((sum, each) => sum + each, 0);
+
+  return ROUND_BUCKETS.map((rounds, at) => ({
+    rounds,
+    merged: merged[at] ?? 0,
+    share: rateOf(merged[at] ?? 0, all),
+  }));
+};
+
 const overlapOf = (one: Window, other: Window): Window => ({
   from: new Date(Math.max(one.from.getTime(), other.from.getTime())),
   to: new Date(Math.min(one.to.getTime(), other.to.getTime())),
@@ -254,16 +355,23 @@ const depthWeeksOf = (
     return {
       week,
       merged: merged.length,
-      rounds: Object.fromEntries(
-        ROUND_BUCKETS.map((rounds) => [
-          rounds,
+      rounds: roundsCountsOf(
+        (rounds) =>
           merged.filter(
             (each) => roundBucketOf(each.seen.reviewRounds) === rounds,
           ).length,
-        ]),
-      ) as Record<RoundBucket, number>,
+      ),
     };
   });
+
+const depthTotalsOf = (weeks: readonly DepthWeek[]): readonly RoundsCount[] =>
+  roundsCountsOf((rounds) =>
+    weeks.reduce(
+      (sum, week) =>
+        sum + (week.rounds.find((each) => each.rounds === rounds)?.merged ?? 0),
+      0,
+    ),
+  );
 
 const firstReviewedWithin = (
   reviewed: readonly TeamPullRequest[],
@@ -350,10 +458,7 @@ interface Passage {
   } | null;
 }
 
-const timesOf = (
-  passages: readonly Passage[],
-  parted: boolean,
-): StageTimes => ({
+const timesOf = (passages: readonly Passage[], parted: boolean): Timed => ({
   total: percentilesOf(known(passages.map((each) => each.total))),
   parts: parted
     ? {
@@ -366,7 +471,10 @@ const timesOf = (
     : null,
 });
 
-const byTypeOf = (passages: readonly Passage[], parted = false): ByType => {
+const byTypeOf = (
+  passages: readonly Passage[],
+  parted = false,
+): Typed<Timed> => {
   const timed = passages.filter((each) => each.total !== null);
 
   return {
@@ -381,6 +489,72 @@ const byTypeOf = (passages: readonly Passage[], parted = false): ByType => {
 
 const sumOf = (values: readonly number[]): number =>
   values.reduce((sum, each) => sum + each, 0);
+
+const timedFor = (
+  stage: Stage<Timed>,
+  type: PullRequestType | null,
+): Timed | null =>
+  type
+    ? (stage.times.types.find((each) => each.type === type)?.times ?? null)
+    : stage.times.all;
+
+const worstOf = (lasted: readonly (number | null)[]): number =>
+  lasted.reduce<number>(
+    (worst, each, at) =>
+      each !== null && (lasted[worst] ?? -1) < each ? at : worst,
+    -1,
+  );
+
+const longestPartOf = (
+  parts: StageParts | null,
+): ByPercentile<StationPart | null> | null =>
+  parts
+    ? byPercentile((percentile) =>
+        STATION_PARTS.reduce<StationPart | null>(
+          (longest, part) =>
+            (parts[part][percentile] ?? 0) >
+            (longest ? (parts[longest][percentile] ?? 0) : 0)
+              ? part
+              : longest,
+          null,
+        ),
+      )
+    : null;
+
+const jammedOf = (stages: readonly Stage<Timed>[]): readonly FlowStage[] => {
+  const judged = (
+    times: Timed,
+    at: number,
+    type: PullRequestType | null,
+  ): StageTimes => {
+    const lastedAt = (percentile: Percentile): (number | null)[] =>
+      stages.map((stage) => timedFor(stage, type)?.total[percentile] ?? null);
+
+    return {
+      ...times,
+      jam: byPercentile((percentile) => {
+        const lasted = lastedAt(percentile);
+        const most = Math.max(0, ...lasted.map((each) => each ?? 0));
+
+        return most === 0 ? 0 : (lasted[at] ?? 0) / most;
+      }),
+      worst: byPercentile((percentile) => worstOf(lastedAt(percentile)) === at),
+      longestPart: longestPartOf(times.parts),
+    };
+  };
+
+  return stages.map((stage, at) => ({
+    kind: stage.kind,
+    place: stage.place,
+    times: {
+      all: judged(stage.times.all, at, null),
+      types: stage.times.types.map((each) => ({
+        type: each.type,
+        times: judged(each.times, at, each.type),
+      })),
+    },
+  }));
+};
 
 const pipelineOf = (
   merged: readonly TeamPullRequest[],
@@ -415,18 +589,19 @@ const pipelineOf = (
     total: lasted(from, to),
     parts: null,
   });
+  const stage = (
+    kind: FlowStageKind,
+    passages: readonly Passage[],
+  ): Stage<Timed> => ({ kind, place: null, times: byTypeOf(passages) });
 
-  return {
-    merged: made.length,
-    types: PULL_REQUEST_TYPES.flatMap((type) => {
-      const count = made.filter((each) => each.type === type).length;
-      return count > 0 ? [{ type, merged: count }] : [];
-    }),
-    coding: byTypeOf(
-      made.map((each) => step(each, openedAt(each), each.seen.openedAt)),
-    ),
-    stations: stationsOf(runs).map((place) => ({
-      ...place,
+  const coding = stage(
+    'coding',
+    made.map((each) => step(each, openedAt(each), each.seen.openedAt)),
+  );
+  const stations = stationsOf(runs).map(
+    (place): Stage<Timed> => ({
+      kind: 'station',
+      place,
       times: byTypeOf(
         made.flatMap((each) => {
           const here = runsOf(each.taskId).filter(
@@ -465,33 +640,48 @@ const pipelineOf = (
         }),
         true,
       ),
-    })),
-    review: {
-      awaitingReview: byTypeOf(
-        made.map((each) => ({
-          type: each.type,
-          total: toFirstReviewMs(each),
-          parts: null,
-        })),
-      ),
-      inReview: byTypeOf(
-        made.map((each) =>
-          step(
-            each,
-            each.seen.firstUnblockingReviewAt,
-            earliest(each.seen.firstApprovedAt, each.seen.closedAt),
-          ),
+    }),
+  );
+  const review = [
+    stage(
+      'awaitingReview',
+      made.map((each) => ({
+        type: each.type,
+        total: toFirstReviewMs(each),
+        parts: null,
+      })),
+    ),
+    stage(
+      'inReview',
+      made.map((each) =>
+        step(
+          each,
+          each.seen.firstUnblockingReviewAt,
+          earliest(each.seen.firstApprovedAt, each.seen.closedAt),
         ),
       ),
-      awaitingMerge: byTypeOf(
-        made.map((each) =>
-          step(
-            each,
-            earliest(each.seen.firstApprovedAt, each.seen.closedAt),
-            each.seen.closedAt,
-          ),
+    ),
+    stage(
+      'awaitingMerge',
+      made.map((each) =>
+        step(
+          each,
+          earliest(each.seen.firstApprovedAt, each.seen.closedAt),
+          each.seen.closedAt,
         ),
       ),
+    ),
+  ];
+
+  return {
+    merged: made.length,
+    types: PULL_REQUEST_TYPES.flatMap((type) => {
+      const count = made.filter((each) => each.type === type).length;
+      return count > 0 ? [{ type, merged: count }] : [];
+    }),
+    layouts: {
+      stations: jammedOf([...stations, ...review]),
+      stages: jammedOf([coding, ...review]),
     },
   };
 };
@@ -505,27 +695,39 @@ export const shippingOf = (
   const compared = comparedOf(pullRequests, repositories);
   const merged = mergedWithin(compared, period.current);
   const reviewed = pullRequests.filter((each) => each.by !== 'bots');
+  const toMerge = byAuthorOf(merged);
+  const toMergeBefore = byAuthorOf(
+    mergedWithin(
+      comparedOf(
+        pullRequests,
+        comparedRepositoriesOf(pullRequests, period.previous),
+      ),
+      period.previous,
+    ),
+  );
+  const types = typeMergesOf(merged);
+  const depth = depthWeeksOf(compared, period.current);
+  const reviewDays = reviewDaysOf(reviewed, period.days);
+  const pipeline = pipelineOf(
+    mergedWithin(pullRequests, period.current),
+    history,
+    period.lookback,
+  );
 
   return {
-    toMerge: byAuthorOf(merged),
-    toMergeBefore: byAuthorOf(
-      mergedWithin(
-        comparedOf(
-          pullRequests,
-          comparedRepositoriesOf(pullRequests, period.previous),
-        ),
-        period.previous,
-      ),
-    ),
+    toMerge,
+    toMergeChanges: byAuthorChangesOf(toMerge, toMergeBefore),
     mergeDays: mergeDaysOf(compared, period.days),
-    types: typeMergesOf(merged),
-    depth: depthWeeksOf(compared, period.current),
-    reviewDays: reviewDaysOf(reviewed, period.days),
+    types,
+    slowestFirst: slowestFirstOf(types),
+    depth,
+    depthTotals: depthTotalsOf(depth),
+    reviewDays,
     bots: botsOf(pullRequests, period.current),
-    pipeline: pipelineOf(
-      mergedWithin(pullRequests, period.current),
-      history,
-      period.lookback,
-    ),
+    pipeline,
+    shippedAny:
+      pipeline.merged > 0 ||
+      types.length > 0 ||
+      reviewDays.some((each) => each.awaiting > 0 || each.humanReviews > 0),
   };
 };

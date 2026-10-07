@@ -1,7 +1,9 @@
 import type { SetHealth } from '@replays/domain/services/set-health';
-import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
-
-const ROUNDING = 1e-9;
+import {
+  isNoisyAt,
+  neededRepeatsFor,
+  suggestedRepeatsFor,
+} from '@replays/domain/services/set-noise';
 
 export type SearchWarning =
   | { readonly kind: 'noise-unmeasured' }
@@ -31,12 +33,6 @@ export type SearchWarning =
       readonly worseTasks: number;
     };
 
-const neededRepeatsFor = (spread: number, minGain: number): number =>
-  Math.max(1, Math.ceil((spread / minGain) ** 2 - ROUNDING));
-
-export const suggestedRepeatsFor = (spread: number, minGain: number): number =>
-  Math.min(MOST_REPEATS, neededRepeatsFor(spread, minGain));
-
 const noiseWarnings = (
   health: SetHealth,
   minGain: number,
@@ -48,15 +44,13 @@ const noiseWarnings = (
     return [{ kind: 'noise-unmeasured' }];
   }
 
-  const neededRepeats = neededRepeatsFor(noise.spread, minGain);
-
-  return neededRepeats > repeats
+  return isNoisyAt(noise.spread, minGain, repeats)
     ? [
         {
           kind: 'noisy',
           spread: noise.spread,
           minGain,
-          neededRepeats,
+          neededRepeats: neededRepeatsFor(noise.spread, minGain),
           suggestedRepeats: suggestedRepeatsFor(noise.spread, minGain),
         },
       ]

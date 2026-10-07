@@ -6,17 +6,21 @@ import { lastedOrNone } from '@/lib/insights';
 import { typeShown } from '@/lib/insights-pull-requests';
 import {
   DEFAULT_PERCENTILE,
+  type InsightsShipping,
   type Percentile,
   slowestFirst,
-  type TypeMerge,
 } from '@/lib/insights-shipping';
 
 const widthOf = (ms: number | null, most: number): string =>
   ms === null || most === 0 ? '0%' : `${(ms / most) * 100}%`;
 
-export function TimeToMergeByType({ types }: { types: readonly TypeMerge[] }) {
+export function TimeToMergeByType({
+  merges,
+}: {
+  merges: Pick<InsightsShipping, 'types' | 'slowestFirst'>;
+}) {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
-  const rows = slowestFirst(types, percentile);
+  const rows = slowestFirst(merges, percentile);
   const most = Math.max(
     0,
     ...rows.flatMap((row) => [

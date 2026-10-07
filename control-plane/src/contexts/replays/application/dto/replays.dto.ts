@@ -62,6 +62,7 @@ export interface SetNoiseDto {
   readonly spread: number;
   readonly flippedTasks: readonly string[];
   readonly measuredAt: string;
+  readonly noisyInOneCopy: boolean;
 }
 
 export interface SetSaturationDto {

@@ -32,11 +32,21 @@ export class SkillWeekResponseDto {
   @ApiProperty({ example: 6, description: 'Of those, the runs that read it' })
   readonly used: number;
 
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.43,
+    description:
+      'The share of that week’s runs that read it; none where no run ended that week',
+  })
+  readonly usedShare: number | null;
+
   constructor(week: SkillWeek) {
     this.week = week.week;
     this.runs = week.runs;
     this.given = week.given;
     this.used = week.used;
+    this.usedShare = week.usedShare;
   }
 }
 

@@ -9,6 +9,10 @@ import {
   ALERT_MEASURES,
   type AlertMeasure,
 } from '@outcomes/domain/value-objects/alert-rule.vo';
+import {
+  type Change,
+  changeOf,
+} from '@outcomes/domain/value-objects/change.vo';
 
 export const FEWEST_SETTLED_RUNS = 5;
 
@@ -36,6 +40,7 @@ export interface MeasureVerdict {
   readonly settledAfter: number;
   readonly currency: string | null;
   readonly verdict: Verdict;
+  readonly change: Change | null;
 }
 
 const currencyOf = (records: readonly RunRecord[]): string | null =>
@@ -71,6 +76,7 @@ export const changeVerdictOf = (
     const nowValue = measureOf(measure, now, deliveries);
     const priced = measure === 'cost_per_run';
     const sameMoney = !priced || currencyOf(was) === currencyOf(now);
+    const comparable = sameMoney ? wasValue : null;
 
     return {
       measure,
@@ -87,5 +93,9 @@ export const changeVerdictOf = (
           was.length >= FEWEST_SETTLED_RUNS &&
           now.length >= FEWEST_SETTLED_RUNS,
       ),
+      change: changeOf(nowValue, comparable, {
+        better: 'neither',
+        unit: priced ? 'percent' : 'points',
+      }),
     };
   });

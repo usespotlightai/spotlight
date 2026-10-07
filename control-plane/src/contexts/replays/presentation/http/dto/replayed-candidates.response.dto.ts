@@ -9,9 +9,14 @@ import type {
   ReplayedSearchDto,
   ReplayedSeedDto,
   ReplayedSetDto,
+  ReplayedShownDto,
   ReplayedStationDto,
   ReplaySetHealthDto,
 } from '@replays/application/dto/replayed-candidates.dto';
+import {
+  CHARTED_AS,
+  type ChartedAs,
+} from '@replays/domain/services/replayed-chart';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { REPLAYED_PERIODS } from '@replays/domain/value-objects/replayed-period.vo';
 import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
@@ -31,6 +36,9 @@ const RATE =
 
 const PER_RUN =
   'What it spent per scored run; unknown while any of it went unpriced or was in another currency';
+
+const CHARTED =
+  'Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off';
 
 export class ReplayedPeriodResponseDto {
   @ApiProperty({ enum: REPLAYED_PERIODS, example: '30d' })
@@ -145,6 +153,9 @@ export class ReplayedBaselineResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly endedAt: string | null;
 
+  @ApiProperty({ enum: CHARTED_AS, description: CHARTED })
+  readonly charted: ChartedAs;
+
   constructor(baseline: ReplayedBaselineDto) {
     this.replayId = baseline.replayId;
     this.state = baseline.state;
@@ -155,6 +166,7 @@ export class ReplayedBaselineResponseDto {
     this.costPerRun = baseline.costPerRun;
     this.currency = baseline.currency;
     this.endedAt = baseline.endedAt;
+    this.charted = baseline.charted;
   }
 }
 
@@ -250,11 +262,79 @@ export class ReplayedSeedResponseDto {
   @ApiProperty({ description: 'How many searched runs it was scored on' })
   readonly scored: number;
 
+  @ApiProperty({ enum: CHARTED_AS, description: CHARTED })
+  readonly charted: ChartedAs;
+
   constructor(seed: ReplayedSeedDto) {
     this.successRate = seed.successRate;
     this.interval = intervalResponse(seed.interval);
     this.costPerRun = seed.costPerRun;
     this.scored = seed.scored;
+    this.charted = seed.charted;
+  }
+}
+
+export class ReplayedShownResponseDto {
+  @ApiProperty({
+    enum: ['compared', 'overall'],
+    description:
+      'compared when the baseline replayed some of its runs too, so it is set beside live on those runs only; overall otherwise, with nothing from live',
+  })
+  readonly basis: 'compared' | 'overall';
+
+  @ApiProperty({
+    enum: ['compared', 'overall'],
+    description:
+      'compared when the cost per run covers the compared runs; overall when it covers all its scored runs, because live is in another currency or there is no compared basis',
+  })
+  readonly costBasis: 'compared' | 'overall';
+
+  @ApiProperty({ nullable: true, type: Number, description: RATE })
+  readonly successRate: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description: 'The success rate with its 95% interval over the tasks',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description:
+      'The live config’s success rate on the same runs; null on the overall basis',
+  })
+  readonly liveSuccessRate: number | null;
+
+  @ApiProperty({ description: 'How many runs the success rates cover' })
+  readonly runs: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description:
+      'What it spent per run, in its own currency: on the compared runs when live is in the same currency, else over all its scored runs',
+  })
+  readonly costPerRun: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description:
+      'What the live config spent per run on the compared runs, in the candidate’s currency; null on the overall basis or when live is in another currency',
+  })
+  readonly liveCostPerRun: number | null;
+
+  constructor(shown: ReplayedShownDto) {
+    this.basis = shown.basis;
+    this.costBasis = shown.costBasis;
+    this.successRate = shown.successRate;
+    this.interval = intervalResponse(shown.interval);
+    this.liveSuccessRate = shown.liveSuccessRate;
+    this.runs = shown.runs;
+    this.costPerRun = shown.costPerRun;
+    this.liveCostPerRun = shown.liveCostPerRun;
   }
 }
 
@@ -462,6 +542,16 @@ export class ReplayedCandidateResponseDto {
   })
   readonly pullRequest: CandidatePullRequestResponseDto | null;
 
+  @ApiProperty({ enum: CHARTED_AS, description: CHARTED })
+  readonly charted: ChartedAs;
+
+  @ApiProperty({
+    type: ReplayedShownResponseDto,
+    description:
+      'The success and cost to set beside live: on the compared runs when there are any, else overall',
+  })
+  readonly shown: ReplayedShownResponseDto;
+
   constructor(candidate: ReplayedCandidateDto) {
     this.candidateId = candidate.candidateId;
     this.name = candidate.name;
@@ -500,6 +590,8 @@ export class ReplayedCandidateResponseDto {
     this.pullRequest = candidate.pullRequest
       ? new CandidatePullRequestResponseDto(candidate.pullRequest)
       : null;
+    this.charted = candidate.charted;
+    this.shown = new ReplayedShownResponseDto(candidate.shown);
   }
 }
 
@@ -534,10 +626,19 @@ export class ReplayedSetResponseDto {
   readonly baseline: ReplayedBaselineResponseDto | null;
 
   @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'USD',
+    description:
+      'The currency its chart is drawn in: the baseline’s, else the newest candidate’s',
+  })
+  readonly chartCurrency: string | null;
+
+  @ApiProperty({
     type: ReplayedCandidateResponseDto,
     isArray: true,
     description:
-      'Candidates replayed over it in the period, newest first: searched ones whose search started in it, proposed ones whose replay did',
+      'Candidates replayed over it in the period, the largest gain against live first and those without one last, newest first among equals: searched ones whose search started in it, proposed ones whose replay did',
   })
   readonly candidates: ReplayedCandidateResponseDto[];
 
@@ -550,6 +651,7 @@ export class ReplayedSetResponseDto {
     this.baseline = set.baseline
       ? new ReplayedBaselineResponseDto(set.baseline)
       : null;
+    this.chartCurrency = set.chartCurrency;
     this.candidates = set.candidates.map(
       (each) => new ReplayedCandidateResponseDto(each),
     );

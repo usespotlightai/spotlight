@@ -140,7 +140,12 @@ describe('the team’s insights', () => {
       mergedPullRequests: 1,
       spend: { amount: 1.5, currency: 'USD' },
     });
-    expect(overview.before.runs).toBe(0);
+    expect(overview.changes.mergedPullRequests).toMatchObject({
+      fromZero: true,
+      direction: 'up',
+      tone: 'good',
+    });
+    expect(overview.changes.spend).toBeNull();
     expect(overview.output).toHaveLength(7);
     expect(overview.people).toEqual([
       { personId: 'user_ada', name: 'Name of user_ada' },
@@ -190,6 +195,11 @@ describe('the team’s insights', () => {
       p90Ms: 60_000,
     });
     expect(stations.team).toEqual(stations.stations[0]?.tally);
+    expect(stations.teamChanges).toEqual(stations.stations[0]?.changes);
+    expect(stations.teamChanges.runs).toMatchObject({
+      fromZero: true,
+      tone: 'flat',
+    });
   });
 
   it('lists the runs a page at a time, with who opened each task', async () => {
@@ -233,12 +243,14 @@ describe('the team’s insights', () => {
       people,
     ).execute(new ReadInsightsPeopleQuery('team_1', READ_TOKEN, '7d'));
 
-    expect(read.adoption.active).toEqual(['user_ada', 'user_bob', 'user_cy']);
-    expect(read.adoption.newAdopters).toEqual(['user_bob', 'user_cy']);
-    expect(read.people.map((each) => each.personId)).toEqual([
-      'user_ada',
-      'user_bob',
-      'user_cy',
+    expect(read.adoption.activeCount).toBe(3);
+    expect(read.adoption.newAdopterCount).toBe(2);
+    expect(
+      read.adoption.people.map((each) => [each.personId, each.isNew]),
+    ).toEqual([
+      ['user_ada', false],
+      ['user_bob', true],
+      ['user_cy', true],
     ]);
   });
 

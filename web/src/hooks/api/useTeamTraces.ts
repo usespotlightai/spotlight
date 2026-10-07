@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { listTeamTraces } from '@/lib/api';
-import { since } from '@/lib/range';
+import { rangeOf } from '@/lib/range';
 
 export const teamTraceKeys = {
   forTeam: (teamId?: string, range?: string) =>
@@ -17,7 +17,7 @@ export function useTeamTraces(teamId: string | undefined, range: string) {
     queryFn: async () => {
       const { data } = await listTeamTraces({
         path: { teamId: teamId as string },
-        query: { since: since(range) },
+        query: { range: rangeOf(range).id },
         throwOnError: true,
       });
       return data;

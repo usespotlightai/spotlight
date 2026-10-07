@@ -356,6 +356,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     DrizzleStationWatchRepository,
     DrizzleRunRecordRepository,
     DrizzleTaskDeliveryRepository,
+    CLOCK,
   ]),
   {
     provide: WatchStations,

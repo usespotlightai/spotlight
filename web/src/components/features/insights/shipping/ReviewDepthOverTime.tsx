@@ -14,11 +14,10 @@ import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { shareShown } from '@/lib/insights';
 import {
-  type DepthBar,
   type DepthWeek,
-  depthBars,
   ROUNDS,
   type Rounds,
+  type RoundsCount,
   roundsShown,
 } from '@/lib/insights-shipping';
 import { dayShown } from '@/lib/judge';
@@ -42,7 +41,7 @@ const Said = ({
 }: {
   placement: TipPlacement;
   active?: boolean;
-  payload?: { payload: DepthBar }[];
+  payload?: { payload: DepthWeek }[];
 }) => {
   const bar = payload?.[0]?.payload;
 
@@ -65,17 +64,12 @@ const Said = ({
 
 export function ReviewDepthOverTime({
   weeks,
+  totals,
 }: {
   weeks: readonly DepthWeek[];
+  totals: readonly RoundsCount[];
 }) {
   const cursor = useCursorTooltip();
-  const totals = Object.fromEntries(
-    ROUNDS.map((rounds) => [
-      rounds,
-      weeks.reduce((sum, week) => sum + week.rounds[rounds], 0),
-    ]),
-  ) as Record<Rounds, number>;
-  const all = ROUNDS.reduce((sum, rounds) => sum + totals[rounds], 0);
 
   return (
     <InsightsCard
@@ -91,7 +85,7 @@ export function ReviewDepthOverTime({
             <div {...cursor.area}>
               <ResponsiveContainer width="100%" height={200}>
                 <ComposedChart
-                  data={depthBars(weeks)}
+                  data={[...weeks]}
                   margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
                 >
                   <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
@@ -159,20 +153,22 @@ export function ReviewDepthOverTime({
         </figure>
 
         <dl className="flex flex-col justify-center gap-0.5 text-xs">
-          {ROUNDS.map((rounds) => (
+          {totals.map((total) => (
             <div
-              key={rounds}
+              key={total.rounds}
               className="flex items-center gap-2 rounded-md px-2 py-1 even:bg-muted/30"
             >
               <span
                 aria-hidden
                 className="size-2 shrink-0 rounded-sm"
-                style={{ background: FILLS[rounds] }}
+                style={{ background: FILLS[total.rounds] }}
               />
-              <dt className="flex-1 text-foreground">{roundsShown(rounds)}</dt>
-              <dd className="text-foreground tabular-nums">{totals[rounds]}</dd>
+              <dt className="flex-1 text-foreground">
+                {roundsShown(total.rounds)}
+              </dt>
+              <dd className="text-foreground tabular-nums">{total.merged}</dd>
               <dd className="w-10 text-right text-muted-foreground tabular-nums">
-                {shareShown(all === 0 ? 0 : totals[rounds] / all)}
+                {shareShown(total.share)}
               </dd>
             </div>
           ))}

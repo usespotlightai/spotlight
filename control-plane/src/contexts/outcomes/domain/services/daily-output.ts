@@ -24,6 +24,7 @@ export interface DayOutput {
   readonly mixedCurrencies: boolean;
   readonly merged: number;
   readonly mergedTaskIds: readonly string[];
+  readonly changes: readonly ConfigMarker[];
 }
 
 export interface OutputCurrency {
@@ -43,6 +44,7 @@ export interface ConfigMarker {
 export const dailyOutputOf = (
   history: TeamHistory,
   period: InsightsPeriod,
+  markers: readonly ConfigMarker[],
 ): readonly DayOutput[] => {
   const ran = endedWithin(history.records, period.current).filter(
     (each) => each.ran,
@@ -71,6 +73,7 @@ export const dailyOutputOf = (
       mixedCurrencies,
       merged: mergedThatDay.length,
       mergedTaskIds: mergedThatDay.map((each) => each.taskId.value),
+      changes: markers.filter((each) => dayOf(each.firstRunAt) === day),
     };
   });
 };

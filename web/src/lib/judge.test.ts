@@ -4,7 +4,6 @@ import {
   gradeOptions,
   judgeTiles,
   type RubricVersion,
-  scoreDistribution,
   scoreShown,
   standingShown,
   valueOfGrade,
@@ -72,7 +71,19 @@ describe('judgeTiles', () => {
         trust: 0.6,
         hiddenBecause: null,
       },
-      { runs: 50, both: 24, judgeOnly: 6, peopleOnly: 14, neither: 6 },
+      {
+        runs: 50,
+        both: 24,
+        judgeOnly: 6,
+        peopleOnly: 14,
+        neither: 6,
+        shares: {
+          both: 0.48,
+          judgeOnly: 0.12,
+          peopleOnly: 0.28,
+          neither: 0.12,
+        },
+      },
     );
 
     expect(tiles.map((tile) => [tile.label, tile.value, tile.detail])).toEqual([
@@ -87,35 +98,33 @@ describe('judgeTiles', () => {
 
 const version = (
   kind: RubricVersion['kind'],
-  labels: string[],
-  cells: number[][],
   agreement: Partial<RubricVersion['agreement']> = {},
 ): RubricVersion =>
   ({
     kind,
-    confusion: { labels, cells },
     agreement: {
-      pairs: cells.flat().reduce((sum, n) => sum + n, 0),
+      pairs: 24,
       observed: null,
       kappa: null,
       spearman: null,
+      pearson: null,
       mae: null,
+      rmse: null,
+      f1: null,
+      readings: { kappa: null, pearson: null, spearman: null },
       claims: [],
       ...agreement,
     },
   }) as unknown as RubricVersion;
 
-describe('comparisonStats and scoreDistribution', () => {
-  it('reads a yes-no rubric’s agreement the way score analytics does', () => {
-    const yesNo = version(
-      'yes-no',
-      ['no', 'yes'],
-      [
-        [6, 2],
-        [1, 15],
-      ],
-      { kappa: 0.71, observed: 0.875 },
-    );
+describe('comparisonStats', () => {
+  it('words a yes-no rubric’s agreement by the reading the server gives', () => {
+    const yesNo = version('yes-no', {
+      kappa: 0.71,
+      observed: 0.875,
+      f1: 30 / 33,
+      readings: { kappa: 'substantial', pearson: null, spearman: null },
+    });
 
     expect(
       comparisonStats(yesNo).map((stat) => [
@@ -128,23 +137,16 @@ describe('comparisonStats and scoreDistribution', () => {
       ['F1 score', '0.91', expect.stringMatching(/^How well/)],
       ['Overall agreement', '88%', expect.stringMatching(/^The share/)],
     ]);
-    expect(scoreDistribution(yesNo.confusion)).toEqual([
-      { label: 'no', judge: 8, people: 7 },
-      { label: 'yes', judge: 16, people: 17 },
-    ]);
   });
 
-  it('reads a number rubric’s agreement as correlations and errors', () => {
-    const exact = version(
-      'number',
-      ['1', '2', '3'],
-      [
-        [2, 0, 0],
-        [0, 2, 0],
-        [0, 0, 2],
-      ],
-      { spearman: 1, mae: 0 },
-    );
+  it('shows a number rubric’s agreement as correlations and errors', () => {
+    const exact = version('number', {
+      spearman: 1,
+      pearson: 1,
+      mae: 0,
+      rmse: 0,
+      readings: { kappa: null, pearson: 'very-strong', spearman: 'weak' },
+    });
 
     expect(
       comparisonStats(exact).map((stat) => [
@@ -154,9 +156,13 @@ describe('comparisonStats and scoreDistribution', () => {
       ]),
     ).toEqual([
       ['Pearson correlation', '1.00', 'Very strong correlation'],
-      ['Spearman correlation', '1.00', 'Very strong correlation'],
+      ['Spearman correlation', '1.00', 'Weak correlation'],
       ['Mean absolute error', '0.00', expect.stringMatching(/^How far/)],
       ['Root mean square error', '0.00', expect.stringMatching(/^Like mean/)],
     ]);
+  });
+
+  it('notes no reading where there is no figure', () => {
+    expect(comparisonStats(version('yes-no'))[0]?.note).toMatch(/^How often/);
   });
 });

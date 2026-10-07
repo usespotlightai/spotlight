@@ -16,7 +16,6 @@ import {
   type FlowLayout,
   flowStages,
   type Percentile,
-  worstJam,
 } from '@/lib/insights-shipping';
 
 const stillByDefault = (): boolean =>
@@ -33,7 +32,7 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
     () => flowStages(flow, layout, percentile, focus),
     [flow, layout, percentile, focus],
   );
-  const worst = worstJam(stages);
+  const worst = stages.find((stage) => stage.worst);
   const merged = focus
     ? (flow.types.find((each) => each.type === focus)?.merged ?? 0)
     : flow.merged;

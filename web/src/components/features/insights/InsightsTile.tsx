@@ -13,7 +13,7 @@ type InsightsTileProps = {
   note?: string;
   delta?: Delta | null;
   drill?: TileDrill;
-  trend?: readonly number[];
+  trend?: readonly (number | null)[];
 };
 
 export function InsightsTile({

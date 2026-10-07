@@ -29,9 +29,17 @@ const CROSSED: StationAlertCrossing = {
   },
   value: 0.5,
   baseline: 0.2,
+  change: {
+    unit: 'points',
+    by: 0.3,
+    fromZero: false,
+    direction: 'up',
+    tone: 'bad',
+  },
   runId: 'run_impl_11',
   taskId: 'task_retries',
   raisedAt: daysAgo(1, 14),
+  insightsPeriod: '7d',
   recoveredAt: null,
   currency: 'USD',
   series: SHARES.map((value, at) => ({

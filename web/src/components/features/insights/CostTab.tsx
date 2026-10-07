@@ -12,8 +12,8 @@ import { useInsightsCost } from '@/hooks/api/useInsightsCost';
 import {
   COST_DIMENSIONS,
   cacheShown,
+  changeShown,
   countShown,
-  deltaOf,
   type InsightsPeriod,
   type StationNames,
   sankeyOf,
@@ -43,12 +43,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
     return <InsightsFailed what="The cost" query={cost} />;
   }
 
-  const {
-    cost: breakdown,
-    spendBefore,
-    mixedCurrenciesBefore,
-    truncated,
-  } = cost.data;
+  const { cost: breakdown, spendChange, truncated } = cost.data;
   const { spend } = breakdown;
 
   if (
@@ -75,14 +70,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
           label="Spend"
           value={spendShown(spend)}
           detail={spend ? undefined : whyNoSpend(breakdown.mixedCurrencies)}
-          delta={
-            spend &&
-            spendBefore &&
-            !mixedCurrenciesBefore &&
-            spendBefore.currency === spend.currency
-              ? deltaOf(spend.amount, spendBefore.amount, 'neither')
-              : null
-          }
+          delta={changeShown(spendChange)}
           drill={{ tab: 'runs' }}
         />
         <InsightsTile

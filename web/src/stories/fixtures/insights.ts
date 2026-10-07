@@ -15,8 +15,10 @@ import type {
   RunTallyResponseDto,
   SpreadResponseDto,
   StationResponseDto,
+  TallyChangesResponseDto,
 } from '@/lib/api';
 import {
+  type Change,
   DEFAULT_PERIOD,
   type Headline,
   type InsightsCost,
@@ -155,6 +157,20 @@ export const spread = (
   count: number,
 ): SpreadResponseDto => ({ p50Ms, p90Ms, count });
 
+export const change = (
+  by: number | null,
+  tone: Change['tone'] = 'flat',
+  unit: Change['unit'] = 'percent',
+): Change => ({
+  unit,
+  by,
+  fromZero: by === null,
+  direction: by === null || by > 0 ? 'up' : by < 0 ? 'down' : 'same',
+  tone: by === 0 ? 'flat' : tone,
+});
+
+const NO_CHANGE = change(0);
+
 const PEOPLE = [
   { personId: 'user_1', name: 'Sam Rivera' },
   { personId: 'user_2', name: 'Ada Lovelace' },
@@ -183,20 +199,42 @@ const headline = (over: Partial<Headline>): Headline => ({
 const wave = (at: number, low: number, high: number): number =>
   Math.round(low + ((Math.sin(at / 2.3) + 1) / 2) * (high - low));
 
+const CONFIG_CHANGES = [
+  {
+    lineId: LINE_ID,
+    stationId: 'station_implementation',
+    fingerprint:
+      'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
+    previousFingerprint:
+      '0000000000000000000000000000000000000000000000000000000000000000',
+    firstRunAt: daysAgo(18),
+    runId: 'run_implementation_1',
+  },
+  {
+    lineId: LINE_ID,
+    stationId: 'station_review',
+    fingerprint:
+      'c81e4f07a2d6b9e3f5a7c1d3e5b7a9f1c3e5d7b9a1f3c5e7d9b1a3f5c7e9d1b3',
+    previousFingerprint:
+      '0000000000000000000000000000000000000000000000000000000000000000',
+    firstRunAt: daysAgo(6),
+    runId: 'run_review_1',
+  },
+];
+
 const OVERVIEW: InsightsOverview = {
   period: PERIOD,
   truncated: false,
   headline: headline({}),
-  before: headline({
-    spend: { amount: 151.1, currency: 'USD' },
-    runs: 170,
-    mergedPullRequests: 17,
-    mergeRate: 17 / 24,
-    costPerMerge: { amount: 8.89, currency: 'USD' },
-    taskToMerge: spread(31 * HOUR_MS, 4 * DAY_MS, 17),
-    touchesPerTask: 3.4,
-    activePeople: 2,
-  }),
+  changes: {
+    spend: change(0.22),
+    mergedPullRequests: change(0.35, 'good'),
+    mergeRate: change(0.144, 'good', 'points'),
+    costPerMerge: change(-0.1, 'good'),
+    taskToMerge: change(-0.16, 'good'),
+    touchesPerTask: change(-0.13, 'good'),
+    activePeople: change(0.5, 'good'),
+  },
   output: PERIOD.days.map((day, at) => ({
     day,
     runs: wave(at, 2, 12),
@@ -205,31 +243,12 @@ const OVERVIEW: InsightsOverview = {
     mergedTaskIds: [],
     unpriced: 0,
     mixedCurrencies: false,
+    changes: CONFIG_CHANGES.filter(
+      (change) => change.firstRunAt.slice(0, 10) === day,
+    ),
   })),
   outputCurrency: 'USD',
   outputMixedCurrencies: false,
-  configChanges: [
-    {
-      lineId: LINE_ID,
-      stationId: 'station_implementation',
-      fingerprint:
-        'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
-      previousFingerprint:
-        '0000000000000000000000000000000000000000000000000000000000000000',
-      firstRunAt: daysAgo(18),
-      runId: 'run_implementation_1',
-    },
-    {
-      lineId: LINE_ID,
-      stationId: 'station_review',
-      fingerprint:
-        'c81e4f07a2d6b9e3f5a7c1d3e5b7a9f1c3e5d7b9a1f3c5e7d9b1a3f5c7e9d1b3',
-      previousFingerprint:
-        '0000000000000000000000000000000000000000000000000000000000000000',
-      firstRunAt: daysAgo(6),
-      runId: 'run_review_1',
-    },
-  ],
   worthImproving: [
     {
       lineId: LINE_ID,
@@ -307,10 +326,10 @@ const EMPTY_OVERVIEW: InsightsOverview = {
     mergedTaskIds: [],
     unpriced: 0,
     mixedCurrencies: false,
+    changes: [],
   })),
   outputCurrency: null,
   outputMixedCurrencies: false,
-  configChanges: [],
   worthImproving: [],
   people: [],
 };
@@ -322,10 +341,13 @@ const stationFlow = (
   runningMs: number,
   inboxMs: number | null,
   asks: number,
+  tasksBefore: number,
 ) => ({
   lineId: LINE_ID,
   stationId,
   tasks,
+  tasksBefore,
+  tasksChange: change(tasksBefore === 0 ? null : tasks / tasksBefore - 1),
   taskIds: [],
   runs: Math.round(tasks * 1.4),
   queued: spread(queuedMs, queuedMs * 3, tasks),
@@ -340,8 +362,8 @@ const FLOW: InsightsFlow = {
   truncated: false,
   flow: {
     stations: [
-      stationFlow('station_triage', 58, 40_000, 95_000, 20 * 60_000, 12),
-      stationFlow('station_spec', 44, 65_000, 240_000, 3 * HOUR_MS, 30),
+      stationFlow('station_triage', 58, 40_000, 95_000, 20 * 60_000, 12, 50),
+      stationFlow('station_spec', 44, 65_000, 240_000, 3 * HOUR_MS, 30, 40),
       stationFlow(
         'station_implementation',
         39,
@@ -349,8 +371,9 @@ const FLOW: InsightsFlow = {
         780_000,
         5 * HOUR_MS,
         22,
+        33,
       ),
-      stationFlow('station_review', 31, 30_000, 310_000, null, 0),
+      stationFlow('station_review', 31, 30_000, 310_000, null, 0, 0),
     ],
     delivery: {
       toPullRequest: spread(20 * HOUR_MS, 2 * DAY_MS, 27),
@@ -362,31 +385,11 @@ const FLOW: InsightsFlow = {
       openedTaskIds: [],
       reviewedTaskIds: ['task_run_impl_9', 'task_run_spec_4'],
       mergedTaskIds: [],
-    },
-  },
-  before: {
-    stations: [
-      stationFlow('station_triage', 50, 40_000, 95_000, 20 * 60_000, 10),
-      stationFlow('station_spec', 40, 65_000, 240_000, 3 * HOUR_MS, 30),
-      stationFlow(
-        'station_implementation',
-        33,
-        90_000,
-        780_000,
-        5 * HOUR_MS,
-        22,
-      ),
-    ],
-    delivery: {
-      toPullRequest: spread(22 * HOUR_MS, 3 * DAY_MS, 20),
-      toFirstReview: spread(4 * HOUR_MS, 12 * HOUR_MS, 19),
-      toMerge: spread(6 * HOUR_MS, 22 * HOUR_MS, 17),
-      opened: 20,
-      reviewed: 19,
-      merged: 17,
-      openedTaskIds: [],
-      reviewedTaskIds: [],
-      mergedTaskIds: [],
+      changes: {
+        opened: change(0.35, 'good'),
+        reviewed: change(0.32, 'good'),
+        merged: change(0.35, 'good'),
+      },
     },
   },
 };
@@ -406,44 +409,47 @@ const EMPTY_FLOW: InsightsFlow = {
       openedTaskIds: [],
       reviewedTaskIds: [],
       mergedTaskIds: [],
-    },
-  },
-  before: {
-    stations: [],
-    delivery: {
-      toPullRequest: spread(null, null, 0),
-      toFirstReview: spread(null, null, 0),
-      toMerge: spread(null, null, 0),
-      opened: 0,
-      reviewed: 0,
-      merged: 0,
-      openedTaskIds: [],
-      reviewedTaskIds: [],
-      mergedTaskIds: [],
+      changes: { opened: NO_CHANGE, reviewed: NO_CHANGE, merged: NO_CHANGE },
     },
   },
 };
 
 export const tally = (
   over: Partial<RunTallyResponseDto>,
-): RunTallyResponseDto => ({
-  runs: 0,
-  withdrawn: 0,
-  failed: 0,
-  stopped: 0,
-  checksPassed: 0,
-  checksFailed: 0,
-  accepted: 0,
-  sentBack: 0,
-  handedOn: 0,
-  merged: 0,
-  cost: null,
-  unpriced: 0,
-  mixedCurrencies: false,
-  medianMs: null,
-  p90Ms: null,
-  ...over,
-});
+): RunTallyResponseDto => {
+  const runs = over.runs ?? 0;
+  const failed = over.failed ?? 0;
+
+  return {
+    runs,
+    withdrawn: 0,
+    failed,
+    failedShare: runs > 0 ? failed / runs : null,
+    stopped: 0,
+    checksPassed: 0,
+    checksFailed: 0,
+    accepted: 0,
+    sentBack: 0,
+    handedOn: 0,
+    merged: 0,
+    cost: null,
+    unpriced: 0,
+    mixedCurrencies: false,
+    medianMs: null,
+    p90Ms: null,
+    ...over,
+  };
+};
+
+const TALLY_UNCHANGED: TallyChangesResponseDto = {
+  runs: NO_CHANGE,
+  failed: NO_CHANGE,
+  accepted: NO_CHANGE,
+  sentBack: NO_CHANGE,
+  merged: NO_CHANGE,
+  cost: NO_CHANGE,
+  median: NO_CHANGE,
+};
 
 export const measured = (
   measure: MeasureVerdict['measure'],
@@ -459,6 +465,12 @@ export const measured = (
   settledAfter: settled.after ?? 20,
   currency: measure === 'cost_per_run' ? (settled.currency ?? 'USD') : null,
   verdict,
+  change:
+    before === null || after === null
+      ? null
+      : measure === 'cost_per_run'
+        ? change(before === 0 ? null : after / before - 1)
+        : change(after - before, 'flat', 'points'),
 });
 
 const report = (
@@ -469,7 +481,15 @@ const report = (
   lineId: LINE_ID,
   stationId,
   tally: tally(now),
-  before: tally({ ...now, runs: Math.round((now.runs ?? 0) * 0.8) }),
+  seen: {
+    accepted: (now.accepted ?? 0) > 0,
+    sentBack: (now.sentBack ?? 0) > 0,
+    merged: (now.merged ?? 0) > 0,
+  },
+  changes: {
+    ...TALLY_UNCHANGED,
+    runs: (now.runs ?? 0) > 0 ? change(0.25) : NO_CHANGE,
+  },
   trend: PERIOD.days.map((day, at) => ({
     day,
     tally: tally({
@@ -481,6 +501,110 @@ const report = (
   runFailures: [],
   ...over,
 });
+
+const STATION_REPORTS: InsightsStations['stations'] = [
+  report(
+    'station_triage',
+    {
+      runs: 58,
+      failed: 2,
+      handedOn: 55,
+      cost: { amount: 11.4, currency: 'USD' },
+      medianMs: 95_000,
+      p90Ms: 190_000,
+    },
+    {
+      taskFailures: [
+        {
+          source: 'hook:notify',
+          code: 'loop',
+          occurrences: 3,
+          mostInARow: 3,
+          taskIds: ['task_checkout'],
+        },
+      ],
+      runFailures: [
+        {
+          failure: 'The agent ran out of turns',
+          runs: 2,
+          runIds: ['run_triage_7', 'run_triage_9'],
+        },
+      ],
+    },
+  ),
+  report('station_spec', {
+    runs: 61,
+    sentBack: 9,
+    accepted: 30,
+    handedOn: 40,
+    cost: { amount: 38.7, currency: 'USD' },
+    medianMs: 240_000,
+    p90Ms: 520_000,
+  }),
+  report(
+    'station_implementation',
+    {
+      runs: 88,
+      failed: 12,
+      stopped: 3,
+      checksPassed: 61,
+      checksFailed: 9,
+      sentBack: 13,
+      accepted: 40,
+      handedOn: 45,
+      merged: 23,
+      cost: { amount: 124.9, currency: 'USD' },
+      medianMs: 780_000,
+      p90Ms: 1_900_000,
+    },
+    {
+      runFailures: [
+        {
+          failure: 'Checks failed three times',
+          runs: 9,
+          runIds: [],
+        },
+        { failure: null, runs: 3, runIds: ['run_impl_3'] },
+      ],
+    },
+  ),
+];
+
+const teamTrendOf = (
+  reports: InsightsStations['stations'],
+): InsightsStations['teamTrend'] =>
+  PERIOD.days.map((day, at) => ({
+    day,
+    tally: tally({
+      runs: reports.reduce(
+        (sum, each) => sum + (each.trend[at]?.tally.runs ?? 0),
+        0,
+      ),
+      failed: reports.reduce(
+        (sum, each) => sum + (each.trend[at]?.tally.failed ?? 0),
+        0,
+      ),
+    }),
+  }));
+
+const COUNTED = [
+  'failed',
+  'stopped',
+  'checksPassed',
+  'checksFailed',
+  'accepted',
+  'sentBack',
+  'handedOn',
+  'merged',
+  'withdrawn',
+] as const;
+
+const countedOf = (
+  reports: readonly InsightsStations['stations'][number][],
+): InsightsStations['teamCounted'] =>
+  Object.fromEntries(
+    COUNTED.map((key) => [key, reports.some((each) => each.tally[key] > 0)]),
+  ) as InsightsStations['teamCounted'];
 
 const STATIONS: InsightsStations = {
   period: PERIOD,
@@ -499,81 +623,29 @@ const STATIONS: InsightsStations = {
     medianMs: 240_000,
     p90Ms: 900_000,
   }),
-  teamBefore: tally({ runs: 170 }),
-  stations: [
-    report(
-      'station_triage',
-      {
-        runs: 58,
-        failed: 2,
-        handedOn: 55,
-        cost: { amount: 11.4, currency: 'USD' },
-        medianMs: 95_000,
-        p90Ms: 190_000,
-      },
-      {
-        taskFailures: [
-          {
-            source: 'hook:notify',
-            code: 'loop',
-            occurrences: 3,
-            mostInARow: 3,
-            taskIds: ['task_checkout'],
-          },
-        ],
-        runFailures: [
-          {
-            failure: 'The agent ran out of turns',
-            runs: 2,
-            runIds: ['run_triage_7', 'run_triage_9'],
-          },
-        ],
-      },
-    ),
-    report('station_spec', {
-      runs: 61,
-      sentBack: 9,
-      accepted: 30,
-      handedOn: 40,
-      cost: { amount: 38.7, currency: 'USD' },
-      medianMs: 240_000,
-      p90Ms: 520_000,
-    }),
-    report(
-      'station_implementation',
-      {
-        runs: 88,
-        failed: 12,
-        stopped: 3,
-        checksPassed: 61,
-        checksFailed: 9,
-        sentBack: 13,
-        accepted: 40,
-        handedOn: 45,
-        merged: 23,
-        cost: { amount: 124.9, currency: 'USD' },
-        medianMs: 780_000,
-        p90Ms: 1_900_000,
-      },
-      {
-        runFailures: [
-          {
-            failure: 'Checks failed three times',
-            runs: 9,
-            runIds: [],
-          },
-          { failure: null, runs: 3, runIds: ['run_impl_3'] },
-        ],
-      },
-    ),
-  ],
+  teamSeen: { accepted: true, sentBack: true, merged: true },
+  teamCounted: countedOf(STATION_REPORTS),
+  teamChanges: {
+    runs: change(0.25),
+    failed: change(null, 'bad'),
+    accepted: change(null, 'good'),
+    sentBack: change(null, 'bad'),
+    merged: change(null, 'good'),
+    cost: null,
+    median: null,
+  },
+  teamTrend: teamTrendOf(STATION_REPORTS),
+  stations: STATION_REPORTS,
 };
 
 const EMPTY_STATIONS: InsightsStations = {
   period: PERIOD,
   truncated: false,
   team: tally({}),
-  teamBefore: tally({}),
+  teamChanges: TALLY_UNCHANGED,
+  teamSeen: { accepted: false, sentBack: false, merged: false },
+  teamCounted: countedOf([]),
+  teamTrend: [],
   stations: [],
 };
 
@@ -595,18 +667,18 @@ const PEOPLE_INSIGHTS: InsightsPeople = {
   period: PERIOD,
   truncated: false,
   load: load({}),
-  loadBefore: load({
-    asksPerTask: 1.3,
-    toAnswer: spread(70 * 60_000, 9 * HOUR_MS, 50),
-    sentBackRate: 0.14,
-    refused: 1,
-  }),
+  loadChanges: {
+    asksPerTask: change(-0.23, 'good'),
+    toAnswer: change(-0.4, 'good'),
+    sentBackRate: change(-0.036, 'good', 'points'),
+    refused: change(1, 'bad'),
+  },
   adoption: {
-    active: ['user_1', 'user_2', 'user_3'],
-    activeBefore: ['user_1', 'user_2'],
-    newAdopters: ['user_3'],
-    weekly: ['user_1', 'user_2'],
-    monthly: ['user_1', 'user_2', 'user_3'],
+    activeCount: 3,
+    activeChange: change(0.5, 'good'),
+    newAdopterCount: 1,
+    weeklyCount: 2,
+    monthlyCount: 3,
     stickiness: 2 / 3,
     people: [
       {
@@ -641,7 +713,6 @@ const PEOPLE_INSIGHTS: InsightsPeople = {
       },
     ],
   },
-  people: PEOPLE,
 };
 
 const EMPTY_PEOPLE: InsightsPeople = {
@@ -657,17 +728,21 @@ const EMPTY_PEOPLE: InsightsPeople = {
     sentBackRate: null,
     refused: 0,
   }),
-  loadBefore: load({ tasks: 0 }),
+  loadChanges: {
+    asksPerTask: null,
+    toAnswer: null,
+    sentBackRate: null,
+    refused: change(-1, 'good'),
+  },
   adoption: {
-    active: [],
-    activeBefore: [],
-    newAdopters: [],
-    weekly: [],
-    monthly: [],
+    activeCount: 0,
+    activeChange: NO_CHANGE,
+    newAdopterCount: 0,
+    weeklyCount: 0,
+    monthlyCount: 0,
     stickiness: null,
     people: [],
   },
-  people: [],
 };
 
 const COST: InsightsCost = {
@@ -750,8 +825,7 @@ const COST: InsightsCost = {
       },
     ],
   },
-  spendBefore: { amount: 151.1, currency: 'USD' },
-  mixedCurrenciesBefore: false,
+  spendChange: change(0.22),
 };
 
 const EMPTY_COST: InsightsCost = {
@@ -770,8 +844,7 @@ const EMPTY_COST: InsightsCost = {
     cache: { input: null, cacheRead: null, cacheWrite: null, cacheShare: null },
     cacheByStation: [],
   },
-  spendBefore: null,
-  mixedCurrenciesBefore: false,
+  spendChange: null,
 };
 
 const run = (

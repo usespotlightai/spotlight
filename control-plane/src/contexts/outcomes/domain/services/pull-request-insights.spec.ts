@@ -83,7 +83,15 @@ describe('penetrationOf', () => {
         ['acme/api'],
         WINDOW,
       ),
-    ).toMatchObject({ merged: 5, made: 2, touched: 1, bots: 1, share: 0.6 });
+    ).toMatchObject({
+      merged: 5,
+      made: 2,
+      touched: 1,
+      spotlight: 3,
+      people: 1,
+      bots: 1,
+      share: 0.6,
+    });
   });
 
   it('goes week by week, for the team and for each repository', () => {
@@ -95,15 +103,28 @@ describe('penetrationOf', () => {
         merged: 0,
         made: 0,
         touched: 0,
+        spotlight: 0,
+        people: 0,
         bots: 0,
         share: null,
       },
-      { week: '2026-09-21', merged: 2, made: 1, touched: 1, bots: 0, share: 1 },
+      {
+        week: '2026-09-21',
+        merged: 2,
+        made: 1,
+        touched: 1,
+        spotlight: 2,
+        people: 0,
+        bots: 0,
+        share: 1,
+      },
       {
         week: '2026-09-28',
         merged: 2,
         made: 1,
         touched: 0,
+        spotlight: 1,
+        people: 1,
         bots: 0,
         share: 0.5,
       },

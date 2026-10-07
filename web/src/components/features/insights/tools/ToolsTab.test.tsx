@@ -55,8 +55,8 @@ const TOOLS = {
       given: 8,
       used: 5,
       weeks: [
-        { week: '2026-09-21', runs: 6, given: 4, used: 1 },
-        { week: '2026-09-28', runs: 6, given: 4, used: 4 },
+        { week: '2026-09-21', runs: 6, given: 4, used: 1, usedShare: 1 / 6 },
+        { week: '2026-09-28', runs: 6, given: 4, used: 4, usedShare: 4 / 6 },
       ],
       trend: 'spreading',
       stations: [
@@ -76,8 +76,8 @@ const TOOLS = {
       given: 0,
       used: 1,
       weeks: [
-        { week: '2026-09-21', runs: 6, given: 0, used: 0 },
-        { week: '2026-09-28', runs: 6, given: 0, used: 1 },
+        { week: '2026-09-21', runs: 6, given: 0, used: 0, usedShare: 0 },
+        { week: '2026-09-28', runs: 6, given: 0, used: 1, usedShare: 1 / 6 },
       ],
       trend: null,
       stations: [],

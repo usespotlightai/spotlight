@@ -1,5 +1,9 @@
 import type { TeamHistory } from '@outcomes/domain/services/team-history';
 import {
+  type Change,
+  changeOf,
+} from '@outcomes/domain/value-objects/change.vo';
+import {
   type InsightsPeriod,
   type Window,
   within,
@@ -26,11 +30,11 @@ interface PersonUse {
 }
 
 export interface Adoption {
-  readonly active: readonly string[];
-  readonly activeBefore: readonly string[];
-  readonly newAdopters: readonly string[];
-  readonly weekly: readonly string[];
-  readonly monthly: readonly string[];
+  readonly activeCount: number;
+  readonly activeChange: Change | null;
+  readonly newAdopterCount: number;
+  readonly weeklyCount: number;
+  readonly monthlyCount: number;
   readonly stickiness: number | null;
   readonly people: readonly PersonUse[];
 }
@@ -121,14 +125,17 @@ export const adoptionOf = (
     usesOf(activities, personId, firstOf(personId), period.current),
   );
 
+  const activeBefore = peopleActiveIn(activities, period.previous);
+
   return {
-    active,
-    activeBefore: peopleActiveIn(activities, period.previous),
-    newAdopters: people
-      .filter((each) => each.isNew)
-      .map((each) => each.personId),
-    weekly,
-    monthly,
+    activeCount: active.length,
+    activeChange: changeOf(active.length, activeBefore.length, {
+      better: 'up',
+      unit: 'percent',
+    }),
+    newAdopterCount: people.filter((each) => each.isNew).length,
+    weeklyCount: weekly.length,
+    monthlyCount: monthly.length,
     stickiness: monthly.length > 0 ? weekly.length / monthly.length : null,
     people,
   };

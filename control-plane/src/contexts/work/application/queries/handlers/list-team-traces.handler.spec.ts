@@ -1,3 +1,5 @@
+import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { RunDigest } from '@work/application/ports/run-digest-reader.port';
@@ -57,25 +59,41 @@ const digests = {
   },
 };
 
+const NOW = new Date('2026-08-29T12:30:00.000Z');
+
+const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
+
+let since: Date | null = null;
+
 const handler = (found: TeamTraceSummary[]) =>
-  new ListTeamTracesHandler({ listForTeam: async () => found }, digests);
+  new ListTeamTracesHandler(
+    {
+      listForTeam: async (_team, _viewer, from) => {
+        since = from;
+        return found;
+      },
+    },
+    digests,
+    clock,
+  );
 
 describe('ListTeamTracesHandler', () => {
   beforeEach(() => {
     asked = [];
+    since = null;
   });
 
   it('asks only for what the runs it is reporting on came to', async () => {
     await handler([trace('task_1', ['run_1', 'run_2'])]).execute(
-      new ListTeamTracesQuery('team_1', 'user_1', new Date(0)),
+      new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
     expect(asked).toEqual([['run_1', 'run_2']]);
   });
 
   it('asks for nothing where the team has run nothing', async () => {
-    const traces = await handler([]).execute(
-      new ListTeamTracesQuery('team_1', 'user_1', new Date(0)),
+    const { traces } = await handler([]).execute(
+      new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
     expect(traces).toEqual([]);
@@ -83,12 +101,51 @@ describe('ListTeamTracesHandler', () => {
   });
 
   it('hands back what each trace came to', async () => {
-    const [held] = await handler([trace('task_1', ['run_1'])]).execute(
-      new ListTeamTracesQuery('team_1', 'user_1', new Date(0)),
+    const {
+      traces: [held],
+    } = await handler([trace('task_1', ['run_1'])]).execute(
+      new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
     expect(held?.taskId).toBe('task_1');
     expect(held?.cost).toBe(0.5);
     expect(held?.faults).toBe(1);
+  });
+
+  it('reads the range back from now, and says where it starts and ends', async () => {
+    const held = await handler([]).execute(
+      new ListTeamTracesQuery('team_1', 'user_1', '1h'),
+    );
+
+    expect(since).toEqual(new Date('2026-08-29T11:30:00.000Z'));
+    expect(held.range).toBe('1h');
+    expect(held.from).toBe('2026-08-29T11:30:00.000Z');
+    expect(held.to).toBe('2026-08-29T12:30:00.000Z');
+  });
+
+  it('counts every trace and its faults into the bar it started in', async () => {
+    const { volume } = await handler([trace('task_1', ['run_1'])]).execute(
+      new ListTeamTracesQuery('team_1', 'user_1', '1h'),
+    );
+
+    expect(volume).toHaveLength(30);
+    expect(volume[volume.length - 1]).toEqual({
+      from: '2026-08-29T12:28:00.000Z',
+      to: '2026-08-29T12:30:00.000Z',
+      count: 0,
+      faults: 0,
+    });
+    expect(volume.find((bucket) => bucket.count > 0)).toEqual({
+      from: '2026-08-29T12:00:00.000Z',
+      to: '2026-08-29T12:02:00.000Z',
+      count: 1,
+      faults: 1,
+    });
+  });
+
+  it('refuses a range it does not know', async () => {
+    await expect(
+      handler([]).execute(new ListTeamTracesQuery('team_1', 'user_1', '2y')),
+    ).rejects.toThrow(UseCaseFault);
   });
 });

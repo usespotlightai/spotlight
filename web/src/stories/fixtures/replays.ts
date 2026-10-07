@@ -780,6 +780,7 @@ const NOISE: ReplaySetResponseDto['health']['noise'] = {
   spread: 0.33,
   flippedTasks: [ORIGINALS[1].taskId],
   measuredAt: hoursAgo(25),
+  noisyInOneCopy: true,
 };
 
 const UNHEALTHY: ReplaySetResponseDto['health'] = {

@@ -10,6 +10,7 @@ import type {
 } from '@/lib/insights-changes';
 import { failQuery } from '@/stories/failQuery';
 import {
+  change,
   daysAgo,
   LINE_ID,
   loadInsights,
@@ -70,6 +71,7 @@ export const EFFORT_CHANGE: ChangeMarker = {
   ],
   judgeBefore: { mean: 0.58, judged: 9 },
   judgeAfter: { mean: 0.74, judged: 11 },
+  judgeChange: change(0.16, 'good', 'points'),
   changes: [
     {
       part: 'effort',
@@ -140,6 +142,7 @@ const REVIEW_CHANGE: ChangeMarker = {
   ],
   judgeBefore: null,
   judgeAfter: null,
+  judgeChange: null,
   changes: [
     {
       part: 'prompt',
@@ -194,6 +197,7 @@ const setup = (
   profileKey: null,
   tally: tally({ runs: 20 }),
   currency: 'USD',
+  priced: true,
   outcomes: {
     accepted: 0.5,
     sent_back: 0.2,
@@ -292,6 +296,7 @@ const SETUPS_AT_STATION: InsightsSetups = {
       profileKey: 'careful',
       costPerRun: null,
       currency: null,
+      priced: false,
       tally: tally({ runs: 2 }),
     }),
   ],

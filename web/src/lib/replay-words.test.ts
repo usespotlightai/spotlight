@@ -166,6 +166,28 @@ describe('replay words', () => {
     expect(readings[2]?.advice).toMatch(/^Check this set to judge each change/);
   });
 
+  it('takes whether the noise is too wide from the server', () => {
+    const [noise] = healthReadingsOf(
+      {
+        ...NEVER_READ,
+        noise: {
+          replayId: 'r',
+          fingerprint: 'f',
+          repeats: 3,
+          perRepeat: [0.5, 0.56],
+          spread: 0.06,
+          flippedTasks: [],
+          measuredAt: '2026-10-02T09:00:00.000Z',
+          noisyInOneCopy: false,
+        },
+      },
+      0.05,
+    );
+
+    expect(noise?.tone).toBe('good');
+    expect(noise?.advice).toMatch(/^Noise is within the line’s minimum/);
+  });
+
   it('reads an unhealthy set line by line, each with what to do', () => {
     const readings = healthReadingsOf(
       {
@@ -177,6 +199,7 @@ describe('replay words', () => {
           spread: 0.2,
           flippedTasks: [],
           measuredAt: '2026-10-02T09:00:00.000Z',
+          noisyInOneCopy: true,
         },
         saturation: {
           replayId: 'r',
