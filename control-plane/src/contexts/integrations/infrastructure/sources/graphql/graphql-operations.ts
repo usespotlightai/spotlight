@@ -9,7 +9,6 @@ import {
 } from '@integrations/infrastructure/sources/operation-record';
 import { SchemaBudget } from '@integrations/infrastructure/sources/schema-budget';
 import {
-  astFromValue,
   buildClientSchema,
   buildSchema,
   type GraphQLArgument,
@@ -26,8 +25,11 @@ import {
   isListType,
   isNonNullType,
   isObjectType,
+  isRequiredArgument,
+  isRequiredInputField,
   isScalarType,
   print,
+  valueToLiteral,
 } from 'graphql';
 
 const SELECTED_DEPTH = 2;
@@ -92,24 +94,15 @@ const inputSchemaOf = (
         },
       ]),
     ),
-    required: fields
-      .filter(
-        (field) =>
-          isNonNullType(field.type) && field.defaultValue === undefined,
-      )
-      .map((field) => field.name),
+    required: fields.filter(isRequiredInputField).map((field) => field.name),
     additionalProperties: false,
   };
 };
 
-const needsArgument = (arg: GraphQLArgument): boolean =>
-  isNonNullType(arg.type) && arg.defaultValue === undefined;
-
 const declared = (arg: GraphQLArgument): string => {
   const fallback =
-    arg.defaultValue === undefined
-      ? null
-      : astFromValue(arg.defaultValue, arg.type);
+    arg.default?.literal ??
+    (arg.default ? valueToLiteral(arg.default.value, arg.type) : undefined);
 
   return `$${arg.name}: ${arg.type.toString()}${fallback ? ` = ${print(fallback)}` : ''}`;
 };
@@ -126,7 +119,7 @@ const selectionOf = (type: GraphQLOutputType, depth: number): string => {
   }
 
   const picked = Object.values(named.getFields())
-    .filter((field) => !field.args.some(needsArgument))
+    .filter((field) => !field.args.some(isRequiredArgument))
     .flatMap((field) => {
       if (isLeafType(getNamedType(field.type))) {
         return [field.name];
@@ -183,7 +176,7 @@ const operationOf = (
     inputs: field.args.map((arg) => ({
       name: arg.name,
       schema: inputSchemaOf(arg.type, 0, new Set(), budget),
-      required: needsArgument(arg),
+      required: isRequiredArgument(arg),
       description: arg.description?.trim() || null,
     })),
     writes: operation === 'mutation',
