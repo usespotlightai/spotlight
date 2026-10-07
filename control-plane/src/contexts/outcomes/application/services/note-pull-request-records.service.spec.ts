@@ -1,5 +1,6 @@
 import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
 import { pendingReviewsInMemory } from '@outcomes/application/ports/pending-reviews.fake-spec';
+import { stationConfigPullRequestsInMemory } from '@outcomes/application/ports/station-config-pull-requests.fake-spec';
 import type { EndedRun, WorkPort } from '@outcomes/application/ports/work.port';
 import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
@@ -54,6 +55,7 @@ const heldFor = () => ({
   shapes: new TaskChangeShapesInMemory(),
   watches: new StationWatchesInMemory(),
   reviews: pendingReviewsInMemory(),
+  configPullRequests: stationConfigPullRequestsInMemory(),
   forgotten: forgottenInMemory(),
 });
 

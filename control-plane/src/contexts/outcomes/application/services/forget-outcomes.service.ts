@@ -1,5 +1,6 @@
 import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { PendingReviewsPort } from '@outcomes/application/ports/pending-reviews.port';
+import type { StationConfigPullRequestsPort } from '@outcomes/application/ports/station-config-pull-requests.port';
 import type { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
@@ -35,6 +36,7 @@ export interface OutcomesHeld {
   readonly shapes: TaskChangeShapeRepository;
   readonly watches: StationWatchRepository;
   readonly reviews: PendingReviewsPort;
+  readonly configPullRequests: StationConfigPullRequestsPort;
   readonly forgotten: ForgottenPort;
 }
 
@@ -192,6 +194,21 @@ export class ForgetOutcomes {
     )) {
       await this.lettingGo(record, (held) => held.withoutTeam(teamId));
     }
+  }
+
+  configPullRequestsOfTeam(
+    workspaceId: WorkspaceId,
+    teamId: TeamId,
+  ): Promise<void> {
+    return this.ofTeam(workspaceId, teamId, () =>
+      this.held.configPullRequests.removeForTeam(workspaceId, teamId),
+    );
+  }
+
+  configPullRequestsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    return this.ofWorkspace(workspaceId, () =>
+      this.held.configPullRequests.removeForWorkspace(workspaceId),
+    );
   }
 
   runsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {

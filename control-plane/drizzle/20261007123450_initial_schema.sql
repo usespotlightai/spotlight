@@ -868,6 +868,17 @@ CREATE TABLE "station_alert" (
 	"last_seen_run_id" text
 );
 --> statement-breakpoint
+CREATE TABLE "station_config_pull_request" (
+	"config_pull_request_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"fingerprint" text NOT NULL,
+	"url" text NOT NULL,
+	"opened_at" timestamp NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "station_watch" (
 	"station_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -1783,6 +1794,8 @@ CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_
 CREATE INDEX "station_alert_station_idx" ON "station_alert" USING btree ("station_id","raised_at");--> statement-breakpoint
 CREATE INDEX "station_alert_task_idx" ON "station_alert" USING btree ("task_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "station_alert_open_rule_idx" ON "station_alert" USING btree ("station_id","measure","threshold") WHERE "station_alert"."recovered_at" is null;--> statement-breakpoint
+CREATE INDEX "station_config_pull_request_station_idx" ON "station_config_pull_request" USING btree ("station_id","fingerprint","opened_at");--> statement-breakpoint
+CREATE INDEX "station_config_pull_request_team_idx" ON "station_config_pull_request" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "station_watch_team_idx" ON "station_watch" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "task_change_shape_team_idx" ON "task_change_shape" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "task_delivery_pull_request_idx" ON "task_delivery" USING btree ("workspace_id","pull_request");--> statement-breakpoint

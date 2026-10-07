@@ -2,6 +2,7 @@ import { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abando
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
 import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
 import { ConfigPullRequestAbandonmentDue } from '@replays/domain/events/config-pull-request-abandonment-due.event';
+import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
 import { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-due.event';
 import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
@@ -166,5 +167,6 @@ export const REPLAYS_EVENT_TYPES = [
   ConfigPullRequestDetail,
   ConfigPullRequestReason,
   ConfigPullRequestWanted,
+  ConfigPullRequestOpened,
   ConfigPullRequestAbandonmentDue,
 ] as const;

@@ -44,6 +44,7 @@ import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
+import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
@@ -81,6 +82,7 @@ import { StartSearchCommand } from '@replays/application/commands/start-search.c
 import { StopReplayCommand } from '@replays/application/commands/stop-replay.command';
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
 import { WithdrawCandidateCommand } from '@replays/application/commands/withdraw-candidate.command';
+import { REPLAYS_PUBLICATIONS } from '@replays/application/integration-events/replays.publications';
 import {
   CHANGE_REVIEW,
   type ChangeReviewPort,
@@ -1183,6 +1185,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     provide: REPLAYS_EVENTS,
     inject: [
       EventTypes,
+      EventPublications,
       EventSubscribers,
       NoteReplayEnded,
       NoteReplayDigested,
@@ -1210,6 +1213,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       types: EventTypes,
+      publications: EventPublications,
       subscribers: EventSubscribers,
       ending: NoteReplayEnded,
       digesting: NoteReplayDigested,
@@ -1236,6 +1240,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       noticingReflections: NoticeSearchReflections,
     ) => {
       types.register('replays', REPLAYS_EVENT_TYPES);
+      publications.register(REPLAYS_PUBLICATIONS);
       subscribers.register(
         replaysSubscribers({
           ending,

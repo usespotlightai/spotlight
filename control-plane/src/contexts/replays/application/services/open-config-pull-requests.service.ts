@@ -22,6 +22,7 @@ import { comparedWith } from '@replays/domain/services/replay-results';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
@@ -32,7 +33,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 const CLAIM_MS = 10 * 60_000;
 
 type Opened =
-  | { readonly url: string }
+  | { readonly url: string; readonly proposing: StationFingerprint }
   | { readonly reason: ConfigPullRequestReason };
 
 const because = (error: unknown): string =>
@@ -128,7 +129,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
 
     await this.saved(
       'url' in opened
-        ? held.opened(opened.url, this.clock.now())
+        ? held.opened(opened.url, opened.proposing, this.clock.now())
         : held.refused(opened.reason, this.clock.now()),
     );
   }
@@ -242,6 +243,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
         title,
         body: ConfigPullRequestBody.of(facts),
       }),
+      proposing: candidate.fingerprint,
     };
   }
 

@@ -12,6 +12,7 @@ import { GradeAsides } from '@outcomes/application/services/grade-asides.service
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
+import { NoteConfigPullRequestOpened } from '@outcomes/application/services/note-config-pull-request-opened.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
@@ -32,6 +33,7 @@ import { lastConfigRunsFrom } from '@outcomes/domain/outcomes.fake-spec';
 import type { StretchBound } from '@outcomes/domain/services/config-stretches';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
+import { DrizzleStationConfigPullRequests } from '@outcomes/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
 import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
@@ -48,6 +50,7 @@ import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subs
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import { CONFIG_PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import { RUN_DIGESTED } from '@shared-kernel/application/integration-events/run-digested.integration-event';
@@ -233,6 +236,7 @@ beforeAll(async () => {
   const shapes = new DrizzleTaskChangeShapeRepository(context);
   const watches = new DrizzleStationWatchRepository(context, quiet);
   const reviews = new DrizzlePendingReviews(context);
+  const configPullRequests = new DrizzleStationConfigPullRequests(context);
   forgotten = new DrizzleForgotten(context);
   subscribers = outcomesSubscribers({
     ending: new NoteRunEnded(work, records, forgotten, context, QUIET),
@@ -268,6 +272,7 @@ beforeAll(async () => {
         shapes,
         watches,
         reviews,
+        configPullRequests,
         forgotten,
       },
       context,
@@ -327,6 +332,11 @@ beforeAll(async () => {
       },
       watches,
     ),
+    proposing: new NoteConfigPullRequestOpened(
+      configPullRequests,
+      forgotten,
+      context,
+    ),
   });
   listing = new ListStationOutcomesHandler(
     new OutcomesAccess({
@@ -338,6 +348,7 @@ beforeAll(async () => {
     }),
     records,
     deliveries,
+    configPullRequests,
     work,
   );
 }, 60_000);
@@ -554,6 +565,43 @@ describe('how a station’s runs turned out', () => {
     expect(outcomes.inForce).toEqual({
       tally: expect.objectContaining({ runs: 1, withdrawn: 0 }),
     });
+  });
+
+  it('shows on each group the latest pull request Spotlight opened proposing its config at the station, and none on a config it proposed nowhere', async () => {
+    const opened = (
+      id: string,
+      fingerprint: string,
+      hour: number,
+      stationId = 'station_1',
+    ) =>
+      deliver('outcomes.record-opened-config-pull-request', {
+        kind: CONFIG_PULL_REQUEST_OPENED,
+        configPullRequestId: id,
+        workspaceId: WORKSPACE,
+        teamId: 'team_1',
+        lineId: 'line_1',
+        stationId,
+        fingerprint,
+        url: `https://github.com/acme/platform/pull/${id}`,
+        openedAt: at(hour).toISOString(),
+      });
+
+    await opened('41', OPUS, 7);
+    await opened('42', OPUS, 9);
+    await opened('43', SONNET, 9, 'station_2');
+    await opened('41', OPUS, 8);
+
+    const outcomes = await list();
+
+    expect(
+      outcomes.groups.map((group) => [group.firstRunId, group.pullRequest]),
+    ).toEqual([
+      ['run_4', null],
+      ['run_3', { url: 'https://github.com/acme/platform/pull/42' }],
+      ['run_withdrawn', null],
+      ['run_2', { url: 'https://github.com/acme/platform/pull/42' }],
+      ['run_1', null],
+    ]);
   });
 
   it('carries on the config of the station’s last config run before the oldest listed run, setting the oldest group against it', async () => {
